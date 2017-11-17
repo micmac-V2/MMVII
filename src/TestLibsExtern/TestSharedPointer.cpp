@@ -12,6 +12,8 @@
 namespace MMVII
 {
 
+
+
 class cTestMMV2Obj : public cMemCheck
 {
     public :
