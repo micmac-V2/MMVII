@@ -532,50 +532,68 @@ tREAL8 CubAppGaussVal(const tREAL8&);
 /*       Witch Min and Max            */
 /* ********************************** */
 
-template <class TypeIndex,class TypeVal> class cWhitchMin
+template <class TypeIndex,class TypeVal,const bool IsMin> class cWhitchExtrem
 {
      public :
+         cWhitchExtrem(const TypeIndex & anIndex,const TypeVal & aVal) :
+             mIsInit     (true),
+             mIndexExtre (anIndex),
+             mValExtre   (aVal)
+         {
+         }
+         cWhitchExtrem() :
+             mIsInit   (false)
+         {
+         }
+         bool IsInit() const {return mIsInit;}
+
+         void Add(const TypeIndex & anIndex,const TypeVal & aNewVal)
+         {
+              if ( (IsMin?(aNewVal<mValExtre):(aNewVal>=mValExtre)) || (!mIsInit))
+              {
+                    mValExtre   = aNewVal;
+                    mIndexExtre = anIndex;
+              }
+              mIsInit = true;
+         }
+         const TypeIndex & IndexExtre() const {AssertIsInit();return mIndexExtre;}
+         const TypeVal   & ValExtre  () const {AssertIsInit();return mValExtre;}
+     private :
+         void  AssertIsInit() const
+         {
+              MMVII_INTERNAL_ASSERT_tiny(mIsInit,"Exrem not init");
+         }
+         bool      mIsInit;
+         TypeIndex mIndexExtre;
+         TypeVal   mValExtre;
+};
+
+template <class TypeIndex,class TypeVal> class cWhitchMin : public cWhitchExtrem<TypeIndex,TypeVal,true>
+{
+     public :
+         typedef  cWhitchExtrem<TypeIndex,TypeVal,true> tExrem;
+
          cWhitchMin(const TypeIndex & anIndex,const TypeVal & aVal) :
-             mIndexMin (anIndex),
-             mVMin     (aVal)
+            tExrem (anIndex,aVal)
          {
          }
-         void Add(const TypeIndex & anIndex,const TypeVal & aVal)
-         {
-              if (aVal<mVMin)
-              {
-                    mVMin = aVal;
-                    mIndexMin = anIndex;
-              }
-         }
-         const TypeIndex & Index() const {return mIndexMin;}
-         const TypeVal   & Val  () const {return mVMin;}
+         cWhitchMin() : tExrem () {}
      private :
-         TypeIndex mIndexMin;
-         TypeVal   mVMin;
 };
-template <class TypeIndex,class TypeVal> class cWhitchMax
+template <class TypeIndex,class TypeVal> class cWhitchMax : public cWhitchExtrem<TypeIndex,TypeVal,false>
 {
      public :
+         typedef  cWhitchExtrem<TypeIndex,TypeVal,false> tExrem;
+
          cWhitchMax(const TypeIndex & anIndex,const TypeVal & aVal) :
-             mIndexMax (anIndex),
-             mVMax     (aVal)
+            tExrem (anIndex,aVal)
          {
          }
-         void Add(const TypeIndex & anIndex,const TypeVal & aVal)
-         {
-              if (aVal>mVMax)
-              {
-                    mVMax = aVal;
-                    mIndexMax = anIndex;
-              }
-         }
-         const TypeIndex & Index() const {return mIndexMax;}
-         const TypeVal   & Val  () const {return mVMax;}
+         cWhitchMax() : tExrem () {}
      private :
-         TypeIndex mIndexMax;
-         TypeVal   mVMax;
 };
+
+
 template <class TypeIndex,class TypeVal> class cWhitchMinMax
 {
      public  :
@@ -584,6 +602,8 @@ template <class TypeIndex,class TypeVal> class cWhitchMinMax
              mMax(anIndex,aVal)
          {
          }
+         cWhitchMinMax() { }
+
          void Add(const TypeIndex & anIndex,const TypeVal & aVal)
          {
              mMin.Add(anIndex,aVal);
@@ -606,6 +626,49 @@ template <class TypeVal> void UpdateMinMax(TypeVal & aVarMin,TypeVal & aVarMax,c
     if (aValue<aVarMin) aVarMin = aValue;
     if (aValue>aVarMax) aVarMax = aValue;
 }
+
+/// Class to store min and max values
+template <class TypeVal> class cBoundVals
+{
+        public :
+            cBoundVals() :
+                   mVMin ( std::numeric_limits<TypeVal>::max()),
+                   mVMax (-std::numeric_limits<TypeVal>::max())
+            {
+            }
+            void Add(const TypeVal & aVal)
+            {
+                 UpdateMinMax(mVMin,mVMax,aVal);
+            }
+
+            const TypeVal  &  VMin () const {return mVMin;}
+            const TypeVal  &  VMax () const {return mVMax;}
+        private :
+            TypeVal  mVMin;
+            TypeVal  mVMax;
+};
+/// Class to store min and max values AND average
+template <class TypeVal> class cAvgAndBoundVals  : public cBoundVals<TypeVal>
+{
+        public :
+                cAvgAndBoundVals() :
+                        cBoundVals<TypeVal>(),
+                        mSomVal  (0),
+                        mNbVals  (0)
+                {
+                }
+                void Add(const TypeVal & aVal)
+                {
+                        cBoundVals<TypeVal>::Add(aVal);
+                        mSomVal += aVal;
+                        mNbVals++;
+                }
+                TypeVal  Avg() const { SafeDiv(mSomVal,mNbVals); }
+        private :
+           TypeVal  mSomVal;
+           TypeVal  mNbVals;
+};
+
 // This rather "strange" function returns a value true at frequence  as close as possible
 // to aFreq, and with the warantee that it is true for last index
 
