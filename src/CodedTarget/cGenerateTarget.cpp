@@ -12,7 +12,7 @@ namespace  cNS_CodedTarget
 
 
 /* ****    cSetCodeOf1Circle  ***** */
-  
+
 cSetCodeOf1Circle::cSetCodeOf1Circle(const std::vector<int> & aVCard,int aN):
    mVCards    (aVCard),
    mN         (aN)
@@ -145,7 +145,7 @@ void cParamCodedTarget::Finish()
                         mRho_3_BeginCar,
                         mRho_3_BeginCar/sqrt(2) + mThickN_Car
                   );
-  
+
 
 
   mMidle = ToR(mSzBin-cPt2di(1,1)) / 2.0; //  pixel center model,suppose sz=2,  pixel 0 and 1 => center is 0.5
@@ -296,7 +296,7 @@ tImTarget  cParamCodedTarget::MakeIm(const cCodesOf1Target & aSetCodesOfT)
 
 
           int  aNbTarget =  round_ni((mNbPixelBin/2)  * (mThickN_Car /mRho_4_EndCar));
-          
+
           cPt2di aSzTarget (aNbTarget,aNbTarget);
 
 
@@ -396,7 +396,7 @@ int  cAppliGenCodedTarget::Exe()
       cCodesOf1Target aCodes = mPCT.CodesOfNum(aNum);
       aCodes.Show();
       tImTarget aImT= mPCT.MakeIm(aCodes);
-      
+
       // std::string aName = "Target_" + mPCT.NameOfNum(aNum) + ".tif";
       // FakeUseIt(aCodes);
       mPCT.mSzF = aImT.DIm().Sz();
@@ -419,6 +419,7 @@ int  cAppliGenCodedTarget::Exe()
    }
 
    SaveInFile(mPCT,"Target_Spec.xml");
+
 
    return EXIT_SUCCESS;
 }
