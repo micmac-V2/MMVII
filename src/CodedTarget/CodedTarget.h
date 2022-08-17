@@ -194,11 +194,13 @@ class cParamCodedTarget
        int       mNbPixelBin;        // Number of pixel  Binary image
        double    mSz_CCB;      // size of central chekcboard/target , everything prop to it, 1 by convention
 
+
        double    mThickN_WInt;  // Thickness white circle separating code/
        double    mThickN_Code;  // Thickness of coding part
        double    mThickN_WExt;  // Thickness of white separatio,
        double    mThickN_Car;  // thickness of black border (needed only on pannel)
        double    mThickN_BExt;  // thickness of black border (needed only on pannel)
+       double    mChessboardAng;     // Origine angle of chessboard pattern
 
 
        double          mRho_0_EndCCB;// End of Central CB , here Rho=ThickN ...
