@@ -104,7 +104,7 @@ template <class Type>  bool cExtractDir<Type>::CalcDir(tDCT & aDCT)
      cPt2di aC= ToI(aDCT.mPt); // memorize integer center
      mVThrs = (aDCT.mVBlack+aDCT.mVWhite)/2.0;  // threshold for being black or white
 
-     
+
      cPt2dr aSomDir[2] = {{0,0},{0,0}};  // accumulate for black and white average direction
 
      //  Parse all circles
@@ -122,7 +122,7 @@ template <class Type>  bool cExtractDir<Type>::CalcDir(tDCT & aDCT)
              aVVals.push_back(aVal);
              aVIsW.push_back(aVal>mVThrs);
          }
-         
+
          int aCpt = 0;
          // parse the value to detect black/white transitions
          for (int  aKp=0 ; aKp<aNbInC ; aKp++)
@@ -218,7 +218,7 @@ template <class Type>  double cExtractDir<Type>::ScoreRadiom(tDCT & aDCT)
           //  accumulate for difference
           aSomWeight += aWeight;
           aSomWEc +=  aWeight * std::abs(aValTheo-aVal);
- 
+
           // accumulate for correlation
           aMat.Add(aWeight,aVal,aValTheo);
 
@@ -241,7 +241,7 @@ template <class Type>  double cExtractDir<Type>::ScoreRadiom(tDCT & aDCT)
            StdOut() <<  " *********************";
         if (aDCT.mGT &&(aCorMin<0.9))
            StdOut() <<  " ########################";
-        
+
         StdOut() << "\n";
      }
 
@@ -259,7 +259,13 @@ bool TestDirDCT(cNS_CodedTarget::cDCT & aDCT,cIm2D<tREAL4> anIm,double aRayCB)
 
     anED.ScoreRadiom(aDCT) ;
 
-    return (aDCT.mScRadDir <0.12) && (aDCT.mCorMinDir>0.85) ;
+    double th1 = 0.12;
+    double th2 = 0.85;
+
+  //  th1 = 0.25;
+  //  th2 = 0.7;
+
+    return (aDCT.mScRadDir < th1) && (aDCT.mCorMinDir> th2) ;
 
 }
 
