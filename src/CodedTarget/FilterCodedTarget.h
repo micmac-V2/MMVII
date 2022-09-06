@@ -79,7 +79,7 @@ template <class Type>  class  cFilterDCT : public cMemCheck
            std::vector<cPt2di>  mIVois;
            std::vector<cPt2dr>  mRVois;
            double               mRhoEnd;
-            
+
            /**   when we want to compute the filter in mode "min on all crown" we will use this
                  vector of pair index;  suppose we have made a computation, the current crown
                  is interval  [10,20[  , and next interval is [13,26[
@@ -128,7 +128,7 @@ template <class Type>  class cExtractDir
           tDCT *                  mPDCT;       ///< tested target
        // (SortedVectOfRadius(aR0,aR1,IsSym))
 };
-bool TestDirDCT(cNS_CodedTarget::cDCT & aDCT,cIm2D<tREAL4> anIm,double aRayCB);
+bool TestDirDCT(cNS_CodedTarget::cDCT & aDCT,cIm2D<tREAL4> anIm,double aRayCB, double size_factor);
 
 };
 #endif // _FILTER_CODED_TARGET_H_
