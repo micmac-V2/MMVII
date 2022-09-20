@@ -505,7 +505,7 @@ template<class Type> double  cBinFilterCT<Type>::Compute()
         double aDifMoy  =  aSumDifBlack/ aNbBlack + aSumDifWhite/aNbWhite;
         aValue = aDifMoy  / (mVWhite - mVBlack);
     }
-          
+
     return aValue;
 }
 
