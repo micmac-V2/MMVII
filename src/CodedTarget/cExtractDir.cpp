@@ -104,7 +104,7 @@ template <class Type>  bool cExtractDir<Type>::CalcDir(tDCT & aDCT)
      cPt2di aC= ToI(aDCT.mPt); // memorize integer center
      mVThrs = (aDCT.mVBlack+aDCT.mVWhite)/2.0;  // threshold for being black or white
 
-     
+
      cPt2dr aSomDir[2] = {{0,0},{0,0}};  // accumulate for black and white average direction
 
      //  Parse all circles
@@ -122,7 +122,7 @@ template <class Type>  bool cExtractDir<Type>::CalcDir(tDCT & aDCT)
              aVVals.push_back(aVal);
              aVIsW.push_back(aVal>mVThrs);
          }
-         
+
          int aCpt = 0;
          // parse the value to detect black/white transitions
          for (int  aKp=0 ; aKp<aNbInC ; aKp++)
@@ -208,8 +208,8 @@ template <class Type>  double cExtractDir<Type>::ScoreRadiom(tDCT & aDCT)
 
           // compute a weight to decrease the influence of transition pixel
           double aWeight = 1.0;
-          double aD1 =  aSeg1.Dist(aRPix);  // distance to first line
-          double aD2 =  aSeg2.Dist(aRPix);  // distance to second
+          double aD1 =  aSeg1.DistLine(aRPix);  // distance to first line
+          double aD2 =  aSeg2.DistLine(aRPix);  // distance to second
           // weight is 0 on the line,  1 if we are far enough, and proportional to line (closests)
           // in between;  what far enough means is controled by aMaxW
           double aMaxW= 1.0;
@@ -218,7 +218,7 @@ template <class Type>  double cExtractDir<Type>::ScoreRadiom(tDCT & aDCT)
           //  accumulate for difference
           aSomWeight += aWeight;
           aSomWEc +=  aWeight * std::abs(aValTheo-aVal);
- 
+
           // accumulate for correlation
           aMat.Add(aWeight,aVal,aValTheo);
 
@@ -233,6 +233,7 @@ template <class Type>  double cExtractDir<Type>::ScoreRadiom(tDCT & aDCT)
      aDCT.mScRadDir = aSomWEc;
      aDCT.mCorMinDir = aCorMin;
 
+     /*
      if (aDCT.mGT)
      {
         StdOut() << (aDCT.mGT ? "++" : "--");
@@ -241,9 +242,10 @@ template <class Type>  double cExtractDir<Type>::ScoreRadiom(tDCT & aDCT)
            StdOut() <<  " *********************";
         if (aDCT.mGT &&(aCorMin<0.9))
            StdOut() <<  " ########################";
-        
+
         StdOut() << "\n";
      }
+     */
 
      return aSomWEc;
 }
@@ -251,15 +253,17 @@ template <class Type>  double cExtractDir<Type>::ScoreRadiom(tDCT & aDCT)
 
 template class cExtractDir<tREAL4>;
 
-bool TestDirDCT(cNS_CodedTarget::cDCT & aDCT,cIm2D<tREAL4> anIm,double aRayCB)
-{
-    cExtractDir<tREAL4>  anED(anIm,aRayCB*0.4,aRayCB*0.8);
+bool TestDirDCT(cNS_CodedTarget::cDCT & aDCT,cIm2D<tREAL4> anIm,double aRayCB, double size_factor){
+    cExtractDir<tREAL4>  anED(anIm,aRayCB*0.4,aRayCB*0.8*size_factor);
     bool Ok = anED.CalcDir(aDCT);
     if (!Ok) return false;
 
     anED.ScoreRadiom(aDCT) ;
 
-    return (aDCT.mScRadDir <0.12) && (aDCT.mCorMinDir>0.85) ;
+    double th1 = 0.12;
+    double th2 = 0.85;
+
+    return (aDCT.mScRadDir < th1) && (aDCT.mCorMinDir> th2) ;
 
 }
 

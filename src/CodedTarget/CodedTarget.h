@@ -47,6 +47,7 @@ class cGeomSimDCT
        cPt2dr mCornEl2;   ///< Theoreticall corner 2 of ellipse
        double mR1;        ///< "small" size of deformaed rectangle
        double mR2;        ///<  "big " size ....
+       std::string name;
 };
 /// method for serializing cGeomSimDCT
 void AddData(const  cAuxAr2007 & anAux,cGeomSimDCT & aGSD);
@@ -140,7 +141,8 @@ class cCodesOf1Target
       void AddOneCode(const tBinCodeTarg &);
       void  Show();
       const tBinCodeTarg & CodeOfNumC(int) const;
-      int   Num() const;
+      int  Num() const;
+      int getCodeLength() const;
    private :
       int                        mNum;
       std::vector<tBinCodeTarg>  mCodes;
@@ -160,12 +162,12 @@ class cParamCodedTarget
        double &  RatioBar();  // Ratio on codin bar
        void      Finish();
 
-       int NbCodeAvalaible() const;         // Number of different code we can generate
-       int BaseForNum() const;         // Base used for converting integer to string
-       cCodesOf1Target CodesOfNum(int);     // One combinaison of binary code
-       tImTarget  MakeImDrone(const cCodesOf1Target &);  // Generate the image of 1 combinaison
-       tImTarget  MakeImCircle(const cCodesOf1Target &);  // Generate the image of 1 combinaison
-       tImTarget  MakeImCodeExt(const cCodesOf1Target &);  // Generate the image of 1 combinaison
+       int NbCodeAvalaible() const;                           // Number of different code we can generate
+       int BaseForNum() const;                                // Base used for converting integer to string
+       cCodesOf1Target CodesOfNum(int);                       // One combinaison of binary code
+       tImTarget  MakeImDrone(const cCodesOf1Target &);       // Generate the image of 1 combinaison
+       tImTarget  MakeImCircle(const cCodesOf1Target &, bool);
+       tImTarget  MakeImCodeExt(const cCodesOf1Target &);
 
        void AddData(const cAuxAr2007 & anAux);
 
@@ -194,11 +196,15 @@ class cParamCodedTarget
        int       mNbPixelBin;        // Number of pixel  Binary image
        double    mSz_CCB;      // size of central chekcboard/target , everything prop to it, 1 by convention
 
+
        double    mThickN_WInt;  // Thickness white circle separating code/
        double    mThickN_Code;  // Thickness of coding part
        double    mThickN_WExt;  // Thickness of white separatio,
        double    mThickN_Car;  // thickness of black border (needed only on pannel)
        double    mThickN_BExt;  // thickness of black border (needed only on pannel)
+       double    mChessboardAng;     // Origine angle of chessboard pattern
+
+       bool mModeFlight;  // Special mode for Patricio
 
 
        double          mRho_0_EndCCB;// End of Central CB , here Rho=ThickN ...

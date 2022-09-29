@@ -10,7 +10,7 @@ namespace MMVII
 
 namespace  cNS_CodedTarget
 {
- 
+
 /*  *********************************************************** */
 /*                                                              */
 /*                   cGeomSimDCT                                */
@@ -38,6 +38,7 @@ cGeomSimDCT::cGeomSimDCT(int aNum,const  cPt2dr& aC,const double& aR1,const doub
 void AddData(const  cAuxAr2007 & anAux,cGeomSimDCT & aGSD)
 {
    MMVII::AddData(cAuxAr2007("Num",anAux),aGSD.mNum);
+   MMVII::AddData(cAuxAr2007("Name",anAux),aGSD.name);
    MMVII::AddData(cAuxAr2007("Center",anAux),aGSD.mC);
    MMVII::AddData(cAuxAr2007("CornEl1",anAux),aGSD.mCornEl1);
    MMVII::AddData(cAuxAr2007("CornEl2",anAux),aGSD.mCornEl2);
@@ -211,6 +212,7 @@ void   cAppliSimulCodeTarget::AddPosTarget(int aNum)
 
 void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
 {
+    aGSD.name = mPCT.NameOfNum(aGSD.mNum);
     std::string aName = mDirTarget + mPCT.NameFileOfNum(aGSD.mNum);
     tIm aImT =  tIm::FromFile(aName).GaussDeZoom(mDownScale,5);
     tDIm & aDImT = aImT.DIm();
@@ -294,6 +296,7 @@ int  cAppliSimulCodeTarget::Exe()
    mDirTarget =  DirOfPath(mNameTarget);
 
    mImIn = tIm::FromFile(mNameIm);
+
 
    for (int aNum = 0 ; aNum<mPCT.NbCodeAvalaible() ; aNum+=mPerN)
    {
