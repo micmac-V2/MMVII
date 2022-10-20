@@ -1,5 +1,8 @@
 #ifndef  _MMVII_TplLayer3D_H_
 #define  _MMVII_TplLayer3D_H_
+
+#include "MMVII_Matrix.h"
+
 namespace MMVII
 {
 
