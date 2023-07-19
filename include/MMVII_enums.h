@@ -56,6 +56,7 @@ enum class eTA2007
                 HDV,           ///< Has Default Value, will be printed on help
                 ISizeV,        ///< Interval size vect, print on help
                 XmlOfTopTag,   ///< Parameter must be a XML-file containing certain tag
+                Range,         ///< Range of allowed numerical values: "[min,max]" | "[min,]" | "[,max]"
                 eNbVals        ///< Tag for number of value
            };
 
