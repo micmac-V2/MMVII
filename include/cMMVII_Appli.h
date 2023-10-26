@@ -559,6 +559,8 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         virtual cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) = 0;  ///< A command specifies its optional args
         void InitOutFromIn(std::string &aFileOut,const std::string& aFileIn); ///< If out is not init set In, else DirProj+Out
 
+        /// Third step of construction: application specific initialization, after construction and command line parsing, before execution.
+        virtual void InitSpecialProject() {}
         void                                      Warning(const std::string & aMes,eTyW,int line,const std::string & File);
 
         bool RunMultiSet(int aKParam,int aKSet,bool MkFSilence=false);  /// If VectMainSet > 1 => Call itsef in // , result indicates if was executed
