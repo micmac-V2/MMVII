@@ -146,6 +146,7 @@ enum class eApDT
               SysCo,   ///< Coordinate system
               Radiom,   ///< Orientations files
               Ply,    ///< Ply file
+              Topo,    ///< Topo files
               None,     ///< Nothing
               ToDef,     ///< still unclassed
               Console,  ///< Console , (i.e printed message have values)
