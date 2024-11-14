@@ -238,7 +238,7 @@ tREAL8 cScoreTetaLine::Prolongate(tREAL8 aLInit,tREAL8 aLMax,const std::pair<tRE
 
 
      // [1]  Compute, for the existing "small" segment , the value of bl & white
-     
+
      //  [1.1]   Push the values of points theoretically Blak and white in aVBl & aVWh
      std::vector<tREAL8> aVBl;
      std::vector<tREAL8> aVWh;
@@ -290,7 +290,7 @@ tREAL8 cScoreTetaLine::Prolongate(tREAL8 aLInit,tREAL8 aLMax,const std::pair<tRE
      tREAL8 aAngleFaisc = LineAngles(FromPolar(1.0,aVTeta.at(0)), FromPolar(1.0,aVTeta.at(1)));
      aAngleFaisc = std::min(0.1,aAngleFaisc/4.0);
 
-     
+
      cWeightAv<tREAL8> aAvgD;
      while (aGoOn)
      {
@@ -305,6 +305,10 @@ tREAL8 cScoreTetaLine::Prolongate(tREAL8 aLInit,tREAL8 aLMax,const std::pair<tRE
                 {
                     tREAL8 aDeltaOrd = aKOrd * 0.2;
                     cPt2dr aNewPt = aPt + aNormBlack * aDeltaOrd;
+            if (!mDIm->InsideInterpolator(mTabInt,aNewPt,0.0))
+            {
+                return aCurAbsc;
+            }
                     auto [aVal,aGrad] = mDIm->GetValueAndGradInterpol(mTabInt,aNewPt);
                     aWMax.Add(aDeltaOrd,Norm2(aGrad));
                 }
