@@ -1,6 +1,7 @@
 #ifndef  _MMVII_Images2D_H_
 #define  _MMVII_Images2D_H_
 
+#include "MMVII_ExifData.h"
 #include "MMVII_Images.h"
 
 namespace MMVII
@@ -45,6 +46,9 @@ class cDataFileIm2D : public cRect2
         const std::string &  Name() const;  ///< std accessor
         bool IsEmpty() const;
         void AssertNotEmpty() const;
+        const cExifData& ExifDataAll(bool SVP=true) const;
+        const cExifData& ExifDataMain(bool SVP=true) const;
+        std::vector<std::string> ExifStrings(bool SVP=true) const;
 
         /// Create a descriptor on existing file
         static cDataFileIm2D Create(const std::string & aName,eForceGray);
@@ -74,6 +78,7 @@ class cDataFileIm2D : public cRect2
      private :
         friend class cGdalApi;
         enum class eCreationState {Created, AtFirstWrite, CreatedNoUpdate};
+        enum class eExifState {NotRead, MainTagsRead, AllTagsRead};
         cDataFileIm2D(const std::string &,eTyNums,const cPt2di & aSz,int aNbChannel, const tOptions& aOptions, eForceGray, eCreationState) ;
 
         void SetCreated() const;
@@ -85,6 +90,8 @@ class cDataFileIm2D : public cRect2
         int         mNbChannel; ///< Number of channels
         eForceGray  mForceGray;
         tOptions    mCreateOptions; ///< GDAL Creations options, depend of output driver (JPEG, TIFF, ...)
+        mutable cExifData  mExifData;
+        mutable eExifState mExifState;
         mutable eCreationState mCreationState;  ///< support for creation of non updatable file image (create/write at once: .png, .jpg, ...)
 };
 
