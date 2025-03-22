@@ -11,7 +11,7 @@
 
 
 /**
- 
+
   Apprendre a faire une commande/application
   Lire les arguments de la commande
   Générer des rapports
@@ -37,7 +37,7 @@ namespace MMVII
 class cSetSensSameId;     //  .....
 class cBlocMatrixSensor;  // ....
 class cCalibBlocCam;       // class for computing index of Bloc/Sync
-                          
+
 
 /* ************************************************** */
 /*              cSetSensSameId                        */
@@ -72,7 +72,7 @@ cBlocMatrixSensor::cBlocMatrixSensor() :
 size_t cBlocMatrixSensor::NumStringCreate(const std::string & anId)
 {
      int anInd = mMapInt2Id.Obj2I(anId,true);  // Get index, true because OK non exist
-                                       
+
      if (anInd<0)
      {
          anInd = mMatrix.size();
@@ -235,6 +235,7 @@ std::string  cCalibBlocCam::CalculIds2Image(const std::string &aIdBloc,const std
 
 void cCalibBlocCam::AddData(const  cAuxAr2007 & anAuxInit)
 {
+
      cAuxAr2007 anAux("CalibBlocCam",anAuxInit);
      // ...
      // Put the data in  tag "RigidBlocCam"
@@ -299,6 +300,7 @@ void  cBlocOfCamera::Set4Compute()
         mMapPoseInit[aName] = aPoseUk.Pose();
         //  we force the creation a new Id in the bloc because later we will not accept new bloc in compute mode
         mMatBlocSync.NumStringCreate(aName);
+
     }
 }
 
@@ -331,7 +333,6 @@ cPoseWithUK &  cBlocOfCamera::PoseUKOfIdBloc(const std::string& anId)
      MMVII_INTERNAL_ASSERT_tiny(anIter!=mData.mMapPoseUKInBloc.end(),"cBlocOfCamera::PoseUKOfIdBloc none for:" + anId);
 
      return anIter->second;
-
 }
 
 
@@ -667,6 +668,7 @@ class cAppli_BlockCamInit : public cMMVII_Appli
      private :
         std::string              mSpecImIn;   ///  Pattern or xml file
         cPhotogrammetricProject  mPhProj;
+
         std::string              mPattern;
         cPt2di                   mNumSub;
         std::vector<std::string> mComputeInv;
@@ -705,6 +707,7 @@ cAppli_BlockCamInit::cAppli_BlockCamInit
 cCollecSpecArg2007 & cAppli_BlockCamInit::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
       return anArgObl
+
              <<  Arg2007(mSpecImIn,"Pattern/file for images", {{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}}  )
              <<  mPhProj.DPOrient().ArgDirInMand()
              <<  Arg2007(mPattern,"Pattern for images specifing sup expr")
@@ -719,6 +722,7 @@ cCollecSpecArg2007 & cAppli_BlockCamInit::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
 
     return    anArgOpt
+
              << AOpt2007(mNameBloc,"NameBloc","Set the name of the bloc ",{{eTA2007::HDV}})
              << AOpt2007(mMaster,"Master","Set the name of the master bloc, is user wants to enforce it ")
              << AOpt2007(mShowByBloc,"ShowByBloc","Show matricial organization by bloc ",{{eTA2007::HDV}})
@@ -792,6 +796,7 @@ int cAppli_BlockCamInit::Exe()
 /*               MMVII                                  */
 /*                                                      */
 /* ==================================================== */
+
 
 tMMVII_UnikPApli Alloc_BlockCamInit(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
 {
