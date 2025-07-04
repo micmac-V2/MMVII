@@ -309,8 +309,13 @@ const cPt3dr * cSensorCamPC::CenterOfPC() const { return  & Center(); }
 cCalculator<double> * cSensorCamPC::CreateEqColinearity(bool WithDerives,int aSzBuf,bool ReUse)
 {
    if (mInternalCalib==nullptr)
-      return EqColinearityCamProj(WithDerives,aSzBuf,ReUse);//nullptr;
+      return nullptr; //EqColinearityCamProj(WithDerives,aSzBuf,ReUse);
    return mInternalCalib->EqColinearity(WithDerives,aSzBuf,ReUse);
+}
+
+cCalculator<double> * cSensorCamPC::CreateEqColinearityOnBundle(bool WithDerives,int aSzBuf,bool ReUse)
+{
+    return EqColinearityOnBundle(WithDerives,aSzBuf,ReUse);
 }
 
 void cSensorCamPC::PushOwnObsColinearity(std::vector<double> & aVObs,const cPt3dr &)
