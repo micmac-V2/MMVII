@@ -57,8 +57,6 @@ class cRadiomLidarIma
                size_t                 &  aIndObs
           ) const
      {
-                 // to complete
-
         // read the unknowns
         cPtxd<tUk,3>  aCCam   = VtoP3AutoIncr(aVUk,&aIndUk);  // camera center
         cPtxd<tUk,3>  aW      = VtoP3AutoIncr(aVUk,&aIndUk);  // camera infinitesimal rotation
@@ -110,8 +108,8 @@ class cRadiomLidarIma
 
      static std::vector<std::string>  VectObsRadiom()
      {
-             // Radiom + grad /i,j
-             return Append({"Rad0"},NamesP2("GradRad"));
+         // Radiom + grad /i,j
+         return Append({"Rad0"},NamesP2("GradRad"));
      }
 };
 
@@ -138,7 +136,7 @@ class cEqLidarImPonct : public cRadiomLidarIma
             std::vector<std::string> VNamesUnknowns()  const {return Append({"TargetRad"},NamesPoseUK());}
             static std::vector<std::string> VNamesObs()
             {
-                    return Append(VectObsPPose() , VectObsPCam() , VectObsRadiom());
+                return Append(VectObsPPose() , VectObsPCam() , VectObsRadiom());
             }
             std::string FormulaName() const { return  "EqLidarImPonct";}
 
@@ -181,9 +179,9 @@ class cEqLidarImCensus : public cRadiomLidarIma
             std::vector<std::string> VNamesUnknowns()  const {return Append({"TargetRatio"},NamesPoseUK());}
             std::vector<std::string> VNamesObs() const
             {
-                    std::vector<std::string>  aV0 = cEqLidarImPonct::VNamesObs();
-                    // we duplicate the observation for 2 pixels of the pair (central / periph)
-                    return Append(AddPostFix(aV0,"_0"),AddPostFix(aV0,"_1"));
+                std::vector<std::string>  aV0 = cEqLidarImPonct::VNamesObs();
+                // we duplicate the observation for 2 pixels of the pair (central / periph)
+                return Append(AddPostFix(aV0,"_0"),AddPostFix(aV0,"_1"));
             }
             std::string FormulaName() const { return  "EqLidarImCensus";}
 
@@ -215,7 +213,7 @@ class cEqLidarImCorrel : public cRadiomLidarIma
             std::vector<std::string> VNamesUnknowns()  const {return Append({"TargetRad","CoefMul","CoefAdd"},NamesPoseUK());}
             static std::vector<std::string> VNamesObs()
             {
-                    return Append(VectObsPPose() , VectObsPCam() , VectObsRadiom());
+                return Append(VectObsPPose() , VectObsPCam() , VectObsRadiom());
             }
             std::string FormulaName() const { return  "EqLidarImCorrel";}
 
