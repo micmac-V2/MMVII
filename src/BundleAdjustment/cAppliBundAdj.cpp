@@ -97,7 +97,7 @@ class cAppliBundlAdj : public cMMVII_Appli
         tREAL8                    mLVM;  ///< Levenberk Markard
         bool                      mMeasureAdded ;
         std::vector<std::string>  mVSharedIP;  ///< Vector for shared intrinsic param
-
+        bool                      mShow_Cond; ///< compute and show system condition number
         std::vector<std::string>  mParamShow_UK_UC;
         std::string               mPostFixReport;
 };
@@ -159,6 +159,7 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mParamRefOri,"RefOri","Reference orientation [Ori,SimgaTr,SigmaRot?,PatApply?]",{{eTA2007::ISizeV,"[2,4]"}})
       << AOpt2007(mVSharedIP,"SharedIP","Shared intrinc parmaters [Pat1Cam,Pat1Par,Pat2Cam...] ",{{eTA2007::ISizeV,"[2,20]"}})
 
+      << AOpt2007(mShow_Cond,"Cond","Compute and show system condition number")
       << AOpt2007(mParamShow_UK_UC,"UC_UK","Param for uncertainty & Show names of unknowns (tuning)")
       << AOpt2007(mPostFixReport,NameParamPostFixReport(),CommentParamPostFixReport())
     ;
@@ -361,6 +362,9 @@ int cAppliBundlAdj::Exe()
     mBA.Save_newGCP3D();
     mBA.SaveTopo(); // just for debug for now
     mBA.SaveClino();
+
+    if (mShow_Cond)
+        mBA.Show_Cond();
 
     if (IsInit(&mParamShow_UK_UC))
     {

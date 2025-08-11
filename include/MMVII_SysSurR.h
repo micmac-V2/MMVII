@@ -374,6 +374,8 @@ template <class Type> class cResolSysNonLinear : public cREAL8_RSNL
            int   GetNbObs() const;                    ///< get number of observations (last iteration if after reset, or current number if after AddObs)
            int   GetCurNbObs() const;      ///< get number of observations
 
+          Type GetCond() const;      ///< get system condition number
+
           void  AddConstr(const tSVect & aVect,const Type & aCste,bool OnlyIfFirstIter=true);
           void SupressAllConstr();
           int GetNbLinearConstraints() const;
