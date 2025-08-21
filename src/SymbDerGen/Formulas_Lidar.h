@@ -25,11 +25,11 @@ namespace MMVII
 
 /*
       Let I be an image , Intr the intrinsic paramater of the camera, P=(R,C) the pose ,
-      Q=(x,y,z) a point , q=(i,j) the projection of q in I.  We write :
+      Q=(x,y,z) a point , q=(i,j) the projection of q in I.  We write:
 
           -  q  = Intr (tR (Q-C))
 
-      As  in this first approach we impose that intrinsiq parameter are fixed, we set  :
+      As  in this first approach we impose that intrinsiq parameter are fixed, we set:
 
                             d Intr
            Intr(Q) = q0 + x ------  + ...   =  q0 + Jac(Intr) * Q = q0 + JI * Q
@@ -37,7 +37,7 @@ namespace MMVII
 
       The value of JI will have been  computed from method  DiffGround2Im
 
-      Identically for the  the radiometry of I, to have the image derivable we will write  :
+      Identically for the  the radiometry of I, to have the image derivable we will write:
 
           I(q) =  I0 +  x (dI/dx) ....
 
@@ -57,21 +57,19 @@ class cRadiomLidarIma
                size_t                 &  aIndObs
           ) const
      {
-                 // to complete
-
         // read the unknowns
-        cPtxd<tUk,3>  aCCam   = VtoP3AuoIncr(aVUk,&aIndUk);  // camera center
-        cPtxd<tUk,3>  aW      = VtoP3AuoIncr(aVUk,&aIndUk);  // camera infinitesimal rotation
+        cPtxd<tUk,3>  aCCam   = VtoP3AutoIncr(aVUk,&aIndUk);  // camera center
+        cPtxd<tUk,3>  aW      = VtoP3AutoIncr(aVUk,&aIndUk);  // camera infinitesimal rotation
 
         // read the observation
         cMatF<tObs>    aRotInit (3,3,&aIndObs,aVObs);       // Curent value of rotation
-        cPtxd<tObs,3>  aPGround   = VtoP3AuoIncr(aVObs,&aIndObs);  // Value of 3D ground point
-        cPtxd<tObs,3>  aPCamInit   = VtoP3AuoIncr(aVObs,&aIndObs);  // Current value of 3D point in camera system
-        cPtxd<tObs,3>  aGradProjI  = VtoP3AuoIncr(aVObs,&aIndObs);  // I(abscissa) of gradient / PCamera of projection
-        cPtxd<tObs,3>  aGradProjJ  = VtoP3AuoIncr(aVObs,&aIndObs);  // J(ordinate) of gradient / PCamera of projection
+        cPtxd<tObs,3>  aPGround   = VtoP3AutoIncr(aVObs,&aIndObs);  // Value of 3D ground point
+        cPtxd<tObs,3>  aPCamInit   = VtoP3AutoIncr(aVObs,&aIndObs);  // Current value of 3D point in camera system
+        cPtxd<tObs,3>  aGradProjI  = VtoP3AutoIncr(aVObs,&aIndObs);  // I(abscissa) of gradient / PCamera of projection
+        cPtxd<tObs,3>  aGradProjJ  = VtoP3AutoIncr(aVObs,&aIndObs);  // J(ordinate) of gradient / PCamera of projection
 
         tUk aRadiomInit  = aVObs.at(aIndObs++); // extract the radiometry of image
-        cPtxd<tObs,2>  aGradIm  = VtoP2AuoIncr(aVObs,&aIndObs);  // extract the gradient of image
+        cPtxd<tObs,2>  aGradIm  = VtoP2AnutoIncr(aVObs,&aIndObs);  // extract the gradient of image
 
         // compute the position of the point in camera coordinates
         cPtxd<tUk,3> aVCP = aPGround - aCCam;  // "vector"  Center -> PGround
@@ -110,8 +108,8 @@ class cRadiomLidarIma
 
      static std::vector<std::string>  VectObsRadiom()
      {
-             // Radiom + grad /i,j
-             return Append({"Rad0"},NamesP2("GradRad"));
+         // Radiom + grad /i,j
+         return Append({"Rad0"},NamesP2("GradRad"));
      }
 };
 
@@ -138,7 +136,7 @@ class cEqLidarImPonct : public cRadiomLidarIma
             std::vector<std::string> VNamesUnknowns()  const {return Append({"TargetRad"},NamesPoseUK());}
             static std::vector<std::string> VNamesObs()
             {
-                    return Append(VectObsPPose() , VectObsPCam() , VectObsRadiom());
+                return Append(VectObsPPose() , VectObsPCam() , VectObsRadiom());
             }
             std::string FormulaName() const { return  "EqLidarImPonct";}
 
@@ -181,9 +179,9 @@ class cEqLidarImCensus : public cRadiomLidarIma
             std::vector<std::string> VNamesUnknowns()  const {return Append({"TargetRatio"},NamesPoseUK());}
             std::vector<std::string> VNamesObs() const
             {
-                    std::vector<std::string>  aV0 = cEqLidarImPonct::VNamesObs();
-                    // we duplicate the observation for 2 pixels of the pair (central / periph)
-                    return Append(AddPostFix(aV0,"_0"),AddPostFix(aV0,"_1"));
+                std::vector<std::string>  aV0 = cEqLidarImPonct::VNamesObs();
+                // we duplicate the observation for 2 pixels of the pair (central / periph)
+                return Append(AddPostFix(aV0,"_0"),AddPostFix(aV0,"_1"));
             }
             std::string FormulaName() const { return  "EqLidarImCensus";}
 
@@ -215,7 +213,7 @@ class cEqLidarImCorrel : public cRadiomLidarIma
             std::vector<std::string> VNamesUnknowns()  const {return Append({"TargetRad","CoefMul","CoefAdd"},NamesPoseUK());}
             static std::vector<std::string> VNamesObs()
             {
-                    return Append(VectObsPPose() , VectObsPCam() , VectObsRadiom());
+                return Append(VectObsPPose() , VectObsPCam() , VectObsRadiom());
             }
             std::string FormulaName() const { return  "EqLidarImCorrel";}
 
