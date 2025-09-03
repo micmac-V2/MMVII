@@ -8,14 +8,13 @@
 #include "MMVII_2Include_Serial_Tpl.h"
 #include "MMVII_Clino.h"
 
-bool DEBUG=true;
 
 /**
  
    \file cWire3DInit.cpp
 
    This file contains a command for computing the 3D position of a wire from multiple
-   images. 
+   images.
 
  */
 
@@ -59,9 +58,9 @@ class cBR_SystCorr
         void  SetCam(int aLevelCorr,tREAL8 aPdsSeg,cSensorCamPC *);
 
     private :
-	/// correction for points, once dist has been removed
+        /// correction for points, once dist has been removed
         cPt2dr CorrMesPt_Undist(const cPt2dr &) const;
-	/// template function for computing corrections
+        /// template function for computing corrections
         template<class tMap>  void  Tpl_ComputeMap(tMap& aMap);
 
         cSensorCamPC *        mCam;           //< camera used
@@ -75,7 +74,7 @@ class cBR_SystCorr
         std::vector<tSeg2dr> mSegsIm;   //< segment in image (dist corrected)
         std::vector<tSeg2dr> mSegsProj; //< sgement projected from plane intersecction
 
-	// -------------  Possible correction (used depend of mLevelCorr) --------
+        // -------------  Possible correction (used depend of mLevelCorr) --------
         cTrans2D<tREAL8>     mCorrTrans;  //< Correction by translation
         cHomot2D<tREAL8>     mCorrHomot;  //< Correction by homotethy
         cSim2D<tREAL8>       mCorrSim;    //< Correction by similitud
@@ -95,10 +94,10 @@ class cAppli_ReportBlock : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
 
-	//  std::vector<std::string>  Samples() const override;
+        //  std::vector<std::string>  Samples() const override;
 
      private :
-	void ProcessOneBloc(const std::vector<cSensorCamPC *> &);
+        void ProcessOneBloc(const std::vector<cSensorCamPC *> &);
         void AddStatDistWirePt(const cPt3dr& aPt,const cPt3dr& aDirLoc,const std::string & anIdSync,const std::string & aNamePt);
 
         cPt3dr ExtractVertLoc(const std::string& anIdSync,const std::vector<cSensorCamPC *> & aVCam);
@@ -116,13 +115,13 @@ class cAppli_ReportBlock : public cMMVII_Appli
         bool                        mShow;  // do we print residual on terminal
 
 
-	int                         mLevelCentCorr;     //< do we correct residual 
+        int                         mLevelCentCorr;     //< do we correct residual
         tREAL8                      mWeightSeg;
         bool                        mStepCompCCorr;   //< Are we at a step where we compute center correction
         bool                        mStepUseCCorr;   //< Are we at a step where we compute correction
         bool                        mStepCompStat;   //< Are we at a step of stat (last step)
 
-	std::string                 mSpecImIn;
+        std::string                 mSpecImIn;
         cBlocOfCamera *             mTheBloc;
 
         std::string                  mIdRepWire;
@@ -143,15 +142,15 @@ class cAppli_ReportBlock : public cMMVII_Appli
       
         //  Add a statistic results in csv-file
         void CSV_AddStat(const std::string& anId,const std::string& aMes,const cStdStatRes &) ;
-	cSegmentCompiled<tREAL8,3> *  mCurWire ;
+        cSegmentCompiled<tREAL8,3> *  mCurWire ;
 
         std::map<std::string,cStatDistPtWire>   mStatWirePt;
         //  Stuff  for  CERN-Sphere-Center like manip
-	std::string                             mExtCernStat;
+        std::string                             mExtCernStat;
         bool                                    mDoCernStat;
         bool                                    mCernAllPoint;
         cPt3dr                                  mSphereCenter; //< center of the sphere
-        bool                                    mSCFreeScale;  //< do we have a free scale 
+        bool                                    mSCFreeScale;  //< do we have a free scale
         cSetMesGnd3D                            mGCP3d;        //< "Absolute" coordinate of the point
         bool                                    mWithClino;
         cSetMeasureClino                        mMesClino;
@@ -171,7 +170,7 @@ class cAppli_ReportBlock : public cMMVII_Appli
 std::vector<std::string>  cAppli_Repo&mAddExReportrtBlock::Samples() const
 {
     return {
-	     "MMVII BlockCamInit SetFiltered_GCP_OK_Resec.xml   BA_311_B   '(.*)_(.*).JPG' [1,2]  Rig_311_B"
+             "MMVII BlockCamInit SetFiltered_GCP_OK_Resec.xml   BA_311_B   '(.*)_(.*).JPG' [1,2]  Rig_311_B"
     };
 }
 */
@@ -249,7 +248,6 @@ void cAppli_ReportBlock::AddStatDistWirePt
        return;
 
      cPt3dr  aProj = mCurWire->Proj(aPt);
-
      cPt3dr  anEc = aProj-aPt;
      tREAL8 aD3 = Norm2(anEc);
      tREAL8 aDH = -1;
@@ -295,23 +293,23 @@ void cAppli_ReportBlock::TestWire3D(const std::string & anIdSync,const std::vect
      {
           const std::string & aNameIm = aCam->NameImage();
           if (mPhProj.HasFileLines(aNameIm))
-	  {
+          {
               cLinesAntiParal1Im   aSetL  = mPhProj.ReadLines(aNameIm);
-	      const std::vector<cOneLineAntiParal> & aVL  = 	aSetL.mLines;
+              const std::vector<cOneLineAntiParal> & aVL  = 	aSetL.mLines;
 
-	      // At this step we dont handle multiple lines
-	      if (aVL.size()==1)
-	      {
+              // At this step we dont handle multiple lines
+              if (aVL.size()==1)
+              {
                  // comput seg, and correct it if we are at this step
                  tSeg2dr aSeg = aVL.at(0).mSeg;
                  aSeg =  CorrMesSeg(aCam,aSeg);
 
-		 //  memorize plane, seg and cam
-	         aVPlane.push_back(aCam->SegImage2Ground(aSeg));
-	         aVCamOk.push_back(aCam);
-	         aVSegOk.push_back(aSeg);
-	      }
-	  }
+                 //  memorize plane, seg and cam
+                 aVPlane.push_back(aCam->SegImage2Ground(aSeg));
+                 aVCamOk.push_back(aCam);
+                 aVSegOk.push_back(aSeg);
+              }
+          }
      }
 
      int aNbPl = aVPlane.size();
@@ -319,9 +317,9 @@ void cAppli_ReportBlock::TestWire3D(const std::string & anIdSync,const std::vect
      // if we can compute plane
      if (aNbPl>=2)
      {
-	mCurWire  = new cSegmentCompiled<tREAL8,3>(cPlane3D::InterPlane(aVPlane));
+        mCurWire  = new cSegmentCompiled<tREAL8,3>(cPlane3D::InterPlane(aVPlane));
 
-	// if we are the step where we compute the correction
+        // if we are the step where we compute the correction
         if (mStepCompCCorr)
            for (size_t aKC=0 ; aKC<aVCamOk.size() ; aKC++)
                mMapCorrSyst[aVCamOk.at(aKC)].AddPairSeg(*mCurWire,aVSegOk.at(aKC));
@@ -329,32 +327,32 @@ void cAppli_ReportBlock::TestWire3D(const std::string & anIdSync,const std::vect
         // if we have enough plane to compute residuals
         if (aNbPl>=3)
         {
-	    cWeightAv<tREAL8> aWGr;  // Average of ground distance
-	    cWeightAv<tREAL8> aWPix; // Average of pixel distance
+            cWeightAv<tREAL8> aWGr;  // Average of ground distance
+            cWeightAv<tREAL8> aWPix; // Average of pixel distance
 
             // Parse the camera where a seg was detected
-	    for (size_t aKC=0 ; aKC<aVCamOk.size() ; aKC++)
-	    {
+            for (size_t aKC=0 ; aKC<aVCamOk.size() ; aKC++)
+            {
                 cSensorCamPC * aCam = aVCamOk[aKC];
                 cPerspCamIntrCalib * aCalib = aCam->InternalCalib();
 
-	        int aNSampleSeg = 5; //  Number of sample on the seg
-	        for (int aKS=0 ; aKS<=aNSampleSeg ; aKS++)
-	        {
+                int aNSampleSeg = 5; //  Number of sample on the seg
+                for (int aKS=0 ; aKS<=aNSampleSeg ; aKS++)
+                {
                       // compute a point on curve corresponding to the undistorde line
-		      cPt2dr aPIm = aCalib->InterpolOnUDLine(aVSegOk[aKC],aKS/tREAL8(aNSampleSeg));
-		      aWGr.Add(1.0,aCam->GroundDistBundleSeg(aPIm,*mCurWire));
-		      aWPix.Add(1.0,aCam->PixDistBundleSeg(aPIm,*mCurWire));
-	        }
-	    }
+                      cPt2dr aPIm = aCalib->InterpolOnUDLine(aVSegOk[aKC],aKS/tREAL8(aNSampleSeg));
+                      aWGr.Add(1.0,aCam->GroundDistBundleSeg(aPIm,*mCurWire));
+                      aWPix.Add(1.0,aCam->PixDistBundleSeg(aPIm,*mCurWire));
+                }
+            }
             //  if we are the step where we compute
             if (mStepCompStat)
             {
-	        tREAL8 aRatio = aNbPl /(aNbPl-2.0); // ratio contraints, degre of freedom
+                tREAL8 aRatio = aNbPl /(aNbPl-2.0); // ratio contraints, degre of freedom
                 tREAL8 aDist3D =  aWGr.Average() * aRatio;
                 tREAL8 aDistPix =  aWPix.Average() * aRatio;
 
-	        mStatGlobWire.Add(aDistPix);
+                mStatGlobWire.Add(aDistPix);
                 AddOneReportCSV(mIdRepWire,{anIdSync,ToStr(aNbPl),ToStr(aDist3D),ToStr(aDistPix)});
             }
         }
@@ -362,7 +360,7 @@ void cAppli_ReportBlock::TestWire3D(const std::string & anIdSync,const std::vect
 }
 
 
-void cAppli_ReportBlock::CSV_AddStat(const std::string& anId,const std::string& aMes,const cStdStatRes & aStat) 
+void cAppli_ReportBlock::CSV_AddStat(const std::string& anId,const std::string& aMes,const cStdStatRes & aStat)
 {
    AddStdStatCSV(anId,aMes,aStat,mPercStat);
 }
@@ -378,29 +376,29 @@ void cAppli_ReportBlock::TestPoint3D(const std::string & anIdSync,const std::vec
      mMapMatch.clear();
      cStdStatRes  aStatRes;
 
-     // [1]  Parse all the camera to group measur by name of point (A) load points (B) parse them to store image measure + Cam 
+     // [1]  Parse all the camera to group measur by name of point (A) load points (B) parse them to store image measure + Cam
      for (const auto & aCam : aVCam)
      {
           int aNbMesOK = 0;
          // if images measures were  computed
           if (mPhProj.HasMeasureIm(aCam->NameImage()))
           {
-	     cSetMesPtOf1Im  aSet = mPhProj.LoadMeasureIm(aCam->NameImage()); // (A) Load the points
+             cSetMesPtOf1Im  aSet = mPhProj.LoadMeasureIm(aCam->NameImage()); // (A) Load the points
 
-	     for (const auto & aMes : aSet.Measures()) // (B) parse the points
-	     {
+             for (const auto & aMes : aSet.Measures()) // (B) parse the points
+             {
                  // Dont select points if NotCodes or not selected by user-regex-filtering
                  if ((!starts_with( aMes.mNamePt,MMVII_NONE)) && MatchRegex(aMes.mNamePt,mPatNameGCP))
-	         {
+                 {
                     aNbMesOK++;
                     mMapMatch[aMes.mNamePt].push_back(tPairCamPt(aCam,aMes));
-	         }
-	     }
+                 }
+             }
              if (aNbMesOK==0)
              {
                  StdOut() << "NO Measure valide  for " << aCam->NameImage() << "\n";
              }
-	  }
+          }
           else
              StdOut() << "NO Measure file  for " << aCam->NameImage() << "\n";
      }
@@ -412,32 +410,32 @@ void cAppli_ReportBlock::TestPoint3D(const std::string & anIdSync,const std::vec
      for (const auto & [aNamePt,aVect] : mMapMatch )
      {
          int aNbPt = aVect.size();
-         if (aNbPt >  2) 
+         if (aNbPt >  2)
          {
              // [2.1]  compute the vector of bundles and their intersection
              std::vector<tSeg3dr> aVSeg;
-	     for (const auto & [aCam,aMes] : aVect)
-	     {
+             for (const auto & [aCam,aMes] : aVect)
+             {
                  aVSeg.push_back(aCam->Image2Bundle(CorrMesPt(aCam,aMes.mPt)));
-	     }
-	     cPt3dr aPG =   BundleInters(aVSeg);
+             }
+             cPt3dr aPG =   BundleInters(aVSeg);
 
-	     // [2.2] compute residual and eventually memo data for correction
-	     cWeightAv<tREAL8> aWPix;
+             // [2.2] compute residual and eventually memo data for correction
+             cWeightAv<tREAL8> aWPix;
 
-	     for (const auto & [aCam,aMes] : aVect)
-	     {
+             for (const auto & [aCam,aMes] : aVect)
+             {
                  cPt2dr aPProj = aCam->Ground2Image(aPG);
-		 cPt2dr aResidual = CorrMesPt(aCam,aMes.mPt)-aPProj;
+                 cPt2dr aResidual = CorrMesPt(aCam,aMes.mPt)-aPProj;
                  aWPix.Add(1.0,Norm2(aResidual));
-		 if (mStepCompCCorr)
+                 if (mStepCompCCorr)
                  {
-		    mMapCorrSyst[aCam].SetCam(mLevelCentCorr,mWeightSeg,aCam);
-		    mMapCorrSyst[aCam].AddPairPt(aPProj,aMes.mPt);
+                    mMapCorrSyst[aCam].SetCam(mLevelCentCorr,mWeightSeg,aCam);
+                    mMapCorrSyst[aCam].AddPairPt(aPProj,aMes.mPt);
                  }
-	     }
-	     
-	     // [2.3] export residual in csv file
+             }
+             
+             // [2.3] export residual in csv file
              if (mStepCompStat)
              {
                  mVCernPR.push_back(cCern_PtRF());
@@ -449,13 +447,13 @@ void cAppli_ReportBlock::TestPoint3D(const std::string & anIdSync,const std::vec
                  aStatRes.Add(aDistPix);
                  mStatGlobPt.Add(aDistPix);
 
-                 //  Now make the computation by pair of camera 
+                 //  Now make the computation by pair of camera
                  for (size_t aK1=0 ; aK1<aVect.size() ; aK1++)
                  {
-	             const auto & [aCam1,aMes1] = aVect.at(aK1);
+                     const auto & [aCam1,aMes1] = aVect.at(aK1);
                      for (size_t aK2=aK1+1 ; aK2<aVect.size() ; aK2++)
                      {
-	                 const auto & [aCam2,aMes2] = aVect.at(aK2);
+                         const auto & [aCam2,aMes2] = aVect.at(aK2);
                          cHomogCpleIm aCple(CorrMesPt(aCam1,aMes1.mPt),CorrMesPt(aCam2,aMes2.mPt));
                          tREAL8 aRes12 = aCam1->PixResInterBundle(aCple,*aCam2) * 4.0;  // 4.0 = DOF = 4 / (4-3)
                          std::string anId1 = "Cam:"+mTheBloc->IdBloc(aCam1->NameImage());
@@ -476,25 +474,25 @@ void cAppli_ReportBlock::TestPoint3D(const std::string & anIdSync,const std::vec
 
 cPt3dr cAppli_ReportBlock::ExtractVertLoc(const std::string& anIdSync,const std::vector<cSensorCamPC *> & aVCam)
 {
-    //  TO REFACTOR !!!!! 
+    //  TO REFACTOR !!!!!
     if (! mWithClino)
        return cPt3dr(0,0,0);
 
     cSensorCamPC * aCamMaster = nullptr;
     for (const auto & aCam : aVCam)
     {
-        if (mTheBloc->IdBloc(aCam->NameImage()) == mTheBloc->NameMaster()) 
+        if (mTheBloc->IdBloc(aCam->NameImage()) == mTheBloc->NameMaster())
         {
             aCamMaster = aCam;
         }
     }
     MMVII_INTERNAL_ASSERT_tiny(aCamMaster!=nullptr,"Cannot find master");
     cPerspCamIntrCalib * aCalibM = aCamMaster->InternalCalib();
-    const  cOneMesureClino & aMes = *  mMesClino.MeasureOfId(anIdSync); 
+    const  cOneMesureClino & aMes = *  mMesClino.MeasureOfId(anIdSync);
 
     cCalibSetClino aSetC = mPhProj.ReadSetClino(*aCalibM,mMesClino.NamesClino());
     cGetVerticalFromClino aGetVert(aSetC,aMes.Angles());
-    auto[aScoreVert, aVertLocCamDown]  = aGetVert.OptimGlob(50,1e-9);  
+    auto[aScoreVert, aVertLocCamDown]  = aGetVert.OptimGlob(50,1e-9);
         
     return aVertLocCamDown;
 }
@@ -511,7 +509,7 @@ void cAppli_ReportBlock::GenerateCernExport(const std::string& anIdSync,const st
 
 
      {
-         // Compute the pairs "Coord-Spher/Coord Loc" 
+         // Compute the pairs "Coord-Spher/Coord Loc"
          std::vector<cPt3dr> mV3dGround;  // Pairs of coord in
          std::vector<cPt3dr> aFilteredV3DLoc;
          for (size_t aKPt=0 ; aKPt<mVCernPR.size() ; aKPt++)
@@ -532,15 +530,8 @@ void cAppli_ReportBlock::GenerateCernExport(const std::string& anIdSync,const st
             tREAL8 aResidual;
             aPose = aPose.LeastSquareRefine(mV3dGround,aFilteredV3DLoc,&aResidual);
 
+
             cPt3dr aPLoc = aPose.Value(mSphereCenter);
-
-if (DEBUG)
-{
-   StdOut() << "RRRR-LOC= " << mSphereCenter << " " << aPLoc << " CernSize=" << mVCernPR.size() << "\n";
-   StdOut() << "PTARGET-LOC= " << Centroid(aFilteredV3DLoc) << " " << aFilteredV3DLoc.size()<< "\n";
-   StdOut() << "V333-Gd= " << Centroid(mV3dGround) << " " << mV3dGround.size() << "\n";
-}
-
             AddStatDistWirePt(aPLoc,aVertLocCamDown,anIdSync,"Center");
          }
          if (mCernAllPoint)
@@ -565,7 +556,7 @@ if (0)
             {
                 for (size_t aK2=aK1+1 ; aK2<aVCam.size() ; aK2++)
                 {
-                      StdOut() << " *  N2=" << Norm2(aVCam[aK1]->Center()-aVCam[aK2]->Center()) 
+                      StdOut() << " *  N2=" << Norm2(aVCam[aK1]->Center()-aVCam[aK2]->Center())
                                                  << " Cam=" << aVCam[aK1]->NameImage() << " " << aVCam[aK2]->NameImage()  << "\n";
                 }
             }
@@ -619,14 +610,14 @@ void cAppli_ReportBlock::DoLGCExport (const std::vector<cSensorCamPC *> & aVCam)
 
              for (const auto & [aNamePt,aVect] : mMapMatch )
              {
-	         for (const auto & [aCamLocPtr,aMes] : aVect)
-	         {
+                 for (const auto & [aCamLocPtr,aMes] : aVect)
+                 {
                       if (aCamLocPtr==aCamPtr)
                       {
                           cPt3dr aDirCam   = VUnit(aCamPtr->InternalCalib()->DirBundle(aMes.mPt));
                           anOffs.Ofs() <<  aNamePt << " " << ToCernStr(aDirCam) << "\n";
                       }
-	         }
+                 }
              }
              anOffs.Ofs() << "*ENDFRAME\n";
              anOffs.Ofs() << "%-----------------------\n";
@@ -646,8 +637,8 @@ void cAppli_ReportBlock::DoLGCExport (const std::vector<cSensorCamPC *> & aVCam)
                        cPt2dr aPIm = cPt2dr(aKX,aKY) / tREAL8(aNbSamples);
                        aPIm = MulCByC(aSzIm,aPIm);
                        cPt3dr aBundle = VUnit(aCalibPtr->DirBundle(aPIm));
-                       StdOut() << "Im=" << aPIm  << " Dir3d=" << aBundle  
-                                // << " RP=" << aCalibPtr->Value(aBundle) 
+                       StdOut() << "Im=" << aPIm  << " Dir3d=" << aBundle
+                                // << " RP=" << aCalibPtr->Value(aBundle)
                                 << "\n";
                  }
 
@@ -696,7 +687,7 @@ int cAppli_ReportBlock::Exe()
 
     mDoCernStat = IsInit(&mExtCernStat);
 
-    std::string aDirRep =          mPhProj.DPOrient().DirIn() 
+    std::string aDirRep =          mPhProj.DPOrient().DirIn()
                            + "-" + mPhProj.DPGndPt2D().DirIn()
                            + "-" + mPhProj.DPRigBloc().DirIn() ;
     if (IsInit(&mAddExReport))
@@ -748,8 +739,8 @@ int cAppli_ReportBlock::Exe()
     if (mShow)
     {
 
-	    StdOut() << mStatGlobPt.Show("Pt-Pix",{50,85}) << "\n";
-	    StdOut() << mStatGlobWire.Show("Wire-Pix",{50,85}) << "\n";
+            StdOut() << mStatGlobPt.Show("Pt-Pix",{50,85}) << "\n";
+            StdOut() << mStatGlobWire.Show("Wire-Pix",{50,85}) << "\n";
     }
 
 
@@ -771,13 +762,13 @@ int cAppli_ReportBlock::Exe()
 
           std::vector<std::string> aValueH,aValueV;
           if (mWithClino)
-	  {
+          {
               aValueH = {ToStr(aStat.mStatH.Avg()),ToStr(aStat.mStatH.ErrAtProp(0.5)),ToStr(aStat.mStatH.UBDevStd(-1))};
               aValueV = {ToStr(aStat.mStatV.Avg()),ToStr(aStat.mStatV.ErrAtProp(0.5)),ToStr(aStat.mStatV.UBDevStd(-1))};
-              StdOut() 
+              StdOut()
                << "H-AMD=" << aValueH
                << "V-AMD" << aValueV;
-	  }
+          }
 
            StdOut() << "\n";
            AddOneReportCSV(mExtCernStat,Append(aValue3D,aValueH,aValueV));
@@ -786,7 +777,7 @@ int cAppli_ReportBlock::Exe()
 
    delete mTheBloc;
    return EXIT_SUCCESS;
-}                                       
+}
 
 /* ==================================================== */
 /*                                                      */
@@ -805,8 +796,8 @@ cSpecMMVII_Appli  TheSpec_BlocReport
       Alloc_ReportBlock,
      "Report different measures relative to a block of cam",
       {eApF::Ori},
-      {eApDT::Orient}, 
-      {eApDT::Xml}, 
+      {eApDT::Orient},
+      {eApDT::Xml},
       __FILE__
 );
 
@@ -847,7 +838,7 @@ void  cBR_SystCorr::SetCam(int aLevelCorr,tREAL8 aWSeg,cSensorCamPC * aCam)
     mRelWeightSeg    = aWSeg;
 }
 
-void cBR_SystCorr::AddPairPt(const cPt2dr & aPtProj,const cPt2dr& aPIm) 
+void cBR_SystCorr::AddPairPt(const cPt2dr & aPtProj,const cPt2dr& aPIm)
 {
     mPtsProj.push_back(mCalib->Undist(aPtProj));
     mPtsIm.push_back(mCalib->Undist(aPIm));
@@ -859,12 +850,12 @@ void cBR_SystCorr::AddPairSeg(const cSegmentCompiled<tREAL8,3>  & aSegGround,con
   cSegment2DCompiled<tREAL8> aSegUd(mCalib->Undist(aSeg0.P1()) , mCalib->Undist(aSeg0.P2()));
   cBoundVals<tREAL8>  aBoundsV;
 
-   // compute Interval of absicee proj on 
+   // compute Interval of absicee proj on
    for (const auto & aPt : mPtsIm)
    {
         aBoundsV.Add(aSegUd.ToCoordLoc(aPt).x());
    }
-   tREAL8 aAmpl = 0.1; 
+   tREAL8 aAmpl = 0.1;
    tREAL8 aVMin  = aBoundsV.VMin() *(1+aAmpl) -  aBoundsV.VMax() * aAmpl;
    tREAL8 aVMax  = aBoundsV.VMax() *(1+aAmpl) -  aBoundsV.VMin() * aAmpl;
 
