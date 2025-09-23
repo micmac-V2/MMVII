@@ -722,8 +722,8 @@ template <typename TypeDist,typename TypeProj>  class cEqColinearityCamPPC
                    cPtxd<tUk,3> aPCam =  aDeltaRot * (aRotInit * aVCP);
 #endif
 
-                   cPtxd<tUk,2>  aPProj = cHelperProj<TypeProj>::Proj(aPCam);  // project 3D-> photogram point
-                   cPtxd<tUk,2> aPDist = VtoP2(mDist.PProjToImNorm (aPProj.x(),aPProj.y(),aVUk,aIndUk));  // add distorsion
+                  cPtxd<tUk,2>  aPProj = cHelperProj<TypeProj>::Proj(aPCam);  // project 3D-> photogram point
+                  cPtxd<tUk,2> aPDist = VtoP2(mDist.PProjToImNorm (aPProj.x(),aPProj.y(),aVUk,aIndUk));  // add distorsion
 
                    cPtxd<tUk,2> aPPix =  aPP + aPDist * aFoc; // Use Focal and PP to make pixel
 
@@ -738,7 +738,7 @@ template <typename TypeDist,typename TypeProj>  class cEqColinearityCamPPC
                    }
                    else
                    {
-                      return {aResidual.x(),aResidual.y()};
+                       return {aResidual.x(),aResidual.y()};
                    }
            }
            
