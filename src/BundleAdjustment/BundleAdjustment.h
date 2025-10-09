@@ -460,6 +460,8 @@ class cMMVII_BundleAdj
 
 
           void AddLineAdjust(const std::vector<std::string> &);
+          void DeleteLineAdjust();
+          void IterAdjustOnLine();
 
           void SaveBlocRigid();
           void Save_newGCP3D();
@@ -477,7 +479,6 @@ class cMMVII_BundleAdj
 
           cSetInterUK_MultipeObj<tREAL8> &   SetIntervUK();
      private :
-          void DeleteLineAdjust();
 
           //============== Methods =============================
           cMMVII_BundleAdj(const cMMVII_BundleAdj &) = delete;
