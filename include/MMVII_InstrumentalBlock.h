@@ -90,7 +90,8 @@ class cIrbCal_Cam1 : public cMemCheck
 
         /// Indicate if the  image belongs to the block
         bool ImageIsInBlock (const std::string & ) const;
-        ///  modify the pose
+
+        /**  modify the pose, separate from constructor because must be done in calib init, after block creation */
         void SetPose(const tPoseR & aPose);
 
     private :
@@ -199,7 +200,7 @@ class cIrbCal_Block : public cMemCheck
         cIrbCal_ClinoSet &       SetClinos() ;          //< Accessors
         const std::string &       NameBloc() const;     //< Accessor
      private :
-        std::string              mNameBloc;   //<  Name of the bloc
+        std::string                 mNameBloc;   //<  Name of the bloc
         cIrbCal_CamSet              mSetCams;    //<  Cameras used in the bloc
         cIrbCal_ClinoSet            mSetClinos;  //<  Clinos used in the bloc
 };
