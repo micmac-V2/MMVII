@@ -5,7 +5,8 @@
 #include "MMVII_Geom3D.h"
 #include "MMVII_PCSens.h"
 #include "MMVII_Clino.h"
-
+#include "MMVII_Matrix.h"
+#include <tuple>
 
 
 namespace MMVII
@@ -62,7 +63,7 @@ class cAppli_BlockInstrInitCam; // appli for computing initial value of poses in
 
 /*
    cIrbCal_Block  :
-      - Name  of the bloc
+      - Name  of the blocno
       - cIrbCal_CamSet
          *   cIrbCal_Cam1  :
               - Name of intrinsic calibration
@@ -128,25 +129,31 @@ class cIrb_SigmaInstr
 {
    public :
       cIrb_SigmaInstr();
-      cIrb_SigmaInstr(tREAL8 aW,tREAL8 aSigTr,tREAL8 aSigRot,tREAL8 aSigGlob);
-      void  AddNewSigma (const cIrb_SigmaInstr&,const tREAL8 & aWeigh=1.0);
+      cIrb_SigmaInstr(tREAL8 aW,tREAL8 aSigTr,tREAL8 aSigRot);
+      void  AddNewSigma (const cIrb_SigmaInstr&);
 
       void AddData(const  cAuxAr2007 & anAux);
 
 
       tREAL8 SigmaTr() const;
       tREAL8 SigmaRot() const;
-      tREAL8 SigmaGlob() const;
 
    private :
-      tREAL8 mSumW;
-      tREAL8 mSumWTr;
-      tREAL8 mSumWRot;
-      tREAL8 mSumWGlob;
+      tWArr mAvgSigTr;
+      tWArr mAvgSigRot;
+      tWArr mAvgSigGlob;
 };
 void AddData(const  cAuxAr2007 & anAux,cIrb_SigmaInstr & aClino);
 
-
+class cIrb_Desc1Intsr
+{
+    public :
+       cIrb_Desc1Intsr (eTyInstr,const std::string &);
+    private :
+       eTyInstr         mType;
+       std::string      mName;
+       cIrb_SigmaInstr  mSigma;
+};
 
 ///  class for representing the set of cameras embedded in a bloc
 class cIrbCal_CamSet : public cMemCheck
@@ -210,7 +217,7 @@ class cIrbCal_Block : public cMemCheck
         cIrbCal_ClinoSet &       SetClinos() ;          //< Accessors
         const std::string &       NameBloc() const;     //< Accessor
 
-        void AddSigma(std::string aN1,std::string aN2, const cIrb_SigmaInstr &,const std::pair<tREAL8,tREAL8> & aWeight= {1.0,1.0} );
+        void AddSigma(std::string aN1,std::string aN2, const cIrb_SigmaInstr &);
      private :
         std::string                   mNameBloc;   //<  Name of the bloc
         cIrbCal_CamSet                mSetCams;    //<  Cameras used in the bloc
@@ -286,7 +293,7 @@ class   cIrbComp_TimeS : public cMemCheck
 class   cIrbComp_Block : public cMemCheck
 {
     public :
-       typedef  std::pair<tPoseR,cIrb_SigmaInstr>  tResCompCal;
+       typedef  std::tuple<tREAL8,tPoseR,cIrb_SigmaInstr>  tResCompCal;
 
        // "fundamuntal" constructor, creat from a calibration bloc
        cIrbComp_Block(const cIrbCal_Block &) ;
@@ -300,7 +307,7 @@ class   cIrbComp_Block : public cMemCheck
        // Add an image with given pose
        void AddImagePose(const tPoseR&,const std::string &,bool okImNotInBloc=false);
 
-       
+
        const cIrbCal_CamSet &  SetOfCalibCams() const ; //< Accessor of Accessor
        size_t  NbCams() const ;                         //< Accessor of Accessor of ...
        const cIrbCal_Block & CalBlock() const ; //< Accessor
