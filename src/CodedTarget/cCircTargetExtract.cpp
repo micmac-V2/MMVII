@@ -130,8 +130,9 @@ void cCircTargExtr::RefinePosBySym(tREAL8 aStepLim,const tDIm & aDIm ,const cDif
 
                cPt2dr aPt = aPOnEl + aNorm * aRad;
                aOptim.AddPts(aPt);
-          }
+         }
      }
+     // StdOut() << "OOOOOo " << aOptim.PtsOpt().size() << "\n";
 
      aOptim.IterLeastSqGrad(aStepLim,5);
      mEllipse = cEllipse(aOptim.C0(),mEllipse.TetaGa(),mEllipse.LGa(),mEllipse.LSa());
