@@ -438,10 +438,11 @@ template <class Type> class cDenseMatrix : public cUnOptDenseMatrix<Type>
         cDenseMatrix Dup() const;
         static cDenseMatrix Identity(int aSz);  ///< return identity matrix
         static cDenseMatrix Diag(const tDV &);
-        static cDenseMatrix FromLines(const std::vector<tDV> &);  // Create from set of "line vector"
-        static cDenseMatrix MatLine(const tDV &);  // Create from set of "line vector"
-        static cDenseMatrix FromCols(const std::vector<tDV> &);  // Create from set of "line vector"
-        static cDenseMatrix MatCol(const tDV &);  // Create from set of "line vector"
+        static cDenseMatrix FromLines(const std::vector<tDV> &);  ///< Create from set of "line vector"
+        static cDenseMatrix MatLine(const tDV &);  ///< Create from set of "line vector"
+        static cDenseMatrix FromCols(const std::vector<tDV> &);  ///< Create from set of "line vector"
+        static cDenseMatrix MatCol(const tDV &);  ///< Create from set of "line vector"
+        static cDenseMatrix MatPerm(const std::vector<int> &); ///< Create matrix of permutation
         cDenseMatrix ClosestOrthog() const;  ///< return closest
 
         // static tDM  MatCol(const tDV & );

@@ -283,7 +283,7 @@ void cMatEssential::Show(const cSetHomogCpleDir& aSetD) const
     {
         for (int aX=0 ; aX<3 ; aX++)
         {
-                StdOut() << " " <<  FixDigToStr(1000*mMat.GetElem(aX,aY),8) ;
+             StdOut() << " " <<  FixDigToStr(1000*mMat.GetElem(aX,aY),8) ;
         }
         StdOut() << std::endl;
     }
