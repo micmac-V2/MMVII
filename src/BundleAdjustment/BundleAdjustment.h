@@ -352,6 +352,9 @@ class cBA_LidarPhotogra
        /// add observation
        virtual void AddObs() = 0;
 
+       /// freeze unknowns
+       virtual void SetFrozenVar(cResolSysNonLinear<tREAL8> & aSys, std::string aPatFrozenTSL) {}
+
     protected :
        /**  Add observation for 1 Patch of point */
        void Add1Patch(tREAL8 aW,const std::vector<cPt3dr> & aPatch);
@@ -422,6 +425,7 @@ public :
     cBA_LidarPhotograRaster(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj&, const std::vector<std::string> & aParam);
     /// destuctor, free interopaltor, calculator ....
     virtual ~cBA_LidarPhotograRaster();
+    void SetFrozenVar(cResolSysNonLinear<tREAL8> & aSys, std::string aPatFrozenTSL) override;
 
     /// add observation
     virtual void AddObs() override;
@@ -451,6 +455,7 @@ class cMMVII_BundleAdj
           void  AddCalib(cPerspCamIntrCalib *);  /// add  if not exist
           void  AddCamPC(cSensorCamPC *);  /// add, error id already exist
           void  AddCam(const std::string & aNameIm);  /// add from name, require PhP exist
+          void  AddStaticLidar(cStaticLidar * aLidarData);
           void  AddReferencePoses(const std::vector<std::string> &);  ///  [Fofder,SigmGCP,SigmaRot ?]
 
           void AddBlocRig(const std::vector<double>& aSigma,const std::vector<double>&  aSigmRat ); // RIGIDBLOC
@@ -491,7 +496,8 @@ class cMMVII_BundleAdj
           void SetViscosity(const tREAL8& aViscTr,const tREAL8& aViscAngle);
           void SetFrozenCenters(const std::string & aPattern);
           void SetFrozenOrients(const std::string & aPattern);
-       void SetFrozenClinos(const std::string & aPattern);
+          void SetFrozenClinos(const std::string & aPattern);
+          void SetFrozenTSL(const std::string & aPattern);
           void SetSharedIntrinsicParams(const std::vector<std::string> &);
            
 
@@ -578,6 +584,7 @@ class cMMVII_BundleAdj
           std::string  mPatFrozenCenter;      /// Pattern for name of pose with frozen centers
           std::string  mPatFrozenOrient;      /// Pattern for name of pose with frozen centers
           std::string  mPatFrozenClinos;      /// Pattern for name of clino with frozen boresight
+          std::string  mPatFrozenTSL;         /// Pattern for name of static lidars with frozen poses
 
           std::vector<std::string>  mVPatShared;
 
