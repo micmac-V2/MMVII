@@ -302,7 +302,7 @@ template <class Type> class cMatrix  : public cRect2
 
         // void TplCheckX(const cSparseVect & V) {}; template <class Type> class  cSparseVect
          ///  Check that aM1 * aM2 is valide
-      
+
          void TplCheckX(const cSparseVect<Type> & aV)  const
          {
             MMVII_INTERNAL_ASSERT_medium(aV.IsInside(Sz().x()) ,"Sparse Vector X-out matrix");
@@ -494,7 +494,7 @@ template <class Type> class cDenseMatrix : public cUnOptDenseMatrix<Type>
               */
         void MatMulInPlace(const tDM & aM1,const tDM & aM2);
 
-       
+
         // tDM  SymInverse() const;  ///< Inverse of symetric matrix
         void InverseInPlace(const tDM & aM);  ///< Put M-1 in this
         tDM  Inverse() const;  ///< Basic inverse
@@ -540,14 +540,14 @@ template <class Type> class cDenseMatrix : public cUnOptDenseMatrix<Type>
         void SelfTransposeIn() ;  ///< transposate in this, square only
         tDM  Transpose() const;  ///< Put transposate in M2
 
-          
+
         void SelfLineInverse() ;  ///< line inversion   (L1 L2 .. LN) =>   (LN ... L2 L1) ,  used for RQ decomposition (QR => RQ)
         tDM  LineInverse() const;  ///< cont version of SelfLineInverse
         void SelfColInverse() ;  ///< colum inversion   ,  used for RQ decomposition (QR => RQ)
 
         void SelfLineChSign(int aNumL); ///<  chang signe of line aNumL, used in QR/RQ to normalize with diag>0 of R
         void SelfColChSign(int aNumC);  ///<  chang signe of column aNumC, used in QR/RQ to normalize with diag>0 of R
-         
+
         double Diagonalicity() const; ///< how much close to a diagonal matrix, square only ,
         Type   Det() const;  ///< compute the determinant, not sur optimise
         Type   Trace() const;  ///< compute the trace, quite basic
@@ -582,6 +582,8 @@ template <class Type> class cDenseMatrix : public cUnOptDenseMatrix<Type>
         Type & GetReference_V(int aX,int  aY) { return DIm().GetReference_V(cPt2di(aX,aY));}  // dont check vals
 
 };
+
+typedef cDenseMatrix<tREAL8> tDMatR;
 
 template <class Type> class cResulEigenDecomp
 {
@@ -1171,7 +1173,6 @@ class  cParamCtrlOpt
         cParamRansac  mParamRS;  //< Parameter for the ransac part
         cParamCtrWeightedLSq mParamLSQ;
 };
-
 
 
 
