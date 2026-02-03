@@ -853,6 +853,8 @@ void cSet2D3D::AddPair(const cPt2dr& aPIm,const cPt3dr& aPGround,double aWeight)
 
 
 const cSet2D3D::tCont2D3D &  cSet2D3D::Pairs() const { return mPairs;}
+cSet2D3D::tCont2D3D &  cSet2D3D::Pairs() { return mPairs;}
+
 
 const cWeightedPair2D3D &  cSet2D3D::KthPair(int aK) const {return mPairs.at(aK);}
 size_t cSet2D3D::NbPair() const {return mPairs.size();}
