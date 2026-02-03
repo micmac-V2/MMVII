@@ -143,7 +143,13 @@ template<class Type> void cImGradWithN<Type>::SetQuickSobel(cDataIm2D<Type> & aD
  *      that's why we consider only the point which are orientd in the same direction (test "Scal > 0"),
  *      note this work for a dark or light line on a average back-ground
  */
-template<class Type> bool  cImGradWithN<Type>::IsMaxLocDirGrad(const cPt2di& aPix,const std::vector<cPt2di> & aVP,tREAL8 aRatioXY) const
+template<class Type>
+  bool  cImGradWithN<Type>::IsMaxLocDirGrad
+        (
+              const cPt2di& aPix,
+              const std::vector<cPt2di> & aVP,
+               tREAL8 aRatioXY
+         ) const
 {
     //  [1] Compute unitary vector
     tREAL8 aN = mDataNG.GetV(aPix);
@@ -165,6 +171,7 @@ template<class Type> bool  cImGradWithN<Type>::IsMaxLocDirGrad(const cPt2di& aPi
 
     // [3]
 
+    // As Dir Grad is normalised, its inverse is the conjugate
     cPt2dr aConjDG =  conj(aDirGrad);
     for (const auto & aDeltaNeigh : aVP)
     {
@@ -194,7 +201,13 @@ bool PtIsSup00(const cPt2di & aP)
 }
 
 
-template<class Type> bool  cImGradWithN<Type>::TabIsMaxLocDirGrad(const cPt2di& aPix,const cTabulateGrad & aTabul,bool isWhite) const
+template<class Type>
+    bool  cImGradWithN<Type>::TabIsMaxLocDirGrad
+          (
+             const cPt2di& aPix,
+             const cTabulateGrad & aTabul,
+             bool isWhite
+           ) const
 {
     int aSignGlob = isWhite ? -1 : 1;
     Type  aNormG = mDataNG.GetV(aPix);

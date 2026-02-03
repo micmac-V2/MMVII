@@ -7,6 +7,7 @@
 #include "MMVII_Tpl_Images.h"
 #include "MMVII_2Include_Serial_Tpl.h"
 #include "MMVII_Clino.h"
+#include "MMVII_InstrumentalBlock.h"
 
 
 /**
@@ -97,7 +98,7 @@ class cAppli_ReportBlock : public cMMVII_Appli
         //  std::vector<std::string>  Samples() const override;
 
      private :
-        void ProcessOneBloc(const std::vector<cSensorCamPC *> &);
+        void ProcessOneBloc(const std::string& anIdSync,const cIrbComp_TimeS &);
         void AddStatDistWirePt(const cPt3dr& aPt,const cPt3dr& aDirLoc,const std::string & anIdSync,const std::string & aNamePt);
 
         cPt3dr ExtractVertLoc(const std::string& anIdSync,const std::vector<cSensorCamPC *> & aVCam);
@@ -118,11 +119,14 @@ class cAppli_ReportBlock : public cMMVII_Appli
         int                         mLevelCentCorr;     //< do we correct residual
         tREAL8                      mWeightSeg;
         bool                        mStepCompCCorr;   //< Are we at a step where we compute center correction
-        bool                        mStepUseCCorr;   //< Are we at a step where we compute correction
-        bool                        mStepCompStat;   //< Are we at a step of stat (last step)
-
+        bool                        mStepUseCCorr;    //< Are we at a step where we compute correction
+        bool                        mStepCompStat;    //< Are we at a step of stat (last step)
         std::string                 mSpecImIn;
         cBlocOfCamera *             mTheBloc;
+
+        std::string                  mNameBloc;
+        cIrbCal_Block*               mCalBlocInstr;
+        cIrbComp_Block*              mCompBlocInstr;
 
         std::string                  mIdRepWire;
         std::string                  mIdRepPtIndiv;
@@ -166,14 +170,6 @@ class cAppli_ReportBlock : public cMMVII_Appli
 };
 
 
-/*
-std::vector<std::string>  cAppli_Repo&mAddExReportrtBlock::Samples() const
-{
-    return {
-             "MMVII BlockCamInit SetFiltered_GCP_OK_Resec.xml   BA_311_B   '(.*)_(.*).JPG' [1,2]  Rig_311_B"
-    };
-}
-*/
 
 
 cAppli_ReportBlock::cAppli_ReportBlock
@@ -186,6 +182,9 @@ cAppli_ReportBlock::cAppli_ReportBlock
      mShow          (false),
      mLevelCentCorr (0),
      mWeightSeg     (1.0),
+     mNameBloc      (cIrbCal_Block::theDefaultName),
+     mCalBlocInstr  (nullptr),
+     mCompBlocInstr (nullptr),
      mIdRepWire     ("Wire"),
      mIdRepPtIndiv  ("Pt"),
      mIdRepDWirePt  ("DistWP"),
@@ -208,7 +207,8 @@ cCollecSpecArg2007 & cAppli_ReportBlock::ArgObl(cCollecSpecArg2007 & anArgObl)
              <<  Arg2007(mSpecImIn,"Pattern/file for images", {{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}}  )
              <<  mPhProj.DPOrient().ArgDirInMand()
              <<  mPhProj.DPGndPt2D().ArgDirInMand()
-             <<  mPhProj.DPRigBloc().ArgDirInMand()
+             <<   mPhProj.DPBlockInstr().ArgDirInMand()
+         //  <<  mPhProj.DPRigBloc().ArgDirInMand()
            ;
 }
 
@@ -389,22 +389,22 @@ void cAppli_ReportBlock::TestPoint3D(const std::string & anIdSync,const std::vec
          // if images measures were  computed
           if (mPhProj.HasMeasureIm(aCam->NameImage()))
           {
-             cSetMesPtOf1Im  aSet = mPhProj.LoadMeasureIm(aCam->NameImage()); // (A) Load the points
+              cSetMesPtOf1Im  aSet = mPhProj.LoadMeasureIm(aCam->NameImage()); // (A) Load the points
 
-             for (const auto & aMes : aSet.Measures()) // (B) parse the points
-             {
+              for (const auto & aMes : aSet.Measures()) // (B) parse the points
+              {
                  // Dont select points if NotCodes or not selected by user-regex-filtering
                  if ((!starts_with( aMes.mNamePt,MMVII_NONE)) && MatchRegex(aMes.mNamePt,mPatNameGCP))
                  {
                     aNbMesOK++;
                     mMapMatch[aMes.mNamePt].push_back(tPairCamPt(aCam,aMes));
-                 }
+                  }
              }
              if (aNbMesOK==0)
              {
                  StdOut() << "NO Measure valide  for " << aCam->NameImage() << "\n";
              }
-          }
+         }
           else
              StdOut() << "NO Measure file  for " << aCam->NameImage() << "\n";
      }
@@ -434,11 +434,11 @@ void cAppli_ReportBlock::TestPoint3D(const std::string & anIdSync,const std::vec
                  cPt2dr aPProj = aCam->Ground2Image(aPG);
                  cPt2dr aResidual = CorrMesPt(aCam,aMes.mPt)-aPProj;
                  aWPix.Add(1.0,Norm2(aResidual));
-                 if (mStepCompCCorr)
-                 {
+                if (mStepCompCCorr)
+                {
                     mMapCorrSyst[aCam].SetCam(mLevelCentCorr,mWeightSeg,aCam);
                     mMapCorrSyst[aCam].AddPairPt(aPProj,aMes.mPt);
-                 }
+                }
              }
              
              // [2.3] export residual in csv file
@@ -462,8 +462,8 @@ void cAppli_ReportBlock::TestPoint3D(const std::string & anIdSync,const std::vec
                          const auto & [aCam2,aMes2] = aVect.at(aK2);
                          cHomogCpleIm aCple(CorrMesPt(aCam1,aMes1.mPt),CorrMesPt(aCam2,aMes2.mPt));
                          tREAL8 aRes12 = aCam1->PixResInterBundle(aCple,*aCam2) * 4.0;  // 4.0 = DOF = 4 / (4-3)
-                         std::string anId1 = "Cam:"+mTheBloc->IdBloc(aCam1->NameImage());
-                         std::string anId2 = "Cam:"+mTheBloc->IdBloc(aCam2->NameImage());
+                         std::string anId1 = "Cam:"+aCam1->InternalCalib()->Name();
+                         std::string anId2 = "Cam:"+aCam2->InternalCalib()->Name();
                          std::string aNamePair = anId1 + "/" + anId2;
                          mMapStatPair[aNamePair].Add(aRes12);
                          mMap1Image[anId1].Add(aRes12);
@@ -653,13 +653,16 @@ void cAppli_ReportBlock::DoLGCExport (const std::vector<cSensorCamPC *> & aVCam)
 }
 
 
-void cAppli_ReportBlock::ProcessOneBloc(const std::vector<cSensorCamPC *> & aVCam)
+void cAppli_ReportBlock::ProcessOneBloc(const std::string& anIdSync,const cIrbComp_TimeS & aDataTS)
 {
      mMapCorrSyst.clear();
 
      mCurWire = nullptr ;
 
-     std::string anIdSync = mTheBloc->IdSync(aVCam.at(0)->NameImage());
+     std::vector<cSensorCamPC *>  aVCam;
+     for (const cIrbComp_Cam1 & aCompCam : aDataTS.SetCams().VCompPoses())
+         aVCam.push_back(aCompCam.CamPC());
+
 
      int aNbIterCompute = mLevelCentCorr ? 2  : 1;
      for (int aKIter=0 ; aKIter<aNbIterCompute ; aKIter++)
@@ -670,6 +673,7 @@ void cAppli_ReportBlock::ProcessOneBloc(const std::vector<cSensorCamPC *> & aVCa
 
          if (contains(mStrM2T,'T'))
             TestPoint3D(anIdSync,aVCam);
+         /*
          if (contains(mStrM2T,'W'))
             TestWire3D(anIdSync,aVCam);
 
@@ -680,10 +684,10 @@ void cAppli_ReportBlock::ProcessOneBloc(const std::vector<cSensorCamPC *> & aVCa
                 aSyst.ComputeMapCorrection(mShow);
             }
          }
+         */
      }
-
-     GenerateCernExport(anIdSync,aVCam);
-
+     //GenerateCernExport(anIdSync,aVCam);
+/**/
      delete mCurWire;
 }
 
@@ -691,11 +695,13 @@ int cAppli_ReportBlock::Exe()
 {
     mPhProj.FinishInit();  // the final construction of  photogrammetric project manager can only be done now
 
+
+
     mDoCernStat = IsInit(&mExtCernStat);
 
     std::string aDirRep =          mPhProj.DPOrient().DirIn()
                            + "-" + mPhProj.DPGndPt2D().DirIn()
-                           + "-" + mPhProj.DPRigBloc().DirIn() ;
+                           + "-" + mPhProj.DPBlockInstr().DirIn() ;
     if (IsInit(&mAddExReport))
        aDirRep =  mAddExReport + "-" + aDirRep;
     if (IsInit(&mDirExReport))
@@ -713,7 +719,21 @@ int cAppli_ReportBlock::Exe()
     InitReportCSV(mIdRepPtGlob,"csv",false);
     AddStdHeaderStatCSV(mIdRepPtGlob,"NameAggreg",mPercStat);
 
+    mCompBlocInstr = new cIrbComp_Block(mPhProj,mNameBloc);
+    mCalBlocInstr =  & mCompBlocInstr->CalBlock();
+    mCompBlocInstr->AddImagesPoses(VectMainSet(0),false,true);
 
+
+    for (const auto & [aTimeS,aDataTS] : mCompBlocInstr->DataTS() )
+    {
+        ProcessOneBloc(aTimeS,aDataTS);
+    }
+
+
+
+
+
+    /*
     mTheBloc = mPhProj.ReadUnikBlocCam();
     std::vector<std::vector<cSensorCamPC *>>  aVVC = mTheBloc->GenerateOrientLoc(mPhProj,VectMainSet(0));
 
@@ -731,7 +751,7 @@ int cAppli_ReportBlock::Exe()
 
         DeleteAllAndClear(aVC);
     }
-
+*/
    // Add the stat for all pairs
    for (const auto & [aNameImage,aStatImage] : mMap1Image )
        CSV_AddStat(mIdRepPtGlob,aNameImage,aStatImage);
@@ -742,6 +762,8 @@ int cAppli_ReportBlock::Exe()
 
    // Add the stat for all the points
     CSV_AddStat(mIdRepPtGlob,"GlobAVG ",mStatGlobPt);
+    StdOut() << mStatGlobPt.Show("Pt-Pix",{50,85}) << "\n";
+
     if (mShow)
     {
 
@@ -776,13 +798,17 @@ int cAppli_ReportBlock::Exe()
                << "V-AMD" << aValueV;
           }
 
-           StdOut() << "\n";
-           AddOneReportCSV(mExtCernStat,Append(aValue3D,aValueH,aValueV));
+          StdOut() << "\n";
+          AddOneReportCSV(mExtCernStat,Append(aValue3D,aValueH,aValueV));
        }
     }
 
-   delete mTheBloc;
-   return EXIT_SUCCESS;
+    delete mCompBlocInstr;
+    StdOut() << "cIrbCal_BlockcIrbCal_Block\n";
+    return EXIT_SUCCESS;
+
+    delete mTheBloc;
+    return EXIT_SUCCESS;
 }
 
 /* ==================================================== */
