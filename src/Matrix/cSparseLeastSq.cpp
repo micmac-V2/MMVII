@@ -652,8 +652,8 @@ template<class Type> void cSparseLeasSqtAA<Type>::PutInTriplet(std::vector<cEige
 
 template<class Type> cDenseMatrix<Type> cSparseLeasSqtAA<Type>::V_tAA() const
 {
-   cDenseMatrix<Type> aRes(this->mNbVar,eModeInitImage::eMIA_Null);
-   const_cast<cSparseLeasSqtAA<Type>*>(this)->PutBufererEqInNormalMatrix();
+   cDenseMatrix<Type> aRes(this->mNbVar,eModeInitImage::eMIA_Null); // result, init to null matrix
+   const_cast<cSparseLeasSqtAA<Type>*>(this)->PutBufererEqInNormalMatrix(); // transferate in matrix the result "bufferized"
 
    for (auto & aLine : mtAA)
    {

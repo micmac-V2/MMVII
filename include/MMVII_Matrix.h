@@ -302,7 +302,7 @@ template <class Type> class cMatrix  : public cRect2
 
         // void TplCheckX(const cSparseVect & V) {}; template <class Type> class  cSparseVect
          ///  Check that aM1 * aM2 is valide
-      
+
          void TplCheckX(const cSparseVect<Type> & aV)  const
          {
             MMVII_INTERNAL_ASSERT_medium(aV.IsInside(Sz().x()) ,"Sparse Vector X-out matrix");
@@ -438,10 +438,11 @@ template <class Type> class cDenseMatrix : public cUnOptDenseMatrix<Type>
         cDenseMatrix Dup() const;
         static cDenseMatrix Identity(int aSz);  ///< return identity matrix
         static cDenseMatrix Diag(const tDV &);
-        static cDenseMatrix FromLines(const std::vector<tDV> &);  // Create from set of "line vector"
-        static cDenseMatrix MatLine(const tDV &);  // Create from set of "line vector"
-        static cDenseMatrix FromCols(const std::vector<tDV> &);  // Create from set of "line vector"
-        static cDenseMatrix MatCol(const tDV &);  // Create from set of "line vector"
+        static cDenseMatrix FromLines(const std::vector<tDV> &);  ///< Create from set of "line vector"
+        static cDenseMatrix MatLine(const tDV &);  ///< Create from set of "line vector"
+        static cDenseMatrix FromCols(const std::vector<tDV> &);  ///< Create from set of "line vector"
+        static cDenseMatrix MatCol(const tDV &);  ///< Create from set of "line vector"
+        static cDenseMatrix MatPerm(const std::vector<int> &); ///< Create matrix of permutation
         cDenseMatrix ClosestOrthog() const;  ///< return closest
 
         // static tDM  MatCol(const tDV & );
@@ -493,7 +494,7 @@ template <class Type> class cDenseMatrix : public cUnOptDenseMatrix<Type>
               */
         void MatMulInPlace(const tDM & aM1,const tDM & aM2);
 
-       
+
         // tDM  SymInverse() const;  ///< Inverse of symetric matrix
         void InverseInPlace(const tDM & aM);  ///< Put M-1 in this
         tDM  Inverse() const;  ///< Basic inverse
@@ -511,7 +512,10 @@ template <class Type> class cDenseMatrix : public cUnOptDenseMatrix<Type>
 
         double Unitarity() const; ///< test the fact that M is unatiry, basic : distance of Id to tM M
         cResulSymEigenValue<Type> SymEigenValue() const;
-        tRSVD  SVD() const;
+        /**  cannot waranty that, when matrix is direct, both orthog matrix are direct because order
+         *   of eigen value is fixed, but at least if PremMatDirect is true, the first one will be */
+
+        tRSVD  SVD(bool PremMatDirect=false) const;
 
         cResulQR_Decomp<Type>    QR_Decomposition() const;
         cResulRQ_Decomp<Type>    RQ_Decomposition() const;
@@ -536,16 +540,18 @@ template <class Type> class cDenseMatrix : public cUnOptDenseMatrix<Type>
         void SelfTransposeIn() ;  ///< transposate in this, square only
         tDM  Transpose() const;  ///< Put transposate in M2
 
-          
+
         void SelfLineInverse() ;  ///< line inversion   (L1 L2 .. LN) =>   (LN ... L2 L1) ,  used for RQ decomposition (QR => RQ)
         tDM  LineInverse() const;  ///< cont version of SelfLineInverse
         void SelfColInverse() ;  ///< colum inversion   ,  used for RQ decomposition (QR => RQ)
 
         void SelfLineChSign(int aNumL); ///<  chang signe of line aNumL, used in QR/RQ to normalize with diag>0 of R
         void SelfColChSign(int aNumC);  ///<  chang signe of column aNumC, used in QR/RQ to normalize with diag>0 of R
-         
+
         double Diagonalicity() const; ///< how much close to a diagonal matrix, square only ,
         Type   Det() const;  ///< compute the determinant, not sur optimise
+        Type   Trace() const;  ///< compute the trace, quite basic
+
 
         void ChangSign(); ///< Multiply by -1
         void SetDirectBySign(); ///< Multiply by -1 if indirect
@@ -558,6 +564,8 @@ template <class Type> class cDenseMatrix : public cUnOptDenseMatrix<Type>
         Type MulLineElem(int  aX,const tDV &)const override;
         void  Add_tAB(const tDV & aCol,const tDV & aLine) override;
         void  Add_tAA(const tDV & aColLine,bool OnlySup=true) override;
+        void  WeightedAdd_tAA(const tDV & aColLine,const tVal& aW,bool OnlySup=true);
+
         void  Sub_tAA(const tDV & aColLine,bool OnlySup=true) override;
 
         void  Weighted_Add_tAA(Type aWeight,const tDV & aColLine,bool OnlySup=true) override;
@@ -575,10 +583,12 @@ template <class Type> class cDenseMatrix : public cUnOptDenseMatrix<Type>
 
 };
 
+typedef cDenseMatrix<tREAL8> tDMatR;
+
 template <class Type> class cResulEigenDecomp
 {
       public :
-         cResulEigenDecomp<Type>(int aN);
+         cResulEigenDecomp(int aN);
          cDenseMatrix<Type>  mEigenVec_R;  ///< real part
          cDenseMatrix<Type>  mEigenVec_I;  ///< imaginary part
 
@@ -728,6 +738,8 @@ template <class Type> class cStrStat2
        cStrStat2(int aSz);
        /// Add a vectors to stats
        void Add(const cDenseVect<Type> & );
+       /// Add a vectors to stats
+       void WeightedAdd(const cDenseVect<Type> &,const Type & aW );
        /// Make average (instead of sums) and centered (for cov)
        void Normalise(bool CenteredAlso=true);
        ///  Compute eigen values
@@ -797,23 +809,29 @@ template <class TypeWeight,class TypeVal=TypeWeight> class cWeightAv
 
 
         void Add(const TypeWeight & aWeight,const TypeVal & aVal);
+        void Add(const cWeightAv<TypeWeight,TypeVal> & aWAwg);
+
         TypeVal Average() const;
         TypeVal Average(const TypeVal  & aDef) const;
         const TypeVal & SVW() const;  /// Accessor to sum weighted vals
         const TypeWeight & SW() const;  /// Accessor to sum weighted vals
-        const long Nb() const;  /// Accessor to number of elements
+        long Nb() const;  /// Accessor to number of elements
         void  Reset();
+        void AddData(const cAuxAr2007 &);
     private :
         TypeWeight  mSW;   ///< Som of    W
         TypeVal     mSVW;   ///< Som of    VW
         long        mNb;    ///< Number of elements
 };
+typedef  cWeightAv<tREAL8,tREAL8> tWArr;
+template <class TypeWeight,class TypeVal>  void AddData(const cAuxAr2007 &,cWeightAv<TypeWeight,TypeVal>&);
 
 /** Class for making standard star on residuals */
 class cStdStatRes
 {
      public :
         cStdStatRes();
+        cStdStatRes(const std::vector<tREAL8> &);
 
         void Add(tREAL8 aVal);
 
@@ -825,7 +843,14 @@ class cStdStatRes
         tREAL8  Min() const;
         tREAL8  Max() const;
         int     NbMeasures() const;
+        tREAL8  ErrAtKth(int aK) const;
+        tREAL8  ErrAtKthLast(int aK) const;
 
+        int IndVal(tREAL8 aV,bool SVP=false) const;
+        int IndMax() const;
+
+        std::string Show(const std::string & aPrefix,const std::vector<int> & aPerc) const;
+        const std::vector<tREAL8>  & VRes() const;
      private :
         mutable std::vector<tREAL8>       mVRes;
         cWeightAv<tREAL8,tREAL8>  mAvgDist;
@@ -1112,30 +1137,48 @@ template<class Type> cDenseVect<Type> EigenSolveLsqGC
                                            int   aNbVar
                                       );
 
-class cParamCtrNLsq
+/** @brief class cParamCtrWeightedLSq : Parameter of control for Non Linear Square
+ *
+ *     Make a decision of stop based on evolution of residual.
+ */
+
+class cParamCtrWeightedLSq
 {
      public :
         /// Memorize a new error , and eventualy indicate statbility
         bool StabilityAfterNextError(double) ;
-        cParamCtrNLsq();
+
+        /// constructor , default parameters for compatibility
+        cParamCtrWeightedLSq(tREAL8 aErrRelStop=1e-4,int aNbIterMax=10,int aNbIterMin=2);
      private :
-        double GainRel(int aK1,int aK2) const;  // ex GainRel(1,2)
-        inline double ValBack(int aK) const;  // ex GainRel(1,2)
-        std::vector<double> mVER;
+        inline double ValBack(int aK) const;  //< K the last value,  ex : back for K=0
+        double GainRel(int aK1,int aK2) const;  // relative gain for ValBack K1/K2
+
+        std::vector<double> mVER;  //< Vector of accumumated errors
+
+        tREAL8   mErrRelStop;  //< theshold for residual
+        int      mNbIterMax;   //< number max of iter after
+        int      mNbIterMin;   //< number in of iter after
+
 };
 
+/**  Parameter for "global" control of optimizers, used for
+ *   2 step optimization :
+ *      - first : initiall robust solution with Ransac
+ *      - second : refinement with weighted least sqaures
+ */
 class  cParamCtrlOpt
 {
     public :
-        cParamCtrlOpt(const cParamRansac &,const cParamCtrNLsq &);
+        cParamCtrlOpt(const cParamRansac &,const cParamCtrWeightedLSq &);
+
         const cParamRansac  & ParamRS() const;
-        const cParamCtrNLsq & ParamLSQ() const;
+        const cParamCtrWeightedLSq & ParamLSQ() const;
         static cParamCtrlOpt  Default();
     private :
-        cParamRansac  mParamRS;
-        cParamCtrNLsq mParamLSQ;
+        cParamRansac  mParamRS;  //< Parameter for the ransac part
+        cParamCtrWeightedLSq mParamLSQ;
 };
-
 
 
 

@@ -29,9 +29,16 @@ cOneLineAntiParal::cOneLineAntiParal() :
 {
 }
 
+std::string cOneLineAntiParal::NameLine() const
+{
+    return  mNameLine.value_or(MMVII_NONE);
+}
+
+
 void AddData(const cAuxAr2007 & anAux,cOneLineAntiParal & anEx)
 {
       AddData(cAuxAr2007("Image",anAux),anEx.mNameIm);
+      AddOptData(anAux,"NameLine",anEx.mNameLine);
       AddData(cAuxAr2007("P1",anAux),anEx.mSeg.P1());
       AddData(cAuxAr2007("P2",anAux),anEx.mSeg.P2());
       AddData(cAuxAr2007("ParalAng",anAux),anEx.mAngDif);
@@ -846,6 +853,8 @@ void cSet2D3D::AddPair(const cPt2dr& aPIm,const cPt3dr& aPGround,double aWeight)
 
 
 const cSet2D3D::tCont2D3D &  cSet2D3D::Pairs() const { return mPairs;}
+cSet2D3D::tCont2D3D &  cSet2D3D::Pairs() { return mPairs;}
+
 
 const cWeightedPair2D3D &  cSet2D3D::KthPair(int aK) const {return mPairs.at(aK);}
 size_t cSet2D3D::NbPair() const {return mPairs.size();}
