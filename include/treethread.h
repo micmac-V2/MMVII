@@ -10,6 +10,24 @@
 namespace MMVII
 {
 
+/**  Add MPD :  the class cBaseTreeThreads is added
+
+class cBaseTreeThreads
+{
+    public :
+         static int  NbTreadsActive() {return InternalCpt();}
+    protected :
+         cBaseTreeThreads () { InternalCpt()++; }
+         ~cBaseTreeThreads() { InternalCpt()--; }
+    private :
+         static int & InternalCpt()
+         {
+             static int mCpt=0;
+             return mCpt;
+         }
+};
+*/
+
 
 /*
  * TreeThreads: a class to execute tasks in parallel (multi threading), based on a tree dependancy order.

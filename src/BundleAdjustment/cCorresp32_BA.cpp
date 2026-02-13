@@ -82,6 +82,7 @@ void cCorresp32_BA::OneIteration()
 
      for (const auto & aCorresp : mSetCorresp.Pairs())
      {
+        //  StdOut() << "WWWWW " << aCorresp.mWeight << "\n";
          if (mSensor->PairIsVisible(aCorresp))
          {
             // structure for points substistion, in mode test they are free
@@ -103,8 +104,14 @@ void cCorresp32_BA::OneIteration()
 
             mSensor->PushOwnObsColinearity(aVObs,aCorresp.mP3); // For PC cam dd all matrix coeff og current rot
 
-            mSys->AddEq2Subst(aStrSubst,mEqColinearity,aVIndGlob,aVObs);
+            // StdOut() << "WWWWWWWWWWWWW=" << aCorresp.mWeight << "\n";
+            cResidualWeighter<tREAL8> aWeighter(aCorresp.mWeight);
+            mSys->AddEq2Subst(aStrSubst,mEqColinearity,aVIndGlob,aVObs,aWeighter);
             mSys->AddObsWithTmpUK(aStrSubst);
+         }
+         else
+         {
+               // StdOut() << "Hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh " <<  aCorresp.mP2 << "\n";
          }
      }
 
