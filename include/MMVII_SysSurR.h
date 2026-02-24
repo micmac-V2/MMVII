@@ -277,7 +277,7 @@ template <class Type> class cResolSysNonLinear : public cREAL8_RSNL
           typedef cResidualWeighter<Type>                       tResidualW;
           typedef cObjWithUnkowns<Type>                         tObjWUk;
 
-          /// basic constructor, using a mode of matrix + a solution  init
+           /// basic constructor, using a mode of matrix + a solution  init
           cResolSysNonLinear(eModeSSR,const tDVect & aInitSol);
           ///  constructor  using linear system, allow finer control
           cResolSysNonLinear(tLinearSysSR *,const tDVect & aInitSol);
