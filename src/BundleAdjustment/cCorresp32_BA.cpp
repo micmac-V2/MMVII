@@ -32,9 +32,11 @@ cCorresp32_BA::cCorresp32_BA
     mSzBuf         (100),
     mEqColinearity (mSensor->SetAndGetEqColinearity(true,mSzBuf,false))
 {
-
+// StdOut() << "cCorresp32_BA::cCorresp32_BAcCorresp32_BA::cCorresp32_BAcCorresp32_BA::cCorresp32_BA\n"; getchar();
     for (auto & anObj : mSensor->GetAllUK())
+    {
         mSetInterv.AddOneObj(anObj); // #DOC-AddOneObj
+    }
     //   mSetInterv.AddOneObj(m CamPC); // #DOC-AddOneObj
     //   mSetInterv.AddOneObj(m Calib);  // #DOC-AddOneObj
 
@@ -82,10 +84,9 @@ void cCorresp32_BA::OneIteration()
 
      for (const auto & aCorresp : mSetCorresp.Pairs())
      {
-// StdOut() << "aCorrespaCorrespaCorrespaCorresp  " << aCorresp.mP2 << " " << aCorresp.mP3 << "\n";
+        //  StdOut() << "WWWWW " << aCorresp.mWeight << "\n";
          if (mSensor->PairIsVisible(aCorresp))
          {
-// StdOut() << "aBA.OneIterationaBA.OneIterationaBA.OneIterationaBA.OneIterationaBA.OneIterationaBA.OneIteration\n";
             // structure for points substistion, in mode test they are free
             cSetIORSNL_SameTmp<tREAL8>   aStrSubst
                                          (
@@ -105,7 +106,9 @@ void cCorresp32_BA::OneIteration()
 
             mSensor->PushOwnObsColinearity(aVObs,aCorresp.mP3); // For PC cam dd all matrix coeff og current rot
 
-            mSys->AddEq2Subst(aStrSubst,mEqColinearity,aVIndGlob,aVObs);
+            // StdOut() << "WWWWWWWWWWWWW=" << aCorresp.mWeight << "\n";
+            cResidualWeighter<tREAL8> aWeighter(aCorresp.mWeight);
+            mSys->AddEq2Subst(aStrSubst,mEqColinearity,aVIndGlob,aVObs,aWeighter);
             mSys->AddObsWithTmpUK(aStrSubst);
          }
          else
