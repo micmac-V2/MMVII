@@ -6,6 +6,7 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
+#include <memory>
 
 namespace MMVII
 {
@@ -155,7 +156,7 @@ void TreeThreads<T>::Exec(T root, int nbThread)
     for (int i = 0; i < nbThread; ++i) 													// We start nbThread and each will execute ExecLoop
         threadList.emplace_back(std::thread(&TreeThreads::ExecLoop, this));
     for (auto& t : threadList)
-                t.join();                       												// We wait that all threads are finished
+        t.join();                       												// We wait that all threads are finished
 }
 
 template <class T>
@@ -177,7 +178,7 @@ void TreeThreads<T>::ExecLoop()
         node->finalize();           // do the job
         // Atomically decrement parent not-terminated-child count and return true if this was the last terminated child
         if (node->isLastChild()) {
-                        // Protect the mReadyQueue and add this node's parent: all its childs have terminated
+            // Protect the mReadyQueue and add this node's parent: all its children have terminated
             std::lock_guard<std::mutex> lock(mMutex_ReadyQueue);
             mReadyQueue.push_back(node->parent());
         }
@@ -187,8 +188,8 @@ void TreeThreads<T>::ExecLoop()
 
 /* NB:
  * The readyQueue may be empty between mReadyQueue.pop_front() and mReadyQueue.push_back(node->parent) and
- *   this we'll stop all others threads.
- * But we will add one and oly one node to readyQueue and it will be executed by this thread in the following
+ *   then all others threads will be stopped (terminated).
+ * But we will add one and only one node to readyQueue and it will be executed by this current thread in the following
  *   iteration of the loop.
  * Hence, the number of remaining nodes can't be greater than the number of threads, so we always garantee
  *   a maximal usage of the threads.
