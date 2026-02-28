@@ -480,6 +480,10 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         std::string AppliSpecValue(const std::string & ) const;
 
 
+        template <typename T> inline T ValWithDef(const T & aVar,const T & aDefVal)
+        {
+            return IsInit(&aVar) ? aVar : aDefVal;
+        }
 
         template <typename T> inline void SetIfNotInit(T & aVar,const T & aValue)
         {

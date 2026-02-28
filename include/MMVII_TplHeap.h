@@ -287,7 +287,7 @@ template <class Type,class Compare> class cKBestValue
       /// number of element currently stored
       int Sz() const {return  mHeap.Sz();}
       /// vector  of element currently stored
-      const std::vector<Type> & Elements() {return mHeap.Elements();}
+      const std::vector<Type> & Elements() const {return mHeap.Elements();}
       /// Heap used for implementation
       tHeap & Heap() {return  mHeap ;}
 
