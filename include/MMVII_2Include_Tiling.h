@@ -3,6 +3,7 @@
 
 #include "MMVII_Geom2D.h"
 #include "MMVII_Geom3D.h"
+#include "MMVII_MeasuresIm.h"
 
 namespace MMVII
 {
@@ -248,18 +249,27 @@ FakeUseIt(aDistWMargin);
                       if (   (this->mIndIsBorder.at(aInd))  // border box cannot be bounded  by DIAM
                           || aPrimG2.InfEqDist(this->PIndex2MidleBox(aPInt),aDistWMargin)
                         )
-                      {
+                        {
                          // int anInd = this->PInd2II(aPInt);
-                         for (auto & anObj : mVTiles.at(aInd))   // Parse all obj of each tile
-                         {
-
+                           for (auto & anObj : mVTiles.at(aInd))   // Parse all obj of each tile
+                           {
                              if (aPrimG2.InfEqDist(anObj.GetPrimGeom(mArgPG),aDist))
                                 aRes.push_back(&anObj);
-                         }
-                      }
+                           }
+                        }
                  }
                  return aRes;
            }
+
+
+       template <class tPrimG2> std::list<Type*> GetNNearestObj
+           (int aNb,const tPrimG2 &aPrimG2,tREAL8 aGuessDist=-1,tREAL8 aFactMul=-1)
+       {
+              std::list<Type*> aRes;
+
+              return aRes;
+       }
+
 
 
 
@@ -298,6 +308,9 @@ template <const int Dim> class cPointSpInd
     private :
          tPrimGeom  mPt;
 };
+
+
+
 
 
 /**  Class for geometrically indexing the lidars (on 2D point) for patches creation , used
@@ -345,6 +358,8 @@ template <const int TheDim> class cGeneratePointDiff
            tTiling  mTiling;
            tREAL8   mDistMin;
 };
+
+
 
 /** IF the object aVPt have been ordered in some decreasing order, this
 filter return a set of point that are local maxima in a neighbouhood of size aDist */
