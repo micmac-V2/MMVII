@@ -17,6 +17,13 @@
 */
 
 
+namespace MMVII
+{
+
+
+
+}
+
 /* ======================================== */
 /*                                          */
 /*     cUnOrderedPair<Type>                   */
@@ -33,6 +40,16 @@ public:
     {
         return std::hash<std::string>()(s.V1()) ^ std::hash<std::string>()(s.V2());
     }
+};
+template<>
+class hash<MMVII::cTripletName> {
+public:
+    size_t operator()(const MMVII::cTripletName &a3) const
+    {
+        return std::hash<std::string>()(a3.FullName());
+    }
+
+
 };
 }
 
@@ -416,7 +433,7 @@ template <class Type> cSelector<Type> Str2Interv(const std::string & aStr)
             aV2 = cStrIO<Type>::FromStr(aVI[aK+1].first);
          aRes = aRes || GenIntervalSelector(aV1,aV2,aVI[aK].second,aVI[aK+1].second);
     }
-     
+
 
     return aRes;
 }
@@ -429,7 +446,7 @@ template <class Type> cSelector<Type> Str2Interv(const std::string & aStr)
 
 template <class Type> Type cIdTransformator<Type>::Transfo(const Type & aVal) const
 {
-        return aVal;
+    return aVal;
 }
 
 /******************************************************************/
@@ -443,8 +460,8 @@ template <class Type> Type cIdTransformator<Type>::Transfo(const Type & aVal) co
 
 
 cPatternTransfo::cPatternTransfo(const std::string & aPat,const std::string & aSubst) :
-        mPat  (aPat),
-        mSubst (aSubst)
+    mPat  (aPat),
+    mSubst (aSubst)
 {
 }
 
@@ -455,7 +472,7 @@ cPatternTransfo::cPatternTransfo(const std::vector<std::string> & aVec) :
           GetDef(aVec,1,std::string("$&"))
      )
 {
-        // JOE
+    // JOE
     if ( (aVec.size()!=0) && (aVec.size() != 2))
        MMVII_UnclasseUsEr("cPatternTransfo bad size");
 }
@@ -525,7 +542,7 @@ tNameSelector  AllocRegex(const std::string& aPat)
 
 bool  MatchRegex(const std::string& aName,const std::string& aPat)
 {
-         return AllocRegex(aPat).Match(aName);
+     return AllocRegex(aPat).Match(aName);
 }
 
 std::string ReplacePattern(const std::string & aPattern,const std::string & aSubst,const std::string & aString)
@@ -538,7 +555,7 @@ std::string ReplacePattern(const std::string & aPattern,const std::string & aSub
    std::string aRes ="";
    if (aPattern==".*")
    {
-           // tricky to we replace the univ pattern by the string that macth itself perfectly !!
+       // tricky to we replace the univ pattern by the string that macth itself perfectly !!
          aRes=  std::regex_replace(aString,std::regex(aString),aSubst, std::regex_constants::format_no_copy);
    }
    else
@@ -600,8 +617,8 @@ void BenchSelector(cParamExeBench & aParam,const std::string & aDir)
 
     cSelector<int> aS5 = aS1 || aS2 || aS3 || aS4;
     cSelector<int> aS6 = Str2Interv<int>("],5] [8,9[ ]12,15] ]17,]");
-   
-    
+
+
     cExtSet<int> aSet5; // Test equivalence Set/Sel
     cExtSet<int> aSet6; // Test filter
     for (int aK=0 ; aK<20 ; aK++)
@@ -639,7 +656,7 @@ void BenchSelector(cParamExeBench & aParam,const std::string & aDir)
         MMVII_INTERNAL_ASSERT_bench(aS2.Match(aK)== ((aK>=8)&&(aK<9)),"Selector");
         MMVII_INTERNAL_ASSERT_bench(aS3.Match(aK)== ((aK>12)&&(aK<=15)),"Selector");
         MMVII_INTERNAL_ASSERT_bench(aS4.Match(aK)== (aK>17),"Selector");
-        
+
         MMVII_INTERNAL_ASSERT_bench(aS5.Match(aK)==aS6.Match(aK),"Selector");
 
         MMVII_INTERNAL_ASSERT_bench(aS5.Match(aK)==aSet5.Match(aK),"Selector");
@@ -790,9 +807,9 @@ template <class Type>  void  cExtSet<Type>::Filter(const cSelector<Type> & aSel,
 
 template <class Type>  void  cExtSet<Type>::Filter(const cSelector<Type> & aSel)
 {
-        cIdTransformator<Type> aTransfoId;
+    cIdTransformator<Type> aTransfoId;
 
-        Filter(aSel,aTransfoId);
+    Filter(aSel,aTransfoId);
 }
 
 
@@ -1021,6 +1038,8 @@ INSTANTIATE_SET(void *)
 INSTANTIATE_SET(const void *)
 INSTANTIATE_SET(std::string)
 INSTANTIATE_SET(tNamePair)
+INSTANTIATE_SET(cTripletName)
+
 
 /* ======================================================= */
 /*                                                         */
@@ -1219,6 +1238,15 @@ void BenchSet(cParamExeBench & aParam,const std::string & aDir)
 {
     if (! aParam.NewBench("Set")) return;
 
+    {
+        cExtSet<cTripletName> aS3;
+        aS3.Add(cTripletName("b","a","c"));
+        aS3.Add(cTripletName());
+        aS3.Add(cTripletName("a","b","c"));
+
+        MMVII_INTERNAL_ASSERT_bench(aS3.size()==2,"cExtSet<cTripletName>");
+    }
+
     cMMVII_Appli &  anAp = cMMVII_Appli::CurrentAppli();
 
     TplBenchSet<int>        (aDir);
@@ -1233,7 +1261,7 @@ void BenchSet(cParamExeBench & aParam,const std::string & aDir)
        aTest.Add(tNamePair("b","a"));
        aTest.Add(tNamePair("c","d"));
        aTest.Add(tNamePair("d","c"));
-       
+
        MMVII_INTERNAL_ASSERT_bench(aTest.size()==2,"BenchSet");
        std::string aNameFile = anAp.TmpDirTestMMVII() + "TestRel."+GlobTaggedNameDefSerial();
        SaveInFile(aTest,aNameFile);
@@ -1243,6 +1271,61 @@ void BenchSet(cParamExeBench & aParam,const std::string & aDir)
        MMVII_INTERNAL_ASSERT_bench(aT2.Equal(aTest),"BenchSet");
     }
     aParam.EndBench();
+}
+
+
+/* ******************************************************* */
+/*                                                         */
+/*                       cTripletName                      */
+/*                                                         */
+/* ******************************************************* */
+
+
+cTripletName::cTripletName(const std::string & aN1,const std::string & aN2,const std::string & aN3) :
+    mNames {aN1,aN2,aN3}
+{
+    std::sort(mNames.begin(),mNames.end());
+}
+cTripletName::cTripletName() :
+    cTripletName("","","")
+{
+
+}
+
+bool cTripletName::operator < (const cTripletName& aTri) const
+{
+    for (size_t aK=0 ; aK<mNames.size() ; aK++)
+    {
+        if (mNames[aK] < aTri.mNames[aK])
+            return true;
+        else  if (mNames[aK] >aTri.mNames[aK])
+            return false;
+    }
+    return false;
+}
+bool cTripletName::operator == (const cTripletName& aTri) const
+{
+    for (size_t aK=0 ; aK<mNames.size() ; aK++)
+    {
+        if (mNames[aK] != aTri.mNames[aK])
+            return false;
+    }
+    return true;
+}
+
+std::string cTripletName::FullName() const
+{
+    return mNames.at(0) +"#@#" +  mNames.at(1) +"#@#" +  mNames.at(2) ;
+}
+
+void AddData(const cAuxAr2007 & anAux,cTripletName & a3)
+{
+
+    AddData(cAuxAr2007("N1",anAux),a3.mNames[0]);
+    AddData(cAuxAr2007("N2",anAux),a3.mNames[1]);
+    AddData(cAuxAr2007("N3",anAux),a3.mNames[2]);
+
+
 }
 
 
