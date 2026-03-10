@@ -419,6 +419,10 @@ void cSensorCamPC::SetCenter(const cPt3dr & aC)
      SetPose(tPose(aC,Orient()));
 }
 
+std::vector<cObjWithUnkowns<tREAL8> *>  cSensorCamPC::GetAllUKPose()
+{
+    return std::vector<cObjWithUnkowns<tREAL8> *> {this};
+}
 
 #if (1)
 std::vector<cObjWithUnkowns<tREAL8> *>  cSensorCamPC::GetAllUK()
@@ -588,8 +592,13 @@ const cPt3dr * cSensorCamPC::CenterOfPC() const { return  & Center(); }
 cCalculator<double> * cSensorCamPC::CreateEqColinearity(bool WithDerives,int aSzBuf,bool ReUse)
 {
    if (mInternalCalib==nullptr)
-      return nullptr;
+      return nullptr; //EqColinearityCamProj(WithDerives,aSzBuf,ReUse);
    return mInternalCalib->EqColinearity(WithDerives,aSzBuf,ReUse);
+}
+
+cCalculator<double> * cSensorCamPC::CreateEqColinearityOnBundle(bool WithDerives,int aSzBuf,bool ReUse)
+{
+    return EqColinearityOnBundle(WithDerives,aSzBuf,ReUse);
 }
 
 cCalculator<double> * cSensorCamPC::EqProjSeg()
