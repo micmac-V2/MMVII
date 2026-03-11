@@ -2,6 +2,7 @@
 #define _MMVII_Tpl_GraphAlgo_EnumCycle_H_
 
 #include "MMVII_Tpl_GraphStruct.h"
+#include "MMVII_Tpl_GraphAlgo_SPCC.h"
 
 
 
