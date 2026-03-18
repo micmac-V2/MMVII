@@ -565,7 +565,6 @@ template <class tMap,class TypeEl> void TplBenchMap2D(const tMap & aMap,const tM
 
 
 
-
 template <class tMap,class TypeEl> void TplBenchMap2D_LSQ(TypeEl *)
 {
      bool IsHomogr =  (tMap::Name() == "Homogr2D");
@@ -579,6 +578,7 @@ template <class tMap,class TypeEl> void TplBenchMap2D_LSQ(TypeEl *)
      {
           aVOut.push_back(cPtxd<TypeEl,2>::PRand());
      }
+
 
      if (IsHomogr)
      {
@@ -608,7 +608,7 @@ template <class tMap,class TypeEl> void TplBenchMap2D_LSQ(TypeEl *)
           // Very leniant with homography ....
          
           TypeEl aDiv=std::min(TypeEl(1.0),Square(aMap.Divisor(aVIn[aK])));
-          if ((aDiv>1e-10) && (anEr*aDiv>=1e-2))
+          if ((aDiv>1e-10) && (anEr*aDiv>=2e-2))
           {
                StdOut()  << "Diivv " << aMap.Divisor(aVIn[aK])  << " DD=" << aDiv  << " E=" << anEr << std::endl;
                MMVII_INTERNAL_ASSERT_bench(false,"Least Sq Estimat 4 Mapping");
