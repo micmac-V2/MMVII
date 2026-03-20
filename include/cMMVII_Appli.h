@@ -476,6 +476,15 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         //  In some case, init can be complicated, with many default case
         void  ShowAllParams() ;
 
+        /// Access to mMapAppliSpecParam
+        std::string AppliSpecValue(const std::string & ) const;
+
+
+        template <typename T> inline T ValWithDef(const T & aVar,const T & aDefVal)
+        {
+            return IsInit(&aVar) ? aVar : aDefVal;
+        }
+
         template <typename T> inline void SetIfNotInit(T & aVar,const T & aValue)
         {
             if (! IsInit(&aVar))
@@ -706,6 +715,9 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         cMultipleOfs                              mStdCout;     ///< Standard Ouput (File,Console, both or none)
         std::string                               mParamStdOut; ///< Users value
         int                                       mSeedRand;    ///< Seed for random generator
+        std::vector<std::string>                  mVecAppliSpecParam; ///< To allow each part of code  some dyn behave
+        std::map<std::string,std::string>         mMapAppliSpecParam; ///< Mat created from mVecAppliSpecParam
+     //   std::string                               mAppliSpecParam;
         bool                                      mExtandPattern;  ///<  If false Interpret the pattern as single  , def=true !!
         // Control position/hierachy of call
         int                                       mNumCallInsideP; ///< Numero of Appli in the process of creation
@@ -789,6 +801,8 @@ std::vector<std::string> VInt2VStrPerc(const std::vector<int> & aVPerc,const cSt
 const std::string & GlobVectNameDefSerial() ; ///< of current appli
 const std::string & GlobTaggedNameDefSerial() ; ///< of current appli
 
+/// Access to AppliSpecValue of cMMVII_Appli::CurrentAppli()
+std::string AppliSpecValue(const std::string & );
 
 bool    IsInit(const void *);  ///< Call IsInit on the appli def
 

@@ -1,11 +1,13 @@
 #ifndef TREETHREAD_H
 #define TREETHREAD_H
 
+#include "MMVII_Error.h"
 #include <vector>
 #include <deque>
 #include <thread>
 #include <mutex>
 #include <atomic>
+#include <memory>
 
 namespace MMVII
 {
@@ -34,10 +36,12 @@ class cBaseTreeThreads
  *
  * Usage:
  *
- * User has to implement a tree-like structure based upon his own "Node" type which must implement this two methods:
+ * User has to implement a tree-like structure based upon his own "Node" type which must implement this three methods:
  *  - void Node::finalize()  :
  *      code to be executed when all of its depandancies have been executed (i.e. children nodes finalize(), none if this node is a leaf)
- *  -  container<NodePtr> Node::depends()  (or container<NodePtr>& Node::depends() or const container<NodePtr>& Node::depends() :
+ *  - bool Node::isTerminalNode() const :
+ *      must return true is this node is terminal (i.e. no child, no dependancy) and false otherwise.
+ *  - container<NodePtr> Node::depends()  (or container<NodePtr>& Node::depends() or const container<NodePtr>& Node::depends() :
  *      must return any forward-iterable container containing pointer-like elements to nodes upon which this node depends.
  *
  * Minimal example 1:
@@ -47,6 +51,7 @@ class cBaseTreeThreads
  * >      typedef MyNode* MyNodePtr;
  * >      MyNode( ... ) { ... }
  * >      void finalize() { ... }
+ * >      bool isTerminalNode() { return mChildren.size() == 0; }
  * >      const std::vector<MyNodePtr>& depends() const {return mChildren;}
  * >  private:
  * >      std::vector<MyNodePtr> mChildren;		 // Must be filled somwhere ...
@@ -59,6 +64,7 @@ class cBaseTreeThreads
  * >      typedef std::shared_ptr<MyNode> MyNodePtr;
  * >      MyNode(..) {...}
  * >      void finalize() { ... }
+ * >      bool isTerminalNode() { return mChildren.size() == 0; }
  * >      const std::list<MyNodePtr>& depends() const {return mChildren;}
  * >  private:
  * >      std::list<MyNodePtr> mChildren;        // Must be filled somwhere ...
@@ -113,10 +119,13 @@ private:
         // If the node has no dependancy (leaf) it will be added to the ready to execute queue
         void descend(TreeThreads *tt, PNode me)
         {
-            for (const auto& userChild: mUserNodePtr->depends()) {
-                auto child = std::make_shared<Node>(userChild,me);
-                child->descend(tt, child);
-                mChildrenToWait ++;
+            if (! mUserNodePtr->isTerminalNode()) {
+                for (const auto& userChild: mUserNodePtr->depends()) {
+                    MMVII_INTERNAL_ASSERT_strong(userChild,"TreeThreads: child of non terminal node is null");
+                    auto child = std::make_shared<Node>(userChild,me);
+                    child->descend(tt, child);
+                    mChildrenToWait ++;
+                }
             }
             if (mChildrenToWait == 0)
                 tt->mReadyQueue.push_back(me);
@@ -155,7 +164,7 @@ void TreeThreads<T>::Exec(T root, int nbThread)
     for (int i = 0; i < nbThread; ++i) 													// We start nbThread and each will execute ExecLoop
         threadList.emplace_back(std::thread(&TreeThreads::ExecLoop, this));
     for (auto& t : threadList)
-                t.join();                       												// We wait that all threads are finished
+        t.join();                       												// We wait that all threads are finished
 }
 
 template <class T>
@@ -177,7 +186,7 @@ void TreeThreads<T>::ExecLoop()
         node->finalize();           // do the job
         // Atomically decrement parent not-terminated-child count and return true if this was the last terminated child
         if (node->isLastChild()) {
-                        // Protect the mReadyQueue and add this node's parent: all its childs have terminated
+            // Protect the mReadyQueue and add this node's parent: all its children have terminated
             std::lock_guard<std::mutex> lock(mMutex_ReadyQueue);
             mReadyQueue.push_back(node->parent());
         }
@@ -187,8 +196,8 @@ void TreeThreads<T>::ExecLoop()
 
 /* NB:
  * The readyQueue may be empty between mReadyQueue.pop_front() and mReadyQueue.push_back(node->parent) and
- *   this we'll stop all others threads.
- * But we will add one and oly one node to readyQueue and it will be executed by this thread in the following
+ *   then all others threads will be stopped (terminated).
+ * But we will add one and only one node to readyQueue and it will be executed by this current thread in the following
  *   iteration of the loop.
  * Hence, the number of remaining nodes can't be greater than the number of threads, so we always garantee
  *   a maximal usage of the threads.
@@ -229,6 +238,7 @@ public:
     // Needed methods for TreeThreads
     void finalize();
     const std::vector<PNode>& depends() const {return mChildren;}
+    bool isTerminalNode() const { return mChildren.size() == 0;}
     //  End
 
 
