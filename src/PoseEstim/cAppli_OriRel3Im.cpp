@@ -791,7 +791,7 @@ void cAppli_OriRelTripletsOfIm::DoTripletOf1Image()
         delete anOri3;
     }
     SaveInFile(aVData,mPhProj.OriRel_OrientAllTripletsOf1Image(mIm1,false));
-    SaveInFile(aSaveNP,mPhProj.OriRel_DirOfImage(mIm1,false)+"toto-tata.xml");
+    SaveInFile(aSaveNP,mPhProj.OriRel_NameVirtualTieP(mIm1,false));
 }
 
 int cAppli_OriRelTripletsOfIm::Exe()

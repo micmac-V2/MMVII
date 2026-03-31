@@ -1558,6 +1558,17 @@ std::string cPhotogrammetricProject::OriRel_NameOriPair2Images
 
    return  OriRel_DirOfImage(aNameIm1,isIn) + "OriRel_Pair" + aNameIm2 + "." + aPost;
 }
+
+std::string cPhotogrammetricProject::OriRel_NameVirtualTieP
+            (
+                const std::string&aNameIm1,
+                bool isIn
+             ) const
+{
+   return  OriRel_DirOfImage(aNameIm1,isIn) + "VirtualTiePoints." + PostF_DumpFiles;
+}
+
+
         //  =============  Instrument bloc =================
 
 static const std::string  PREFIX_RIG_BL = "FileRB_";

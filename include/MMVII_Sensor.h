@@ -633,6 +633,8 @@ class cPhotogrammetricProject : public cIPhProj
     /// Name of folder for relative orientation of 1 image (indiv file + pairs + triplets)
     std::string OriRel_DirOfImage(const std::string& aNameIm,bool isIn) const;
 
+
+
     /// Name of file for all images in the set
     std::string OriRel_NameAllImages(bool isIn, std::string aPost="" ) const;
     /// Name of file for all pairs of 1 image (only pairs, not orientation)
@@ -644,7 +646,8 @@ class cPhotogrammetricProject : public cIPhProj
 
     /// Name of file for all pairs of 1 image (only pairs, not orientation)
     std::string OriRel_NameAllTripletsOf1Image(const std::string&aNameIm1,bool isIn, std::string aPost="") const;
-
+    /// Name of file where the "5" (or any) virtual tie point are saved
+    std::string OriRel_NameVirtualTieP(const std::string& aNameIm,bool isIn) const;
     /// Name of file for all pairs of 1 image (only pairs, not orientation)
     std::string OriRel_OrientAllTripletsOf1Image(const std::string&aNameIm1,bool isIn, std::string aPost="") const;
          //===================================================================
