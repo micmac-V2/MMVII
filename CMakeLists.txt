@@ -40,10 +40,15 @@ endif()
 
 
 #######################################################
-##        Options
+##        MMV1 link
 #######################################################
 
 option(MMVII_KEEP_LIBRARY_MMV1 "If ON, MMVII will use legacy MMV1 code" OFF)
+set(MMV1_PATH "" CACHE PATH "mm3d source directory. Only needed if MMVII_KEEP_LIBRARY_MMV1 is ON")
+
+if (MMVII_KEEP_LIBRARY_MMV1 AND MMV1_PATH STREQUAL "" )
+  message(FATAL_ERROR "MMV1_PATH must be set if MMVII_KEEP_LIBRARY_MMV1 is ON")
+endif()
 
 #######################################################
 ##        Dependencies
@@ -118,11 +123,10 @@ string(REGEX REPLACE "[-/]D *NDEBUG" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_
 
 # micmac v1 library and headers
 if (MMVII_KEEP_LIBRARY_MMV1)
-set(mmv1_dir "${MMVII_SOURCE_DIR}/..")
-set(mmv1_include_dir "${mmv1_dir}/include")
-set(mmv1_lib_dir "${mmv1_dir}/lib")
-find_library(elise_lib NAME elise PATHS "${mmv1_lib_dir}" NO_DEFAULT_PATH)
-find_library(ANN_lib NAME ANN PATHS "${mmv1_lib_dir}" NO_DEFAULT_PATH)
+  set(mmv1_include_dir "${MMV1_PATH}/include")
+  set(mmv1_lib_dir "${MMV1_PATH}/lib")
+  find_library(elise_lib NAME elise PATHS "${mmv1_lib_dir}" REQUIRED NO_DEFAULT_PATH)
+  find_library(ANN_lib NAME ANN PATHS "${mmv1_lib_dir}" REQUIRED NO_DEFAULT_PATH)
 endif()
 
 # MMVII dir
@@ -213,6 +217,14 @@ if (vMMVII_BUILD)
 else()
   message(STATUS "vMMVII will not be compiled (config option)")
 endif()
+
+#######################################################
+##        Hide useless variable from ccmake cmake-gui
+#######################################################
+
+get_cmake_property(e57_vars VARIABLES)
+list(FILTER e57_vars INCLUDE REGEX "^E57")
+mark_as_advanced(FORCE ${e57_vars} ANN_lib elise_lib CMAKE_INSTALL_PREFIX tiff_DIR)
 
 #######################################################
 ##        Custom targets

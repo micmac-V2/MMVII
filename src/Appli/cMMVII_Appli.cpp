@@ -330,23 +330,12 @@ void cMMVII_Appli::InitMMVIIDirs(const std::string& aMMVIIDir)
     MakeNameDir(mTopDirMMVII);
     mDirBinMMVII       = mTopDirMMVII + "bin" + StringDirSeparator();
     mFullBin           = mDirBinMMVII + MMVIIBin2007;
-    mDirMicMacv1       = UpDir(mTopDirMMVII);
     mDirMicMacv2       = mTopDirMMVII;
     mDirTestMMVII      = mDirMicMacv2 + MMVIITestDir;
     mDirRessourcesMMVII      = mDirMicMacv2 + MMVIIRessourcesDir;
     mDirLocalParameters      = mDirMicMacv2 + MMVIILocalParametersDir;
     mTmpDirTestMMVII   = mDirTestMMVII + "Tmp" + StringDirSeparator();
     mInputDirTestMMVII = mDirTestMMVII + "Input" + StringDirSeparator();
-
-#if (THE_MACRO_MMVII_SYS == MMVII_SYS_L)
-    mMMV1Bin           = mDirMicMacv1 + "bin/mm3d";
-#elif (THE_MACRO_MMVII_SYS == MMVII_SYS_A)
-    mMMV1Bin           = mDirMicMacv1 + "bin/mm3d";
-#elif (THE_MACRO_MMVII_SYS == MMVII_SYS_W)
-    mMMV1Bin           = mDirMicMacv1 + "bin/mm3d.exe";
-#endif
-
-
 }
 
 const std::vector<eSharedPO>    cMMVII_Appli::EmptyVSPO;  ///< Deafaut Vector  shared optional parameter
@@ -1697,11 +1686,10 @@ std::string cMMVII_Appli::mDirLocalParameters;
 std::string cMMVII_Appli::mProfileUsage;
 std::string cMMVII_Appli::mDirProfileUsage;
 cParamProfile cMMVII_Appli::mParamProfile;
-std::string cMMVII_Appli::mDirMicMacv1;
 std::string cMMVII_Appli::mDirMicMacv2;
 std::string cMMVII_Appli::mVectNameDefSerial;
 std::string cMMVII_Appli::mTaggedNameDefSerial;
-std::string cMMVII_Appli::mMMV1Bin;
+std::string cMMVII_Appli::mMMV1Bin = "mm3d";
 
               // static Accessors
 const std::string & cMMVII_Appli::TmpDirTestMMVII()   {return mTmpDirTestMMVII;}
@@ -1710,7 +1698,6 @@ const std::string & cMMVII_Appli::TopDirMMVII()       {return mTopDirMMVII;}
 const std::string & cMMVII_Appli::DirBinMMVII()       {return mDirBinMMVII; }
 const std::string & cMMVII_Appli::FullBin()           {return mFullBin;}
 const std::string & cMMVII_Appli::DirTestMMVII()      {return mDirTestMMVII;}
-const std::string & cMMVII_Appli::DirMicMacv1()       {return mDirMicMacv1;}
 const std::string & cMMVII_Appli::MMV1Bin()           {return mMMV1Bin;}
 
 
