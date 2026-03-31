@@ -10,6 +10,103 @@
 namespace MMVII
 {
 
+class cSaveNPoint
+{
+    public :
+        cSaveNPoint(const std::vector<std::string> & aVNames);
+        cSaveNPoint();
+
+        void AddPts(const std::vector<cPt2dr> &);
+
+        void AddData(const  cAuxAr2007 & anAux);
+        const std::vector<std::string> & VNames() const;
+        const std::vector<std::vector<cPt2dr>> &  VVPts() const;
+
+
+    private :
+        std::vector<std::string>           mVNames;
+        std::vector<std::vector<cPt2dr>>   mVVPts;
+};
+void AddData(const  cAuxAr2007 & anAux,cSaveNPoint&);
+
+class cSetSaveNPoint
+{
+    public :
+       void AddCondig(const cSaveNPoint &);
+       void AddData(const  cAuxAr2007 & anAux);
+       const  std::vector<cSaveNPoint> & VecSaveNP()const;
+
+     private :
+        std::vector<cSaveNPoint> mVecSaveNP;
+};
+void AddData(const  cAuxAr2007 & anAux,cSetSaveNPoint&);
+
+
+/* =================================================== */
+/*                                                     */
+/*                cSaveNPoint                          */
+/*                                                     */
+/* =================================================== */
+
+void cSetSaveNPoint::AddCondig(const cSaveNPoint & aConf)
+{
+   mVecSaveNP.push_back(aConf);
+}
+
+void cSetSaveNPoint::AddData(const  cAuxAr2007 & anAux)
+{
+    MMVII::StdContAddData(cAuxAr2007("Pts",anAux),mVecSaveNP);
+
+}
+
+void AddData(const  cAuxAr2007 & anAux,cSetSaveNPoint& aSet)
+{
+    aSet.AddData(anAux);
+}
+
+const  std::vector<cSaveNPoint> & cSetSaveNPoint::VecSaveNP()const
+{
+    return mVecSaveNP;
+}
+
+/* =================================================== */
+/*                                                     */
+/*             cSaveNPoint1Config                      */
+/*                                                     */
+/* =================================================== */
+
+
+cSaveNPoint::cSaveNPoint(const std::vector<std::string> & aVNames) :
+    mVNames (aVNames)
+{
+}
+
+cSaveNPoint::cSaveNPoint()
+{
+}
+
+const std::vector<std::string> & cSaveNPoint::VNames() const {return mVNames;}
+const std::vector<std::vector<cPt2dr>> &  cSaveNPoint::VVPts() const {return mVVPts;}
+
+
+void cSaveNPoint::AddPts(const std::vector<cPt2dr> & aVPts)
+{
+    MMVII_INTERNAL_ASSERT_medium(aVPts.size()==mVNames.size(),"cSaveNPoint1Config::AddPts");
+    mVVPts.push_back(aVPts);
+}
+
+void cSaveNPoint::AddData(const  cAuxAr2007 & anAux)
+{
+   MMVII::StdContAddData(cAuxAr2007("Names",anAux),mVNames);
+   MMVII::StdContAddData(cAuxAr2007("Pts",anAux),mVVPts);
+
+}
+void AddData(const  cAuxAr2007 & anAux,cSaveNPoint& aSNP)
+{
+    aSNP.AddData(anAux);
+}
+
+
 /**  Filter a set of homologous point on residual criteria assuming the images have been oriented.
  If there is several poses, the residual is the average weight by the inverse of the median
  (we have to find a formula ...)
@@ -562,7 +659,7 @@ class cAppli_OriRelTripletsOfIm : public cMMVII_Appli
         std::string               mFolderOriGT;
         bool                      mShow;
         cTimerSegm  *             mTimeSegm ;
-
+        bool                      mGenVirtTP;  ///< Generate Virtual Tie poin (if MulTiePoint Out)
 };
 
 cAppli_OriRelTripletsOfIm::cAppli_OriRelTripletsOfIm
@@ -576,8 +673,8 @@ cAppli_OriRelTripletsOfIm::cAppli_OriRelTripletsOfIm
     mPhProj       (*this),
     mRanTrR       (0,0),
     mUseOri4GT    (false),
-    mShow         (mModeCompute==0)
-
+    mShow         (mModeCompute==0),
+    mGenVirtTP    (false)
 {
 }
 
@@ -607,6 +704,7 @@ cCollecSpecArg2007 & cAppli_OriRelTripletsOfIm::ArgObl(cCollecSpecArg2007 & anAr
                <<  mPhProj.DPOrient().ArgDirInMand("Input orientation for calibration")  ;
 
 
+
      return anArgObl;
 }
 
@@ -620,6 +718,7 @@ cCollecSpecArg2007 & cAppli_OriRelTripletsOfIm::ArgOpt(cCollecSpecArg2007 & anAr
             <<  AOpt2007(mShow,"Show","Show details of result",{eTA2007::HDV})
             <<  AOpt2007(mUseOri4GT,"UseOriGT","Set if orientation contains also exterior as a ground truth",{eTA2007::HDV})
             <<  AOpt2007(mFolderOriGT,"OriGT","If ground truth ori != calib")
+             << mPhProj.DPMulTieP().ArgDirOutOpt("VirTP","Destination for virtual tie points");
    ;
 }
 
@@ -667,6 +766,44 @@ void cAppli_OriRelTripletsOfIm::DoAllTriplet()
         //StdOut() << aParam.Com() << "\n";
     }
     ExeComParal(aListCom);
+    //  Merge the virtual point in a multiple tie poinst
+    if (mGenVirtTP)
+    {
+        int aCpt = 0;  // counter for index of tie point
+        //  Map  image ->  Multiple Tie Points
+        std::map<std::string,cVecTiePMul> aMap;
+        for (const auto& aName : aVecStr) // parse all images
+        {
+            // read a dmp files
+            cSetSaveNPoint aSaveNP;
+            ReadFromFile(aSaveNP,mPhProj.OriRel_NameVirtualTieP(aName,true));
+            for (const auto & aSaveNP : aSaveNP.VecSaveNP())
+            {
+                // extract the adresse of cVecTiePMul for as set of name
+                std::vector<cVecTiePMul*> aVTPM;
+                for (const auto & aName : aSaveNP.VNames())
+                {
+                    aVTPM.push_back(&aMap[aName]);
+                    aVTPM.back()->mNameIm = aName;
+                }
+
+                //  now put the points
+                for (const auto & aVPt : aSaveNP.VVPts())
+                {
+                    for (size_t aKPt=0 ; aKPt<aVPt.size() ; aKPt++)
+                    {
+                        aVTPM.at(aKPt)->mVecTPM.push_back(cTiePMul(aVPt[aKPt],aCpt));
+                    }
+                    aCpt++;
+                }
+            }
+        }
+        // Now save all the multiple tie points
+        for (const auto & [anIm,aVTP] : aMap)
+        {
+            mPhProj.SaveMultipleTieP(aVTP,anIm);
+        }
+    }
     //StdOut() <<  mArgv << "\n";
 
 }
@@ -681,6 +818,7 @@ void cAppli_OriRelTripletsOfIm::DoTripletOf1Image()
     aSet3.PutInVect(aV3,false);
 
     std::vector<cDataSolOriTriplet> aVData;
+    cSetSaveNPoint aSaveNP;
     for (const auto & a3 : aV3)
     {
         std::vector<std::string> aVN(a3->mNames.begin(),a3->mNames.end());
@@ -690,17 +828,35 @@ void cAppli_OriRelTripletsOfIm::DoTripletOf1Image()
         cOriTriplets * anOri3 =Do1Triplet(aVN);
         const cOneSolOriTriplet* aBSol = anOri3->BestSol();
         if (aBSol!=nullptr)
+        {
+            if (mGenVirtTP)
+            {
+               cSaveNPoint a1Conf(aVN);
+               // MPD->ER  that's here to change ...
+               for (int aKPt =0 ; aKPt<5 ; aKPt++)
+               {
+                   std::vector<cPt2dr> aVPt{{0,aKPt},{1,aKPt},{2,aKPt}};
+                   a1Conf.AddPts(aVPt);
+               }
+               aSaveNP.AddCondig(a1Conf);
+            }
             aVData.push_back(*aBSol);
+        }
 
         delete anOri3;
     }
     SaveInFile(aVData,mPhProj.OriRel_OrientAllTripletsOf1Image(mIm1,false));
+    if (mGenVirtTP)
+    {
+        SaveInFile(aSaveNP,mPhProj.OriRel_NameVirtualTieP(mIm1,false));
+    }
 }
 
 int cAppli_OriRelTripletsOfIm::Exe()
 {
     mPhProj.FinishInit();
     mTimeSegm    = mShow ? (new cTimerSegm(this)) : nullptr ;
+    mGenVirtTP = mPhProj.DPMulTieP().DirOutIsInit();
 
     if (mModeCompute==0)
     {

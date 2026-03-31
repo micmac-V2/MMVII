@@ -303,14 +303,18 @@ cComputeMergeMulTieP::cComputeMergeMulTieP
     int aNbIn =0;
 
     //  compute the new images & sensor, compute the new vector of index for images
-    for (size_t aKIm=0 ; aKIm<aFullMTP.mVNames.size() ; aKIm++)
+    // for (size_t aKIm=0 ; aKIm<aFullMTP.mVNames.size() ; aKIm++)
+    for (size_t aKIm=0 ; aKIm<aFullMTP.mDicoNames.size() ; aKIm++)
     {
-        const std::string & aName = aFullMTP.mVNames.at(aKIm);
+        //const std::string & aName = aFullMTP.mVNames.at(aKIm);
+        const std::string & aName = *aFullMTP.mDicoNames.I2Obj(aKIm);
         bool isIn = MapBoolFind(aSet,aName);
         aVecNewIndices.push_back(isIn ? aNbIn++ : -1);
         if (isIn)
         {
-            mVNames.push_back(aName);
+            // mVNames.push_back(aName);
+            mDicoNames.Add(aName);
+
             if (!aFullMTP.mVSensors.empty()) // if not empty it must be filled for all images
             {
                 mVSensors.push_back(aFullMTP.mVSensors.at(aKIm));
@@ -367,6 +371,11 @@ cComputeMergeMulTieP::cComputeMergeMulTieP
 }
 
 
+const std::vector<std::string > & cComputeMergeMulTieP::VNames() const
+{
+   return mDicoNames.VecI2Obj();
+}
+
 cComputeMergeMulTieP::cComputeMergeMulTieP
 (
        const std::vector<std::string> & aVNames,
@@ -374,17 +383,17 @@ cComputeMergeMulTieP::cComputeMergeMulTieP
        cIPhProj*  aPhP ,
        bool                      WithImageIndexe
 ) :
-    mVNames (aVNames)
+    mDicoNames  (aVNames)
 {
    ASSERT_SORTED(aVNames);
    if (anIIH)
    {
-      cMemoryEffToMultiplePoint aToMP(*anIIH,mVNames,*this);
+      cMemoryEffToMultiplePoint aToMP(*anIIH,VNames(),*this);
    }
 
    if (aPhP)
    {
-      for (const auto & aName : mVNames)
+      for (const auto & aName : VNames())
           mVSensors.push_back(aPhP->ReadSensor(aName,true,false));
    }
 
@@ -401,7 +410,7 @@ size_t cComputeMergeMulTieP::NbPtsTot() const
 }
 
 cComputeMergeMulTieP::cComputeMergeMulTieP(const cComputeMergeMulTieP& aCMTP,int aNbPtsTarget):
-    cComputeMergeMulTieP(aCMTP.mVNames)
+    cComputeMergeMulTieP(aCMTP.VNames())
 {
      size_t aNb0 =    aCMTP.NbPtsTot();
      cRandKAmongN aSelector(aNbPtsTarget,aNb0);
@@ -454,7 +463,7 @@ class cDistSelSpatial_MTP
 
 
 cComputeMergeMulTieP::cComputeMergeMulTieP(int aNbTarget,const cComputeMergeMulTieP& aCMTP):
-    cComputeMergeMulTieP(aCMTP.mVNames)
+    cComputeMergeMulTieP(aCMTP.VNames())
 {
     size_t aNbTot =    aCMTP.NbPtsTot();
     //StdOut()  << " --SEL " << aNbPtsTarget << " ON " << aNb0 << "\n";
@@ -506,7 +515,7 @@ const std::vector<std::list<std::pair<size_t,tPairTiePMult*>>> & cComputeMergeMu
 
 void cComputeMergeMulTieP::SetImageIndexe()
 {
-     mImageIndexes.resize(mVNames.size());
+     mImageIndexes.resize(mDicoNames.size());
 
      for (auto & aPair : mPts)
      {
@@ -519,7 +528,7 @@ void cComputeMergeMulTieP::SetImageIndexe()
      }
 }
 
-const std::vector<std::string> & cComputeMergeMulTieP::VNames() const { return mVNames;}
+// const std::vector<std::string> & cComputeMergeMulTieP::VNames() const { return mVNames;}
 
 const std::vector<cSensorImage *> &  cComputeMergeMulTieP::VSensors() const
 {
@@ -537,7 +546,7 @@ void cComputeMergeMulTieP::AddPMul(const tConfigIm& aConfig,const std::vector<cP
      // Different check of coherence
      ASSERT_SORTED(aConfig);
      MMVII_INTERNAL_ASSERT_tiny((aConfig.size()==aVPts.size()) ,"Diff size in Add PMul");
-     ASSERT_IN_RANGE(aConfig,(int)mVNames.size())
+     ASSERT_IN_RANGE(aConfig,(int)mDicoNames.size())
 
      //  finally add new pts to config
      AppendIn(mPts[aConfig].mVPIm,aVPts);
@@ -1501,7 +1510,6 @@ void Bench_ToHomMult(cParamExeBench & aParam)
 
    aParam.EndBench();
 }
-
 
 
 }; // MMVII
