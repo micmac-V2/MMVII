@@ -10,6 +10,92 @@
 namespace MMVII
 {
 
+class cSaveNPoint
+{
+    public :
+        cSaveNPoint(const std::vector<std::string> & aVNames);
+        cSaveNPoint();
+
+        void AddPts(const std::vector<cPt2dr> &);
+
+        void AddData(const  cAuxAr2007 & anAux);
+
+    private :
+        std::vector<std::string>           mVNames;
+        std::vector<std::vector<cPt2dr>>   mVVPts;
+};
+void AddData(const  cAuxAr2007 & anAux,cSaveNPoint&);
+
+class cSetSaveNPoint
+{
+    public :
+       void AddCondig(const cSaveNPoint &);
+       void AddData(const  cAuxAr2007 & anAux);
+
+     private :
+        std::vector<cSaveNPoint> mVConfs;
+};
+void AddData(const  cAuxAr2007 & anAux,cSetSaveNPoint&);
+
+
+/* =================================================== */
+/*                                                     */
+/*                cSaveNPoint                          */
+/*                                                     */
+/* =================================================== */
+
+void cSetSaveNPoint::AddCondig(const cSaveNPoint & aConf)
+{
+   mVConfs.push_back(aConf);
+}
+
+void cSetSaveNPoint::AddData(const  cAuxAr2007 & anAux)
+{
+    MMVII::StdContAddData(cAuxAr2007("Pts",anAux),mVConfs);
+
+}
+
+void AddData(const  cAuxAr2007 & anAux,cSetSaveNPoint& aSet)
+{
+    aSet.AddData(anAux);
+}
+
+
+/* =================================================== */
+/*                                                     */
+/*             cSaveNPoint1Config                      */
+/*                                                     */
+/* =================================================== */
+
+
+cSaveNPoint::cSaveNPoint(const std::vector<std::string> & aVNames) :
+    mVNames (aVNames)
+{
+}
+
+cSaveNPoint::cSaveNPoint()
+{
+}
+
+
+void cSaveNPoint::AddPts(const std::vector<cPt2dr> & aVPts)
+{
+    MMVII_INTERNAL_ASSERT_medium(aVPts.size()==mVNames.size(),"cSaveNPoint1Config::AddPts");
+    mVVPts.push_back(aVPts);
+}
+
+void cSaveNPoint::AddData(const  cAuxAr2007 & anAux)
+{
+   MMVII::StdContAddData(cAuxAr2007("Names",anAux),mVNames);
+   MMVII::StdContAddData(cAuxAr2007("Pts",anAux),mVVPts);
+
+}
+void AddData(const  cAuxAr2007 & anAux,cSaveNPoint& aSNP)
+{
+    aSNP.AddData(anAux);
+}
+
+
 /**  Filter a set of homologous point on residual criteria assuming the images have been oriented.
  If there is several poses, the residual is the average weight by the inverse of the median
  (we have to find a formula ...)
@@ -681,6 +767,7 @@ void cAppli_OriRelTripletsOfIm::DoTripletOf1Image()
     aSet3.PutInVect(aV3,false);
 
     std::vector<cDataSolOriTriplet> aVData;
+    cSetSaveNPoint aSaveNP;
     for (const auto & a3 : aV3)
     {
         std::vector<std::string> aVN(a3->mNames.begin(),a3->mNames.end());
@@ -690,11 +777,21 @@ void cAppli_OriRelTripletsOfIm::DoTripletOf1Image()
         cOriTriplets * anOri3 =Do1Triplet(aVN);
         const cOneSolOriTriplet* aBSol = anOri3->BestSol();
         if (aBSol!=nullptr)
+        {
+            cSaveNPoint a1Conf(aVN);
+            for (int aK3 =0 ; aK3<5 ; aK3++)
+            {
+                std::vector<cPt2dr> aVPt{{0,aK3},{1,aK3},{2,aK3}};
+                a1Conf.AddPts(aVPt);
+            }
+            aSaveNP.AddCondig(a1Conf);
             aVData.push_back(*aBSol);
+        }
 
         delete anOri3;
     }
     SaveInFile(aVData,mPhProj.OriRel_OrientAllTripletsOf1Image(mIm1,false));
+    SaveInFile(aSaveNP,mPhProj.OriRel_DirOfImage(mIm1,false)+"toto-tata.xml");
 }
 
 int cAppli_OriRelTripletsOfIm::Exe()
