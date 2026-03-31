@@ -31,6 +31,28 @@ template <class Type>
     return aNum;
 }
 
+template <class Type> const std::vector<Type> & cBijectiveMapI2O<Type>::VecI2Obj() const
+{
+   return mI2Obj;
+}
+
+template <class Type>  cBijectiveMapI2O<Type>::cBijectiveMapI2O(const std::vector<Type> & aVecUnsorted,bool doSort)
+{
+   std::vector<Type> aVec = aVecUnsorted;
+   if (doSort)
+   {
+      std::sort(aVec.begin(),aVec.end());
+   }
+   for (const auto & aName : aVec)
+      Add(aName);
+}
+
+template <class Type>  cBijectiveMapI2O<Type>::cBijectiveMapI2O() :
+        cBijectiveMapI2O<Type>(std::vector<Type>{})
+{
+}
+
+
 template <class Type> size_t  cBijectiveMapI2O<Type>::size() const
 {
     return mI2Obj.size();
