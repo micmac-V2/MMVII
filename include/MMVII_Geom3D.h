@@ -55,7 +55,7 @@ template<class T> cPtxd<T,3>  VOrthog(const cPtxd<T,3> & aP);
 
 template<class Type> cPtxd<Type,3> NormalUnit(const cTriangle<Type,3> &);  // V01 ^ V02
 template<class Type> cPtxd<Type,3> Normal(const cTriangle<Type,3> &);  // V01 ^ V02
-                                                                       
+
 template<class Type>  cTriangle<Type,3> RandomTriangRegul(Type aRegulMin,Type aAmpl);
 template<class Type>  cTriangle<Type,3> RandomTetraTriangRegul(Type aRegulMin,Type aAmpl);
 
@@ -91,7 +91,7 @@ template<class T> cPtxd<T,4>  Matr4x42Quat  (const cDenseMatrix<T>&);
 
      This class is also used for reprensting ortho normal repair as it the same object
      with two different interpretation
-     
+
 
      Also they will be almost always used with double, they are templated in case
      long double would be necessary.
@@ -188,7 +188,7 @@ template <class Type> class cRotation3D
 
        //  0-> arround I, 1->arround J ...
         static cRotation3D RotArroundKthAxe(int aNum);
-       
+
        //// Compute a normal repair, first vector being colinear to P1, second in the plane P1,P2
       // static cRotation3D<Type> CompleteRON(const tPt & aP0,const tPt & aP1);
 
@@ -518,7 +518,6 @@ template <class Type> class cTriangulation3D : public cTriangulation<Type,3>
 
 };
 
-#if MMVII_USE_PDAL
 template <class Type> class cTriangulation3DLas : public cTriangulation<Type,3>
 {
 public:
@@ -530,11 +529,11 @@ public:
     typedef cTriangulation3DLas<Type>  tTriangulation3DLas;
 
     /// constructor from file , using las or laz file
-    cTriangulation3DLas(const std::string &);
+    explicit cTriangulation3DLas(const std::string &);
 
     /// accessors
     unsigned int NbPts();
-    const char ProjStr();
+    const char* ProjStr();
     bool HasTime();
     bool HasColor();
     void SamplePts(const bool &, const Type &);
@@ -555,7 +554,6 @@ private :
                                                     cPtxd<Type,2>(1,1));
     std::vector<int> mVSelectedIds;
 };
-#endif
 
 
 class cPlane3D
@@ -594,7 +592,7 @@ class cPlane3D
          const cPt3dr& AxeI() const; ///< Accessor
          const cPt3dr& AxeJ() const; ///< Accessor
          const cPt3dr& AxeK() const; ///< Accessor
-         
+
          /** Return the intersection of the planes consider  as vector space , used eigen decomposition
           * to get the best solutuob if Nb>2, if Sz=1 or 0 and aSzMin is Ok, return a random acceptable solution */
          static cPt3dr DirInterPlane(const std::vector<const cPlane3D*>& aVPlanes,int aSzMin=2);

@@ -10,10 +10,6 @@ if(vMMVII_BUILD)
   list(APPEND VCPKG_MANIFEST_FEATURES "vmmvii")
 endif()
 
-#################### append libtorch directory #################
-#list(APPEND CMAKE_PREFIX_PATH "libtorch")
-#################### append libtorch directory #################
-
 project(MMVII VERSION 1.0)
 
 # strict C++17 required
@@ -44,14 +40,15 @@ endif()
 
 
 #######################################################
-##        Options
+##        MMV1 link
 #######################################################
 
 option(MMVII_KEEP_LIBRARY_MMV1 "If ON, MMVII will use legacy MMV1 code" OFF)
+set(MMV1_PATH "" CACHE PATH "mm3d source directory. Only needed if MMVII_KEEP_LIBRARY_MMV1 is ON")
 
-option(MMVII_USE_PDAL "If ON, MMVII will require PDAL to read point clouds" OFF)
-
-option(MMVII_USE_LIBTORCH "If ON, MMVII will require libtorch under MMVII_SOURCE_DIR/" OFF)
+if (MMVII_KEEP_LIBRARY_MMV1 AND MMV1_PATH STREQUAL "" )
+  message(FATAL_ERROR "MMV1_PATH must be set if MMVII_KEEP_LIBRARY_MMV1 is ON")
+endif()
 
 #######################################################
 ##        Dependencies
@@ -73,31 +70,6 @@ endif()
 # GDAL
 find_package(GDAL 3.4 REQUIRED)
 
-# PDAL
-if(MMVII_USE_PDAL)
-find_package(PDAL REQUIRED)
-endif()
-
-# libtorch
-
-if(MMVII_USE_LIBTORCH)
-  set(TORCH_INSTALL_PREFIX "${MMVII_SOURCE_DIR}/libtorch")
-
-  set(TORCH_INCLUDE_DIRS
-      ${TORCH_INSTALL_PREFIX}/include
-      ${TORCH_INSTALL_PREFIX}/include/torch/csrc/api/include)
-
-  if(UNIX)
-  file (GLOB TORCH_LIBRARIES "${TORCH_INSTALL_PREFIX}/lib/libtorch.so" "${TORCH_INSTALL_PREFIX}/lib/libtorch_c*.so" "${TORCH_INSTALL_PREFIX}/lib/libc10*.so" "/usr/lib/x86_64-linux-gnu/libcudart.so")
-  endif()
-
-  if(MSVC)
-  file (GLOB  "${TORCH_INSTALL_PREFIX}/lib/*.lib")
-  endif()
-
-endif()
-
-
 # Threads
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads)
@@ -115,6 +87,14 @@ add_subdirectory(ExternalInclude/libE57Format)
 include_directories(${CMAKE_BINARY_DIR}/E57-install/include)
 link_directories(${CMAKE_BINARY_DIR}/E57-install/lib)
 
+# LASlib (from LAStools)
+add_subdirectory(ExternalInclude/LAStools)
+include_directories(${LAStools_SOURCE_DIR}/LASlib/inc ${LAStools_SOURCE_DIR}/LASzip/include/laszip/ ${LAStools_SOURCE_DIR}/LASzip/src )
+
+get_cmake_property(_vars VARIABLES)
+foreach(_var ${_vars})
+    message(STATUS "${_var}=${${_var}}")
+endforeach()
 #######################################################
 ##        Compilation toolchain
 #######################################################
@@ -151,16 +131,11 @@ string(REGEX REPLACE "[-/]D *NDEBUG" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_
 
 # micmac v1 library and headers
 if (MMVII_KEEP_LIBRARY_MMV1)
-set(mmv1_dir "${MMVII_SOURCE_DIR}/..")
-set(mmv1_include_dir "${mmv1_dir}/include")
-set(mmv1_lib_dir "${mmv1_dir}/lib")
-#set(sgm_lib_dir "${MMVII_SOURCE_DIR}/bin/SGM_CUDA")
-
-find_library(elise_lib NAME elise PATHS "${mmv1_lib_dir}" NO_DEFAULT_PATH)
-find_library(ANN_lib NAME ANN PATHS "${mmv1_lib_dir}" NO_DEFAULT_PATH)
+  set(mmv1_include_dir "${MMV1_PATH}/include")
+  set(mmv1_lib_dir "${MMV1_PATH}/lib")
+  find_library(elise_lib NAME elise PATHS "${mmv1_lib_dir}" REQUIRED NO_DEFAULT_PATH)
+  find_library(ANN_lib NAME ANN PATHS "${mmv1_lib_dir}" REQUIRED NO_DEFAULT_PATH)
 endif()
-
-#find_library(SGMCUDA_lib NAME cudInfer PATHS "${sgm_lib_dir}" NO_DEFAULT_PATH)
 
 # MMVII dir
 set(mmv2_include_dir "${MMVII_SOURCE_DIR}/include")
@@ -169,7 +144,6 @@ set(mmv2_src_dir "${MMVII_SOURCE_DIR}/src")
 set(mmv2_gencode_dir "${mmv2_src_dir}/GeneratedCodes")
 set(mmv2_gencode_main_src "${mmv2_gencode_dir}/cName2CalcRegisterAll.cpp")
 set(EIGEN3_INCLUDE_PATH  "${mmv2_external_include_dir}/eigen-3.4.0")
-
 
 # Here we initialize the generated code with en empty template if working dir is clean (first checkout or after make distclean)
 if (NOT EXISTS "${mmv2_gencode_main_src}")
@@ -185,19 +159,8 @@ file(GLOB mmv2_headers "${mmv2_include_dir}/*.h" "${mmv2_include_dir}/*/*.h" "${
 ##        libP2007 buid (MMVII library)
 #######################################################
 add_library(P2007 "${mmv2_libsrcs}" "${mmv2_headers}")
-if(MMVII_USE_PDAL AND MMVII_USE_LIBTORCH)
-  target_include_directories(P2007 PRIVATE "${mmv2_include_dir};${mmv1_include_dir};${EIGEN3_INCLUDE_PATH};${PROJ_INCLUDE_DIRS};${GDAL_INCLUDE_DIRS};${PDAL_INCLUDE_DIRS};${TORCH_INCLUDE_DIRS}")
-  target_link_libraries(P2007 PRIVATE MMVII_compiler_flags Threads::Threads ${PROJ_LIBRARIES} ${GDAL_LIBRARIES} ${PDAL_LIBRARIES} -Wl,--no-as-needed ${TORCH_LIBRARIES})
-elseif(MMVII_USE_PDAL)
-  target_include_directories(P2007 PRIVATE "${mmv2_include_dir};${mmv1_include_dir};${EIGEN3_INCLUDE_PATH};${PROJ_INCLUDE_DIRS};${GDAL_INCLUDE_DIRS};${PDAL_INCLUDE_DIRS}")
-  target_link_libraries(P2007 PRIVATE MMVII_compiler_flags Threads::Threads ${PROJ_LIBRARIES} ${GDAL_LIBRARIES} ${PDAL_LIBRARIES})
-elseif(MMVII_USE_LIBTORCH)
-  target_include_directories(P2007 PRIVATE "${mmv2_include_dir};${mmv1_include_dir};${EIGEN3_INCLUDE_PATH};${PROJ_INCLUDE_DIRS};${GDAL_INCLUDE_DIRS};${TORCH_INCLUDE_DIRS}")
-  target_link_libraries(P2007 PRIVATE MMVII_compiler_flags Threads::Threads ${PROJ_LIBRARIES} ${GDAL_LIBRARIES} -Wl,--no-as-needed ${TORCH_LIBRARIES})
-else()
-  target_include_directories(P2007 PRIVATE "${mmv2_include_dir};${mmv1_include_dir};${EIGEN3_INCLUDE_PATH};${PROJ_INCLUDE_DIRS};${GDAL_INCLUDE_DIRS}")
-  target_link_libraries(P2007 PRIVATE MMVII_compiler_flags Threads::Threads ${PROJ_LIBRARIES} ${GDAL_LIBRARIES})
-endif()
+target_include_directories(P2007 PRIVATE "${mmv2_include_dir};${mmv1_include_dir};${EIGEN3_INCLUDE_PATH};${PROJ_INCLUDE_DIRS};${GDAL_INCLUDE_DIRS}")
+target_link_libraries(P2007 PRIVATE MMVII_compiler_flags Threads::Threads ${PROJ_LIBRARIES} ${GDAL_LIBRARIES})
 
 target_link_libraries(P2007 PRIVATE E57Format)
 add_dependencies(P2007 E57Format)
@@ -213,17 +176,6 @@ else()
   target_compile_definitions(P2007 PUBLIC MMVII_KEEP_LIBRARY_MMV1=false)
 endif()
 
-if(MMVII_USE_PDAL)
-  target_compile_definitions(P2007 PUBLIC MMVII_USE_PDAL=true)
-else()
-  target_compile_definitions(P2007 PUBLIC MMVII_USE_PDAL=false)
-endif()
-
-if(MMVII_USE_LIBTORCH)
-  target_compile_definitions(P2007 PUBLIC MMVII_USE_LIBTORCH=true)
-else()
-  target_compile_definitions(P2007 PUBLIC MMVII_USE_LIBTORCH=false)
-endif()
 
 #######################################################
 ##        MMVII build (executable)
@@ -239,37 +191,12 @@ if(MMVII_KEEP_LIBRARY_MMV1)
   endif()
 endif()
 
-if(MMVII_USE_LIBTORCH)
-  target_include_directories(MMVII PRIVATE "${mmv2_include_dir};${TORCH_INCLUDE_DIRS}")
-else()
-  target_include_directories(MMVII PRIVATE "${mmv2_include_dir}")
-endif()
-
-if(MMVII_USE_PDAL AND MMVII_USE_LIBTORCH)
-  target_link_libraries(MMVII PRIVATE MMVII_compiler_flags Threads::Threads P2007 ${mmv1_libs} ${mmv2_extlibs} ${PDAL_LIBRARIES} -Wl,--no-as-needed ${TORCH_LIBRARIES})
-elseif(MMVII_USE_PDAL)
-  target_link_libraries(MMVII PRIVATE MMVII_compiler_flags Threads::Threads P2007 ${mmv1_libs} ${mmv2_extlibs} ${PDAL_LIBRARIES})
-elseif(MMVII_USE_LIBTORCH)
-  target_link_libraries(MMVII PRIVATE MMVII_compiler_flags Threads::Threads P2007 ${mmv1_libs} ${mmv2_extlibs} -Wl,--no-as-needed ${TORCH_LIBRARIES})
-else()
-  target_link_libraries(MMVII PRIVATE MMVII_compiler_flags Threads::Threads P2007 ${mmv1_libs} ${mmv2_extlibs} )
-endif()
-
+target_include_directories(MMVII PRIVATE "${MMVII_SOURCE_DIR}/include"  )
+target_link_libraries(MMVII PRIVATE MMVII_compiler_flags Threads::Threads P2007 ${mmv1_libs} ${mmv2_extlibs})
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION  VERSION_LESS "9.1")
   target_link_libraries(MMVII PRIVATE -lstdc++fs)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION  VERSION_LESS "9.0")
   target_link_libraries(MMVII PRIVATE -lc++fs)
-endif()
-
-if(MMVII_USE_LIBTORCH)
-  if(MSVC)
-    file(GLOB TORCH_DLLS "${TORCH_INSTALL_PREFIX}/lib/*.dll")
-    add_custom_command(TARGET MMVII
-                       POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                       ${TORCH_DLLS}
-                       $<TARGET_FILE_DIR:MMVII>)
-  endif()
 endif()
 
 if(OpenMP_CXX_FOUND)
@@ -298,6 +225,14 @@ if (vMMVII_BUILD)
 else()
   message(STATUS "vMMVII will not be compiled (config option)")
 endif()
+
+#######################################################
+##        Hide useless variable from ccmake cmake-gui
+#######################################################
+
+get_cmake_property(e57_vars VARIABLES)
+list(FILTER e57_vars INCLUDE REGEX "^E57")
+mark_as_advanced(FORCE ${e57_vars} ANN_lib elise_lib CMAKE_INSTALL_PREFIX tiff_DIR)
 
 #######################################################
 ##        Custom targets

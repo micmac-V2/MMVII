@@ -9,19 +9,6 @@
 
 #include <omp.h>
 
-#if MMVII_USE_PDAL
-    #include <pdal/PointTable.hpp>
-    #include <pdal/PointView.hpp>
-    #include <pdal/io/LasReader.hpp>
-    #include <pdal/io/LasHeader.hpp>
-    #include <pdal/Options.hpp>
-    #include <pdal/Reader.hpp>
-    #include <pdal/Writer.hpp>
-    #include <pdal/Streamable.hpp>
-    #include <pdal/PointView.hpp>
-    #include <pdal/util/ProgramArgs.hpp>
-#endif
-
 #include "ogrsf_frmts.h"
 #include "MMVII_AimeTieP.h"
 //#include "V1VII.h"
@@ -29,6 +16,9 @@
 #include "MMVII_Stringifier.h"
 #include <thread>
 
+
+#include "lasreader.hpp"
+#include "laspoint.hpp"
 
 #include "happly.h"
 
@@ -87,9 +77,6 @@ SOFTWARE.
 
 
 
-#if MMVII_USE_PDAL
-using  namespace pdal;
-
  struct ClassificationTags
  {
    const int8_t Unclassified=1;
@@ -103,7 +90,8 @@ using  namespace pdal;
    const std::string DSMMarker="dsm_marker";
    const std::string DTMMarker="dtm_marker";
  };
-#endif
+
+
  enum class eLabelIm_MASQ : tU_INT1
  {
     eFree,     // Mode MicMac V1
@@ -214,69 +202,76 @@ template <class Type> void cTriangulation3D<Type>::PlyInit(const std::string & a
  }
 }
 
-#if MMVII_USE_PDAL
- template <class Type> void cTriangulation3D<Type>::LasInit(const std::string & aNameFile, bool SelectForRegistration)
- {
-   //StdOut()<<"START READING LAZ "<<std::endl;
-   pdal::Option las_opt("filename", aNameFile);
-   pdal::Options las_opts;
-   las_opts.add(las_opt);
-   pdal::PointTable table;
-   pdal::LasReader las_reader;
-   las_reader.setOptions(las_opts);
-   las_reader.prepare(table);
-   pdal::PointViewSet point_view_set = las_reader.execute(table);
-   pdal::PointViewPtr point_view = *point_view_set.begin();
-   pdal::LasHeader las_header = las_reader.header();
-   std::cout<<"POINT VIEW SIZE "<<point_view->size()<<std::endl;
-   auto aDsmMarkerDim = table.layout()->findProprietaryDim(ClassificationTags().DSMMarker);
-   std::cout<<"DSM MARKER "<<pdal::Dimension::description(aDsmMarkerDim)<<std::endl;
-      #pragma omp parallel
-       {
-           //omp_set_num_threads(16);
-           using namespace pdal::Dimension;
-           std::vector <tPt> aVPts_pp;
-           #pragma omp for
-           for (pdal::PointId idx = 0; idx < point_view->size(); ++idx)
-           {
-               if (SelectForRegistration)
-               {
-                    auto Classif=point_view->getFieldAs<int>(Id::Classification, idx);
-                    bool IsUnclassified=(Classif==ClassificationTags().Unclassified);
-                    bool IsFictive  = (Classif == 66);
-                    bool IsWater=(Classif==ClassificationTags().Water);
-                    bool IsVeg=(Classif==ClassificationTags().Low_Vegetation) ||
-                               (Classif==ClassificationTags().Medium_Vegetation) ||
-                               (Classif==ClassificationTags().High_Vegetation) ;
+template <class Type>
+void cTriangulation3D<Type>::LasInit(const std::string & aNameFile, bool SelectForRegistration)
+{
+    LASreadOpener lasreadopener;
+    lasreadopener.set_file_name(aNameFile.c_str());
 
+    LASreader* lasreader = lasreadopener.open();
+    if (!lasreader)
+    {
+        std::cerr << "ERROR: cannot open file " << aNameFile << std::endl;
+        return;
+    }
 
-                if (! (IsWater || IsVeg || IsUnclassified || IsFictive)  )
-                   {
-                       tPt aP(point_view->getFieldAs<tREAL8>(Id::X, idx),
-                              point_view->getFieldAs<tREAL8>(Id::Y, idx),
-                              point_view->getFieldAs<tREAL8>(Id::Z, idx));
-                       aVPts_pp.push_back(aP);
-                   }
-               }
+    const LASheader & aHeader = lasreader->header;
 
-               else
-               {
-                   tPt aP(point_view->getFieldAs<tREAL8>(Id::X, idx),
-                          point_view->getFieldAs<tREAL8>(Id::Y, idx),
-                          point_view->getFieldAs<tREAL8>(Id::Z, idx));
-                   aVPts_pp.push_back(aP);
-               }
-           }
-           #pragma omp critical
-           this->mVPts.insert(this->mVPts.end(),
-                              aVPts_pp.begin(),
-                              aVPts_pp.end());
+    I64 aNbPts = aHeader.number_of_point_records;
+    if (aNbPts == 0 && aHeader.extended_number_of_point_records > 0)
+        aNbPts = (I64)aHeader.extended_number_of_point_records;
+
+    std::cout << "POINT VIEW SIZE " << aNbPts << std::endl;
+
+    // ---- Sequential read: store all points in a flat buffer ----
+    struct cRawPt { double mX, mY, mZ; int mClassif; };
+    std::vector<cRawPt> aRawPts;
+    aRawPts.reserve((size_t)aNbPts);
+
+    while (lasreader->read_point())
+    {
+        const LASpoint & p = lasreader->point;
+        aRawPts.push_back({p.get_x(), p.get_y(), p.get_z(),
+                           (int)p.get_classification()});
+    }
+    lasreader->close();
+    delete lasreader;
+
+    std::cout << "selecting points while reading las" << std::endl;
+
+// ---- Parallel filter ----
+#pragma omp parallel
+    {
+        std::vector<tPt> aVPts_pp;
+
+#pragma omp for
+        for (I64 idx = 0; idx < (I64)aRawPts.size(); ++idx)
+        {
+            const cRawPt & r = aRawPts[idx];
+
+            if (SelectForRegistration)
+            {
+                bool IsUnclassified = (r.mClassif == ClassificationTags().Unclassified);
+                bool IsFictive      = (r.mClassif == 66);
+                bool IsWater        = (r.mClassif == ClassificationTags().Water);
+                bool IsVeg          = ((r.mClassif == ClassificationTags().Low_Vegetation)    ||
+                              (r.mClassif == ClassificationTags().Medium_Vegetation) ||
+                              (r.mClassif == ClassificationTags().High_Vegetation));
+
+                if (IsWater || IsVeg || IsUnclassified || IsFictive)
+                    continue;
+            }
+
+            aVPts_pp.push_back(tPt(r.mX, r.mY, r.mZ));
         }
 
-       StdOut()<<"selecting points while reading las "<<std::endl;
+#pragma omp critical
+        this->mVPts.insert(this->mVPts.end(),
+                           aVPts_pp.begin(),
+                           aVPts_pp.end());
+    }
+}
 
- }
-#endif
 
 template <class Type> void cTriangulation3D<Type>::Bench()
 {
@@ -340,12 +335,10 @@ template <class Type>  cTriangulation3D<Type>::cTriangulation3D(const std::strin
     {
        PlyInit(aName);
     }
-#if MMVII_USE_PDAL
     else if (UCaseEqual(LastPostfix(aName),"laz"))
     {
        LasInit(aName,SelectPointsByClass);
     }
-#endif
     else
     {
        MMVII_UserError(eTyUEr::eBadPostfix,"Unknown postfix in cTriangulation3D");
