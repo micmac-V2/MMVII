@@ -239,7 +239,8 @@ tRotR  cNodeArborTriplets::EstimateRotTransfert
                   const std::vector<cOneTripletMerge> &  aVLink3
              )
 {
-    cAutoTimerSegm aTimerRestim(mPMAT->TimeSegm(),"RotEstim");
+    cAutoTimerSegm aTimerRestim((cMMVII_Appli::IsMultiThread() ? nullptr : &mPMAT->TimeSegm()),
+                                "RotEstim");
     // store all the individual transfer, note that as they are defined up to a scale, the translation cannot be used directly
     std::vector<tPoseR>   aVecTransf_W1_to_W0;
     cNodeArborTriplets & aN0 = *(mChildren.at(0));
