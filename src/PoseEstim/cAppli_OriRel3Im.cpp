@@ -835,7 +835,8 @@ void cAppli_OriRelTripletsOfIm::DoTripletOf1Image()
                // MPD->ER  that's here to change ...
                for (int aKPt =0 ; aKPt<5 ; aKPt++)
                {
-                   std::vector<cPt2dr> aVPt{{0,aKPt},{1,aKPt},{2,aKPt}};
+                   tREAL8 aKPtr = aKPt;
+                   std::vector<cPt2dr> aVPt{{0.0,aKPtr},{1.0,aKPtr},{2.0,aKPtr}};
                    a1Conf.AddPts(aVPt);
                }
                aSaveNP.AddCondig(a1Conf);
