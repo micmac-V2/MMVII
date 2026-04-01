@@ -15,163 +15,22 @@
 namespace MMVII
 {
 
-#if (0)
-class cCdtInitV
-{
-     public :
-        tREAL8 SqDist(const cCdtInitV&) const;
-        cPt4dr mQuat;
-        cPt3dr mVecOnSph;
-        tREAL8 mScore;
-        bool   mFree;
-};
-
-
-tREAL8 cCdtInitV::SqDist(const cCdtInitV& aCdt) const
-{
-    return SqN2(mQuat-aCdt.mQuat) + SqN2(mVecOnSph-aCdt.mVecOnSph);
-}
-
-
-/** Extract the best "Free" Candidate, and marq all its neighboor in Ray aDistMin as non free */
-cCdtInitV * ExtractMin(std::vector<cCdtInitV> &  aVCdt,tREAL8 aDistMin,tREAL8 * aScMaxNeigh=nullptr)
-{
-    cCdtInitV * aRes = nullptr;
-    tREAL8      aScMin = 1e20;
-
-    // extract the minimal cdt that is still free
-    for (auto & aCdt : aVCdt)
-    {
-        if (aCdt.mFree && (aCdt.mScore < aScMin))
-        {
-            aRes = &aCdt;
-            aScMin = aCdt.mScore;
-        }
-    }
-
-    // if we got it, marks its neighbours as not free
-
-    if (aRes)
-    {
-        if (aScMaxNeigh)
-            *aScMaxNeigh = aScMin;
-        tREAL8 aD2 = Square(aDistMin);
-        for (auto & aCdt : aVCdt)
-            if (aCdt.mFree && (aCdt.SqDist(*aRes) < aD2))
-            {
-                aCdt.mFree = 0;
-                if (aScMaxNeigh)
-                    *aScMaxNeigh = std::max(*aScMaxNeigh,aCdt.mScore);
-            }
-    }
-
-    return aRes;
-}
-
-
-
-cOptimizeRotAndVUnit::cOptimizeRotAndVUnit(int aNbSamleRot,int aNbSampleSphere,bool isSignAmb) :
-    mNbSampleRot    (aNbSamleRot),
-    mNbSampleSphere (aNbSampleSphere),
-    mIsSignAmb      (isSignAmb),
-    mCurV0          (cPt3dr(1,0,0),"","")
-{
-
-}
-
-std::pair<tRotR,cPt3dr>  cOptimizeRotAndVUnit::P5toRotP3(const cPtxd<tREAL8,5>& aPt) const
-{
-    cPt3dr aWPK(aPt.x(),aPt.y(),aPt.z());
-    cPt2dr aDVert(aPt.t(),aPt.u());
-
-    return std::pair<tRotR,cPt3dr>(mCurRot0*tRotR::RotFromWPK(aWPK), mCurV0.GetPNorm(aDVert));
-}
-
-cPt1dr  cOptimizeRotAndVUnit::Value(const cPtxd<tREAL8,5>& aPt5) const
-{
-   auto [aRot,aVec] = P5toRotP3(aPt5);
-   return cPt1dr(ScoreRotAndVect(aRot,aVec));
-}
-std::pair<tREAL8,std::pair<tRotR,cPt3dr>>
-           cOptimizeRotAndVUnit::ComputeSolInit(tREAL8 aDistNeigh,tREAL8 anEpsilon,int aNbTest,tREAL8 aDeltaSc)
-{
-    //  Create object for sampling Rot & Sphere
-    cSampleQuat     aSQuat(mNbSampleRot,true); // true => sampling for rotation
-    // mIsSignAmb : projective, if V and -V are equivalent
-    cSampleSphere3D aSSph(mNbSampleSphere,mIsSignAmb);
-
-
-    std::vector<cCdtInitV> mVCdts; // will store the score, for extracting multiple max loc
-    int aNbCdt = aSQuat.NbRot()*aSSph.NbSamples();
-    mVCdts.reserve(aNbCdt);
-
-    //  Parse the rotation and the sphere and store the score in mVCdts
-    for (int aKQ=0 ; aKQ<(int)aSQuat.NbRot() ; aKQ++)
-    {
-        cPt4dr aQuat =   aSQuat.KthQuat(aKQ);
-        tRotR aRot(Quat2MatrRot(aQuat),false);
-        for (int aKV=0 ; aKV<aSSph.NbSamples() ; aKV++)
-        {
-            cPt3dr aVecOnSph = aSSph.KthPt(aKV);
-            tREAL8 aScore = ScoreRotAndVect(aRot,aVecOnSph);
-
-            cCdtInitV aCdt;
-            aCdt.mVecOnSph = aVecOnSph;
-            aCdt.mQuat = aQuat;
-            aCdt.mScore = aScore;
-            aCdt.mFree  = true;
-            mVCdts.push_back(aCdt);
-        }
-    }
-
-    cCdtInitV * aCdtMin =  ExtractMin(mVCdts,aDistNeigh); // Extract the best candidate
-    MMVII_INTERNAL_ASSERT_always(aCdtMin!=nullptr,"No cdt in InitVerticalAnd2OthogClino");
-    tREAL8 aThSc0 =  2.0* aCdtMin->mScore + aDeltaSc;
-
-    tREAL8 aBestScore = 1e10;
-    tRotR aRotOpt;
-    cPt3dr aVectOpt;
-    while (aNbTest>0)
-    {
-        mCurRot0 = tRotR (Quat2MatrRot(aCdtMin->mQuat),false);
-        mCurV0.SetPNorm(aCdtMin->mVecOnSph);
-
-        cOptimByStep<5> anOptim(*this,true,1.0);
-        tREAL8 aStep0 = 1.0 /(mNbSampleRot+mNbSampleSphere);
-        auto [aScOpt,aPt5Opt] = anOptim.Optim(cPtxd<tREAL8,5>::PCste(0),aStep0,anEpsilon,1/sqrt(2.0));
-        if (aScOpt<aBestScore)
-        {
-            aBestScore = aScOpt;
-            auto aPair = P5toRotP3(aPt5Opt);
-            aRotOpt = aPair.first;
-            aVectOpt = aPair.second;
-        }
-        aCdtMin =  ExtractMin(mVCdts,aDistNeigh);
-
-        if (aCdtMin==nullptr)
-        {
-            aNbTest=0;
-        }
-        else
-        {
-           if (aCdtMin->mScore>aThSc0)
-              aNbTest=0;
-        }
-        aNbTest--;
-    }
-
-    return std::pair<tREAL8,tSol>(aBestScore,tSol(aRotOpt,aVectOpt));
-//    StdOut()  << " --VVV=" << aVectOpt << " D1=" << aRotOpt.AxeI() << " " << aRotOpt.AxeJ() << "\n";
-}
-#endif
 
 /* *************************************************************** */
 /*                                                                 */
-/*               cAppli_BlockInstrInitClino                          */
+/*               cAppli_BlockInstrInitClino                        */
 /*                                                                 */
 /* *************************************************************** */
-class cAppli_BlockInstrInitClino;
+
+///  Clas for optimizing simultaneously 2Clino & Vertical,
 class cABIII_Optim2CV ;
+
+
+/**
+ * @brief The cAppli_BlockInstrInitClino class
+ *
+ * Class for initializing the calibration of clino from a set images oriented with clino measurement
+ */
 
 
 
@@ -179,20 +38,21 @@ class cABIII_Optim2CV ;
 class cAppli_BlockInstrInitClino : public cMMVII_Appli,
                                    public cDataMapping<tREAL8,2,1>,
                                    public cDataMapping<tREAL8,3,1>
-
-        //                           public cDataMapping<tREAL8,5,1>
-
+                                   // do not heritate from cABIII_Optim2CV because there was tricky compiling
+                                   // problem with overiding
 {
      public :
         friend cABIII_Optim2CV;
 
-
+        // ===============   method to make it a full cMMVII_Appli ========
         cAppli_BlockInstrInitClino(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli &);
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
         int Exe() override;
         // std::vector<std::string>  Samples() const ;
      private :
+
+        /// Angle in the unit selected for print (DmGon in general)
         tREAL8 Ang4Show(tREAL8) const;
 
         // =============  Methods for individual clino ====================
@@ -201,11 +61,9 @@ class cAppli_BlockInstrInitClino : public cMMVII_Appli,
         void Process1ClinoIndep(int aK);
            /// Score of calibration "aDir"  for clino "aKClino"
         tREAL8 ScoreDirClino(const cPt3dr& aDir,size_t aKClino) const;
-           /// Interface to  ScoreDirClino for cDataMapping  R2 -> R
+           /** Interface to  ScoreDirClino for cDataMapping  R2 -> R ,
+            once it has been roughly initialized compute in tangent plane */
         cPt1dr  Value(const cPt2dr&) const override ;
-
-
-
 
         // =============  Methods for orthohonal clino ====================
 
@@ -342,7 +200,9 @@ cABIII_Optim2CV::cABIII_Optim2CV(cAppli_BlockInstrInitClino & anAppli,int aNbSam
 
 tREAL8 cABIII_Optim2CV::ScoreRotAndVect (const tRotR& aR2Clin,const cPt3dr & aVertical) const
 {
+    // 1 Fix the value of vertical to tested value
     mAppli.mBlock->SetVerticalCste(VUnit(aVertical));
+    // 2- return the score of the 2 orthog, taking into account the vertical
     return mAppli.ValueOf2OthogClino(aR2Clin);
 }
 
