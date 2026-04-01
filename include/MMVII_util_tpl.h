@@ -538,6 +538,11 @@ template <class Type>  class cBijectiveMapI2O
 
         size_t  size() const;
 
+        cBijectiveMapI2O();
+        cBijectiveMapI2O(const std::vector<Type> &,bool doSort=true);
+
+        const  std::vector<Type> & VecI2Obj() const ;
+
     private :
         std::vector<Type>    mI2Obj;   /// vector efficient for map int->obj
         std::map<Type,int>   mObj2I;   /// dictionary in the other wat
