@@ -80,7 +80,7 @@ namespace MMVII
         void AnalyzeSurfParams();
         void GenTFW(const cAffin2D<tREAL8> & anAff, const std::string & aNameTFW);
         cAffin2D<tREAL8> ReadTFW(const std::string & aNameTFW);
-        cBox2di  BoxUtile();
+        cBox2di  BoxUtile(cIm2D<tU_INT1> & anImMasq);
         void MergeResults();
 };
 
@@ -142,12 +142,12 @@ cCollecSpecArg2007 & cAppliNuageBascule::ArgOpt(cCollecSpecArg2007 & anArgOpt)
         ;
 }
 
-cBox2di cAppliNuageBascule::BoxUtile()
+cBox2di cAppliNuageBascule::BoxUtile(cIm2D<tU_INT1> & anImMasq)
 {
     cTplBoxOfPts<int,2> aBox;
-    for (const auto & aPix: mImMasq1.DIm())
+    for (const auto & aPix: anImMasq.DIm())
     {
-        if(mImMasq1.DIm().GetV(aPix)>0.99)
+        if(anImMasq.DIm().GetV(aPix)>0.99)
             aBox.Add(aPix);
     }
 
@@ -322,7 +322,7 @@ void cAppliNuageBascule::MakeFastBasc()
     std::vector<cPt3dr> aVPtsDepth;
     std::vector<cPt3di> aVFaces;
 
-    cBox2di  aBoxUtileWithMasq = BoxUtile();
+    cBox2di  aBoxUtileWithMasq = BoxUtile(mImMasq1);
 
     ///  Init index for faces
     ///
@@ -516,10 +516,8 @@ void cAppliNuageBascule::ProcessNoPix(cZBuffer &  aZB)
     }
 }
 
-
 void cAppliNuageBascule::MakeBasculeTris(cZBuffer & aZB)
 {
-
     cPt3di aVInd;
     cPt3di aTriCorrel;
     cPt2dr anOffX(mGSD, 0.0);
@@ -547,21 +545,21 @@ void cAppliNuageBascule::MakeBasculeTris(cZBuffer & aZB)
 
     for (size_t  aKF=0; aKF<mTri3D->NbFace(); aKF++)
     {
-        if(aZB.ResSurfD(aKF).mResult == eZBufRes::NoPix)
+        if(aZB.ResSurfD(aKF).mResult == eZBufRes::Distorted )
         {
             //StdOut()<<"hidden"<<std::endl;
             aNInOut++;
         }
-        if(aZB.ResSurfD(aKF).mResult == eZBufRes::OutOut ||
+        /*if(aZB.ResSurfD(aKF).mResult == eZBufRes::OutOut ||
             aZB.ResSurfD(aKF).mResult == eZBufRes::OutOut ||
             aZB.ResSurfD(aKF).mResult == eZBufRes::BadOriented ||
             aZB.ResSurfD(aKF).mResult == eZBufRes::UnRegOut ||
             aZB.ResSurfD(aKF).mResult == eZBufRes::UnRegIn ||
-            aZB.ResSurfD(aKF).mResult == eZBufRes::Undefined ||
+            aZB.ResSurfD(aKF).mResult == eZBufRes::Distorted ||
             aZB.ResSurfD(aKF).mResult == eZBufRes::Hidden  )
         {
             aNInOut++;
-        }
+        }*/
 
         if(ZBufLabIsOk(aZB.ResSurfD(aKF).mResult))
         {
@@ -596,8 +594,9 @@ void cAppliNuageBascule::MakeBasculeTris(cZBuffer & aZB)
 
                 if( mBascCorrel)
                 {
+                    tREAL8 aWeightStretch = std::min(1.0,1/aZB.ResSurfD(aKF).mStretchThresh);
                     mImCorrelOut.DIm().SetV(aPix,
-                                            std::min(255,round_ni(Scal(ToR(aTriCorrel),aVW[aK])))
+                                            std::min(255,round_ni(aWeightStretch * Scal(ToR(aTriCorrel),aVW[aK])))
                                             );
                 }
             }
@@ -672,7 +671,7 @@ void cAppliNuageBascule::MergeResults()
     cParseBoxInOut<2> aPBIO =  cParseBoxInOut<2>::CreateFromSize(mDFI2d,mSzTiles);
 
     //cPt2dr aP0 (1e10,-1e10);
-    std::vector<cPt2di> aSzLocTiles;
+    std::vector<cBox2di> aSzLocTiles;
     std::vector<cAffin2D<tREAL8>> aLocAffOut;
 
     /// COMPUTE GLOBAL CONTEXT
@@ -697,10 +696,14 @@ void cAppliNuageBascule::MergeResults()
 
         cDataFileIm2D mDF = cDataFileIm2D::Create(aNameMasq,eForceGray::No);
 
-        aSzLocTiles.push_back(mDF.Sz());
+        // read mask to get useful masq info
+        cIm2D<tU_INT1> aMasqDalle(mDF.Sz()); 
+        cBox2di aBoxUsefullMasq = BoxUtile(aMasqDalle);
 
-        cPt2dr aPUL = mTrfLocBox.Value(cPt2dr(0,0));
-        cPt2dr aPLR = mTrfLocBox.Value(ToR(mDF.Sz()));
+        aSzLocTiles.push_back(aBoxUsefullMasq);
+
+        cPt2dr aPUL = mTrfLocBox.Value(ToR(aBoxUsefullMasq.P0()));
+        cPt2dr aPLR = mTrfLocBox.Value(ToR(aBoxUsefullMasq.P1()));
 
         mBoxGlobTarget.Add(cPt2dr(aPUL.x(),aPLR.y()));
         mBoxGlobTarget.Add(cPt2dr(aPLR.x(),aPUL.y()));
@@ -716,21 +719,34 @@ void cAppliNuageBascule::MergeResults()
 
     cBox2di aBoxGlobOutPix(Pt_round_up(mBoxGlobTarget.CurBox().Sz()/mGSD));
 
-    std::string aNameBascOut = DirOfPath(mNameResult,false)+"Prof_"+ FileOfPath(mNameResult,false);
+    std::string aNameBascOut = DirOfPath(mNameResult,false)+"Prof_"+ 
+                                FileOfPath(mNameResult,false);
 
-    std::string aNameMasqOut = DirOfPath(mNameResult,false)+"Masq_"+ FileOfPath(mNameResult,false);
+    std::string aNameMasqOut = DirOfPath(mNameResult,false)+"Masq_"+ 
+                                FileOfPath(mNameResult,false);
 
-    std::string aNameTFWGlb =  DirOfPath(mNameResult,false)+"Masq_"+ ChgPostix(FileOfPath(mNameResult,false),"tfw");
+    std::string aNameTFWProfGlb =  DirOfPath(mNameResult,false)+"Prof_"+ 
+                                    ChgPostix(FileOfPath(mNameResult,false),"tfw");
+    std::string aNameTFWMasqGlb =  DirOfPath(mNameResult,false)+"Masq_"+ 
+                                    ChgPostix(FileOfPath(mNameResult,false),"tfw");
 
 
-    GenTFW(aGlobAff,aNameTFWGlb);
+    GenTFW(aGlobAff,aNameTFWProfGlb);
+    GenTFW(aGlobAff,aNameTFWMasqGlb);
+
+    if(mBascCorrel)
+    {
+        std::string aNameTFWCorrelGlb =  DirOfPath(mNameResult,false)+"Correl_"+ 
+                                            ChgPostix(FileOfPath(mNameResult,false),"tfw");
+        GenTFW(aGlobAff,aNameTFWCorrelGlb);
+    }
 
     cDataFileIm2D  aDF = cDataFileIm2D::Create(aNameBascOut,
-                                              eTyNums::eTN_REAL8,
+                                              eTyNums::eTN_REAL4,
                                               aBoxGlobOutPix.Sz(),
                                               1);
 
-    cIm2D<tREAL8> aGlobIm(aDF.Sz(),aDF);
+    cIm2D<tREAL4> aGlobIm(aDF.Sz(),aDF);
     aGlobIm.DIm().InitCste(-1e9);
 
 
@@ -771,17 +787,19 @@ void cAppliNuageBascule::MergeResults()
                                 ToStr(PixI.y())+"-"+
                                 FileOfPath(mNameResult,false) ;
 
-        aP0G = ToI(aGlobAff.Inverse(aLocAffOut[aK].Value(cPt2dr(0,0))));
-        aP1G = ToI(aGlobAff.Inverse(aLocAffOut[aK].Value(ToR(aSzLocTiles[aK]))));
+        aP0G = ToI(aGlobAff.Inverse(aLocAffOut[aK].Value(ToR(aSzLocTiles[aK].P0()))));
+        aP1G = ToI(aGlobAff.Inverse(aLocAffOut[aK].Value(ToR(aSzLocTiles[aK].P1()))));
 
         cBox2di aBoxLocInGlob(aP0G,aP1G);
         StdOut()<<"LOC "<<aBoxLocInGlob<<" "<<"GLOB "<<aBoxGlobOutPix<<std::endl;
 
-        cIm2D<tREAL8>  aImProfDalle(aSzLocTiles[aK]);
-        cIm2D<tU_INT1> aImMasqDalle(aSzLocTiles[aK]);
+        cIm2D<tREAL4>  aImProfDalle(aSzLocTiles[aK].Sz());
+        cIm2D<tU_INT1> aImMasqDalle(aSzLocTiles[aK].Sz());
 
-        aImProfDalle.Read(cDataFileIm2D::Create(aNameProfDalle,eForceGray::No),cPt2di(0,0)) ;
-        aImMasqDalle.Read(cDataFileIm2D::Create(aNameMasqDalle,eForceGray::No),cPt2di(0,0)) ;
+        aImProfDalle.Read(cDataFileIm2D::Create(aNameProfDalle,eForceGray::No),
+                            aSzLocTiles[aK].P0()) ;
+        aImMasqDalle.Read(cDataFileIm2D::Create(aNameMasqDalle,eForceGray::No),
+                            aSzLocTiles[aK].P0()) ;
 
         //aImMasqDalle.DIm().Dilate(-mSzOverlap);
 
@@ -794,11 +812,10 @@ void cAppliNuageBascule::MergeResults()
                                          ToStr(PixI.x())+"-"+
                                          ToStr(PixI.y())+"-"+
                                          FileOfPath(mNameResult,false) ;
-            aImCorrelDalle=cIm2D<tU_INT1>(aSzLocTiles[aK]);
+            aImCorrelDalle=cIm2D<tU_INT1>(aSzLocTiles[aK].Sz());
             aImCorrelDalle.Read(cDataFileIm2D::Create(aNameCorrelDalle,eForceGray::No),
-                                cPt2di(0,0)) ;
+                                aSzLocTiles[aK].P0()) ;
         }
-
 
         // only select masked depths  ??????
         cDataIm2D<tU_INT1> & aDIMm = aImMasqDalle.DIm();

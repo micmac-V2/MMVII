@@ -641,7 +641,7 @@ tREAL8 L2_PlanarityIndex(const std::vector<cPt3dr> & aVPt)
 bool IsPlanarityIdxPdal(const std::vector<cPt3dr>& aVPt, tREAL8 mThresh1, tREAL8 mThresh2)
 {
     tREAL8 aNbP = aVPt.size() ;
-    if (aNbP <=3) return 0.0;
+    if (aNbP <=3) return false;
 
     cStrStat2<tREAL8>  aStat(3);
     for (const auto & aP3 : aVPt)

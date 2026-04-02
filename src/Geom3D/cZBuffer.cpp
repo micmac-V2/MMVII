@@ -121,7 +121,8 @@ cZBuffer::cZBuffer(cTri3DIterator & aMesh,const tSet &  aSetIn,const tMap & aMap
     mBoxOut     (cBox3dr::Empty()),
     mROut2Pix   (),
     mZBufIm     (cPt2di(1,1)),
-    mImSign     (cPt2di(1,1))
+    mImSign     (cPt2di(1,1)),
+    mMaxStretching(5.0)
 {
     cTplBoxOfPts<tREAL8,3> aBoxOfPtsIn;
     cTplBoxOfPts<tREAL8,3> aBoxOfPtsOut;
@@ -134,11 +135,15 @@ cZBuffer::cZBuffer(cTri3DIterator & aMesh,const tSet &  aSetIn,const tMap & aMap
 
     if (mIsBasc)
         {
+            //cPt3dr aPOutReady;
             mMesh2DDepth.ResetAll();
-
             while (mMesh.GetNextPoint(aPIn))
             {
                 cPt3dr aPOut = mMapI2O.Value(aPIn);
+
+                /*MMVII_INTERNAL_ASSERT_strong(Norm1(aPOut-aPOutReady)<0.000001,
+                                "ready points are not correctly mapped in mMesh2DDepth");*/
+
                 aBoxOfPtsIn.Add(aPIn);
                 aBoxOfPtsOut.Add(aPOut);
             }
@@ -173,7 +178,7 @@ cZBuffer::cZBuffer(cTri3DIterator & aMesh,const tSet &  aSetIn,const tMap & aMap
     mBoxIn = aBoxOfPtsIn.CurBox();
     mBoxOut = aBoxOfPtsOut.CurBox();
 
-    StdOut()<<"aBOXOut "<<mBoxOut.P0()<<" "<<mBoxOut.P1()<<std::endl;
+
 
     cPt2di aBrd(2,2);
     //   aP0/aResout + aTr -> 1,1
@@ -266,7 +271,9 @@ void cZBuffer::MakeZBufForBasc(eZBufModeIter aMode)
     tTri3dr  aTriIn  = tTri3dr::Tri000();
     tTri3dr  aTriOut = tTri3dr::Tri000();
 
+    double aStretchingThreshold = 1.0 ;
     int aNbTriVis = 0;
+
     while (mMesh.GetNextTri(aTriIn) &&
            mMesh2DDepth.GetNextTri(aTriOut))
     {
@@ -280,24 +287,6 @@ void cZBuffer::MakeZBufForBasc(eZBufModeIter aMode)
             aRes = eZBufRes::UnRegIn;
         else
         {
-           // tTri3dr aTriOutFromMap = mMapI2O.TriValue(aTriIn);
-
-
-            /*StdOut()<<"XDIFF 0 "<< Norm1(aTriOut.Pt(0) - aTriOutFromMap.Pt(0) )
-                     <<"XDIFF 1 "<< Norm1(aTriOut.Pt(1) - aTriOutFromMap.Pt(1) )
-                     <<"XDIFF 2 "<< Norm1(aTriOut.Pt(2) - aTriOutFromMap.Pt(2) )<<std::endl;*/
-
-            /*if (aMode==eZBufModeIter::SurfDevlpt)
-            {
-            if(Norm1(aTriOut.Pt(0) - aTriOutFromMap.Pt(0) )>0.00001)
-                StdOut()<<"XDIFF 0 "<< Norm1(aTriOut.Pt(0) - aTriOutFromMap.Pt(0) )<<std::endl;
-
-            if(Norm1(aTriOut.Pt(1) - aTriOutFromMap.Pt(1) )>0.00001)
-                StdOut()<<"XDIFF 1 "<< Norm1(aTriOut.Pt(1) - aTriOutFromMap.Pt(1) )<<std::endl;
-
-            if(Norm1(aTriOut.Pt(2) - aTriOutFromMap.Pt(2) )>0.00001)
-                StdOut()<<"XDIFF 2 "<< Norm1(aTriOut.Pt(2) - aTriOutFromMap.Pt(2) )<<std::endl;
-            }*/
 
             if (aTriOut.Regularity() <=0)
                 aRes = eZBufRes::UnRegOut;
@@ -309,9 +298,15 @@ void cZBuffer::MakeZBufForBasc(eZBufModeIter aMode)
         }
         if (aMode==eZBufModeIter::SurfDevlpt)
         {
+            // change triangle class to distorted 
+            
+            if (IsStretched(aTriIn,aTriOut,aStretchingThreshold))
+                aRes= eZBufRes::Distorted;
+
             cResModeSurfD aRMS;
             aRMS.mResult = aRes;
             aRMS.mResol  = mLastResSurfDev;
+            aRMS.mStretchThresh=aStretchingThreshold;
             mResSurfD.push_back(aRMS);
         }
 
@@ -402,6 +397,117 @@ eZBufRes cZBuffer::MakeOneTri(const tTri3dr & aTriIn,const tTri3dr &aTri3,eZBufM
     }
 
     return aRes;
+}
+
+bool cZBuffer::IsStretched(const tTri3dr & aTriIn, const tTri3dr & aTri3, double & aStretchingThreshold)
+{
+
+     ///< Evaluate stretching of triangle where Mapping(aTri3) = aTriIn
+
+     cPt3dr aP01 = aTriIn.Pt(1) - aTriIn.Pt(0);
+     cPt3dr aP12 = aTriIn.Pt(2) - aTriIn.Pt(1);
+
+     cPt3dr aP01_3d = aTri3.Pt(1) - aTri3.Pt(0);
+     cPt3dr aP12_3d = aTri3.Pt(2) - aTri3.Pt(1);
+
+     // Gram-Schmidt orthonormal basis definition 
+     double aP01norm = Norm1(aP01);
+     cPt3dr aP01N = aP01/aP01norm;
+     double aX2 = Scal(aP12,aP01N);
+     double aY2 = Norm1( aP12 - (aP01N*aX2 )) ;
+
+    /* cDenseMatrix<tREAL8> aDm_1= M2x2FromCol(cPt2dr(aP01norm,0.0), 
+                                                cPt2dr(aX2,aY2)).Inverse();*/
+
+    
+    // compute the inverse analytically 
+    tREAL8 aDet = std::abs(aP01norm*aY2);
+
+    if( aDet<=0)
+        return true;
+
+    cDenseMatrix<tREAL8> aDm_1 = M2x2FromCol(cPt2dr(aY2,-aX2)/aDet,
+                                            cPt2dr(0.0,aP01norm)/aDet);
+
+    // compute the Jacobian Matrix 
+    /*cDenseMatrix<tREAL8>  aDS(2,3); // col, row
+    SetCol(aDS,0, aP01_3d);
+    SetCol(aDS,1, aP12_3d);*/
+
+    // Jacobian J = aDS * aDm^-1 manually
+    cPt3dr aJ01 = aP01_3d * aDm_1.GetElem(cPt2di(0,0)) + aP12_3d * aDm_1.GetElem(cPt2di(0,1));
+    cPt3dr aJ12 = aP01_3d * aDm_1.GetElem(cPt2di(1,0)) + aP12_3d * aDm_1.GetElem(cPt2di(1,1));
+
+    // JT J manually
+
+    /*
+         |aa bb|
+    JTJ =|     |
+         |bb cc|
+    */
+
+    tREAL8 aa = Scal(aJ01,aJ01);
+    tREAL8 bb = Scal(aJ01,aJ12);
+    tREAL8 cc = Scal(aJ12,aJ12);
+
+    tREAL8 trace = aa + cc;
+    tREAL8 det = aa*cc - bb*bb;
+    tREAL8 temp = std::sqrt(std::max(0.0, trace*trace * 0.25 - det));
+    
+
+    // eigen values
+    tREAL8 lambda1 = trace * 0.5 + temp;
+    tREAL8 lambda2 = trace * 0.5 - temp;
+    
+    tREAL8 sigma1 = std::sqrt(lambda1);
+    tREAL8 sigma2 = std::sqrt(lambda2);
+
+    aStretchingThreshold = (sigma1/sigma2) ;
+
+    // dirichlet energy 
+    //aStretchingThreshold= (sigma1*sigma1)+ (sigma2*sigma2)+ 1/(sigma1*sigma1) + 1/(sigma2*sigma2);
+
+    if( (sigma2<1e-6) || (aStretchingThreshold > mMaxStretching))
+        return true;
+    else
+    {
+        // keep stretching to 1.0
+        aStretchingThreshold = 1.0;
+    }
+
+    return false;
+
+
+    /*
+
+    auto aJac = aDS * aDm_1;
+
+
+
+
+    auto aJacTaJac = aJac.Transpose()* aJac;
+
+    // eigen val
+    const cDenseVect<tREAL8> anEV = aJacTaJac.Eigen_Decomposition().mEigenVal_R;
+
+    //evaluate stretching level 
+    double aRatio = anEV(0)/anEV(1);
+    //double anArea = anEV(0)*anEV(1);
+    //StdOut()<<"aRatio "<<aRatio<<std::endl;
+    if( aRatio > mMaxStretching) return true;
+
+    // symmetric dirichlet energy 
+
+    if(anEV(1)<1e-6)
+        return true ;
+
+    if( aRatio > mMaxStretching) 
+        return true;
+
+    return false;
+
+    */
+
 }
 
 };

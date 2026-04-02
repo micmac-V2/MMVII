@@ -79,7 +79,8 @@ enum class eZBufRes
               Hidden,         ///< Hidden by other
               NoPix,          ///< When there is no pixel in triangle, decision har to do
               LikelyVisible,  ///< Probably visible -> No Pixel but connected to visible
-              Visible         ///< Visible
+              Visible ,       ///< Visible
+              Distorted       ///< Distorted given Mapping mMapI2O
            };
 
 bool  ZBufLabIsOk(eZBufRes aLab); // return if visible or likely
@@ -99,6 +100,7 @@ struct cResModeSurfD
     public :
         eZBufRes mResult;
         double   mResol   ;
+        double   mStretchThresh = 1.0 ;
 };
 void  AddData(const cAuxAr2007  &anAux,cResModeSurfD& aRMS ); ///< serialization
 
@@ -150,6 +152,8 @@ class  cZBuffer
           ///  make the job for one triangle, different computation possible depending on aMode
           eZBufRes MakeOneTri(const tTri3dr & aTriIn,const tTri3dr & aTriOut,eZBufModeIter aMode);
 
+          bool IsStretched(const tTri3dr & aTriIn, const tTri3dr & aTri3, double & aStretchingThreshold);
+
           bool                  mIsOk;        ///< Many things can happen bad ...
           bool                  mZF_SameOri;  ///< Axe of Z (in out coord) and oriented surface have same orientation
           int                   mMultZ;       ///< multiplier associated to SameOri
@@ -171,6 +175,8 @@ class  cZBuffer
 
           double           mLastResSurfDev;  ///< store the last resolution computed (facility 4 multiple results)
           double           mMaxRSD;          ///< max resolution reacged
+
+          double           mMaxStretching;  ///< Maximum stretching of triangles given mapping mMapI2O
 
           std::vector<cResModeSurfD>  mResSurfD;
 };

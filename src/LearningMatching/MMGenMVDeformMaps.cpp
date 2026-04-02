@@ -36,10 +36,10 @@ namespace  MMVII {
       //std::vector<std::pair<std::string, std::string>> GetCouples() {return mCouplesImages;};
       // SETTERS
       //void SetCouples (std::vector<std::pair<std::string, std::string>> Couples ){mCouplesImages=Couples;}
-      string NameImMasq(string NameIM);
-      string NameImDepth(string NameIM);
-      string NameImOri(string NameIM,std::string OriFolder, string SuffOri);
-      string NameOut(string NameIm, string sfx);
+      std::string NameImMasq(std::string  NameIM);
+      std::string NameImDepth(std::string  NameIM);
+      std::string NameImOri(std::string  NameIM,std::string OriFolder, std::string  SuffOri);
+      std::string NameOut(std::string  NameIm, std::string  sfx);
 
 
       // --- constructed ---
@@ -56,7 +56,7 @@ namespace  MMVII {
 
 
           // class definition
-    cMGenDeformMaps::cMGenDeformMaps(const std::vector<string> &aVArgs, const cSpecMMVII_Appli &aSpec):
+    cMGenDeformMaps::cMGenDeformMaps(const std::vector<std::string> &aVArgs, const cSpecMMVII_Appli &aSpec):
         cMMVII_Appli  (aVArgs,aSpec),
         mPhProj(*this),
         mSzIm(cPt2di(0,0)),
@@ -89,20 +89,20 @@ namespace  MMVII {
          ;
     }
 
-    string cMGenDeformMaps::NameImDepth(string NameIM)
+    std::string cMGenDeformMaps::NameImDepth(std::string  NameIM)
     {
       /*std::size_t fd=NameIM.find_last_of(".");
       string Depth=NameIM.substr(0,fd)+"_Pax1.tif";*/
-    string Depth="DensifyPx_"+NameIM;
+    std::string Depth="DensifyPx_"+ NameIM;
       return Depth;
     }
-    string cMGenDeformMaps::NameOut(string NameIM, string sfx)
+    std::string cMGenDeformMaps::NameOut(std::string NameIM, std::string sfx)
     {
       std::size_t fd=NameIM.find_last_of(".");
       return NameIM.substr(0,fd)+"_"+sfx+".tif";
     }
 
-    string cMGenDeformMaps::NameImMasq(string NameIM)
+    std::string cMGenDeformMaps::NameImMasq(std::string  NameIM)
     {
      /* size_t fd=NameIM.find_last_of(".");
       string Masq=NameIM.substr(0,fd)+"_Masq1.tif";*/
@@ -110,7 +110,7 @@ namespace  MMVII {
       return Masq;
     }
 
-    string cMGenDeformMaps::NameImOri(string NameIM,std::string OriFolder, string SuffOri)
+    std::string cMGenDeformMaps::NameImOri(std::string  NameIM,std::string OriFolder, std::string  SuffOri)
     {
       return OriFolder+"/"+SuffOri+NameIM+".xml";
     }
@@ -201,12 +201,13 @@ namespace  MMVII {
             }
         }
         // dilate before saving
-          auto  aMxImV1  = cMMV1_Conv<tU_INT1>::ImToMMV1(aMxIm);
+          //===auto  aMxImV1  = cMMV1_Conv<tU_INT1>::ImToMMV1(aMxIm);
           // dilate
-          ELISE_COPY(aMxImV1.all_pts(),
+          /****ELISE_COPY(aMxImV1.all_pts(),
                      dilat_d8(aMxImV1.in(0),4),
-                     aMxImV1.out());
+                     aMxImV1.out());*/
 
+          // Dilate aMxIm
           // save Dx, Dy, Mx, My
           aDxIm.ToFile(NameOut(mNameIm1+"_"+mNameIm2,"Dx"));
           //aDyIm.ToFile(NameOut(itV->N1()+"__"+itV->N2(),"Dy"));
