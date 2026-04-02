@@ -356,8 +356,8 @@ cParamCallSys cOneLevel::StrComReduce(bool ModeIm) const
        NameImOrMasq(ModeIm),
        ToStr(mIm.mAppli.mRatioByL),
        std::string("Out=") + mDownLev->NameImOrMasq(ModeIm),
-       ModeIm ? "ModMasq=0" : "ModMasq=1",
-          "@ExitOnBrkp"
+       ModeIm ? "ModMasq=0" : " ModMasq=1",
+           "@ExitOnBrkp"
        );
 
 
