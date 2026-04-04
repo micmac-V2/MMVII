@@ -2,6 +2,7 @@
 #include "cMMVII_Appli.h"
 #include "MMVII_2Include_Serial_Tpl.h"
 #include "MMVII_HeuristikOpt.h"
+#include "MMVII_Tpl_OptimManifold.h"
 
 
 /**
@@ -22,9 +23,6 @@ namespace MMVII
 /*                                                                 */
 /* *************************************************************** */
 
-///  Clas for optimizing simultaneously 2Clino & Vertical,
-class cABIII_Optim2CV ;
-
 
 /**
  * @brief The cAppli_BlockInstrInitClino class
@@ -37,13 +35,14 @@ class cABIII_Optim2CV ;
 
 class cAppli_BlockInstrInitClino : public cMMVII_Appli,
                                    public cDataMapping<tREAL8,2,1>,
-                                   public cDataMapping<tREAL8,3,1>
+                                   public   cOptDiscScorer<cPt3dr>,
+                                   public   cOptDiscScorer<tPoseAsPair>,
+                                   public   cOptDiscScorer<tRotR>
+
                                    // do not heritate from cABIII_Optim2CV because there was tricky compiling
                                    // problem with overiding
 {
      public :
-        friend cABIII_Optim2CV;
-
         // ===============   method to make it a full cMMVII_Appli ========
         cAppli_BlockInstrInitClino(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli &);
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
@@ -60,26 +59,36 @@ class cAppli_BlockInstrInitClino : public cMMVII_Appli,
            /// Calibrate a single clino independantly of others
         void Process1ClinoIndep(int aK);
            /// Score of calibration "aDir"  for clino "aKClino"
-        tREAL8 ScoreDirClino(const cPt3dr& aDir,size_t aKClino) const;
+        tREAL8 Score1Clino(const cPt3dr& aDir,size_t aKClino) const;
            /** Interface to  ScoreDirClino for cDataMapping  R2 -> R ,
             once it has been roughly initialized compute in tangent plane */
         cPt1dr  Value(const cPt2dr&) const override ;
 
+        tREAL8 Score(const cPt3dr&) const override;
+
+
         // =============  Methods for orthohonal clino ====================
 
+        /*  If we have 2 clino, forced to be orthogonal, we modelize them with
+         *  a rotation R such axe I and J of the rotation are the axes of clino 1 and 2
+         */
         /// Calibrate a pair of clino forced to be orthog
         void Process2OrthogClino(const cPt2di &);
+        tREAL8 Score(const tRotR&) const override;
+
         /// Score of pair of orthog clino coded as a rotation
-        tREAL8 ValueOf2OthogClino(const tRotR& aR) const;
+          tREAL8 Score2OthogClino(const tRotR& aR) const;
         /// Score of an WPK, with signature for cDataMapping
-        cPt1dr  Value(const cPt3dr&) const override ;
+       ///  cPt1dr  Value(const cPt3dr&) const override ;
+
 
         // =============  Methods for 2 orthogonal clino + Vertical ====================
 
         void InitVerticalAnd2OthogClino(const cPt2di & aK1K2);
 
         cPt3dr  P2toP3(const cPt2dr&) const;
-        tRotR   P3toRot(const cPt3dr&) const;
+
+        tREAL8 Score(const tPoseAsPair&) const override;
 
         cPhotogrammetricProject   mPhProj;
 
@@ -111,7 +120,7 @@ class cAppli_BlockInstrInitClino : public cMMVII_Appli,
         // tRotR                     mAxesVertical;   //< code vertical and its 2 orthog compl
 
         std::vector<int>          mNumPoseInstr;  //< Num cams used for pose estimation of instrument
-        std::vector<bool>         mInPairOrthog;  //< Is the clino used in a pair (unused 4 now)
+      //  std::vector<bool>         mInPairOrthog;  //< Is the clino used in a pair (unused 4 now)
 
         cWeightAv<tREAL8,tREAL8>  mAvgClinIndep;
         std::vector<tREAL8>       mScoreClinoIndep;
@@ -170,7 +179,7 @@ cCollecSpecArg2007 & cAppli_BlockInstrInitClino::ArgOpt(cCollecSpecArg2007 & anA
             << AOpt2007(mUnitShow,"USA","Unity Show Angles",{AC_ListVal<eTyUnitAngle>(),{eTA2007::HDV}})
             << AOpt2007(mReSetSigma,"ResetSigma","Do we use sigma",{{eTA2007::HDV}})
             << AOpt2007(mVertApriori,"Vert0","A priori vertical => we compte both clino & vert")
-            << AOpt2007(mNbSVert,"NbSV","Number of sample, when both Orthog & Vert, x=>quat, y=>Spher")
+            << AOpt2007(mNbSVert,"NbSV","Number of sample, when both Orthog & Vert, x=>quat, y=>Spher",{eTA2007::HDV})
     ;
 }
 
@@ -183,98 +192,85 @@ tREAL8 cAppli_BlockInstrInitClino::Ang4Show(tREAL8 anAng) const
 
 // ========================  5D optimisation ==========================
 
-class cABIII_Optim2CV : public cOptimizeRotAndVUnit
-{
-  public :
-    cABIII_Optim2CV(cAppli_BlockInstrInitClino &,int aNbSamleRot,int aNbSampleSphere);
-  private :
-    tREAL8 ScoreRotAndVect (const tRotR&,const cPt3dr &) const override;
-    cAppli_BlockInstrInitClino & mAppli;
-};
 
-cABIII_Optim2CV::cABIII_Optim2CV(cAppli_BlockInstrInitClino & anAppli,int aNbSamleRot,int aNbSampleSphere) :
-    cOptimizeRotAndVUnit(aNbSamleRot,aNbSampleSphere,true),
-    mAppli (anAppli)
+tREAL8  cAppli_BlockInstrInitClino::Score(const tPoseAsPair& aPair) const
 {
+    mBlock->SetVerticalCste(VUnit(aPair.first));
+    return Score2OthogClino(aPair.second);
+
 }
-
-tREAL8 cABIII_Optim2CV::ScoreRotAndVect (const tRotR& aR2Clin,const cPt3dr & aVertical) const
-{
-    // 1 Fix the value of vertical to tested value
-    mAppli.mBlock->SetVerticalCste(VUnit(aVertical));
-    // 2- return the score of the 2 orthog, taking into account the vertical
-    return mAppli.ValueOf2OthogClino(aR2Clin);
-}
-
 
 void cAppli_BlockInstrInitClino::InitVerticalAnd2OthogClino(const cPt2di & aK1K2)
 {
     mK1CurC = aK1K2.x();
     mK2CurC = aK1K2.y();
 
-    cABIII_Optim2CV anOpt(*this,mNbSVert.x(),mNbSVert.y());
-    auto [aSc,aPair] = anOpt.ComputeSolInit(1.0,1e-8,10,0.05);
-    auto [aRot,aV] = aPair;
+    // Let  K1,K2 be two direction of clino and V a vertical, we have the equivalence
+    //                (K1,K2,V)  ~ (-K1,-K2,-V)  =>  true : ambiguity above
+    tPoseCart_OptimDisc aPoseDesc = Pose_OptimDisc(mNbSVert.y(),true,mNbSVert.x());
 
-            mBlock->SetVerticalCste(aV);
-    StdOut()  << " SS=" << Ang4Show(aSc) <<  " VV=" << aV << " C1="<< aRot.AxeI() << " C2=" << aRot.AxeJ() << "\n";
+    // object for optimizing
+    cTplOptDisc_OnManifold<tPoseCart_OptimDisc> anOptim(aPoseDesc,*this);
+
+    anOptim.ComputeSol(0.5,1e-7,5);
+
+    const cWhichMin<tPoseAsPair,tREAL8> & aSol = anOptim.GetSol();
+    auto [aV,aRot] =  aSol.IndexExtre();
+
+
+    mBlock->SetVerticalCste(aV); // used if after optim is done w/o vertical
+
+    StdOut()  << " SS=" << Ang4Show(aSol.ValExtre()) <<  " VV=" << aV << " C1="<< aRot.AxeI() << " C2=" << aRot.AxeJ() << "\n";
 }
 
 // ========================  3D optimisation ==========================
 
 
-tREAL8 cAppli_BlockInstrInitClino::ValueOf2OthogClino(const tRotR& aR) const
+tREAL8 cAppli_BlockInstrInitClino::Score2OthogClino(const tRotR& aR) const
 {
-    tREAL8 aRes1 = ScoreDirClino(aR.AxeI(),mK1CurC);
-    tREAL8 aRes2 = ScoreDirClino(aR.AxeJ(),mK2CurC);
+        tREAL8 aRes1 = Score1Clino(aR.AxeI(),mK1CurC);
+        tREAL8 aRes2 = Score1Clino(aR.AxeJ(),mK2CurC);
 
-    return (aRes1+aRes2)/2.0;
+        return (aRes1+aRes2)/2.0;
 }
 
-cPt1dr  cAppli_BlockInstrInitClino::Value(const cPt3dr& aWPK) const
+tREAL8 cAppli_BlockInstrInitClino::Score(const tRotR& aR) const
 {
-    return cPt1dr(ValueOf2OthogClino(P3toRot(aWPK)));
+        return Score2OthogClino(aR);
 }
 
-
-tRotR  cAppli_BlockInstrInitClino::P3toRot(const cPt3dr& aWPK) const
-{
-    return mAxes2Orthog * tRotR::RotFromWPK(aWPK);
-}
 
 void cAppli_BlockInstrInitClino::Process2OrthogClino(const cPt2di & aK1K2)
 {
     mK1CurC = aK1K2.x();
     mK2CurC = aK1K2.y();
-    mInPairOrthog.at(mK1CurC) = true;
-    mInPairOrthog.at(mK2CurC) = true;
 
-    cPt3dr aP1 = mDirClinoIndep.at(mK1CurC);
-    cPt3dr aP2 = mDirClinoIndep.at(mK2CurC);
 
-    auto [aQ1,aQ2] = OrthogonalizePair(aP1,aP2);
-    cPt3dr aQ3 = aQ1 ^ aQ2;
-    mAxes2Orthog = tRotR(aQ1,aQ2,aQ3,false);
 
-    //tREAL8 anAng = std::abs(AbsAngleTrnk(aP1,aP2)-M_PI/2.0) ;
+    cTplOptDisc_OnManifold<cRot_OptimDisc> anOptim(cRot_OptimDisc(10),*this);
+    anOptim.ComputeSol(0.5,1e-8,5);
+    const cWhichMin<tRotR,tREAL8> & aSol = anOptim.GetSol();
 
-    cOptimByStep<3> anOptim(*this,true,1.0);
-    auto [aScMin,aPt3Min] = anOptim.Optim(cPt3dr(0,0,0),2.0/mNbSamp1Cl,1e-8,1/sqrt(2.0));
+    mScoreClinoGlob.at(mK1CurC) =    mScoreClinoGlob.at(mK2CurC) = aSol.ValExtre();
+    mDirClinoGlob.at(mK1CurC) = aSol.IndexExtre().AxeI();
+    mDirClinoGlob.at(mK2CurC) = aSol.IndexExtre().AxeJ();
 
-    mAxes2Orthog = P3toRot(aPt3Min);
+    StdOut() << " RRRRRR " << Ang4Show(aSol.ValExtre()) << "\n";
 
-     mScoreClinoGlob.at(mK1CurC) =    mScoreClinoGlob.at(mK2CurC) = aScMin;
-     mDirClinoGlob.at(mK1CurC) = mAxes2Orthog.AxeI();
-     mDirClinoGlob.at(mK2CurC) = mAxes2Orthog.AxeJ();
 }
 
             // ========================  2D optimisation ==========================
 
 
 
-tREAL8 cAppli_BlockInstrInitClino::ScoreDirClino(const cPt3dr& aDir,size_t aKClino) const
+tREAL8 cAppli_BlockInstrInitClino::Score1Clino(const cPt3dr& aDir,size_t aKClino) const
 {
         return mBlock->ScoreDirClino(aDir,aKClino);
+}
+
+tREAL8 cAppli_BlockInstrInitClino::Score(const cPt3dr& aDir) const
+{
+    return Score1Clino(aDir,mKCurClino);
 }
 
 cPt3dr  cAppli_BlockInstrInitClino::P2toP3(const cPt2dr& aP2) const
@@ -284,7 +280,7 @@ cPt3dr  cAppli_BlockInstrInitClino::P2toP3(const cPt2dr& aP2) const
 
 cPt1dr  cAppli_BlockInstrInitClino::Value(const cPt2dr&aP2) const
 {
-   return cPt1dr( ScoreDirClino(P2toP3(aP2),mKCurClino));
+   return cPt1dr( Score1Clino(P2toP3(aP2),mKCurClino));
 }
 
 
@@ -299,7 +295,7 @@ void cAppli_BlockInstrInitClino::Process1ClinoIndep(int aK)
     for (int aKPt=0 ; aKPt<aSSph.NbSamples(); aKPt++)
     {
         cPt3dr aPt =  aSSph.KthPt(aKPt);
-        aWMin.Add(aPt,ScoreDirClino(aPt,mKCurClino));
+        aWMin.Add(aPt,Score1Clino(aPt,mKCurClino));
     }
 
     //======[2]  refine the solution ============================
@@ -338,7 +334,7 @@ int cAppli_BlockInstrInitClino::Exe()
 
     mScoreClinoIndep.resize(mNbClino);
     mDirClinoIndep.resize(mNbClino);
-    mInPairOrthog.resize(mNbClino,false);
+//     mInPairOrthog.resize(mNbClino,false);
 
     if (IsInit(&mNumPoseInstr))
     {

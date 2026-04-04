@@ -58,7 +58,45 @@ template <const int Dim> class cOptimByStep
 
 };
 
-/** Class that can be used Clino+Vert or for pose estimation */
+/** Optimisation on the sphere */
+/*
+class cOptimizeVecUnit  : public cDataMapping<tREAL8,2,1>
+{
+   public :
+       cOptimizeVecUnit(int aNbSampleSphere,bool isSignAmb);
+     //  std::pair<tREAL8,tSol> ComputeSolInit(tREAL8 aDistNeigh,tREAL8 anEpsilon,int aNbTest,tREAL8 aDeltaSc);
+
+   private :
+       virtual tREAL8 ScoreVect (const cPt3dr &) const = 0;
+
+       int  mNbSampleSphere;
+       bool mIsSignAmb;
+       cP3dNormWithUK mCurV0;  //< Cur unit vector  used used as starting point (J,K complement)
+};
+*/
+
+/**  Class used for generic discrete optimization on "manifolds" (sphere, tot, poses, torus ... ) */
+
+template <class Type> class cOptDiscScorer
+{
+     public :
+       virtual tREAL8 Score(const Type &) const = 0;
+       virtual tREAL8 ComputeThreshold(tREAL8 aScore,const Type &) const
+       {
+           return 1e10;
+       }
+};
+
+/// For using pose in cCartProduct_OptimDisc we need them to be described as  pair
+typedef std::pair<cPt3dr,tRotR> tPoseAsPair;
+/// Conversion  : tPoseAsPair -> Pair
+tPoseR  Pair2Pose(const tPoseAsPair&);
+/// Conversion  : Pair -> tPoseR
+tPoseAsPair  Pose2Pair(const tPoseR&);
+
+
+/** Optimization on the space  Rot X Spher3  (5-dimension)
+ *  Class that can be used Clino+Vert or for pose estimation */
 
 class cOptimizeRotAndVUnit  : public cDataMapping<tREAL8,5,1>
 {
@@ -81,6 +119,8 @@ class cOptimizeRotAndVUnit  : public cDataMapping<tREAL8,5,1>
           cP3dNormWithUK mCurV0;  //< Cur unit vector  used used as starting point (J,K complement)
 
 };
+
+
 
 
 

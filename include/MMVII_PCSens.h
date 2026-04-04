@@ -553,6 +553,8 @@ class cP3dNormWithUK :  public cObjWithUnkowns<tREAL8>,
 {
    public :
         cP3dNormWithUK(const cPt3dr &aPt,const std::string& aNameType,const std::string & aNameGrp);
+        //cP3dNormWithUK(const cP3dNormWithUK&);
+
         ~cP3dNormWithUK();
         void OnUpdate() override;                 // "reaction" after linear update
         void  FillGetAdrInfoParam(cGetAdrInfoParam<tREAL8> &) override;

@@ -1,8 +1,11 @@
 #include "MMVII_HeuristikOpt.h"
 #include "MMVII_Mappings.h"
+#include "MMVII_Tpl_OptimManifold.h"
 
 namespace MMVII
 {
+tPoseR  Pair2Pose(const tPoseAsPair& aPair) {return tPoseR(aPair.first,aPair.second);}
+tPoseAsPair  Pose2Pair(const tPoseR& aPose) {return tPoseAsPair(aPose.Tr(),aPose.Rot());}
 
 
 /**  Given a dim of point, and a Dist1Max corresponding to a neighboor (for ex : 1 for V4, 2 for V8 with Dim=2 ...),
@@ -131,18 +134,22 @@ template class cOptimByStep<3>;
 template class cOptimByStep<4>;
 template class cOptimByStep<5>;
 
+
 /*  ******************************************* */
 /*                                              */
 /*            cOptimizeRotAndVUnit              */
 /*                                              */
 /*  ******************************************* */
 
+
 class cCdtInitV
 {
      public :
         tREAL8 SqDist(const cCdtInitV&) const;
+
         cPt4dr mQuat;
         cPt3dr mVecOnSph;
+
         tREAL8 mScore;
         bool   mFree;
 };
@@ -223,8 +230,8 @@ std::pair<tREAL8,std::pair<tRotR,cPt3dr>>
 
 
     std::vector<cCdtInitV> mVCdts; // will store the score, for extracting multiple max loc
-    int aNbCdt = aSQuat.NbRot()*aSSph.NbSamples();
-    mVCdts.reserve(aNbCdt);
+    int aNbObjDisc = aSQuat.NbRot()*aSSph.NbSamples();
+    mVCdts.reserve(aNbObjDisc);
 
     //  Parse the rotation and the sphere and store the score in mVCdts
     for (int aKQ=0 ; aKQ<(int)aSQuat.NbRot() ; aKQ++)

@@ -56,7 +56,7 @@ template <class Type> int  ProgrIndexPseudoMediane(const std::vector<Type> & aVO
    }
    // recursively compute pseudo median of agregation
    return ProgrIndexPseudoMediane(aVObj,aVCluster,aNbMax);
-   
+
 }
 
 
@@ -81,7 +81,7 @@ template <class Type> cRotation3D<Type>::cRotation3D() :
 {
 }
               // cRotation3D<Type>(cDenseMatrix<Type>(3,3,eModeInitImage::eMIA_Null),false)
-              
+
 template <class Type> cRotation3D<Type>::cRotation3D(const cDenseMatrix<Type> & aMat,bool RefineIt) :
    mMat (aMat)
 {
@@ -1087,11 +1087,20 @@ cPt3dr cSampleSphere3D::KthPt(int aKPt) const
 {
     std::vector<tREAL8> aVC;
     mSHC.KthPt(aVC,aKPt);
-    
+
     return VUnit(cPt3dr::FromStdVector(aVC));
 }
 
+tREAL8  cSampleSphere3D::SqDist(const cPt3dr& aP1,const cPt3dr&aP2) const
+{
+    tREAL8 aD2 = SqN2(aP1-aP2);
+    if (!mSHC.IsProj())
+        return aD2;
 
+    return std::min(aD2,SqN2(aP1+aP2));
+}
+
+bool cSampleSphere3D::IsProj() const {return mSHC.IsProj();}
 
 /* ************************************************* */
 /*                                                   */
@@ -1108,7 +1117,8 @@ cSampleHyperCube::cSampleHyperCube(int aDim,int aNbStep,bool isProj) :
 {
 }
 
-int cSampleHyperCube::NbSamples() const {return mNbSamples;}
+int  cSampleHyperCube::NbSamples() const {return mNbSamples;}
+bool cSampleHyperCube::IsProj()    const {return mIsProj   ;}
 
 tREAL8 cSampleHyperCube::Int2Coord(int aK) const
 {
@@ -1130,7 +1140,7 @@ void  cSampleHyperCube::KthPt(std::vector<tREAL8> & aPts,int aKSample) const
    }
    aPts.at(aIndF) = aSign;  // now fix to -1/+1 in the face
 
-   
+
    aKSample /= mNbF;  /// now we code the cube of Dim-1 remaining direction
    for (int aD=1 ; aD<mDim ; aD++)
    {
@@ -1156,7 +1166,7 @@ template <const int Dim> void Tpl_TestcSampleHyperCube(int aNbStep)
           cPtxd<tREAL8,Dim> aPt = cPtxd<tREAL8,Dim>::FromStdVector(aVC);
 
           UpdateMin(aDMin,NormInf(aPt-aPRand));
-    
+
           // test they are on the cube
           MMVII_INTERNAL_ASSERT_bench(std::abs(NormInf(aPt)-1)<1e-9,"Tpl_TestcSampleHyperCube N1");
        }
@@ -1165,6 +1175,8 @@ template <const int Dim> void Tpl_TestcSampleHyperCube(int aNbStep)
        // StdOut() << " DMIN" << aDMin << " " << 1.0/(2.0 * aNbStep) << "\n";
    }
 }
+
+
 
 void  TestcSampleHyperCube()
 {
