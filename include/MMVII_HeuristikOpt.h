@@ -88,40 +88,13 @@ template <class Type> class cOptDiscScorer
 };
 
 /// For using pose in cCartProduct_OptimDisc we need them to be described as  pair
-typedef std::pair<cPt3dr,tRotR> tPoseAsPair;
+typedef std::pair<cPt3dr,tRotR>  tPoseAsPair;
+typedef std::pair<cPt3dr,cPt3dr> tPairPt3dr;
+
 /// Conversion  : tPoseAsPair -> Pair
 tPoseR  Pair2Pose(const tPoseAsPair&);
 /// Conversion  : Pair -> tPoseR
 tPoseAsPair  Pose2Pair(const tPoseR&);
-
-
-/** Optimization on the space  Rot X Spher3  (5-dimension)
- *  Class that can be used Clino+Vert or for pose estimation */
-
-class cOptimizeRotAndVUnit  : public cDataMapping<tREAL8,5,1>
-{
-     public :
-          typedef std::pair<tRotR,cPt3dr> tSol;
-
-          /// Cstructor  isSignAmb -> yes for clino as it's invariant to sign chg in vertical & I &J
-          cOptimizeRotAndVUnit(int aNbSamleRot,int aNbSampleSphere,bool isSignAmb);
-          std::pair<tREAL8,tSol> ComputeSolInit(tREAL8 aDistNeigh,tREAL8 anEpsilon,int aNbTest,tREAL8 aDeltaSc);
-
-     private :
-          virtual tREAL8 ScoreRotAndVect (const tRotR&,const cPt3dr &) const = 0;
-          std::pair<tRotR,cPt3dr>  P5toRotP3(const cPtxd<tREAL8,5>& aPt) const;
-          cPt1dr  Value(const cPtxd<tREAL8,5>&) const override ;
-
-          int  mNbSampleRot;
-          int  mNbSampleSphere;
-          bool mIsSignAmb;
-          tRotR mCurRot0;         //< Cur value of rotation used as a starting point
-          cP3dNormWithUK mCurV0;  //< Cur unit vector  used used as starting point (J,K complement)
-
-};
-
-
-
 
 
 

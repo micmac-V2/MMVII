@@ -545,6 +545,7 @@ class   cIrbComp_Block : public cMemCheck
        cPt3dr   VerticalOfTimes(const   cIrbComp_TimeS &) const;
        const cSysCo &                      OriSysCo() const ; //< Accessor, test !=0
         cSysCo &                      OriSysCo()  ; //< Accessor, test !=0
+        tPtrSysCo                     PtrOriSysco() const;
         void SetVerticalCste(const cPt3dr &aVertical);
 
     private :

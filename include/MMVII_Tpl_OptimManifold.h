@@ -258,7 +258,7 @@ template <class T1,class T2> class cCartProduct_OptimDisc
 
 };
 
-typedef cCartProduct_OptimDisc<cSph3_OptimDisc,cRot_OptimDisc> tPoseCart_OptimDisc;
+typedef cCartProduct_OptimDisc<cSph3_OptimDisc,cRot_OptimDisc>  tPoseCart_OptimDisc;
 
 inline tPoseCart_OptimDisc  Pose_OptimDisc(int aNbTr,bool isSPhProj,int aNbRot)
 {
@@ -268,6 +268,18 @@ inline tPoseCart_OptimDisc  Pose_OptimDisc(int aNbTr,bool isSPhProj,int aNbRot)
 
     // Object that allow to sample pose and explore tangent to a given pose
     return  tPoseCart_OptimDisc(aSph3Desc,aRotDesc);
+}
+
+
+typedef cCartProduct_OptimDisc<cSph3_OptimDisc,cSph3_OptimDisc> t2Sph3_OptimDisc;
+
+inline t2Sph3_OptimDisc  TwoSph3_OptimDisc(int aNb1,bool isSPhProj1,int aNb2,bool isSPhProj2)
+{
+    cSph3_OptimDisc     aSph3Desc1(aNb1,isSPhProj1);
+    cSph3_OptimDisc     aSph3Desc2(aNb2,isSPhProj2);
+
+    // Object that allow to sample pose and explore tangent to a given pose
+    return  t2Sph3_OptimDisc(aSph3Desc1,aSph3Desc2);
 }
 /* ******************************************** */
 /*                                              */
