@@ -638,6 +638,7 @@ class cSampleHyperCube
         int NbSamples() const;
         ///  Main method return the Kth point
         void  KthPt(std::vector<tREAL8> & aPts,int aK) const;
+        bool IsProj() const;
 
    private :
         tREAL8 Int2Coord(int aK) const;  ///< convert on 1 direction [0,NbStep] => [-1,1]
@@ -657,6 +658,9 @@ class cSampleSphere3D
 
       cPt3dr KthPt(int aK) const;
       int NbSamples() const;
+      bool IsProj() const;
+      /// Take into account the projective aspect if it exist
+      tREAL8  SqDist(const cPt3dr&,const cPt3dr&) const;
    private :
       cSampleHyperCube mSHC;
 };

@@ -540,10 +540,12 @@ INSTANCE_TWO_DIM_MAPPING(2,1);
 INSTANCE_ONE_DIM_MAPPING(1)
 INSTANCE_ONE_DIM_MAPPING(2)
 INSTANCE_ONE_DIM_MAPPING(3)
-// INSTANCE_ONE_DIM_MAPPING(4)
+//INSTANCE_ONE_DIM_MAPPING(4)
 INSTANCE_TWO_DIM_MAPPING(3,1)
 
 template class cDataMapping<double,5,1>;
+template class cDataMapping<double,4,1>;
+
 /* ============================================= */
 /* ============================================= */
 /* ====                                      === */

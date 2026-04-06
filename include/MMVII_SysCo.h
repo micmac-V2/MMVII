@@ -15,14 +15,38 @@ typedef struct PJconsts PJ; //< libproj conversion between 2 CRS
 namespace MMVII
 {
 
+
+/**
+ * @brief The cCsteVerticalization class
+ *   In longer term, we will have to modelize gravity information that cannot be computed from
+ *   geometric/geodetic system.  Probably geoid, datum etc...
+ *
+ *   For now I only need to export/inport a local constant evaluation of vertical, so I
+ *   do it very quick and dirty.
+ */
+class cCsteVerticalization
+{
+   public :
+      cCsteVerticalization(const cPt3dr &);
+      cCsteVerticalization();
+
+      cPt3dr  mVertical;
+};
+
+
 /**
  * @brief The cSysCoData class is only used for cSysCo serialization
  */
+
+
+
 class cSysCoData
 {
-public :
-    std::string mDef; //< definition
-    void AddData(const  cAuxAr2007 & anAuxInit);
+    public :
+         std::string mDef; //< definition
+         void AddData(const  cAuxAr2007 & anAuxInit);
+
+         std::optional<cCsteVerticalization>  mCsteVert;
 };
 
 void AddData(const cAuxAr2007 & anAux, cSysCoData & aSysCoData);
@@ -70,7 +94,12 @@ public :
     virtual tREAL8 getDistHzApprox(const tPt & aPtA, const tPt & aPtB) const; //< approximate horizontal distance (along ellipsoid) from one point to an other
     virtual const tPoseR *getTranfo2GeoC() const;
 
-    static tPtrSysCo MakeSysCo(const std::string &aDef, bool aDebug=false); //< factory from a SysCo definition
+    static tPtrSysCo MakeSysCo
+           (
+                 const std::string &aDef,
+                 bool aDebug=false,
+                 std::optional<cCsteVerticalization> = std::optional<cCsteVerticalization> ()
+            ); //< factory from a SysCo definition
     static tPtrSysCo makeRTL(const cPt3dr & anOrigin, const std::string & aSysCoInDef);
     static tPtrSysCo FromFile(const std::string &aNameFile, bool aDebug=false);
 
@@ -88,6 +117,7 @@ protected :
     cSysCo(bool aDebug);
     cSysCo(const std::string & def, bool aDebug);
     std::string mDef; //< definition
+    std::optional<cCsteVerticalization> mCsteVert;
     eSysCo mType;
     PJ_CONTEXT* mPJContext;
     PJ* mPJ_GeoC2Geog; //< for generic use

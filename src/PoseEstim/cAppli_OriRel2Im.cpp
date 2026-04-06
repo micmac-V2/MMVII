@@ -92,7 +92,7 @@ class  cCmp_cCdtPoseRel2Im
 
 /** Class for doinf all the test, not an application */
 
-class cEstimatePosRel2Im :  public cOptimizeRotAndVUnit // Herit for combinatorial opt
+class cEstimatePosRel2Im  // Herit for combinatorial opt
 {
    public :
     /// Tyope for storing N Best candidate
@@ -157,9 +157,6 @@ class cEstimatePosRel2Im :  public cOptimizeRotAndVUnit // Herit for combinatori
     ///  Score of residual, using ranking weighting
     tREAL8 RnkW_ScorePose (const tPoseR&,const cSetHomogCpleDir&) const;
 
-
-    /// RnkW_ScorePose interfaced for cOptimizeRotAndVUnit
-    tREAL8 ScoreRotAndVect (const tRotR&,const cPt3dr &) const override;
 
     ///  Elementary score, +- equiv to angle for now
     tREAL8 Score2Bundle(const cPt3dr & aP1,const cPt3dr & aP2,const tPoseR& aPose) const;
@@ -239,7 +236,6 @@ cEstimatePosRel2Im::cEstimatePosRel2Im
     tREAL8                  aDensitySol,
     cTimerSegm *         aTimeSegm
 ) :
-   cOptimizeRotAndVUnit(5,4,false),
    mIm1        (aIm1),
    mIm2        (aIm2),
    mCalib1     (aCalib1),
@@ -332,10 +328,6 @@ tREAL8 cEstimatePosRel2Im::RnkW_ScorePose (const tPoseR& aPose,const cSetHomogCp
     return RankWeigthedAverage(aVRes,1.0,false); // 1.0 Exp , false no cos transfo
 }
 
-tREAL8  cEstimatePosRel2Im::ScoreRotAndVect (const tRotR& aRot,const cPt3dr & aTr) const
-{
-    return RnkW_ScorePose(tPoseR(aTr,aRot),mSetSmallCpleDir);
-}
 
    /* -------------------------------------------------- */
    /*    Combinatoriale/Heuristik => Deprecated          */
@@ -344,10 +336,7 @@ tREAL8  cEstimatePosRel2Im::ScoreRotAndVect (const tRotR& aRot,const cPt3dr & aT
 
 void cEstimatePosRel2Im::EstimateHeuristik()
 {
-     StdOut() << "BEGIN HEURISTIK \n";
-      auto [aCost,aPair] =  ComputeSolInit(1.0,0.01/mFocMoy,4,10.0/mFocMoy);
-
-      ShowSol(tPoseR(aPair.second,aPair.first),"Heuristitk");
+     MMVII_INTERNAL_ERROR("cEstimatePosRel2Im::EstimateHeuristik()");
 }
 
     /* -------------------------------------------------- */

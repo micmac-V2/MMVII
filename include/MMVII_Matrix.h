@@ -774,7 +774,10 @@ template <const int Dim> class cVarPts
 
       void Add(const tPt&);  ///<  Add a new point
       tPt  VarPt() const;    ///<  Variance in x,y ...
+      tPt  Avg() const;    ///<  Variance in x,y ...
       tREAL8  StdDev() const;   ///< Standar deviation
+      tREAL8  UB_StdDev() const;   ///< Unbiased Standar deviation
+
    private :
       tREAL8  mNb;          ///< Number of points
       tPt     mSomP;        ///< Sum of points
