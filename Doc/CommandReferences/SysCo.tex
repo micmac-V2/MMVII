@@ -169,11 +169,13 @@ The following measurements types are currently supported:
 The measurements can be made between cameras poses, GCPs or undeclared points that will be inserted into the last GCP set of the adjustment
 (if automatic coordinates initialization succeeds).
 
-Two \CdPPP\ commands can use topo measurements in compensation:
-\begin{itemize}
-    \item \texttt{OriBundleAdj} via the \texttt{TopoFile} option
-    \item \texttt{TopoAdj} (see \ref{subsec:TopoAdj})
-\end{itemize}
+The command \texttt{OriBundleAdj} can use topo measurements in compensation via the optional parameter \texttt{TopoDirIn}.
+It can be used with photogrammetric constraints, or even without images nor ORIs.
+In this case, the command line should be like:
+
+\begin{verbatim}
+MMVII OriBundleAdj NONE NONE NONE GCP3D=[[InitRTL,1.,FinalRTL]] TopoDirIn=Obs1 TopoDirOut=Obs1_out
+\end{verbatim}
 
 The topo measurements files can be given as a set of \CdPPP\ json or xml files, or in a simplified text format (named \texttt{OBS} file) inherited from IGN's
 Comp3D\footnote{\url{https://github.com/IGNF/Comp3D}} micro-geodesy compensation software.
@@ -360,31 +362,13 @@ Which gives a total of 18 constraints.
 
 
 \subsection{Adjustment}
-\label{subsec:TopoAdj}
-The \texttt{TopoAdj} command can perform an adjustment between topo and GCP constraints.
-It is used as a substitute to \texttt{OriBundleAdj} when there are no cameras.
-
-\begin{verbatim}
- == Mandatory unnamed args : ==
-  * string [Topo,In] :: Dir for Topo measures
-  * string [Topo,Out] :: Dir for Topo measures output
-  * std::vector<std::vector<std::string>> :: GCP ground coords and sigma factor,
-                        SG=0 fix, SG<0 schurr elim, SG>0
-                        and optional output dir [[Folder,SigG,FOut?],...]]
-
- == Optional named args : ==
-  * [Name=DataDir] string :: Default data directories  ,[Default=Std]
-  * [Name=NbIter] int :: Number of iterations ,[Default=10]
-  * [Name=GCPFilter] string :: Pattern to filter GCP by name
-  * [Name=GCPFilterAdd] string :: Pattern to filter GCP by additional info
-  * [Name=LVM] double :: Levenberg–Marquardt parameter (to have better conditioning
-                        of least squares) ,[Default=0]
-\end{verbatim}
 
 In our example, the input topo directory is \texttt{Obs1} and the input ObjCoordWorld is \texttt{InitRTL}.
 We give output directories names for topo and points.
+Since there are no images, we give the special pattern "NONE", and any name for ORI in and out are accepted, as there are no cameras.
+
 \begin{lstlisting}
-MMVII TopoAdj Obs1 Obs1_out [[InitRTL,1,FinalRTL]]
+MMVII OriBundleAdj NONE NONE NONE GCP3D=[[InitRTL,1.,FinalRTL]] TopoDirIn=Obs1 TopoDirOut=Obs1_out
 \end{lstlisting}
 
 The final $\sigma_0$ value should be around 1 if everything goes well.
@@ -651,7 +635,7 @@ Minimal external constraints for the quickstart example means having constraints
 \label{subsec:topoBench}
 
 The example is used in \texttt{TopoComp} Bench. It is created by the method \texttt{cTopoData::createEx1()}.
-We will describe the input files equivalent for the \texttt{TopoAdj} command.
+We will describe the input files equivalent for the \texttt{OriBundleAdj} command.
 
 
 \subsection{Creating the points}
