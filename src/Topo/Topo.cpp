@@ -292,7 +292,7 @@ void cBA_Topo::SetFrozenAndSharedVars(cResolSysNonLinear<tREAL8> & aSys)
 
 void cBA_Topo::AddTopoEquations(cResolSysNonLinear<tREAL8> & aSys)
 {
-    mSigma0 = 0.0; // TODOJM compute it correctly will all obs, gcp constr etc.
+    mSigma0 = 0.0; // TODOJM compute it correctly with all obs, gcp constr etc.
     for (auto &obsSet: mAllObsSets)
         for (size_t i=0;i<obsSet->nbObs();++i)
         {

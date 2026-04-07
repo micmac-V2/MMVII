@@ -498,6 +498,8 @@ int cSetMesGndPt::GetNbImMesForPoint(const std::string & aGCPName, bool SVP) con
     int aKGCP = m2MapPtInt.Obj2I(aGCPName,SVP);
     if (aKGCP<0)
         return 0;
+    else if ((size_t)aKGCP>=mMesImOfPt.size())
+        return 0;
     else
         return mMesImOfPt[aKGCP].VImages().size();
 }
