@@ -105,7 +105,7 @@ int cAppliTopoAdj::Exe()
     mPhProj.FinishInit();
 
     {
-        std::string aReportDir = mPhProj.DPOrient().DirIn() + "_" + mPhProj.DPOrient().DirOut();
+        std::string aReportDir = mPhProj.DPTopoMes().DirIn() + "_" + mPhProj.DPTopoMes().DirOut();
         if (IsInit(& mPostFixReport))
             aReportDir += "_" + mPostFixReport;
         SetReportSubDir(aReportDir);
