@@ -1417,6 +1417,14 @@ template <>  int cStrIO<int>::FromStr(const std::string & aStr)
     }
     return anI;
 }
+
+bool IsStrInt(const std::string & aStr)
+{
+    int anI;
+    int aNb= sscanf(aStr.c_str(),"%d",&anI);
+    return aNb != 0;
+}
+
 template <>  const std::string cStrIO<int>::msNameType = "int";
 template <>  const std::string cStrIO<tINT2>::msNameType = "int2";
 template <>  const std::string cStrIO<tU_INT1>::msNameType = "u_int1";
