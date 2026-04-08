@@ -70,10 +70,6 @@ class cAppli_ReportBlock : public cMMVII_Appli
 
         cPhotogrammetricProject     mPhProj;
         bool                        mShow;  // do we print residual on terminal
-
-
-        int                         mLevelCentCorr;     //< do we correct residual
-        tREAL8                      mWeightSeg;
         bool                        mStepCompStat;    //< Are we at a step of stat (last step)
         std::string                 mSpecImIn;
       //  cBlocOfCamera *             mTheBloc;
@@ -113,7 +109,8 @@ class cAppli_ReportBlock : public cMMVII_Appli
         //  Stuff  for  CERN-Sphere-Center like manip
         bool                                    mSCFreeScale;  //< do we have a free scale
         cSetMesGndPt                            mMesGround;     //< "Absolute" coordinate of the point
-        std::string                             mPatDistWire;   //< Pattern for computing distance point <--> WIRE
+        std::string                             mPatDistWire;   //< Pattern of point name for computing distance point <--> WIRE
+        std::string                             mPatMergeDist;  //<
 
         bool                                    mWithClino;
         cSetMeasureClino                        mMesClino;
@@ -136,8 +133,6 @@ cAppli_ReportBlock::cAppli_ReportBlock
      cMMVII_Appli   (aVArgs,aSpec),
      mPhProj        (*this),
      mShow          (false),
-     mLevelCentCorr (0),
-     mWeightSeg     (1.0),
      mNameBloc      (cIrbCal_Block::theDefaultName),
      mCalBlocInstr  (nullptr),
      mCompBlocInstr (nullptr),
@@ -181,13 +176,12 @@ cCollecSpecArg2007 & cAppli_ReportBlock::ArgOpt(cCollecSpecArg2007 & anArgOpt)
              << AOpt2007(mPercStat,"PercStat","Percentils for stat in global report",{{eTA2007::HDV}})
 
              << mPhProj.DPGndPt3D().ArgDirInOpt("","GCP 3D coordinate for computing centre")
-             << AOpt2007(mPatDistWire,"PatDistWire","Pattern to computing distance point<-->wire",{{eTA2007::HDV}})
-             << AOpt2007(mSCFreeScale,"SphFreeScale","Do we have free scale for sphere",{{eTA2007::HDV}})
+
+             << AOpt2007(mPatDistWire,"Cern-PatDistWire","Pattern of points name to computing distance point<-->wire",{{eTA2007::HDV}})
+             << AOpt2007(mSCFreeScale,"Cern-SphFreeScale","Do we have free scale for sphere",{{eTA2007::HDV}})
 
 
              << AOpt2007(mShow,"Show","Show details on results",{{eTA2007::HDV}})
-             << AOpt2007(mLevelCentCorr,"LevCC","Level of Image-Correction (0-None,1-Tr,2-Homot,3-Simul)",{{eTA2007::HDV}})
-             << AOpt2007(mWeightSeg,"WSeg","Weight of seg relativ to pt, in case image correction",{{eTA2007::HDV}})
              << mPhProj.DPMeasuresClino().ArgDirInOpt()
              << mPhProj.DPClinoMeters().ArgDirInOpt()
     ;
@@ -226,9 +220,8 @@ void cAppli_ReportBlock::AddStatDistWirePt
                << " DV=" << (aDV-0.1912)*1e6
                << "\n";
 
-     mStatWirePt[aNamePt].mStat3d.Add(Norm2(anEc));
+     mStatWirePt["GLOB"+aNamePt].mStat3d.Add(Norm2(anEc));
 
-    // InitReportCSV(mIdRepDWirePt,"csv",false,{"TimeStamp","NamePt","D3","DH","DV"});
      AddOneReportCSV(mIdRepDWirePt,{anIdSync,aNamePt,ToStr(aD3),ToStr(aDH),ToStr(aDV)});
 }
 
