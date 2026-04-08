@@ -720,7 +720,6 @@ class cPhotogrammetricProject : public cIPhProj
           ///  When dont read from the standard input
           void LoadImFromFolder(const std::string & aFolder, cSetMesGndPt&, cMes2DDirInfo *aMesDirInfo, const std::string & aNameIm,
                                 cSensorImage * =nullptr, bool SVP=false) const;
-          void LoadIm(cSetMesGndPt&, cMes2DDirInfo *aMesDirInfo, cSensorImage & ) const;
 
           void SaveGCP3D(const cSetMesGnd3D&aMGCP3D, const std::string &aDefaultOutName="", bool aDoAddCurSysCo=false) const; // default out name for measures without cMes3DDirInfo
           cSetMesGnd3D LoadGCP3DFromFolder(const std::string &) const;

@@ -91,7 +91,7 @@ int cAppli_GCPAbsOri::Exe()
         cSensorCamPC* aCam = mPhProj.ReadCamPC(aNameIm,true);
 
         //load 2D measure
-        mPhProj.LoadIm(aSet,nullptr,*aCam);
+        mPhProj.LoadIm(aSet,aNameIm, nullptr, aCam, true);
     }
 
     //vectors to store points for StdGlobEstimate()
@@ -130,11 +130,7 @@ int cAppli_GCPAbsOri::Exe()
     }
 
     //we need at least 3 correspondences
-    if(aInPts.size() < 3)
-    {
-        StdOut() << "Not enough points (the minimum is 3) ! " << "\n";
-        return EXIT_FAILURE;
-    }
+    MMVII_INTERNAL_ASSERT_User(aInPts.size()>= 3, eTyUEr::eUnClassedError, "Not enough points (the minimum is 3 points with 2 views)!");
 
     //estimate 3d similarity
     mSim = mSim.StdGlobEstimate(aInPts,aOutPts,&mRes2,nullptr,cParamCtrlOpt::Default());
