@@ -26,8 +26,8 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
         private:
             int Exe() override;
             /*
-             * naming conv. : void return methode : JeanMichel
-             *                methode actually returning smthg : jeanMichel
+             * naming conv. : void return method : JeanMichel
+             *                method actually returning smthg : jeanMichel
              *                */
             //--spec. methods
             int doVisu(const cSensorCamPC * aCam);
@@ -563,7 +563,7 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
                     ++ix;
                     (void) ix;
                     auto [aValue,aGrad] = mDCurrPred->GetValueAndGradInterpol(*aInterpol,ToR(aPix));
-                    tREAL8 aI=(tREAL8)mDCurrPred->GetV(aPix);
+                    tREAL8 aI=(tREAL8)mDCurrPred->GetV(aPix);//il faut prendre des pixels du patron d'origine et les transformer dans l'image
                     tREAL8 ai=(tREAL8)mDCurrTrue->GetV(aPix);
                     auto& aPartix=aGrad.x();//interpol
                     auto& aPartiy=aGrad.y();//interpol
