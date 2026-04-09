@@ -499,6 +499,11 @@ cSysCo & cIrbComp_Block::OriSysCo()
     return *mOriSysCo;
 }
 
+tPtrSysCo       cIrbComp_Block::PtrOriSysco() const
+{
+    MMVII_INTERNAL_ASSERT_strong(mOriSysCo.get(),"No PhProj for cIrbComp_Block");
+    return mOriSysCo;
+}
 
 
 const cIrbCal_Block & cIrbComp_Block::CalBlock() const {return *mCalBlock;}

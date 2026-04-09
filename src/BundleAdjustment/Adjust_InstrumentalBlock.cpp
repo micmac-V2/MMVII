@@ -94,6 +94,7 @@ class cBA_BlockInstr : public cMemCheck
        cCalculator<tREAL8> *     mEqClino;        //< calculator for clino
        cCalculator<tREAL8> *     mEqOrthog;       //< calculator for enforcing orthogonality of clinos
        cP3dNormWithUK            mVertical;       //< store the possibly unknown vertical
+       cPt3dr                    mVertInit;
 
        tREAL8                               mMulSigmaTr;     //< Multiplier for sigma-trans
        tREAL8                               mMulSigmaRot;    //< Multiplier for sigma-rot
@@ -154,6 +155,13 @@ cBA_BlockInstr::cBA_BlockInstr
     mUseRat2CurrBR (! aVParamCur.empty())
 {
 
+    // TODO : make vertical variable    for each pose using getUpDirVert() and have as unkown a DeltaV ?
+    {
+        tPtrSysCo aSys = mBA.PhProj().CurSysCoOri();
+        if (aSys->isVerticalCste())
+            mVertical.SetPNorm(aSys->getCsteUpDirVert());
+    }
+    mVertInit = mVertical.GetPNorm();
 
     //  Add amWithCurrll the pose to construct the Time-Stamp structure
     for (auto aPtrCam : mBA.VSCPC())
@@ -622,7 +630,7 @@ void cBA_BlockInstr::OneItere()
       }
       if (mVertClinoFree)
       {
-           StdOut() << " DVert=" << Rad2DMgon(Norm2(mVertical.GetPNorm()-cPt3dr(0,0,1))) ;
+           StdOut() << " DVert=" << Rad2DMgon(Norm2(mVertical.GetPNorm()-mVertInit)) ;
       }
       StdOut() << "\n";
 

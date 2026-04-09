@@ -34,8 +34,10 @@ template <class Type> inline cPtxd<Type,3> PSymXY (const cPtxd<Type,3> & aP)
 //  Cylindric coordinates,
 cPt3dr Cart2Cyl(const cPt3dr & aPtCart);
 cPt3dr Cyl2Cart(const cPt3dr & aPtspher);
-cPt3dr cart2spher(const cPt3dr & aPtCart);
+///  Phi-longitude[0,2PI],Teta-latitude [-PI/2,PI/2] ,Rho  =>  x,y,z
 cPt3dr spher2cart(const cPt3dr & aPtspher);
+/// Invert spher2cart
+cPt3dr cart2spher(const cPt3dr & aPtCart);
 
 
 
@@ -641,6 +643,7 @@ class cSampleHyperCube
         int NbSamples() const;
         ///  Main method return the Kth point
         void  KthPt(std::vector<tREAL8> & aPts,int aK) const;
+        bool IsProj() const;
 
    private :
         tREAL8 Int2Coord(int aK) const;  ///< convert on 1 direction [0,NbStep] => [-1,1]
@@ -660,6 +663,9 @@ class cSampleSphere3D
 
       cPt3dr KthPt(int aK) const;
       int NbSamples() const;
+      bool IsProj() const;
+      /// Take into account the projective aspect if it exist
+      tREAL8  SqDist(const cPt3dr&,const cPt3dr&) const;
    private :
       cSampleHyperCube mSHC;
 };

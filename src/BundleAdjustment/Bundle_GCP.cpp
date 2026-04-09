@@ -257,8 +257,9 @@ void cMMVII_BundleAdj::OneItere_GCP()
     if (mVerbose && (aNbGCP!=0))
     {
 
-        StdOut() << "  WeightedGcp=" << std::sqrt(aWeightedSqRes.Average())
-                  << " UWGcp=" << std::sqrt(aUW_SqRes.Average()) ; // getchar();
+        if (aWeightedSqRes.Nb()!=0)
+            StdOut() << "  WeightedGcp=" << std::sqrt(aWeightedSqRes.Average())
+                     << " UWGcp=" << std::sqrt(aUW_SqRes.Average()) ; // getchar();
         StdOut() << " PropVis1Im=" << aNbGCPVis /double(aNbGCP)
                  << " AvgVis=" << aAvgVis/double(aNbGCP)
                  << " NonVis=" << aAvgNonVis/double(aNbGCP)

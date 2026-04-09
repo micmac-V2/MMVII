@@ -347,6 +347,11 @@ template <const int Dim> void cVarPts<Dim>::Add(const tPt& aPt)
     mSomP2 += Sq_CByC1P(aPt);
 }
 
+template <const int Dim> cPtxd<tREAL8,Dim>   cVarPts<Dim>::Avg() const
+{
+    return mSomP / mNb;
+}
+
 template <const int Dim> cPtxd<tREAL8,Dim>  cVarPts<Dim>::VarPt() const
 {
    tPt anAvg = mSomP / mNb;
@@ -363,6 +368,11 @@ template <const int Dim> tREAL8 cVarPts<Dim>::StdDev() const
    for (int aD=0 ; aD<Dim ; aD++)
        aSum += std::max(0.0,aVar[aD]);
    return std::sqrt(aSum);
+}
+
+template <const int Dim> tREAL8 cVarPts<Dim>::UB_StdDev() const
+{
+    return StdDev() * std::sqrt(mNb/(mNb-1));
 }
 
 template  class  cVarPts<2>;

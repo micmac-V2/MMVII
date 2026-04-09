@@ -268,6 +268,14 @@ class cSensorImage  :   public cObj2DelAtEnd,
          /// Accesors  to
          //  cDataGenUnTypedIm<2> & GetImage();
 
+         /// Image of Depth -> Image of paralax
+         cIm2D<tREAL4> ImageDepth2ImagePax
+                       (
+                            cIm2D<tREAL4> aImDepth,
+                            const cSensorImage& aSen2,
+                            tREAL8 * aMaxPaxTrsv = nullptr
+                       ) const;
+
      private :
           cSensorImage(const cSensorImage &) = delete;
 
@@ -457,6 +465,7 @@ class cIPhProj
 
         //=== Calibrations ===
         virtual cPerspCamIntrCalib *  InternalCalibFromStdName(const std::string aNameIm, bool isRemanent=true) const = 0;
+        virtual cPerspCamIntrCalib *  InternalCalibFromImage(const std::string & aNameIm) const = 0;
 
         //=== Orientations ===
         virtual cSensorImage *  ReadSensor(const std::string & aNameIm, bool ToDeleteAutom, bool SVP=false) const = 0;
@@ -517,7 +526,7 @@ class cPhotogrammetricProject : public cIPhProj
           const std::string & TaggedNameDefSerial() const; /// short to Appli.Nam...
           const std::string & VectNameDefSerial() const; /// short to Appli.Nam...
           cDirsPhProj &   DPOrient(); ///< Accessor
-          cDirsPhProj &   DPOriTriplets(); ///< Accessor
+      cDirsPhProj &   DPOriTriplets(); ///< Accessor
           cDirsPhProj &   DPRadiomData(); ///< Accessor
           cDirsPhProj &   DPRadiomModel(); ///< Accessor
           cDirsPhProj &   DPMeshDev(); ///< Accessor
@@ -603,7 +612,7 @@ class cPhotogrammetricProject : public cIPhProj
           std::string  FullDirCalibOut() const;
           
           /// read Pose file  and extract the name of internal  calibration
-          cPerspCamIntrCalib *  InternalCalibFromImage(const std::string &aNameIm) const;
+          cPerspCamIntrCalib *  InternalCalibFromImage(const std::string &aNameIm) const override;
           ///  compute the standard name of calibration before reading it
           cPerspCamIntrCalib *  InternalCalibFromStdName (const std::string aNameIm,bool isRemanent=true) const override;
 
@@ -624,6 +633,8 @@ class cPhotogrammetricProject : public cIPhProj
     /// Name of folder for relative orientation of 1 image (indiv file + pairs + triplets)
     std::string OriRel_DirOfImage(const std::string& aNameIm,bool isIn) const;
 
+
+
     /// Name of file for all images in the set
     std::string OriRel_NameAllImages(bool isIn, std::string aPost="" ) const;
     /// Name of file for all pairs of 1 image (only pairs, not orientation)
@@ -635,7 +646,8 @@ class cPhotogrammetricProject : public cIPhProj
 
     /// Name of file for all pairs of 1 image (only pairs, not orientation)
     std::string OriRel_NameAllTripletsOf1Image(const std::string&aNameIm1,bool isIn, std::string aPost="") const;
-
+    /// Name of file where the "5" (or any) virtual tie point are saved
+    std::string OriRel_NameVirtualTieP(const std::string& aNameIm,bool isIn) const;
     /// Name of file for all pairs of 1 image (only pairs, not orientation)
     std::string OriRel_OrientAllTripletsOf1Image(const std::string&aNameIm1,bool isIn, std::string aPost="") const;
          //===================================================================
@@ -983,6 +995,7 @@ class cPhotogrammetricProjectMemory : public cIPhProj
         // === cIPhProj interface ===
 
         cPerspCamIntrCalib *  InternalCalibFromStdName(const std::string aNameIm, bool isRemanent=true) const override;
+        cPerspCamIntrCalib *  InternalCalibFromImage(const std::string & aNameIm) const override;
 
         cSensorImage *  ReadSensor(const std::string & aNameIm, bool ToDeleteAutom, bool SVP=false) const override;
         cSensorCamPC *  ReadCamPC(const std::string &, bool ToDeleteAutom, bool SVP=false) const override;

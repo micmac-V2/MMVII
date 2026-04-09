@@ -507,7 +507,6 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         static const std::string & DirBinMMVII();   ///<  directory where the MMVII binary is
         static const std::string & TmpDirTestMMVII();     ///< where to put binary file for bench, Export for global bench funtion
         static const std::string & InputDirTestMMVII();   ///<  where are input files for bench   , Export for global bench funtion
-        static const std::string & DirMicMacv1();         ///<  Main directory of micmac V1
         static const std::string & MMV1Bin();             ///< full name of micmac v1 (mm3d) binary
 
         ///  Name of folder specific to the command
@@ -733,7 +732,6 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         static std::string                        mTopDirMMVII;   ///< directory  mother of src/ bin/ ...
 
         static std::string                        mFullBin;       ///< full name of binarie =argv[0]
-        static std::string                        mDirMicMacv1;   ///< Dir where is located MicMac V1
         static std::string                        mDirMicMacv2;   ///< Dir where is located MicMac V2
         static std::string                        mMMV1Bin;       ///< full name of mm3d binary
         static std::string                        mDirTestMMVII;  ///< Directory for read/write bench files
