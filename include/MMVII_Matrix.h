@@ -856,6 +856,11 @@ class cStdStatRes
 
         void Add(tREAL8 aVal);
 
+        /// retunr the average if defined, and aDefIfUndef
+        std::string StrAvg(const std::string & aDefIfUndef="???") const;
+        /// retunr the unbiased estimation of stantdard dev if defined, and aDefIfUndef
+        std::string StrUBDevStd(const std::string & aDefIfUndef="???") const;
+
         tREAL8  Avg() const;
         tREAL8  QuadAvg() const;
         tREAL8  DevStd() const;
