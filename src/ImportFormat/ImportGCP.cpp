@@ -176,7 +176,12 @@ int cAppli_ImportGCP::Exe()
 
         //  Eventually  fix the number of digit (error if it's not an int)
         if (IsInit(&mNbDigName))
-            aNamePoint =   ToStr(cStrIO<int>::FromStr(aNamePoint),mNbDigName);
+        {
+            if (IsStrInt(aNamePoint))
+            {
+               aNamePoint =   ToStr(cStrIO<int>::FromStr(aNamePoint),mNbDigName);
+            }
+        }
 
         std::string aAdditionalInfo =   withAddInfo  ? aNRFS.GetStr(mFieldAI,aKL)  : "";
 

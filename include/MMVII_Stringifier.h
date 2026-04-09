@@ -42,6 +42,8 @@ template <class Type> class  cStrIO
 /// Facilities when the type is well defined
 template <class Type> std::string ToStr(const Type & aV) {return cStrIO<Type>::ToStr(aV);}
 std::string ToStr(int aVal,int aSzMin);
+bool IsStrInt(const std::string & aStr);
+
 
 std::string FixDigToStr(double aSignedVal,int aNbDig); // Nb Dig after .
 std::string FixDigToStr(double aSignedVal,int aNbDigBefore,int aNbDigAfter); // Nb Dig before and  after .

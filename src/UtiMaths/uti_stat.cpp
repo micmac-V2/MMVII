@@ -640,6 +640,16 @@ void cStdStatRes::Add(tREAL8 aVal)
 }
 
 tREAL8  cStdStatRes::Avg() const {return mAvgDist.Average();}
+std::string cStdStatRes::StrAvg(const std::string & aDefIfUndef) const
+{
+    return (mAvgDist.Nb()>=1) ? ToStr(Avg()) :  aDefIfUndef;
+}
+
+std::string cStdStatRes::StrUBDevStd(const std::string & aDefIfUndef) const
+{
+   return (NbMeasures()>=2) ? ToStr(UBDevStd(-1)) : aDefIfUndef;
+}
+
 
 tREAL8  cStdStatRes::QuadAvg() const {return std::sqrt(mAvgDist2.Average());}
 tREAL8  cStdStatRes::DevStd() const {return std::sqrt(std::max(0.0,mAvgDist2.Average()-Square(Avg())));}
@@ -681,6 +691,7 @@ tREAL8  cStdStatRes::UBDevStd(tREAL8 aDef) const
 }
 
 
+
 std::string cStdStatRes::Show(const std::string & aPrefix,const std::vector<int> & aVecPerc) const
 {
      PushPrecTxtSerial(7);
@@ -706,6 +717,9 @@ std::string cStdStatRes::Show(const std::string & aPrefix,const std::vector<int>
 
      return aRes;
 }
+
+
+
 
 
 
