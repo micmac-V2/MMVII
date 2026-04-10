@@ -420,7 +420,7 @@ void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::v
             auto & aVals = aAllConfigs.second;
 
             size_t aNbIm = aConfig.size();
-            size_t aNbPts = aVals.mVIdPts.size();
+            size_t aNbPts = aVals.mVIdPts.empty() ? NbPtsMul(aAllConfigs) : aVals.mVIdPts.size();
 
 
             for (size_t aKPts=0; aKPts<aNbPts; aKPts++)

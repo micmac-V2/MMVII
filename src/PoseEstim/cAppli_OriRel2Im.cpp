@@ -1139,7 +1139,7 @@ void cAppli_OriRelPairOfIm::Generate5Pts(const tPoseR& aPoseR)
     int aNbMaxTry = 3;
 
     cGenGauss3D aG3D(aEllipse);
-    aG3D.GetDistrib5Pts(aV5pts,1.0);
+    //aG3D.GetDistrib5Pts(aV5pts,1.0);
 
     // find the optimal scale to fit all virtual tie points in image domain
     for (int aTry=0; aTry<aNbMaxTry; aTry++)

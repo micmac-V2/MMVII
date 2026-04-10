@@ -273,6 +273,12 @@ class cOriTriplets : public cMemCheck
 
             const cOneSolOriTriplet * BestSol() const;
 
+            const cComputeMergeMulTieP * TiepMFull() const;
+            const cComputeMergeMulTieP * TiepMAvg() const;
+
+            const cPerspCamIntrCalib* Calib(int) const;
+
+
    private :
 
             cOriTriplets(const cOriTriplets &) = delete;
@@ -446,6 +452,20 @@ const cOneSolOriTriplet * cOriTriplets::BestSol() const
     return mBestSol;
 }
 
+const cComputeMergeMulTieP * cOriTriplets::TiepMFull() const
+{
+    return mTiepMFull;
+}
+
+const cComputeMergeMulTieP * cOriTriplets::TiepMAvg() const
+{
+    return mTiepMAvg;
+}
+
+const cPerspCamIntrCalib* cOriTriplets::Calib(int aK) const
+{
+    return mVCalibs[aK];
+}
 
 const std::vector<cPt3dr> * cOriTriplets::ComputeDirBundles(cComputeMergeMulTieP * aMTP )
 {
@@ -648,6 +668,8 @@ class cAppli_OriRelTripletsOfIm : public cMMVII_Appli
         void DoTripletOf1Image();
         void DoAllTriplet();
 
+        void Generate5Pts(const cOriTriplets*,cSaveNPoint&);
+
 
         int                       mModeCompute;
         cPhotogrammetricProject   mPhProj;
@@ -807,6 +829,124 @@ void cAppli_OriRelTripletsOfIm::DoAllTriplet()
     //StdOut() <<  mArgv << "\n";
 
 }
+void cAppli_OriRelTripletsOfIm::Generate5Pts(const cOriTriplets* aOri3,cSaveNPoint& aSaveNP)
+{
+    const cOneSolOriTriplet* aBSol = aOri3->BestSol();
+
+    // construct an elliposoid over the 3D points
+    cEllipse3D aEllipse;
+
+    for (auto & [aConf,aPts] : aOri3->TiepMFull()->Pts())
+    {
+        size_t aNbPts = aPts.mVPIm.size();
+        int aNbIm = aConf.size();
+
+        // only triplet points for now
+        if (aNbIm != 3) continue;
+
+        for (size_t aKPts=0; aKPts<aNbPts; aKPts+=3)
+        {
+            std::vector<tREAL8>  aPds;
+            std::vector<tSeg3dr> aVBund;
+
+            for (int aKIm=0; aKIm<3; aKIm++)
+            {
+
+                cPt3dr aBunCam = aOri3->Calib(aKIm)->DirBundle(aPts.mVPIm.at(aKPts + aKIm));
+
+                cPt3dr aP1, aP2;
+                if (aKIm==0)
+                {
+                    aP1 = aBSol->mP0.Tr();
+                    aP2 = aBSol->mP0.Value(aBunCam);
+                }
+                else if (aKIm==1)
+                {
+                    aP1 = aBSol->mP01.Tr();
+                    aP2 = aBSol->mP01.Value(aBunCam);
+                }
+                else
+                {
+                    aP1 = aBSol->mP02.Tr();
+                    aP2 = aBSol->mP02.Value(aBunCam);
+                }
+
+                aVBund.push_back( tSeg3dr(aP1,aP2));
+                aPds.push_back(1.0);
+
+            }
+
+            cPt3dr aPGr = BundleInters(aVBund,&aPds);
+
+            aEllipse.AddData(aPGr,1.0);
+
+            //ahhhStdOut() << "aPGr=" << aPGr << std::endl;
+
+        }
+
+    }
+    aEllipse.Normalise();
+
+    // generate 5 virtual points
+    double aScale = 1.0;
+    std::vector<cPt3dr> aV5pts;
+    int aNbMaxTry = 3;
+
+    cGenGauss3D aG3D(aEllipse);
+
+
+    // find the optimal scale to fit all virtual tie points in image domain
+    for (int aTry=0; aTry<aNbMaxTry; aTry++)
+    {
+        aV5pts.clear();
+        aG3D.GetDistrib5Pts(aV5pts, aScale);
+
+        bool aAllVisible = true;
+        for (size_t aK=0; aK<aV5pts.size(); aK++)
+        {
+
+            cPt3dr aP0 = aBSol->mP0.Inverse(aV5pts.at(aK));
+            cPt3dr aP1 = aBSol->mP01.Inverse(aV5pts.at(aK));
+            cPt3dr aP2 = aBSol->mP02.Inverse(aV5pts.at(aK));
+
+            if (aOri3->Calib(0)->DegreeVisibility(aP0) > 0 &&
+                aOri3->Calib(1)->DegreeVisibility(aP1) > 0 &&
+                aOri3->Calib(2)->DegreeVisibility(aP2) > 0)
+                continue;
+            aAllVisible = false;
+            break;
+        }
+        if (aAllVisible) break;
+        aScale *= 0.9;
+    }
+
+
+    // back project to images (all points are now visible)
+    for (size_t aK=0; aK<aV5pts.size(); aK++)
+    {
+        cPt3dr aP0 = aBSol->mP0.Inverse(aV5pts.at(aK));
+        cPt3dr aP1 = aBSol->mP01.Inverse(aV5pts.at(aK));
+        cPt3dr aP2 = aBSol->mP02.Inverse(aV5pts.at(aK));
+
+        std::vector<cPt2dr> aVPtIm;
+
+        if (aOri3->Calib(0)->DegreeVisibility(aP0) > 0 &&
+            aOri3->Calib(1)->DegreeVisibility(aP1) > 0 &&
+            aOri3->Calib(2)->DegreeVisibility(aP2) > 0)
+        {
+            aVPtIm.push_back(aOri3->Calib(0)->Value(aP0));
+            aVPtIm.push_back(aOri3->Calib(1)->Value(aP1));
+            aVPtIm.push_back(aOri3->Calib(2)->Value(aP2));
+
+            aSaveNP.AddPts(aVPtIm);
+
+            //StdOut() << aV5pts.at(aK) << std::endl;
+
+        }
+    }
+    //getchar();
+}
+
 
 void cAppli_OriRelTripletsOfIm::DoTripletOf1Image()
 {
@@ -832,13 +972,9 @@ void cAppli_OriRelTripletsOfIm::DoTripletOf1Image()
             if (mGenVirtTP)
             {
                cSaveNPoint a1Conf(aVN);
-               // MPD->ER  that's here to change ...
-               for (int aKPt =0 ; aKPt<5 ; aKPt++)
-               {
-                   tREAL8 aKPtr = aKPt;
-                   std::vector<cPt2dr> aVPt{{0.0,aKPtr},{1.0,aKPtr},{2.0,aKPtr}};
-                   a1Conf.AddPts(aVPt);
-               }
+
+               Generate5Pts(anOri3,a1Conf);
+
                aSaveNP.AddCondig(a1Conf);
             }
             aVData.push_back(*aBSol);

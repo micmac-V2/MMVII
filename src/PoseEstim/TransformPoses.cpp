@@ -43,7 +43,7 @@ cCollecSpecArg2007 & cAppli_TransformPoses::ArgObl(cCollecSpecArg2007 & anArgObl
     return anArgObl
            << Arg2007(mPatImFrame1,"Pattern/file of images",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
            << mPhProj.DPOrient().ArgDirInMand("Orientation of images in frame 1")
-           << Arg2007(mDirOriFrame2,"Orientation of images in frame 2",{{eTA2007::Orient}})
+           << Arg2007(mDirOriFrame2,"Orientation of images in frame 2 (target frame)",{{eTA2007::Orient}})
         ;
 }
 
@@ -61,7 +61,7 @@ int cAppli_TransformPoses::Exe()
 {
     mPhProj.FinishInit();
 
-    mDirOut = mDirOriFrame2 + "_in_" + mPhProj.DPOrient().DirIn();
+    mDirOut = mPhProj.DPOrient().DirIn() + "_in_" + mDirOriFrame2;
 
     if (! mPhProj.DPOrient().DirOutIsInit())
         mPhProj.DPOrient().SetDirOut(mDirOut);
@@ -161,7 +161,7 @@ tMMVII_UnikPApli Alloc_TransformPoses(const std::vector<std::string> & aVArgs,co
 
 cSpecMMVII_Appli  TheSpec_TransformPoses
     (
-        "___TransformPoses",
+        "TransformPoses",
         Alloc_TransformPoses,
         "Align one set of poses with another",
         {eApF::Ori},

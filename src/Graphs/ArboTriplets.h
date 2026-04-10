@@ -185,8 +185,10 @@ public :
     /// Ugly trick to avoid problem with accessing the same calib more than once
     void InitialiseCalibs();
 
-    /// Read tie points structure
+    /// Read tie points structure from a MulTieP folder
     void InitTPtsStruct(const std::string&, std::vector<std::string>&);
+    /// Init tie points structure from a pre-built cComputeMergeMulTieP (e.g. from cSetMesPtOf1Im)
+    void InitTPtsStruct(cComputeMergeMulTieP*);
 
     cIPhProj & PhProj() { return mPhProj; }
     cIPhProj const& PhProj() const { return mPhProj; }
@@ -222,6 +224,9 @@ public :
 
 
 private :
+
+    /// Convert image observations in mTPtsStruct to normalized bundles (called by both InitTPtsStruct variants)
+    void ConvertTPtsToBundles();
 
     cMMVII_Appli &          mAppli;
     cIPhProj &              mPhProj;

@@ -85,7 +85,8 @@ void cBA_ArboTriplets::OneIteration(int aIter)
         auto & aVals = aAllConfigs.second;
 
         size_t aNbIm = aConfig.size();
-        size_t aNbPts = aVals.mVIdPts.size();
+        // mVIdPts is only filled when created from MulTieP (with index); fall back to geometry-based count
+        size_t aNbPts = aVals.mVIdPts.empty() ? NbPtsMul(aAllConfigs) : aVals.mVIdPts.size();
 
         aNumAll3DPts+=aNbPts;
 
