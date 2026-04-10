@@ -778,6 +778,7 @@ void cStaticLidar::TriangulateRegular(const std::string & aVisuPath, int aFactor
                     tREAL4 aDistC = getRasterDistance().GetV(cPt2di(aVPt2D[aKc].x(), aVPt2D[aKc].y()));
                     tREAL4 aMaxLen = std::max({aLenAB, aLenBC, aLenCA});
                     tREAL4 aMinDist = std::min({aDistA, aDistB, aDistC});
+                    //std::cout<<aMaxLen <<" / "<<aMinDist << " = " << aMaxLen/aMinDist << " > " << aLimitLenOnMinDist << ": " << (aMaxLen/aMinDist > aLimitLenOnMinDist) <<"\n";
                     if (aMaxLen/aMinDist > aLimitLenOnMinDist)
                         continue;
                     aVFace.push_back(cPt3di(aKa, aKb, aKc));
@@ -786,7 +787,7 @@ void cStaticLidar::TriangulateRegular(const std::string & aVisuPath, int aFactor
         }
 
     mTriangulation = new cTriangulation3D<tREAL8>(aVPt3D, aVFace);
-    //StdOut() <<"Scan triangulation regular "<< mStationName+"_"+mScanName <<": "<<aVPt3D.size()<<" pts, "<<aVFace.size()<<" faces\n";
+    StdOut() <<"Scan triangulation regular "<< mStationName+"_"+mScanName <<": "<<aVPt3D.size()<<" pts, "<<aVFace.size()<<" faces\n";
     mTriangulation->WriteFile(aVisuPath + mStationName+"_"+mScanName+"_regular.ply",true);
 }
 

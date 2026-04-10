@@ -78,7 +78,7 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
     for (auto & aScanDataA: mVScans)
     {
         aScanDataA.mLidarRaster->TriangulateRegular(aPhProj->DirVisuAppli(),
-                                                    1+aScanDataA.mLidarRaster->PixelDomain().Sz().x()/100); // step adapated to scan size);
+                                                    1 + aScanDataA.mLidarRaster->InternalCalib()->F() / 100); // keep equivalent to a 0.01 rad step
         for (auto & aPatch:aScanDataA.mLPatches)
             aPatch.mHiddenOnImage.clear();
     }
@@ -108,7 +108,7 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
             if (aImName == aScanA->NameImage())
                 continue;
             //ScopedTimer aTimer("Zbuffer");
-            //StdOut() << "Create zbuffer: " << aScanA->NameImage()+"_on_image_" << aImName<<"\n";
+            StdOut() << "Create zbuffer: " << aScanA->NameImage()+"_on_image_" << aImName<<"\n";
 
             cSIMap_Ground2ImageAndProf aMapCamDepth(aCam);
 
@@ -306,8 +306,6 @@ cBA_LidarPhotograRaster::cBA_LidarPhotograRaster(cPhotogrammetricProject * aPhPr
     for (auto & aScanData: mVScans)
     {
         auto &aScan = aScanData.mLidarRaster;
-        aScan->TriangulateRegular(mPhProj->DirVisuAppli(),
-                                                   1+aScan->PixelDomain().Sz().x()/100); // step adapated to scan size);
         aScan->MakePatches(aScanData.mLPatches,aBA.VSCPC(),mNbPointByPatch,5);
         StdOut() << "Nb patches for " << aScan->NameImage() << ": " << aScanData.mLPatches.size() << "\n";
     }
@@ -362,7 +360,7 @@ void cBA_LidarPhotograTri::AddObs()
 
 void cBA_LidarPhotograRaster::AddObs()
 {
-    if (mBA.Iter()>=0)
+    if (mBA.Iter()==0)
     {
         CreateZbuffers(mPhProj, mBA, false, true);
     }
@@ -797,8 +795,6 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
     for (auto & aScanData: mVScans)
     {
         auto & aScan = aScanData.mLidarRaster;
-        aScan->TriangulateRegular(mPhProj->DirVisuAppli(),
-                                                   1+aScan->PixelDomain().Sz().x()/100); // step adapated to scan size
         aScan->MakePatches(aScanData.mLPatches,aBA.VSCPC(),1,5);
         StdOut() << "Nb patches for " << aScan->NameImage()<< ": " << aScanData.mLPatches.size() << "\n";
 
@@ -816,7 +812,7 @@ cBA_LidarLidarRaster::~cBA_LidarLidarRaster()
 
 void cBA_LidarLidarRaster::AddObs()
 {
-    if (mBA.Iter()>=0)
+    if (mBA.Iter()==0)
     {
         CreateZbuffers(mPhProj, mBA, true, true);
     }
