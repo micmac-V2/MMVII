@@ -122,6 +122,7 @@ int cAppli_GCPAbsOri::Exe()
             if(mShow)
             {
                 StdOut() << "Name = " << aNamePt << " Origin_Frame = " << aInPt
+                         << " (" << aMesIm.VMeasures().size() << " obs)"
                          << "  &&  "
                          << "Target_Frame = " << aOutPt
                          << "\n";
@@ -135,9 +136,9 @@ int cAppli_GCPAbsOri::Exe()
     //estimate 3d similarity
     mSim = mSim.StdGlobEstimate(aInPts,aOutPts,&mRes2,nullptr,cParamCtrlOpt::Default());
 
+    StdOut() << "Similarity residual = " << mRes2 << "\n";
     if(mShow)
     {
-        StdOut() << "Similarity residual = " << mRes2 << "\n";
         StdOut() << "Similarity scale = "        << mSim.Scale() << "\n";
         StdOut() << "Similarity translation = "  << mSim.Tr() << "\n";
         StdOut() << "Similarity rotation = "     << mSim.Rot().Mat() << "\n";
@@ -184,6 +185,18 @@ int cAppli_GCPAbsOri::Exe()
 
             //add to csv file
             AddOneReportCSV(aReportFileName,{aPtsNames[i],ToStr(dx),ToStr(dy),ToStr(dz)});
+
+            if(mShow)
+            {
+                StdOut() << "Name = " << aPtsNames[i] << " Origin_Frame = " << aInPts[i]
+                         << "  &&  "
+                         << "Transformed = " << aTransformedPt
+                         << "  &&  "
+                         << "Target_Frame = " << aOutPts[i]
+                         << "  &&  "
+                         << "Residual = " << Norm2(aTransformedPt - aOutPts[i])
+                         << "\n";
+            }
         }
     }
 
