@@ -35,12 +35,18 @@ cIrbCal_Clino1::~cIrbCal_Clino1()
 
 const std::string & cIrbCal_Clino1::Name() const {return mName;}
 cVectorUK &      cIrbCal_Clino1::PolCorr() {return *mPolCorr;}
+const cVectorUK &      cIrbCal_Clino1::PolCorr() const {return *mPolCorr;}
+
 cP3dNormWithUK&  cIrbCal_Clino1::CurPNorm()
 {
     MMVII_INTERNAL_ASSERT_tiny(mTrInBlock!=0,"cIrbCal_Clino1::CurPNorn");
     return *mTrInBlock;
 }
-
+const cP3dNormWithUK&  cIrbCal_Clino1::CurPNorm() const
+{
+    MMVII_INTERNAL_ASSERT_tiny(mTrInBlock!=0,"cIrbCal_Clino1::CurPNorn");
+    return *mTrInBlock;
+}
 
 void cIrbCal_Clino1::AddData(const  cAuxAr2007 & anAux)
 {
@@ -159,11 +165,9 @@ void cIrbCal_ClinoSet::AddClino(const std::string & aName,tREAL8 aSigma,bool SVP
 
 size_t cIrbCal_ClinoSet::NbClino() const {return mVClinos.size();}
 
-cIrbCal_Clino1 &  cIrbCal_ClinoSet::KthClino(int aK)
-{
-    return mVClinos.at(aK);
-}
+cIrbCal_Clino1 &  cIrbCal_ClinoSet::KthClino(int aK){ return mVClinos.at(aK);}
 
+const cIrbCal_Clino1 &  cIrbCal_ClinoSet::KthClino(int aK) const { return mVClinos.at(aK);}
 
 
 /* *************************************************************** */

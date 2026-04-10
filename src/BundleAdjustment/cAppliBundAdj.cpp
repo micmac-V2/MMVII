@@ -328,6 +328,7 @@ int cAppliBundlAdj::Exe()
 
     if (mPhProj.DPTopoMes().DirInIsInit())
     {
+        mMeasureAdded = true;
         mBA.AddTopo();
     }
 
@@ -335,6 +336,14 @@ int cAppliBundlAdj::Exe()
     {
         // expected: [Folder,SigI,SigAt?=-1,Thrs?=-1,Exp?=1]
         AddOneSetGCP2D(aVStrGCP);
+    }
+
+    if (mGCP2D.empty())
+    {
+        //here no 2d mes, fake it
+        cMes2DDirInfo * aMes2DDirInfo = cMes2DDirInfo::addMes2DDirInfo(mBA.getGCP(), "in",cStdWeighterResidual());
+        cSetMesPtOf1Im aSetMesPtOf1Im;
+        mBA.AddGCP2D(aMes2DDirInfo, aSetMesPtOf1Im, nullptr, eLevelCheck::NoCheck);
     }
 
 

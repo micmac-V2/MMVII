@@ -16,6 +16,39 @@
 namespace MMVII
 {
 
+class cExtracVerticalLoc : public cOptDiscScorer<cPt3dr>
+{
+     public :
+         cExtracVerticalLoc(const cIrbComp_TimeS & aTimeS,bool aWeightSigma) :
+             mTimeS (aTimeS),
+             mWeightSigma (aWeightSigma)
+         {
+         }
+
+     private :
+         tREAL8 Score(const cPt3dr& aVert) const override
+         {
+             return  mTimeS.ScoreVerticalLoc(aVert,mWeightSigma);
+         }
+         const cIrbComp_TimeS &  mTimeS;
+         bool                    mWeightSigma;
+};
+
+
+cWhichMin<cPt3dr,tREAL8> ExtractVerticalLoc(const cIrbComp_TimeS & aTimeS,bool aWeightSigma)
+{
+    cExtracVerticalLoc anEV(aTimeS,aWeightSigma);
+
+    cTplOptDisc_OnManifold<cSph3_OptimDisc> anOptim(cSph3_OptimDisc(30,false),anEV);
+    anOptim.ComputeSol(0.5,1e-8,10);
+    return anOptim.GetSol();
+}
+
+
+//(const cIrbComp_TimeS &);
+
+
+
 static const std::string N_Indep     = "D2_Indep";
 static const std::string N_2Orthog   = "D3_2Orthog";
 static const std::string N_VertI     = "D4_VertIndep";

@@ -220,9 +220,45 @@ tREAL8 cIrbComp_TimeS::ScoreDirClino(const cPt3dr& aDirClino,size_t aKClino) con
        }
     }
 
-    return std::abs(Scal(aDirLoc,aVertical) - std::sin(mSetClino.KthMeasure(aKClino).Angle()) );
+    return ScoreDirClinoAndVert(aDirLoc,aVertical,aKClino);
+//    return std::abs(Scal(aDirLoc,aVertical) - std::sin(mSetClino.KthMeasure(aKClino).Angle()) );
 }
 
+tREAL8 cIrbComp_TimeS::ScoreDirClinoAndVert(const cPt3dr& aDirClino,const cPt3dr& aVertical,size_t aKClino) const
+{
+   tREAL8 anA = mSetClino.KthMeasure(aKClino).Angle();
+   const cVectorUK &  aVCor = CalBlock().SetClinos().KthClino(aKClino).PolCorr();
+
+   tREAL8 anACor = 0.0;
+   tREAL8 aPowA  = 1.0;
+   for (const auto & aCoeff :  aVCor.Vect())
+   {
+       anACor += aCoeff * aPowA;
+       aPowA *= anA;
+   }
+
+   return std::abs(Scal(aDirClino,aVertical) - std::sin(anACor) );
+}
+
+
+tREAL8 cIrbComp_TimeS::ScoreVerticalLoc1Clino(const cPt3dr& aVertical,size_t aKClino) const
+{
+   cPt3dr aDirClino =    CalBlock().SetClinos().KthClino(aKClino).CurPNorm().GetPNorm();
+   return ScoreDirClinoAndVert(aDirClino,aVertical,aKClino);
+}
+
+
+tREAL8 cIrbComp_TimeS::ScoreVerticalLoc(const cPt3dr& aDirV,bool SigmaW) const
+{
+    cWeightAv<tREAL8,tREAL8> aWAvg;
+    for (size_t aKC=0 ; aKC<mSetClino.NbMeasure() ; aKC++)
+    {
+        tREAL8 aWeight = 1.0;
+        tREAL8 aSc1 = ScoreVerticalLoc1Clino(aDirV,aKC);
+        aWAvg.Add(aWeight,aSc1);
+    }
+    return aWAvg.Average();
+}
 
 
 
@@ -698,6 +734,7 @@ const std::string &      cIrbCal_Block::NameBloc() const {return mNameBloc;}
 cIrbCal_CamSet &        cIrbCal_Block::SetCams() {return mSetCams;}
 const cIrbCal_CamSet &  cIrbCal_Block::SetCams() const {return mSetCams;}
 cIrbCal_ClinoSet &      cIrbCal_Block::SetClinos() {return mSetClinos;}
+const cIrbCal_ClinoSet & cIrbCal_Block::SetClinos() const {return mSetClinos;}
 
 
 const  std::map<tNamePair,cIrb_SigmaInstr> &  cIrbCal_Block::SigmaPair() const {return mSigmaPair; }

@@ -267,6 +267,7 @@ cSysCoData cSysCo::toSysCoData()
 
 cRotation3D<tREAL8> cSysCo::getRot2Vertical(const tPt &)   const
 {
+
     // MPD->JMM Why is not defined for geographic coordinate ?
     MMVII_INTERNAL_ASSERT_User(false, eTyUEr::eSysCo,
                                std::string("Error: getVertical() not defined for SysCo type ") + E2Str(mType));
@@ -275,6 +276,9 @@ cRotation3D<tREAL8> cSysCo::getRot2Vertical(const tPt &)   const
 
 cPt3dr cSysCo::getUpDirVert(const tPt & aPt)   const
 {
+    if (isVerticalCste())
+        return getCsteUpDirVert();
+
     // To check with JMM
     return getRot2Vertical(aPt).Value(cPt3dr(0,0,1));
 }
