@@ -77,6 +77,17 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
+    - name: Generate token to download libelise.a
+      id: app-token
+      uses: tibdex/github-app-token@v2
+      with:
+        app_id: ${{ secrets.LIBELISE_APP_ID }}
+        private_key: ${{ secrets.LIBELISE_APP_PRIVATE_KEY }}
+
+    - name: Download libelise.a
+      run: |
+          git clone https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/micmac-V2/libelise-win-dev.git
+
     - name: Install Miniconda 
       uses: conda-incubator/setup-miniconda@v3
       with:
@@ -92,9 +103,9 @@ jobs:
       with: 
         cache: false
         version: 5.15
-    
+
     - name: Configure CMake for MMVII
-      run: cmake -S . -B build -DCMAKE_PREFIX_PATH=C:/Miniconda/envs/test/Library -DvMMVII_BUILD=ON
+      run: cmake -S . -B build -DCMAKE_PREFIX_PATH=C:/Miniconda/envs/test/Library -DvMMVII_BUILD=ON -DMMVII_KEEP_LIBRARY_MMV1=ON -DMMV1_PATH=libelise-win-dev
 
     - name: Build MMVII
       run: cmake --build build --config Release -j 4 --target full
