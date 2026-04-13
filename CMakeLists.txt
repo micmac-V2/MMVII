@@ -87,6 +87,25 @@ add_subdirectory(ExternalInclude/libE57Format)
 include_directories(${CMAKE_BINARY_DIR}/E57-install/include)
 link_directories(${CMAKE_BINARY_DIR}/E57-install/lib)
 
+# PDAL
+include(FetchContent)
+
+# --- Options PDAL avant FetchContent_MakeAvailable ---
+set(WITH_TESTS       OFF CACHE BOOL "" FORCE)
+set(WITH_APPS        OFF CACHE BOOL "" FORCE)
+set(BUILD_TOOLS      OFF CACHE BOOL "" FORCE)
+set(WITH_COMPLETION  OFF CACHE BOOL "" FORCE)
+set(BUILD_PLUGIN_PGPOINTCLOUD OFF CACHE BOOL "" FORCE)
+set(BUILD_PLUGIN_DRACO        OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+    PDAL
+    GIT_REPOSITORY https://github.com/PDAL/PDAL.git
+    GIT_TAG        2.9.0          # tag stable, pas master
+    GIT_SHALLOW    TRUE           # clone minimal, plus rapide
+)
+FetchContent_MakeAvailable(PDAL)
+
 #######################################################
 ##        Compilation toolchain
 #######################################################
@@ -151,7 +170,9 @@ file(GLOB mmv2_headers "${mmv2_include_dir}/*.h" "${mmv2_include_dir}/*/*.h" "${
 ##        libP2007 buid (MMVII library)
 #######################################################
 add_library(P2007 "${mmv2_libsrcs}" "${mmv2_headers}")
-target_include_directories(P2007 PRIVATE "${mmv2_include_dir};${mmv1_include_dir};${EIGEN3_INCLUDE_PATH};${PROJ_INCLUDE_DIRS};${GDAL_INCLUDE_DIRS}")
+target_include_directories(P2007 PRIVATE 
+	"${mmv2_include_dir};${mmv1_include_dir};${EIGEN3_INCLUDE_PATH};${PROJ_INCLUDE_DIRS};${GDAL_INCLUDE_DIRS};${PDAL_INCLUDE_DIRS}"
+)
 target_link_libraries(P2007 PRIVATE MMVII_compiler_flags Threads::Threads ${PROJ_LIBRARIES} ${GDAL_LIBRARIES})
 
 target_link_libraries(P2007 PRIVATE E57Format)
@@ -184,7 +205,7 @@ if(MMVII_KEEP_LIBRARY_MMV1)
 endif()
 
 target_include_directories(MMVII PRIVATE "${MMVII_SOURCE_DIR}/include"  )
-target_link_libraries(MMVII PRIVATE MMVII_compiler_flags Threads::Threads P2007 ${mmv1_libs} ${mmv2_extlibs})
+target_link_libraries(MMVII PRIVATE MMVII_compiler_flags Threads::Threads P2007 ${mmv1_libs} ${mmv2_extlibs} pdalcpp)
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION  VERSION_LESS "9.1")
   target_link_libraries(MMVII PRIVATE -lstdc++fs)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION  VERSION_LESS "9.0")
