@@ -3,6 +3,7 @@
 #include "MMVII_util_tpl.h"
 #include "MMVII_PointCloud.h"
 #include "MMVII_Geom2D.h"
+#include "../Mesh/happly.h"
 
 
 /**
@@ -98,10 +99,24 @@ cCollecSpecArg2007 & cAppli_ImportTxtCloud::ArgOpt(cCollecSpecArg2007 & anArgOpt
 }
 
 
+static bool IsBinaryPly(const std::string & aNameFile)
+{
+    std::ifstream aFile(aNameFile);
+    std::string aLine;
+    if (!std::getline(aFile, aLine) || aLine != "ply")
+        return false;
+    while (std::getline(aFile, aLine))
+    {
+        if (aLine.find("format binary") != std::string::npos)
+            return true;
+        if (aLine == "end_header")
+            break;
+    }
+    return false;
+}
+
 int cAppli_ImportTxtCloud::Exe()
 {
-    cNewReadFilesStruct aNRFS(mFormat,mSpecFormatMand,mSpecFormatTot);
-    aNRFS.ReadFile(mNameFile,mParamNSF);
     if (!IsInit(&mNameOut))
         mNameOut = LastPrefix(mNameFile)+".dmp";
 
@@ -109,9 +124,8 @@ int cAppli_ImportTxtCloud::Exe()
     aPC.SetOffset(mOffset);
     bool isRandCoord = IsInit(&mRandCoord);
 
-    for (size_t aK=0 ; aK<aNRFS.NbLineRead() ; aK++)
+    auto ProcessPt = [&](size_t aK, cPt3dr aPt)
     {
-        cPt3dr aPt = aNRFS.GetPt3dr_XYZ (aK) ;
         if (mOffsetIsP0 && (aK==0))
         {
            cPt3di aOffsDiv = Pt_round_down(aPt/mRoundingOffset);
@@ -119,14 +133,25 @@ int cAppli_ImportTxtCloud::Exe()
            aPC.SetOffset(mOffset);
         }
         if (isRandCoord)
-        {
            aPt +=  cPt3dr::PRandC() * (mRandCoord/2.0);
-        }
-
         aPC.AddPt(aPt);
+    };
+
+    if (IsBinaryPly(mNameFile))
+    {
+        // Binary PLY is self-describing => format string is not used in this path
+        happly::PLYData aPlyF(mNameFile, false);
+        auto aVecPts = aPlyF.getVertexPositions();
+        for (size_t aK = 0 ; aK < aVecPts.size() ; aK++)
+            ProcessPt(aK, cPt3dr(aVecPts[aK][0], aVecPts[aK][1], aVecPts[aK][2]));
     }
-    //cBox3dr aBox3d = aPC.Box();
-    //aPC.mBox2d = cBox2dr(Proj(aBox3d.P0()),Proj(aBox3d.P1()));
+    else
+    {
+        cNewReadFilesStruct aNRFS(mFormat,mSpecFormatMand,mSpecFormatTot);
+        aNRFS.ReadFile(mNameFile,mParamNSF);
+        for (size_t aK=0 ; aK<aNRFS.NbLineRead() ; aK++)
+            ProcessPt(aK, aNRFS.GetPt3dr_XYZ(aK));
+    }
 
     if (! IsInit(&mDensity))
     {
