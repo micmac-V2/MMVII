@@ -406,17 +406,20 @@ class cBA_LidarPhotogra: public cBA_LidarBase
     protected :
        void InitEq(bool aScanPoseUk);
 
-        void Add1Patch(tREAL8 aWeight, const std::vector<cPt3dr> & aVPatchPtGnd,
+        void Add1Patch(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
                        const std::string & aScanName, const std::unordered_set<std::string> &aHiddenOnImage);
 
        /// Method for adding observations with radiometric differences as similatity criterion
-       void AddPatchDifRad(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchPtGnd,const std::vector<cData1ImLidPhgr> &aVData) ;
+       void AddPatchDifRad(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+                           const std::vector<cData1ImLidPhgr> &aVData) ;
 
        /// Method for adding observations with Census Coeff as similatity criterion
-       void AddPatchCensus(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchPtGnd,const std::vector<cData1ImLidPhgr> &aVData) ;
+       void AddPatchCensus(const cResidualWeighter<tREAL8> &aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+                           const std::vector<cData1ImLidPhgr> &aVData) ;
 
        /// Method for adding observations with Normalized Centred Coefficent Correlation as similatity criterion
-       void AddPatchCorrel(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchPtGnd,const std::vector<cData1ImLidPhgr> &aVData) ;
+       void AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
+                           const std::vector<cData1ImLidPhgr> &aVData) ;
 
        eImatchCrit                    mModeSim;        ///< type of similarity used
        bool                           mPertRad;        ///< do we pertubate the radiometry (simulation & test)
@@ -460,7 +463,6 @@ class cBA_LidarRaster
 {
 public:
     void CreateZbuffers(cPhotogrammetricProject *aPhProj, const cMMVII_BundleAdj &aBA, bool aOnScans, bool aDebug); ///< on images or on scans
-    void UpdateWeightersMap(const cMMVII_BundleAdj &aBA, double aWFactor); // create or update map, on each iteration
 
 protected:
     std::vector<cStaticLidarBAData>   mVScans;      ///< vector of raster representations of lidar
@@ -483,6 +485,8 @@ public :
 
     /// add observation
     virtual void AddObs() override;
+
+    void UpdateWeightersMap(const cMMVII_BundleAdj &aBA, double aWFactor); // create or update map, on each iteration
 
 protected:
     virtual void SetVUkVObs
@@ -511,6 +515,7 @@ public :
     /// add observation
     void AddObs() override;
 
+    void UpdateWeightersMap(const cMMVII_BundleAdj &aBA, double aWFactor); // create or update map, on each iteration
 
 protected :
     /**  Add observation for 1 Patch of point */
