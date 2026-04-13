@@ -406,17 +406,17 @@ class cBA_LidarPhotogra: public cBA_LidarBase
     protected :
        void InitEq(bool aScanPoseUk);
 
-       void Add1Patch(tREAL8 aWeight, const std::vector<cPt3dr> & aVPatchGr,
-                      const std::string & aScanName, const std::unordered_set<std::string> &aHiddenOnImage);
+        void Add1Patch(tREAL8 aWeight, const std::vector<cPt3dr> & aVPatchPtGnd,
+                       const std::string & aScanName, const std::unordered_set<std::string> &aHiddenOnImage);
 
        /// Method for adding observations with radiometric differences as similatity criterion
-       void AddPatchDifRad(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchGr,const std::vector<cData1ImLidPhgr> &aVData) ;
+       void AddPatchDifRad(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchPtGnd,const std::vector<cData1ImLidPhgr> &aVData) ;
 
        /// Method for adding observations with Census Coeff as similatity criterion
-       void AddPatchCensus(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchGr,const std::vector<cData1ImLidPhgr> &aVData) ;
+       void AddPatchCensus(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchPtGnd,const std::vector<cData1ImLidPhgr> &aVData) ;
 
        /// Method for adding observations with Normalized Centred Coefficent Correlation as similatity criterion
-       void AddPatchCorrel(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchGr,const std::vector<cData1ImLidPhgr> &aVData) ;
+       void AddPatchCorrel(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchPtGnd,const std::vector<cData1ImLidPhgr> &aVData) ;
 
        eImatchCrit                    mModeSim;        ///< type of similarity used
        bool                           mPertRad;        ///< do we pertubate the radiometry (simulation & test)

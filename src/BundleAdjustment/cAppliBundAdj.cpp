@@ -418,10 +418,11 @@ int cAppliBundlAdj::Exe()
 
     MMVII_INTERNAL_ASSERT_User(mMeasureAdded,eTyUEr::eUnClassedError,"Not any measure added");
 
-   if (IsInit(&mParamShow_UK_UC))
-      mBA.Set_UC_UK(mParamShow_UK_UC);
+    if (IsInit(&mParamShow_UK_UC))
+       mBA.Set_UC_UK(mParamShow_UK_UC);
 
     //   ========== [2]   Make Iteration =============================
+    StdOut() << "Begin iterations" << std::endl;
     mBA.Iterate(mNbIter, mLVM, mShow_Cond);
 
     //   ========== [3]   Save resulst =============================

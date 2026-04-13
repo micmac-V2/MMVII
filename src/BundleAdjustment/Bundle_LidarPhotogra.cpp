@@ -476,10 +476,9 @@ void cBA_LidarPhotograRaster::SetVUkVObs
 
 
 void cBA_LidarPhotogra::AddPatchDifRad
-     (
-           tREAL8 aWeight,
-           const std::vector<cPt3dr> & aVPatchGr,
-           const std::vector<cData1ImLidPhgr> &aVData
+    (tREAL8 aWeight,
+     const std::vector<cPt3dr> & aVPatchPtGnd,
+     const std::vector<cData1ImLidPhgr> &aVData
      )
 {
      // read the solver now, because was not initialized at creation
@@ -489,7 +488,7 @@ void cBA_LidarPhotogra::AddPatchDifRad
      for (const auto & aData : aVData)
          aWAv.Add(1.0,aData.mVGr.at(0).first);
 
-     cPt3dr    aPGround = aVPatchGr.at(0);
+     cPt3dr    aPGround = aVPatchPtGnd.at(0);
      std::vector<tREAL8> aVTmpAvg{aWAv.Average()};  // vector for initializingz the temporay (here 1 = average)
      cSetIORSNL_SameTmp<tREAL8>  aStrSubst(aVTmpAvg); // structure for handling schurr eliminatio,
      // parse the data of the patch
@@ -507,15 +506,14 @@ void cBA_LidarPhotogra::AddPatchDifRad
 }
 
 void cBA_LidarPhotogra::AddPatchCensus
-     (
-           tREAL8 aWeight,
-           const std::vector<cPt3dr> & aVPatchGr,
-           const std::vector<cData1ImLidPhgr> &aVData
+    (tREAL8 aWeight,
+     const std::vector<cPt3dr> & aVPatchPtGnd,
+     const std::vector<cData1ImLidPhgr> &aVData
      )
 {
      // read the solver now, because was not initialized at creation
      cResolSysNonLinear<tREAL8> *  aSys = mBA.Sys();
-     for (size_t aKPt=1; aKPt<aVPatchGr.size() ; aKPt++)
+     for (size_t aKPt=1; aKPt<aVPatchPtGnd.size() ; aKPt++)
      {
          // -------------- [1] Calculate the average ratio on all images --------------------
          cWeightAv<tREAL8,tREAL8> aAvRatio;  // stuct for averaging ratio
@@ -534,8 +532,8 @@ void cBA_LidarPhotogra::AddPatchCensus
              std::vector<int>  aVIndUk{-1} ;  // indexe of unknown
              std::vector<tREAL8>  aVObs;      // observation/context
 
-             SetVUkVObs(aVPatchGr.at(0)  ,&aVIndUk,aVObs,aData,0);            // add unkown AND observations
-             SetVUkVObs(aVPatchGr.at(aKPt),nullptr ,aVObs,aData,aKPt);        // add ONLY observations
+             SetVUkVObs(aVPatchPtGnd.at(0)  ,&aVIndUk,aVObs,aData,0);            // add unkown AND observations
+             SetVUkVObs(aVPatchPtGnd.at(aKPt),nullptr ,aVObs,aData,aKPt);        // add ONLY observations
              aSys->R_AddEq2Subst(aStrSubst,mEq,aVIndUk,aVObs,aWeight); // add the equation in Schurr structure
          }
          // add all the equation to the system with Schurr's elimination
@@ -544,16 +542,15 @@ void cBA_LidarPhotogra::AddPatchCensus
 }
 
 void cBA_LidarPhotogra::AddPatchCorrel
-     (
-           tREAL8 aWeight,
-           const std::vector<cPt3dr> & aVPatchGr,
-           const std::vector<cData1ImLidPhgr> &aVData
+    (tREAL8 aWeight,
+     const std::vector<cPt3dr> & aVPatchPtGnd,
+     const std::vector<cData1ImLidPhgr> &aVData
      )
 {
      // read the solver now, because was not initialized at creation
      cResolSysNonLinear<tREAL8> *  aSys = mBA.Sys();
      // -------------- [1] Compute the normalized values --------------------
-     size_t aNbPt = aVPatchGr.size();
+     size_t aNbPt = aVPatchPtGnd.size();
      //  vector that will store the normalized value (Avg=0, Sigma=1)
      cDenseVect<tREAL8>  aVMoy(aNbPt,eModeInitImage::eMIA_Null);
 
@@ -620,7 +617,7 @@ void cBA_LidarPhotogra::AddPatchCorrel
              int aIndIm = -(1+aK0Im+2*aKIm);  // compute indexe assumming "a la queue leu-leu"
              std::vector<int>       aVIndUk{aIndPt,aIndIm,aIndIm-1} ;  // indexes of 3 unknown
              std::vector<tREAL8>    aVObs;  // vector of observations
-             SetVUkVObs (aVPatchGr.at(aKPt),&aVIndUk,aVObs,aVData.at(aKIm),aKPt);  // read obs & global Uk
+             SetVUkVObs (aVPatchPtGnd.at(aKPt),&aVIndUk,aVObs,aVData.at(aKIm),aKPt);  // read obs & global Uk
              aSys->R_AddEq2Subst(aStrSubst,mEq,aVIndUk,aVObs,aWeight);  // add equation in tmp struct
          }
      }
@@ -633,7 +630,7 @@ void cBA_LidarPhotogra::AddPatchCorrel
 
 
 void  cBA_LidarPhotogra::Add1Patch(tREAL8 aWeight,
-                                  const std::vector<cPt3dr> & aVPatchGr,
+                                  const std::vector<cPt3dr> & aVPatchPtGnd,
                                   const std::string & aScanName,
                                   const std::unordered_set<std::string> &aHiddenOnImage)
 {
@@ -651,14 +648,14 @@ void  cBA_LidarPhotogra::Add1Patch(tREAL8 aWeight,
               continue;
 
           auto & aGenDIm = aCam->LoadImage();
-          if (aCam->IsVisible(aVPatchGr.at(0))) // first test : is central point visible
+          if (aCam->IsVisible(aVPatchPtGnd.at(0))) // first test : is central point visible
           {
               cData1ImLidPhgr  aData; // data that will be filled
               aData.mScanAName = aScanName;
               aData.mKIm = aKIm;
-              for (size_t aKPt=0 ; aKPt<aVPatchGr.size() ; aKPt++) // parse the points of the patch
+              for (size_t aKPt=0 ; aKPt<aVPatchPtGnd.size() ; aKPt++) // parse the points of the patch
               {
-                   cPt3dr aPGround = aVPatchGr.at(aKPt);
+                   cPt3dr aPGround = aVPatchPtGnd.at(aKPt);
                    if (aCam->IsVisible(aPGround))  // is the point visible in the camera
                    {
                         cPt2dr aPIm = mBA.VSCPC()[aKIm]->Ground2Image(aPGround); // extract the image  projection
@@ -670,7 +667,7 @@ void  cBA_LidarPhotogra::Add1Patch(tREAL8 aWeight,
                    }
               }
               //  Does all the point of the patch were inside the image ?
-              if (aData.mVGr.size() == aVPatchGr.size())
+              if (aData.mVGr.size() == aVPatchPtGnd.size())
               {
                   aVData.push_back(aData); // memorize the data for this image
 
@@ -738,15 +735,15 @@ void  cBA_LidarPhotogra::Add1Patch(tREAL8 aWeight,
 
      if (mModeSim==eImatchCrit::eDifRad)
      {
-        AddPatchDifRad(aWeight,aVPatchGr,aVData);
+        AddPatchDifRad(aWeight,aVPatchPtGnd,aVData);
      }
      else if (mModeSim==eImatchCrit::eCensus)
      {
-        AddPatchCensus(aWeight,aVPatchGr,aVData);
+        AddPatchCensus(aWeight,aVPatchPtGnd,aVData);
      }
      else if (mModeSim==eImatchCrit::eCorrel)
      {
-        AddPatchCorrel(aWeight,aVPatchGr,aVData);
+        AddPatchCorrel(aWeight,aVPatchPtGnd,aVData);
      }
 }
 
