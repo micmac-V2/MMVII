@@ -591,6 +591,8 @@ void cBA_LidarPhotogra::AddPatchCorrel
      for (const auto &  aVRad : aListVRad)
      {
          auto [A,B] =  LstSq_Fit_AxPBEqY(aVRad,aVMoy);  // solve  Ri = Aj Imj + Bj
+         if (fabs(A)<1e-10)
+             return; // patch in a saturated area
          aVTmp.push_back(A); // add tmp unknown for Aj
          aVTmp.push_back(B); // add tmp unknown for Bj
      }
@@ -662,6 +664,8 @@ void  cBA_LidarPhotogra::Add1Patch(tREAL8 aWeight,
                         if (aGenDIm.InsideInterpolator(*mInterp,aPIm,1.0))  // is it sufficiently inside
                         {
                             auto aVGr = aGenDIm.GetValueAndGradInterpol(*mInterp,aPIm); // extract pair Value/Grad of image
+                            if ((aVGr.first==0)||(aVGr.first==255)) // refuse saturated pixels TODO improve criteria!
+                                continue;
                             aData.mVGr.push_back(aVGr); // push it at end of stack
                         }
                    }
