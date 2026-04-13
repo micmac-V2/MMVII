@@ -579,60 +579,15 @@ std::pair<tREAL8,cPt3dr> AnglesInterBundles
 /// Compute isometry between two 3D points vectors. at least 3 points
 tPoseR RobustIsometry(const std::vector<cPt3dr> & aPtsA, const std::vector<cPt3dr> & aPtsB);
 
-/**  Class for sampling the space of quaternion/quaternion.  Method :
- *
- *     - we sample the sphere of R4
- *     - for this we sample the frontier of hypercube of R4 and normalize it lenghth, not uniform
- *     (impossible to realize by th way) but bounded anisoptropy
- *     - for this we sample regularly the  cube R3 and make the cartesian profuct with all the 8 (4*2)
- *    "principal" direction  (+- ijkt)
- *     - also we must be aware that Q and -Q correspond to same rotation, so if want to sample
- *     the space of rotation, which is generaly the case, we will take only one of both and
- *     explore + ijkt only
- *
- *    => possible amelioration make a non regular sampling in each direction ?
- *    => other amelioration  ???  Tabulate the result  with more sophisticated computation
- */
-
-
-class cSampleQuat
-{
-      public :
-         cSampleQuat(int aNbElem,bool ForRot);  ///< constructor indicating  number of step
-         static cSampleQuat FromNbRot(int aNbRot,bool ForRot);  ///< constructor indicating the min number of rotation expected
-
-
-         cPt4dr  KthQuat(int aK) const; ///< Main method return the number of rot
-         tRotR   KthRot(int aK) const;
-         size_t NbRot() const;  ///< Accessor
-         size_t NbStep() const;  ///< Accessor
-
-         //  compute vector, for NbTest random point, of  minimal distance to all sampled rot/quat
-         std::vector<tREAL8 >  TestVecMinDist(size_t aNbTest) const;
-
-         //  compute statistics, for NbTest random point, of  minimal distance to all sampled rot/quat
-         cStdStatRes  TestStatMinDist(size_t aNbTest) const;
-
-         // return the min distance bewteen all pair of sampled quat
-         tREAL8 TestMinDistPairQuat() const;
-
-         // generate all the quaternions sampled
-         std::vector<cPt4dr>  VecAllQuat() const;
-      private :
-
-
-         tREAL8 Int2Coord(int aK) const;  ///< convert on 1 direction [0,NbStep] => [-1,1]
-
-         bool    m4R;     // is it for rotation
-         size_t  mNbF;    // number of face
-         size_t  mNbStep;
-         size_t  mNbRot;
-};
-
 /// class for sampling regularly the hypercube, useful for sampling not so irregularly the hyper sphere
+
+class cSampleQuat;
+
 class cSampleHyperCube
 {
    public :
+        friend class cSampleQuat;
+
         cSampleHyperCube(int aDim,int aNbStep,bool isProj = false);
         /// number of sampled points
         int NbSamples() const;
@@ -649,6 +604,58 @@ class cSampleHyperCube
         int  mNbF;        // number of face
         int  mNbSamples;  // number of sample of the cube
 };
+
+/**  Class for sampling the space of quaternion/quaternion.  Method :
+ *
+ *     - we sample the sphere of R4
+ *     - for this we sample the frontier of hypercube of R4 and normalize it lenghth, not uniform
+ *     (impossible to realize by th way) but bounded anisoptropy
+ *     - for this we sample regularly the  cube R3 and make the cartesian profuct with all the 8 (4*2)
+ *    "principal" direction  (+- ijkt)
+ *     - also we must be aware that Q and -Q correspond to same rotation, so if want to sample
+ *     the space of rotation, which is generaly the case, we will take only one of both and
+ *     explore + ijkt only
+ *
+ *    => possible amelioration make a non regular sampling in each direction ?
+ *    => other amelioration  ???  Tabulate the result  with more sophisticated computation
+ */
+
+
+class cSampleQuat :  cSampleHyperCube
+{
+      public :
+         cSampleQuat(int aNbStep,bool ForRot=true);  ///< constructor indicating  number of step
+         static cSampleQuat FromNbRot(int aNbRot,bool ForRot);  ///< constructor indicating the min number of rotation expected
+
+
+         cPt4dr  KthQuat(int aK) const; ///< Main method return the number of rot
+         tRotR   KthRot(int aK) const;
+         size_t NbRot() const;  ///< Accessor
+         size_t NbStep() const;  ///< Accessor
+         bool   Is4R() const;
+
+         //  compute vector, for NbTest random point, of  minimal distance to all sampled rot/quat
+         std::vector<tREAL8 >  TestVecMinDist(size_t aNbTest) const;
+
+         //  compute statistics, for NbTest random point, of  minimal distance to all sampled rot/quat
+         cStdStatRes  TestStatMinDist(size_t aNbTest) const;
+
+         // return the min distance bewteen all pair of sampled quat
+         tREAL8 TestMinDistPairQuat() const;
+
+         // generate all the quaternions sampled
+         std::vector<cPt4dr>  VecAllQuat() const;
+      private :
+         //tREAL8 Int2Coord(int aK) const;  ///< convert on 1 direction [0,NbStep] => [-1,1]
+/*
+         bool    m4R;     // is it for rotation
+         size_t  mNbF;    // number of face
+         size_t  mNbStep;
+         size_t  mNbRot;
+*/
+};
+
+
 
 ///  Class for sampling point +- regularly on the sphere
 class cSampleSphere3D

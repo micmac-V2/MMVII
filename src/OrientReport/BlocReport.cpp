@@ -31,20 +31,21 @@ namespace MMVII
 class  cStatDistPtWire
 {
     public :
+    /*
+        cStatDistPtWire():
+            mIsGlob (false),
+            mDist   (-1)
+        {
+        }
+
+        bool         mIsGlob;
+        tREAL8       mDist;
+*/
+
         cStdStatRes  mStat3d;  // stat on 3D dist
         cStdStatRes  mStatH;  // stat on horiz dist
         cStdStatRes  mStatV;  // stat on vert dist
 };
-
-
-///  Class to represent points located in rigid frame
-class cCern_PtRF
-{
-    public :
-        cPt3dr        mCoordRF;  //  coord local to rigid frame
-        std::string   mName;     // name of point
-};
-
 
 
 
@@ -67,6 +68,16 @@ class cAppli_ReportBlock : public cMMVII_Appli
         void TestWire3D(const std::string& anIdSync,const std::vector<cSensorCamPC *> & aVCam);
         /// For a given Id of Sync and a bloc of cameras, compute the stat on accuracy of intersection
         void TestPoint3D(const std::string& anIdSync,const std::vector<cSensorCamPC *> & aVCam,bool DoStat);
+
+        std::string StrDev(const cStdStatRes & aStat) const
+        {
+            return (aStat.NbMeasures() >= 2) ? (ToStr(1e6*aStat.UBDevStd(-1))) : "???";
+        }
+
+        std::string StrDiff(const cStdStatRes & aS1,const cStdStatRes & aRef) const
+        {
+            return (aS1.NbMeasures() >= 1) ? (ToStr(1e6*(aS1.Avg()-aRef.Avg()))) : "???";
+        }
 
         cPhotogrammetricProject     mPhProj;
         bool                        mShow;  // do we print residual on terminal
@@ -92,33 +103,37 @@ class cAppli_ReportBlock : public cMMVII_Appli
         std::map<std::string,cStdStatRes>    mMapStatPair;
         std::map<std::string,cStdStatRes>    mMap1Image;
       
-        bool                         mWithTargetPoint;
-        bool                         mWithCoordGround;
-        std::vector<cPt3dr>          mCoordGround;
-        std::vector<cPt3dr>          mCoordLoc;
+        bool                         mWithTargetPoint; ///< is there targeted points
+        bool                         mWithCoordGround; ///< do we have the 3D coordinat of these points
+
+        //  Pair of 3d coordinate to compute transfo  Local in bloc of cam <-> "absolute" like sphere coord
+        std::vector<cPt3dr>          mCoordGround;  ///<  3D coordinate "absolute"
+        std::vector<cPt3dr>          mCoordLoc;     ///< 3D coordinate in bloc of cameras repai
 
         //  Add a statistic results in csv-file
         void CSV_AddStat(const std::string& anId,const std::string& aMes,const cStdStatRes &) ;
+
+        /// 3d position of the wire that may be computed (if required and enough image)
         cSegmentCompiled<tREAL8,3> *  mCurWire ;
-        bool                          mWithWire;
-        std::string                   mWireFolder;
+        bool                          mWithWire;  ///< Do we require Wire computation
+        std::string                   mWireFolder; ///< Wire folder, that may differ from point folder
 
-        std::map<std::string,cStatDistPtWire>   mStatWirePt;
+        /// mStatWirePt[NamePt][Loc]
+        std::map<std::string, std::map<std::string,cStatDistPtWire>>   mStatWirePt;
+
         //  Stuff  for  CERN-Sphere-Center like manip
-        bool                                    mSCFreeScale;  //< do we have a free scale
-        cSetMesGndPt                            mMesGround;     //< "Absolute" coordinate of the point
-        std::string                             mPatDistWire;   //< Pattern of point name for computing distance point <--> WIRE
-        std::string                             mPatAgregateDist;  //< Pattern for aggregatinf distance
+        bool                                    mSCFreeScale;  ///< do we have a free scale
+        cSetMesGndPt                            mMesGround;     ///< "Absolute" coordinate of the point
+        std::string                             mPatDistWire;   ///< Pattern of point name for computing distance point <--> WIRE
+        std::string                             mPatAgregateDist;  ///< Pattern for aggregatinf distance
 
-        bool                                    mWithClino;
-        bool                                    mWithAgregateDist;
-        cSetMeasureClino                        mMesClino;
-        std::vector<cCern_PtRF>                 mVCernPR;  //< Coord in frame + names for CERN export
+        bool                                    mWithClino;  /// Where clino measure loade
+        bool                                    mWithAgregateDist; ///< Do we agregate the measure
+        cSetMeasureClino                        mMesClino; ///< store clinometers measures
 
         /// For a given name of point memorize the set of pair "Cam+Im Measure"
         std::map<std::string,std::vector<tPairCamPt>> mMapMatch;
 
-       // std::map<cSensorCamPC *,cBR_SystCorr>  mMapCorrSyst;
 };
 
 
@@ -185,6 +200,7 @@ cCollecSpecArg2007 & cAppli_ReportBlock::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     ;
 }
 
+static const std::string StrGLOB = "GLOB";
 
 void cAppli_ReportBlock::AddStatDistWirePt
      (
@@ -197,18 +213,23 @@ void cAppli_ReportBlock::AddStatDistWirePt
     if (!mCurWire)
        return;
 
+    std::map<std::string,cStatDistPtWire> & aMapPt = mStatWirePt[aNamePt];
+
      cPt3dr  aProj = mCurWire->Proj(aPt);
      cPt3dr  anEc = aProj-aPt;
      tREAL8 aD3 = Norm2(anEc);
      tREAL8 aDH = -1;
      tREAL8 aDV = -1;
 
-     std::string anIdGlob = "GLOB-"+aNamePt;
+     std::string anIdGlob = StrGLOB;
      std::string anIdAgreg;
 
      if (mWithAgregateDist)
      {
-         anIdAgreg =  "LOC-"+ReplacePattern(mPatAgregateDist,"$1",anIm0);
+         std::string aName = ReplacePattern(mPatAgregateDist,"$1",anIm0);
+         int aL = cStrIO<int>::FromStr(aName);
+         aName = ToStr(aL,3);
+         anIdAgreg =  "LOC-"+aName;
      }
 
      if (mWithClino)
@@ -217,25 +238,20 @@ void cAppli_ReportBlock::AddStatDistWirePt
         cPt3dr  aCompH = anEc-aCompV;
         aDH = Norm2(aCompH);
         aDV = Norm2(aCompV);
-        mStatWirePt[anIdGlob].mStatH.Add(aDH);
-        mStatWirePt[anIdGlob].mStatV.Add(aDV);
+        aMapPt[anIdGlob].mStatH.Add(aDH);
+        aMapPt[anIdGlob].mStatV.Add(aDV);
         if (mWithAgregateDist)
         {
-            mStatWirePt[anIdAgreg].mStatH.Add(aDH);
-            mStatWirePt[anIdAgreg].mStatV.Add(aDV);
+            aMapPt[anIdAgreg].mStatH.Add(aDH);
+            aMapPt[anIdAgreg].mStatV.Add(aDV);
         }
      }
 
-     StdOut()  << " ID=" << anIm0
-               << " D3=" << (aD3-0.2157)*1e6
-               << " DH=" << (aDH-0.0998)*1e6
-               << " DV=" << (aDV-0.1912)*1e6
-               << "\n";
 
-     mStatWirePt[anIdGlob].mStat3d.Add(Norm2(anEc));
+     aMapPt[anIdGlob].mStat3d.Add(Norm2(anEc));
      if (mWithAgregateDist)
      {
-         mStatWirePt[anIdAgreg].mStat3d.Add(Norm2(anEc));
+         aMapPt[anIdAgreg].mStat3d.Add(Norm2(anEc));
      }
 
      // Add individual statistic for each point each image
@@ -380,8 +396,7 @@ void cAppli_ReportBlock::TestPoint3D
              StdOut() << "NO Measure file  for " << aCam->NameImage() << "\n";
      }
 
-     // memrize the 3D points
-     mVCernPR.clear();
+
 
      // [2]  Parse the measure grouped by points
      for (const auto & [aNamePt,aVect] : mMapMatch )
@@ -420,9 +435,6 @@ void cAppli_ReportBlock::TestPoint3D
              // [2.3] export residual in csv file
              if (doStat)
              {
-                 mVCernPR.push_back(cCern_PtRF());
-                 mVCernPR.back().mCoordRF = aPLoc;
-                 mVCernPR.back().mName = aNamePt;
 
                  tREAL8 aDistPix = aWPix.Average() * (aNbPt*2.0) / (aNbPt*2.0 -3.0);
                  AddOneReportCSV(mIdRepPtIndiv,{anIdSync,aNamePt,ToStr(aNbPt),ToStr(aDistPix)});
@@ -437,6 +449,7 @@ void cAppli_ReportBlock::TestPoint3D
                      {
                          const auto & [aCam2,aMes2] = aVect.at(aK2);
                          cHomogCpleIm aCple(aMes1.mPt,aMes2.mPt);
+                         // The weighting is not exaclt the same for pair of cam  ??
                          tREAL8 aRes12 = aCam1->PixResInterBundle(aCple,*aCam2) * 4.0;  // 4.0 = DOF = 4 / (4-3)
                          std::string anId1 = "Cam:"+aCam1->InternalCalib()->Name();
                          std::string anId2 = "Cam:"+aCam2->InternalCalib()->Name();
@@ -466,8 +479,7 @@ void cAppli_ReportBlock::ProcessOneBloc(const std::string& anIdSync,const cIrbCo
          aVCam.push_back(aCompCam.CamPC());
 
 
-    // tPoseR aPose ;
-    // tSim3dR aSim ;
+
 
      if (mWithTargetPoint)
      {
@@ -479,6 +491,7 @@ void cAppli_ReportBlock::ProcessOneBloc(const std::string& anIdSync,const cIrbCo
          TestWire3D(anIdSync,aVCam);
      }
 
+     // compute the stat specific to CERN
      if (mWithClino && (mCoordGround.size() >=3) && mCurWire)
      {
         auto  aWMin =  MMVII::ExtractVerticalLoc(aDataTS,false);
@@ -580,28 +593,38 @@ int cAppli_ReportBlock::Exe()
             StdOut() << mStatGlobWire.Show("Wire-Pix",{50,85}) << "\n";
     }
 
-    if (! mStatWirePt.empty())
-    {
-        std::string anIdStatWire ="StatDistWire";
+    //  ----------------- Make the export specific to CERN : distance to wire ------------
 
-        std::vector<std::string> aVHeader{"Name","3D-Avg","3D-Dev"};
+    for ( auto & [aNamePt,aMap] : mStatWirePt ) // parse all points
+    {
+
+        std::string anIdStatWire ="StatDistWire-"+aNamePt;
+
+        std::vector<std::string> aVHeader{"Name","Nb","3D-Avg","3D-Delta micr","3D-Dev micr"};
         if (mWithClino)
-            AppendIn(aVHeader,{"H-Avg","H-Dev","V-Avg","V-Dev"});
+            AppendIn(aVHeader,{"H-Avg","H-Delta micr","H-Dev","V-Avg","V-Delta micr","V-Dev"});
 
         InitReportCSV(anIdStatWire,"csv",false,aVHeader);
+        const auto& aRef = aMap[StrGLOB];
 
-        for (const auto & [aName,aStat] : mStatWirePt )
+        for (const auto & [aName,aStat] : aMap ) // parse all stats
         {
-            std::vector<std::string> aVStat{aName,aStat.mStat3d.StrAvg(),aStat.mStat3d.StrUBDevStd()};
+           // size_t aNb = aStat.mStat3d.NbMeasures();
+            std::vector<std::string> aVStat
+                                     {
+                                          aName,
+                                          ToStr(aStat.mStat3d.NbMeasures()),
+                                          aStat.mStat3d.StrAvg(),
+                                          StrDiff(aStat.mStat3d,aRef.mStat3d),
+                                          StrDev(aStat.mStat3d)
+                                     };
             if (mWithClino)
             {
-                  AppendIn(aVStat,{aStat.mStatH.StrAvg(),aStat.mStatH.StrUBDevStd()});
-                  AppendIn(aVStat,{aStat.mStatV.StrAvg(),aStat.mStatV.StrUBDevStd()});
+                  AppendIn(aVStat,{aStat.mStatH.StrAvg(),StrDiff(aStat.mStatH,aRef.mStatH),StrDev(aStat.mStatH)});
+                  AppendIn(aVStat,{aStat.mStatV.StrAvg(),StrDiff(aStat.mStatV,aRef.mStatV),StrDev(aStat.mStatV)});
             }
             AddOneReportCSV(anIdStatWire,aVStat);
         }
-
-        //mWithClino
     }
 
 
