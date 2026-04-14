@@ -1,32 +1,7 @@
-//#include "MMVII_Sensor.h"
-#include "CodedTarget.h"
-#include "MMVII_ImageMorphoMath.h"
-#include "MMVII_Interpolators.h"
-#include "MMVII_PCSens.h"
-#include "cMMVII_Appli.h"
-#include "MMVII_Geom3D.h"
-#include "MMVII_Matrix.h"
+#include "cCodedTargetDescribe.h"
 
 namespace MMVII
 {
-
-    class cAppli_CodedTargetDescribe : public cMMVII_Appli//heritage de cMMVII_Appli
-    {
-        public:
-            //public method/attributes declaration
-            cAppli_CodedTargetDescribe(const std::vector<std::string>& aVArgs,
-                                       const cSpecMMVII_Appli& aSpec);
-        private:
-            //MMVII mandatory/usual stuff
-            int Exe() override;
-            cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
-            cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
-            cPhotogrammetricProject mPhProj;
-            std::string mSpecImIn;
-            bool mShow;
-            //------
-            void establishPrerequisites();
-    };
 
     cCollecSpecArg2007& cAppli_CodedTargetDescribe::ArgObl(cCollecSpecArg2007& anArgObl)
     {
@@ -53,6 +28,18 @@ namespace MMVII
 
     int cAppli_CodedTargetDescribe::Exe()
     {
+        //----- [0] Load project primitives
+        mPhProj.FinishInit();
+        std::vector<std::string> aVIm = VectMainSet(0);
+        //----- [1] Load targets measures
+        mPhProj.LoadGCP3D();
+        for (const std::string& aIm : aVIm)
+        {
+            //cSensorCamPC* aCam = mPhProj.ReadCamPC(aIm, true);
+            cSetMesPtOf1Im aSetImMes = mPhProj.LoadMeasureIm(aIm);
+            std::vector<cSaveExtrEllipe> aVEllipsesExtrinsics;
+            ReadFromFile(aVEllipsesExtrinsics, cSaveExtrEllipe::NameFile(mPhProj, aSetImMes, true));
+        }
         StdOut() << "OK";
         return EXIT_SUCCESS;
     }
@@ -74,4 +61,6 @@ namespace MMVII
             {eApDT::Console},//output
             __FILE__
         );
+
+
     }
