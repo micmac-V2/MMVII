@@ -6,6 +6,7 @@
 #include "cMMVII_Appli.h"
 #include "MMVII_Geom3D.h"
 #include "MMVII_Matrix.h"
+#include "MMVII_util.h"
 
 namespace MMVII
 {
@@ -65,6 +66,8 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
             void RansacCorresp(bool& isTarget);
             void RansacTransFunc(cPt2dr& theSol, std::vector<cPt2di> aVBitCenters);
             cStdStatRes wL1Score(cPt2dr& aSol, cDataIm2D<tREAL8>* aDWStdIm);
+            void NONERecov();
+            const std::vector<cSensorCamPC*>& getVCams();
             cPhotogrammetricProject mPhProj;
             std::string mNameSpecif;
             std::vector<cSensorCamPC*> mVCams;
@@ -106,7 +109,8 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
             cDataIm2D<tREAL8>* mDWStdDeltaIm;
             std::map<std::string, std::vector<cPt3dr>> mMTargetsWorldBasePoints;
             std::map<cSensorCamPC*,std::map<std::string,std::vector<cPt2dr>>> mMCamTgtBasePts;
-
+            std::string mNONERecov;
+            tREAL8 mOKNEAR;
 
             //----stolen to cCheckBoardTargetExtract
             std::string NameVisu(const std::string & aDestIm, const std::string & aPref,const std::string aPost="");
@@ -136,6 +140,7 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
     cCollecSpecArg2007 & cAppli_CheckBoardTargetRefine::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     {
         return anArgOpt
+               << AOpt2007(mNONERecov,"NONERecov","recover NONE-tagged detections : M-erge D-istinguish output",  {eTA2007::HDV})
                << AOpt2007(mRes,"Res","specifies target resolution", {eTA2007::HDV})
                << AOpt2007(mVisu,"Visu","offers visualisation of refined measurements", {eTA2007::HDV})
                << AOpt2007(mShow,"Show","show some useful details", {eTA2007::HDV})//hdv = has default value
@@ -158,7 +163,9 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
         mCurrPred (cPt2di(1,1)),
         mCurrTrue (cPt2di(1,1)),
         mCoOccMat (cPt2di(1,1)),
-        mWStdDeltaIm (cPt2di(1,1))
+        mWStdDeltaIm (cPt2di(1,1)),
+        mNONERecov (""),
+        mOKNEAR (0.5)
 
     {
         //···> constructor does nothing
@@ -167,6 +174,16 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
 
     int cAppli_CheckBoardTargetRefine::Exe()
     {
+        //-----
+        mPhProj.FinishInit();
+        //-----
+
+        if (!mNONERecov.empty())
+        {
+            NONERecov();
+            return EXIT_SUCCESS;
+        }
+
         /*
          * first task is to iterate on images and product useful informations:
          *  ->if a target has not been detected compute projection in the image
@@ -194,17 +211,10 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
          *     consider as being the extent
          */
 
-        mPhProj.FinishInit();
         mFullSpec.reset(cFullSpecifTarget::CreateFromFile(mNameSpecif));
         std::vector<std::string> aVIm = VectMainSet(0);//gets the first set
 
         //**** target metadata enrichment
-
-        for (const auto& aImName:aVIm)
-        {
-            cSensorCamPC* aCam = mPhProj.ReadCamPC(aImName, true);
-            mVCams.push_back(aCam);
-        }
 
         mMeasuredTargets = mPhProj.LoadGCP3DFromFolder(mPhProj.DPGndPt3D().DirIn());
 
@@ -218,7 +228,7 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
 
         //*** real refinement starts from here
 
-        for (const auto& aCam:mVCams)
+        for (const auto& aCam:getVCams())
         {
             mCurrCam = aCam;
             auto aCodes = mTargets2WorldMappings.ListOfCodes();
@@ -252,6 +262,72 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
         }
 
         return EXIT_SUCCESS;
+    }
+
+    void cAppli_CheckBoardTargetRefine::NONERecov()
+    {
+
+        StdOut() << "***NONE DETECTION RECOVERY***\n";
+
+        cSetMesGnd3D aSetGCP = mPhProj.LoadGCP3DFromFolder(mPhProj.DPGndPt3D().DirIn());;
+
+        for (const auto& aCam : getVCams())
+        {
+            cSetMesPtOf1Im aSetMes = mPhProj.LoadMeasureIm(aCam->NameImage());
+            cSetMesPtOf1Im aSetNONEMes;
+            cSetMesPtOf1Im aSetOKRecov;
+
+            //----- [0] Load NONE detections
+
+            for (const auto& aMes : aSetMes.Measures())
+            {
+                if (starts_with(aMes.mNamePt,MMVII_NONE))
+                {
+                    aSetNONEMes.AddMeasure(aMes);
+                }
+            }
+
+            //----- [1] Find closest (<OKNEAR) 2D GCP projection for each NONE detection
+
+            if (!aSetNONEMes.Measures().empty())
+            {
+                if (mShow) StdOut() << aCam->NameImage() << "\n";
+                for (const auto& aGCP : aSetGCP.Measures())
+                {
+                    if (aCam->IsVisible(aGCP.mPt) && !aSetMes.NameHasMeasure(aGCP.mNamePt))
+                    {
+                        cPt2dr aPred = aCam->Ground2Image(aGCP.mPt);
+                        cMesIm1Pt* aNear = aSetNONEMes.NearestMeasure(aPred);
+                        if (mShow) StdOut() << aNear->mNamePt << " : "
+                                     << aGCP.mNamePt << "? -> " << Norm2(aPred - aNear->mPt) <<"\n";
+                        if (Norm2(aPred - aNear->mPt) < mOKNEAR)
+                        {
+                            cMesIm1Pt aRecovMes = *aNear;
+                            aRecovMes.mNamePt = aGCP.mNamePt;
+                            aSetOKRecov.AddMeasure(aRecovMes);
+                            if (mShow) StdOut() << "\t-> OK (< " << mOKNEAR << ")\n";
+                        }
+                    }
+                }
+                StdOut() << aCam->NameImage() << "->" << " OKRecov : " << aSetOKRecov.Measures().size()
+                         << "/" << aSetNONEMes.Measures().size() << "\n";
+
+            //----- [2] Export result (M-erge/D-istinguish)
+
+                if ((mNONERecov == "M") && !aSetOKRecov.Measures().empty())
+                {
+                    for (const auto& aMes : aSetOKRecov.Measures())
+                    {
+                        aSetMes.AddMeasure(aMes);
+                    }
+                    mPhProj.SaveMeasureIm(aSetMes);
+                }
+                if ((mNONERecov == "D") && !aSetOKRecov.Measures().empty())
+                {
+                    aSetOKRecov.ToFile(mPhProj.DPGndPt2D().FullDirIn() + "NONERecov_" + aCam->NameImage() + ".xml");
+                }
+            }
+        }
     }
 
     void cAppli_CheckBoardTargetRefine::doPseudoBench()
@@ -304,7 +380,7 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
         //this will associate a target code to a vector of vector of 3d "base" bundles
         std::map<std::string, std::vector<std::vector<tSeg3dr>>> aMTargetsBaseBundles;
 
-        for (const auto& aCam:mVCams)
+        for (const auto& aCam:getVCams())
         {
             mMCamTgtBasePts[aCam] = {};//init. cam. map.
             //load im. measurements/2d affinity obtained from previous extraction
@@ -757,6 +833,23 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
         }
         return aSRes;
     }
+
+    const std::vector<cSensorCamPC*>& cAppli_CheckBoardTargetRefine::getVCams()
+    {
+        if (mVCams.empty())
+        {
+            std::vector<std::string> aVIm = VectMainSet(0);
+
+            for (const auto& aIm : aVIm)
+            {
+                cSensorCamPC* aCam = mPhProj.ReadCamPC(aIm, true);
+                mVCams.push_back(aCam);
+            }
+
+        }
+        return mVCams;
+    }
+
 
     /*---
      * from here kind of garbage collector*/

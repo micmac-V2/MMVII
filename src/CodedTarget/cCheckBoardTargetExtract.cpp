@@ -569,7 +569,7 @@ void  cAppliCheckBoardTargetExtract::DoExport()
     {
         auto aCdtM = mVCdtMerged[i];
 
-        std::string aCode = aCdtM.Code() ? aCdtM.Code()->Name() : "NONE" + std::to_string(i);
+        std::string aCode = aCdtM.Code() ? aCdtM.Code()->Name() : MMVII_NONE + std::to_string(i);
         cMesIm1Pt aMesIm(aCdtM.mC0,aCode,1.0);
         aSetM.AddMeasure(aMesIm);
         Tpl_AddOneObjReportCSV(*this,mIdExportCSV,aMesIm);
