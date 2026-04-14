@@ -1417,8 +1417,7 @@ void cStaticLidar::MakePatches
         if (aRasterStepPixelsY < 1.)
             aRasterStepPixelsY = 1.;
 
-        std::set<cPt2di> aPatchPts = {aCenter}; // convention: center is at first
-
+        std::vector<cPt2di> aPatchPts = {aCenter}; // convention: center is at first
         for (int aJ = -aNbStepRadius; aJ<=aNbStepRadius; ++aJ)
             for (int aI = -aNbStepRadius; aI<=aNbStepRadius; ++aI)
             {
@@ -1426,7 +1425,7 @@ void cStaticLidar::MakePatches
                     continue; // do not add center twice
                 cPt2di aPt = aCenter + cPt2di(aI*aRasterStepPixelsX,aJ*aRasterStepPixelsY);
                 if (aRasterMaskData.Inside(aPt) && aRasterMaskData.GetV(aPt))
-                    aPatchPts.insert(aPt);
+                    aPatchPts.push_back(aPt);
             }
 
         // some requirement on minimal size

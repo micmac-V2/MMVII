@@ -349,7 +349,7 @@ void cBA_LidarPhotograRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, do
     for (auto & aScanDataA: mVScans)
     {
         auto &aScanA = aScanDataA.mLidarRaster;
-        tREAL8 aSigma = aScanA->Sigma(); // TODO use image res for W?
+        tREAL8 aSigma = 1.; // TODO use image res for W? aScanA->Sigma() converted with incidence?
         mWeightersMap[aScanA->NameImage()] = cStdWeighterResidual(sqrt(aWFactor)*aSigma, aTh / 20., aTh, 1);
     }
 }
