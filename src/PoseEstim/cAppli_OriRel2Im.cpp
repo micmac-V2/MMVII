@@ -845,12 +845,11 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt
             <<  mPhProj.DPGndPt2D().ArgDirInOpt()
             <<  mPhProj.DPMulTieP().ArgDirInOpt()
 
-            <<  mPhProj.DPTieP().ArgDirOutOpt()
+            <<  mPhProj.DPTieP().ArgDirOutOpt("VirTP","Output for virtual tie points")
 
             <<  AOpt2007(mNbMinHom,"NbMinHom","Number minimal of homologous point required",{eTA2007::HDV})
             <<  AOpt2007(mDensitySol,"CompForce","How much computation do we pay?",{eTA2007::HDV})
             <<  AOpt2007(mNbIterBA,"NbIterBA","Number of iteration in Bundle/Adj",{eTA2007::HDV})
-            <<  AOpt2007(mDo5Pts,"Do5Pts","Generate 5 virtual tie points")
 
             <<  AOpt2007(mUseOri4GT,"UseOriGT","Set if orientation contains also exterior as a ground truth",{eTA2007::HDV})
             <<  AOpt2007(mFolderOriGT,"OriGT","If ground truth ori != calib")
@@ -899,7 +898,7 @@ int cAppli_OriRelPairOfIm::Exe()
 
     mTimeSegm = mShow ? new cTimerSegm(this) : nullptr ;
     mPhProj.FinishInit();
-
+    mDo5Pts = mPhProj.DPTieP().DirOutIsInit();
 
 
 
