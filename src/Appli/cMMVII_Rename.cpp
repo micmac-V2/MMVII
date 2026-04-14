@@ -5,10 +5,21 @@
 #include "MMVII_Sensor.h"
 
 #include <regex>
+#include <filesystem>
 
 
 namespace MMVII
 {
+
+void CreateLink(const std::string & aFileTarget,const std::string & aLink2Create,bool fileMustExist = true)
+{
+    if (fileMustExist)
+    {
+        MMVII_INTERNAL_ASSERT_always(ExistFile(aFileTarget),"File "+aFileTarget + " dont exist in CreateLink");
+    }
+    std::filesystem::create_symlink(aFileTarget,aLink2Create);
+}
+
 
 /* ==================================================== */
 /*                                                      */
@@ -71,6 +82,7 @@ cCollecSpecArg2007 & cAppli_DicoRename::ArgOpt(cCollecSpecArg2007 & anArgObl)
        << AOpt2007(mComment,"Com","Carac for commentary",{eTA2007::HDV})
        << AOpt2007(mNameFilesListIm,"Files","Name file to transform [Input,Output]",{{eTA2007::ISizeV,"[2,2]"},eTA2007::HDV})
        << AOpt2007(mNbMinTieP,"NbMinTiep","Number minimal of tie point for save, set -1 if save w/o tiep",{eTA2007::HDV})
+
 
        <<   mPhProj.DPMulTieP().ArgDirInOpt()
        <<   mPhProj.DPMulTieP().ArgDirOutOpt()
@@ -231,6 +243,8 @@ class cAppli_Rename : public cMMVII_Appli
         bool                      mDoReplace;
 
         std::set<std::string>     mSetOut;
+        bool                     mByLink;  /// if true, instead of rename, create a link
+
 };
 
 
@@ -249,13 +263,16 @@ cCollecSpecArg2007 & cAppli_Rename::ArgOpt(cCollecSpecArg2007 & anArgOpt)
             << AOpt2007(mDoReplace,"DoReplace","do the replacement ",{{eTA2007::HDV}})
             << AOpt2007(mPatternRepl,"PatRepl","Pattern 4 replace, when != Pattern glob")
             << AOpt2007(mArithmReplace,"AR","arthim repacement like [+,33,2,4] to add 33 to second expr and put on 4 digt ",{{eTA2007::ISizeV,"[3,4]"}})
-          ;
+            << AOpt2007(mByLink,"ByLink","If true create a link instead of moving",{eTA2007::HDV})
+     ;
 }
 
 
 cAppli_Rename::cAppli_Rename(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
   cMMVII_Appli (aVArgs,aSpec),
-  mDoReplace   (false)
+  mDoReplace   (false),
+  mByLink      (false)
+
 {
 }
 
@@ -283,18 +300,28 @@ int cAppli_Rename::Exe()
 
     std::vector<std::pair<std::string,std::string>  > aVInOut;
 
-    StdOut() << "RRR " << __LINE__ << "\n";
+    //StdOut() << "RRR " << __LINE__ << "\n";
 
+    std::string aDirLink;
     if (! IsInit(&mPatternRepl))
-        mPatternRepl = mPatternGlob;
+    {   if (mByLink)
+        {
+            SplitDirAndFile(aDirLink,mPatternRepl,mPatternGlob,false);
 
+//           mPatternRepl = FileOfPath(mPatternGlob,false);
+        }
+        else
+        {
+           mPatternRepl = mPatternGlob;
+        }
+    }
     std::regex aPat(mPatternRepl);
 
-    StdOut() << "RRR " << __LINE__ << "\n";
+    //StdOut() << "RRR " << __LINE__ << "\n";
 
     for (const auto & aStrIn0 : VectMainSet(0))
     {
-  StdOut() << "aStrIn0aStrIn0=[" << aStrIn0 << "]\n";
+         StdOut() << "aStrIn0aStrIn0=[" << aStrIn0 << "]\n";
         std::string aStrIn = aStrIn0;
         if (IsInit(&mArithmReplace))
         {
@@ -362,23 +389,36 @@ int cAppli_Rename::Exe()
 
     std::string aPrefTmp = "MMVII_Tmp_Replace_"+ PrefixGMA() + "_";
 
-    if (mDoReplace)
+    if (mByLink)
     {
-        // In case "input" intersect "outout", put first "input" in "tmp" file,
-        for (const auto & aPair : aVInOut)
+       for (const auto &  [aStrIn0,aStrOut]  : aVInOut)
+       {
+           StdOut()  << " LLLnk " << aDirLink+aStrIn0 << " " << aStrOut << "\n";
+           if (mDoReplace)
+               CreateLink(aDirLink+aStrIn0,aStrOut);
+       }
+    }
+    else
+    {
+        if (mDoReplace)
         {
-            auto [aStrIn0,aStrOut] = aPair;
-            StdOut() << "mv " << aStrIn0  << " " << aPrefTmp+aStrIn0  << std::endl;
-            RenameFiles(aStrIn0,aPrefTmp+aStrIn0);
-        }
-        // the put, safely, "tmp" in "output"
-        for (const auto & aPair : aVInOut)
-        {
-            auto [aStrIn0,aStrOut] = aPair;
-            StdOut() << "mv " << aPrefTmp+ aStrIn0  << " " << aStrOut  << std::endl;
-            RenameFiles(aPrefTmp+aStrIn0,aStrOut);
+            // In case "input" intersect "outout", put first "input" in "tmp" file,
+            for (const auto & aPair : aVInOut)
+            {
+                auto [aStrIn0,aStrOut] = aPair;
+                StdOut() << "mv " << aStrIn0  << " " << aPrefTmp+aStrIn0  << std::endl;
+                RenameFiles(aStrIn0,aPrefTmp+aStrIn0);
+            }
+            // the put, safely, "tmp" in "output"
+            for (const auto & aPair : aVInOut)
+            {
+                auto [aStrIn0,aStrOut] = aPair;
+                StdOut() << "mv " << aPrefTmp+ aStrIn0  << " " << aStrOut  << std::endl;
+                RenameFiles(aPrefTmp+aStrIn0,aStrOut);
+            }
         }
     }
+
     return EXIT_SUCCESS;
 }
 

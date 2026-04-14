@@ -30,10 +30,16 @@ By the way,  in some context this approach can have some advantage :
 \end{itemize}
 
 
+In section~\ref{HeurOpt:OBS} we present methods and classes for computing
+local extrema of "any" function, in~\ref{Sec:Samp:Sphere} we present methods and classes
+for sampling the spheres, in~\ref{HeurOpt:Man:Intro} we present classes and methods
+for global optimization of functions on bounded manifolds.
+
+
 %---------------------------------------------
 %---------------------------------------------
 %---------------------------------------------
-\section{Disrcret optimization with class {\tt cOptimByStep}}
+\section{Discret optimization with class {\tt cOptimByStep}}
 
 
 \label{HeurOpt:OBS}
@@ -80,8 +86,8 @@ illustrates an example, with $D=2$ on
 
 \begin{itemize}
     \item  at first step, $F$ is evaluated for the $9$  points $V_0$ arround $P_0$ ;
-    \item  at second step, $F$ is evaluated on  $3$  points $V_1$ arround $P_1$ were not already in $V_0$;
-    \item  at second step, $F$ is evaluated on  $5$  points $V_2$ arround $P_2$ were not already in $V_1$.
+    \item  at second step, $F$ is evaluated on  the $3$  points  arround $P_1$ were not already in $V_0$ (i.e $V_1$);
+    \item  at second step, $F$ is evaluated on  the $5$  points  arround $P_2$ were not already in $V_1$ (i.e. $V_2$).
 \end{itemize}
 
 Once an extrema is found at given scale $\Delta$ , the next iteration is done
@@ -190,8 +196,8 @@ optimize a function on one of the following manifold $\MM$:
 
 Before doing some local optimization with the help of tools
 described in~\ref{HeurOpt:OBS}, we need to have a point closed
-enough to the globak minimal.  As the previous $\MM$  are
-bounded manifold we know that with sufficiently high number  of samples,
+enough to the global minimal.  As the previous $\MM$  are
+bounded manifold, we know that with sufficiently high number  of samples,
 we can be as close as we want to any point $\MM$ 
 \footnote{\emph{Pedantically} speaking, because $\MM$ is compact}.
 
@@ -238,8 +244,8 @@ of  $\Cub{N}$, we proceed this way :
    \item let $K$ be a number;
    \item $F_K=\frac{K}{2(N+1)}$ will be the number of the face and $F^K = K\%(2(N+1)) $ the
          index inside the face ;
-   \item  let $f$ be the number of points in each dimension and each face,  we make a $-adic$
-          decomposition of  $F^k$ to have the coordinate the face.
+   \item  let $f$ be the number of points in each dimension and each face,  we make a $f-adic$
+          decomposition of  $F^k$ to have the coordinate inside the face.
 \end{itemize}
 
 This is implemented in the function {\tt cSampleHyperCube::KthPt}.
@@ -278,7 +284,7 @@ Enumerating all the sampled point, is done with a simple integer loop on
 \label{HeurOpt:ProjSph}
 
 \emph{For now only $\SPH^2$ is implemanted because that's what I needd, but a generic sampling 
-of $SPH^N$ can easily be made using {\tt cSampleHyperCube} and taking example of {\tt cSampleSphere3D}}.
+of $\SPH^N$ can easily be made using {\tt cSampleHyperCube} and taking example of {\tt cSampleSphere3D}}.
 
 The class for sampling the sphere is {\tt cSampleSphere3D},  :
 
@@ -334,8 +340,8 @@ The class {\tt cSampleQuat} provide the service for sampling the quaternions :
 
 The need for optimization of a function on whole manifold comes originally from context where
 we want to compute initial clinometer calibration from a set of measures.
-In this context,  the calibration of a clino-meter is a unit vector, so a point of $\SPH^2$, and the criteria
-the sum of residual that would be computed from a given calibration.  There is two main variant on
+In this context,  the calibration of a clino-meter is a unit vector, so a point of $\SPH^2$, and the function to minimize
+is the sum of residual that would be computed from a given calibration.  There is two main variant on
 this basic case :
 
 \begin{itemize}
@@ -401,7 +407,7 @@ not close to the global maxima. So for computing multiple maxima we process this
 \begin{itemize}
    \item start we the global maxima $E_1$;
     \item each time a new maxima $E_k$ is found, mark as reached all the point of the sampling
-          such as $D_{\MM}(P,E_k) < \delta$  where $\delta$ is a threshold, where $D_{\MM}$ is
+          such as $D_{\MM}(P,E_k) < \delta$  where $\delta$ is a threshold and $D_{\MM}$ is
           the distance on the manifold.
 \end{itemize}
 
@@ -411,9 +417,9 @@ not close to the global maxima. So for computing multiple maxima we process this
 
 \label{HeurOpt:ClassDescMan}
 
-We describe here the requirement that a class must comply with to a descriptor of
+We describe here the requirements that a class must comply with to a descriptor of
 manifold~\footnote{typicall the concept of \CPP20 may be adapted to describe this}.
-Note that most current manifold being described, for the user it's not mandatory 
+Note that most current manifold being already described, for the user it's not mandatory 
 to see in detail this section.
 
 
@@ -425,7 +431,7 @@ implemanted in the class {\tt cSph3\_OptimDisc}. The class must contains :
 
     \item {\tt static constexpr int DimTgtSp =2;}   a number indicate the dimension of tangent space  
 
-    \item {\tt  typedef cP3dNormWithUK  tDescrTgtSp;}  a descriptor of tangent space, i.e. 
+    \item {\tt  typedef cP3dNormWithUK  tDescrTgtSp;}  the type used as descriptor of tangent space, i.e. 
           the type of data that will be used to computed  $\TgtM(E_k)$; in this case, we use
           the type {\tt cP3dNormWithUK} that already exist because it contains the tangent space;
 
@@ -469,15 +475,15 @@ this, we can use  the class {\tt cCartProduct\_OptimDisc<T1,T2>} :
 \begin{itemize}
     \item if {\tt T1} and {\tt T2} are two classes that comply with requirement
           of~\ref{HeurOpt:ClassDescMan} for describing the manifolds $\MM_1$ and $\MM_2$ ;
-    \item the {\tt CartProduct\_OptimDisc<T1,T2>} will be class for describing
+    \item then {\tt CartProduct\_OptimDisc<T1,T2>} will be class for describing
            $\MM_1 \times \MM_2$;
     \item  \emph{hopefully}, \footnote{not tested \dots}  {\tt CartProduct\_OptimDisc<T1,T2>} 
            complies with~\ref{HeurOpt:ClassDescMan} and iterating the construction can
            be used to create descriptors of $\MM_1 \times \MM_2 \times \MM_3$ \dots
 \end{itemize}
 
-Note the definition
-{\tt typedef cCartProduct\_OptimDisc<cSph3\_OptimDisc,cRot\_OptimDisc>  tPoseCart\_OptimDisc;},
+{\tt typedef cCartProduct\_OptimDisc<cSph3\_OptimDisc,cRot\_OptimDisc>  tPoseCart\_OptimDisc;} :
+note this definition,
 that construct a decriptor of the manifold of poses : a pose being the concatenation of a unit
 vector and a rotation. And there is a facilty for construction it :
 

@@ -131,7 +131,7 @@ void BenchAPBI(cParamExeBench & aParam)
     auto mIm2d = cIm2D<tU_INT1>::FromFile(cAppliTestAPBI::ImNameOut());
     cParseBoxInOut<2> aPBIO =  cParseBoxInOut<2>::CreateFromSize(mIm2d.DIm(),aBoxSize);
     for (const auto & aPixI : aPBIO.BoxIndex()) {
-        auto aBox = aPBIO.BoxOut(aPixI);
+        auto aBox = aPBIO.BoxOutput(aPixI);
         tU_INT1 aVal = cAppliTestAPBI::valFromBox(aBox);
         for (const auto &aPix : aBox) {
             MMVII_INTERNAL_ASSERT_bench(mIm2d.DIm().GetV(aPix) == (aVal + (aPix.x() + aPix.y()) % 255)%255,"BenchAPBI failed");

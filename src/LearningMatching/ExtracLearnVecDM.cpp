@@ -257,9 +257,9 @@ int  cAppliExtractLearnVecDM::Exe()
    for (const auto & anIndex : aPBI.BoxIndex())
    {
        // Store Boxes as members
-       mCurBoxIn1  = aPBI.BoxIn(anIndex,mOverlap);
+       mCurBoxIn1  = aPBI.BoxInput(anIndex,mOverlap);
        mSzIm1 = mCurBoxIn1.Sz();
-       mCurBoxOut = aPBI.BoxOut(anIndex);
+       mCurBoxOut = aPBI.BoxOutput(anIndex);
        MakeOneBox(anIndex,aPBI);
        mNumIndex++;
    }
