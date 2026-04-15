@@ -1364,7 +1364,7 @@ void cStaticLidar::MakePatches
         }
         return;
     }
-
+//#define NUMMAKEPATCHDEBUG 0
     std::vector<tREAL8> aVectGndPixelSize;
     aVectGndPixelSize.resize(aVCam.size());
     // parse center points
@@ -1390,8 +1390,10 @@ void cStaticLidar::MakePatches
         }
         if (aNumCamVisib<2) continue;
         tREAL8 aGndPixelSize = NonConstMediane(aVectGndPixelSize);
-        //StdOut() << "GndPixelSize: " << aGndPixelSize << "\n";
-
+    #ifdef NUMMAKEPATCHDEBUG
+        if (i==NUMMAKEPATCHDEBUG)
+            StdOut() << "GndPixelSize: " << aGndPixelSize << "\n";
+    #endif
         // compute raster step to get aNbPointByPatch separated by aGndPixelSize
         tREAL4 aMeanDepth = aRasterDistData.GetV(aCenter);
 
@@ -1409,8 +1411,10 @@ void cStaticLidar::MakePatches
         tREAL4 aRasterPxGndH = fabs(aThetaStep) * aMeanDepth;
         tREAL4 aRasterStepPixelsY = aGndPixelSize / aRasterPxGndH;
         tREAL4 aRasterStepPixelsX = aGndPixelSize / aRasterPxGndW;
-        //StdOut() << "RasterStepPixels: " << aRasterStepPixelsX << " " << aRasterStepPixelsY << "\n";
-
+    #ifdef NUMMAKEPATCHDEBUG
+        if (i==NUMMAKEPATCHDEBUG)
+            StdOut() << "RasterStepPixels: " << aRasterStepPixelsX << " " << aRasterStepPixelsY << "\n";
+    #endif
         // have a least one scan step of difference between patch points
         if (aRasterStepPixelsX < 1.)
             aRasterStepPixelsX = 1.;
@@ -1418,6 +1422,14 @@ void cStaticLidar::MakePatches
             aRasterStepPixelsY = 1.;
 
         std::vector<cPt2di> aPatchPts = {aCenter}; // convention: center is at first
+#ifdef NUMMAKEPATCHDEBUG
+        if (i==NUMMAKEPATCHDEBUG)
+        {
+            for (auto const & aPt:aPatchPts)
+                std::cout<<aPt<<" ";
+            std::cout<<"\n";
+        }
+#endif
         for (int aJ = -aNbStepRadius; aJ<=aNbStepRadius; ++aJ)
             for (int aI = -aNbStepRadius; aI<=aNbStepRadius; ++aI)
             {
@@ -1432,6 +1444,14 @@ void cStaticLidar::MakePatches
         if ((int)aPatchPts.size() > aSzMin)
         {
             aLPatches.push_back({i, aPatchPts, {}});
+        #ifdef NUMMAKEPATCHDEBUG
+            if (i==NUMMAKEPATCHDEBUG)
+            {
+                for (auto const & aPt:aPatchPts)
+                    std::cout<<aPt<<" ";
+                std::cout<<"\n";
+            }
+        #endif
         }
     }
 }

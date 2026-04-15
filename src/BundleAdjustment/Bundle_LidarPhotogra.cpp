@@ -182,7 +182,7 @@ cBA_LidarPhotogra::cBA_LidarPhotogra(cPhotogrammetricProject * aPhProj,
     cBA_LidarBase(aPhProj, aBA, aParam),
     mModeSim    (Str2E<eImatchCrit>(aParam.at(0))),    // mode of matching
     mPertRad    (false),
-    mNbPointByPatch (25)
+    mNbPointByPatch (7*7)
 {
     init(aParam, 2, 3);
 
@@ -644,6 +644,8 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
      std::vector<cData1ImLidPhgr> aVData; // for each image where patch is visible will store the data
      cComputeStdDev<tREAL8>   aStdDev;    // compute the standard deviation of projected radiometry (indicator)
 
+//#define NUMPATCHDEBUG 1
+
      //  Parse all the image, we will select the images where all point of a patch are visible
      //std::cout<<"New patch\n";
      for (size_t aKIm=0 ; aKIm<mBA.VSCPC().size() ; aKIm++)
@@ -673,7 +675,10 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
                             if ((aVGr.first==0)||(aVGr.first==255)) // refuse saturated pixels TODO improve criteria!
                                 continue;
                             aData.mVGr.push_back(aVGr); // push it at end of stack
-                            //std::cout<<"Gnd: "<<aPGround<< " on "<< mBA.VSCPC()[aKIm]->NameImage()<<": "<<aPIm<<" V= "<<aVGr.first<<"\n";
+                        #ifdef NUMPATCHDEBUG
+                            if ((mNbUsedPoints<=NUMPATCHDEBUG)&&(aData.mVGr.size()==1)) // show central point info
+                                std::cout<<"Gnd: "<<aPGround<< " on "<< mBA.VSCPC()[aKIm]->NameImage()<<": "<<aPIm<<" V= "<<aVGr.first<<"\n";
+                        #endif
                         }
                    }
               }
@@ -685,19 +690,20 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
                   tREAL8 aValIm = aData.mVGr.at(0).first;   // value of first/central pixel in this image
                   // aWAv.Add(1.0,aValIm);     // compute average
                   aStdDev.Add(1.0,aValIm);  // compute std deviation
+                  //std::cout<<aValIm<<" ";
               }
           }
      }
+     //std::cout<<"\n";
 
      // if less than 2 images : nothing valuable to do
      if (aVData.size()<2) return;
 
-//#define NUMPATCHDEBUG 200
 #ifdef NUMPATCHDEBUG
      // debug patch
      int aPixSz = 15;
      int aSpaceSz = 1;
-     if (mNbUsedPoints==NUMPATCHDEBUG)
+     if (mNbUsedPoints<=NUMPATCHDEBUG)
      {
          for (const auto & aData : aVData)
          {
@@ -730,7 +736,8 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
                     aI = 0;
                 }
             }
-            std::string aPath = mPhProj->DirVisuAppli() + "iter" + ToStr(mBA.Iter(),1) + "_" + mBA.VSCPC()[aData.mKIm]->NameImage() + "_patch.png";
+            std::string aPath = mPhProj->DirVisuAppli() + "patch_" + ToStr(mNbUsedPoints) + "_iter" + ToStr(mBA.Iter(),1)
+                                + "_" + mBA.VSCPC()[aData.mKIm]->NameImage() + ".png";
             aImDist8b.ToFile(aPath);
          }
      }
