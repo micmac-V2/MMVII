@@ -719,7 +719,7 @@ cCollecSpecArg2007 & cAppli_CalibratedSpaceResection::ArgOpt(cCollecSpecArg2007 
     return    anArgOpt
            << AOpt2007(mNbTriplets,"NbTriplets","Number max of triplet tested in Ransac",{eTA2007::HDV})
            << AOpt2007(mNbIterBundle,"NbIterBund","Number of bundle iteration, after ransac init",{eTA2007::HDV})
-       << AOpt2007(mParamWeight,"WeightBA","[%Sig,+Sig-Rejec,*Sig-Rejec,Exp]",{eTA2007::HDV})
+           << AOpt2007(mParamWeight,"WeightBA","[%Sig,+Sig-Rejec,*Sig-Rejec,Exp]",{eTA2007::HDV})
            << AOpt2007(mShowBundle,"ShowBundle","Show detail of bundle results",{eTA2007::HDV})
            << AOpt2007(mThrsReject,"ThrRej","Threshold for rejection of outlayer, in pixel",{eTA2007::HDV})
            << AOpt2007(mMaxErrOK,"MaxErr","Max error acceptable for initial resection",{eTA2007::HDV})
