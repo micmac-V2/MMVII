@@ -111,7 +111,7 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
             std::map<std::string, std::vector<cPt3dr>> mMTargetsWorldBasePoints;
             std::map<cSensorCamPC*,std::map<std::string,std::vector<cPt2dr>>> mMCamTgtBasePts;
             std::string mNONERecov;
-            tREAL8 mOKNEAR;
+            tREAL8 mOKNear;
 
             //----stolen to cCheckBoardTargetExtract
             std::string NameVisu(const std::string & aDestIm, const std::string & aPref,const std::string aPost="");
@@ -141,10 +141,11 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
     cCollecSpecArg2007 & cAppli_CheckBoardTargetRefine::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     {
         return anArgOpt
-               << AOpt2007(mNONERecov,"NONERecov","recover NONE-tagged detections : M-erge D-istinguish output",  {eTA2007::HDV})
-               << AOpt2007(mRes,"Res","specifies target resolution", {eTA2007::HDV})
-               << AOpt2007(mVisu,"Visu","offers visualisation of refined measurements", {eTA2007::HDV})
-               << AOpt2007(mShow,"Show","show some useful details", {eTA2007::HDV})//hdv = has default value
+               << AOpt2007(mNONERecov, "NONERecov", "recover NONE-tagged detections : M-erge D-istinguish output",  {eTA2007::HDV})
+               << AOpt2007(mOKNear,"OKNear","proximity treshold for NONERecov",{eTA2007::HDV})
+               << AOpt2007(mRes,"Res","specifies target resolution",{eTA2007::HDV})
+               << AOpt2007(mVisu,"Visu","offers visualisation of refined measurements",{eTA2007::HDV})
+               << AOpt2007(mShow,"Show","show some useful details",{eTA2007::HDV})//hdv = has default value
             ;
     }
 
@@ -166,7 +167,7 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
         mCoOccMat (cPt2di(1,1)),
         mWStdDeltaIm (cPt2di(1,1)),
         mNONERecov (""),
-        mOKNEAR (0.5)
+        mOKNear (0.5)
 
     {
         //···> constructor does nothing
@@ -273,10 +274,16 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
 
         for (const auto& aCam : getVCams())
         {
+            std::map<std::string, std::string> aMOKCorresp = {};
+
             cSetMesPtOf1Im aSetMes = mPhProj.LoadMeasureIm(aCam->NameImage());
             cSetMesPtOf1Im aSetOK(aCam->NameImage());
             cSetMesPtOf1Im aSetNONE(aCam->NameImage());
             cSetMesPtOf1Im aSetOKRecov(aCam->NameImage());
+
+            std::vector<cSaveExtrEllipe> aVEllipses;
+            ReadFromFile(aVEllipses, cSaveExtrEllipe::NameFile(mPhProj, aSetMes, true));
+            std::vector<cSaveExtrEllipe> aVOKEllipses;
 
             //----- [0] Load NONE detections
 
@@ -307,43 +314,66 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
                     }
                 }
 
+                if (aSetGCPProj.Measures().empty()) continue;
+
                 for (const auto& aNONE : aSetNONE.Measures())
                 {
                     cMesIm1Pt* aNearestGCP = aSetGCPProj.NearestMeasure(aNONE.mPt);
-                    if (mShow) StdOut() << aNearestGCP->mNamePt << " : "
+                    if (mShow) StdOut() << aNONE.mNamePt << " : "
                                  << aNearestGCP->mNamePt << "? -> " << Norm2(aNONE.mPt - aNearestGCP->mPt);
-                    if (Norm2(aNONE.mPt - aNearestGCP->mPt) < mOKNEAR)
+                    if (Norm2(aNONE.mPt - aNearestGCP->mPt) < mOKNear)
                     {
                         cMesIm1Pt aRecovMes = *aNearestGCP;
                         aRecovMes.mPt = aNONE.mPt;
                         aSetOKRecov.AddMeasure(aRecovMes);
                         aSetOK.AddMeasure(aRecovMes);
-                        if (mShow) StdOut() << " -> OK (< " << mOKNEAR << ")\n";
+                        aMOKCorresp[aNONE.mNamePt] = aRecovMes.mNamePt;
+                        if (mShow) StdOut() << " -> OK (< " << mOKNear << ")\n";
                     }
                     else {
-                        if (mShow) StdOut() << " -> NOT OK (> " << mOKNEAR << ")\n";
+                        if (mShow) StdOut() << " -> NOT OK (> " << mOKNear << ")\n";
                         aSetOK.AddMeasure(aNONE);
                     }
                 }
-
-                //----- [2] Export result (M-erge/D-istinguish/R-eplace)
-
-                if ((mNONERecov == "M") && !aSetOKRecov.Measures().empty())
-                {
-                    mPhProj.SaveMeasureIm(aSetOK);
-                }
-                if ((mNONERecov == "D") && !aSetOKRecov.Measures().empty())
-                {
-                    aSetOKRecov.ToFile(mPhProj.DPGndPt2D().FullDirIn() + "NONERecov_" + aCam->NameImage() + ".xml");
-                }
-                if ((mNONERecov == "R") && !aSetOKRecov.Measures().empty())
-                {
-                    aSetOK.ToFile(mPhProj.DPGndPt2D().FullDirIn() + aSetOK.StdNameFile());
-                }
             }
 
+            //----- [2] Export result (M-erge/D-istinguish/E-llipse/R-eplace)
+
+            if (contains(mNONERecov, 'M') && !aSetOKRecov.Measures().empty())
+            {
+                mPhProj.SaveMeasureIm(aSetOK);
+            }
+            if (contains(mNONERecov, 'D') && !aSetOKRecov.Measures().empty())
+            {
+                aSetOKRecov.ToFile(mPhProj.DPGndPt2D().FullDirIn() + "NONERecov_" + aCam->NameImage() + ".xml");
+            }
+            if (contains(mNONERecov, 'E') && !aSetOKRecov.Measures().empty())
+            {
+                for (const auto& aEll : aVEllipses){
+                    if (!starts_with(aEll.mNameCode, MMVII_NONE))
+                    {
+                        aVOKEllipses.push_back(aEll);
+                        continue;
+                    }
+                    for (const auto& aNONE : aMOKCorresp)
+                    {
+                        if (aEll.mNameCode == aNONE.first)
+                        {
+                            cSaveExtrEllipe aOKEll (aEll.mEllipse, aEll.mBlack, aEll.mWhite, aNONE.second);
+                            aOKEll.mAffIm2Ref = aEll.mAffIm2Ref;
+                        }
+                    }
+                }
+                SaveInFile(aVOKEllipses,cSaveExtrEllipe::NameFile(mPhProj,aSetOK,false));
+            }
+            /* R -> probably not recommended
+            if ((mNONERecov == "R") && !aSetOKRecov.Measures().empty())
+            {
+                aSetOK.ToFile(mPhProj.DPGndPt2D().FullDirIn() + aSetOK.StdNameFile());
+            }
+            */
             StdOut() << aCam->NameImage() << "->" << " OKRecov : " << aSetOKRecov.Measures().size()
-             << "/" << aSetNONE.Measures().size() << "\n";
+                     << "/" << aSetNONE.Measures().size() << "\n";
         }
     }
 
