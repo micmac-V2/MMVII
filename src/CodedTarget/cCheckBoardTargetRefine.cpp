@@ -67,6 +67,7 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
             void RansacTransFunc(cPt2dr& theSol, std::vector<cPt2di> aVBitCenters);
             cStdStatRes wL1Score(cPt2dr& aSol, cDataIm2D<tREAL8>* aDWStdIm);
             void NONERecov();
+            void ExportOKRecov(std::string aMode);
             const std::vector<cSensorCamPC*>& getVCams();
             cPhotogrammetricProject mPhProj;
             std::string mNameSpecif;
@@ -266,7 +267,6 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
 
     void cAppli_CheckBoardTargetRefine::NONERecov()
     {
-
         StdOut() << "***NONE DETECTION RECOVERY***\n";
 
         cSetMesGnd3D aSetGCP = mPhProj.LoadGCP3DFromFolder(mPhProj.DPGndPt3D().DirIn());;
@@ -274,59 +274,76 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
         for (const auto& aCam : getVCams())
         {
             cSetMesPtOf1Im aSetMes = mPhProj.LoadMeasureIm(aCam->NameImage());
-            cSetMesPtOf1Im aSetNONEMes;
-            cSetMesPtOf1Im aSetOKRecov;
+            cSetMesPtOf1Im aSetOK(aCam->NameImage());
+            cSetMesPtOf1Im aSetNONE(aCam->NameImage());
+            cSetMesPtOf1Im aSetOKRecov(aCam->NameImage());
 
             //----- [0] Load NONE detections
 
             for (const auto& aMes : aSetMes.Measures())
             {
-                if (starts_with(aMes.mNamePt,MMVII_NONE))
+                if (starts_with(aMes.mNamePt, MMVII_NONE))
                 {
-                    aSetNONEMes.AddMeasure(aMes);
+                    aSetNONE.AddMeasure(aMes);
+                }
+                else
+                {
+                    aSetOK.AddMeasure(aMes);
                 }
             }
 
             //----- [1] Find closest (<OKNEAR) 2D GCP projection for each NONE detection
 
-            if (!aSetNONEMes.Measures().empty())
+            if (!aSetNONE.Measures().empty())
             {
                 if (mShow) StdOut() << aCam->NameImage() << "\n";
+
+                cSetMesPtOf1Im aSetGCPProj;
                 for (const auto& aGCP : aSetGCP.Measures())
                 {
-                    if (aCam->IsVisible(aGCP.mPt) && !aSetMes.NameHasMeasure(aGCP.mNamePt))
+                    if (aCam->IsVisible(aGCP.mPt) && !aSetOK.NameHasMeasure(aGCP.mNamePt))
                     {
-                        cPt2dr aPred = aCam->Ground2Image(aGCP.mPt);
-                        cMesIm1Pt* aNear = aSetNONEMes.NearestMeasure(aPred);
-                        if (mShow) StdOut() << aNear->mNamePt << " : "
-                                     << aGCP.mNamePt << "? -> " << Norm2(aPred - aNear->mPt) <<"\n";
-                        if (Norm2(aPred - aNear->mPt) < mOKNEAR)
-                        {
-                            cMesIm1Pt aRecovMes = *aNear;
-                            aRecovMes.mNamePt = aGCP.mNamePt;
-                            aSetOKRecov.AddMeasure(aRecovMes);
-                            if (mShow) StdOut() << "\t-> OK (< " << mOKNEAR << ")\n";
-                        }
+                        aSetGCPProj.AddMeasure(cMesIm1Pt(aCam->Ground2Image(aGCP.mPt), aGCP.mNamePt, 1.0));
                     }
                 }
-                StdOut() << aCam->NameImage() << "->" << " OKRecov : " << aSetOKRecov.Measures().size()
-                         << "/" << aSetNONEMes.Measures().size() << "\n";
 
-            //----- [2] Export result (M-erge/D-istinguish)
+                for (const auto& aNONE : aSetNONE.Measures())
+                {
+                    cMesIm1Pt* aNearestGCP = aSetGCPProj.NearestMeasure(aNONE.mPt);
+                    if (mShow) StdOut() << aNearestGCP->mNamePt << " : "
+                                 << aNearestGCP->mNamePt << "? -> " << Norm2(aNONE.mPt - aNearestGCP->mPt);
+                    if (Norm2(aNONE.mPt - aNearestGCP->mPt) < mOKNEAR)
+                    {
+                        cMesIm1Pt aRecovMes = *aNearestGCP;
+                        aRecovMes.mPt = aNONE.mPt;
+                        aSetOKRecov.AddMeasure(aRecovMes);
+                        aSetOK.AddMeasure(aRecovMes);
+                        if (mShow) StdOut() << " -> OK (< " << mOKNEAR << ")\n";
+                    }
+                    else {
+                        if (mShow) StdOut() << " -> NOT OK (> " << mOKNEAR << ")\n";
+                        aSetOK.AddMeasure(aNONE);
+                    }
+                }
+
+                //----- [2] Export result (M-erge/D-istinguish/R-eplace)
 
                 if ((mNONERecov == "M") && !aSetOKRecov.Measures().empty())
                 {
-                    for (const auto& aMes : aSetOKRecov.Measures())
-                    {
-                        aSetMes.AddMeasure(aMes);
-                    }
-                    mPhProj.SaveMeasureIm(aSetMes);
+                    mPhProj.SaveMeasureIm(aSetOK);
                 }
                 if ((mNONERecov == "D") && !aSetOKRecov.Measures().empty())
                 {
                     aSetOKRecov.ToFile(mPhProj.DPGndPt2D().FullDirIn() + "NONERecov_" + aCam->NameImage() + ".xml");
                 }
+                if ((mNONERecov == "R") && !aSetOKRecov.Measures().empty())
+                {
+                    aSetOK.ToFile(mPhProj.DPGndPt2D().FullDirIn() + aSetOK.StdNameFile());
+                }
             }
+
+            StdOut() << aCam->NameImage() << "->" << " OKRecov : " << aSetOKRecov.Measures().size()
+             << "/" << aSetNONE.Measures().size() << "\n";
         }
     }
 
