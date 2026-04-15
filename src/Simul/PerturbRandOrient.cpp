@@ -68,7 +68,7 @@ cCollecSpecArg2007 & cAppli_PerturbRandomOri::ArgOpt(cCollecSpecArg2007 & anArgO
 {
     
     return      anArgObl
-            << AOpt2007(mRandOri,"RandOri","Random perturbation on orientations")
+            << AOpt2007(mRandOri,"RandOri","Random perturbation on orientations (in rad)")
             << AOpt2007(mRandC  ,"RandC"  ,"Random perturbation on center")
             << AOpt2007(mTransl  ,"Transl"  ,"Global translation")
             << AOpt2007(mPlyTest  ,"PlyTest"  ,"Test ply (temporary)")
