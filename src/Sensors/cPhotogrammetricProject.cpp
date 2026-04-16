@@ -1016,7 +1016,7 @@ void cPhotogrammetricProject::LoadIm(cSetMesGndPt& aSetMes, const std::string & 
       return;
    }
       //  StdOut() << "LoadImLoadIm " << aNameIm << "\n";
-   cSetMesPtOf1Im  aSetIm = LoadMeasureIm(aNameIm);
+   cSetMesPtOf1Im  aSetIm = LoadMeasureIm(aNameIm, true, SVP);
    aSetMes.AddMes2D(aSetIm,aMesDirInfo,aSIm);
 }
 
@@ -1032,11 +1032,6 @@ void cPhotogrammetricProject::LoadImFromFolder
     cAutoChgRestoreDefFolder  aCRDF(aFolder,DPGndPt2D(), true); // Chg Folder and restore at destruction
     DPGndPt2D().CheckDirExists(true, true);
     LoadIm(aSetMes,aNameIm,aMesDirInfo,aSIm,SVP);
-}
-
-void cPhotogrammetricProject::LoadIm(cSetMesGndPt& aSetMes,MMVII::cMes2DDirInfo *aMesDirInfo, cSensorImage & aSIm) const
-{
-     LoadIm(aSetMes,aSIm.NameImage(),aMesDirInfo,&aSIm);
 }
 
 cSet2D3D  cPhotogrammetricProject::LoadSet32(const std::string & aNameIm) const

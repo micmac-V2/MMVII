@@ -94,8 +94,8 @@ void BenchFilterImage_000()
         for (const auto & aP : aPBIO.BoxIndex())
         {
 
-            cPixBox<2> aBI = aPBIO.BoxIn(aP,aVign);
-            cPixBox<2> aBO = aPBIO.BoxOut(aP);
+            cPixBox<2> aBI = aPBIO.BoxInput(aP,aVign);
+            cPixBox<2> aBO = aPBIO.BoxOutput(aP);
             aNbTot += aBO.NbElem();
 
             cIm2D<tINT4> aBufIn(aBI.Sz(),nullptr,eModeInitImage::eMIA_Rand);

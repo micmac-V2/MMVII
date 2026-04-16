@@ -136,9 +136,9 @@ template<class Type>  void cTplAppliCalcDescPCar<Type>::ExeOneBox(const cPt2di &
 {
     // std::string aPref = "Tile"+ToStr(anIndex.x())+ToStr(anIndex.y()) ;
     // Initialize Box, Params, gaussian pyramid
-    mBoxIn = aPBI.BoxIn(anIndex,mAppli.mOverlap);
+    mBoxIn = aPBI.BoxInput(anIndex,mAppli.mOverlap);
     mSzIn = mBoxIn.Sz();
-    mBoxOut = aPBI.BoxOut(anIndex);
+    mBoxOut = aPBI.BoxOutput(anIndex);
     cGP_Params aGP(mSzIn,mAppli.mNbOct,mAppli.mNbLevByOct,mAppli.mNbOverLapByO,&mAppli,true);
 
     // Value cPt2di(-1,-1) : special value indicating that tiles must not be written at end

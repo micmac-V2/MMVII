@@ -829,8 +829,8 @@ void  cAppli::MatchOneLevel(int aLevel)
         // Create the parameters of match, incomplete at this step
         cParam1Match aParam
                      (
-                        aBoxParser.BoxIn(anIndex,mSzOverL),
-                        aBoxParser.BoxOut(anIndex),
+                        aBoxParser.BoxInput(anIndex,mSzOverL),
+                        aBoxParser.BoxOutput(anIndex),
                         anIndex,aILev1,aILev2
                      );
 

@@ -246,10 +246,10 @@ template <const int Dim>  class cParseBoxInOut
 
         /** Box of indexes : "small" number of tiles , (0,0)=> top left box ..., to be used in for(auto..) */
         const tBox & BoxIndex() const;
-        tBox  BoxOut(const tPt & anIndex) const; ///< return OutBox from an index created by BoxIndex
-        tBox  BoxIn(const tPt & anIndex,const tPt& anOverlap) const;  ///< Idem but add an overlap
-        tBox  BoxIn(const tPt & anIndex,const int anOverlap) const;   ///< Add a constant overlap in all direction
-        tBox  BoxOutLoc(const tPt & anIndex,const tPt& anOverlap) const; ///< return Box out relatively to box in
+        tBox  BoxOutput(const tPt & anIndex) const; ///< return OutBox from an index created by BoxIndex
+        tBox  BoxInput(const tPt & anIndex,const tPt& anOverlap) const;  ///< Idem but add an overlap
+        tBox  BoxInput(const tPt & anIndex,const int anOverlap) const;   ///< Add a constant overlap in all direction
+        tBox  BoxOutputLoc(const tPt & anIndex,const tPt& anOverlap) const; ///< return Box out relatively to box in
 
      private :
         cParseBoxInOut(const tBox & aBoxGlob,const tBox & aBoxIndexe); ///< Create from given indexe box

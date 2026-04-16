@@ -274,7 +274,6 @@ template <class Type>  void  cIm2D<Type>::DecimateInThis(int aFact,const cIm2D<T
       mPIm->SetV(aP,aDIn.GetV(aP*aFact));
 }
 
-
 template <class Type>  cIm2D<Type>  cIm2D<Type>::GaussDeZoom(int aFact, int aNbIterExp,double dilate) const
 {
     double aS0 = DefStdDevImWellSample;
@@ -460,19 +459,19 @@ template<class TypeEl> cBox2di  cAppliParseBoxIm<TypeEl>::CurBoxIn() const
 {
     MMVII_INTERNAL_ASSERT_strong(InsideParsing() ^ APBI_TestMode(),"cAppliParseBoxIm, must have InsideParsing() ^ TestMode");
     if (InsideParsing())
-        return mParseBox->BoxIn(mCurPixIndex,mSzOverlap);
+        return mParseBox->BoxInput(mCurPixIndex,mSzOverlap);
     else
         return mBoxTest;
 }
 template<class TypeEl> cBox2di  cAppliParseBoxIm<TypeEl>::CurBoxOut() const
 {
     AssertInParsing();
-    return mParseBox->BoxOut(mCurPixIndex);
+    return mParseBox->BoxOutput(mCurPixIndex);
 }
 template<class TypeEl> cBox2di  cAppliParseBoxIm<TypeEl>::CurBoxOutLoc() const
 {
     AssertInParsing();
-    return mParseBox->BoxOutLoc(mCurPixIndex,mSzOverlap);
+    return mParseBox->BoxOutputLoc(mCurPixIndex,mSzOverlap);
 }
 
 template<class TypeEl> const cDataFileIm2D & cAppliParseBoxIm<TypeEl>::DFI2d() const

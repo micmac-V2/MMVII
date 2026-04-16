@@ -103,7 +103,7 @@ void  AddData(const cAuxAr2007  &anAux,cResModeSurfD& aRMS )
 /* =============================================== */
 
 
-cZBuffer::cZBuffer(cTri3DIterator & aMesh,const tSet &  aSetIn,const tMap & aMapI2O,const tSet &  aSetOut,double aResolOut) :
+cZBuffer::cZBuffer(cTri3DIterator & aMesh,const tSet &  aSetIn,const tMap & aMapI2O,const tSet &  aSetOut,double aResolOut, const cPt2di & aForcedOutSize) :
     mIsOk       (true),
     mZF_SameOri (false),
     mMultZ      (mZF_SameOri ? 1 : -1),
@@ -152,6 +152,12 @@ cZBuffer::cZBuffer(cTri3DIterator & aMesh,const tSet &  aSetIn,const tMap & aMap
     mBoxIn = aBoxOfPtsIn.CurBox();
     mBoxOut = aBoxOfPtsOut.CurBox();
 
+    if (aForcedOutSize.IsValid())
+    {
+        mBoxOut.P0ByRef() = cPt3dr(0,0, mBoxOut.P0().z());
+        mBoxOut.P1ByRef() = cPt3dr(aForcedOutSize.x(),aForcedOutSize.y(), mBoxOut.P1().z());
+    }
+
     cPt2di aBrd(2,2);
     //   aP0/aResout + aTr -> 1,1
     cPt2dr aTr = ToR(aBrd) - Proj(mBoxOut.P0()) * (1.0/mResolOut);
@@ -175,6 +181,11 @@ std::vector<cResModeSurfD> & cZBuffer::VecResSurfD() {return mResSurfD;}
 void cZBuffer::AssertIsOk() const
 {
    MMVII_INTERNAL_ASSERT_tiny(mIsOk,"Non ok Buffer");
+}
+
+const cPt2di & cZBuffer::SzPix() const
+{
+    return mSzPix;
 }
 
 bool cZBuffer::IsOk() const {return mIsOk;}
@@ -251,6 +262,12 @@ eZBufRes cZBuffer::MakeOneTri(const tTri3dr & aTriIn,const tTri3dr &aTri3,eZBufM
 
     //  cTriangle2DCompiled<tREAL8>  aTri2(ToPix(aTri3.Pt(0)) , ToPix(aTri3.Pt(1)) ,ToPix(aTri3.Pt(2)));
     cTriangle2DCompiled<tREAL8>  aTri2 = ImageOfTri(Proj(aTri3),mROut2Pix);
+
+    // do no use wrapped triangles
+    int aIndexLongest = aTri2.IndexLongestSeg();
+    float aMaxLen = Norm2(aTri2.KVect(aIndexLongest));
+    if (aMaxLen > SzPix().x()/1.5)
+        return aRes;
 
     cPt3dr aPtZ(aTri3.Pt(0).z(),aTri3.Pt(1).z(),aTri3.Pt(2).z());
 

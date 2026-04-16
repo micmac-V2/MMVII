@@ -61,7 +61,7 @@ class cAppliBundlAdj : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
      private :
-        bool AcceptEmptySet(int aK) const override {return ((aK==0)&&(mSpecImIn=="NONE"));}
+        bool AcceptEmptySet(int aK) const override {return ((aK==0)&&(mSpecImIn==MMVII_NONE));}
         std::vector<tREAL8>  ConvParamStandard(const std::vector<std::string> &,size_t aSzMin,size_t aSzMax) ;
 
         void  AddOneSetGCP3D(const std::string & aFolderIn, const std::string &aFolderOut, tREAL8 aWFactor); // aFolderOut="" if no out
@@ -153,7 +153,7 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mTiePWeight,"TiePWeight","Tie point weighting [Sig0,SigAtt?=-1,Thrs?=-1,Exp?=1]",{{eTA2007::ISizeV,"[1,4]"}})
       << AOpt2007(mAddTieP,"AddTieP","For additional TieP, [[Folder,SigG...],[Folder,...]] ")
       << AOpt2007(mParamLidarPhgr,"LidarPhotogra","Paramaters for Lidar/Phgr adj via triangulation [[Mode,Ply,Sigma,Interp?,Perturbate?,NbPtsPerPatch=32]*]")
-      << AOpt2007(mParamLidarPhoto,"LidarPhoto","Paramaters for Lidar/Phgr adj via rasterisation [[Mode,PatScan,Sigma,Interp?,Perturbate?,NbPtsPerPatch=32]*]")
+      << AOpt2007(mParamLidarPhoto,"LidarPhoto","Paramaters for Lidar/Phgr adj via rasterisation [[Mode,PatScan,Sigma,Interp?,Perturbate?,NbPtsPerPatch=49]*]")
       << AOpt2007(mParamLidarLidar,"LidarLidar","Paramaters for Lidar/Lidar adj via rasterisation [[PatScan,Sigma,ThrsInit?=1,ThrsFinal?=0.1,Interp?=[Linear]]]")
       << AOpt2007(mPatParamFrozCalib,"PPFzCal","Pattern for freezing internal calibration parameters")
       << AOpt2007(mVVParFreeCalib,"PPFreeCal","Pattern for free internal calibration parameters [[PatCal1,PatParam1],[PatCal2,PatParam2] ...] ")
@@ -418,10 +418,11 @@ int cAppliBundlAdj::Exe()
 
     MMVII_INTERNAL_ASSERT_User(mMeasureAdded,eTyUEr::eUnClassedError,"Not any measure added");
 
-   if (IsInit(&mParamShow_UK_UC))
-      mBA.Set_UC_UK(mParamShow_UK_UC);
+    if (IsInit(&mParamShow_UK_UC))
+       mBA.Set_UC_UK(mParamShow_UK_UC);
 
     //   ========== [2]   Make Iteration =============================
+    StdOut() << "Begin iterations" << std::endl;
     mBA.Iterate(mNbIter, mLVM, mShow_Cond);
 
     //   ========== [3]   Save resulst =============================

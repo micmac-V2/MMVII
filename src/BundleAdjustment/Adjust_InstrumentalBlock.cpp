@@ -766,6 +766,9 @@ void cMMVII_BundleAdj::IterOneBlockInstr()
 
 void cMMVII_BundleAdj::SaveBlockInstr()
 {
+    if (mVecBlockInstrAdj.empty())
+        return;
+
     if (! mPhProj->DPBlockInstr().DirOutIsInit())
     {
         MMVII_USER_WARNING("Block of instrument not saved");

@@ -333,14 +333,22 @@ class cBA_TieP
 
 //---------------------------------------------------------
 
+
 /** "Helper" class for cBA_LidarPhotogra : for a given patch in one image, will store all the data on the points*/
 class cData1ImLidPhgr
 {
     public :
         std::string mScanAName;    //< origin scan id to get uk
         std::string mScanBName;    //< secondary scan id to get uk (only for llidar/lidar adj)
-        size_t mKIm;  ///< num of images where the patch is seen (only for lidar/im adj)
+        size_t mKIm;  ///< number of the image where the patch is seen (only for lidar/im adj)
         std::vector<std::pair<tREAL8,cPt2dr>> mVGr; ///< pair of radiometry/gradient, in image,  for each point of the patch
+};
+
+// record all data for each scan raster
+struct cStaticLidarBAData
+{
+    cStaticLidar *                 mLidarRaster;   //< raster representations of lidar
+    std::list<cLidarRasterPatch>   mLPatches;      //< all the patches data after size estimation and visibility
 };
 
 
@@ -379,6 +387,7 @@ protected :
     double                         mWFactor;          ///< weight for observations
     size_t                         mNbUsedPoints;   ///< number of lidar used points
     size_t                         mNbUsedObs;      ///< number of lidar obs used
+
 };
 
 
@@ -397,16 +406,20 @@ class cBA_LidarPhotogra: public cBA_LidarBase
     protected :
        void InitEq(bool aScanPoseUk);
 
-       void Add1Patch(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchGr, const std::string & aScanName);
+        void Add1Patch(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+                       const std::string & aScanName, const std::unordered_set<std::string> &aHiddenOnImage);
 
        /// Method for adding observations with radiometric differences as similatity criterion
-       void AddPatchDifRad(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchGr,const std::vector<cData1ImLidPhgr> &aVData) ;
+       void AddPatchDifRad(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+                           const std::vector<cData1ImLidPhgr> &aVData) ;
 
        /// Method for adding observations with Census Coeff as similatity criterion
-       void AddPatchCensus(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchGr,const std::vector<cData1ImLidPhgr> &aVData) ;
+       void AddPatchCensus(const cResidualWeighter<tREAL8> &aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+                           const std::vector<cData1ImLidPhgr> &aVData) ;
 
        /// Method for adding observations with Normalized Centred Coefficent Correlation as similatity criterion
-       void AddPatchCorrel(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchGr,const std::vector<cData1ImLidPhgr> &aVData) ;
+       void AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
+                           const std::vector<cData1ImLidPhgr> &aVData) ;
 
        eImatchCrit                    mModeSim;        ///< type of similarity used
        bool                           mPertRad;        ///< do we pertubate the radiometry (simulation & test)
@@ -442,20 +455,27 @@ protected:
     std::list<std::vector<int>>    mLPatchesI;      ///< set of patches as index in Tri, consituted by 3D points in a lidar scan
 };
 
+/**
+ * common part for all raster-based lidar adj
+*/
 
-// record all data for each scan raster
-struct cStaticLidarBAData
+class cBA_LidarRaster
 {
-    std::string                    mScanName;      //< scan id
-    cStaticLidar *                 mLidarRaster;   //< raster representations of lidar
-    std::list<std::set<cPt2di>>    mLPatchesP;     //< set of patches as px in raster, consituted by 3D points in a lidar scan
+public:
+    void CreateZbuffers(cPhotogrammetricProject *aPhProj, const cMMVII_BundleAdj &aBA, bool aOnScans, bool aDebug); ///< on images or on scans
+
+protected:
+    std::vector<cStaticLidarBAData>   mVScans;      ///< vector of raster representations of lidar
+    std::map<std::string,cIm2D<tREAL4>> mMapZbuf; ///< fusion of all zbuffers for one scan B name
+    std::map<std::string,cStdWeighterResidual> mWeightersMap;   ///< map from "nameScanA-nameScanB" to the appropriate weighter
+    tREAL8                            mThresholdInit, mThresholdFinal;   ///< distance where scan points are supposed to be hidden
 };
 
 /**
- * use lidar raster geometry, with unknown pose
+ * uses lidar raster geometry, with unknown pose
 */
 
-class cBA_LidarPhotograRaster : public cBA_LidarPhotogra
+class cBA_LidarPhotograRaster : public cBA_LidarPhotogra, public cBA_LidarRaster
 {
 public :
     /// constructor, take the global bundle struct + one vector of param
@@ -466,6 +486,8 @@ public :
     /// add observation
     virtual void AddObs() override;
 
+    void UpdateWeightersMap(const cMMVII_BundleAdj &aBA, double aWFactor); // create or update map, on each iteration
+
 protected:
     virtual void SetVUkVObs
         (const cPt3dr&           aPGround,
@@ -475,7 +497,6 @@ protected:
          int                     aKPt
          ) override;
 
-    std::vector<cStaticLidarBAData> mVScans;      ///< vector of raster representations of lidar
 };
 
 
@@ -483,7 +504,7 @@ protected:
  * Class for adjustment between two lidar scans
  */
 
-class cBA_LidarLidarRaster: public cBA_LidarBase
+class cBA_LidarLidarRaster: public cBA_LidarBase, public cBA_LidarRaster
 {
 public :
     /// constructor, take the global bundle struct + one vector of param
@@ -494,11 +515,11 @@ public :
     /// add observation
     void AddObs() override;
 
-    void UpdateWeightersMap(); // create or update map, on each iteration
+    void UpdateWeightersMap(const cMMVII_BundleAdj &aBA, double aWFactor); // create or update map, on each iteration
 
 protected :
     /**  Add observation for 1 Patch of point */
-    tREAL8 Add1Patch(const cPt3dr &aPGround, const std::string & aScanName); // returns min residual for this point
+    tREAL8 Add1Patch(const cLidarRasterPatch &aPatch, const cStaticLidarBAData & aScanData); // returns min residual for this point
 
     void AddPatchDist(const cPt3dr &aPGround, const std::vector<cData1ImLidPhgr> &aVData) ;
 
@@ -510,9 +531,6 @@ protected :
          int                     aKPt
          ) override;
 
-    std::vector<cStaticLidarBAData>   mVScans;      ///< vector of raster representations of lidar
-    std::map<std::string,cStdWeighterResidual> mWeightersMap;   ///< map from "nameScanA-nameScanB" to the appropriate weighter
-    tREAL8                            mThresholdInit, mThresholdFinal;   ///< distance where scan points are supposed to be hidden
 };
 
 
@@ -589,7 +607,7 @@ class cMMVII_BundleAdj
           cBA_GCP& getGCP() { return mGCP;}
 
           ///  ============  Add Lidar/Photogra ===============          void AddLineAdjust(const std::vector<std::string> &);
-          cStaticLidar *AddStaticLidar(const std::string &aScanName);
+          cStaticLidar *AddStaticLidar(const std::string &aScanFileName);
           void Add1AdjLidarPhotogra(const std::vector<std::string> &);
           void Add1AdjLidarPhoto(const std::vector<std::string> &);
           void Add1AdjLidarLidar(const std::vector<std::string> &);

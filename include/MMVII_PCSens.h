@@ -80,6 +80,7 @@ class cDefProjPerspC : public cDataBoundedSet<tREAL8,2>
 
       virtual tREAL8 Insideness(const tPt &) const override;
 
+      virtual tPt DiffPx(const tPt &aPtA, const tPt &aPtB, tREAL8 aF) const;
 
           /// Radial symetry, true for physcicall based model, false for ex with equirect
           virtual bool  HasRadialSym() const ;
@@ -277,7 +278,9 @@ class cPerspCamIntrCalib : public cObj2DelAtEnd,
         /// Interpolate on the curve of un-distorted line
             cPt2dr InterpolOnUDLine(const tSeg2dr&,tREAL8 WeightP1) const;
 
-
+        /// in case of a equirect projection, image coordinates may have to be fixed with modulo 2pi
+            void FixLoop(tVecOut &aVPtInOut) const;
+            void FixLoop(tPtOut &aVPtInOut) const;
     // ==================   Accessors & Modifiers ===================
             const double & F() const;   ///< access to focal
             const cPt2dr & PP() const;  ///< acess to principal point

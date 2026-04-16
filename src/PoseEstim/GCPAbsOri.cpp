@@ -91,7 +91,7 @@ int cAppli_GCPAbsOri::Exe()
         cSensorCamPC* aCam = mPhProj.ReadCamPC(aNameIm,true);
 
         //load 2D measure
-        mPhProj.LoadIm(aSet,nullptr,*aCam);
+        mPhProj.LoadIm(aSet,aNameIm, nullptr, aCam, true);
     }
 
     //vectors to store points for StdGlobEstimate()
@@ -122,6 +122,7 @@ int cAppli_GCPAbsOri::Exe()
             if(mShow)
             {
                 StdOut() << "Name = " << aNamePt << " Origin_Frame = " << aInPt
+                         << " (" << aMesIm.VMeasures().size() << " obs)"
                          << "  &&  "
                          << "Target_Frame = " << aOutPt
                          << "\n";
@@ -130,18 +131,14 @@ int cAppli_GCPAbsOri::Exe()
     }
 
     //we need at least 3 correspondences
-    if(aInPts.size() < 3)
-    {
-        StdOut() << "Not enough points (the minimum is 3) ! " << "\n";
-        return EXIT_FAILURE;
-    }
+    MMVII_INTERNAL_ASSERT_User(aInPts.size()>= 3, eTyUEr::eUnClassedError, "Not enough points (the minimum is 3 points with 2 views)!");
 
     //estimate 3d similarity
     mSim = mSim.StdGlobEstimate(aInPts,aOutPts,&mRes2,nullptr,cParamCtrlOpt::Default());
 
+    StdOut() << "Similarity residual = " << mRes2 << "\n";
     if(mShow)
     {
-        StdOut() << "Similarity residual = " << mRes2 << "\n";
         StdOut() << "Similarity scale = "        << mSim.Scale() << "\n";
         StdOut() << "Similarity translation = "  << mSim.Tr() << "\n";
         StdOut() << "Similarity rotation = "     << mSim.Rot().Mat() << "\n";
@@ -188,6 +185,18 @@ int cAppli_GCPAbsOri::Exe()
 
             //add to csv file
             AddOneReportCSV(aReportFileName,{aPtsNames[i],ToStr(dx),ToStr(dy),ToStr(dz)});
+
+            if(mShow)
+            {
+                StdOut() << "Name = " << aPtsNames[i] << " Origin_Frame = " << aInPts[i]
+                         << "  &&  "
+                         << "Transformed = " << aTransformedPt
+                         << "  &&  "
+                         << "Target_Frame = " << aOutPts[i]
+                         << "  &&  "
+                         << "Residual = " << Norm2(aTransformedPt - aOutPts[i])
+                         << "\n";
+            }
         }
     }
 
