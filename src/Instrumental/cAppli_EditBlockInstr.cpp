@@ -36,20 +36,22 @@ class cAppli_EditBlockInstr : public cMMVII_Appli
         std::vector<std::string>  Samples() const override;
 
      private :
-        cPhotogrammetricProject   mPhProj;       //< As usual ....
-        std::string               mNameBloc;     //< Name of the block edited (generally default MMVII)
-        std::vector<std::string>  mVPatsIm4Cam;  //< Patterns for cam structure : [PatSelOnDisk,PatTimeStamp?,PatSelInBlock?]
-        bool                      mFromScratch;  //< If exist file : Reset of Modify ?
-        std::vector<std::vector<std::string>>  mCstrOrthog;  //<  Vector for relative orientations
+        cPhotogrammetricProject   mPhProj;       ///< As usual ....
+        std::string               mNameBloc;     ///< Name of the block edited (generally default MMVII)
+        std::vector<std::string>  mVPatsIm4Cam;  ///< Patterns for cam structure : [PatSelOnDisk,PatTimeStamp?,PatSelInBlock?]
+        bool                      mFromScratch;  ///< If exist file : Reset of Modify ?
+        std::vector<std::vector<std::string>>  mCstrOrthog;  ///<  Vector for relative orientations
         std::vector<int>                       mNumPoseInstr;
-        int                                    mNumMaster; //< Fix possibly the num of master image
+        int                                    mNumMaster; ///< Fix possibly the num of master image
+        bool                                   mShow;  ///< print detailed info
 };
 
 cAppli_EditBlockInstr::cAppli_EditBlockInstr(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec) :
     cMMVII_Appli  (aVArgs,aSpec),
     mPhProj       (*this),
     mNameBloc     (cIrbCal_Block::theDefaultName),
-    mFromScratch  (false)
+    mFromScratch  (false),
+    mShow         (false)
 {
 }
 
@@ -83,6 +85,8 @@ cCollecSpecArg2007 & cAppli_EditBlockInstr::ArgOpt(cCollecSpecArg2007 & anArgOpt
             << AOpt2007(mCstrOrthog,"CstrOrthog","Constraint for vectors orthogonality [[Instr1,Instr2,Sigma]*...] ")
             << AOpt2007(mNumPoseInstr,"NPI","Num of cams used  for estimate pose of intsrument")
             << AOpt2007(mNumMaster,"Master","Fix number of master camera")
+            << AOpt2007(mShow,"Show","Show detailled information")
+
         ;
 }
 
@@ -118,6 +122,18 @@ int cAppli_EditBlockInstr::Exe()
 
         for (const auto & aNameCal : aSetNameCal)
             aBlock->SetCams().AddCam(aNameCal,aPatTimeStamp,aPatSelIm,SVP::Yes); // Not OK:
+
+        if (mShow)
+        {
+             for (const auto & aNameIm : aVNameIm)
+             {
+                std::string aNameCal = mPhProj.StdNameCalibOfImage(aNameIm);
+                cIrbCal_Cam1* aCam =  aBlock->SetCams().CamFromNameCalib(aNameCal);
+                std::string aTimeS = aCam->TimeStamp(aNameIm);
+                StdOut() << "   * Im=" << aNameIm << "  TimeStamp=" << aTimeS << " Ident=" << aCam->NameCal() << "\n";
+             }
+
+        }
     }
 
     if (IsInit(&mNumMaster))
@@ -169,7 +185,7 @@ int cAppli_EditBlockInstr::Exe()
         }
     }
 
-    StdOut() <<  "NNNNNNN " << aBlock->SetCams().NumMaster() << "\n";
+    ///StdOut() <<  "NNNNNNN " << aBlock->SetCams().NumMaster() << "\n";
     // save the result on disk
     mPhProj.SaveRigBoI(*aBlock);
 
