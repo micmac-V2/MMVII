@@ -308,6 +308,7 @@ class cParamCodedTarget : public cMemCheck
        double    mThickN_WExt;  ///< Thickness of white separatio,
        double    mThickN_Car;  ///< thickness of black border
        double    mThickN_BorderExt;  ///< thickness of border
+       bool      mCernR123;
 
        /**  Factor to empirically make carac larger, probably redundant with other ...*/
        double    mFactEnlargeCar;
@@ -317,6 +318,7 @@ class cParamCodedTarget : public cMemCheck
        bool      mWhiteBackGround;     ///< black on white, true 4 IGN
        bool      mZeroIsBackGround;
        bool      mAntiClockWiseBit;        ///< Do  growin bits go in trigonometric sens (!  visuel repair is clokwise)
+
 
 
        double    mRadiusOrientTablet;

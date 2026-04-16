@@ -173,6 +173,8 @@ int cAppli_EditBlockInstr::Exe()
     // save the result on disk
     mPhProj.SaveRigBoI(*aBlock);
 
+
+
     delete aBlock;
     return EXIT_SUCCESS;
 }
