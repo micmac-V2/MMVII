@@ -547,9 +547,10 @@ class cBA_ArboTriplets
     private:
         cMakeArboTriplet*                                  mPMAT;
         int                                                mNbIter;
-        tREAL8                                             mSigAtt;
+        tREAL8                                             mSigAttFinal;
+        tREAL8                                             mThrFinal;
+        std::vector<tREAL8>                                mSigARange;  ///< [start, end] dynamic threshold
         std::vector<tREAL8>                                mThrRange;   ///< [start, end] dynamic threshold
-        tREAL8                                             mDeltaThr;
 
         cSetInterUK_MultipeObj<tREAL8>                     mSetIntervUK;
         std::vector<cSensorCamPC*>                         mVCams;

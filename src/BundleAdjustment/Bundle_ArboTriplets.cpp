@@ -11,11 +11,12 @@ namespace MMVII
 /* ********************************************************* */
 
 cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols):
-    mPMAT     (aPMAT),
-    mNbIter   (aPMAT->NbIterBA()),
-    mSigAtt   (aPMAT->SigmaTPt()),
-    mThrRange ({aPMAT->SigmaTPt()*aPMAT->FacElim(), aPMAT->SigmaTPt()*5}),
-    mDeltaThr (aPMAT->SigmaTPt()*aPMAT->FacElim() - aPMAT->SigmaTPt()*5),
+    mPMAT      (aPMAT),
+    mNbIter    (aPMAT->NbIterBA()),
+    mSigAttFinal(2.0),
+    mThrFinal   (10.0),
+    mSigARange  ({std::max(mSigAttFinal,std::min(5.0,aPMAT->SigmaTPt())),mSigAttFinal}), // {max,min} <=> {initial,final}
+    mThrRange   ({std::max(mThrFinal,std::min(30.0,aPMAT->SigmaTPt()*aPMAT->FacElim())),mThrFinal}), // {max,min} <=> {initial,final}
     mSys      (nullptr),
     mTPts     (nullptr)
 {
@@ -65,8 +66,16 @@ void cBA_ArboTriplets::OneIteration(int aIter)
     for (auto& aPair : mTPts->Pts())
         MakePGroundFromBundles(aPair, mVSens);
 
-    tREAL8 aThr = mDeltaThr*(1 - double(aIter)/(mNbIter-1)) + mThrRange[1];
-    cStdWeighterResidual aTPtsW(1.0, mSigAtt, aThr, 2.0);
+    auto CurrentVal = [&](int iterCur,int iterMax,tREAL8 delta,tREAL8 bias)
+    {
+        return delta*(1 - double(iterCur)/(iterMax-1)) + bias;
+    };
+
+    tREAL8 aDeltaSigA = mSigARange.at(0) - mSigARange.at(1);
+    tREAL8 aDeltaThr = mThrRange.at(0) - mThrRange.at(1);
+    tREAL8 aSigA = CurrentVal(aIter,mNbIter,aDeltaSigA,mSigARange.at(1));
+    tREAL8 aThr = CurrentVal(aIter,mNbIter,aDeltaThr,mThrRange.at(1));
+    cStdWeighterResidual aTPtsW(1.0, aSigA, aThr, 2.0);
 
     // add observation equations for all tie-points
     tREAL8 aMaxRes=0;

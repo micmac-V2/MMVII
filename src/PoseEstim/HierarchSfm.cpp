@@ -1,7 +1,7 @@
-#include "MMVII_BundleAdj.h"
+//#include "MMVII_BundleAdj.h"
 #include "../Graphs/ArboTriplets.h"
 
-#include <regex>
+//#include <regex>
 
 /**
    \file HierarchSfm.cpp
@@ -38,10 +38,6 @@ class cAppli_HierarchSfm : public cMMVII_Appli
     private:
         cPhotogrammetricProject   mPhProj;
         std::string               mPatImIn;
-        //int                       mNbMaxClust;
-        //tREAL8                    mDistClust;
-        //std::vector<tREAL8>       mLevelRand;
-        std::vector<tREAL8>       mWeigthEdge3;
         bool                      mDoCheck;
         tREAL8                    mWBalance;
         std::vector<tREAL8>       mViscPose;      ///< regularization on poses in BA
@@ -61,7 +57,7 @@ cAppli_HierarchSfm::cAppli_HierarchSfm(const std::vector<std::string> & aVArgs,c
     mLVM         (0.1),
     mSigmaTPt    (1.0),
     mFacElim     (10.0),
-    mNbIterBA    (2)
+    mNbIterBA    (5)
 {}
 
 cCollecSpecArg2007 & cAppli_HierarchSfm::ArgObl(cCollecSpecArg2007 & anArgObl)
@@ -83,8 +79,8 @@ cCollecSpecArg2007 & cAppli_HierarchSfm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            //<<  mPhProj.DPOriTriplets().ArgDirOutOpt("","Directory for dmp-save of triplet (for faster read later)")
            <<  AOpt2007(mViscPose,"ViscPose","Regularization on poses for BA: [SigmaTr,SigmaRot]",{eTA2007::HDV})
            <<  AOpt2007(mLVM,"LVM","Levenberg-marquadt regularization",{eTA2007::HDV})
-           <<  AOpt2007(mSigmaTPt,"SigmaTPt","Sigma for tie-points",{eTA2007::HDV})
-           <<  AOpt2007(mFacElim,"FacElim","Outlier threshold=(FacElim*SigmaTPt)",{eTA2007::HDV})
+           <<  AOpt2007(mSigmaTPt,"SigmaTPt","Sigma for tie-points",{eTA2007::Tuning})
+           <<  AOpt2007(mFacElim,"FacElim","Outlier threshold=(FacElim*SigmaTPt)",{eTA2007::Tuning})
            <<  AOpt2007(mNbIterBA,"NbIterBA","Number of iteration in BA refinement",{eTA2007::HDV})
         ;
 }
@@ -98,20 +94,25 @@ int cAppli_HierarchSfm::Exe()
     std::vector<std::string> aSetIm = VectMainSet(0);
     std::vector<cDataSolOriTriplet> a3Set = mPhProj.ReadAllTriplets(aSetIm);
 
+    // pre-calculate max and median 'quality' scores over all triplets
+    cStdStatRes aQScoreStats;
+    for (auto & aT : a3Set)
+        aQScoreStats.Add(aT.mScore);
+
+    // set MakeArboTriplet config parameters
+    cMakeArboTripletCfg aCfg;
+    aCfg.mLVM      = mLVM;
+    aCfg.mNbIterBA = mNbIterBA;
+    aCfg.mSigmaTPt = IsInit(&mSigmaTPt) ? mSigmaTPt : aQScoreStats.Avg() + aQScoreStats.DevStd();
+    aCfg.mFacElim  = IsInit(&mFacElim)  ? mFacElim  : aQScoreStats.ErrAtKthLast(1);
+    if (IsInit(&mViscPose))
+        aCfg.mViscPose = mViscPose;
+
 
     TimeSegm().SetIndex("cMakeArboTriplet");
-    cMakeArboTriplet  aMk3(a3Set,mDoCheck,mWBalance,mPhProj,*this);
+    cMakeArboTriplet  aMk3(a3Set,mDoCheck,mWBalance,mPhProj,*this,aCfg);
 
-    if (IsInit(&mViscPose))
-        aMk3.ViscPose() = mViscPose;
-    if (IsInit(&mLVM))
-        aMk3.LVM() = mLVM;
-    if (IsInit(&mSigmaTPt))
-        aMk3.SigmaTPt() = mSigmaTPt;
-    if (IsInit(&mFacElim))
-        aMk3.FacElim()= mFacElim;
-    if (IsInit(&mNbIterBA))
-        aMk3.NbIterBA() = mNbIterBA;
+
     if (mPhProj.DPMulTieP().DirInIsInit())
     {
         aMk3.TPFolder() = mPhProj.DPMulTieP().DirIn();
@@ -170,6 +171,7 @@ int cAppli_HierarchSfm::Exe()
         StdOut() << " ========== Output Global Orientation  ========== " << std::endl;
         aMk3.SaveGlobSol();
     }
+
 
     aMk3.ShowStat();
 

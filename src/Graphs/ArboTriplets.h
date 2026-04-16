@@ -87,7 +87,6 @@ public :
     const std::vector<tNodePtr>& depends() const { return mChildren; }
     bool isTerminalNode() const { return mChildren.at(0) == nullptr && mChildren.at(1) == nullptr ;}
 
-
 private :
     void AddEqLink(cLinearOverCstrSys<tREAL8> *,cSetIORSNL_SameTmp<tREAL8> * aSubst,tREAL8 aWeight, int aKEq,
                    const cPt3dr &aC0_In_W0, const cPt3dr &aC1_In_W0,
@@ -151,13 +150,37 @@ private :
 };
 
 
+struct cMakeArboTripletCfg
+{
+    std::vector<tREAL8>  mViscPose  = {-1,-1};   ///< Regularization on poses  [SigmaTr,SigmaRot]
+    tREAL8               mLVM       = 0.0;       ///< Levenberg-Marquardt regularization
+    tREAL8               mSigmaTPt  = 2.0;       ///< Sigma on tie-points
+    tREAL8               mFacElim   = 10.0;      ///< Outlier threshold
+    int                  mNbIterBA  = 5;         ///< Number of BA iterations
 
+    void Show(std::ostream & aOS = std::cout) const
+    {
+        aOS << " ===================== "
+            << "  BA settings :\n"
+            << "  ViscPose  = " << mViscPose.at(0) << "," << mViscPose.at(1) << "\n"
+            << "  LVM       = " << mLVM       << "\n"
+            << "  SigmaTPt  = " << mSigmaTPt  << "\n"
+            << "  FacElim   = " << mFacElim   << "\n"
+            << "  NbIterBA  = " << mNbIterBA  << "\n"
+            << " ===================== " << "\n" ;
+    }
+};
 
 class cMakeArboTriplet
 {
 public :
 
-    cMakeArboTriplet(std::vector<cDataSolOriTriplet> & aSet3,bool doCheck,tREAL8 aWBalance, cIPhProj &,cMMVII_Appli &);
+    cMakeArboTriplet(std::vector<cDataSolOriTriplet> & aSet3,
+                     bool doCheck,
+                     tREAL8 aWBalance,
+                     cIPhProj &,
+                     cMMVII_Appli &,
+                     const cMakeArboTripletCfg & = {});
     ~cMakeArboTriplet();
 
     /// Print some info on dimensions of data
@@ -280,7 +303,6 @@ private :
     bool                      mDoCheck;
     tREAL8                    mWBalance;
     bool                      mPerfectData;
-    std::vector<tREAL8>       mViscPose;      ///< regularization on poses in BA
 };
 
 
