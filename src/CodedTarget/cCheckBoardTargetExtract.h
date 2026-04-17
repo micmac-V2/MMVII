@@ -334,7 +334,9 @@ class cAppliCheckBoardTargetExtract : public cMMVII_Appli
         std::string       mStrShow;
 
         std::vector<tREAL8> mScales;        ///<  Different Scales at which computation is done def {1}, => 0.5 means biggers images
-                                            //
+
+        std::string       mPatRejectCodes; ///< refuse some codes in detection
+
         // ---------------- Thresholds for Saddle point criteria --------------------
         tREAL8            mDistMaxLocSad ;  ///< =10.0, for supressing sadle-point,  not max loc in a neighboorhoud
         int               mDistRectInt;     ///< = 20,  insideness of points  for seed detection
