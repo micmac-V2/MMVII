@@ -381,6 +381,7 @@ protected :
 
     cPhotogrammetricProject *      mPhProj;         // Photogrammetric project
     cMMVII_BundleAdj&              mBA;             ///< The global bundle adj structure
+    std::vector<std::string>       mParamInterpol;  ///< the interpol parameters, to be able to modify it
     cDiffInterpolator1D *          mInterp;         ///< Interpolator, used to extract  Value & Grad of images
     cCalculator<double>  *         mEq;      ///< Calculator used for constrain the pose from image obs
     cWeightAv<tREAL8,tREAL8>       mLastResidual;   ///< Accumulate the radiometric residual
@@ -486,6 +487,7 @@ public :
     /// add observation
     virtual void AddObs() override;
 
+    void UpdateInterpolatorScale(const cMMVII_BundleAdj& aBA);
     void UpdateWeightersMap(const cMMVII_BundleAdj &aBA, double aWFactor); // create or update map, on each iteration
 
 protected:
@@ -496,6 +498,7 @@ protected:
          const cData1ImLidPhgr & aData,
          int                     aKPt
          ) override;
+    tREAL8                            mScaleInit, mScaleFinal;   ///< scale interpolator scale, dependent on the iteration number
 
 };
 

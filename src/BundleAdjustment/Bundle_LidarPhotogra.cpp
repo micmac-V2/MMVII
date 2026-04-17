@@ -33,16 +33,16 @@ void cBA_LidarBase::init(const std::vector<std::string>& aParam, size_t aWeightP
 {
     mWFactor = (1/Square(cStrIO<double>::FromStr(aParam.at(aWeightParamIndex))));
     //  By default  use tabulation of apodized sinus cardinal
-    std::vector<std::string> aParamInt {"Tabul","1000","SinCApod","10","10"};
+    mParamInterpol = {"Tabul","1000","SinCApod","10","10"};
     // if interpolator is not empty
     if ((aParam.size() >=aInterpolParamIndex+1) && (!aParam.at(aInterpolParamIndex).empty()))
     {
         // if specified, take user's param
-        aParamInt = Str2VStr(aParam.at(aInterpolParamIndex));
+        mParamInterpol = Str2VStr(aParam.at(aInterpolParamIndex));
     }
 
     // create the interpolator itself
-    mInterp  = cDiffInterpolator1D::AllocFromNames(aParamInt);
+    mInterp  = cDiffInterpolator1D::AllocFromNames(mParamInterpol);
     // delete mInterp;
     // mInterp = cScaledInterpolator::AllocTab(cCubicInterpolator(-0.5),3,1000);
 }
@@ -186,17 +186,6 @@ cBA_LidarPhotogra::cBA_LidarPhotogra(cPhotogrammetricProject * aPhProj,
 {
     init(aParam, 2, 3);
 
-    if (aParam.size() >=5)
-    {
-        mPertRad = (aParam.at(4) != "");
-    }
-    if (aParam.size() >=6)
-    {
-        mNbPointByPatch = cStrIO<size_t>::FromStr(aParam.at(5));
-        MMVII_INTERNAL_ASSERT_User((mModeSim!=eImatchCrit::eDifRad) || (mNbPointByPatch==1),
-                                   eTyUEr::eUnClassedError,"Only 1 point per patch in "+ToStr(eImatchCrit::eDifRad)+" mode");
-    }
-
     // read images before 1st iteration // TODO: read only images that may correspond to scans?
     for (const auto aPtrCam : aBA.VSCPC())
     {
@@ -234,6 +223,17 @@ cBA_LidarPhotograTri::cBA_LidarPhotograTri(cPhotogrammetricProject * aPhProj,
 {
     InitEq(false);
 
+    if (aParam.size() >=5)
+    {
+        mPertRad = (aParam.at(4) != "");
+    }
+    if (aParam.size() >=6)
+    {
+        mNbPointByPatch = cStrIO<size_t>::FromStr(aParam.at(5));
+        MMVII_INTERNAL_ASSERT_User((mModeSim!=eImatchCrit::eDifRad) || (mNbPointByPatch==1),
+                                   eTyUEr::eUnClassedError,"Only 1 point per patch in "+ToStr(eImatchCrit::eDifRad)+" mode");
+    }
+
     std::string aLidarFileName = aParam.at(1);
     MMVII_INTERNAL_ASSERT_User(UCaseEqual(LastPostfix(aLidarFileName),"ply"),
                                eTyUEr::eUnClassedError,"Lidar PLY file mandatory in triangulation mode, got \"" + aParam.at(1) + "\"");
@@ -265,7 +265,25 @@ cBA_LidarPhotograRaster::cBA_LidarPhotograRaster(cPhotogrammetricProject * aPhPr
 {
     InitEq(true);
 
-    // TODO for now, no scale, no limit
+    mPertRad = false;
+    mScaleInit = 1;
+    mScaleFinal = 1;
+    if (aParam.size() >=5)
+    {
+        mScaleInit = cStrIO<double>::FromStr(aParam[4]);
+    }
+    if (aParam.size() >=6)
+    {
+        mScaleFinal = cStrIO<double>::FromStr(aParam[5]);
+    }
+    if (aParam.size() >=7)
+    {
+        mNbPointByPatch = cStrIO<size_t>::FromStr(aParam.at(6));
+        MMVII_INTERNAL_ASSERT_User((mModeSim!=eImatchCrit::eDifRad) || (mNbPointByPatch==1),
+                                   eTyUEr::eUnClassedError,"Only 1 point per patch in "+ToStr(eImatchCrit::eDifRad)+" mode");
+    }
+
+    // TODO
     mThresholdInit = -1;
     mThresholdFinal = -1;
 
@@ -339,6 +357,22 @@ void cBA_LidarPhotograTri::AddObs()
 
 //------------------------------------------------------
 
+void cBA_LidarPhotograRaster::UpdateInterpolatorScale(const cMMVII_BundleAdj& aBA)
+{
+    tREAL4 aScale = aBA.NbMaxIter() < 2 ? mScaleFinal :
+                     mScaleInit + (mScaleFinal - mScaleInit)*float(aBA.Iter())/(aBA.NbMaxIter()-1);
+    std::cout << "up interpolator, scale="<<aScale<<"\n";
+
+    if (mScaleInit == mScaleFinal)
+        return;
+
+    std::vector<std::string> aParamScaleInterpol = {"Scale", cStrIO<double>::ToStr(aScale), "1000"};
+    aParamScaleInterpol.insert(aParamScaleInterpol.end(), mParamInterpol.begin(), mParamInterpol.end());
+    delete mInterp;
+    mInterp  = cDiffInterpolator1D::AllocFromNames(aParamScaleInterpol);
+}
+
+
 void cBA_LidarPhotograRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, double aWFactor)
 {
     tREAL4 aTh = aBA.NbMaxIter() < 2 ? mThresholdFinal :
@@ -366,7 +400,8 @@ void cBA_LidarPhotograRaster::AddObs()
     mNbUsedPoints = 0;
     mNbUsedObs = 0;
 
-    // update the weighters map
+    // update the interpolator and weighters map
+    UpdateInterpolatorScale(mBA);
     UpdateWeightersMap(mBA, mWFactor);
 
 
