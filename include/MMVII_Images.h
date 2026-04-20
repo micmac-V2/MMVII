@@ -241,11 +241,13 @@ template <const int Dim>  class cParseBoxInOut
         static tThis  CreateFromSize(const tBox &, const tPt & aSz); ///< Give the size of boxes
         static tThis  CreateFromSizeCste(const tBox&, int aSz);  ///< Give a constant size
         static tThis  CreateFromSzMem(const tBox&, double AvalaibleMem); ///< Allocate  approximate mem by tiles
+        static tThis  CreateFromSetOfBoxes(const std::vector <cBox2di> & aSetOfBoxes); ///< Box borders are precomputed
 
         // -------- Manipulation ----------
 
         /** Box of indexes : "small" number of tiles , (0,0)=> top left box ..., to be used in for(auto..) */
         const tBox & BoxIndex() const;
+        const tBox & BoxGlob() const;
         tBox  BoxOut(const tPt & anIndex) const; ///< return OutBox from an index created by BoxIndex
         tBox  BoxIn(const tPt & anIndex,const tPt& anOverlap) const;  ///< Idem but add an overlap
         tBox  BoxIn(const tPt & anIndex,const int anOverlap) const;   ///< Add a constant overlap in all direction

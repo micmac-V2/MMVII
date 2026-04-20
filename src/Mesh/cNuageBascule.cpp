@@ -11,14 +11,15 @@
 #include "MeshDev.h"
 #include "MMVII_Sys.h"
 #include "MMVII_Radiom.h"
+#include "MMVII_CloudRaster.h"
 #include <fstream>
 #include <iostream>
-#include <chrono>
 
 
 
 namespace MMVII
 {
+
  class cAppliNuageBascule : public cMMVII_Appli,
                             public cAppliParseBoxIm<tREAL4>
 {
@@ -45,6 +46,10 @@ namespace MMVII
         cIm2D<tU_INT1> mImCorrelOut;
         cIm2D<tREAL4> mImRed;
 
+        std::string mNameBascOut;
+        std::string mNameMasqOut;
+        std::string mNameCorrelOut;
+
         // photogrammetric project
         cPhotogrammetricProject mPhProj;
         cTriangulation3D<tREAL8> * mTri3D;
@@ -52,6 +57,8 @@ namespace MMVII
         std::string mNameResult;
         eModeGeom mModeGeom;
         tREAL8 mGSD;
+        cBox2di mBoxGlobOutPix;
+        cAffin2D<tREAL8> mGlobAff;
         std::string GSD;
         tREAL8 mNoiseZ;
         tREAL8 mThreshGrad;
@@ -68,9 +75,6 @@ namespace MMVII
 
     public:
         cAppliNuageBascule(const std::vector<std::string> & aVArgs, const cSpecMMVII_Appli & aSpec );
-        typedef cAppliParseBoxIm<tREAL4> tAPBI;
-        typedef tAPBI::tIm               tImAPBI;
-        typedef tAPBI::tDataIm           tDImAPBI;
         static constexpr tREAL8 mInfty =  -1e10;
         std::pair<cPt3dr,cPt3dr> BascOnePoint(cPt2di A,  cPt2di anOffSet);
         //void MakeBasc();
@@ -96,12 +100,17 @@ cAppliNuageBascule::cAppliNuageBascule(const std::vector<std::string> & aVArgs, 
     mImMasqOut(cPt2di(1,1)),
     mImCorrelOut(cPt2di(1,1)),
     mImRed(cPt2di(1,1)),
+    mNameBascOut(""),
+    mNameMasqOut(""),
+    mNameCorrelOut(""),
     mPhProj(*this),
     mTri3D(nullptr),
     mTri2DDepth(nullptr),
     mNameResult("Bascule"),
     mModeGeom(eModeGeom::eGEOM_EPIP),
     mGSD(0.2),
+    mBoxGlobOutPix(cBox2di::Empty()),
+    mGlobAff(),
     mNoiseZ(0.2),
     mThreshGrad(0.3),
     mZF_SameOri(true),
@@ -337,7 +346,7 @@ void cAppliNuageBascule::MakeFastBasc()
     }
 
 
-    auto start = std::chrono::high_resolution_clock::now();
+    cAutoTimerSegm aTSMeshCreate(TimeSegm(),"ZBuffer::Init"); 
     /// Create mesh points
     cPt3dr aP00_Depth,aP00_3D;
     for(const auto & aPix: cPixBox<2>(aBoxUtileWithMasq.P0(),
@@ -353,12 +362,6 @@ void cAppliNuageBascule::MakeFastBasc()
         if(mBascCorrel)
             mVCorrel.push_back(mImCorrel.DIm().GetV(aPix));
     }
-
-    auto end = std::chrono::high_resolution_clock::now();
-
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-    std::cout << "Time create mesh points: " << duration.count() << " ms\n";
 
     /// Create mesh faces
     for(const auto & aPix: cPixBox<2>(aBoxUtileWithMasq.P0(),
@@ -381,10 +384,7 @@ void cAppliNuageBascule::MakeFastBasc()
         aVFaces.push_back(aFDOWN);
     }
 
-    StdOut()<<"computed tri "<<std::endl;
-
-
-    start = std::chrono::high_resolution_clock::now();
+    cAutoTimerSegm aTSBufferInit(TimeSegm(),"ZBuffer::Init"); 
 
     /// ZBUFFER
     mTri3D = new cTriangulation3D<tREAL8>(aVPts,aVFaces);
@@ -413,33 +413,18 @@ void cAppliNuageBascule::MakeFastBasc()
                    true,
                    aTriIT2DDepth);
 
-    end = std::chrono::high_resolution_clock::now();
 
-    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
-    std::cout << "Time create cZBUffer: " << duration.count() << " ms\n";
-
-    StdOut()<<"ZBB"<<std::endl;
-
-    start = std::chrono::high_resolution_clock::now();
+    
+    cAutoTimerSegm aTSBufferProjInit(TimeSegm(),"ZBuffer::ProjInit"); 
 
     aZBuf.MakeZBufForBasc(eZBufModeIter::ProjInit);
 
-    end = std::chrono::high_resolution_clock::now();
+    cAutoTimerSegm aTSBufferSurfDev(TimeSegm(),"ZBuffer::SurfaceDevelopment"); 
 
-    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-    std::cout << "Time cZBUffer MakeZBuffer projInit: " << duration.count() << " ms\n";
-
-    start = std::chrono::high_resolution_clock::now();
     aZBuf.MakeZBufForBasc(eZBufModeIter::SurfDevlpt);
-    end = std::chrono::high_resolution_clock::now();
-
-    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-    std::cout << "Time cZBUffer MakeZBuffer SurfDevlpt: " << duration.count() << " ms\n";
-
-    StdOut()<<"ZBBMAKE"<<std::endl;
+ 
+    cAutoTimerSegm aTSBufferProcNoPix(TimeSegm(),"ZBuffer::ProcessNoPix"); 
 
     ProcessNoPix(aZBuf);
 
@@ -448,6 +433,8 @@ void cAppliNuageBascule::MakeFastBasc()
                                 ToStr(mIndBoxRecal.y())+"-"+
                                 LastPrefix(mNameResult)+".tif");*/
 
+    
+    cAutoTimerSegm aTSBufferPixellizer(TimeSegm(),"rasterization-pixellization"); 
     MakeBasculeTris(aZBuf);
 }
 
@@ -710,19 +697,19 @@ void cAppliNuageBascule::MergeResults()
     }
 
 
-    cAffin2D<tREAL8> aGlobAff(cPt2dr(mBoxGlobTarget.CurBox().P0().x(),
+    mGlobAff=cAffin2D<tREAL8>(cPt2dr(mBoxGlobTarget.CurBox().P0().x(),
                                      mBoxGlobTarget.CurBox().P1().y()),
                               cPt2dr(mGSD,0),
                               cPt2dr(0,-mGSD));
 
 
 
-    cBox2di aBoxGlobOutPix(Pt_round_up(mBoxGlobTarget.CurBox().Sz()/mGSD));
+    mBoxGlobOutPix=cPt2di(Pt_round_up(mBoxGlobTarget.CurBox().Sz()/mGSD));
 
-    std::string aNameBascOut = DirOfPath(mNameResult,false)+"Prof_"+ 
+    mNameBascOut = DirOfPath(mNameResult,false)+"Prof_"+ 
                                 FileOfPath(mNameResult,false);
 
-    std::string aNameMasqOut = DirOfPath(mNameResult,false)+"Masq_"+ 
+    mNameMasqOut = DirOfPath(mNameResult,false)+"Masq_"+ 
                                 FileOfPath(mNameResult,false);
 
     std::string aNameTFWProfGlb =  DirOfPath(mNameResult,false)+"Prof_"+ 
@@ -731,41 +718,40 @@ void cAppliNuageBascule::MergeResults()
                                     ChgPostix(FileOfPath(mNameResult,false),"tfw");
 
 
-    GenTFW(aGlobAff,aNameTFWProfGlb);
-    GenTFW(aGlobAff,aNameTFWMasqGlb);
+    GenTFW(mGlobAff,aNameTFWProfGlb);
+    GenTFW(mGlobAff,aNameTFWMasqGlb);
 
     if(mBascCorrel)
     {
         std::string aNameTFWCorrelGlb =  DirOfPath(mNameResult,false)+"Correl_"+ 
                                             ChgPostix(FileOfPath(mNameResult,false),"tfw");
-        GenTFW(aGlobAff,aNameTFWCorrelGlb);
+        GenTFW(mGlobAff,aNameTFWCorrelGlb);
     }
 
-    cDataFileIm2D  aDF = cDataFileIm2D::Create(aNameBascOut,
+    cDataFileIm2D  aDF = cDataFileIm2D::Create(mNameBascOut,
                                               eTyNums::eTN_REAL4,
-                                              aBoxGlobOutPix.Sz(),
+                                              mBoxGlobOutPix.Sz(),
                                               1);
 
     cIm2D<tREAL4> aGlobIm(aDF.Sz(),aDF);
     aGlobIm.DIm().InitCste(-1e9);
 
 
-    cDataFileIm2D  aDFM = cDataFileIm2D::Create(aNameMasqOut,
+    cDataFileIm2D  aDFM = cDataFileIm2D::Create(mNameMasqOut,
                                               eTyNums::eTN_U_INT1,
-                                              aBoxGlobOutPix.Sz(),
+                                              mBoxGlobOutPix.Sz(),
                                               1);
     cIm2D<tU_INT1> aGlobMasqIm(aDFM.Sz(),aDFM);
 
-    std::string aNameCorrelOut="";
     cIm2D<tU_INT1> aGlobCorrelIm(cPt2di(1,1));
     cDataFileIm2D aDFC=cDataFileIm2D::Empty();
 
     if (mBascCorrel)
     {
-        aNameCorrelOut= DirOfPath(mNameResult,false)+"Correl_"+ FileOfPath(mNameResult,false);
-        aDFC = cDataFileIm2D::Create(aNameCorrelOut,
+        mNameCorrelOut= DirOfPath(mNameResult,false)+"Correl_"+ FileOfPath(mNameResult,false);
+        aDFC = cDataFileIm2D::Create(mNameCorrelOut,
                                                    eTyNums::eTN_U_INT1,
-                                                   aBoxGlobOutPix.Sz(),
+                                                   mBoxGlobOutPix.Sz(),
                                                    1);
         aGlobCorrelIm=cIm2D<tU_INT1>(aDFC.Sz(),aDFC);
     }
@@ -787,11 +773,11 @@ void cAppliNuageBascule::MergeResults()
                                 ToStr(PixI.y())+"-"+
                                 FileOfPath(mNameResult,false) ;
 
-        aP0G = ToI(aGlobAff.Inverse(aLocAffOut[aK].Value(ToR(aSzLocTiles[aK].P0()))));
-        aP1G = ToI(aGlobAff.Inverse(aLocAffOut[aK].Value(ToR(aSzLocTiles[aK].P1()))));
+        aP0G = ToI(mGlobAff.Inverse(aLocAffOut[aK].Value(ToR(aSzLocTiles[aK].P0()))));
+        aP1G = ToI(mGlobAff.Inverse(aLocAffOut[aK].Value(ToR(aSzLocTiles[aK].P1()))));
 
         cBox2di aBoxLocInGlob(aP0G,aP1G);
-        StdOut()<<"LOC "<<aBoxLocInGlob<<" "<<"GLOB "<<aBoxGlobOutPix<<std::endl;
+        StdOut()<<"LOC "<<aBoxLocInGlob<<" "<<"GLOB "<<mBoxGlobOutPix<<std::endl;
 
         cIm2D<tREAL4>  aImProfDalle(aSzLocTiles[aK].Sz());
         cIm2D<tU_INT1> aImMasqDalle(aSzLocTiles[aK].Sz());
@@ -854,8 +840,6 @@ void cAppliNuageBascule::MergeResults()
         aGlobCorrelIm.Write(aDFC,cPt2di(0,0));
     }
 }
-
-
 /*void cAppliNuageBascule::AnalyzeSurfParams()
 {
     ///< Estimates Ground Sampling Distance and Box of the image in target world coordinate system
@@ -924,6 +908,15 @@ int cAppliNuageBascule::Exe()
         RemovePatternFile(mPhProj.DPMeshDev().FullDirOut()+"CORR.*",false);
     }
 
+    eTypeSerial aTsOut= eTypeSerial::exml;
+    std::string aNameXmlOut= mNameBascOut + "." + E2Str(aTsOut);
+    // save Serialized Info about bascule
+    cCloudRaster aCldRaster(mNameBascOut,
+                          mNameCorrelOut,
+                          mNameMasqOut,
+                          mBoxGlobOutPix.Sz(),
+                          mGlobAff);
+    SaveInFile(aCldRaster, aNameXmlOut);
     return EXIT_SUCCESS;
 }
 

@@ -985,6 +985,11 @@ template <const int Dim>  const cPixBox<Dim> &  cParseBoxInOut<Dim>::BoxIndex() 
       return  mBoxIndex;
 }
 
+template <const int Dim>  const cPixBox<Dim> &  cParseBoxInOut<Dim>::BoxGlob() const
+{
+      return  mBoxGlob;
+}
+
 template <const int Dim>  cPtxd<int,Dim>  cParseBoxInOut<Dim>::Index2Glob(const tPt & anIndex) const
 {
       return  CByC1P(mBoxGlob.FromNormaliseCoord(mBoxIndex.ToNormaliseCoord(anIndex)),round_ni);
