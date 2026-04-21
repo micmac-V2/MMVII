@@ -15,6 +15,7 @@
 namespace MMVII
 {
 
+typedef cSegment<tREAL8,3> tSeg3dr;
 
 class cDesCdT;
 struct cDetCdT;
@@ -38,8 +39,7 @@ class cAppli_CodedTargetDescribe : public cMMVII_Appli
         //------ members
         std::vector<cDesCdT> mVDesCdT;
         //------ methods
-        void AddDesCdT(const cOneEncoding* aEnc);
-        bool DesCdtAdd(std::string& aName);
+        void AddDesCdT(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec);
 };
 
 /** Class to store coded target refined description **/
@@ -47,18 +47,21 @@ class cAppli_CodedTargetDescribe : public cMMVII_Appli
 class cDesCdT
 {
     public:
-        cDesCdT(const cOneEncoding* aEnc);
+    cDesCdT(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec);
         std::string mName;
         std::vector<cDetCdT> mVDetects;
         void AddDetect(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D);
         void InterBitCenters();
-        void InterCorners();
+        void InterCorners(bool& show);
         void Estimate3DSimil();
+        cPt2dr Gnd2CdT(cPt3dr& aPt, const cDetCdT& aDet);
+        cPt3dr CdT2Gnd(const cPt2dr& aPt, std::vector<tREAL8>* aVRes = nullptr);
     private:
         const cOneEncoding* mEnc;
         tREAL8 mRes;
         std::vector<cPt3dr> mVBitCenters3D;
         std::vector<cPt3dr> mVCorners3D;
+        std::vector<cPt2dr> mVCorners2D;
 };
 
 /** Class to store coded target detection **/

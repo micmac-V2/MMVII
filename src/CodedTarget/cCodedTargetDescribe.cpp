@@ -30,9 +30,9 @@ namespace MMVII
         //
     }
 
-    void cAppli_CodedTargetDescribe::AddDesCdT(const cOneEncoding* aEnc)
+    void cAppli_CodedTargetDescribe::AddDesCdT(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec)
     {
-        cDesCdT aDes(aEnc);
+        cDesCdT aDes(aName, aSpec);
         mVDesCdT.push_back(aDes);
     }
 
@@ -44,17 +44,60 @@ namespace MMVII
         //
     }
 
-    cDesCdT::cDesCdT(const cOneEncoding* aEnc):
-        mName(aEnc->Name()),
-        mEnc(aEnc)
+    cDesCdT::cDesCdT(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec):
+        mName(aName),
+        mEnc(aSpec->EncodingFromName(aName)),
+        mRes(600), //assumes that target is a square
+        mVCorners2D({cPt2dr(0,0), cPt2dr(mRes,0), cPt2dr(mRes,mRes), cPt2dr(0,mRes)})
     {
-        //
     }
 
     void cDesCdT::AddDetect(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D)
     {
         cDetCdT aDet(aCam, aMes, aAff2D);
         mVDetects.push_back(aDet);
+    }
+
+    void cDesCdT::InterCorners(bool& show)
+    {
+        for (const cPt2dr& aCorn : mVCorners2D)
+        {
+            std::vector<tREAL8> aVRes = {};
+            CdT2Gnd(aCorn, &aVRes);
+            if (show)
+            {
+                StdOut() << "CdT : " + mName << "-> (bundle inter " << aCorn << ") RES: \n";
+                for (decltype(aVRes.size()) ix=0; ix<aVRes.size(); ++ix)
+                {
+                    StdOut() << mVDetects[ix].mCam->NameImage() << " -> " << aVRes[ix] << '\n';
+                }
+            }
+        }
+    }
+
+    cPt3dr cDesCdT::CdT2Gnd(const cPt2dr& aPt, std::vector<tREAL8>* aVRes)
+    {
+        std::vector<tSeg3dr> aVBundles;
+        for (const auto& aDet : mVDetects)
+        {
+            cPt2dr aImPt = aDet.mAff2D.Inverse(aPt);
+            aVBundles.push_back(aDet.mCam->Image2Bundle(aImPt));
+        }
+        cPt3dr aInter = BundleInters(aVBundles);
+
+        for (const auto& aDet : mVDetects)
+        {
+            tREAL8 aRes = Norm2(aPt-Gnd2CdT(aInter, aDet));
+            aVRes->push_back(aRes);
+        }
+
+        return aInter;
+    }
+
+    cPt2dr cDesCdT::Gnd2CdT(cPt3dr& aPt, const cDetCdT& aDet)
+    {
+        cPt2dr aImPt = aDet.mCam->Ground2Image(aPt);
+        return aDet.mAff2D.Value(aImPt);
     }
 
     int cAppli_CodedTargetDescribe::Exe()
@@ -89,15 +132,18 @@ namespace MMVII
                 }
                 if (!isOK && !starts_with(aEll.mNameCode, MMVII_NONE))
                 {
-                    AddDesCdT(mFSpec->EncodingFromName(aEll.mNameCode));
+                    AddDesCdT(aEll.mNameCode, mFSpec);
                 }
             }
         }
 
-        for (auto aDes : mVDesCdT)
+        //------ [2] Intersect corners/centers/bits
+
+        for (cDesCdT aDes : mVDesCdT)
         {
-            StdOut() << aDes.mName << " " << aDes.mVDetects.size() <<'\n';
+            aDes.InterCorners(mShow);
         }
+
         return EXIT_SUCCESS;
     }
 
