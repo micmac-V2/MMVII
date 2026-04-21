@@ -178,7 +178,8 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
          (
              mParamBOI,
              "BOI",
-             "Bloc of Instr [[Bloc?,RelSigTrPair?=1.0,RelSigRotPair?=1.0,SaveSig?=1],[GjTr?,GjRot?],[RelSigTrCur,RelSigRotCur]?]",
+             "Bloc of Instr [[Bloc?,RelSigTrPair?=1.0,RelSigRotPair?=1.0,SaveSig?=1,RelSig?=true]"
+                            ",[GjTr?,GjRot?],[RelSigTrCur,RelSigRotCur]?]",
              {{eTA2007::ISizeV,"[2,3]"}}
           )
 
