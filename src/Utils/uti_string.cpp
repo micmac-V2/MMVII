@@ -583,6 +583,38 @@ void  MakeBckUp(const std::string & aDir,const std::string & aNameFile,int aNbDi
 }
 
 
+        /* =========================================== */
+        /*                                             */
+        /*           CreateLink                        */
+        /*                                             */
+        /* =========================================== */
+
+void CreateLink(const std::string & aFileTarget,const std::string & aLink2Create,bool fileMustExist)
+{
+
+    if (std::filesystem::is_symlink(aLink2Create))
+    {
+        std::string aPrevTarget  = std::filesystem::read_symlink(aLink2Create).native();
+        if (aPrevTarget == aFileTarget)
+        {
+            MMVII_USER_WARNING("Link already exist pointing to same file :" + aLink2Create + "->" + aFileTarget );
+        }
+        else
+        {
+             MMVII_USER_WARNING
+             (
+                  "Link already exist pointing to diff file, do noting remove before :"
+                + aLink2Create + "->" +  aPrevTarget + "/" + aFileTarget
+             );
+        }
+        return;
+    }
+    if (fileMustExist)
+    {
+        MMVII_INTERNAL_ASSERT_always(ExistFile(aFileTarget),"File "+aFileTarget + " dont exist in CreateLink");
+    }
+    std::filesystem::create_symlink(aFileTarget,aLink2Create);
+}
 
     /* =========================================== */
     /*                                             */

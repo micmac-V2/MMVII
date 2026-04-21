@@ -11,12 +11,13 @@
 namespace MMVII
 {
 
+/*
 void CreateLink(const std::string & aFileTarget,const std::string & aLink2Create,bool fileMustExist = true)
 {
 
     if (std::filesystem::is_symlink(aLink2Create))
     {
-        std::string aPrevTarget  = std::filesystem::read_symlink(aLink2Create);
+        std::string aPrevTarget  = std::filesystem::read_symlink(aLink2Create).native();
         if (aPrevTarget == aFileTarget)
         {
             MMVII_USER_WARNING("Link already exist pointing to same file :" + aLink2Create + "->" + aFileTarget );
@@ -37,6 +38,7 @@ void CreateLink(const std::string & aFileTarget,const std::string & aLink2Create
     }
     std::filesystem::create_symlink(aFileTarget,aLink2Create);
 }
+*/
 
 // std::filesystem::path read_symlink( const std::filesystem::path& p );
 // bool is_symlink( const std::filesystem::path& p );
