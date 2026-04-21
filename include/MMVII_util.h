@@ -3,6 +3,8 @@
 
 #include <numeric>
 #include <sstream>
+#include <filesystem>
+
 
 #include "MMVII_nums.h"
 #include "MMVII_memory.h"
@@ -121,7 +123,8 @@ void ActionDir(const std::string &,eModeCreateDir);
 void  MakeBckUp(const std::string & aDir,const std::string & aNameFile,int aNbDig);
 
 /// create a link using  std::filesystem::create_symlink, Warn if link alraedy exist, error if mus exist and doesnt
-void CreateLink(const std::string & aFileTarget,const std::string & aLink2Create,bool fileMustExist = true);
+//void CreateLink(const std::string & aFileTarget,const std::string & aLink2Create,bool fileMustExist = true);
+void CreateLink(const std::filesystem::path & aFileTarget,const std::filesystem::path& aLink2Create,bool fileMustExist=true);
 
 
 
