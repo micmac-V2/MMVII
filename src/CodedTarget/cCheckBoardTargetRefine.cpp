@@ -339,7 +339,7 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
 
             //----- [2] Export result (M-erge/D-istinguish/E-llipse/R-eplace)
 
-            if (contains(mNONERecov, 'M') && !aSetOKRecov.Measures().empty())
+            if (contains(mNONERecov, 'M'))
             {
                 mPhProj.SaveMeasureIm(aSetOK);
             }
@@ -347,7 +347,7 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
             {
                 aSetOKRecov.ToFile(mPhProj.DPGndPt2D().FullDirIn() + "NONERecov_" + aCam->NameImage() + ".xml");
             }
-            if (contains(mNONERecov, 'E') && !aSetOKRecov.Measures().empty())
+            if (contains(mNONERecov, 'E'))
             {
                 for (const auto& aEll : aVEllipses){
                     if (!starts_with(aEll.mNameCode, MMVII_NONE))
@@ -374,6 +374,17 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
             */
             StdOut() << aCam->NameImage() << "->" << " OKRecov : " << aSetOKRecov.Measures().size()
                      << "/" << aSetNONE.Measures().size() << "\n";
+
+            if(mVisu)
+            {
+                cRGBImage aIm = cRGBImage::FromFile(aCam->NameImage());
+                for (const cMesIm1Pt& aMes : aSetOKRecov.Measures())
+                {
+                    aIm.SetRGBBorderRectWithAlpha(ToI(aMes.mPt),100,10,cRGBImage::Orange,0.1);
+                    aIm.DrawString(aMes.mNamePt,cRGBImage::White,aMes.mPt,cPt2dr(0.5,0.05));
+                }
+                //aIm.ToJpgFileDeZoom(mPhProj.DirVisuAppli() +  "Recov" +"-" + LastPrefix(FileOfPath(aCam->NameImage()));
+            }
         }
     }
 
