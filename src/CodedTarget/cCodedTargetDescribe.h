@@ -17,8 +17,8 @@ namespace MMVII
 
 typedef cSegment<tREAL8,3> tSeg3dr;
 
-class cDesCdT;
-struct cDetCdT;
+class cCdTDes;
+struct cCdTDet;
 
 class cAppli_CodedTargetDescribe : public cMMVII_Appli
 {
@@ -37,28 +37,30 @@ class cAppli_CodedTargetDescribe : public cMMVII_Appli
         std::string mFSpecName;
         std::unique_ptr<cFullSpecifTarget> mFSpec;
         //------ members
-        std::vector<cDesCdT> mVDesCdT;
+        std::vector<cCdTDes> mVCdTDes;
         //------ methods
-        void AddDesCdT(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec);
+        void AddCdTDes(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec);
 };
 
 /** Class to store coded target refined description **/
 
-class cDesCdT
+class cCdTDes
 {
     public:
-    cDesCdT(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec);
+    cCdTDes(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec);
         //----- members
         std::string mName;
-        std::vector<cDetCdT> mVDetects;
+        std::vector<cCdTDet> mVDetects;
         //----- methods
         void AddDetect(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D);
         void InterBitCenters(bool& aShow);
         void InterGndCorners(bool& aShow);
-        void Estimate3DSimilOnCorners(bool& aShow);
-        cPt2dr Gnd2CdT(cPt3dr& aPt, const cDetCdT& aDet);
+        void EstimateSimil3DOnCorners(bool& aShow);
+        cPt2dr Gnd2CdT(cPt3dr& aPt, const cCdTDet& aDet);
         cPt3dr CdT2GndByInter(const cPt2dr& aPt, std::vector<tREAL8>* aVRes = nullptr);
         cPt3dr CdT2GndBySimil();
+        void AddData(const cAuxAr2007 &anAux);
+        static std::string NameFile(const cPhotogrammetricProject &aPhProj, std::string aName, bool Input);
     private:
         //----- members
         const cOneEncoding* mEnc;
@@ -67,16 +69,18 @@ class cDesCdT
         std::vector<cPt2dr> mVCdTCorners;
         std::vector<cPt3dr> mVCdtCorners3D;
         std::vector<cPt3dr> mVGndCorners;
-        cSimilitud3D<tREAL8> m3DSimil;
+        cSimilitud3D<tREAL8> mSimil3D;
         //----- methods
         void Estimate3DSimil(std::vector<cPt3dr>& aVInPts, std::vector<cPt3dr>& aVOutPts, bool& aShow);
 };
+void AddData(const cAuxAr2007 &anAux, cSetTargetMap &anEx);
+
 
 /** Class to store coded target detection **/
 
-struct cDetCdT
+struct cCdTDet
 {
-    cDetCdT(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D);
+    cCdTDet(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D);
     const cSensorCamPC* mCam;
     cMesIm1Pt mMes;
     cAff2D_r mIm2Ref;
