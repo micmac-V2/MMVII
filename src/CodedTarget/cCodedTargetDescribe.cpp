@@ -125,7 +125,7 @@ namespace MMVII
                 {
                     if (aDes.mName == aEll.mNameCode)
                     {
-                        aDes.AddDetect(aCam, aSetImMes.MeasuresOfName(aDes.mName), aEll.mAffIm2Ref);
+                        aDes.AddDetect(aCam, aSetImMes.MeasuresOfName(aEll.mNameCode), aEll.mAffIm2Ref);
                         isOK = true;
                         break;
                     }
@@ -133,6 +133,7 @@ namespace MMVII
                 if (!isOK && !starts_with(aEll.mNameCode, MMVII_NONE))
                 {
                     AddDesCdT(aEll.mNameCode, mFSpec);
+                    mVDesCdT.back().AddDetect(aCam, aSetImMes.MeasuresOfName(aEll.mNameCode), aEll.mAffIm2Ref);
                 }
             }
         }
@@ -141,7 +142,9 @@ namespace MMVII
 
         for (cDesCdT aDes : mVDesCdT)
         {
-            aDes.InterCorners(mShow);
+            if (mShow) StdOut() << "CdT -> " << aDes.mName << ":\n";
+            aDes.InterGndCorners(mShow);//-> computes mVGndCorners
+            aDes.Estimate3DSimilOnCorners(mShow);//-> computes m3DSimil
         }
 
         return EXIT_SUCCESS;
