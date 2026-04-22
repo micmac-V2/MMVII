@@ -367,6 +367,8 @@ void cBA_BlockInstr::AddClino
     {
          std::vector<std::string> aParamFreeze = GetDef(aParamClino,1,std::vector<std::string>());
          mVertClinoFree = cStrIO<int>::FromStr(GetDef(aParamFreeze,0,std::string("0")));
+
+       //  StdOut() << "GGGGGGGGGGGG " << aParamClino << " " << aParamFreeze << " " << mVertClinoFree << "\n";
         // OkNewTS =  cStrIO<int>::FromStr(GetDef(aParamFreeze,1,std::string("0")));
     }
 
@@ -694,14 +696,16 @@ void cBA_BlockInstr::OneItere()
              aAvgGlob.Add(1.0,aVAv);
               StdOut() << "[" << aName << " : "  << Rad2DMgon(aVAv) << "] " ;
          }
+         if (mVertClinoFree)
+         {
+              StdOut() << " DVert=" << Rad2DMgon(Norm2(mVertical.GetPNorm()-mVertInit)) ;
+         }
          StdOut() << " ---- Glob=" << Rad2DMgon(aAvgGlob.Average()) ;
       }
-      if (mVertClinoFree)
-      {
-           StdOut() << " DVert=" << Rad2DMgon(Norm2(mVertical.GetPNorm()-mVertInit)) ;
-      }
+
       StdOut() << "\n";
 
+    //  StdOut() << "==========================================VVVVVV " << mVertClinoFree << "\n";
       {
          StdOut() <<  "  * EvolClino ";
          cWeightAv<tREAL8,tREAL8> aAvgGlob;
