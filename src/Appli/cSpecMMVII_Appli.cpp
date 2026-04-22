@@ -304,6 +304,8 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpecAppliBenchAPBI);
         TheVecAll.push_back(&TheSpecAppliTestElemBundle);
 
+        TheVecAll.push_back(&TheSpecSIFT);
+
 
         std::sort(TheVecAll.begin(),TheVecAll.end(),CmpCmd);
    }

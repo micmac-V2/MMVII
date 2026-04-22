@@ -158,7 +158,7 @@ extern cSpecMMVII_Appli  TheSpec_TransformPoses;
 extern cSpecMMVII_Appli  TheSpecAppliBenchAPBI;
 extern cSpecMMVII_Appli  TheSpecAppliTestElemBundle;
 
-
+extern cSpecMMVII_Appli TheSpecSIFT;
 };
 
 #endif  //  _MMVII_DeclareAllCmd_H_

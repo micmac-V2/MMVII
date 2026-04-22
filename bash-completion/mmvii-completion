@@ -5,7 +5,7 @@ _mmvii_completion()
   export COMP_LINE COLUMNS
   local cur cword
   _get_comp_words_by_ref -n = cur cword
-  local RESULT="$(python -  "$cur" "$cword" <<'EOT'
+  local RESULT="$(python3 -  "$cur" "$cword" <<'EOT'
 import sys
 import os
 import json
