@@ -305,35 +305,38 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
             {
                 if (mShow) StdOut() << aCam->NameImage() << "\n";
 
-                cSetMesPtOf1Im aSetGCPProj;
+                cSetMesPtOf1Im aSetPotGCP;
                 for (const auto& aGCP : aSetGCP.Measures())
                 {
                     if (aCam->IsVisible(aGCP.mPt) && !aSetOK.NameHasMeasure(aGCP.mNamePt))
                     {
-                        aSetGCPProj.AddMeasure(cMesIm1Pt(aCam->Ground2Image(aGCP.mPt), aGCP.mNamePt, 1.0));
+                        aSetPotGCP.AddMeasure(cMesIm1Pt(aCam->Ground2Image(aGCP.mPt), aGCP.mNamePt, 1.0));
                     }
                 }
 
-                if (aSetGCPProj.Measures().empty()) continue;
-
-                for (const auto& aNONE : aSetNONE.Measures())
+                if (!aSetPotGCP.Measures().empty())
                 {
-                    cMesIm1Pt* aNearestGCP = aSetGCPProj.NearestMeasure(aNONE.mPt);
-                    if (mShow) StdOut() << aNONE.mNamePt << " : "
-                                 << aNearestGCP->mNamePt << "? -> " << Norm2(aNONE.mPt - aNearestGCP->mPt);
-                    if (Norm2(aNONE.mPt - aNearestGCP->mPt) < mOKNear)
+                    for (const auto& aNONE : aSetNONE.Measures())
                     {
-                        cMesIm1Pt aRecovMes = *aNearestGCP;
-                        aRecovMes.mPt = aNONE.mPt;
-                        aSetOKRecov.AddMeasure(aRecovMes);
-                        aSetOK.AddMeasure(aRecovMes);
-                        aMOKCorresp[aNONE.mNamePt] = aRecovMes.mNamePt;
-                        if (mShow) StdOut() << " -> OK (< " << mOKNear << ")\n";
+                        cMesIm1Pt* aNearestGCP = aSetPotGCP.NearestMeasure(aNONE.mPt);
+                        if (mShow) StdOut() << aNONE.mNamePt << " : "
+                                     << aNearestGCP->mNamePt << "? -> " << Norm2(aNONE.mPt - aNearestGCP->mPt);
+                        if (Norm2(aNONE.mPt - aNearestGCP->mPt) < mOKNear)
+                        {
+                            cMesIm1Pt aRecovMes = *aNearestGCP;
+                            aRecovMes.mPt = aNONE.mPt;
+                            aSetOKRecov.AddMeasure(aRecovMes);
+                            aSetOK.AddMeasure(aRecovMes);
+                            aMOKCorresp[aNONE.mNamePt] = aRecovMes.mNamePt;
+                            if (mShow) StdOut() << " -> OK (< " << mOKNear << ")\n";
+                        }
+                        else {
+                            if (mShow) StdOut() << " -> NOT OK (> " << mOKNear << ")\n";
+                            aSetOK.AddMeasure(aNONE);
+                        }
                     }
-                    else {
-                        if (mShow) StdOut() << " -> NOT OK (> " << mOKNear << ")\n";
-                        aSetOK.AddMeasure(aNONE);
-                    }
+                } else {
+                    if (mShow) StdOut() << " -> NO POT GCP" << '\n';
                 }
             }
 
@@ -375,15 +378,16 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
             StdOut() << aCam->NameImage() << "->" << " OKRecov : " << aSetOKRecov.Measures().size()
                      << "/" << aSetNONE.Measures().size() << "\n";
 
-            if(mVisu)
+            if(mVisu && !aSetOKRecov.Measures().empty())
             {
                 cRGBImage aIm = cRGBImage::FromFile(aCam->NameImage());
                 for (const cMesIm1Pt& aMes : aSetOKRecov.Measures())
                 {
                     aIm.SetRGBBorderRectWithAlpha(ToI(aMes.mPt),100,10,cRGBImage::Orange,0.1);
-                    aIm.DrawString(aMes.mNamePt,cRGBImage::White,aMes.mPt,cPt2dr(0.5,0.05));
+                    aIm.DrawCircle(cRGBImage::Cyan, aMes.mPt, 1);
+                    aIm.DrawString(aMes.mNamePt,cRGBImage::White,aMes.mPt,cPt2dr(.5,.5),5);
                 }
-                //aIm.ToJpgFileDeZoom(mPhProj.DirVisuAppli() +  "Recov" +"-" + LastPrefix(FileOfPath(aCam->NameImage()));
+                aIm.ToJpgFileDeZoom(mPhProj.DirVisuAppli() +  "Recov" +"-" + LastPrefix(FileOfPath(aCam->NameImage())) + ".jpg", 1, {"QUALITY=90"});
             }
         }
     }
