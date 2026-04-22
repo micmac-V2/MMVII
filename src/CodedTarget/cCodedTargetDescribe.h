@@ -48,20 +48,28 @@ class cDesCdT
 {
     public:
     cDesCdT(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec);
+        //----- members
         std::string mName;
         std::vector<cDetCdT> mVDetects;
+        //----- methods
         void AddDetect(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D);
-        void InterBitCenters();
-        void InterCorners(bool& show);
-        void Estimate3DSimil();
+        void InterBitCenters(bool& aShow);
+        void InterGndCorners(bool& aShow);
+        void Estimate3DSimilOnCorners(bool& aShow);
         cPt2dr Gnd2CdT(cPt3dr& aPt, const cDetCdT& aDet);
-        cPt3dr CdT2Gnd(const cPt2dr& aPt, std::vector<tREAL8>* aVRes = nullptr);
+        cPt3dr CdT2GndByInter(const cPt2dr& aPt, std::vector<tREAL8>* aVRes = nullptr);
+        cPt3dr CdT2GndBySimil();
     private:
+        //----- members
         const cOneEncoding* mEnc;
         tREAL8 mRes;
-        std::vector<cPt3dr> mVBitCenters3D;
-        std::vector<cPt3dr> mVCorners3D;
-        std::vector<cPt2dr> mVCorners2D;
+        std::vector<cPt2dr> mVBitCenters2D;
+        std::vector<cPt2dr> mVCdTCorners;
+        std::vector<cPt3dr> mVCdtCorners3D;
+        std::vector<cPt3dr> mVGndCorners;
+        cSimilitud3D<tREAL8> m3DSimil;
+        //----- methods
+        void Estimate3DSimil(std::vector<cPt3dr>& aVInPts, std::vector<cPt3dr>& aVOutPts, bool& aShow);
 };
 
 /** Class to store coded target detection **/
@@ -71,6 +79,6 @@ struct cDetCdT
     cDetCdT(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D);
     const cSensorCamPC* mCam;
     cMesIm1Pt mMes;
-    cAff2D_r mAff2D;
+    cAff2D_r mIm2Ref;
 };
 }

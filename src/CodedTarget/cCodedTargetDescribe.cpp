@@ -2,6 +2,102 @@
 
 namespace MMVII
 {
+    cDetCdT::cDetCdT(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D):
+        mCam(aCam),
+        mMes(aMes),
+        mIm2Ref (aAff2D)
+    {
+        //
+    }
+
+    /**************************************************************************/
+    /*
+     * cDesCdT methods
+     */
+    /**************************************************************************/
+
+    cDesCdT::cDesCdT(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec):
+        mName(aName),
+        mEnc(aSpec->EncodingFromName(aName)),
+        mRes(600),
+        mVBitCenters2D(aSpec->BitsCenters()), //assumes that target is a square
+        mVCdTCorners({cPt2dr(0,0), cPt2dr(mRes,0), cPt2dr(mRes,mRes), cPt2dr(0,mRes)})
+    {
+        for (const auto& aPt : mVCdTCorners){mVCdtCorners3D.push_back(cPt3dr(aPt.x(), aPt.y(), 0));}
+    }
+
+    void cDesCdT::AddDetect(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D)
+    {
+        cDetCdT aDet(aCam, aMes, aAff2D);
+        mVDetects.push_back(aDet);
+    }
+
+    void cDesCdT::InterGndCorners(bool& aShow)
+    {
+        for (const cPt2dr& aCorn : mVCdTCorners)
+        {
+            std::vector<tREAL8> aVRes = {};
+            cPt3dr aInter = CdT2GndByInter(aCorn, &aVRes);
+            mVGndCorners.push_back(aInter);
+            if (aShow)
+            {
+                StdOut() << "3D BUNDLE INTER" << aCorn << " -> " << aInter << ":";
+                for (decltype(aVRes.size()) ix=0; ix<aVRes.size(); ++ix)
+                {
+                    StdOut() << mVDetects[ix].mCam->NameImage() << " -> " << aVRes[ix] << '\n';
+                }
+            }
+        }
+    }
+
+    void cDesCdT::Estimate3DSimil(std::vector<cPt3dr>& aVInPts, std::vector<cPt3dr>& aVOutPts, bool& aShow)
+    {
+        tREAL8 aRes;
+        m3DSimil = m3DSimil.StdGlobEstimate(aVInPts, aVOutPts, &aRes, nullptr, cParamCtrlOpt::Default());
+        if (aShow)
+        {
+            StdOut() << "3D SIMIL ESTIMATE -> " << aRes << m3DSimil.Tr() << '\n';
+        }
+    }
+
+    void cDesCdT::Estimate3DSimilOnCorners(bool& aShow)
+    {
+        Estimate3DSimil(mVCdtCorners3D, mVGndCorners, aShow);
+    }
+
+    cPt3dr cDesCdT::CdT2GndByInter(const cPt2dr& aPt, std::vector<tREAL8>* aVRes)
+    {
+        std::vector<tSeg3dr> aVBundles;
+        for (const auto& aDet : mVDetects)
+        {
+            cPt2dr aImPt = aDet.mIm2Ref.Inverse(aPt);
+            aVBundles.push_back(aDet.mCam->Image2Bundle(aImPt));
+        }
+        cPt3dr aInter = BundleInters(aVBundles);
+
+        if(aVRes)
+        {
+            for (const auto& aDet : mVDetects)
+            {
+                tREAL8 aRes = Norm2(aPt-Gnd2CdT(aInter, aDet));
+                aVRes->push_back(aRes);
+            }
+        }
+
+        return aInter;
+    }
+
+    cPt2dr cDesCdT::Gnd2CdT(cPt3dr& aPt, const cDetCdT& aDet)
+    {
+        cPt2dr aImPt = aDet.mCam->Ground2Image(aPt);
+        return aDet.mIm2Ref.Value(aImPt);
+    }
+
+    /**************************************************************************/
+    /*
+     * cAppli_CodedTargetDescribe methods
+     */
+    /**************************************************************************/
 
     cCollecSpecArg2007& cAppli_CodedTargetDescribe::ArgObl(cCollecSpecArg2007& anArgObl)
     {
@@ -34,70 +130,6 @@ namespace MMVII
     {
         cDesCdT aDes(aName, aSpec);
         mVDesCdT.push_back(aDes);
-    }
-
-    cDetCdT::cDetCdT(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D):
-        mCam(aCam),
-        mMes(aMes),
-        mAff2D (aAff2D)
-    {
-        //
-    }
-
-    cDesCdT::cDesCdT(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec):
-        mName(aName),
-        mEnc(aSpec->EncodingFromName(aName)),
-        mRes(600), //assumes that target is a square
-        mVCorners2D({cPt2dr(0,0), cPt2dr(mRes,0), cPt2dr(mRes,mRes), cPt2dr(0,mRes)})
-    {
-    }
-
-    void cDesCdT::AddDetect(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D)
-    {
-        cDetCdT aDet(aCam, aMes, aAff2D);
-        mVDetects.push_back(aDet);
-    }
-
-    void cDesCdT::InterCorners(bool& show)
-    {
-        for (const cPt2dr& aCorn : mVCorners2D)
-        {
-            std::vector<tREAL8> aVRes = {};
-            CdT2Gnd(aCorn, &aVRes);
-            if (show)
-            {
-                StdOut() << "CdT : " + mName << "-> (bundle inter " << aCorn << ") RES: \n";
-                for (decltype(aVRes.size()) ix=0; ix<aVRes.size(); ++ix)
-                {
-                    StdOut() << mVDetects[ix].mCam->NameImage() << " -> " << aVRes[ix] << '\n';
-                }
-            }
-        }
-    }
-
-    cPt3dr cDesCdT::CdT2Gnd(const cPt2dr& aPt, std::vector<tREAL8>* aVRes)
-    {
-        std::vector<tSeg3dr> aVBundles;
-        for (const auto& aDet : mVDetects)
-        {
-            cPt2dr aImPt = aDet.mAff2D.Inverse(aPt);
-            aVBundles.push_back(aDet.mCam->Image2Bundle(aImPt));
-        }
-        cPt3dr aInter = BundleInters(aVBundles);
-
-        for (const auto& aDet : mVDetects)
-        {
-            tREAL8 aRes = Norm2(aPt-Gnd2CdT(aInter, aDet));
-            aVRes->push_back(aRes);
-        }
-
-        return aInter;
-    }
-
-    cPt2dr cDesCdT::Gnd2CdT(cPt3dr& aPt, const cDetCdT& aDet)
-    {
-        cPt2dr aImPt = aDet.mCam->Ground2Image(aPt);
-        return aDet.mAff2D.Value(aImPt);
     }
 
     int cAppli_CodedTargetDescribe::Exe()
