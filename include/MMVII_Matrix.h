@@ -145,6 +145,8 @@ template <class Type> class  cDenseVect
         Type ProdElem() const; ///< Mul of all element, usefull for det computation
         Type SumElem() const; ///< Som of all element
         Type AvgElem() const; ///< Avereage of all elements
+        Type Min() const; ///< minimum of all elements
+        Type Max() const; ///< maximum of all elements
         void SetAvg(const Type & anAvg); ///< multiply by a cste to fix the average
 
 

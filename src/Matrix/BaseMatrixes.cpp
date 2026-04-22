@@ -344,6 +344,31 @@ template <class Type> Type  cDenseVect<Type>::AvgElem() const
     return SumElem() / Type(Sz());
 }
 
+template <class Type> Type  cDenseVect<Type>::Min() const
+{
+    if (Sz()<0)
+        return std::numeric_limits<Type>::min();
+    Type aRes = (*this)(0);
+    for (int aK=1 ; aK<Sz() ; aK++)
+        if ((*this)(aK)<aRes)
+            aRes = (*this)(aK);
+
+    return aRes;
+}
+
+template <class Type> Type  cDenseVect<Type>::Max() const
+{
+    if (Sz()<0)
+        return std::numeric_limits<Type>::max();
+    Type aRes = (*this)(0);
+    for (int aK=1 ; aK<Sz() ; aK++)
+        if ((*this)(aK)>aRes)
+            aRes = (*this)(aK);
+
+    return aRes;
+}
+
+
 template <class Type> void  cDenseVect<Type>::SetAvg(const Type & aTargAvg)
 {
    Type  aMul = SafeDiv (aTargAvg,AvgElem());
