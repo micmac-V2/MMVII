@@ -7,6 +7,7 @@
 namespace MMVII
 {
 
+//#define NUMPATCHDEBUG 3
 
 
 cBA_LidarBase::cBA_LidarBase(cPhotogrammetricProject * aPhProj,
@@ -708,8 +709,6 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
      std::vector<cData1ImLidPhgr> aVData; // for each image where patch is visible will store the data
      cComputeStdDev<tREAL8>   aStdDev;    // compute the standard deviation of projected radiometry (indicator)
 
-//#define NUMPATCHDEBUG 3
-
      //  Parse all the image, we will select the images where all point of a patch are visible
      //std::cout<<"New patch\n";
      for (size_t aKIm=0 ; aKIm<mBA.VSCPC().size() ; aKIm++)
@@ -740,8 +739,8 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
                                 continue;
                             aData.mVGr.push_back(aVGr); // push it at end of stack
                         #ifdef NUMPATCHDEBUG
-                            if ((aPatchNum<=NUMPATCHDEBUG)&&(aData.mVGr.size()==1)) // show central point info
-                                std::cout<<"Patch "<<aPatchNum<<" Gnd: "<<aPGround<< " on "<< mBA.VSCPC()[aKIm]->NameImage()<<": "<<aPIm<<" V= "<<aVGr.first<<"\n";
+                            //if ((aPatchNum<=NUMPATCHDEBUG)&&(aData.mVGr.size()==1)) // show central point info
+                            //    std::cout<<"Patch "<<aPatchNum<<" Gnd: "<<aPGround<< " on "<< mBA.VSCPC()[aKIm]->NameImage()<<": "<<aPIm<<" V= "<<aVGr.first<<"\n";
                         #endif
                         }
                    }
@@ -776,18 +775,24 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
             int aI = 0;
             int aJ = 0;
             // make a vect of gray in correct order
-            std::vector<tREAL4> aVGrOrdered(aData.mVGr.size());
+            cDenseVect<tREAL8> aVGrOrdered(aData.mVGr.size());
             for (size_t i=0; i<aData.mVGr.size() ; ++i)
             {
                 if (i==0)
-                    aVGrOrdered[aData.mVGr.size()/2] = aData.mVGr[0].first; //center
+                    aVGrOrdered(aData.mVGr.size()/2) = aData.mVGr[0].first; //center
                 else if (i<=aData.mVGr.size()/2)
-                    aVGrOrdered[i-1] = aData.mVGr[i].first;
+                    aVGrOrdered(i-1) = aData.mVGr[i].first;
                 else
-                    aVGrOrdered[i] = aData.mVGr[i].first;
+                    aVGrOrdered(i) = aData.mVGr[i].first;
             }
-            for (const auto & aV : aVGrOrdered)
+
+            cDenseVect<tREAL8> aVGrOrderedNormed = NormalizeMoyVar(aVGrOrdered);  // noramlize value
+            auto aMin = aVGrOrderedNormed.Min();
+            auto aMax = aVGrOrderedNormed.Max();
+
+            for (size_t i=0; i<aData.mVGr.size(); ++i)
             {
+                auto aV = (aVGrOrderedNormed(i)-aMin)/(aMax-aMin)*255;
                 aImDist8b.FillRectangle(cPt3di(aV,aV,aV),
                                         cPt2di(aI, aJ)*(aPixSz+aSpaceSz)+cPt2di(aSpaceSz,aSpaceSz),
                                         cPt2di(aI+1, aJ+1)*(aPixSz+aSpaceSz),
