@@ -333,17 +333,19 @@ void cBA_LidarPhotograTri::AddObs()
         for (size_t aKP=0 ; aKP<mTri->NbPts() ; aKP++)
         {
             Add1Patch(aWeighter,{ToR(mTri->KthPts(aKP))},
-                      "?",aNoHiddenPartComputed);
+                      "?",aNoHiddenPartComputed, aKP);
         }
     }
     else
     {
+        int aNbPatch = 0;
         for (const auto& aPatchIndex : mLPatchesI)
         {
             std::vector<cPt3dr> aVP;
             for (const auto anInd : aPatchIndex)
                 aVP.push_back(ToR(mTri->KthPts(anInd)));
-            Add1Patch(aWeighter,aVP,"?",aNoHiddenPartComputed);
+            Add1Patch(aWeighter,aVP,"?",aNoHiddenPartComputed, aNbPatch);
+            aNbPatch++;
         }
     }
 
@@ -410,11 +412,13 @@ void cBA_LidarPhotograRaster::AddObs()
         for (auto & aScan : mVScans)
         {
             auto aWeighter = mWeightersMap.at(aScan.mLidarRaster->NameImage());
+            int aNbPatch = 0;
             for (const auto& aPatch : aScan.mLPatches)
             {
                 Add1Patch(aWeighter,
                           {aScan.mLidarRaster->Image2Ground(*aPatch.mLPatchesP.begin())},
-                          aScan.mLidarRaster->NameImage(), aPatch.mHiddenOnImage);
+                          aScan.mLidarRaster->NameImage(), aPatch.mHiddenOnImage, aNbPatch);
+                aNbPatch++;
             }
         }
     }
@@ -423,12 +427,14 @@ void cBA_LidarPhotograRaster::AddObs()
         for (auto & aScan : mVScans)
         {
             auto aWeighter = mWeightersMap.at(aScan.mLidarRaster->NameImage());
+            int aNbPatch = 0;
             for (const auto& aPatch : aScan.mLPatches)
             {
                 std::vector<cPt3dr> aVP;
                 for (const auto aPt : aPatch.mLPatchesP)
                     aVP.push_back(aScan.mLidarRaster->Image2Ground(aPt));
-                Add1Patch(aWeighter,aVP,aScan.mLidarRaster->NameImage(), aPatch.mHiddenOnImage);
+                Add1Patch(aWeighter,aVP,aScan.mLidarRaster->NameImage(), aPatch.mHiddenOnImage, aNbPatch);
+                aNbPatch++;
             }
         }
     }
@@ -517,8 +523,8 @@ void cBA_LidarPhotograRaster::SetVUkVObs
 void cBA_LidarPhotogra::AddPatchDifRad
     (const cResidualWeighter<tREAL8> &aWeighter,
      const std::vector<cPt3dr> & aVPatchPtGnd,
-     const std::vector<cData1ImLidPhgr> &aVData
-     )
+     const std::vector<cData1ImLidPhgr> &aVData,
+     int aPatchNum)
 {
      // read the solver now, because was not initialized at creation
      cResolSysNonLinear<tREAL8> *  aSys = mBA.Sys();
@@ -547,8 +553,8 @@ void cBA_LidarPhotogra::AddPatchDifRad
 void cBA_LidarPhotogra::AddPatchCensus
     (const cResidualWeighter<tREAL8> & aWeighter,
      const std::vector<cPt3dr> & aVPatchPtGnd,
-     const std::vector<cData1ImLidPhgr> &aVData
-     )
+     const std::vector<cData1ImLidPhgr> &aVData,
+     int aPatchNum)
 {
      // read the solver now, because was not initialized at creation
      cResolSysNonLinear<tREAL8> *  aSys = mBA.Sys();
@@ -584,7 +590,7 @@ void cBA_LidarPhotogra::AddPatchCorrel
     (const cResidualWeighter<tREAL8> &aWeighter,
      const std::vector<cPt3dr> & aVPatchPtGnd,
      const std::vector<cData1ImLidPhgr> &aVData
-     )
+     , int aPatchNum)
 {
      // read the solver now, because was not initialized at creation
      cResolSysNonLinear<tREAL8> *  aSys = mBA.Sys();
@@ -674,12 +680,12 @@ void cBA_LidarPhotogra::AddPatchCorrel
 void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
                                   const std::vector<cPt3dr> & aVPatchPtGnd,
                                   const std::string & aScanName,
-                                  const std::unordered_set<std::string> &aHiddenOnImage)
+                                  const std::unordered_set<std::string> &aHiddenOnImage, int aPatchNum)
 {
      std::vector<cData1ImLidPhgr> aVData; // for each image where patch is visible will store the data
      cComputeStdDev<tREAL8>   aStdDev;    // compute the standard deviation of projected radiometry (indicator)
 
-//#define NUMPATCHDEBUG 1
+//#define NUMPATCHDEBUG 3
 
      //  Parse all the image, we will select the images where all point of a patch are visible
      //std::cout<<"New patch\n";
@@ -711,8 +717,8 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
                                 continue;
                             aData.mVGr.push_back(aVGr); // push it at end of stack
                         #ifdef NUMPATCHDEBUG
-                            if ((mNbUsedPoints<=NUMPATCHDEBUG)&&(aData.mVGr.size()==1)) // show central point info
-                                std::cout<<"Gnd: "<<aPGround<< " on "<< mBA.VSCPC()[aKIm]->NameImage()<<": "<<aPIm<<" V= "<<aVGr.first<<"\n";
+                            if ((aPatchNum<=NUMPATCHDEBUG)&&(aData.mVGr.size()==1)) // show central point info
+                                std::cout<<"Patch "<<aPatchNum<<" Gnd: "<<aPGround<< " on "<< mBA.VSCPC()[aKIm]->NameImage()<<": "<<aPIm<<" V= "<<aVGr.first<<"\n";
                         #endif
                         }
                    }
@@ -738,7 +744,7 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
      // debug patch
      int aPixSz = 15;
      int aSpaceSz = 1;
-     if (mNbUsedPoints<=NUMPATCHDEBUG)
+     if (aPatchNum<=NUMPATCHDEBUG)
      {
          for (const auto & aData : aVData)
          {
@@ -771,7 +777,7 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
                     aI = 0;
                 }
             }
-            std::string aPath = mPhProj->DirVisuAppli() + "patch_" + ToStr(mNbUsedPoints) + "_iter" + ToStr(mBA.Iter(),1)
+            std::string aPath = mPhProj->DirVisuAppli() + "patch_" + ToStr(aPatchNum,3) + "_iter" + ToStr(mBA.Iter(),1)
                                 + "_" + mBA.VSCPC()[aData.mKIm]->NameImage() + ".png";
             aImDist8b.ToFile(aPath);
          }
@@ -788,15 +794,15 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
 
      if (mModeSim==eImatchCrit::eDifRad)
      {
-        AddPatchDifRad(aWeighter,aVPatchPtGnd,aVData);
+        AddPatchDifRad(aWeighter,aVPatchPtGnd,aVData, aPatchNum);
      }
      else if (mModeSim==eImatchCrit::eCensus)
      {
-        AddPatchCensus(aWeighter,aVPatchPtGnd,aVData);
+        AddPatchCensus(aWeighter,aVPatchPtGnd,aVData, aPatchNum);
      }
      else if (mModeSim==eImatchCrit::eCorrel)
      {
-        AddPatchCorrel(aWeighter,aVPatchPtGnd,aVData);
+        AddPatchCorrel(aWeighter,aVPatchPtGnd,aVData, aPatchNum);
      }
 }
 
