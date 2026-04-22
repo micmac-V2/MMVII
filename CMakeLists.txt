@@ -55,12 +55,12 @@ endif()
 #######################################################
 
 # PROJ
-find_package(PROJ QUIET)
-if (NOT  PROJ_FOUND)
-  # needed on Ubuntu
-  find_package(PkgConfig)
-  pkg_search_module(PROJ REQUIRED proj)
-endif()
+#&lb find_package(PROJ QUIET)
+#alb if (NOT  PROJ_FOUND)
+#alb  # needed on Ubuntu
+#alb  find_package(PkgConfig)
+#alb  pkg_search_module(PROJ REQUIRED proj)
+#alb endif()
 
 if (PROJ_FOUND AND CMAKE_HOST_WIN32)
   find_file(PROJ_PROJ_DB_FILE proj.db PATHS ${PROJ_DIR} ${PROJ_BINARY_DIRS}/../share/proj NO_DEFAULT_PATH)
@@ -68,7 +68,14 @@ if (PROJ_FOUND AND CMAKE_HOST_WIN32)
 endif()
 
 # GDAL
-find_package(GDAL 3.4 REQUIRED)
+#alb find_package(GDAL 3.4 REQUIRED)
+
+#alb<
+set(PROJ_INCLUDE_DIRS /usr/include)
+set(GDAL_INCLUDE_DIRS /usr/include/gdal)
+set(GDAL_LIBRARIES /usr/lib/libgdal.so)
+set(PROJ_LIBRARIES /usr/lib/x86_64-linux-gnu/libproj.so)
+#>alb
 
 # Threads
 set(THREADS_PREFER_PTHREAD_FLAG ON)
