@@ -620,6 +620,8 @@ void CreateLink(const std::filesystem::path & aFileTarget,const std::filesystem:
     {
         MMVII_INTERNAL_ASSERT_always(ExistFile(aFileTarget),"File "+aFileTarget.native() + " dont exist in CreateLink");
     }
+
+   // StdOut() << " CRETALLLL " << aFileTarget.native() << " " << aLink2Create.native() << "\n";
     std::filesystem::create_symlink(aFileTarget,aLink2Create);
 }
 
