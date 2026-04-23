@@ -484,11 +484,20 @@ cDenseVect<tREAL8> NormalizeMoyVar(const cDenseVect<tREAL8> & aV0,tREAL8 aEpsilo
         aStdDev.Add(1.0,aV0(aK));
     aStdDev.SelfNormalize(aEpsilon);
 
-    tREAL8 aSqrtNb = std::sqrt(aSz);
     cDenseVect<tREAL8> aRes(aSz);
     for (size_t aK=0 ; aK<aSz ; aK++)
-        aRes(aK) = aStdDev.NormalizedVal(aV0(aK)) / aSqrtNb ;
+        aRes(aK) = aStdDev.NormalizedVal(aV0(aK));
 
+    return aRes;
+}
+
+cDenseVect<tREAL8> NormalizeMoyNorm2(const cDenseVect<tREAL8> & aV0,tREAL8 aEpsilon)
+{
+    size_t aSz = aV0.Sz();
+    auto aRes = NormalizeMoyVar(aV0,aEpsilon);
+    tREAL8 aSqrtNb = std::sqrt(aSz);
+    for (size_t aK=0 ; aK<aSz ; aK++)
+        aRes(aK) /= aSqrtNb;
     return aRes;
 }
 

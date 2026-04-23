@@ -202,8 +202,11 @@ template <class Type> class  cDenseVect
         tIM mIm;
 };
 
-/// return a vectot with avg=0 and som sq = 1
+/// return a vector with avg=0 and stddev=1
 cDenseVect<tREAL8> NormalizeMoyVar(const cDenseVect<tREAL8> & aV0,tREAL8 aEpsilon = 1e-5);
+
+/// return a vector with avg=0 and som sq = 1
+cDenseVect<tREAL8> NormalizeMoyNorm2(const cDenseVect<tREAL8> & aV0,tREAL8 aEpsilon = 1e-5);
 
 ///  fit the equation B +A Vx  = Y, return  [A,B]
 std::pair<tREAL8,tREAL8> LstSq_Fit_AxPBEqY(const cDenseVect<tREAL8> & aVX,const cDenseVect<tREAL8> & aVY);
