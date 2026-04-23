@@ -4,11 +4,11 @@ namespace MMVII
 {
     /**************************************************************************/
     /*
-     * cCdTDet methods
+     * cCdTDetec methods
      */
     /**************************************************************************/
 
-    cCdTDet::cCdTDet(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D):
+    cCdTDetec::cCdTDetec(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D):
         mCam(aCam),
         mMes(aMes),
         mIm2Ref (aAff2D)
@@ -18,11 +18,11 @@ namespace MMVII
 
     /**************************************************************************/
     /*
-     * cCdTDes methods
+     * cCdTDescr methods
      */
     /**************************************************************************/
 
-    cCdTDes::cCdTDes(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec):
+    cCdTDescr::cCdTDescr(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec):
         mName(aName),
         mEnc(aSpec->EncodingFromName(aName)),
         mRes(600),
@@ -32,13 +32,13 @@ namespace MMVII
         for (const auto& aPt : mVCdTCorners){mVCdtCorners3D.push_back(cPt3dr(aPt.x(), aPt.y(), 0));}
     }
 
-    void cCdTDes::AddDetect(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D)
+    void cCdTDescr::AddDetect(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D)
     {
-        cCdTDet aDet(aCam, aMes, aAff2D);
-        mVDetects.push_back(aDet);
+        cCdTDetec aDet(aCam, aMes, aAff2D);
+        mVDetec.push_back(aDet);
     }
 
-    void cCdTDes::InterGndCorners(bool& aShow)
+    void cCdTDescr::InterGndCorners(bool& aShow)
     {
         for (const cPt2dr& aCorn : mVCdTCorners)
         {
@@ -50,13 +50,13 @@ namespace MMVII
                 StdOut() << "3D BUNDLE INTER" << aCorn << " -> " << aInter << ":\n";
                 for (decltype(aVRes.size()) ix=0; ix<aVRes.size(); ++ix)
                 {
-                    StdOut() << mVDetects[ix].mCam->NameImage() << " -> " << aVRes[ix] << '\n';
+                    StdOut() << mVDetec[ix].mCam->NameImage() << " -> " << aVRes[ix] << '\n';
                 }
             }
         }
     }
 
-    void cCdTDes::Estimate3DSimil(std::vector<cPt3dr>& aVInPts, std::vector<cPt3dr>& aVOutPts, bool& aShow)
+    void cCdTDescr::Estimate3DSimil(std::vector<cPt3dr>& aVInPts, std::vector<cPt3dr>& aVOutPts, bool& aShow)
     {
         tREAL8 aRes;
         mSimil3D = mSimil3D.StdGlobEstimate(aVInPts, aVOutPts, &aRes, nullptr, cParamCtrlOpt::Default());
@@ -66,15 +66,15 @@ namespace MMVII
         }
     }
 
-    void cCdTDes::EstimateSimil3DOnCorners(bool& aShow)
+    void cCdTDescr::EstimateSimil3DOnCorners(bool& aShow)
     {
         Estimate3DSimil(mVCdtCorners3D, mVGndCorners, aShow);
     }
 
-    cPt3dr cCdTDes::CdT2GndByInter(const cPt2dr& aPt, std::vector<tREAL8>* aVRes)
+    cPt3dr cCdTDescr::CdT2GndByInter(const cPt2dr& aPt, std::vector<tREAL8>* aVRes)
     {
         std::vector<tSeg3dr> aVBundles;
-        for (const auto& aDet : mVDetects)
+        for (const auto& aDet : mVDetec)
         {
             cPt2dr aImPt = aDet.mIm2Ref.Inverse(aPt);
             aVBundles.push_back(aDet.mCam->Image2Bundle(aImPt));
@@ -83,7 +83,7 @@ namespace MMVII
 
         if(aVRes)
         {
-            for (const auto& aDet : mVDetects)
+            for (const auto& aDet : mVDetec)
             {
                 tREAL8 aRes = Norm2(aDet.mIm2Ref.Inverse(aPt)-aDet.mCam->Ground2Image(aInter));
                 aVRes->push_back(aRes);
@@ -93,7 +93,7 @@ namespace MMVII
         return aInter;
     }
 
-    cPt2dr cCdTDes::Gnd2CdT(cPt3dr& aPt, const cCdTDet& aDet)
+    cPt2dr cCdTDescr::Gnd2CdT(cPt3dr& aPt, const cCdTDetec& aDet)
     {
         cPt2dr aImPt = aDet.mCam->Ground2Image(aPt);
         return aDet.mIm2Ref.Value(aImPt);
@@ -103,18 +103,18 @@ namespace MMVII
      * Serialization methods
      */
 
-    void cCdTDes::AddData(const cAuxAr2007& anAux)
+    void cCdTDescr::AddData(const cAuxAr2007& anAux)
     {
         MMVII::AddData(cAuxAr2007("Name", anAux), mName);
         MMVII::AddData(cAuxAr2007("CdT2Gnd", anAux), mSimil3D);
     }
 
-    void AddData(const cAuxAr2007 &anAux, cCdTDes &aCdTDes)
+    void AddData(const cAuxAr2007 &anAux, cCdTDescr &aCdTDescr)
     {
-        aCdTDes.AddData(anAux);
+        aCdTDescr.AddData(anAux);
     }
 
-    std::string cCdTDes::NameFile(const cPhotogrammetricProject & aPhProj, std::string aName, bool Input)
+    std::string cCdTDescr::NameFile(const cPhotogrammetricProject & aPhProj, std::string aName, bool Input)
     {
         return  (Input ? aPhProj.DPGndPt3D().FullDirIn() : aPhProj.DPGndPt3D().FullDirOut())
                + "CdTDescript-"
@@ -155,10 +155,10 @@ namespace MMVII
         //
     }
 
-    void cAppli_CodedTargetDescribe::AddCdTDes(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec)
+    void cAppli_CodedTargetDescribe::AddDescr(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec)
     {
-        cCdTDes aDes(aName, aSpec);
-        mVCdTDes.push_back(aDes);
+        cCdTDescr aDes(aName, aSpec);
+        mVDescr.push_back(aDes);
     }
 
     int cAppli_CodedTargetDescribe::Exe()
@@ -180,7 +180,7 @@ namespace MMVII
             for (const cSaveExtrEllipe& aEll : aVEll)
             {
                 bool isOK = false;
-                for (cCdTDes& aDes : mVCdTDes)
+                for (cCdTDescr& aDes : mVDescr)
                 {
                     if (aDes.mName == aEll.mNameCode)
                     {
@@ -191,19 +191,19 @@ namespace MMVII
                 }
                 if (!isOK && !starts_with(aEll.mNameCode, MMVII_NONE))
                 {
-                    AddCdTDes(aEll.mNameCode, mFSpec);
-                    mVCdTDes.back().AddDetect(aCam, aSetImMes.MeasuresOfName(aEll.mNameCode), aEll.mAffIm2Ref);
+                    AddDescr(aEll.mNameCode, mFSpec);
+                    mVDescr.back().AddDetect(aCam, aSetImMes.MeasuresOfName(aEll.mNameCode), aEll.mAffIm2Ref);
                 }
             }
         }
 
         //------ [2] Space intersection of corners & 3D similitude estimation
-        for (cCdTDes aDes : mVCdTDes)
+        for (cCdTDescr aDes : mVDescr)
         {
             if (mShow) StdOut() << "CdT -> " << aDes.mName << ":\n";
             aDes.InterGndCorners(mShow);//-> computes mVGndCorners
             aDes.EstimateSimil3DOnCorners(mShow);//-> computes m3DSimil
-            SaveInFile(aDes, cCdTDes::NameFile(mPhProj, aDes.mName, false));//-> export to CdTDescript-?.xml
+            SaveInFile(aDes, cCdTDescr::NameFile(mPhProj, aDes.mName, false));//-> export to CdTDescript-?.xml
         }
 
         return EXIT_SUCCESS;
@@ -220,7 +220,7 @@ namespace MMVII
         (
             "CodedTargetDescribe",
             Alloc_CodedTargetDescribe,
-            "generate target 3D description from poses & images measurements",
+            "Generates coded target 3D description from poses & images measurements",
             //metadonnees
             {eApF::Ori,eApF::GCP},//features
             {eApDT::ObjCoordWorld, eApDT::ObjMesInstr},//inputs
