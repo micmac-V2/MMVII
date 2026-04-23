@@ -448,6 +448,8 @@ void cBA_LidarPhotograRaster::AddObs()
 }
 
 
+// ---------------------------------------------------------------------------
+
 void cBA_LidarPhotograTri::SetVUkVObs
     (
      const cPt3dr&           aPGround,
@@ -634,30 +636,15 @@ int cBA_LidarPhotogra::AddPatchCorrel
      int aK0Im = aVTmp.size();
 
      // push the initial values of Aj Bj
-     std::vector<int> aVIndexUsedImages;
-     int aNumIm = -1;
      for (const auto &  aVRad : aListVRad)
      {
-         aNumIm++;
          auto [A,B] =  LstSq_Fit_AxPBEqY(aVRad,aVMoy);  // solve  Ri = Aj Imj + Bj
-         // get residuals
-         cDenseVect<tREAL8> aVect1(aNbPt,eModeInitImage::eMIA_V1);
-         auto aRes = (A * aVRad + aVect1*B - aVMoy).SqL2Norm(true);
-         auto aW = aWeighter.WeightOfResidual({aRes})[0];
-         std::cout <<"patch "<<aPatchNum<<" im "<<aNumIm<<" A="<<A<<" B="<<B<<" res="<<aRes<<" W="<<aW<<"\n";
-         if ((aRes>3e-4)||(aW==0))
-         {
-             std::cout <<"patch image rejected\n";
-             continue; // patch too far
-         }
+         std::cout <<A<<" "<<B<<"\n";
          if (fabs(A)<1e-10)
              return 0; // patch in a saturated area
          aVTmp.push_back(A); // add tmp unknown for Aj
          aVTmp.push_back(B); // add tmp unknown for Bj
-         aVIndexUsedImages.push_back(aNumIm);
      }
-     if (aVIndexUsedImages.size()<2)
-         return 0; // this patch does not have enought suitable images
 
      cSetIORSNL_SameTmp<tREAL8>  aStrSubst(aVTmp); // structure for handling schurr eliminatio,
 
@@ -677,19 +664,13 @@ int cBA_LidarPhotogra::AddPatchCorrel
          //  S(R+dR) ^ 2 =1   ;  S (2 R dR ) = 1 - S(R^2)  ; but S(R^2)=1 by construction ...
          aVFixVar.push_back(2*aVMoy(aKPt));
 
-         int aNumUsedIm = 0; // for uk index
-         for (auto aKIm: aVIndexUsedImages)
+         for (int aKIm=0 ;  aKIm< (int) aVData.size() ; aKIm++)
          {
-             int aIndIm = -(1+aK0Im+2*aNumUsedIm);  // compute indexe assumming "a la queue leu-leu"
+             int aIndIm = -(1+aK0Im+2*aKIm);  // compute indexe assumming "a la queue leu-leu"
              std::vector<int>       aVIndUk{aIndPt,aIndIm,aIndIm-1} ;  // indexes of 3 unknown
              std::vector<tREAL8>    aVObs;  // vector of observations
              SetVUkVObs (aVPatchPtGnd.at(aKPt),&aVIndUk,aVObs,aVData.at(aKIm),aKPt);  // read obs & global Uk
-             //std::cout<<"ind: ";
-             //for (auto &v: aVIndUk)
-             //    std::cout<<v<<" ";
-             //std::cout<<"\n";
              aSys->R_AddEq2Subst(aStrSubst,mEq,aVIndUk,aVObs,aWeighter);  // add equation in tmp struct
-             aNumUsedIm++;
          }
      }
 
@@ -697,7 +678,7 @@ int cBA_LidarPhotogra::AddPatchCorrel
      aStrSubst.AddOneLinearObs(aNbPt,aVIndPt,aVFixVar,0.0);  // force standard dev
 
      aSys->R_AddObsWithTmpUK(aStrSubst,mBA.CurLVMParam());
-     return aVIndexUsedImages.size();
+     return aVData.size();
 }
 
 
@@ -832,6 +813,133 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
         mNbUsedObs+=AddPatchCorrel(aWeighter,aVPatchPtGnd,aVData, aPatchNum);
      }
 }
+
+//-------------------------------------------------------------
+
+
+int cBA_LidarPhotograRaster::AddPatchCorrel
+    (const cResidualWeighter<tREAL8> &aWeighter,
+     const std::vector<cPt3dr> & aVPatchPtGnd,
+     const std::vector<cData1ImLidPhgr> &aVData,
+     int aPatchNum)
+{
+    // read the solver now, because was not initialized at creation
+    cResolSysNonLinear<tREAL8> *  aSys = mBA.Sys();
+    // -------------- [1] Compute the normalized values --------------------
+    size_t aNbPt = aVPatchPtGnd.size();
+    //  vector that will store the normalized value (Avg=0, Sigma=1)
+    cDenseVect<tREAL8>  aVMedian(aNbPt,eModeInitImage::eMIA_Null);
+
+    //  memorize the radiometries of images as vector
+    std::vector<cDenseVect<tREAL8>>  aListVRad;
+    // memorize normalized radiometries for median
+    std::vector<cDenseVect<tREAL8>>  aListVRadNorm;
+    for (const auto & aData : aVData)
+    {
+        // change to vecor format
+        cDenseVect<tREAL8> aV(aNbPt);
+        for (size_t aK=0 ; aK< aNbPt ; aK++)
+        {
+            aV(aK)  = aData.mVGr.at(aK).first;
+        }
+        aListVRad.push_back(aV);
+        aListVRadNorm.push_back(NormalizeMoyVar(aV));  // noramlize value
+
+    }
+    for (size_t aK=0 ; aK< aNbPt ; aK++)
+    {
+        std::vector<tREAL8> aVV(aVData.size());
+        for (size_t aJ=0 ; aJ< aVData.size() ; aJ++)
+        {
+            aVV[aJ] = aListVRadNorm[aJ](aK);
+        }
+        aVMedian(aK) = NonConstMediane(aVV);
+    }
+    aVMedian =  NormalizeMoyVar(aVMedian);  // re normalized
+
+    // -------------- [2] Intialize the temporary  --------------------
+
+    /*  Say we have N points, M images,  tempory values will be stored "a la queue leu-leu" as :
+               R1 .. RN  A0  B0 A1 B1 ... AM BM
+             * where Ri are the unknown radiometry of the normalize patch
+             * where Aj are the unkonw for tranfering radiom of image j to normalize patch such that
+
+                 Ri =  Aj Imj(pij) + Bj
+
+             Noting pij the projection of Pi in Imj
+     */
+
+    std::vector<tREAL8> aVTmp = aVMedian.ToStdVect(); // push first values of normalized patch
+    int aK0Im = aVTmp.size();
+
+    // push the initial values of Aj Bj
+    std::vector<int> aVIndexUsedImages;
+    int aNumIm = -1;
+    for (const auto &  aVRad : aListVRad)
+    {
+        aNumIm++;
+        auto [A,B] =  LstSq_Fit_AxPBEqY(aVRad,aVMedian);  // solve  Ri = Aj Imj + Bj
+        // get residuals
+        cDenseVect<tREAL8> aVect1(aNbPt,eModeInitImage::eMIA_V1);
+        auto aRes = (A * aVRad + aVect1*B - aVMedian).SqL2Norm(true); //quadratic mean residual
+        // zncc = 1-aRes/2 ?
+        auto aW = aWeighter.WeightOfResidual({aRes})[0];
+        std::cout <<"patch "<<aPatchNum<<" im "<<aNumIm<<" A="<<A<<" B="<<B<<" res="<<aRes<<" W="<<aW<<"\n";
+        if ((aRes>0.3)||(aW==0))
+        {
+            std::cout <<"patch image rejected\n";
+            continue; // patch too far
+        }
+        if (fabs(A)<1e-10)
+            return 0; // patch in a saturated area
+        aVTmp.push_back(A); // add tmp unknown for Aj
+        aVTmp.push_back(B); // add tmp unknown for Bj
+        aVIndexUsedImages.push_back(aNumIm);
+    }
+    if (aVIndexUsedImages.size()<2)
+        return 0; // this patch does not have enought suitable images
+
+    cSetIORSNL_SameTmp<tREAL8>  aStrSubst(aVTmp); // structure for handling schurr eliminatio,
+
+        // three structure for forcing conservation of normalizattion (Avg,Sigma) for VMoy
+        std::vector<int> aVIndPt;       // indexe of unkown of norm radiom
+    std::vector<tREAL8> aVFixAvg;   // vector for forcing average
+    std::vector<tREAL8> aVFixVar;   // vector for forcing std dev
+
+    // -------------- [3] Add the equation  --------------------
+
+
+    for (int aKPt=0 ; aKPt <  (int) aNbPt ; aKPt++)  // parse all points
+    {
+        int aIndPt = -(1+aKPt);     // indexe of point are {-1,-2,....}
+        aVIndPt.push_back(aIndPt);  // accumulat set of global indexe of unknown patch
+        aVFixAvg.push_back(1.0);     //  Sum Rk = 0 => all weight = 1
+        //  S(R+dR) ^ 2 =1   ;  S (2 R dR ) = 1 - S(R^2)  ; but S(R^2)=1 by construction ...
+        aVFixVar.push_back(2*aVMedian(aKPt));
+
+        int aNumUsedIm = 0; // for uk index
+        for (auto aKIm: aVIndexUsedImages)
+        {
+            int aIndIm = -(1+aK0Im+2*aNumUsedIm);  // compute indexe assumming "a la queue leu-leu"
+            std::vector<int>       aVIndUk{aIndPt,aIndIm,aIndIm-1} ;  // indexes of 3 unknown
+            std::vector<tREAL8>    aVObs;  // vector of observations
+            SetVUkVObs (aVPatchPtGnd.at(aKPt),&aVIndUk,aVObs,aVData.at(aKIm),aKPt);  // read obs & global Uk
+            //std::cout<<"ind: ";
+            //for (auto &v: aVIndUk)
+            //    std::cout<<v<<" ";
+            //std::cout<<"\n";
+            aSys->R_AddEq2Subst(aStrSubst,mEq,aVIndUk,aVObs,aWeighter);  // add equation in tmp struct
+            aNumUsedIm++;
+        }
+    }
+
+    aStrSubst.AddOneLinearObs(aNbPt,aVIndPt,aVFixAvg,0.0);  // force average
+    aStrSubst.AddOneLinearObs(aNbPt,aVIndPt,aVFixVar,0.0);  // force standard dev
+
+    aSys->R_AddObsWithTmpUK(aStrSubst);
+    return aVIndexUsedImages.size();
+}
+
 
 //-------------------------------------------------------------
 

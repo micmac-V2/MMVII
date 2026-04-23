@@ -421,7 +421,7 @@ class cBA_LidarPhotogra: public cBA_LidarBase
                            const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        /// Method for adding observations with Normalized Centred Coefficent Correlation as similatity criterion
-       int AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
+       virtual int AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
                            const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        eImatchCrit                    mModeSim;        ///< type of similarity used
@@ -491,6 +491,9 @@ public :
 
     void UpdateInterpolatorScale(const cMMVII_BundleAdj& aBA);
     void UpdateWeightersMap(const cMMVII_BundleAdj &aBA, double aWFactor); // create or update map, on each iteration
+
+    int AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
+                       const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) override;
 
 protected:
     virtual void SetVUkVObs
