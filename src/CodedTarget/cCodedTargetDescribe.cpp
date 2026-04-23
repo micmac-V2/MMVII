@@ -26,7 +26,7 @@ namespace MMVII
         mName(aName),
         mEnc(aSpec->EncodingFromName(aName)),
         mRes(600),
-        mVBitCenters2D(aSpec->BitsCenters()), //assumes that target is a square
+        mVBitCenters2D(aSpec->BitsCenters()),
         mVCdTCorners({cPt2dr(0,0), cPt2dr(mRes,0), cPt2dr(mRes,mRes), cPt2dr(0,mRes)})
     {
         for (const auto& aPt : mVCdTCorners){mVCdtCorners3D.push_back(cPt3dr(aPt.x(), aPt.y(), 0));}
@@ -99,6 +99,10 @@ namespace MMVII
         return aDet.mIm2Ref.Value(aImPt);
     }
 
+    /*
+     * Serialization methods
+     */
+
     void cCdTDes::AddData(const cAuxAr2007& anAux)
     {
         MMVII::AddData(cAuxAr2007("Name", anAux), mName);
@@ -129,17 +133,16 @@ namespace MMVII
         return anArgObl
                << Arg2007(mSpecImIn, "Pattern/file of images", {{eTA2007::MPatFile,"0"}, {eTA2007::FileDirProj}})
                << Arg2007(mFSpecName,"Xml/Json name for bit encoding struct",{{eTA2007::XmlOfTopTag,cFullSpecifTarget::TheMainTag}})
-               << mPhProj.DPOrient().ArgDirInMand("Camera absolute orientation")
+               << mPhProj.DPOrient().ArgDirInMand("Cameras absolute orientations")
                << mPhProj.DPGndPt2D().ArgDirInMand("Coded targets image measurements")
-               << mPhProj.DPGndPt3D().ArgDirInMand("Coded targets ground coordinates")
-               << mPhProj.DPGndPt3D().ArgDirOutMand("Output for coded target description<< mPhProj.DPOrient().ArgDirInMand()")
+               << mPhProj.DPGndPt3D().ArgDirOutMand("Output for coded targets description")
             ;
     }
 
     cCollecSpecArg2007 & cAppli_CodedTargetDescribe::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     {
         return anArgOpt
-               << AOpt2007(mShow,"Show","show some useful details", {eTA2007::HDV})//hdv = has default value
+               << AOpt2007(mShow,"Show","Show useful details", {eTA2007::HDV})
             ;
     }
 
@@ -166,8 +169,6 @@ namespace MMVII
         mFSpec.reset(cFullSpecifTarget::CreateFromFile(mFSpecName));
 
         //----- [1] Load image measures
-        mPhProj.LoadGCP3D();
-
         for (const std::string& aIm : aVIm)
         {
             const cSensorCamPC* aCam = mPhProj.ReadCamPC(aIm, true);
@@ -196,20 +197,17 @@ namespace MMVII
             }
         }
 
-        //------ [2] Intersect corners/centers/bits
-
+        //------ [2] Space intersection of corners & 3D similitude estimation
         for (cCdTDes aDes : mVCdTDes)
         {
             if (mShow) StdOut() << "CdT -> " << aDes.mName << ":\n";
             aDes.InterGndCorners(mShow);//-> computes mVGndCorners
             aDes.EstimateSimil3DOnCorners(mShow);//-> computes m3DSimil
-            SaveInFile(aDes, cCdTDes::NameFile(mPhProj, aDes.mName, false));
+            SaveInFile(aDes, cCdTDes::NameFile(mPhProj, aDes.mName, false));//-> export to CdTDescript-?.xml
         }
 
         return EXIT_SUCCESS;
     }
-
-
 
     //----- memory allocation
     tMMVII_UnikPApli Alloc_CodedTargetDescribe(const std::vector<std::string> & aVArgs,
@@ -229,6 +227,4 @@ namespace MMVII
             {eApDT::Console},//output
             __FILE__
         );
-
-
-    }
+}
