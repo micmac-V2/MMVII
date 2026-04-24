@@ -751,7 +751,9 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
      {
          for (const auto & aData : aVData)
          {
-            tREAL4 aW = sqrt(aData.mVGr.size());
+            if (aData.mVGr.size() != mNbPointByPatch)
+                 continue; // not enougth data to export correctly
+            int aW = sqrt(aData.mVGr.size());
             cRGBImage  aImDist8b(cPt2di(aW, aW)*(aPixSz+aSpaceSz)+cPt2di(aSpaceSz,aSpaceSz), cRGBImage::Gray128);
             int aI = 0;
             int aJ = 0;
@@ -846,7 +848,7 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
             aV(aK)  = aData.mVGr.at(aK).first;
         }
         aListVRad.push_back(aV);
-        aListVRadNorm.push_back(NormalizeMoyVar(aV));  // noramlize value
+        aListVRadNorm.push_back(NormalizeMoyNorm2(aV));  // normalize value
 
     }
     for (size_t aK=0 ; aK< aNbPt ; aK++)
@@ -858,7 +860,7 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
         }
         aVMedian(aK) = NonConstMediane(aVV);
     }
-    aVMedian =  NormalizeMoyVar(aVMedian);  // re normalized
+    aVMedian =  NormalizeMoyNorm2(aVMedian);  // re normalized
 
     // -------------- [2] Intialize the temporary  --------------------
 
@@ -885,7 +887,7 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
         auto [A,B] =  LstSq_Fit_AxPBEqY(aVRad,aVMedian);  // solve  Ri = Aj Imj + Bj
         // get residuals
         cDenseVect<tREAL8> aVect1(aNbPt,eModeInitImage::eMIA_V1);
-        auto aRes = (A * aVRad + aVect1*B - aVMedian).SqL2Norm(true); //quadratic mean residual
+        auto aRes = (A * aVRad + aVect1*B - aVMedian).SqL2Norm(true) * aVRad.Sz(); //quadratic mean residual for stddev=1 images
         // zncc = 1-aRes/2 ?
         auto aW = aWeighter.WeightOfResidual({aRes})[0];
         std::cout <<"patch "<<aPatchNum<<" im "<<aNumIm<<" A="<<A<<" B="<<B<<" res="<<aRes<<" W="<<aW<<"\n";
