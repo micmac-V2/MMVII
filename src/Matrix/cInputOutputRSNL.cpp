@@ -152,7 +152,8 @@ template <class Type> cSetIORSNL_SameTmp<Type>::cSetIORSNL_SameTmp
         mVarTmpIsFrozen    (mNbTmpUk,false),
         mValueFrozenVarTmp (mNbTmpUk,-283971), // random val
         mNbEq              (0),
-        mSetIndTmpUk       (mNbTmpUk)
+        mSetIndTmpUk       (mNbTmpUk),
+        mLVMW              (mNbTmpUk, eModeInitImage::eMIA_Null)
 {
     MMVII_INTERNAL_ASSERT_tiny((aVFix.size()==aValFix.size()) || aValFix.empty(),"Bad size for fix var tmp");
 
@@ -185,6 +186,8 @@ template <class Type> cSetIORSNL_SameTmp<Type>::cSetIORSNL_SameTmp(bool Fake,con
          AddOneEq(cInputOutputRSNL<Type>(false,anIO));
 }
 
+
+    template <class Type>    const cDenseVect<Type> &   cSetIORSNL_SameTmp<Type>::LVMW() const {return mLVMW;}
 
 
 
@@ -224,6 +227,13 @@ template <class Type> void cSetIORSNL_SameTmp<Type>::AddOneEq(const tIO_OneEq & 
                    aVDer = 0;
               }
            }
+           // Accumulate the square diag for Levenberg-Marquardt
+           for (size_t aKEq=0 ; aKEq<anIO.mVals.size() ; aKEq++)
+           {
+                const Type & aVDer = anIO.mDers.at(aKEq).at(aKInd);
+                mLVMW(aIndPos) += anIO_In.mWeights.at(aKEq) * Square(aVDer);
+           }
+   // StdOut() << "LLLLLLevnnn in Schirrrrr \n";
         }
     }
 

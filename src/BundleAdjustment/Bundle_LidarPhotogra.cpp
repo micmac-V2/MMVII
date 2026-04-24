@@ -506,7 +506,7 @@ void cBA_LidarPhotogra::AddPatchDifRad
          aSys->R_AddEq2Subst(aStrSubst,mEq,aVIndUk,aVObs,aWeighter);
      }
      // do the substitution & add the equation reduced (Schurr complement)
-     aSys->R_AddObsWithTmpUK(aStrSubst);
+     aSys->R_AddObsWithTmpUK(aStrSubst,mBA.CurLVMParam());
 }
 
 void cBA_LidarPhotogra::AddPatchCensus
@@ -541,7 +541,7 @@ void cBA_LidarPhotogra::AddPatchCensus
              aSys->R_AddEq2Subst(aStrSubst,mEq,aVIndUk,aVObs,aWeighter); // add the equation in Schurr structure
          }
          // add all the equation to the system with Schurr's elimination
-         aSys->R_AddObsWithTmpUK(aStrSubst);
+         aSys->R_AddObsWithTmpUK(aStrSubst,mBA.CurLVMParam());
      }
 }
 
@@ -632,7 +632,7 @@ void cBA_LidarPhotogra::AddPatchCorrel
      aStrSubst.AddOneLinearObs(aNbPt,aVIndPt,aVFixAvg,0.0);  // force average
      aStrSubst.AddOneLinearObs(aNbPt,aVIndPt,aVFixVar,0.0);  // force standard dev
 
-     aSys->R_AddObsWithTmpUK(aStrSubst);
+     aSys->R_AddObsWithTmpUK(aStrSubst,mBA.CurLVMParam());
 }
 
 

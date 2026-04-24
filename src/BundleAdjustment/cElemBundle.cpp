@@ -265,7 +265,7 @@ void cElemBA::AddHomBundle_Cam1Cam2(const cPt3dr & aDirB1,const cPt3dr & aDirB2,
 
        AddEquationColinearity_Cam1(aStrSubst, aDirB1,aW);  // add colinearity for cam1 in str subsr
        AddEquationColinearity_Cam2(aStrSubst, aDirB2,aW);  // add colinarity for cam2  in str subst
-       mSys->R_AddObsWithTmpUK(aStrSubst);  // will add the set of equation after schurr eliminate
+       mSys->R_AddObsWithTmpUK(aStrSubst,0.0);  // will add the set of equation after schurr eliminate
 
        if (0)
        {
@@ -305,7 +305,7 @@ tREAL8 cElemBA::AddHom_NCam(const std::vector<int> &aVNumCams,const cPt3dr * aVD
         aSumR += Square(aRes);
     }
 
-    mSys->R_AddObsWithTmpUK(aStrSubst);  // will add the set of equation after schurr eliminate
+    mSys->R_AddObsWithTmpUK(aStrSubst,0.0);  // will add the set of equation after schurr eliminate
 
 
    // int aNbObs = 2 * aVNumCams.size();

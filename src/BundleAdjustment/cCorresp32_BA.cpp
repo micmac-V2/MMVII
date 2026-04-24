@@ -109,7 +109,7 @@ void cCorresp32_BA::OneIteration()
             // StdOut() << "WWWWWWWWWWWWW=" << aCorresp.mWeight << "\n";
             cResidualWeighter<tREAL8> aWeighter(aCorresp.mWeight);
             mSys->AddEq2Subst(aStrSubst,mEqColinearity,aVIndGlob,aVObs,aWeighter);
-            mSys->AddObsWithTmpUK(aStrSubst);
+            mSys->AddObsWithTmpUK(aStrSubst,0.0);
          }
          else
          {

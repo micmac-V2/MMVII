@@ -513,7 +513,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
              AddEqLink(aSys,aPtrSubst,aWeight,aKEq,aC0_in_W0,aC1_in_W0,aCTri0_In_W0,aCTri1_In_W0);
              aKEq += 4;
              if (withSchur)
-                aSys->PublicAddObsWithTmpUK(*aPtrSubst);
+                aSys->PublicAddObsWithTmpUK(*aPtrSubst,mPMAT->LVM());
         }
     }
 
@@ -573,7 +573,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
            }
            aKEq += 4;
            if (withSchur)
-              aSys->PublicAddObsWithTmpUK(*aPtrSubst);
+              aSys->PublicAddObsWithTmpUK(*aPtrSubst,mPMAT->LVM());
        }
     }
 

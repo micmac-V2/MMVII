@@ -179,7 +179,7 @@ void cBA_ArboTriplets::OneIteration(int aIter)
 
             if (aNbEqAdded>=2)
             {
-                mSys->R_AddObsWithTmpUK(aStrSubst);
+                mSys->R_AddObsWithTmpUK(aStrSubst,mPMAT->LVM());
                 aNum3DPts++;
             }
 
