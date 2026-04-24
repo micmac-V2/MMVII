@@ -411,17 +411,17 @@ class cBA_LidarPhotogra: public cBA_LidarBase
                        const std::string & aScanName, const std::unordered_set<std::string> &aHiddenOnImage,
                        int aPatchNum);
 
-       // AddPatch* returns number of images used
+       // AddPatch* returns (number of images used, mean residual)
        /// Method for adding observations with radiometric differences as similatity criterion
-       int AddPatchDifRad(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+       std::pair<int, tREAL8> AddPatchDifRad(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
                            const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        /// Method for adding observations with Census Coeff as similatity criterion
-       int AddPatchCensus(const cResidualWeighter<tREAL8> &aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+       std::pair<int, tREAL8>  AddPatchCensus(const cResidualWeighter<tREAL8> &aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
                            const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        /// Method for adding observations with Normalized Centred Coefficent Correlation as similatity criterion
-       virtual int AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
+       virtual std::pair<int, tREAL8>  AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
                            const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        eImatchCrit                    mModeSim;        ///< type of similarity used
@@ -492,7 +492,7 @@ public :
     void UpdateInterpolatorScale(const cMMVII_BundleAdj& aBA);
     void UpdateWeightersMap(const cMMVII_BundleAdj &aBA, double aWFactor); // create or update map, on each iteration
 
-    int AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
+    std::pair<int, tREAL8>  AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
                        const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) override;
 
 protected:
