@@ -87,7 +87,7 @@ private:
     static const std::map<std::string, std::string> &SupportedDrivers();
     static bool GDalDriverCanCreate(GDALDriver *aGdalDriver);
 
-    static CPLStringList GetCreateOptions(GDALDriver* aGdalDriver, const cDataFileIm2D::tOptions& aOptions);
+    static CPLStringList GetCreateOptions(GDALDriver* aGdalDriver, const std::vector<std::string>& aOptions);
 
     static GDALDataset* CreateDataset(const cDataFileIm2D& aDataFileIm2D, bool *createdInMemory);
 
