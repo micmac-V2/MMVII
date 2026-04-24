@@ -848,7 +848,7 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
             aV(aK)  = aData.mVGr.at(aK).first;
         }
         aListVRad.push_back(aV);
-        aListVRadNorm.push_back(NormalizeMoyNorm2(aV));  // normalize value
+        aListVRadNorm.push_back(NormalizeMoyVar(aV));  // normalize value
 
     }
     for (size_t aK=0 ; aK< aNbPt ; aK++)
@@ -860,7 +860,7 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
         }
         aVMedian(aK) = NonConstMediane(aVV);
     }
-    aVMedian =  NormalizeMoyNorm2(aVMedian);  // re normalized
+    aVMedian =  NormalizeMoyVar(aVMedian);  // re normalized
 
     // -------------- [2] Intialize the temporary  --------------------
 
@@ -887,7 +887,7 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
         auto [A,B] =  LstSq_Fit_AxPBEqY(aVRad,aVMedian);  // solve  Ri = Aj Imj + Bj
         // get residuals
         cDenseVect<tREAL8> aVect1(aNbPt,eModeInitImage::eMIA_V1);
-        auto aRes = (A * aVRad + aVect1*B - aVMedian).SqL2Norm(true) * aVRad.Sz(); //quadratic mean residual for stddev=1 images
+        auto aRes = sqrt((A * aVRad + aVect1*B - aVMedian).SqL2Norm(true)); //quadratic mean residual for stddev=1 images
         // zncc = 1-aRes/2 ?
         auto aW = aWeighter.WeightOfResidual({aRes})[0];
         std::cout <<"patch "<<aPatchNum<<" im "<<aNumIm<<" A="<<A<<" B="<<B<<" res="<<aRes<<" W="<<aW<<"\n";
@@ -906,6 +906,9 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
     if (aVIndexUsedImages.size()<2)
         return {0,0.}; // this patch does not have enought suitable images
 
+    // use the same weight for each point eq
+    auto aW = aWeighter.WeightOfResidual({sqrt(aMeanRes2/aVIndexUsedImages.size())})[0];
+
     cSetIORSNL_SameTmp<tREAL8>  aStrSubst(aVTmp); // structure for handling schurr eliminatio,
 
         // three structure for forcing conservation of normalizattion (Avg,Sigma) for VMoy
@@ -921,7 +924,7 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
         int aIndPt = -(1+aKPt);     // indexe of point are {-1,-2,....}
         aVIndPt.push_back(aIndPt);  // accumulat set of global indexe of unknown patch
         aVFixAvg.push_back(1.0);     //  Sum Rk = 0 => all weight = 1
-        //  S(R+dR) ^ 2 =1   ;  S (2 R dR ) = 1 - S(R^2)  ; but S(R^2)=1 by construction ...
+        //  S(R+dR) ^ 2 = N  ;  S (2 R dR ) = N - S(R^2)  ; but S(R^2)=N by construction ...
         aVFixVar.push_back(2*aVMedian(aKPt));
 
         int aNumUsedIm = 0; // for uk index
@@ -935,7 +938,7 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
             //for (auto &v: aVIndUk)
             //    std::cout<<v<<" ";
             //std::cout<<"\n";
-            aSys->R_AddEq2Subst(aStrSubst,mEq,aVIndUk,aVObs,aWeighter);  // add equation in tmp struct
+            aSys->R_AddEq2Subst(aStrSubst,mEq,aVIndUk,aVObs,aW);  // add equation in tmp struct
             aNumUsedIm++;
         }
     }
