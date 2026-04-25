@@ -615,7 +615,7 @@ void CreateLink(const std::filesystem::path & aFileTarget,const std::filesystem:
              MMVII_USER_WARNING
              (
                 std::string( "Link already exist pointing to diff file, do noting remove before :")
-                + aLink2Create.native() + std::string("->") +  aPrevTarget.native() + "/" + aFileTarget.native()
+                + aLink2Create.native() + std::string("->") +  aPrevTarget.native() + std::string("/") + aFileTarget.native()
              );
         }
         return;
