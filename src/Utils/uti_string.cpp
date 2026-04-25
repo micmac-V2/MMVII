@@ -604,24 +604,31 @@ void CreateLink(const std::filesystem::path & aFileTarget,const std::filesystem:
         std::filesystem::path aPrevTarget  = std::filesystem::read_symlink(aLink2Create);
         if (aPrevTarget == aFileTarget)
         {
-            MMVII_USER_WARNING("Link already exist pointing to same file :" + aLink2Create.native() + "->" + aFileTarget.native() );
+            MMVII_USER_WARNING
+            (
+                 std::string("Link already exist pointing to same file :") + aLink2Create.native()
+               + std::string("->") + aFileTarget.native()
+            );
         }
         else
         {
              MMVII_USER_WARNING
              (
-                  "Link already exist pointing to diff file, do noting remove before :"
-                + aLink2Create.native() + "->" +  aPrevTarget.native() + "/" + aFileTarget.native()
+                std::string( "Link already exist pointing to diff file, do noting remove before :")
+                + aLink2Create.native() + std::string("->") +  aPrevTarget.native() + "/" + aFileTarget.native()
              );
         }
         return;
     }
     if (fileMustExist)
     {
-        MMVII_INTERNAL_ASSERT_always(ExistFile(aFileTarget),"File "+aFileTarget.native() + " dont exist in CreateLink");
+        MMVII_INTERNAL_ASSERT_always
+        (
+            ExistFile(aFileTarget),
+            std::string("File ")+aFileTarget.native() + std::string(" dont exist in CreateLink")
+        );
     }
 
-   // StdOut() << " CRETALLLL " << aFileTarget.native() << " " << aLink2Create.native() << "\n";
     std::filesystem::create_symlink(aFileTarget,aLink2Create);
 }
 
