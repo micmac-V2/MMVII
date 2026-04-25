@@ -216,7 +216,7 @@ class cMMVII_Ofs : public cMemCheck
         void Write(const double & aVal) ;
         void Write(const size_t & aVal) ;
         void Write(const std::string & aVal) ;
-   
+
         ///  Ok for basic type (int, cPtd2r ...), not any composed type ( std::string ...)
         template <class Type> void TplDump(const Type & aVal) {VoidWrite(&aVal,sizeof(aVal));}
         void VoidWrite(const void * aPtr,size_t aNb);
@@ -305,6 +305,14 @@ class cMultipleOfs
             *this  << "{" << aPair.first  << "," << aPair.second << "}";
             return *this;
         }
+        template <class T> cMultipleOfs & operator << (const std::optional<T> &aOpt)
+        {
+            if (aOpt)
+                *this << *aOpt;
+            else
+                *this << "(null)";
+            return *this;
+        }
         // General version
         template <class Type> cMultipleOfs & operator << (const Type & aVal)
         {
@@ -322,7 +330,7 @@ class cMultipleOfs
         }
 
     private :
-        
+
         cMultipleOfs(const cMultipleOfs &) = delete;
         cMMVII_Ofs *                mOfsCreated;
         std::vector<std::ostream *> mVOfs;
@@ -356,7 +364,7 @@ class cMMVII_Duration
 
 /** Class for storing set of int , can be use econmically for sparse
     big set, if recycledwith Clear() */
- 
+
 class cSetIntDyn
 {
      public :

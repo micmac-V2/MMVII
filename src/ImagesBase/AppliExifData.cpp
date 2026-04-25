@@ -5,10 +5,10 @@
 namespace MMVII
 {
 
-class cAppli_ExifData : public cMMVII_Appli
+class cAppli_ImageMetada : public cMMVII_Appli
 {
 public :
-    cAppli_ExifData(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec,bool isBasic);
+    cAppli_ImageMetada(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec,bool isBasic);
     int Exe() override;
     cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
@@ -18,7 +18,8 @@ private :
     int mDisp;
 };
 
-cCollecSpecArg2007 & cAppli_ExifData::ArgObl(cCollecSpecArg2007 & anArgObl)
+
+cCollecSpecArg2007 & cAppli_ImageMetada::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return
         anArgObl
@@ -26,11 +27,11 @@ cCollecSpecArg2007 & cAppli_ExifData::ArgObl(cCollecSpecArg2007 & anArgObl)
         ;
 }
 
-cCollecSpecArg2007 & cAppli_ExifData::ArgOpt(cCollecSpecArg2007 & anArgOpt)
+cCollecSpecArg2007 & cAppli_ImageMetada::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return
         anArgOpt
-        <<   AOpt2007(mDisp,"Disp","0:All known tags, 1:Main tags, 2:exif strings, 3:all metadata",{eTA2007::HDV,{eTA2007::Range,"[0,3]"}})
+        <<   AOpt2007(mDisp,"Disp","0:Size & type, 1:Main Exif, 2:All Exif, 3:Raw Exif  4:all GDAL info ",{eTA2007::HDV,{eTA2007::Range,"[0,4]"}})
         ;
 }
 
@@ -43,7 +44,7 @@ std::ostream& operator<<(std::ostream& os, std::optional<T> const& opt)
 }
 
 
-int cAppli_ExifData::Exe()
+int cAppli_ImageMetada::Exe()
 {
     const auto default_precision{std::cout.precision()};
     constexpr auto max_precision{std::numeric_limits<long double>::digits10};
@@ -51,23 +52,22 @@ int cAppli_ExifData::Exe()
     for (const auto & aName : VectMainSet(0))
     {
         auto aDataFileIm=cDataFileIm2D::Create(aName,eForceGray::No);
-        std::cout << "####### " << aDataFileIm.Name() <<":" << std::endl;
-        if (mDisp == 3) {
-            auto allMetadata = aDataFileIm.AllMetadata();
-            for (const auto& aDomain : allMetadata ) {
-                std::cout << "- Domain : " << (aDomain.first.empty() ? "<NULL>" : "\"" + aDomain.first + "\"") << "\n";
-                for (const auto& aMetadata : aDomain.second) {
-                    std::cout << "  . \"" << aMetadata << "\"\n";
-                }
+        StdOut() << "####### " << aDataFileIm.Name() <<": " << std::endl;
+        StdOut() << "Size: " << aDataFileIm.Sz() << ", Type: "  << ToStr(aDataFileIm.Type()) << ", Channels: " << aDataFileIm.NbChannel() << std::endl;
+        switch (mDisp) {
+        case 0:
+            break;
+        case 1:
+        case 2:
+        {
+            cExifData anExif = aDataFileIm.ExifData();
+            if (! anExif.Valid())
+            {
+                StdOut() << "No Exif metadata" << std::endl;
+                break;
             }
-        } else if (mDisp == 2) {
-            auto anExifList = aDataFileIm.ExifStrings();
-            for (const auto &s : anExifList)
-                std::cout << s << std::endl;
-        } else {
-            cExifData anExif = mDisp == 0 ? aDataFileIm.ExifDataAll() : aDataFileIm.ExifDataMain();
 
-#define DISP_EXIF(key) std::cout << #key << ": " << anExif.m##key << std::endl;
+#define DISP_EXIF(key) StdOut() << #key << ": " << anExif.m##key << std::endl;
 
             DISP_EXIF(PixelXDimension);
             DISP_EXIF(PixelYDimension);
@@ -82,7 +82,7 @@ int cAppli_ExifData::Exe()
             DISP_EXIF(LensMake);
             DISP_EXIF(LensModel);
 
-            if (mDisp == 0) {
+            if (mDisp == 2) {
                 DISP_EXIF(XResolution);
                 DISP_EXIF(YResolution);
                 DISP_EXIF(ResolutionUnit);
@@ -97,7 +97,7 @@ int cAppli_ExifData::Exe()
                 DISP_EXIF(DateTimeDigitized);
                 DISP_EXIF(SubSecTimeDigitized);
 
-                std::cout << std::setprecision(max_precision);
+                StdOut() << std::setprecision(max_precision);
                 DISP_EXIF(DateTimeNumber_s);
                 DISP_EXIF(DateTimeOriginalNumber_s);
                 DISP_EXIF(DateTimeDigitizedNumber_s);
@@ -105,7 +105,7 @@ int cAppli_ExifData::Exe()
                 DISP_EXIF(GPSLongitude_deg);
                 DISP_EXIF(GPSLatitude_deg);
                 DISP_EXIF(GPSAltitude_m);
-                std::cout << std::setprecision(default_precision);
+                StdOut() << std::setprecision(default_precision);
 
                 DISP_EXIF(GPSDateStamp);
                 DISP_EXIF(GPSTimeStamp);
@@ -114,32 +114,57 @@ int cAppli_ExifData::Exe()
 
                 DISP_EXIF(ExifVersion);
             }
-            std::cout << std::setprecision(default_precision);
 #undef DISP_EXIF
-       }
-        std::cout << std::endl;
+            StdOut() << std::setprecision(default_precision);
+            break;
+        }
+        case 3:
+        {
+            auto anExifList = aDataFileIm.ExifStrings();
+            if (anExifList.empty())
+            {
+                StdOut() << "No Exif metadata" << std::endl;
+            } else {
+                for (const auto &s : anExifList)
+                    StdOut() << s << std::endl;
+            }
+            break;
+        }
+        case 4:
+        {
+            auto allMetadata = aDataFileIm.AllMetadata();
+            for (const auto& aDomain : allMetadata ) {
+                StdOut() << "- Domain : " << (aDomain.first.empty() ? "<NULL>" : "\"" + aDomain.first + "\"") << "\n";
+                for (const auto& aMetadata : aDomain.second) {
+                    StdOut() << "  . \"" << aMetadata << "\"\n";
+                }
+            }
+            break;
+        }
+        }
+        StdOut() << std::endl;
     }
     return EXIT_SUCCESS;
 }
 
 
-cAppli_ExifData:: cAppli_ExifData(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec,bool isBasic) :
+cAppli_ImageMetada:: cAppli_ImageMetada(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec,bool isBasic) :
     cMMVII_Appli (aVArgs,aSpec),
-    mDisp(0)
+    mDisp(1)
 {
 }
 
 
-tMMVII_UnikPApli Alloc_ExifData(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec)
+static tMMVII_UnikPApli Alloc_ImageMetadata(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec)
 {
-    return tMMVII_UnikPApli(new cAppli_ExifData(aVArgs,aSpec,true));
+    return tMMVII_UnikPApli(new cAppli_ImageMetada(aVArgs,aSpec,true));
 }
 
-cSpecMMVII_Appli  TheSpec_ExifData
+cSpecMMVII_Appli  TheSpec_ImageMetadata
     (
-        "ExifData",
-        Alloc_ExifData,
-        "Display Exif metadata from image file",
+        "ImageMetadata",
+        Alloc_ImageMetadata,
+        "Display Exif and Metadata from image file",
         {eApF::ImProc},
         {eApDT::Image},
         {eApDT::Console},
