@@ -609,7 +609,8 @@ void cCdEllipse::EstimateAffinity(bool secondCall)
          if (aC1!=aC2)
          {
              int aNBB  = mSpec->NbBits();
-             int aC1Shifted = (int)  N_LeftBitsCircPerm(aC1,1<<aNBB,aNBB/2); // cast -> Warning on window
+             // cast int & size_t -> Warning on window : TODO , to see later
+             int aC1Shifted = (int)  N_LeftBitsCircPerm(aC1,size_t(1<<aNBB),aNBB/2);
 
             //  StdOut( )  << " SHIFT " << aC1 << " =>" << aC1Shifted << "=?" << aC2 << " NBB= " << aNBB << "\n";
              MMVII_INTERNAL_ASSERT_strong(aC1Shifted==aC2,"Assertion in shitf bit/vs ambiguity");

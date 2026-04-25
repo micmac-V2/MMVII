@@ -628,7 +628,7 @@ void CreateLink(const std::filesystem::path & aFileTarget,const std::filesystem:
     {
         MMVII_INTERNAL_ASSERT_always
         (
-            ExistFile(aFileTarget),
+            ExistFile(ToS(aFileTarget)),
             std::string("File ")+ToS(aFileTarget) + std::string(" dont exist in CreateLink")
         );
     }
