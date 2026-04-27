@@ -152,6 +152,7 @@ extern cSpecMMVII_Appli  TheSpec_ArboTriplet;
 extern cSpecMMVII_Appli  TheSpec_GCPBascule;
 extern cSpecMMVII_Appli  TheSpec_CheckBoardTargetRefine;
 extern cSpecMMVII_Appli  TheSpec_CodedTargetDescribe;
+extern cSpecMMVII_Appli  TheSpec_CodedTargetRefine;
 
 extern cSpecMMVII_Appli  TheSpec_GCPAbsOri;
 

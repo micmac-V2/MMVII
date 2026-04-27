@@ -47,32 +47,35 @@ namespace MMVII
     {
         public:
         cCdTDescr(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec);
+        cCdTDescr();
             //----- members
             std::string mName;
+            cSimilitud3D<tREAL8> mSimil3D;
             //----- methods
             void AddDetect(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D);
             void InterBitCenters(bool& aShow);
             void InterGndCorners(bool& aShow);
             void EstimateSimil3DOnCorners(bool& aShow);
+            std::vector<cPt3dr> get3DCornersOnSimil();
+
             void AddData(const cAuxAr2007 &anAux);
-            static std::string NameFile(const cPhotogrammetricProject &aPhProj, std::string aName, bool Input);
+            static std::string NameFile(const cPhotogrammetricProject & aPhProj, bool Input);
         private:
             //----- members
             std::vector<cCdTDetec> mVDetec;
             const cOneEncoding* mEnc;
             tREAL8 mRes;
             std::vector<cPt2dr> mVBitCenters2D;
-            std::vector<cPt2dr> mVCdTCorners;
+            std::vector<cPt2di> mVCdTCorners;
             std::vector<cPt3dr> mVCdtCorners3D;
             std::vector<cPt3dr> mVGndCorners;
-            cSimilitud3D<tREAL8> mSimil3D;
             //----- methods
             cPt2dr Gnd2CdT(cPt3dr& aPt, const cCdTDetec& aDet);
-            cPt3dr CdT2GndByInter(const cPt2dr& aPt, std::vector<tREAL8>* aVRes = nullptr);
-            cPt3dr CdT2GndBySimil();
+            cPt3dr CdT2GndByInter(const cPt2di& aPt, std::vector<tREAL8>* aVRes = nullptr);
+            cPt3dr CdT2GndBySimil(cPt2di aPt);
             void Estimate3DSimil(std::vector<cPt3dr>& aVInPts, std::vector<cPt3dr>& aVOutPts, bool& aShow);
     };
-    void AddData(const cAuxAr2007 &anAux, cSetTargetMap &anEx);
+    void AddData(const cAuxAr2007& anAux, cCdTDescr& anEx);
 
     /*!
      * @brief The cCdTDetec class is used to store CoDed Target DETection

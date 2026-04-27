@@ -586,7 +586,6 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
         mCurrRef = mFullSpec->OneImTarget(*aCode);//from current target encoding
         mDCurrRef = &mCurrRef.DIm();
         auto aRect2 = cRect2(cPt2di(0,0), ToI(mCurrTgtExtent.Sz()));//rect. to fill from tgt.
-
         mTgtMasq = tIm(ToI(mCurrTgtExtent.Sz()));
         mDTgtMasq = &mTgtMasq.DIm();
 

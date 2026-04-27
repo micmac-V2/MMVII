@@ -26,10 +26,15 @@ namespace MMVII
         mName(aName),
         mEnc(aSpec->EncodingFromName(aName)),
         mRes(600),
-        mVBitCenters2D(aSpec->BitsCenters()),
-        mVCdTCorners({cPt2dr(0,0), cPt2dr(mRes,0), cPt2dr(mRes,mRes), cPt2dr(0,mRes)})
+        mVBitCenters2D(aSpec->BitsCenters())
     {
+        mVCdTCorners = {cPt2di(0,0), cPt2di(mRes,0), cPt2di(mRes,mRes), cPt2di(0,mRes)};
         for (const auto& aPt : mVCdTCorners){mVCdtCorners3D.push_back(cPt3dr(aPt.x(), aPt.y(), 0));}
+    }
+
+    cCdTDescr::cCdTDescr()
+    {
+        mVCdTCorners = {cPt2di(0,0), cPt2di(mRes,0), cPt2di(mRes,mRes), cPt2di(0,mRes)};
     }
 
     void cCdTDescr::AddDetect(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D)
@@ -40,7 +45,7 @@ namespace MMVII
 
     void cCdTDescr::InterGndCorners(bool& aShow)
     {
-        for (const cPt2dr& aCorn : mVCdTCorners)
+        for (const cPt2di& aCorn : mVCdTCorners)
         {
             std::vector<tREAL8> aVRes = {};
             cPt3dr aInter = CdT2GndByInter(aCorn, &aVRes);
@@ -71,12 +76,12 @@ namespace MMVII
         Estimate3DSimil(mVCdtCorners3D, mVGndCorners, aShow);
     }
 
-    cPt3dr cCdTDescr::CdT2GndByInter(const cPt2dr& aPt, std::vector<tREAL8>* aVRes)
+    cPt3dr cCdTDescr::CdT2GndByInter(const cPt2di& aPt, std::vector<tREAL8>* aVRes)
     {
         std::vector<tSeg3dr> aVBundles;
         for (const auto& aDet : mVDetec)
         {
-            cPt2dr aImPt = aDet.mIm2Ref.Inverse(aPt);
+            cPt2dr aImPt = aDet.mIm2Ref.Inverse(ToR(aPt));
             aVBundles.push_back(aDet.mCam->Image2Bundle(aImPt));
         }
         cPt3dr aInter = BundleInters(aVBundles);
@@ -85,7 +90,7 @@ namespace MMVII
         {
             for (const auto& aDet : mVDetec)
             {
-                tREAL8 aRes = Norm2(aDet.mIm2Ref.Inverse(aPt)-aDet.mCam->Ground2Image(aInter));
+                tREAL8 aRes = Norm2(aDet.mIm2Ref.Inverse(ToR(aPt))-aDet.mCam->Ground2Image(aInter));
                 aVRes->push_back(aRes);
             }
         }
@@ -99,6 +104,16 @@ namespace MMVII
         return aDet.mIm2Ref.Value(aImPt);
     }
 
+    std::vector<cPt3dr> cCdTDescr::get3DCornersOnSimil()
+    {
+        std::vector<cPt3dr> aVRes;
+        for (const auto& aPt : mVCdTCorners)
+        {
+            aVRes.push_back(CdT2GndBySimil(aPt));
+        }
+        return aVRes;
+    }
+
     /*
      * Serialization methods
      */
@@ -107,6 +122,7 @@ namespace MMVII
     {
         MMVII::AddData(cAuxAr2007("Name", anAux), mName);
         MMVII::AddData(cAuxAr2007("CdT2Gnd", anAux), mSimil3D);
+        MMVII::AddData(cAuxAr2007("PixSz", anAux), mRes);
     }
 
     void AddData(const cAuxAr2007 &anAux, cCdTDescr &aCdTDescr)
@@ -114,11 +130,11 @@ namespace MMVII
         aCdTDescr.AddData(anAux);
     }
 
-    std::string cCdTDescr::NameFile(const cPhotogrammetricProject & aPhProj, std::string aName, bool Input)
+    std::string cCdTDescr::NameFile(const cPhotogrammetricProject & aPhProj, bool Input)
     {
         return  (Input ? aPhProj.DPGndPt3D().FullDirIn() : aPhProj.DPGndPt3D().FullDirOut())
                + "CdTDescript-"
-               +  aName
+               +  aPhProj.DPOrient().DirIn()
                + "."+ cMMVII_Appli::CurrentAppli().TaggedNameDefSerial();
     }
 
@@ -198,13 +214,13 @@ namespace MMVII
         }
 
         //------ [2] Space intersection of corners & 3D similitude estimation
-        for (cCdTDescr aDes : mVDescr)
+        for (decltype(mVDescr.size()) ix = 0; ix < mVDescr.size(); ++ix)
         {
-            if (mShow) StdOut() << "CdT -> " << aDes.mName << ":\n";
-            aDes.InterGndCorners(mShow);//-> computes mVGndCorners
-            aDes.EstimateSimil3DOnCorners(mShow);//-> computes m3DSimil
-            SaveInFile(aDes, cCdTDescr::NameFile(mPhProj, aDes.mName, false));//-> export to CdTDescript-?.xml
+            if (mShow) StdOut() << "CdT -> " << mVDescr[ix].mName << ":\n";
+            mVDescr[ix].InterGndCorners(mShow);//-> computes mVGndCorners
+            mVDescr[ix].EstimateSimil3DOnCorners(mShow);//-> computes m3DSimil
         }
+        SaveInFile(mVDescr, cCdTDescr::NameFile(mPhProj, false));//-> export to CdTDescript-?.xml
 
         return EXIT_SUCCESS;
     }
