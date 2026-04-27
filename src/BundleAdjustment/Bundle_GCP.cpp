@@ -238,7 +238,7 @@ void cMMVII_BundleAdj::OneItere_GCP()
                     aStrSubst.AddFixCurVarTmp(aVIndGround[i],aWeightGroundXYZ[i]);
                 }
             }
-            mSys->R_AddObsWithTmpUK(aStrSubst);  // finnaly add obs accummulated
+            mSys->R_AddObsWithTmpUK(aStrSubst,mCurLVMParam);  // finnaly add obs accummulated
         }
         else  // aSigmaGCP >0
         {

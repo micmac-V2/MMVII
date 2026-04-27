@@ -152,6 +152,8 @@ const cIrbComp_Block & cIrbComp_TimeS::CompBlock() const {return *mCompBlock;}
 
 const cIrbCal_Block & cIrbComp_TimeS::CalBlock() const{return  mCompBlock->CalBlock();}
 
+const std::string & cIrbComp_TimeS::Ident() const {return mIdent;}
+
 void cIrbComp_TimeS::SetClinoValues(const cOneMesureClino& aMeasure)
 {
     mSetClino.SetClinoValues(aMeasure);
@@ -398,25 +400,31 @@ void cIrbComp_Block::AddImagesPoses(const std::vector<std::string> & aVecName,bo
 }
 
 
-void cIrbComp_Block::SetClinoValues(const cSetMeasureClino& aSetM,bool OkNewTimeS)
+void cIrbComp_Block::SetClinoValues(const cSetMeasureClino& aSetM,eModeAddDataTimeS aMode)
 {
     MMVII_INTERNAL_ASSERT_tiny(aSetM.NamesClino() == mCalBlock->SetClinos().VNames(),"Names differs in SetClinoValues");
    for (const auto & aMeasure : aSetM.SetMeasures())
    {
-       // we test before, because in case does not exist, it will
-       if (!OkNewTimeS)
+       bool Exist = MapBoolFind(mDataTS,aMeasure.Ident());
+       // we test before, because in case does not exist, it will       
+       MMVII_INTERNAL_ASSERT_tiny
+       (
+            (!Exist)|| aMode!=eModeAddDataTimeS::eMustExist,
+            "SetClinoValues new clino ident refuted for "+aMeasure.Ident()
+       );
+
+       if (Exist || (aMode!=eModeAddDataTimeS::eSkipIfNew) )
        {
-           MMVII_INTERNAL_ASSERT_tiny(MapBoolFind(mDataTS,aMeasure.Ident()),"SetClinoValues new clino ident refuted for "+aMeasure.Ident());
+          cIrbComp_TimeS &     aTS =  DataOfTimeS(aMeasure.Ident());
+          aTS.SetClinoValues(aMeasure);
        }
-       cIrbComp_TimeS &     aTS =  DataOfTimeS(aMeasure.Ident());
-       aTS.SetClinoValues(aMeasure);
    }
 }
 
-void cIrbComp_Block::SetClinoValues(bool OkNewTimeS)
+void cIrbComp_Block::SetClinoValues(eModeAddDataTimeS aMode)
 {
     cSetMeasureClino aSetMeasures = mPhProj->ReadMeasureClino();
-    SetClinoValues(aSetMeasures,OkNewTimeS);
+    SetClinoValues(aSetMeasures,aMode);
 }
 
 

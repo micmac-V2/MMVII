@@ -12,8 +12,9 @@ namespace MMVII {
 
 class cExifData {
 public:
-    cExifData() {}
-    void reset();   // Reset all tags to nullopt
+    cExifData() : mValid(false) {}
+    void Reset();   // Reset all tags to nullopt
+    bool Valid() { return mValid; };
 
 // Main Tags
     std::optional<unsigned> mPixelXDimension;
@@ -62,8 +63,6 @@ public:
 
 // Fill this structure from file aFileName (SVP: true: return false on error, false: halt program with error message)
     bool FromFile(const std::string &aFileName, bool SVP=true);
-// Fill only main tags
-    bool FromFileMainOnly(const std::string &aFileName, bool SVP=true);
 
 /*
 * static methods
@@ -74,16 +73,14 @@ public:
 // Return a struct
     static cExifData CreateFromFile(const std::string &aFileName, bool SVP=true);
 
-// Idem for main tags only
-    static bool FromFileMainOnly(const std::string &aFileName, cExifData &anExif, bool SVP=true);
-    static cExifData CreateFromFileMainOnly(const std::string &aFileName, bool SVP=true);
-
 // Return a list of ALL exif tags found from file
     static std::vector<std::string> StringListFromFile(const std::string &aName, bool SVP=true);
 
 // Return a dict of all metadata strings stored by domain (contains exif if present but other metadata too)
     static std::map<std::string, std::vector<std::string>> AllMetadataFromFile(const std::string &aFileName, bool SVP=true);
 
+private:
+    bool mValid;
 };
 
 

@@ -3,6 +3,8 @@
 
 #include <numeric>
 #include <sstream>
+#include <filesystem>
+
 
 #include "MMVII_nums.h"
 #include "MMVII_memory.h"
@@ -120,6 +122,9 @@ void ActionDir(const std::string &,eModeCreateDir);
 /// Generate a Back-Up by creating a copy with a new num
 void  MakeBckUp(const std::string & aDir,const std::string & aNameFile,int aNbDig);
 
+/// create a link using  std::filesystem::create_symlink, Warn if link alraedy exist, error if mus exist and doesnt
+//void CreateLink(const std::string & aFileTarget,const std::string & aLink2Create,bool fileMustExist = true);
+void CreateLink(const std::filesystem::path & aFileTarget,const std::filesystem::path& aLink2Create,bool fileMustExist=true);
 
 
 
@@ -211,7 +216,7 @@ class cMMVII_Ofs : public cMemCheck
         void Write(const double & aVal) ;
         void Write(const size_t & aVal) ;
         void Write(const std::string & aVal) ;
-   
+
         ///  Ok for basic type (int, cPtd2r ...), not any composed type ( std::string ...)
         template <class Type> void TplDump(const Type & aVal) {VoidWrite(&aVal,sizeof(aVal));}
         void VoidWrite(const void * aPtr,size_t aNb);
@@ -300,6 +305,14 @@ class cMultipleOfs
             *this  << "{" << aPair.first  << "," << aPair.second << "}";
             return *this;
         }
+        template <class T> cMultipleOfs & operator << (const std::optional<T> &aOpt)
+        {
+            if (aOpt)
+                *this << *aOpt;
+            else
+                *this << "(null)";
+            return *this;
+        }
         // General version
         template <class Type> cMultipleOfs & operator << (const Type & aVal)
         {
@@ -317,7 +330,7 @@ class cMultipleOfs
         }
 
     private :
-        
+
         cMultipleOfs(const cMultipleOfs &) = delete;
         cMMVII_Ofs *                mOfsCreated;
         std::vector<std::ostream *> mVOfs;
@@ -351,7 +364,7 @@ class cMMVII_Duration
 
 /** Class for storing set of int , can be use econmically for sparse
     big set, if recycledwith Clear() */
- 
+
 class cSetIntDyn
 {
      public :

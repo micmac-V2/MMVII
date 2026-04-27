@@ -565,7 +565,7 @@ int cAppli_ReportBlock::Exe()
 
     if (mWithClino )
     {
-        mCompBlocInstr->SetClinoValues(true);
+        mCompBlocInstr->SetClinoValues(eModeAddDataTimeS::eSkipIfNew);
     }
 
 

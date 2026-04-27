@@ -265,9 +265,12 @@ void cMMVII_BundleAdj::Iterate(int aNbMaxIter, tREAL8 mLVM, bool aShow_Cond)
     }
 }
 
+tREAL8   cMMVII_BundleAdj::CurLVMParam() const {return mCurLVMParam;}
+
 
 void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCond)
 {
+    mCurLVMParam = aLVM;
     MMVII_INTERNAL_ASSERT_tiny (mNbMaxIter>0,"BA: mNbMaxIter is not initialized");
 
     bool isLastIter =  (mIter==(mNbMaxIter-1)) ;

@@ -682,6 +682,8 @@ class cMMVII_BundleAdj
           int NbMaxIter() const { return mNbMaxIter;}
           int Iter() const { return mIter;}
 
+          tREAL8 CurLVMParam() const;
+
      private :
 
           //============== Methods =============================
@@ -775,6 +777,8 @@ class cMMVII_BundleAdj
           cResult_UC_SUR<tREAL8>*   mRUCSUR;
           std::vector<cUK_Line3D_4BA*>           mVecLineAdjust;
           std::vector<cBA_BlockInstr *>          mVecBlockInstrAdj;
+
+          tREAL8                                mCurLVMParam;
 };
 
 

@@ -11,15 +11,37 @@
 namespace MMVII
 {
 
+/*
 void CreateLink(const std::string & aFileTarget,const std::string & aLink2Create,bool fileMustExist = true)
 {
+
+    if (std::filesystem::is_symlink(aLink2Create))
+    {
+        std::string aPrevTarget  = std::filesystem::read_symlink(aLink2Create).native();
+        if (aPrevTarget == aFileTarget)
+        {
+            MMVII_USER_WARNING("Link already exist pointing to same file :" + aLink2Create + "->" + aFileTarget );
+        }
+        else
+        {
+             MMVII_USER_WARNING
+             (
+                  "Link already exist pointing to diff file, do noting remove before :"
+                + aLink2Create + "->" +  aPrevTarget + "/" + aFileTarget
+             );
+        }
+        return;
+    }
     if (fileMustExist)
     {
         MMVII_INTERNAL_ASSERT_always(ExistFile(aFileTarget),"File "+aFileTarget + " dont exist in CreateLink");
     }
     std::filesystem::create_symlink(aFileTarget,aLink2Create);
 }
+*/
 
+// std::filesystem::path read_symlink( const std::filesystem::path& p );
+// bool is_symlink( const std::filesystem::path& p );
 
 /* ==================================================== */
 /*                                                      */
@@ -244,6 +266,7 @@ class cAppli_Rename : public cMMVII_Appli
 
         std::set<std::string>     mSetOut;
         bool                     mByLink;  /// if true, instead of rename, create a link
+        bool                      mShow;  ///< Show msg of replace
 
 };
 
@@ -264,7 +287,8 @@ cCollecSpecArg2007 & cAppli_Rename::ArgOpt(cCollecSpecArg2007 & anArgOpt)
             << AOpt2007(mPatternRepl,"PatRepl","Pattern 4 replace, when != Pattern glob")
             << AOpt2007(mArithmReplace,"AR","arthim repacement like [+,33,2,4] to add 33 to second expr and put on 4 digt ",{{eTA2007::ISizeV,"[3,4]"}})
             << AOpt2007(mByLink,"ByLink","If true create a link instead of moving",{eTA2007::HDV})
-     ;
+            << AOpt2007(mShow,"Show","Show detail of replacment, default = ! DoReplace")
+    ;
 }
 
 
@@ -296,10 +320,11 @@ std::vector<std::string>  cAppli_Rename::Samples() const
 int cAppli_Rename::Exe()
 {
     std::set<std::string> aSetStr;
-    StdOut() <<  "============= Proposed replacement  ====== " << std::endl;
+    //  StdOut() <<  "============= Proposed replacement  ====== " << std::endl;
 
     std::vector<std::pair<std::string,std::string>  > aVInOut;
 
+    SetIfNotInit(mShow,!mDoReplace);
     //StdOut() << "RRR " << __LINE__ << "\n";
 
     std::string aDirLink;
@@ -321,7 +346,7 @@ int cAppli_Rename::Exe()
 
     for (const auto & aStrIn0 : VectMainSet(0))
     {
-         StdOut() << "aStrIn0aStrIn0=[" << aStrIn0 << "]\n";
+         //StdOut() << "aStrIn0aStrIn0=[" << aStrIn0 << "]\n";
         std::string aStrIn = aStrIn0;
         if (IsInit(&mArithmReplace))
         {
@@ -365,11 +390,15 @@ int cAppli_Rename::Exe()
             StdOut() << "P=" << mPatternRepl << " S=" << mSubst << " I=" << aStrIn << "\n";
         }
         std::string aStrOut =  ReplacePattern(mPatternRepl,mSubst,aStrIn);
-        StdOut() << "[" << aStrIn0  << "] ";
+        // StdOut() << "[" << aStrIn0  << "] ";
         if (IsInit(&mArithmReplace))
-           StdOut() << " AR==> [" << aStrIn  << "] ";
+        {
+            if (mShow)
+               StdOut() << " AR==> [" << aStrIn  << "] ";
+        }
 
-        StdOut() << " ==> [" << aStrOut  << "]  " << std::endl;
+        if (mShow)
+            StdOut() << " ==> [" << aStrOut  << "]  " << std::endl;
 
         // TestSet(aStrIn0);
         TestSet(aStrOut);
@@ -385,7 +414,7 @@ int cAppli_Rename::Exe()
            MMVII_UnclasseUsEr("File already exist");
        }
     }
-    StdOut() << " NbFiles= " << aVInOut.size() << "\n";
+    //StdOut() << " NbFiles= " << aVInOut.size() << "\n";
 
     std::string aPrefTmp = "MMVII_Tmp_Replace_"+ PrefixGMA() + "_";
 
@@ -393,7 +422,7 @@ int cAppli_Rename::Exe()
     {
        for (const auto &  [aStrIn0,aStrOut]  : aVInOut)
        {
-           StdOut()  << " LLLnk " << aDirLink+aStrIn0 << " " << aStrOut << "\n";
+        //   StdOut()  << " LLLnk " << aDirLink+aStrIn0 << " " << aStrOut << "\n";
            if (mDoReplace)
                CreateLink(aDirLink+aStrIn0,aStrOut);
        }
