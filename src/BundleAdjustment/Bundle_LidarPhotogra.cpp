@@ -279,14 +279,17 @@ cBA_LidarPhotograRaster::cBA_LidarPhotograRaster(cPhotogrammetricProject * aPhPr
     }
     if (aParam.size() >=7)
     {
-        mNbPointByPatch = cStrIO<size_t>::FromStr(aParam.at(6));
+        mThresholdInit = cStrIO<double>::FromStr(aParam[6]);
+    }
+    if (aParam.size() >=8)
+    {
+        mNbPointByPatch = cStrIO<size_t>::FromStr(aParam.at(7));
         MMVII_INTERNAL_ASSERT_User((mModeSim!=eImatchCrit::eDifRad) || (mNbPointByPatch==1),
                                    eTyUEr::eUnClassedError,"Only 1 point per patch in "+ToStr(eImatchCrit::eDifRad)+" mode");
     }
 
     // TODO
-    mThresholdInit = -1;
-    mThresholdFinal = -1;
+    mThresholdFinal = mThresholdInit;
 
     //read scans files from directory corresponding to pattern in aParam.at(1)
     auto aVScanNames = mPhProj->GetStaticLidarNames(aParam.at(1));
@@ -387,7 +390,7 @@ void cBA_LidarPhotograRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, do
     {
         auto &aScanA = aScanDataA.mLidarRaster;
         tREAL8 aSigma = 1.; // TODO use image res for W? aScanA->Sigma() converted with incidence?
-        mWeightersMap[aScanA->NameImage()] = cStdWeighterResidual(sqrt(aWFactor)*aSigma, aTh / 20., aTh, 1);
+        mWeightersMap[aScanA->NameImage()] = cStdWeighterResidual(sqrt(aWFactor)*aSigma, aTh / 2., aTh, 1);
     }
 }
 
@@ -890,10 +893,16 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
         auto aRes = sqrt((A * aVRad + aVect1*B - aVMedian).SqL2Norm(true)); //quadratic mean residual for stddev=1 images
         // zncc = 1-aRes/2 ?
         auto aW = aWeighter.WeightOfResidual({aRes})[0];
-        std::cout <<"patch "<<aPatchNum<<" im "<<aNumIm<<" A="<<A<<" B="<<B<<" res="<<aRes<<" W="<<aW<<"\n";
-        if ((aRes>0.3)||(aW==0))
+#ifdef NUMPATCHDEBUG
+        if (aPatchNum<=NUMPATCHDEBUG)
+            StdOut() << "patch " << aPatchNum << " im " << aNumIm << " A=" << A << " B=" << B << " res=" << aRes << " W=" << aW << "\n";
+#endif
+        if (aW==0)
         {
-            std::cout <<"patch image rejected\n";
+#ifdef NUMPATCHDEBUG
+            if (aPatchNum<=NUMPATCHDEBUG)
+                StdOut() << "patch image rejected\n";
+#endif
             continue; // patch too far
         }
         if (fabs(A)<1e-10)
@@ -907,8 +916,12 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
         return {0,0.}; // this patch does not have enought suitable images
 
     // use the same weight for each point eq
-    auto aW = aWeighter.WeightOfResidual({sqrt(aMeanRes2/aVIndexUsedImages.size())})[0];
-
+    auto aRes = sqrt(aMeanRes2/aVIndexUsedImages.size());
+    auto aW = aWeighter.WeightOfResidual({aRes})[0];
+#ifdef NUMPATCHDEBUG
+    if (aPatchNum<=NUMPATCHDEBUG)
+        StdOut() << "patch " << aPatchNum << " res=" << aRes << " W=" << aW << "\n";
+#endif
     cSetIORSNL_SameTmp<tREAL8>  aStrSubst(aVTmp); // structure for handling schurr eliminatio,
 
         // three structure for forcing conservation of normalizattion (Avg,Sigma) for VMoy
@@ -1027,7 +1040,7 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
             tREAL8 aSigmaAB = sqrt(aScanA->Sigma()*aScanA->Sigma()
                                    +aScanB->Sigma()*aScanB->Sigma());
             mWeightersMap[aScanA->NameImage()+"-"+aScanB->NameImage()]
-                = cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh / 20., aTh, 1);
+                = cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh / 9., aTh, 1);
         }
     }
 }
