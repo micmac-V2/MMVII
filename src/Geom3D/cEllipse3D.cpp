@@ -340,7 +340,7 @@ void cEllipse3D::Bench()
 
     for (int aKI=0; aKI<aNbIter; aKI++)
     {
-        StdOut() << "==== Iter " << aKI << std::endl;
+        //StdOut() << "==== Iter " << aKI << std::endl;
         int aNbPts = 5 + RandUnif_N(20);
 
         cEllipse3D aEllipse;
@@ -369,12 +369,12 @@ void cEllipse3D::Bench()
 
             if (aKMethod==0)
             {
-                StdOut() << "GetDistribGaus" << std::endl;
+                //StdOut() << "GetDistribGaus" << std::endl;
                 aG3D.GetDistribGaus(aVPts,1+RandUnif_N(2),2+RandUnif_N(2),3+RandUnif_N(2));
             }
             else if (aKMethod==1)
             {
-                StdOut() << "GetDistrib5Pts" << std::endl;
+                //StdOut() << "GetDistrib5Pts" << std::endl;
                 aG3D.GetDistrib5Pts(aVPts,1.0);
             }
 
@@ -391,9 +391,10 @@ void cEllipse3D::Bench()
                 double aDistVec = Sqrt(Square(aG3D.VecP(aK)(0)-aG3D2.VecP(aK)(0)) +
                                        Square(aG3D.VecP(aK)(1)-aG3D2.VecP(aK)(1)) +
                                        Square(aG3D.VecP(aK)(2)-aG3D2.VecP(aK)(2)));
-                StdOut() << "Ratio=" << aG3D.ValP(aK) / aG3D2.ValP(aK) << " "
+                /*StdOut() << "Ratio=" << aG3D.ValP(aK) / aG3D2.ValP(aK) << " "
                          << " dist=" << aDistVec << " "
-                         << " ValP=" << aG3D.ValP(aK) << std::endl;
+                         << " ValP=" << aG3D.ValP(aK) << std::endl;*/
+                MMVII_INTERNAL_ASSERT_bench(aDistVec<1e-10,"cEllipse3D::Bench");
             }
         }
     }
