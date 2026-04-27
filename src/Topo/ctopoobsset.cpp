@@ -61,16 +61,6 @@ std::string cTopoObsSet::toString() const
     return  oss.str();
 }
 
-std::vector<int> cTopoObsSet::getParamIndices() const
-{
-    std::vector<int> indices;
-    for (auto & param : mParams)
-    {
-        indices.push_back((int)IndOfVal(&param));
-    }
-    return indices;
-}
-
 // ------------------------------------------------------------
 
 cTopoObsSetSimple::cTopoObsSetSimple(cBA_Topo *aBA_Topo) :

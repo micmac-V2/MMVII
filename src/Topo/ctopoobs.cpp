@@ -94,7 +94,9 @@ std::vector<int> cTopoObs::getIndices() const
         cObjWithUnkowns<tREAL8>* fromUk = mBA_Topo->getPoint(mPtsNames[0]).getUK();
         cObjWithUnkowns<tREAL8>* toUk = mBA_Topo->getPoint(mPtsNames[1]).getUK();
         fromUk->PushIndexes(indices);
+        indices.resize(3); // keep only the point part for cSensorImage UK // TODO: improve
         toUk->PushIndexes(indices);
+        indices.resize(6); // keep only the point part for cSensorImage UK // TODO: improve
         break;
     }
     case eTopoObsSetType::eStation:
