@@ -520,8 +520,7 @@ void cBA_LidarPhotograRaster::SetVUkVObs
 }
 
 
-void cBA_LidarPhotogra::AddPatchDifRad
-    (const cResidualWeighter<tREAL8> &aWeighter,
+int cBA_LidarPhotogra::AddPatchDifRad(const cResidualWeighter<tREAL8> &aWeighter,
      const std::vector<cPt3dr> & aVPatchPtGnd,
      const std::vector<cData1ImLidPhgr> &aVData,
      int aPatchNum)
@@ -548,10 +547,10 @@ void cBA_LidarPhotogra::AddPatchDifRad
      }
      // do the substitution & add the equation reduced (Schurr complement)
      aSys->R_AddObsWithTmpUK(aStrSubst,mBA.CurLVMParam());
+     return aVData.size();
 }
 
-void cBA_LidarPhotogra::AddPatchCensus
-    (const cResidualWeighter<tREAL8> & aWeighter,
+int cBA_LidarPhotogra::AddPatchCensus(const cResidualWeighter<tREAL8> & aWeighter,
      const std::vector<cPt3dr> & aVPatchPtGnd,
      const std::vector<cData1ImLidPhgr> &aVData,
      int aPatchNum)
@@ -584,13 +583,14 @@ void cBA_LidarPhotogra::AddPatchCensus
          // add all the equation to the system with Schurr's elimination
          aSys->R_AddObsWithTmpUK(aStrSubst,mBA.CurLVMParam());
      }
+     return aVData.size();
 }
 
-void cBA_LidarPhotogra::AddPatchCorrel
+int cBA_LidarPhotogra::AddPatchCorrel
     (const cResidualWeighter<tREAL8> &aWeighter,
      const std::vector<cPt3dr> & aVPatchPtGnd,
-     const std::vector<cData1ImLidPhgr> &aVData
-     , int aPatchNum)
+     const std::vector<cData1ImLidPhgr> &aVData,
+     int aPatchNum)
 {
      // read the solver now, because was not initialized at creation
      cResolSysNonLinear<tREAL8> *  aSys = mBA.Sys();
@@ -633,15 +633,31 @@ void cBA_LidarPhotogra::AddPatchCorrel
      int aK0Im = aVTmp.size();
 
      // push the initial values of Aj Bj
+     std::vector<int> aVIndexUsedImages;
+     int aNumIm = -1;
      for (const auto &  aVRad : aListVRad)
      {
+         aNumIm++;
          auto [A,B] =  LstSq_Fit_AxPBEqY(aVRad,aVMoy);  // solve  Ri = Aj Imj + Bj
-         //std::cout <<A<<" "<<B<<"\n";
+         // get residuals
+         cDenseVect<tREAL8> aVect1(aNbPt,eModeInitImage::eMIA_V1);
+         auto aRes = (A * aVRad + aVect1*B - aVMoy).SqL2Norm(true);
+         auto aW = aWeighter.WeightOfResidual({aRes})[0];
+         std::cout <<"patch "<<aPatchNum<<" im "<<aNumIm<<" A="<<A<<" B="<<B<<" res="<<aRes<<" W="<<aW<<"\n";
+         if ((aRes>3e-4)||(aW==0))
+         {
+             std::cout <<"patch image rejected\n";
+             continue; // patch too far
+         }
          if (fabs(A)<1e-10)
-             return; // patch in a saturated area
+             return 0; // patch in a saturated area
          aVTmp.push_back(A); // add tmp unknown for Aj
          aVTmp.push_back(B); // add tmp unknown for Bj
+         aVIndexUsedImages.push_back(aNumIm);
      }
+     if (aVIndexUsedImages.size()<2)
+         return 0; // this patch does not have enought suitable images
+
      cSetIORSNL_SameTmp<tREAL8>  aStrSubst(aVTmp); // structure for handling schurr eliminatio,
 
              // three structure for forcing conservation of normalizattion (Avg,Sigma) for VMoy
@@ -660,13 +676,19 @@ void cBA_LidarPhotogra::AddPatchCorrel
          //  S(R+dR) ^ 2 =1   ;  S (2 R dR ) = 1 - S(R^2)  ; but S(R^2)=1 by construction ...
          aVFixVar.push_back(2*aVMoy(aKPt));
 
-         for (int aKIm=0 ;  aKIm< (int) aVData.size() ; aKIm++)
+         int aNumUsedIm = 0; // for uk index
+         for (auto aKIm: aVIndexUsedImages)
          {
-             int aIndIm = -(1+aK0Im+2*aKIm);  // compute indexe assumming "a la queue leu-leu"
+             int aIndIm = -(1+aK0Im+2*aNumUsedIm);  // compute indexe assumming "a la queue leu-leu"
              std::vector<int>       aVIndUk{aIndPt,aIndIm,aIndIm-1} ;  // indexes of 3 unknown
              std::vector<tREAL8>    aVObs;  // vector of observations
              SetVUkVObs (aVPatchPtGnd.at(aKPt),&aVIndUk,aVObs,aVData.at(aKIm),aKPt);  // read obs & global Uk
+             //std::cout<<"ind: ";
+             //for (auto &v: aVIndUk)
+             //    std::cout<<v<<" ";
+             //std::cout<<"\n";
              aSys->R_AddEq2Subst(aStrSubst,mEq,aVIndUk,aVObs,aWeighter);  // add equation in tmp struct
+             aNumUsedIm++;
          }
      }
 
@@ -674,6 +696,7 @@ void cBA_LidarPhotogra::AddPatchCorrel
      aStrSubst.AddOneLinearObs(aNbPt,aVIndPt,aVFixVar,0.0);  // force standard dev
 
      aSys->R_AddObsWithTmpUK(aStrSubst,mBA.CurLVMParam());
+     return aVIndexUsedImages.size();
 }
 
 
@@ -785,7 +808,6 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
 #endif
 
      mNbUsedPoints++;
-     mNbUsedObs+=aVData.size();
 
      // accumlulate for computing average of deviation
      // mLastResidual.Add(1.0,  (aStdDev.StdDev(1e-5) *aVData.size()) / (aVData.size()-1.0));
@@ -794,15 +816,15 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
 
      if (mModeSim==eImatchCrit::eDifRad)
      {
-        AddPatchDifRad(aWeighter,aVPatchPtGnd,aVData, aPatchNum);
+        mNbUsedObs+=AddPatchDifRad(aWeighter,aVPatchPtGnd,aVData, aPatchNum);
      }
      else if (mModeSim==eImatchCrit::eCensus)
      {
-        AddPatchCensus(aWeighter,aVPatchPtGnd,aVData, aPatchNum);
+        mNbUsedObs+=AddPatchCensus(aWeighter,aVPatchPtGnd,aVData, aPatchNum);
      }
      else if (mModeSim==eImatchCrit::eCorrel)
      {
-        AddPatchCorrel(aWeighter,aVPatchPtGnd,aVData, aPatchNum);
+        mNbUsedObs+=AddPatchCorrel(aWeighter,aVPatchPtGnd,aVData, aPatchNum);
      }
 }
 
