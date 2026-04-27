@@ -939,7 +939,9 @@ cPerspCamIntrCalib * cPerspCamIntrCalib::RandomCalib(eProjPC aTypeProj,int aKDeg
     tREAL8  aFoc =  aDiag * (0.2 + 3.0*RandUnif_0_1());
     if (aTypeProj==eProjPC::eEquiRect)
     {
-        aSz.x() = 2 * M_PI * aFoc; // makes it a 360 degree image
+        aSz.x() = round(2 * M_PI * aFoc);
+        aSz.y() = round(M_PI * aFoc);
+        aPP = cPt2dr(M_PI * aFoc, M_PI / 2.0 * aFoc);
     }
 
     UpdateMax(aFoc,2* Norm2(aPP-aMidle));

@@ -296,7 +296,7 @@ void Bench_HBA(cParamExeBench & aParam)
 
     cCamSimul::BenchHierchBA_InitOnly(aTS,false);
     cCamSimul::BenchHierchBA_BAOnly(aTS,false);
-    cCamSimul::BenchHierchBA(aTS,true,false);
+    //cCamSimul::BenchHierchBA(aTS,true,false);
 
     delete aTS;
     aParam.EndBench();

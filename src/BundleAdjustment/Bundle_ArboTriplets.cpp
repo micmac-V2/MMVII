@@ -170,11 +170,13 @@ void cBA_ArboTriplets::OneIteration(int aIter)
                     tREAL8 aResNorm = Norm2(aResidual);
 
                     tREAL8 aWeight = aTPtsW.SingleWOfResidual(aResidual);
-                    //StdOut() << "RRRR " << aResidual << " W=" << aWeight << ", "
-                    //         << ", 3D=" << aP3D <<  ", F="
-                    //         << aCam->InternalCalib()->F() << " "
-                    //         << aPBun << " "
-                    //         << aPBunPred << "\n";
+
+                    /*if (aWeight<=0.0)
+                        StdOut() << "RRRR " << aResidual << " W=" << aWeight << ", "
+                             << ", 3D=" << aP3D <<  ", F="
+                             << aCam->InternalCalib()->F() << " "
+                             << aPBun << " "
+                             << aPBunPredUnit << "\n";*/
 
 
                     cCalculator<double> * aEqCol =  this->mVEqCol.at(aKImSorted);//aKIm
