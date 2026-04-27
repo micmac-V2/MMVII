@@ -562,6 +562,9 @@ class cBA_ArboTriplets
 
         size_t NbCams() const { return mVCams.size(); }
 
+        /// Optional GT 3D points (keyed by tie-point ID) for diagnostic comparison at iter==0.
+        void SetGTPts3D(std::map<int,cPt3dr>* aGT) { mGTPts3D = aGT; }
+
     private:
         cMakeArboTriplet*                                  mPMAT;
         int                                                mNbIter;
@@ -577,6 +580,7 @@ class cBA_ArboTriplets
         cResolSysNonLinear<tREAL8>*                        mSys;
         cComputeMergeMulTieP*                              mTPts;   ///< local tie-points subset
         std::vector<std::vector<std::pair<cPt3dr,cPt3dr>>> mVecConfUV; ///< precomputed u,v per config
+        std::map<int,cPt3dr>*                              mGTPts3D = nullptr; ///< optional GT pts for diagnosis
 };
 
 class cMMVII_BundleAdj

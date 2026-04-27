@@ -757,6 +757,8 @@ class cCamSimul : public cMemCheck
       ~cCamSimul();
       static void BenchPoseRel2Cam(cTimerSegm * aTS,bool PerfInter,bool SubVert,bool Planar);
       static void BenchHierchBA(cTimerSegm * aTS,bool PerfInter,bool isSubVert);
+      static void BenchHierchBA_InitOnly(cTimerSegm * aTS,bool isSubVert);
+      static void BenchHierchBA_BAOnly(cTimerSegm * aTS,bool isSubVert);
       void TestCam(cSensorCamPC * aCam) const;
 
       const std::vector<cSensorCamPC *> & ListCam() const;

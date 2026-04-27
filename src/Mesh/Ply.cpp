@@ -458,9 +458,21 @@ void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::v
 
     // add camera centers
     size_t aNumImPlane=0;
+    std::vector<cPt3dr> aVCenters;
+    cPt3dr aCenter;
     for (auto aCam : aVSens)
     {
-        cPt3dr aCenter = aCam->PseudoCenterOfProj();
+        // pushbroom sensor
+        if (aCam->CenterOfPC() == nullptr)
+        {
+            // Two bundles at the same scan-line Y but opposite X ends converge at the
+            // perspective center of that line (unlike cross-track pairs which are near-parallel).
+            double aY = aCam->Sz().y() / 2.0;
+            tSeg3dr aBund0 = aCam->Image2Bundle(cPt2dr(0,              aY));
+            tSeg3dr aBund1 = aCam->Image2Bundle(cPt2dr(aCam->Sz().x(), aY));
+            aCenter = BundleInters(aBund0, aBund1);
+        } // perspective sensor
+        else aCenter = aCam->PseudoCenterOfProj();
 
         std::array<double,3> anArray;
         for (int aK=0 ; aK<3 ; aK++)
@@ -468,40 +480,89 @@ void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::v
         aPlyPts.push_back(anArray);
 
         aNumImPlane++;
+        aVCenters.push_back(aCenter);
     }
 
     // add points in image plane
     int aSteps = 50;
     for (auto aSens : aVSens)
     {
-        cSensorCamPC *  aCamPC = aSens->GetSensorCamPC();
-
         cPt2di aSz = aSens->Sz();
-        double aFPix = aCamPC->InternalCalib()->F();
-        double aF = CalculateFDepth(aSz,aFPix);
-
         cPt2dr aImStepSz(aSz[0]/aSteps,aSz[1]/aSteps);
-
-        for (int aS=0; aS<=aSteps; aS++)
+        // pushbroom sensor
+        if (aSens->CenterOfPC() == nullptr)
         {
-            std::vector<cPt3dr> aImVPts;
-            double aDX = aImStepSz[0]*aS-1;
-            double aDY = aImStepSz[1]*aS-1;
+            // Image plane at scene level: use midpoint of each bundle (within valid RPC altitude range)
+            auto BundMid = [&](cPt2dr aPt) {
+                tSeg3dr aB = aSens->Image2Bundle(aPt);
+                return (aB.P1() + aB.P2()) * 0.5;
+            };
 
-            aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(0,aDY,aF) ));
-            aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aDX,0,aF) ));
-            aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aSz[0],aDY,aF) ));
-            aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aDX,aSz[1],aF) ));
-
-
-            for (auto aP : aImVPts)
+            for (int aS=0; aS<=aSteps; aS++)
             {
+                std::vector<cPt3dr> aImVPts;
+                double aDX = aImStepSz[0]*aS;
+                double aDY = aImStepSz[1]*aS;
+
+                aImVPts.push_back(BundMid(cPt2dr(0,       aDY   )));
+                aImVPts.push_back(BundMid(cPt2dr(aDX,     0     )));
+                aImVPts.push_back(BundMid(cPt2dr(aSz[0],  aDY   )));
+                aImVPts.push_back(BundMid(cPt2dr(aDX,     aSz[1])));
+
+                for (auto aP : aImVPts)
+                {
+                    std::array<double,3> anArray;
+                    for (int aK=0 ; aK<3 ; aK++)
+                        anArray[aK] = aP[aK];
+                    aPlyPts.push_back(anArray);
+                    aNumImPlane++;
+                }
+            }
+
+            // Satellite trajectory: perspective centers sampled along the along-track direction
+            for (int aS=0; aS<=aSteps; aS++)
+            {
+                double aDY = aImStepSz[1]*aS;
+                tSeg3dr aBund0 = aSens->Image2Bundle(cPt2dr(0,       aDY));
+                tSeg3dr aBund1 = aSens->Image2Bundle(cPt2dr(aSz[0],  aDY));
+                cPt3dr aSatPos = BundleInters(aBund0, aBund1);
+
                 std::array<double,3> anArray;
                 for (int aK=0 ; aK<3 ; aK++)
-                    anArray[aK] = aP[aK];
+                    anArray[aK] = aSatPos[aK];
                 aPlyPts.push_back(anArray);
-
                 aNumImPlane++;
+            }
+        }
+        else
+        {
+            cSensorCamPC *  aCamPC = aSens->GetSensorCamPC();
+
+            double aFPix = aCamPC->InternalCalib()->F();
+            double aF = CalculateFDepth(aSz,aFPix);
+
+
+            for (int aS=0; aS<=aSteps; aS++)
+            {
+                std::vector<cPt3dr> aImVPts;
+                double aDX = aImStepSz[0]*aS-1;
+                double aDY = aImStepSz[1]*aS-1;
+
+                aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(0,aDY,aF) ));
+                aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aDX,0,aF) ));
+                aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aSz[0],aDY,aF) ));
+                aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aDX,aSz[1],aF) ));
+
+
+                for (auto aP : aImVPts)
+                {
+                    std::array<double,3> anArray;
+                    for (int aK=0 ; aK<3 ; aK++)
+                        anArray[aK] = aP[aK];
+                    aPlyPts.push_back(anArray);
+
+                    aNumImPlane++;
+                }
             }
         }
     }
@@ -509,31 +570,36 @@ void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::v
     // add points on the frustum
     for (auto aSens : aVSens)
     {
-        cSensorCamPC *  aCamPC = aSens->GetSensorCamPC();
-
-        cPt2di aSz = aSens->Sz();
-        double aFPix = aCamPC->InternalCalib()->F();
-        double aF = CalculateFDepth(aSz,aFPix);
-
-        double aFStepSz = aF/aSteps;
-
-
-        for (int aS=0; aS<=aSteps; aS++)
+        // ignore for pushbroom camera
+        if (aSens->CenterOfPC() == nullptr) continue;
+        else
         {
-            std::vector<cPt3dr> aImVPts;
-            double aDepth = aFStepSz*aS;
-            aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(0,0,aDepth) ));
-            aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(0,aSz[1],aDepth) ));
-            aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aSz[0],0,aDepth) ));
-            aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aSz[0],aSz[1],aDepth) ));
+            cSensorCamPC *  aCamPC = aSens->GetSensorCamPC();
+
+            cPt2di aSz = aSens->Sz();
+            double aFPix = aCamPC->InternalCalib()->F();
+            double aF = CalculateFDepth(aSz,aFPix);
+
+            double aFStepSz = aF/aSteps;
 
 
-            for (auto aP : aImVPts)
+            for (int aS=0; aS<=aSteps; aS++)
             {
-                std::array<double,3> anArray;
-                for (int aK=0 ; aK<3 ; aK++)
-                    anArray[aK] = aP[aK];
-                aPlyPts.push_back(anArray);
+                std::vector<cPt3dr> aImVPts;
+                double aDepth = aFStepSz*aS;
+                aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(0,0,aDepth) ));
+                aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(0,aSz[1],aDepth) ));
+                aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aSz[0],0,aDepth) ));
+                aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aSz[0],aSz[1],aDepth) ));
+
+
+                for (auto aP : aImVPts)
+                {
+                    std::array<double,3> anArray;
+                    for (int aK=0 ; aK<3 ; aK++)
+                        anArray[aK] = aP[aK];
+                    aPlyPts.push_back(anArray);
+                }
             }
         }
     }

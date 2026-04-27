@@ -69,7 +69,7 @@ void cNodeArborTriplets::ComputeResursiveSolution()
 {
    MMVII_INTERNAL_ASSERT_tiny((mChildren.at(0) == nullptr) == (mChildren.at(1) == nullptr),"ComputeResursiveSolution, assert on desc");
 
-    ShowPose("TRM");
+    //ShowPose("TRM");
 
     if (mChildren.at(0) == nullptr) // Terminal node just put the riplet
     {
@@ -116,7 +116,7 @@ void cNodeArborTriplets::DoTerminalNode()
 {
     MMVII_INTERNAL_ASSERT_tiny((mChildren.at(0) == nullptr) == (mChildren.at(1) == nullptr),"DoTerminalNode, assert on desc");
 
-    ShowPose("TRM");
+    //ShowPose("TRM");
 
     if (mChildren.at(0) == nullptr) // Terminal node just put the riplet
     {
@@ -1057,9 +1057,11 @@ void cMakeArboTriplet::ConvertTPtsToBundles()
             // update vector of observation in tie-point structure
             for (int aKObs=0; aKObs<NbPts; aKObs++)
             {
-                aVals.mVPIm.at(aKObs*NbIm+aKIm) = cPt2dr(aOutBundles[aKObs].x()/aOutBundles[aKObs].z(),
-                                                          aOutBundles[aKObs].y()/aOutBundles[aKObs].z());
-                aVals.mVPZ.at(aKObs*NbIm+aKIm) = 1.0;
+                // Store full unit direction (x,y,z); dividing by z is undefined when z=0
+                // (e.g. eEquiRect observations at azimuth ±π/2)
+                aVals.mVPIm.at(aKObs*NbIm+aKIm) = cPt2dr(aOutBundles[aKObs].x(),
+                                                          aOutBundles[aKObs].y());
+                aVals.mVPZ.at(aKObs*NbIm+aKIm) = aOutBundles[aKObs].z();
             }
         }
     }
