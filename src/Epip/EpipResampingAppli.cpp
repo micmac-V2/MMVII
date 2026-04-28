@@ -50,6 +50,15 @@ cAppli_EpipResampling::cAppli_EpipResampling (
 
 
 // TODOCM: Separate Geom calulation & resampling
+// TODOCM: Serialisation classes EpipMap EpipModel
+// TODOCM: Creer les RPC des images Epipolaires
+// TODOCM: X Steps /= Y Steps. Steps or pixels  => degre liberté * 10 , bonne répartition, Nb min en X et Y.
+
+// TODOCM: Gestion grosses images : daller ... Cache pour bout d'images ?
+
+// TODOCM: adapter/utiliser le resample de la cDataIm2D
+
+
 
 
 int cAppli_EpipResampling::Exe()

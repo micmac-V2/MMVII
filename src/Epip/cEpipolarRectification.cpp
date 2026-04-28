@@ -6,58 +6,33 @@
 #include <cassert>
 
 namespace MMVII {
-// ============================================================
-//  cEpipolarRectification::cResult
-// ============================================================
 
-cEpipolarRectification::cEpipolarModel::cEpipolarModel(int aPolyDeg, int aPolyDegInv)
-    : mCenter1(0, 0)
-    , mCenter2(0, 0)
-    , mDir1   (1, 0)
-    , mDir2   (1, 0)
-    , mV1(aPolyDeg)
-    , mV2(aPolyDeg)
-    , mW1(aPolyDegInv)
-    , mW2(aPolyDegInv)
-{}
 
-// --------------------------------------------------------
-
-cPt2dr cEpipolarRectification::cEpipolarModel::ToRotatedFrame(
-        const cPt2dr& p, const cPt2dr& aCenter, const cPt2dr& aDir)
+cPt2dr cEpipPolyMapping::ToRotatedFrame(const cPt2dr &p) const
 {
-    return (p - aCenter) / aDir;
+    return (p - mCenter) / mDir;
 }
 
-cPt2dr cEpipolarRectification::cEpipolarModel::FromRotatedFrame(
-        const cPt2dr& q, const cPt2dr& aCenter, const cPt2dr& aDir)
+cPt2dr cEpipPolyMapping::FromRotatedFrame(const cPt2dr& q) const
 {
-    return q * aDir + aCenter;
+    return q * mDir + mCenter;
 }
 
-// --------------------------------------------------------
 
-cPt2dr cEpipolarRectification::cEpipolarModel::ToEpipolar1(const cPt2dr& p) const
+
+cPt2dr cEpipPolyMapping::Value(const cPt2dr& aPt) const
 {
-    const cPt2dr q = ToRotatedFrame(p, mCenter1, mDir1);
-    return cPt2dr(q.x(), mV1.Eval(q));
+    const cPt2dr q = ToRotatedFrame(aPt);
+    return cPt2dr(q.x(), mV.Eval(q));
 }
 
-cPt2dr cEpipolarRectification::cEpipolarModel::ToEpipolar2(const cPt2dr& p) const
+cPt2dr cEpipPolyMapping::Inverse(const cPt2dr& aPt) const
 {
-    const cPt2dr q = ToRotatedFrame(p, mCenter2, mDir2);
-    return cPt2dr(q.x(), mV2.Eval(q));
+    return FromRotatedFrame(cPt2dr(aPt.x(), mW.Eval(aPt)));
 }
 
-cPt2dr cEpipolarRectification::cEpipolarModel::FromEpipolar1(const cPt2dr& e) const
-{
-    return FromRotatedFrame(cPt2dr(e.x(), mW1.Eval(e)), mCenter1, mDir1);
-}
 
-cPt2dr cEpipolarRectification::cEpipolarModel::FromEpipolar2(const cPt2dr& e) const
-{
-    return FromRotatedFrame(cPt2dr(e.x(), mW2.Eval(e)), mCenter2, mDir2);
-}
+
 
 // ============================================================
 //  cEpipolarRectification
@@ -75,7 +50,7 @@ cEpipolarRectification::cEpipolarRectification(const cSensorImage& aCam1,
 //  Compute  (Algorithm 1 of the paper)
 // ============================================================
 
-cEpipolarRectification::cEpipolarModel cEpipolarRectification::Compute() const
+cEpipPolyModel cEpipolarRectification::Compute() const
 {
     // ----------------------------------------------------------
     //  Step 1 – generate H-compatible pairs (both directions)
@@ -139,23 +114,23 @@ cEpipolarRectification::cEpipolarModel cEpipolarRectification::Compute() const
     // ----------------------------------------------------------
     //  Step 3 – estimate V1 (with Y-axis identity) and V2
     // ----------------------------------------------------------
-
-    cEpipolarModel aRes(mParams.mPolyDegree, mParams.mPolyDegreeInv);
-    aRes.mCenter1 = aCenter1;
-    aRes.mCenter2 = aCenter2;
-    aRes.mDir1    = aDir1;
-    aRes.mDir2    = aDir2;
-
-    EstimateForwardPolynomials(aRotPairs, aRes.mV1, aRes.mV2);
+    cPolyXY_N<tREAL8> aV1(mParams.mPolyDegree);
+    cPolyXY_N<tREAL8> aV2(mParams.mPolyDegree);
+    EstimateForwardPolynomials(aRotPairs, aV1, aV2);
 
     // ----------------------------------------------------------
     //  Step 4 – estimate inverse polynomials W1, W2
     // ----------------------------------------------------------
 
-    EstimateInversePolynomials(aRotPairs,
-                               aRes.mV1, aRes.mV2,
-                               aRes.mW1, aRes.mW2);
-    return aRes;
+    cPolyXY_N<tREAL8> aW1(mParams.mPolyDegreeInv);
+    cPolyXY_N<tREAL8> aW2(mParams.mPolyDegreeInv);
+    EstimateInversePolynomial(aRotPairs, aV1, aW1, UseFromPair::PT1);
+    EstimateInversePolynomial(aRotPairs, aV2, aW2, UseFromPair::PT2);
+
+    return cEpipPolyModel {
+        std::make_unique<cEpipPolyMapping>(aV1,aW1,aCenter1,aDir1),
+        std::make_unique<cEpipPolyMapping>(aV2,aW2,aCenter2,aDir2),
+    };
 }
 
 // ============================================================
@@ -180,13 +155,17 @@ cEpipolarRectification::cEpipolarModel cEpipolarRectification::Compute() const
 // ============================================================
 
 void cEpipolarRectification::EstimateForwardPolynomials(
-        const std::vector<cEpiPair>&        aPairs,
-        cPolyXY_N_IdentityOnYAxis<double>&  aV1,
-        cPolyXY_N<double>&                  aV2) const
+        const std::vector<cEpiPair>& aPairs,
+        cPolyXY_Nd&           aV1,
+        cPolyXY_Nd&           aV2) const
 {
-    const int nFree1 = aV1.NbFreeCoeffs();
+    // To calcul V1 params, use an auxiliary Polynom class
+    //   which implements the property V(0,y) = y
+    cPolyXY_N_IdentityOnYAxis<double>  aV1IdOnY(aV1.Degree());
+    const int nFree1 = aV1IdOnY.NbFreeCoeffs();
     const int n2     = aV2.NbCoeffs();
     const int nTotal = nFree1 + n2;
+
 
     cLeasSqtAA<double> aSolver(nTotal);
 
@@ -200,7 +179,7 @@ void cEpipolarRectification::EstimateForwardPolynomials(
 
         // Free part of V1  (positive, indices 0..nFree1-1)
         {
-            const cDenseVect<double> fb = aV1.FreeBasisVector(q1);
+            const cDenseVect<double> fb = aV1IdOnY.FreeBasisVector(q1);
             for (int k = 0; k < nFree1; ++k)
                 aCoeff(k) = fb(k);
         }
@@ -213,7 +192,7 @@ void cEpipolarRectification::EstimateForwardPolynomials(
         }
 
         // RHS = -locked contribution of V1 at q1 = -q1.y()
-        const double aRHS = -aV1.LockedContribution(q1);
+        const double aRHS = -aV1IdOnY.LockedContribution(q1);
 
         aSolver.PublicAddObservation(1.0, aCoeff, aRHS);
     }
@@ -223,45 +202,34 @@ void cEpipolarRectification::EstimateForwardPolynomials(
 
     // Restore V1 : locked coefficients are already set in the
     // constructor of cPolyXY_N_IdentityOnYAxis; just fill free ones.
-    aV1.SetFreeCoeffsFromSolution(aSol, 0);
+    aV1IdOnY.SetFreeCoeffsFromSolution(aSol, 0);
 
     // Restore V2
     aV2.SetFromSolution(aSol, nFree1);
+
+    // Set V1 from auxiliary class
+    aV1=aV1IdOnY;
 }
 
-// ============================================================
-//  EstimateInversePolynomials
-// ============================================================
-
-void cEpipolarRectification::EstimateInversePolynomials(
-        const std::vector<cEpiPair>& aPairs,
-        const cPolyXY_N<double>&     aV1,
-        const cPolyXY_N<double>&     aV2,
-        cPolyXY_N<double>&           aW1,
-        cPolyXY_N<double>&           aW2) const
-{
-    EstimateOneInversePolynomial(aPairs, aV1, aW1, true);
-    EstimateOneInversePolynomial(aPairs, aV2, aW2, false);
-}
 
 // ------------------------------------------------------------
-//  EstimateOneInversePolynomial
+//  EstimateInversePolynomial
 //
 //  Observation (eq. 34) :  Wk( qk.x ,  Vk(qk) ) = qk.y
 // ------------------------------------------------------------
 
-void cEpipolarRectification::EstimateOneInversePolynomial(
+void cEpipolarRectification::EstimateInversePolynomial(
         const std::vector<cEpiPair>& aPairs,
-        const cPolyXY_N<double>&     aVk,
-        cPolyXY_N<double>&           aWk,
-        bool                         aUsePt1) const
+        const cPolyXY_Nd&     aVk,
+        cPolyXY_Nd&           aWk,
+        UseFromPair                  aUsePt) const
 {
     const int nCoeff = aWk.NbCoeffs();
     cLeasSqtAA<double> aSolver(nCoeff);
 
     for (const auto& pr : aPairs)
     {
-        const cPt2dr& qk = aUsePt1 ? pr.mP1 : pr.mP2;
+        const cPt2dr& qk = aUsePt == UseFromPair::PT1 ? pr.mP1 : pr.mP2;
 
         // Epipolar coordinates of qk
         const double u = qk.x();
@@ -275,7 +243,7 @@ void cEpipolarRectification::EstimateOneInversePolynomial(
     }
 
     const cDenseVect<double> aSol = aSolver.PublicSolve();
-    StdOut() << "W" << (aUsePt1 ? '1' : '2') << " var = " <<  aSolver.VarCurSol() << std::endl;
+    StdOut() << "W" << (aUsePt == UseFromPair::PT1 ? '1' : '2') << " var = " <<  aSolver.VarCurSol() << std::endl;
 
     aWk.SetFromSolution(aSol);
 }
@@ -363,7 +331,7 @@ void cEpipolarRectification::GenerateData(const cSensorImage &aCamM,
 
 
 
-EpipolarFrame computeFrame(const cEpipolarModel &m, int k, const cPt2di &ImSz, int nSample)
+EpipolarFrame computeFrame(const cEpipolarMapping &aEpipMap, const cPt2di &ImSz, int nSample)
 {
     double xMin =  std::numeric_limits<double>::infinity();
     double xMax = -std::numeric_limits<double>::infinity();
@@ -375,7 +343,7 @@ EpipolarFrame computeFrame(const cEpipolarModel &m, int k, const cPt2di &ImSz, i
         for (int s = 0; s <= nSample; ++s) {
             double t = static_cast<double>(s) / nSample;
             cPt2dr p{ a.x() + t * (b.x() - a.x()), a.y() + t * (b.y() - a.y()) };
-            cPt2dr e = m.ToEpipolar(k,p);
+            cPt2dr e = aEpipMap.Value(p);
             xMin = std::min(xMin, e.x());
             xMax = std::max(xMax, e.x());
             yMin = std::min(yMin, e.y());
@@ -403,8 +371,8 @@ EpipolarFrame computeFrame(const cEpipolarModel &m, int k, const cPt2di &ImSz, i
 
 void computeCommonFraming(const cEpipolarModel &m, const cPt2di &Im1Sz, const cPt2di &Im2Sz, EpipolarFrame &f1, EpipolarFrame &f2, int margin, int nSample)
 {
-    f1 = computeFrame(m, 1, Im1Sz, nSample);
-    f2 = computeFrame(m, 2, Im2Sz, nSample);
+    f1 = computeFrame(m.EpipMap1(), Im1Sz, nSample);
+    f2 = computeFrame(m.EpipMap2(), Im2Sz, nSample);
 
     // ----- Common Y axis: intersection of both Y ranges ---------------------
     //
@@ -464,8 +432,7 @@ void computeCommonFraming(const cEpipolarModel &m, const cPt2di &Im1Sz, const cP
 }
 
 cDataGenUnTypedIm<2> *resampleToEpipolar(
-    const cEpipolarModel &m,
-    int k,
+    const cEpipolarMapping &aEpipMap,
     const cDataGenUnTypedIm<2> *Im,
     const EpipolarFrame &frame,
     const cInterpolator1D& anInterp,
@@ -486,7 +453,7 @@ cDataGenUnTypedIm<2> *resampleToEpipolar(
             double eX = frame.xOff + static_cast<double>(u);
 
             // Inverse mapping: rectified space -> original image
-            cPt2dr orig = m.FromEpipolar(k, {eX, eY});
+            cPt2dr orig = aEpipMap.FromEpipolar({eX, eY});
 
             // Bilinear interpolation in the original image
             double val;
@@ -514,13 +481,14 @@ EpipolarImages generateEpipolarImages(
     // --- 2. Resample both images --------------------------------------------
     std::cout << "[EpipolarResample] Resampling image 1 ("
               << f1.outSx << "x" << f1.outSy << ")...\n";
-    cDataGenUnTypedIm<2>* rectified1 = resampleToEpipolar(m, 1, Im1, f1, anInterp, defVal);
+    cDataGenUnTypedIm<2>* rectified1 = resampleToEpipolar(m.EpipMap1(), Im1, f1, anInterp, defVal);
 
     std::cout << "[EpipolarResample] Resampling image 2 ("
               << f2.outSx << "x" << f2.outSy << ")...\n";
-    cDataGenUnTypedIm<2>* rectified2 = resampleToEpipolar(m, 2, Im2, f2, anInterp, defVal);
+    cDataGenUnTypedIm<2>* rectified2 = resampleToEpipolar(m.EpipMap2(), Im2, f2, anInterp, defVal);
 
     return { rectified1, rectified2, f1, f2 };
 }
+
 
 } // namespace MMVII

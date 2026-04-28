@@ -2,28 +2,93 @@
 #define C_EPIPOLAR_RECTIFICATION_H
 
 #include "cPolyXY_N.h"
+#include "MMVII_Mappings.h"
 #include "MMVII_AllClassDeclare.h"  // cPt2dr, cPt3dr, cPt2di, etc.
 
 namespace MMVII {
 // Forward declaration
 class cSensorImage;
 
+class cEpipolarMapping : public cDataInvertibleMapping<tREAL8,2>
+{
+public:
+    cEpipolarMapping() {}
+    cPt2dr ToEpipolar(const cPt2dr& aPt) const { return Value(aPt); }
+    cPt2dr FromEpipolar(const cPt2dr& aPt) const { return Inverse(aPt); }
+};
+
+
 class cEpipolarModel
 {
 public:
-    virtual cPt2dr ToEpipolar1(const cPt2dr& p) const = 0;
-    virtual cPt2dr ToEpipolar2(const cPt2dr& p) const = 0;
-    virtual cPt2dr FromEpipolar1(const cPt2dr& p) const = 0;
-    virtual cPt2dr FromEpipolar2(const cPt2dr& p) const = 0;
-    cPt2dr ToEpipolar(int k, const cPt2dr& p) const
-    {
-        return k == 1 ? ToEpipolar1(p) : ToEpipolar2(p);
-    }
-    cPt2dr FromEpipolar(int k, const cPt2dr& p) const
-    {
-        return k == 1 ? FromEpipolar1(p) : FromEpipolar2(p);
-    }
+    virtual const cEpipolarMapping& EpipMap1() const = 0;
+    virtual const cEpipolarMapping& EpipMap2() const = 0;
+    cPt2dr ToEpipolar1(const cPt2dr& aPt) const { return EpipMap1().ToEpipolar(aPt); }
+    cPt2dr FromEpipolar1(const cPt2dr& aPt) const { return EpipMap1().ToEpipolar(aPt); }
+    cPt2dr ToEpipolar2(const cPt2dr& aPt) const { return EpipMap2().ToEpipolar(aPt); }
+    cPt2dr FromEpipolar2(const cPt2dr& aPt) const { return EpipMap2().ToEpipolar(aPt); }
 };
+
+
+template<typename T>
+#if __cplusplus >= 202002L
+    requires std::derived_from<T, cEpipolarModelBase>
+#endif
+class cEpipolarModelTpl : public cEpipolarModel
+{
+public:
+    typedef std::unique_ptr<T> Ptr_T;
+    cEpipolarModelTpl(Ptr_T aEpipMap1, Ptr_T aEpipMap2)
+        : aEpipMap1(std::move(aEpipMap1)),aEpipMap2(std::move(aEpipMap2))
+    {}
+    const cEpipolarMapping& EpipMap1() const override { return *aEpipMap1; }
+    const cEpipolarMapping& EpipMap2() const override { return *aEpipMap2; }
+
+private:
+    Ptr_T aEpipMap1;
+    Ptr_T aEpipMap2;
+};
+
+
+
+class cEpipPolyMapping: public cEpipolarMapping
+{
+public:
+    cEpipPolyMapping(const cPolyXY_Nd& aV,
+const cPolyXY_Nd& aW,
+                     cPt2dr aCenter,
+                     cPt2dr aDir)
+        : mV(aV)
+        , mW(aW)
+        , mCenter{aCenter}
+        , mDir{aDir}
+    {}
+
+    cPt2dr Value(const cPt2dr& aPt) const override;
+    cPt2dr Inverse(const cPt2dr& aPt) const override;
+
+private:
+    /// (p - C) / D  (complex division = rotation)
+    cPt2dr ToRotatedFrame(const cPt2dr& p) const;
+
+    /// q * D + C
+    cPt2dr FromRotatedFrame(const cPt2dr& q) const;
+
+    // --- Forward polynomial Vk (image -> epipolar) ---
+    cPolyXY_Nd mV;
+    // --- Inverse polynomial Wk (epipolar -> image) ---
+    cPolyXY_Nd mW;
+    cPt2dr mCenter;   ///< centroids of the image point sets
+    cPt2dr mDir;      ///< unit epipolar direction per image
+};
+
+
+class cEpipPolyModel : public cEpipolarModelTpl<cEpipPolyMapping>
+{
+public:
+    using cEpipolarModelTpl<cEpipPolyMapping>::cEpipolarModelTpl;
+};
+
 
 // ============================================================
 //  Epipolar rectification for a generic stereo camera pair.
@@ -65,46 +130,6 @@ public:
     };
 
     // --------------------------------------------------------
-    //  Rectification result
-    // --------------------------------------------------------
-    struct cEpipolarModel : public MMVII::cEpipolarModel
-    {
-        // --- Rotation parameters (one per image) ---
-        cPt2dr mCenter1, mCenter2;   ///< centroids of the image point sets
-        cPt2dr mDir1,    mDir2;      ///< unit epipolar direction per image
-
-        // --- Forward polynomials Vk (image -> epipolar) ---
-        cPolyXY_N_IdentityOnYAxis<double> mV1;
-        cPolyXY_N<double>                 mV2;
-
-        // --- Inverse polynomials Wk (epipolar -> image) ---
-        cPolyXY_N<double> mW1;
-        cPolyXY_N<double> mW2;
-
-        cEpipolarModel(int aPolyDeg, int aPolyDegInv);
-
-        /// F1(p) : image-1 pixel -> epipolar pixel
-        cPt2dr ToEpipolar1   (const cPt2dr& p) const override;
-        /// F2(p) : image-2 pixel -> epipolar pixel
-        cPt2dr ToEpipolar2   (const cPt2dr& p) const override;
-
-        /// G1(e) : epipolar pixel -> image-1 pixel
-        cPt2dr FromEpipolar1(const cPt2dr& e) const override;
-        /// G2(e) : epipolar pixel -> image-2 pixel
-        cPt2dr FromEpipolar2(const cPt2dr& e) const override;
-
-    private:
-        /// (p - C) / D  (complex division = rotation)
-        static cPt2dr ToRotatedFrame  (const cPt2dr& p,
-                                       const cPt2dr& aCenter,
-                                       const cPt2dr& aDir);
-        /// q * D + C
-        static cPt2dr FromRotatedFrame(const cPt2dr& q,
-                                       const cPt2dr& aCenter,
-                                       const cPt2dr& aDir);
-    };
-
-    // --------------------------------------------------------
     //  Constructor
     // --------------------------------------------------------
     cEpipolarRectification(const cSensorImage& aCam1,
@@ -114,7 +139,7 @@ public:
     // --------------------------------------------------------
     //  Main entry point
     // --------------------------------------------------------
-    cEpipolarModel Compute() const;
+    cEpipPolyModel Compute() const;
 
 private:
     // --------------------------------------------------------
@@ -147,27 +172,21 @@ private:
     //  System (eq. 24) :  V1(q1) = V2(q2)
     // ----------------------------------------------------------
     void EstimateForwardPolynomials(
-            const std::vector<cEpiPair>&        aPairs,
-            cPolyXY_N_IdentityOnYAxis<double>&  aV1,
-            cPolyXY_N<double>&                  aV2) const;
+            const std::vector<cEpiPair>& aPairs,
+            cPolyXY_Nd&           aV1,
+            cPolyXY_Nd&           aV2) const;
 
     // ----------------------------------------------------------
     //  Estimate inverse polynomials W1, W2 (eq. 33-34).
     //
     //  System :  Wk( qk.x ,  Vk(qk) ) = qk.y
     // ----------------------------------------------------------
-    void EstimateInversePolynomials(
+    enum class UseFromPair{PT1,PT2};
+    void EstimateInversePolynomial(
             const std::vector<cEpiPair>& aPairs,
-            const cPolyXY_N<double>&     aV1,
-            const cPolyXY_N<double>&     aV2,
-            cPolyXY_N<double>&           aW1,
-            cPolyXY_N<double>&           aW2) const;
-
-    void EstimateOneInversePolynomial(
-            const std::vector<cEpiPair>& aPairs,
-            const cPolyXY_N<double>&     aVk,
-            cPolyXY_N<double>&           aWk,
-            bool                         aUsePt1) const;
+            const cPolyXY_Nd&     aVk,
+            cPolyXY_Nd&           aWk,
+            UseFromPair                  aUsePt) const;
 
     // --------------------------------------------------------
     //  Members
@@ -227,7 +246,7 @@ struct EpipolarImages {
  * @param ImSz    size of the original image (pixels)
  * @param nSample  number of sample points per edge (default 200)
  */
-EpipolarFrame computeFrame(const cEpipolarModel& m, int k,
+EpipolarFrame computeFrame(const cEpipolarMapping& aEpipMap,
                            const cPt2di& ImSz,
                            int nSample = 200);
 
@@ -270,8 +289,8 @@ void computeCommonFraming(const cEpipolarModel& m,
  * @param frame   layout computed by computeCommonFraming
  * @param defVal  default value for out-of-bounds pixels (default 0)
  */
-cDataGenUnTypedIm<2>* resampleToEpipolar(const cEpipolarModel& m,
-                                         int k,
+cDataGenUnTypedIm<2>* resampleToEpipolar(
+                                         const cEpipolarMapping &aEpipMap,
                                          const cDataGenUnTypedIm<2>* Im,
                                          const EpipolarFrame& frame,
                                          const cInterpolator1D& anInterp,

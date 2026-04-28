@@ -90,7 +90,7 @@ protected:
     std::vector<T> mCoeffs;
 };
 
-
+typedef cPolyXY_N<double> cPolyXY_Nd;
 
 template <typename T> inline int cPolyXY_N<T>::NbCoeffsForDegree(int d)
 {
