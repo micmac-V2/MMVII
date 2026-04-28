@@ -830,7 +830,7 @@ class cPhotogrammetricProject : public cIPhProj
          cChangeSysCo ChangSysCo(const std::string aS1,const std::string aS2) const;
 
                   //  ======== [1]  Sysco saved in "MMVII-PhgrProj/Ori/"  or "MMVII-PhgrProj/PointsMeasure//"
-         std::string  NameCurSysCo(const cDirsPhProj &,bool IsIn) const;
+         std::string NameCurSysCo(const cDirsPhProj &, bool SVP=false, bool IsIn=true) const;
          tPtrSysCo  CurSysCo(const cDirsPhProj &,bool SVP=false, bool IsIn=true) const;
          tPtrSysCo  CurSysCoOri(bool SVP=false, bool IsIn=true) const;
          tPtrSysCo  CurSysCoGCP(bool SVP=false, bool IsIn=true) const;

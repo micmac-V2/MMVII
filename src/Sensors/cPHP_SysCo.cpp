@@ -151,15 +151,22 @@ cChangeSysCo cPhotogrammetricProject::ChangSysCo(const std::vector<std::string> 
 
              //==================   SysCo saved in standard folder ============
 
-std::string  cPhotogrammetricProject::NameCurSysCo(const cDirsPhProj & aDP,bool IsIn) const
+std::string  cPhotogrammetricProject::NameCurSysCo(const cDirsPhProj & aDP,bool SVP, bool IsIn) const
 {
+    if (SVP)
+    {
+        if (IsIn && !aDP.DirInIsInit())
+            return "";
+        if (!IsIn && !aDP.DirOutIsInit())
+            return "";
+    }
    return aDP.FullDirInOut(IsIn)   +  "CurSysCo." +  GlobTaggedNameDefSerial();
 
 }
 
 tPtrSysCo  cPhotogrammetricProject::CurSysCo(const cDirsPhProj & aDP,bool SVP, bool IsIn) const
 {
-    std::string aPath = NameCurSysCo(aDP,IsIn);
+    std::string aPath = NameCurSysCo(aDP,SVP,IsIn);
     if (! ExistFile(aPath))
     {
        if (! SVP)
@@ -179,7 +186,7 @@ void cPhotogrammetricProject::SaveCurSysCo(const cDirsPhProj & aDP,tPtrSysCo aSy
     if (aDP.DirOut() == MMVII_NONE)
        return;
 
-    SaveInFile(aSysCo->toSysCoData(),NameCurSysCo(aDP,false));
+    SaveInFile(aSysCo->toSysCoData(),NameCurSysCo(aDP,false,false));
 }
 
 

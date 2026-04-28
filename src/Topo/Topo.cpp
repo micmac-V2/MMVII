@@ -54,7 +54,9 @@ cBA_Topo::cBA_Topo
                 mAllTopoDataIn.InsertTopoData(aTopoData);
             }
         }
-        mSysCo = mPhProj->CurSysCoGCP();
+        mSysCo = mPhProj->CurSysCoGCP(true); // may accept no SysCo if no verticalization
+        if (!mSysCo)
+            mSysCo = cSysCo::MakeSysCo("LocalNONE");
     } else {
         // no PhProj: this is a bench, topodata will be added later
         mSysCo = cSysCo::MakeSysCo("RTL*45*0*0*+proj=latlong");
