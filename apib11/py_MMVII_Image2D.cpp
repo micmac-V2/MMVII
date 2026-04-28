@@ -13,7 +13,7 @@ void pyb_init_cIm2D_tpl(py::module_ &m, const std::string& name) {
 
     typedef cIm2D<T> tIm;
     typedef cDataIm2D<T> tDIm;
-    typedef cDataFileIm2D::tOptions tFileOptions;
+    typedef std::vector<std::string> tFileOptions;
 
     auto imd = py::class_<tDIm>(m, ("Data" + name).c_str(),py::buffer_protocol());
     imd.def("sz",&tDIm::Sz);
