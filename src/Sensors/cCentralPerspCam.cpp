@@ -940,7 +940,7 @@ cPerspCamIntrCalib * cPerspCamIntrCalib::RandomCalib(eProjPC aTypeProj,int aKDeg
     if (aTypeProj==eProjPC::eEquiRect)
     {
         aSz.x() = round(2 * M_PI * aFoc);
-        aSz.y() = round(M_PI * aFoc);
+        //aSz.y() = round(M_PI * aFoc);
         aPP = cPt2dr(M_PI * aFoc, M_PI / 2.0 * aFoc);
     }
 
