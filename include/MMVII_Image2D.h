@@ -15,7 +15,7 @@ namespace MMVII
 
 /** Class for file image, basic now, will evolve but with (hopefully)
     a same/similar interface.
- 
+
     What the user must know if the image exist  :
         * size, channel, type of value
         * read write an area (rectangle at least) from this file, method are
@@ -38,7 +38,6 @@ class cDataFileIm2D : public cRect2
     // See GDAL drivers documentation
     // Example for jpeg driver : {"QUALITY=90"}
     // Example for tiff driver : {"TILED=YES","BLOCKXSIZE=256","BLOCKYSIZE=256"}
-        typedef std::vector<std::string> tOptions;
 
         const cPt2di & Sz() const ;  ///< From cRect2
         const int  & NbChannel ()  const ;  ///< std accessor
@@ -55,11 +54,11 @@ class cDataFileIm2D : public cRect2
         /// Create the file before returning the descriptor
         static cDataFileIm2D Create(const std::string & aName,eTyNums,const cPt2di & aSz, int aNbChan=1);
         /// Options depends on each format driver and may be not applied if the file already exits ...
-        static cDataFileIm2D Create(const std::string & aName,eTyNums,const cPt2di & aSz, const tOptions& aOptions, int aNbChan=1);
+        static cDataFileIm2D Create(const std::string & aName,eTyNums,const cPt2di & aSz, const std::vector<std::string>& aOptions, int aNbChan=1);
 
         // Special creation for fully write format : jpeg, png, ... File will be (re)created on each write and the full file must be written at once
         // This function guarantees that the options will be applied (if driver allows them ...)
-        static cDataFileIm2D CreateOnWrite(const std::string & aName,eTyNums,const cPt2di & aSz, const tOptions& aOptions={}, int aNbChan=1);
+        static cDataFileIm2D CreateOnWrite(const std::string & aName,eTyNums,const cPt2di & aSz, const std::vector<std::string>& aOptions={}, int aNbChan=1);
         static cDataFileIm2D CreateOnWrite(const std::string & aName,eTyNums,const cPt2di & aSz, int aNbChan=1);
 
         static cDataFileIm2D Empty();
@@ -67,7 +66,7 @@ class cDataFileIm2D : public cRect2
         bool IsCreateAtFirstWrite() const;     // Set by CreateOnWrite, must then be fully write and only one time
         bool IsCreatedNoUpdate() const;
 
-        const tOptions& CreateOptions() const;
+        const std::vector<std::string>& CreateOptions() const;
 
         virtual ~cDataFileIm2D();
 
@@ -78,7 +77,7 @@ class cDataFileIm2D : public cRect2
      private :
         friend class cGdalApi;
         enum class eCreationState {Created, AtFirstWrite, CreatedNoUpdate};
-        cDataFileIm2D(const std::string &,eTyNums,const cPt2di & aSz,int aNbChannel, const tOptions& aOptions, eForceGray, eCreationState) ;
+        cDataFileIm2D(const std::string &,eTyNums,const cPt2di & aSz,int aNbChannel, const std::vector<std::string>& aOptions, eForceGray, eCreationState) ;
 
         void SetCreated() const;
         void SetCreatedNoUpdate() const;
@@ -88,9 +87,9 @@ class cDataFileIm2D : public cRect2
         eTyNums     mType;      ///< Type of value for pixel
         int         mNbChannel; ///< Number of channels
         eForceGray  mForceGray;
-        tOptions    mCreateOptions; ///< GDAL Creations options, depend of output driver (JPEG, TIFF, ...)
-        mutable cExifData  mExifData;
-        mutable eCreationState mCreationState;  ///< support for creation of non updatable file image (create/write at once: .png, .jpg, ...)
+        std::vector<std::string> mCreateOptions; ///< GDAL Creations options, depend of output driver (JPEG, TIFF, ...)
+        mutable cExifData        mExifData;
+        mutable eCreationState   mCreationState;  ///< support for creation of non updatable file image (create/write at once: .png, .jpg, ...)
 };
 
 /// Size differnce of associated file images
@@ -105,7 +104,7 @@ double DifAbsInVal(const std::string & aN1,const std::string & aN2,double aDef=-
         * algorithm will work on these images (pointers, ref)
         * all acces are cheked (in non optimized versions)
      Class that store an image will store cIm2D
-      
+
      This "pattern" will be used in many case : a class, uncopiable, that is used
      for storing, and create shared pointer, a class for storing
 */
@@ -122,8 +121,6 @@ template <class Type>  class cDataIm2D  : public cDataTypedIm<Type,2>
         typedef cPixBox<2>               tPB;
         typedef typename tBI::tBase  tBase;
         typedef cDataIm2D<Type>      tIm;
-        
-        typedef cDataFileIm2D::tOptions tFileOptions;
 
         void CropIn(const cPt2di & aP0,const tIm &);
 
@@ -143,12 +140,12 @@ template <class Type>  class cDataIm2D  : public cDataTypedIm<Type,2>
         */
        std::pair<cPt2di,cIm2D<Type>>  ReSample(const cInterpolator1D &,const cDataInvertibleMapping<tREAL8,2> &,Type aValOut) const;
        /// Interpolated value, using a generic interpolator
-       double GetValueInterpol(const cInterpolator1D &,const cPt2dr & aP) const ;
+       double GetValueInterpol(const cInterpolator1D &,const cPt2dr & aP) const;
        /// Interpolated value+derivative, using a generic diffentiable interpolator
        std::pair<tREAL8,cPt2dr> GetValueAndGradInterpol(const cDiffInterpolator1D &,const cPt2dr & aP) const override;
        /// Interpolated value, using a generic interpolator, accept point partially inside, if accept no point
        /// must give a def value & Ok
-       double ClipedGetValueInterpol(const cInterpolator1D &,const cPt2dr & aP,double  aDefVal=0,bool * Ok=nullptr) const ;
+       double ClipedGetValueInterpol(const cInterpolator1D &,const cPt2dr & aP,double  aDefVal=0,bool * Ok=nullptr) const override;
 
        /// Bilinear value
        inline double GetVBL(const cPt2dr & aP) const  override
@@ -242,8 +239,7 @@ template <class Type>  class cDataIm2D  : public cDataTypedIm<Type,2>
             UpdateMax(Value(aP),aNewVal);
         }
 
-          // Interface as generic image
-
+        // Interface as generic image
         int     VI_GetV(const cPt2di& aP)  const override; ///< call GetV
         double  VD_GetV(const cPt2di& aP)  const override; ///< call GetV
         void VI_SetV(const  cPt2di & aP,const int & aV)    override ; ///< call SetV
@@ -283,12 +279,12 @@ template <class Type>  class cDataIm2D  : public cDataTypedIm<Type,2>
         void Write(const cDataFileIm2D &,const cPt2di & aP0,double aDyn=1,const cRect2& =cRect2::TheEmptyBox) const;  // 1 to 1
         void Write(const cDataFileIm2D &,const tIm &aIG,const tIm &aIB,const cPt2di & aP0,double aDyn=1,const cRect2& =cRect2::TheEmptyBox) const;  // 1 to 1
         virtual ~cDataIm2D();  ///< will delete mRawData2D
-        
-        void ToFile(const std::string& aName, const tFileOptions& aOptions={}) const; ///< Create a File having same size/type ...
-        void ToFile(const std::string& aName,eTyNums, const tFileOptions& aOptions={}) const; ///< Create a File of given type, having same size ...
-        void ClipToFile(const std::string& aName,const cRect2&, const tFileOptions& aOptions={}) const; ///< Create a Clip File of Box
-        void ToFile(const std::string& aName,const tIm &aIG,const tIm &aIB, const tFileOptions& aOptions={}) const; ///< Create a File having same size/type ...
-        
+
+        void ToFile(const std::string& aName, const std::vector<std::string>& aOptions={}) const override; ///< Create a File having same size/type ...
+        void ToFile(const std::string& aName,eTyNums, const std::vector<std::string>& aOptions={}) const;  ///< Create a File of given type, having same size ...
+        void ClipToFile(const std::string& aName,const cRect2&, const std::vector<std::string>& aOptions={}) const; ///< Create a Clip File of Box
+        void ToFile(const std::string& aName,const tIm &aIG,const tIm &aIB, const std::vector<std::string>& aOptions={}) const; ///< Create a File having same size/type ...
+
         /// Raw image, lost all waranty is you use it...
         tVal ** ExtractRawData2D() {return mRawData2D;}
         const tPVal * ExtractRawData2D() const {return mRawData2D;}
@@ -304,7 +300,7 @@ template <class Type>  class cDataIm2D  : public cDataTypedIm<Type,2>
         void operator = (const cDataIm2D<Type> &) = delete;  ///< No affectation for big obj, will add a dup()
 
 
-        
+
         Type & Value(const cPt2di & aP)   {return mRawData2D[aP.y()][aP.x()];} ///< Data Access
         const Type & Value(const cPt2di & aP) const   {return mRawData2D[aP.y()][aP.x()];} /// Const Data Access
         const Type & Value(int aX,int aY) const   {return mRawData2D[aY][aX];} /// Const Data Access
@@ -413,7 +409,7 @@ template <class Type>  class cIm2D
 
        tDIM & DIm() {return *(mPIm);}  ///< return raw pointer
        const tDIM & DIm() const {return *(mPIm);} ///< const version 4 raw pointer
-      
+
        void Read(const cDataFileIm2D &,const cPt2di & aP0,double aDyn=1,const cRect2& =cRect2::TheEmptyBox);  ///< 1 to 1
        void Write(const cDataFileIm2D &,const cPt2di & aP0,double aDyn=1,const cRect2& =cRect2::TheEmptyBox) const;  // 1 to 1
 
@@ -547,13 +543,12 @@ class cRGBImage
 {
      public :
         typedef cIm2D<tU_INT1>   tIm1C;  // Type of image for 1 chanel
-        typedef cDataFileIm2D::tOptions tFileOptions;
 
         cRGBImage(const cPt2di & aSz,int aZoom=1);
         cRGBImage(const cPt2di & aSz,const cPt3di & aCoul,int aZoom=1);
-        void ToFile(const std::string & aName, const tFileOptions& aOptions={});
-        void ToFileDeZoom(const std::string & aName,int aDeZoom, const tFileOptions& aOptions={});
-        void ToJpgFileDeZoom(const std::string & aName,int aDeZoom, const tFileOptions& aOptions={});
+        void ToFile(const std::string & aName, const std::vector<std::string>& aOptions={});
+        void ToFileDeZoom(const std::string & aName,int aDeZoom, const std::vector<std::string>& aOptions={});
+        void ToJpgFileDeZoom(const std::string & aName,int aDeZoom, const std::vector<std::string>& aOptions={});
 
 
         static cRGBImage FromFile(const std::string& aName,int aZoom=1);  ///< Allocate and init from file

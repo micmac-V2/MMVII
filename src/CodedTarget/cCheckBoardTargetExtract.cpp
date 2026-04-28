@@ -48,6 +48,7 @@ cAppliCheckBoardTargetExtract::cAppliCheckBoardTargetExtract(const std::vector<s
    mNbBlur1          (1),
    mStrShow          (""),
    mScales           {1.0},
+   mPatRejectCodes   (""),
    mDistMaxLocSad    (10.0),
    mDistRectInt      (20),
 
@@ -62,7 +63,7 @@ cAppliCheckBoardTargetExtract::cAppliCheckBoardTargetExtract(const std::vector<s
    mNumDebugMT       (-1),
    mNumDebugSaddle   (-1),
    mNbMinPtEllipse   (6),
-   mTryC             (true),
+   mTryC             (false),
    mStepHeuristikRefinePos    (-1),
    mStepGradRefinePos (1e-4),
    mZoomVisuDetec    (9),
@@ -120,6 +121,7 @@ cCollecSpecArg2007 & cAppliCheckBoardTargetExtract::ArgOpt(cCollecSpecArg2007 & 
              <<  AOpt2007(mOptimSegByRadiom,"OSBR","Optimize segement by radiometry",{eTA2007::HDV})
              <<  AOpt2007(mNbMaxBlackCB,"NbMaxBlackCB","Number max of point in black part of check-board ",{eTA2007::HDV})
              <<  AOpt2007(mPropGrayDCD,"PropGrayDCD","Proportion of gray for find coding part",{eTA2007::HDV})
+             <<  AOpt2007(mPatRejectCodes,"PatRejectCodes","Pattern of codes to reject",{eTA2007::HDV})
              <<  AOpt2007(mNumDebugMT,"NumDebugMT","Num marq target for debug",{eTA2007::Tuning})
              <<  AOpt2007(mNumDebugSaddle,"NumDebugSaddle","Num Saddle point to debug",{eTA2007::Tuning})
 
@@ -707,6 +709,11 @@ void cAppliCheckBoardTargetExtract::DoOneImageAndScale(tREAL8 aScale,const  tIm 
                 if (aCDE.Code())
                   {
                      // StdOut() << "aCDE.mC,eFilterCodedTargetaCDE.mC,eFilterCodedTarget \n";
+                    if ((!mPatRejectCodes.empty()) && MatchRegex(aCDE.Code()->Name(),mPatRejectCodes))
+                     {
+                         StdOut() << "Found target "<<aCDE.Code()->Name()<<" but this code is forbidden\n";
+                         continue;
+                     }
                      SetLabel(aCDE.mC,eFilterCodedTarget);
                      aNbEllWCode++;
                      GotIt = true;

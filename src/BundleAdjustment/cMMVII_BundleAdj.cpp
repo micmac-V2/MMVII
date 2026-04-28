@@ -413,17 +413,6 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
         }
     }
 
-
-    if (mTopo) // TOPO
-    {
-        mTopo->AddTopoEquations(*mR8_Sys);
-    #ifdef VERBOSE_TOPO
-        mTopo->print();
-    #endif
-        if (mVerbose)
-            mTopo->printObs(false);
-    }
-
     for (const auto & aLidarPh : mVBA_Lidar )
         aLidarPh->AddObs();
 
@@ -435,6 +424,16 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     //  Add observation for block of instrument
     IterOneBlockInstr();
 
+    // add topo last to compute sigma0 will all constraints
+    if (mTopo) // TOPO
+    {
+        mTopo->AddTopoEquations(*mR8_Sys);
+#ifdef VERBOSE_TOPO
+        mTopo->print();
+#endif
+        if (mVerbose)
+            mTopo->printObs(false);
+    }
 
     if (mCompute_Uncert && isLastIter)
     {
@@ -894,7 +893,7 @@ void cMMVII_BundleAdj::SaveTopo()
 void cMMVII_BundleAdj::AddTopo() // TOPO
 {
     mTopo = new cBA_Topo(mPhProj);
-    mTopo->AddPointsFromDataToGCP(mGCP);
+    mTopo->AddPointsFromDataToGCP(mGCP, mPhProj);
 }
 
 }; // MMVII

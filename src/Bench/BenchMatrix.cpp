@@ -1082,7 +1082,7 @@ void BenchDenseMatrix0(cParamExeBench & aParam)
     {
         int aNbV = 10;
         cDenseVect<tREAL8> aV0 =  cDenseVect<tREAL8>::RanGenerate(aNbV);
-        cDenseVect<tREAL8> aV1 = NormalizeMoyVar(aV0);
+        cDenseVect<tREAL8> aV1 = NormalizeMoyNorm2(aV0);
         MMVII_INTERNAL_ASSERT_bench(std::abs(aV1.AvgElem()) < 1e-5,"BenchDenseMatrix0  NormalizeMoyVar");
         MMVII_INTERNAL_ASSERT_bench(std::abs(aV1.L2Norm()-1) < 1e-5,"BenchDenseMatrix0  NormalizeMoyVar");
 

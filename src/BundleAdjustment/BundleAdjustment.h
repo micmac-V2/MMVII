@@ -381,6 +381,7 @@ protected :
 
     cPhotogrammetricProject *      mPhProj;         // Photogrammetric project
     cMMVII_BundleAdj&              mBA;             ///< The global bundle adj structure
+    std::vector<std::string>       mParamInterpol;  ///< the interpol parameters, to be able to modify it
     cDiffInterpolator1D *          mInterp;         ///< Interpolator, used to extract  Value & Grad of images
     cCalculator<double>  *         mEq;      ///< Calculator used for constrain the pose from image obs
     cWeightAv<tREAL8,tREAL8>       mLastResidual;   ///< Accumulate the radiometric residual
@@ -407,19 +408,21 @@ class cBA_LidarPhotogra: public cBA_LidarBase
        void InitEq(bool aScanPoseUk);
 
         void Add1Patch(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
-                       const std::string & aScanName, const std::unordered_set<std::string> &aHiddenOnImage);
+                       const std::string & aScanName, const std::unordered_set<std::string> &aHiddenOnImage,
+                       int aPatchNum);
 
+       // AddPatch* returns (number of images used, squared mean residual)
        /// Method for adding observations with radiometric differences as similatity criterion
-       void AddPatchDifRad(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
-                           const std::vector<cData1ImLidPhgr> &aVData) ;
+       std::pair<int, tREAL8> AddPatchDifRad(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+                           const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        /// Method for adding observations with Census Coeff as similatity criterion
-       void AddPatchCensus(const cResidualWeighter<tREAL8> &aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
-                           const std::vector<cData1ImLidPhgr> &aVData) ;
+       std::pair<int, tREAL8>  AddPatchCensus(const cResidualWeighter<tREAL8> &aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+                           const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        /// Method for adding observations with Normalized Centred Coefficent Correlation as similatity criterion
-       void AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
-                           const std::vector<cData1ImLidPhgr> &aVData) ;
+       virtual std::pair<int, tREAL8>  AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
+                           const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        eImatchCrit                    mModeSim;        ///< type of similarity used
        bool                           mPertRad;        ///< do we pertubate the radiometry (simulation & test)
@@ -486,7 +489,11 @@ public :
     /// add observation
     virtual void AddObs() override;
 
+    void UpdateInterpolatorScale(const cMMVII_BundleAdj& aBA);
     void UpdateWeightersMap(const cMMVII_BundleAdj &aBA, double aWFactor); // create or update map, on each iteration
+
+    std::pair<int, tREAL8>  AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
+                       const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) override;
 
 protected:
     virtual void SetVUkVObs
@@ -496,6 +503,7 @@ protected:
          const cData1ImLidPhgr & aData,
          int                     aKPt
          ) override;
+    tREAL8                            mScaleInit, mScaleFinal;   ///< scale interpolator scale, dependent on the iteration number
 
 };
 

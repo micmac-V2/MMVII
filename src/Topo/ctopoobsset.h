@@ -27,7 +27,6 @@ public:
     virtual void OnUpdate() override = 0;    ///< "reaction" after linear update, eventually update inversion
     virtual std::string toString() const;
     eTopoObsSetType getType() const {return mType;}
-    std::vector<int> getParamIndices() const;
     size_t nbObs() const {return mObs.size();}
     cTopoObs* getObs(size_t i) {return mObs.at(i);}
     std::vector<cTopoObs*> & getAllObs() {return mObs;}

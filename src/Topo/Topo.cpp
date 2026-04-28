@@ -54,7 +54,9 @@ cBA_Topo::cBA_Topo
                 mAllTopoDataIn.InsertTopoData(aTopoData);
             }
         }
-        mSysCo = mPhProj->CurSysCoGCP();
+        mSysCo = mPhProj->CurSysCoGCP(true); // may accept no SysCo if no verticalization
+        if (!mSysCo)
+            mSysCo = cSysCo::MakeSysCo("LocalNONE");
     } else {
         // no PhProj: this is a bench, topodata will be added later
         mSysCo = cSysCo::MakeSysCo("RTL*45*0*0*+proj=latlong");
@@ -92,7 +94,7 @@ void cBA_Topo::ToFile(const std::string & aName) const
 }
 
 
-void cBA_Topo::AddPointsFromDataToGCP(cBA_GCP &aBA_GCP)
+void cBA_Topo::AddPointsFromDataToGCP(cBA_GCP &aBA_GCP, cPhotogrammetricProject *aPhProj)
 {
     // fill every ObsSet types
     if (!mAllTopoDataIn.mObsSetSimple.mObs.empty())
@@ -136,6 +138,15 @@ void cBA_Topo::AddPointsFromDataToGCP(cBA_GCP &aBA_GCP)
         for (auto &aMesGCP: aBA_GCP.getMesGCP().MesGCP())
         {
             if (aMesGCP.mNamePt == aPointName)
+            {
+               found = true;
+               break;
+            }
+        }
+        if ((!found)&& aPhProj && aPhProj->IsOriInDirInit())
+        {
+            cSensorCamPC * aCam = aPhProj->ReadCamPC(aPointName, true, true);
+            if (aCam)
             {
                found = true;
                break;
@@ -428,7 +439,7 @@ void BenchTopoComp1example(const std::pair<cTopoData, cSetMesGnd3D>& aBenchData,
     cSetMesGnd3D aMesGCP3Dtmp = aBenchData.second;
     cMes3DDirInfo * aMes3DDirInfo = cMes3DDirInfo::addMes3DDirInfo(aBA.getGCP(), "in","out",1.0);
     aBA.AddGCP3D(aMes3DDirInfo, aMesGCP3Dtmp, false);
-    aTopo->AddPointsFromDataToGCP(aBA.getGCP());
+    aTopo->AddPointsFromDataToGCP(aBA.getGCP(), nullptr);
     //here no 2d mes, fake it
     cMes2DDirInfo * aMes2DDirInfo = cMes2DDirInfo::addMes2DDirInfo(aBA.getGCP(), "in",cStdWeighterResidual());
     cSetMesPtOf1Im aSetMesPtOf1Im;

@@ -301,6 +301,8 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_VisuPoseStr3D);
         TheVecAll.push_back(&TheSpec_TransformPoses);
 
+        TheVecAll.push_back(&TheSpec_EpipResampling);
+
         TheVecAll.push_back(&TheSpecAppliBenchAPBI);
         TheVecAll.push_back(&TheSpecAppliTestElemBundle);
 

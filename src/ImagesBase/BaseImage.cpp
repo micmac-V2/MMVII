@@ -39,43 +39,78 @@ template <const int Dim> void cDataGenUnTypedIm<Dim>::VD_VPtsSetV(const  std::ve
 
 
 
-template <class Type> cDataGenUnTypedIm<2> * Tpl_ReadIm2DGen(const cDataFileIm2D &aDFI,const cBox2di & aBox)
+template <class Type> cDataGenUnTypedIm<2> * Tpl_ReadAllocIm2DGen(const cBox2di& aBox, const cDataFileIm2D *aDFI, const cPt2di& aP0)
 {
-   cDataIm2D<Type> * aDIm  = new  cDataIm2D<Type>(cPt2di(0,0),aBox.Sz());
-   aDIm->Read(aDFI,aBox.P0());
-   return aDIm;
+    cDataIm2D<Type> * aDIm  =  new  cDataIm2D<Type>(aBox.P0(),aBox.P1());
+    if (aDFI)
+        aDIm->Read(*aDFI,aP0);
+    return aDIm;
 }
 
-cDataGenUnTypedIm<2> * ReadIm2DGen(const std::string &aName,cBox2di  aBox)
+
+
+static cDataGenUnTypedIm<2> * ReadAllocIm2DGen(eTyNums aType, const cBox2di& aBox, const cDataFileIm2D *aDFI=nullptr, const cPt2di& aP0 = cPt2di{})
 {
-    cDataFileIm2D  aDFI = cDataFileIm2D::Create(aName,eForceGray::Yes);
-
-    if (aBox.IsEmpty())
-        aBox = cBox2di(cPt2di(0,0),aDFI.Sz());
-
-    switch (aDFI.Type()) {
-        case eTyNums::eTN_U_INT1 :   return Tpl_ReadIm2DGen<tU_INT1>(aDFI,aBox);
-        case eTyNums::eTN_U_INT2 :   return Tpl_ReadIm2DGen<tU_INT2>(aDFI,aBox);
-        case eTyNums::eTN_INT1 :     return Tpl_ReadIm2DGen<tINT1>(aDFI,aBox);
-        case eTyNums::eTN_INT2 :     return Tpl_ReadIm2DGen<tINT2>(aDFI,aBox);
-        case eTyNums::eTN_INT4 :     return Tpl_ReadIm2DGen<tINT4>(aDFI,aBox);
-        case eTyNums::eTN_REAL4 :    return Tpl_ReadIm2DGen<tREAL4>(aDFI,aBox);
-        default :
-            MMVII_INTERNAL_ERROR("Unhandled type in ReadIm2DGen");
-            return nullptr;
+    switch (aType)
+    {
+    case eTyNums::eTN_U_INT1 : return Tpl_ReadAllocIm2DGen<tU_INT1>(aBox,aDFI,aP0);
+    case eTyNums::eTN_U_INT2 : return Tpl_ReadAllocIm2DGen<tU_INT2>(aBox,aDFI,aP0);
+    case eTyNums::eTN_INT1   : return Tpl_ReadAllocIm2DGen<tINT1>(aBox,aDFI,aP0);
+    case eTyNums::eTN_INT2   : return Tpl_ReadAllocIm2DGen<tINT2>(aBox,aDFI,aP0);
+    case eTyNums::eTN_INT4   : return Tpl_ReadAllocIm2DGen<tINT4>(aBox,aDFI,aP0);
+    case eTyNums::eTN_REAL4  : return Tpl_ReadAllocIm2DGen<tREAL4>(aBox,aDFI,aP0);
+    default : break;
     }
-
     MMVII_INTERNAL_ERROR("Unhandled type in ReadIm2DGen");
     return nullptr;
 }
 
-cDataGenUnTypedIm<2> * ReadIm2DGen(const std::string &aName)
+cDataGenUnTypedIm<2> * AllocIm2DGen(const cPt2di& aSz, eTyNums aType)
 {
-    return ReadIm2DGen(aName,cBox2di::Empty());
+    return ReadAllocIm2DGen(aType, cBox2di(aSz));
+}
+
+cDataGenUnTypedIm<2> * AllocIm2DGen(const cPt2di& aP0, const cPt2di& aP1,eTyNums aType)
+{
+    return ReadAllocIm2DGen(aType, cBox2di(aP0,aP1));
+}
+
+static cDataGenUnTypedIm<2> * ReadIm2DGen(const std::string& aName, std::optional<eTyNums> aOptType, const cBox2di  &aBox)
+{
+    cDataFileIm2D  aDFI = cDataFileIm2D::Create(aName,eForceGray::Yes);
+    auto aSz = aDFI.Sz();
+    auto aP0 = cPt2di{};
+    if (! aBox.IsEmpty())
+    {
+        aSz = aBox.Sz();
+        aP0 = aBox.P0();
+    }
+    auto aType = aOptType ? *aOptType : aDFI.Type();
+    return ReadAllocIm2DGen(aType,cBox2di(aSz),&aDFI,aP0);
+}
+
+
+cDataGenUnTypedIm<2> * ReadIm2DGen(const std::string &aName,const cBox2di& aBox)
+{
+    return ReadIm2DGen(aName, std::nullopt, aBox);
+}
+
+
+cDataGenUnTypedIm<2> * ReadIm2DGen(const std::string &aName, eTyNums aType, const cBox2di& aBox)
+{
+    return ReadIm2DGen(aName,std::optional(aType),aBox);
+}
+
+
+template <const int Dim>
+double cDataGenUnTypedIm<Dim>::ClipedGetValueInterpol(const cInterpolator1D &,const cPt2dr &,double ,bool* ) const
+{
+    MMVII_INTERNAL_ERROR("Unhandled type in cDataGenUnTypedIm::GetValueAndGradInterpol");
+    return 0;
 }
 
 template <const int Dim>
-std::pair<tREAL8,cPt2dr> cDataGenUnTypedIm<Dim>::GetValueAndGradInterpol(const cDiffInterpolator1D &,const cPt2dr & aP) const
+std::pair<tREAL8,cPt2dr> cDataGenUnTypedIm<Dim>::GetValueAndGradInterpol(const cDiffInterpolator1D &,const cPt2dr &) const
 {
     MMVII_INTERNAL_ERROR("Unhandled type in cDataGenUnTypedIm::GetValueAndGradInterpol");
     return {0.,{0.,0.}};
@@ -144,6 +179,12 @@ template <class Type,const int Dim>
         mDoAlloc = true;
     }
     Init(aModeInit);
+}
+
+template<class Type, const int Dim>
+void cDataTypedIm<Type, Dim>::ToFile(const std::string &, const std::vector<std::string> &) const
+{
+    MMVII_INTERNAL_ERROR("Unimpemented method ToFile() (Type: " + ToStr(this->TypeVal()) + " Dim:" + std::to_string(Dim) );
 }
 
 
@@ -382,7 +423,7 @@ template <class Type,const int Dim> void  cDataTypedIm<Type,Dim>::InitId()
        MMVII_INTERNAL_ASSERT_bench((P0()[aK]==0)  ,"Init Id P0!= (0,0)");
    }
    MMVII_INTERNAL_ASSERT_bench((P1()[0]==P1()[1])  ,"Init Id, non square image");
-   
+
    InitNull();
    for (int aK=0 ;  aK<NbElem()  ; aK += P1()[0]+1)
    {
@@ -506,7 +547,7 @@ void cBenchBaseImage::DoBenchBI()
 {
     cMemState  aState = cMemManager::CurState() ;
     {
-        
+
         // cDataTypedIm<tREAL4,2> aBI(cPt2di(2,3),cPt2di(10,9));
     }
     cMemManager::CheckRestoration(aState);

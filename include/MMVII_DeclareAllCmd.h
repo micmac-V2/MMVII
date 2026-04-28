@@ -119,7 +119,7 @@ extern cSpecMMVII_Appli  TheSpec_BlockCamInit;   // RIGIDBLOC
 extern cSpecMMVII_Appli  TheSpec_BlocReport;
 extern cSpecMMVII_Appli  TheSpec_ClinoReport;
 extern cSpecMMVII_Appli  TheSpec_CernInitRep;
-                                                
+
 extern cSpecMMVII_Appli  TheSpec_ClinoInit;
 extern cSpecMMVII_Appli  TheSpecRename;
 extern cSpecMMVII_Appli  TheSpec_V2ImportCalib;
@@ -144,7 +144,7 @@ extern cSpecMMVII_Appli  TheSpecAppliFranges;
 
 extern cSpecMMVII_Appli  TheSpec_CERN_ImportClino;
 extern cSpecMMVII_Appli  TheSpec_MMV2_MesIm_2_MMV1;
-extern cSpecMMVII_Appli TheSpec_MergeMesImGCP;
+extern cSpecMMVII_Appli  TheSpec_MergeMesImGCP;
 extern cSpecMMVII_Appli  TheSpec_ImageMetadata;
 extern cSpecMMVII_Appli  TheSpec_PerturbRandomOri;
 //extern cSpecMMVII_Appli  TheSpec_ImportTriplet;
@@ -154,6 +154,8 @@ extern cSpecMMVII_Appli  TheSpec_GCPAbsOri;
 extern cSpecMMVII_Appli  TheSpec_HierarchSfm;
 extern cSpecMMVII_Appli  TheSpec_VisuPoseStr3D;
 extern cSpecMMVII_Appli  TheSpec_TransformPoses;
+
+extern cSpecMMVII_Appli  TheSpec_EpipResampling;
 
 extern cSpecMMVII_Appli  TheSpecAppliBenchAPBI;
 extern cSpecMMVII_Appli  TheSpecAppliTestElemBundle;
