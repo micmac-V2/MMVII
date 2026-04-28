@@ -941,7 +941,8 @@ cPerspCamIntrCalib * cPerspCamIntrCalib::RandomCalib(eProjPC aTypeProj,int aKDeg
     {
         aSz.x() = round(2 * M_PI * aFoc);
         //aSz.y() = round(M_PI * aFoc);
-        aPP = cPt2dr(M_PI * aFoc, M_PI / 2.0 * aFoc);
+        //aPP = cPt2dr(M_PI * aFoc, M_PI / 2.0 * aFoc);
+        aPP.x() = M_PI * aFoc;
     }
 
     UpdateMax(aFoc,2* Norm2(aPP-aMidle));
