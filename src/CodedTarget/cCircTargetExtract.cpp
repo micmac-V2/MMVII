@@ -848,12 +848,16 @@ cCollecSpecArg2007 & cAppliExtractCircTarget::ArgOpt(cCollecSpecArg2007 & anArgO
 
              << AOpt2007(mStepRefineGrad,"StepRefineGrad","Step Refine Sym Grad",{eTA2007::HDV})
              <<   mPhProj.DPGndPt2D().ArgDirOutOptWithDef("Std")
+             <<   mPhProj.DPMulTieP().ArgDirOutOpt("","For exporting also in multiple tiep format")
+
           );
 }
 
 void cAppliExtractCircTarget::DoExport()
 {
      int aCptUnCoded=0;
+
+     cVecTiePMul aVTPMul(mNameIm); FakeUseIt(aVTPMul);
 
      cSetMesPtOf1Im  aSetM(FileOfPath(mNameIm));
      std::vector<cSaveExtrEllipe>  mVSavE;
@@ -872,11 +876,22 @@ void cAppliExtractCircTarget::DoExport()
 
 
              if (! anEE->mWithCode) aCptUnCoded++;
+
+             if (anEE->mWithCode )
+             {
+                 cTiePMul aTiePM(anEE->mPt,anEE->mEncode.Num());
+                 aVTPMul.mVecTPM.push_back(aTiePM);
+             }
          }
      }
 
      aSetM.SortMes();
      mPhProj.SaveMeasureIm(aSetM);
+
+     if (mPhProj.DPMulTieP().DirOutIsInit())
+     {
+         mPhProj.SaveMultipleTieP(aVTPMul,mNameIm);
+     }
 
      //SaveInFile(mVSavE,mPhProj.DPPointsMeasures().FullDirOut()+ "Attribute-"+  aSetM.StdNameFile());
      SaveInFile(mVSavE,cSaveExtrEllipe::NameFile(mPhProj,aSetM,false));
