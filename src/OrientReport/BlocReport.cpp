@@ -92,6 +92,8 @@ class cAppli_ReportBlock : public cMMVII_Appli
         std::string                  mIdRepDWirePt;
         std::string                  mIdRepPtGlob;
         std::string                  mPatNameGCP;
+        std::vector<std::string>     mParamReportShared;  ///< Report shared between diff test
+
 
         std::string                  mStrM2T;  /// String of measure to test
         std::string                  mAddExReport;
@@ -133,6 +135,7 @@ class cAppli_ReportBlock : public cMMVII_Appli
 
         /// For a given name of point memorize the set of pair "Cam+Im Measure"
         std::map<std::string,std::vector<tPairCamPt>> mMapMatch;
+
 
 };
 
@@ -197,8 +200,11 @@ cCollecSpecArg2007 & cAppli_ReportBlock::ArgOpt(cCollecSpecArg2007 & anArgOpt)
              << AOpt2007(mSCFreeScale,"Cern-SphFreeScale","Do we have free scale for sphere",{{eTA2007::HDV}})
 
              << AOpt2007(mShow,"Show","Show details on results",{{eTA2007::HDV}})
+             << AOpt2007(mParamReportShared,"SaveRem","Remanent save [File,Id,Reset]",{{eTA2007::ISizeV,"[3,3]"}})
+
     ;
 }
+
 
 static const std::string StrGLOB = "GLOB";
 
@@ -548,6 +554,13 @@ int cAppli_ReportBlock::Exe()
        aDirRep = mDirExReport;
     SetReportSubDir(aDirRep);
 
+    if (IsInit(&mParamReportShared))
+    {
+        bool NewFile = cStrIO<bool>::FromStr(mParamReportShared.at(2));
+        InitReportCSV(mParamReportShared.at(0),"csv",false,{},NewFile);
+        if (NewFile)
+           AddStdHeaderStatCSV(mParamReportShared.at(0),"Ident",mPercStat);
+    }
 
     InitReportCSV(mIdRepWire,"csv",false,{"TimeBloc","NbPlane","Dist Ground","Dist Pix"});
     // AddOneReportCSV(mIdRepWire,{"TimeBloc","NbPlane","Dist Ground","Dist Pix"});
@@ -568,7 +581,6 @@ int cAppli_ReportBlock::Exe()
         mCompBlocInstr->SetClinoValues(eModeAddDataTimeS::eSkipIfNew);
     }
 
-
     for (const auto & [aTimeS,aDataTS] : mCompBlocInstr->DataTS() )
     {
         ProcessOneBloc(aTimeS,aDataTS);
@@ -585,6 +597,12 @@ int cAppli_ReportBlock::Exe()
    // Add the stat for all the points
     CSV_AddStat(mIdRepPtGlob,"GlobAVG ",mStatGlobPt);
     StdOut() << mStatGlobPt.Show("Pt-Pix",{50,85}) << "\n";
+
+   if (IsInit(&mParamReportShared))
+   {
+       CSV_AddStat(mParamReportShared.at(0),mParamReportShared.at(1),mStatGlobPt);
+   }
+   // AddStdHeaderStatCSV(mIdRepPtGlob,"Ident",mPercStat);
 
     if (mShow)
     {
