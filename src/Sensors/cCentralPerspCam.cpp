@@ -933,16 +933,21 @@ cPerspCamIntrCalib * cPerspCamIntrCalib::RandomCalib(eProjPC aTypeProj,int aKDeg
     cPt2di aSz (aS1,aS2);
 
     cPt2dr aMidle = ToR(aSz)/2.0;
-    tREAL8 v1 = aSz.x()*(0.5+0.1*RandUnif_C());
-    tREAL8 v2 = aSz.y()*(0.5+0.1*RandUnif_C());
+
+    auto genPPcoord = [](tREAL8 aCoord) -> tREAL8 {
+        return aCoord * (0.5 + 0.1 * RandUnif_C());
+    };
+
+    tREAL8 v1 = genPPcoord(aSz.x());
+    tREAL8 v2 = genPPcoord(aSz.y());
     cPt2dr aPP(v1,v2);
     tREAL8  aFoc =  aDiag * (0.2 + 3.0*RandUnif_0_1());
     if (aTypeProj==eProjPC::eEquiRect)
     {
         aSz.x() = round(2 * M_PI * aFoc);
-        //aSz.y() = round(M_PI * aFoc);
-        //aPP = cPt2dr(M_PI * aFoc, M_PI / 2.0 * aFoc);
-        aPP.x() = M_PI * aFoc;
+
+        // the principal point should be updated accordingly
+        aPP.x() = genPPcoord(aSz.x());
     }
 
     UpdateMax(aFoc,2* Norm2(aPP-aMidle));
