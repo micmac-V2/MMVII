@@ -72,14 +72,37 @@ Another case of use, is when we "stick" targets on a camera (the so called
 
 From the user point's of view, there is $3$ kind of command :
 
-\item{itemize}
+\begin{itemize}
     \item  command for creating/editing  the block, we add instrument and posible
-	    constraint between them
+	    constraint between them; this the command {\tt BlockInstrEdit};
 
-    \item  command for initializing the position-orientation  of instrument  inside the bloc
+    \item  command for initializing the position/orientation  of instrument  inside the bloc,
+            command {\tt BlockInstrInitCam} and {\tt   BlockInstrInitClino};
 
-    \item  command for using the 
+    \item  command for using the  bloc in adjsutment with other measures;
+           this is done with parametrization of {\tt OriBundleAdj}.
+
+    \item  make a report on a bloc with {\tt ReportBlock}.
 \end{itemize}
+
+The formalism allow to have several bloc in the same adjustement, also this aspect has not been tested
+for now (and consquently is probably not working completely).
+The blocs are saved in the folder {\tt MMVII-PhgrProj/InstrBlock} . Each sub folder
+of  {\tt MMVII-PhgrProj/InstrBlock} contains differerent state of computation  of possibly
+several bloc, in case there are several block they will be distinguished by their names.
+
+%-----------------------------------------------------
+%-----------------------------------------------------
+%-----------------------------------------------------
+
+\section{Editing the bloc with  {\tt BlockInstrEdit}}
+
+%-----------------------------------------------------
+\subsection{Introduction}
+
+The command can be used for creating and modifying a bloc. The 
+command take a single mandatory parameter which is the state of computation.
+The 
 
 %-----------------------------------------------------
 %-----------------------------------------------------
