@@ -18,6 +18,27 @@ public:
 };
 
 
+// ---------------------------------------------------------------------------
+// Layout descriptor for a single rectified image
+// ---------------------------------------------------------------------------
+
+struct cEpipolarFrame {
+    // Footprint in rectified space (coordinates phi_k applied to the original image)
+    double xMin_rect = 0, xMax_rect = 0;   ///< X extent specific to image k
+    double yMin_rect = 0, yMax_rect = 0;   ///< Y extent before intersection
+
+    // Final common framing (Y shared between the two images)
+    double yMin_common = 0, yMax_common = 0;
+
+    // Integer offset applied to the output image.
+    // Pixel (u, v) in the output <-> rectified coordinate (u + xOff, v + yOff)
+    double xOff = 0;   ///< X offset, specific to image k
+    double yOff = 0;   ///< Y offset, common to both images
+
+    // Output image dimensions (pixels)
+    int outSx = 0, outSy = 0;
+};
+
 class cEpipolarModel
 {
 public:
@@ -27,6 +48,40 @@ public:
     cPt2dr FromEpipolar1(const cPt2dr& aPt) const { return EpipMap1().ToEpipolar(aPt); }
     cPt2dr ToEpipolar2(const cPt2dr& aPt) const { return EpipMap2().ToEpipolar(aPt); }
     cPt2dr FromEpipolar2(const cPt2dr& aPt) const { return EpipMap2().ToEpipolar(aPt); }
+
+    void ComputeCommonFraming(const cPt2di& Im1Sz,
+                              const cPt2di& Im2Sz,
+                              int margin  = 2,
+                              int nSample = 200);
+
+    cDataGenUnTypedIm<2>* Resample1(const cDataGenUnTypedIm<2>* Im,
+                                    const cInterpolator1D& anInterp,
+                                    double defVal = 0.0)
+    {
+        return ResampleN(1,Im,anInterp,defVal);
+    }
+
+    cDataGenUnTypedIm<2>* Resample2(const cDataGenUnTypedIm<2>* Im,
+                                    const cInterpolator1D& anInterp,
+                                    double defVal = 0.0)
+    {
+        return ResampleN(2,Im,anInterp,defVal);
+    }
+
+    cDataGenUnTypedIm<2>* ResampleN(int Num,
+                                    const cDataGenUnTypedIm<2>* Im,
+                                    const cInterpolator1D& anInterp,
+                                    double defVal = 0.0);
+
+
+    cEpipolarFrame Frame1;
+    cEpipolarFrame Frame2;
+
+private:
+    cEpipolarFrame ComputeFrame(const cEpipolarMapping& aEpipMap,
+                                const cPt2di& ImSz,
+                                int nSample = 200);
+
 };
 
 
@@ -198,80 +253,6 @@ private:
 
 
 // ---------------------------------------------------------------------------
-// Layout descriptor for a single rectified image
-// ---------------------------------------------------------------------------
-
-struct EpipolarFrame {
-    // Footprint in rectified space (coordinates phi_k applied to the original image)
-    double xMin_rect = 0, xMax_rect = 0;   ///< X extent specific to image k
-    double yMin_rect = 0, yMax_rect = 0;   ///< Y extent before intersection
-
-    // Final common framing (Y shared between the two images)
-    double yMin_common = 0, yMax_common = 0;
-
-    // Integer offset applied to the output image.
-    // Pixel (u, v) in the output <-> rectified coordinate (u + xOff, v + yOff)
-    double xOff = 0;   ///< X offset, specific to image k
-    double yOff = 0;   ///< Y offset, common to both images
-
-    // Output image dimensions (pixels)
-    int outSx = 0, outSy = 0;
-};
-
-// ---------------------------------------------------------------------------
-// Full resampling result
-// ---------------------------------------------------------------------------
-
-struct EpipolarImages {
-    cDataGenUnTypedIm<2>* im1_rect;   ///< rectified image 1
-    cDataGenUnTypedIm<2>* im2_rect;   ///< rectified image 2
-    EpipolarFrame frame1;     ///< layout descriptor for image 1
-    EpipolarFrame frame2;     ///< layout descriptor for image 2
-};
-
-// ---------------------------------------------------------------------------
-// Framing computation  (steps 1-3)
-// ---------------------------------------------------------------------------
-
-/**
- * Computes the rectified footprint of one image by projecting its original
- * boundary into epipolar space.
- *
- * Each of the four edges is densely sampled (nSample points per side) to
- * capture the curvature of epipolar lines, which can be significant for
- * pushbroom images.
- *
- * @param m        epipolar model
- * @param k        camera index (1 or 2)
- * @param ImSz    size of the original image (pixels)
- * @param nSample  number of sample points per edge (default 200)
- */
-EpipolarFrame computeFrame(const cEpipolarMapping& aEpipMap,
-                           const cPt2di& ImSz,
-                           int nSample = 200);
-
-/**
- * Computes the common Y framing and the final dimensions of both rectified
- * images.
- *
- * Guarantees that the same row index v in im1_rect and im2_rect corresponds
- * to the same epipolar line.
- *
- * @param m              epipolar model
- * @param Im1Sz          dimensions of image 1
- * @param Im2Sz          dimensions of image 2
- * @param[out] f1, f2    computed layout descriptor for each image
- * @param margin         pixel margin added around the footprint (default 2)
- * @param nSample        edge sampling density (default 200)
- */
-void computeCommonFraming(const cEpipolarModel& m,
-                          const cPt2di& Im1Sz,
-                          const cPt2di& Im2Sz,
-                          EpipolarFrame& f1, EpipolarFrame& f2,
-                          int margin  = 2,
-                          int nSample = 200);
-
-// ---------------------------------------------------------------------------
 // Resampling of one image into epipolar geometry  (step 4)
 // ---------------------------------------------------------------------------
 
@@ -292,7 +273,7 @@ void computeCommonFraming(const cEpipolarModel& m,
 cDataGenUnTypedIm<2>* resampleToEpipolar(
                                          const cEpipolarMapping &aEpipMap,
                                          const cDataGenUnTypedIm<2>* Im,
-                                         const EpipolarFrame& frame,
+                                         const cEpipolarFrame& frame,
                                          const cInterpolator1D& anInterp,
                                          double defVal);
 
@@ -321,14 +302,6 @@ cDataGenUnTypedIm<2>* resampleToEpipolar(
  * @param defVal          out-of-bounds fill value (default 0)
  */
 
-EpipolarImages generateEpipolarImages(
-    const cEpipolarModel& m,
-    const cDataGenUnTypedIm<2>* Im1,
-    const cDataGenUnTypedIm<2>* Im2,
-    const cInterpolator1D& anInterp,
-    int   margin  = 2,
-    int   nSample = 200,
-    double defVal  = 0);
 
 #if 0
 // ---------------------------------------------------------------------------

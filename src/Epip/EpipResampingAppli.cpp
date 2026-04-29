@@ -78,7 +78,7 @@ int cAppli_EpipResampling::Exe()
         aOutDir += "/";
     }
     CreateDirectories(aOutDir,false);
-    const cInterpolator1D* anInterp = cDiffInterpolator1D::AllocFromNames(mInterpol);
+    const cInterpolator1D* aInterp = cDiffInterpolator1D::AllocFromNames(mInterpol);
 
 
     // TODOCM: Enlever margin ? Mieux le définir ?
@@ -107,29 +107,52 @@ int cAppli_EpipResampling::Exe()
     auto aRectifier = cEpipolarRectification(*aSI1, *aSI2, aParams);
     auto aEpipModel = aRectifier.Compute();
 
-    const auto* Im1 = ReadIm2DGen(mNameIm1);
-    const auto* Im2 = ReadIm2DGen(mNameIm2);
+    const auto* aIm1 = ReadIm2DGen(mNameIm1);
+    const auto* aIm2 = ReadIm2DGen(mNameIm2);
 
-    StdOut() << "Interpolator: " << anInterp->VNames() << ", Kernel Size: " << anInterp->SzKernel() << std::endl;
+    aEpipModel.ComputeCommonFraming(aIm1->Sz(),aIm2->Sz());
+    std::cout << "[EpipolarFraming]\n"
+              << "  Image 1: rectified X=[" << aEpipModel.Frame1.xMin_rect << ", " << aEpipModel.Frame1.xMax_rect
+              << "]  Y=[" << aEpipModel.Frame1.yMin_rect << ", " << aEpipModel.Frame1.yMax_rect << "]\n"
+              << "  Image 2: rectified X=[" << aEpipModel.Frame2.xMin_rect << ", " << aEpipModel.Frame2.xMax_rect
+              << "]  Y=[" << aEpipModel.Frame2.yMin_rect << ", " << aEpipModel.Frame2.yMax_rect << "]\n"
+              << "  Common Y range : [" << aEpipModel.Frame1.yMin_common << ", " << aEpipModel.Frame1.yMax_common << "]\n"
+              << "  Common outSy   : " << aEpipModel.Frame1.outSy << " px\n"
+              << "  Image 1 outSx  : " << aEpipModel.Frame1.outSx << " px\n"
+              << "  Image 2 outSx  : " << aEpipModel.Frame2.outSx << " px\n";
 
-    auto aResult = generateEpipolarImages(aEpipModel, Im1, Im2, *anInterp, mMargin);
+
+    StdOut() << "Interpolator: " << aInterp->VNames() << ", Kernel Size: " << aInterp->SzKernel() << std::endl;
+
+    std::cout << "[EpipolarResample] Resampling image 1 ("
+              << aEpipModel.Frame1.outSx << "x" << aEpipModel.Frame1.outSy << ")...\n";
+    auto aIm1Rectif = aEpipModel.Resample1(aIm1,*aInterp);
+
+    std::cout << "[EpipolarResample] Resampling image 2 ("
+              << aEpipModel.Frame2.outSx << "x" << aEpipModel.Frame2.outSy << ")...\n";
+    auto aIm2Rectif = aEpipModel.Resample2(aIm2,*aInterp);
 
 
     // TODOCM: Make name generation accessible for other apps
     // TODOCM: Make sure image extension is present (and not doubled ?) ! (i.e. .tif)
     auto anEpip1Name = aOutDir + replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",mNameIm1),"%2",mNameIm2);
     auto anEpip2Name = aOutDir + replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",mNameIm2),"%2",mNameIm1);
-    aResult.im1_rect->ToFile(anEpip1Name);
-    aResult.im2_rect->ToFile(anEpip2Name);
+    aIm1Rectif->ToFile(anEpip1Name);
+    aIm2Rectif->ToFile(anEpip2Name);
     StdOut() << "Image1: " << anEpip1Name << std::endl;
     StdOut() << "Image2: " << anEpip2Name << std::endl;
 
+    auto a = aIm1->AllocReSampleGen(*aInterp,aEpipModel.EpipMap1());
+    auto b = aIm2->AllocReSampleGen(*aInterp,aEpipModel.EpipMap2());
 
-    delete aResult.im1_rect;
-    delete aResult.im2_rect;
-    delete anInterp;
-    delete Im1;
-    delete Im2;
+    a.second->ToFile("Joe1");
+    b.second->ToFile("Joe2");
+
+    delete aIm1Rectif;
+    delete aIm2Rectif;
+    delete aInterp;
+    delete aIm1;
+    delete aIm2;
     return EXIT_SUCCESS;
 }
 

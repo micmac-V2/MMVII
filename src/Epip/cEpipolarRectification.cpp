@@ -2,6 +2,7 @@
 #include "MMVII_Error.h"
 #include "MMVII_Geom2D.h"
 #include "MMVII_Sensor.h"
+#include "MMVII_CodeTiming.h"
 #include <cmath>
 #include <cassert>
 
@@ -329,9 +330,24 @@ void cEpipolarRectification::GenerateData(const cSensorImage &aCamM,
 }
 
 
+// ---------------------------------------------------------------------------
+// Framing computation  (steps 1-3)
+// ---------------------------------------------------------------------------
 
-
-EpipolarFrame computeFrame(const cEpipolarMapping &aEpipMap, const cPt2di &ImSz, int nSample)
+/**
+ * Computes the rectified footprint of one image by projecting its original
+ * boundary into epipolar space.
+ *
+ * Each of the four edges is densely sampled (nSample points per side) to
+ * capture the curvature of epipolar lines, which can be significant for
+ * pushbroom images.
+ *
+ * @param m        epipolar model
+ * @param k        camera index (1 or 2)
+ * @param ImSz    size of the original image (pixels)
+ * @param nSample  number of sample points per edge (default 200)
+ */
+cEpipolarFrame cEpipolarModel::ComputeFrame(const cEpipolarMapping &aEpipMap, const cPt2di &ImSz, int nSample)
 {
     double xMin =  std::numeric_limits<double>::infinity();
     double xMax = -std::numeric_limits<double>::infinity();
@@ -351,7 +367,7 @@ EpipolarFrame computeFrame(const cEpipolarMapping &aEpipMap, const cPt2di &ImSz,
         }
     };
 
-    // TODOCM: use img rect ! (not only size)
+    // TODOCM: use img rect ? (not only size)
     double x0 = 0, y0 = 0;
     double x1 = static_cast<double>(ImSz.x() - 1);
     double y1 = static_cast<double>(ImSz.y() - 1);
@@ -362,17 +378,31 @@ EpipolarFrame computeFrame(const cEpipolarMapping &aEpipMap, const cPt2di &ImSz,
     scanSegment({x1,y1}, {x0,y1});   // bottom edge
     scanSegment({x0,y1}, {x0,y0});   // left edge
 
-    EpipolarFrame f;
+    cEpipolarFrame f;
     f.xMin_rect = xMin;  f.xMax_rect = xMax;
     f.yMin_rect = yMin;  f.yMax_rect = yMax;
     return f;
 }
 
 
-void computeCommonFraming(const cEpipolarModel &m, const cPt2di &Im1Sz, const cPt2di &Im2Sz, EpipolarFrame &f1, EpipolarFrame &f2, int margin, int nSample)
+/**
+ * Computes the common Y framing and the final dimensions of both rectified
+ * images.
+ *
+ * Guarantees that the same row index v in im1_rect and im2_rect corresponds
+ * to the same epipolar line.
+ *
+ * @param m              epipolar model
+ * @param Im1Sz          dimensions of image 1
+ * @param Im2Sz          dimensions of image 2
+ * @param[out] f1, f2    computed layout descriptor for each image
+ * @param margin         pixel margin added around the footprint (default 2)
+ * @param nSample        edge sampling density (default 200)
+ */
+void cEpipolarModel::ComputeCommonFraming(const cPt2di &Im1Sz, const cPt2di &Im2Sz, int margin, int nSample)
 {
-    f1 = computeFrame(m.EpipMap1(), Im1Sz, nSample);
-    f2 = computeFrame(m.EpipMap2(), Im2Sz, nSample);
+    Frame1 = ComputeFrame(EpipMap1(), Im1Sz, nSample);
+    Frame2 = ComputeFrame(EpipMap2(), Im2Sz, nSample);
 
     // ----- Common Y axis: intersection of both Y ranges ---------------------
     //
@@ -387,8 +417,8 @@ void computeCommonFraming(const cEpipolarModel &m, const cPt2di &Im1Sz, const cP
     //   yOff_common = max(yMin1, yMin2)   (rounded down)
     //   outSy       = floor(min(yMax1, yMax2)) - ceil(yOff_common) + 1
 
-    double yMin_common = std::max(f1.yMin_rect, f2.yMin_rect);
-    double yMax_common = std::min(f1.yMax_rect, f2.yMax_rect);
+    double yMin_common = std::max(Frame1.yMin_rect, Frame2.yMin_rect);
+    double yMax_common = std::min(Frame1.yMax_rect, Frame2.yMax_rect);
 
     if (yMax_common <= yMin_common)
         throw std::runtime_error(
@@ -406,7 +436,7 @@ void computeCommonFraming(const cEpipolarModel &m, const cPt2di &Im1Sz, const cP
     // The X axis carries no synchronisation constraint between the two images.
     // We simply use each image's own X footprint.
 
-    auto setX = [&](EpipolarFrame& f) {
+    auto setX = [&](cEpipolarFrame& f) {
         double xOff = f.xMin_rect - margin;
         int outSx   = static_cast<int>(std::ceil(f.xMax_rect - f.xMin_rect)) + 1 + 2*margin;
         f.xOff       = xOff;
@@ -417,32 +447,26 @@ void computeCommonFraming(const cEpipolarModel &m, const cPt2di &Im1Sz, const cP
         f.yMax_common = yMax_common;
     };
 
-    setX(f1);
-    setX(f2);
+    setX(Frame1);
+    setX(Frame2);
 
-    std::cout << "[EpipolarFraming]\n"
-              << "  Image 1: rectified X=[" << f1.xMin_rect << ", " << f1.xMax_rect
-              << "]  Y=[" << f1.yMin_rect << ", " << f1.yMax_rect << "]\n"
-              << "  Image 2: rectified X=[" << f2.xMin_rect << ", " << f2.xMax_rect
-              << "]  Y=[" << f2.yMin_rect << ", " << f2.yMax_rect << "]\n"
-              << "  Common Y range : [" << yMin_common << ", " << yMax_common << "]\n"
-              << "  Common outSy   : " << outSy << " px\n"
-              << "  Image 1 outSx  : " << f1.outSx << " px\n"
-              << "  Image 2 outSx  : " << f2.outSx << " px\n";
 }
 
-cDataGenUnTypedIm<2> *resampleToEpipolar(
-    const cEpipolarMapping &aEpipMap,
-    const cDataGenUnTypedIm<2> *Im,
-    const EpipolarFrame &frame,
-    const cInterpolator1D& anInterp,
-    double defVal
-)
+cDataGenUnTypedIm<2> *cEpipolarModel::ResampleN(
+    int aNum,
+    const cDataGenUnTypedIm<2>* aIm,
+    const cInterpolator1D& aInterp,
+    double aDefVal)
 {
+    cCodeTimer aTotalTimer("Total"),aMappingTimer("Mapping"),aInterpolTimer("Interpol"),aTestTimer("Test");
+    aTotalTimer.start();
+    MMVII_INTERNAL_ASSERT_always(aNum == 1 || aNum==2,"Incorrect value for Num " + std::to_string((aNum)))
+    auto frame = (aNum == 1) ? Frame1 : Frame2;
+    auto& aEpipMap = (aNum == 1) ? EpipMap1() : EpipMap2();
     const int outSx = frame.outSx;
     const int outSy = frame.outSy;
 
-    auto outImg = AllocIm2DGen(cPt2di{outSx, outSy},Im->TypeVal());
+    auto outImg = AllocIm2DGen(cPt2di{outSx, outSy},aIm->TypeVal());
 
     for (int v = 0; v < outSy; ++v) {
         // Y coordinate in the common rectified space
@@ -453,42 +477,32 @@ cDataGenUnTypedIm<2> *resampleToEpipolar(
             double eX = frame.xOff + static_cast<double>(u);
 
             // Inverse mapping: rectified space -> original image
+            aMappingTimer.start();
             cPt2dr orig = aEpipMap.FromEpipolar({eX, eY});
+            aMappingTimer.stop();
 
-            // Bilinear interpolation in the original image
+            // Interpolation in the original image
+            aInterpolTimer.start();
             double val;
-            if (Im->InsideBL(orig))
-                val = Im->ClipedGetValueInterpol(anInterp,orig);
+            if (aIm->Inside(ToI(orig)))
+                val = aIm->ClipedGetValueInterpol(aInterp,orig);
             else
-                val = defVal;
+                val = aDefVal;
             outImg->VD_SetV(cPt2di(u, v), val);
+            aInterpolTimer.stop();
+            aTestTimer.start();
+            aTestTimer.stop();
+
         }
     }
+    aTotalTimer.stop();
+    aMappingTimer.report();
+    aInterpolTimer.report();
+    aTestTimer.report();
+    aTotalTimer.report();
     return outImg;
 }
 
-EpipolarImages generateEpipolarImages(
-    const cEpipolarModel &m,
-    const cDataGenUnTypedIm<2> *Im1,
-    const cDataGenUnTypedIm<2> *Im2,
-    const cInterpolator1D& anInterp,
-    int margin, int nSample, double defVal)
-{
-    // --- 1. Compute the common framing --------------------------------------
-    EpipolarFrame f1, f2;
-    computeCommonFraming(m, Im1->Sz(), Im2->Sz(), f1, f2, margin, nSample);
-
-    // --- 2. Resample both images --------------------------------------------
-    std::cout << "[EpipolarResample] Resampling image 1 ("
-              << f1.outSx << "x" << f1.outSy << ")...\n";
-    cDataGenUnTypedIm<2>* rectified1 = resampleToEpipolar(m.EpipMap1(), Im1, f1, anInterp, defVal);
-
-    std::cout << "[EpipolarResample] Resampling image 2 ("
-              << f2.outSx << "x" << f2.outSy << ")...\n";
-    cDataGenUnTypedIm<2>* rectified2 = resampleToEpipolar(m.EpipMap2(), Im2, f2, anInterp, defVal);
-
-    return { rectified1, rectified2, f1, f2 };
-}
 
 
 } // namespace MMVII

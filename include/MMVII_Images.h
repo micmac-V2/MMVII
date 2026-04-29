@@ -356,6 +356,8 @@ template <const int Dim> class cDataGenUnTypedIm : public cPixBox<Dim>,
 
         virtual double GetVBL(const  tPixR & aP) const  = 0;
 
+
+        std::pair<cPtxd<int,Dim>,cDataGenUnTypedIm<Dim>*> AllocReSampleGen(const cInterpolator1D &anInterpol, const cDataInvertibleMapping<tREAL8, Dim> &aMap, double aDefVal = 0) const;
         /// Interpolated value, using a generic interpolator
         virtual double ClipedGetValueInterpol(const cInterpolator1D &,const cPt2dr & aP,double  aDefVal=0,bool * Ok=nullptr) const;
         /// Interpolated value+derivative, using a generic diffentiable interpolator

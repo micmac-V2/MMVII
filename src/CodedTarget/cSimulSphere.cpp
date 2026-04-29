@@ -44,6 +44,7 @@ template <class Type>
    return  std::pair<cPt2di,cIm2D<Type>> (aP0,aResult);
 }
 
+
 template class cIm2D<tU_INT1>;
 
 
@@ -123,7 +124,7 @@ class cAppliSimulSphere : public cMMVII_Appli
 
         std::string mNameIm;       ///< Name of background image
 
-            
+
 
 
         // =========== Internal param ============
@@ -133,7 +134,7 @@ class cAppliSimulSphere : public cMMVII_Appli
         cPerspCamIntrCalib *       mCalib;       ///< Calibration used
         int                        mNbSphere;
         cPt2dr                     mIntervRay;
-         
+
         std::vector<cSphSimul>     mVSph;
         tREAL8                     mBlurSz;
         eProjPC                    mTypeProj;
@@ -251,7 +252,7 @@ void  cAppliSimulSphere::AddOneSphere(const cSphSimul & aSph)
     }
 
     tDIm & aDImIn = mImIn.DIm();
-    
+
     cBox2di  aBoxIm = aBoxPtsIm.CurBox().Dilate(mBlurSz+20.0).ToI();
     aBoxIm = aBoxIm.Inter(aDImIn);
 
@@ -347,7 +348,7 @@ int  cAppliSimulSphere::Exe()
    }
 
 
-   
+
    aDImIn.ToFile("toto.tif");
 
    // cSim2D<tREAL8> aSim(cPt2dr(-1000,1000),cPt2dr(0.9,0.5));

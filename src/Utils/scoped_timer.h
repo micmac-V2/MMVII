@@ -11,19 +11,19 @@
 #define MEASURE_FUNCTION()
 #endif
 
-class ScopedTimer {
+class cScopedCodeTimer {
 
 public:
     using ClockType = std::chrono::steady_clock;
 
-  ScopedTimer(const char* func);
+  cScopedCodeTimer(const char* func);
 
-  ScopedTimer(const ScopedTimer&) = delete;
-  ScopedTimer(ScopedTimer&&) = delete;
-  auto operator=(const ScopedTimer&) -> ScopedTimer& = delete;
-  auto operator=(ScopedTimer&&) -> ScopedTimer& = delete;
+  cScopedCodeTimer(const cScopedCodeTimer&) = delete;
+  cScopedCodeTimer(cScopedCodeTimer&&) = delete;
+  auto operator=(const cScopedCodeTimer&) -> cScopedCodeTimer& = delete;
+  auto operator=(cScopedCodeTimer&&) -> cScopedCodeTimer& = delete;
 
-  ~ScopedTimer();
+  ~cScopedCodeTimer();
 
 private:
   const char* function_ = {};

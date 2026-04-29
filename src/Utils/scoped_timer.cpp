@@ -1,12 +1,12 @@
 #include <iostream>
 #include "scoped_timer.h"
 
-ScopedTimer::ScopedTimer(const char* func)
+cScopedCodeTimer::cScopedCodeTimer(const char* func)
     : function_{func}, start_{ClockType::now()}
 {
 }
 
-ScopedTimer::~ScopedTimer()
+cScopedCodeTimer::~cScopedCodeTimer()
 {
     using namespace std::chrono;
     auto stop = ClockType::now();

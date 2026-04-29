@@ -1,5 +1,6 @@
 #include "MMVII_Images.h"
 #include "MMVII_Image2D.h"
+#include "MMVII_Mappings.h"
 #include <algorithm>
 // #include <Eigen/Dense>
 
@@ -115,6 +116,35 @@ std::pair<tREAL8,cPt2dr> cDataGenUnTypedIm<Dim>::GetValueAndGradInterpol(const c
     MMVII_INTERNAL_ERROR("Unhandled type in cDataGenUnTypedIm::GetValueAndGradInterpol");
     return {0.,{0.,0.}};
 }
+
+template <const int Dim>
+std::pair<cPtxd<int,Dim>,cDataGenUnTypedIm<Dim>*> cDataGenUnTypedIm<Dim>::AllocReSampleGen(
+    const cInterpolator1D &anInterpol,
+    const cDataInvertibleMapping<tREAL8, Dim> &aMap,
+    double aDefValOut) const
+{
+    if constexpr (Dim == 2) {
+        auto aBoxOut = aMap.BoxOfFrontier(this->ToR(),1.0);
+
+        auto aP0 = Pt_round_down(aBoxOut.P0());
+        auto aP1 = Pt_round_up  (aBoxOut.P1());
+        StdOut() << "Frame: " << aP0 << " " << aP1 << " " << aP1-aP0 << std::endl;
+
+        auto aResult = AllocIm2DGen(cPt2di(0,0),aP1-aP0,eTyNums::eTN_U_INT1);
+
+        for (auto & aPixOut : *aResult)
+        {
+            cPt2dr aPixIn = aMap.Inverse(MMVII::ToR(aPixOut+aP0));
+            auto val = this->Inside(ToI(aPixIn)) ? ClipedGetValueInterpol(anInterpol,aPixIn) : aDefValOut;
+            aResult->VD_SetV(aPixOut,val);
+        }
+        return {aP0,aResult};
+    } else {
+        MMVII_INTERNAL_ERROR("AllocResampleGen on a non 2-dimensions image");
+        return {cPtxd<int,Dim>{},nullptr};
+    }
+}
+
 
 
 /* ========================== */
