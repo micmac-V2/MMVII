@@ -172,7 +172,7 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mShow_Cond,"Cond","Compute and show system condition number")
       << AOpt2007(mParamShow_UK_UC,"UC_UK","Param for uncertainty & Show names of unknowns (tuning)")
       << AOpt2007(mPostFixReport,NameParamPostFixReport(),CommentParamPostFixReport())
-      << AOpt2007(mParamLine,"AdjLine3D","Parameter for line Adjustment [SigmaIm,NbPtsSampl]",{{eTA2007::ISizeV,"[2,2]"}})
+      << AOpt2007(mParamLine,"AdjLine3D","Parameter for line Adjustment [Folder,SigmaIm,NbPtsSampl]",{{eTA2007::ISizeV,"[3,3]"}})
 
       << AOpt2007
          (

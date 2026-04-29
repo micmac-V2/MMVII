@@ -81,7 +81,8 @@ class cCam2_Line_2Dto3D : public cMemCheck
 {
     public :
 
-       static std::vector<cCam2_Line_2Dto3D*> AllocV(const std::vector<cSensorCamPC *> &,const cPhotogrammetricProject &);
+       static std::vector<cCam2_Line_2Dto3D*>
+            AllocV(const std::vector<cSensorCamPC *> &,const cPhotogrammetricProject &,const std::string & aFolder);
 
        const tSegComp3dr & Seg3d () const;               //< Accessor
        const std::string & NameLine() const;             //< Accessor
@@ -256,7 +257,13 @@ cCam2_Line_2Dto3D::cCam2_Line_2Dto3D
 
 }
 
-std::vector<cCam2_Line_2Dto3D*> cCam2_Line_2Dto3D::AllocV(const std::vector<cSensorCamPC *> & aVCam,const cPhotogrammetricProject & aPhProj)
+std::vector<cCam2_Line_2Dto3D*>
+     cCam2_Line_2Dto3D::AllocV
+     (
+          const std::vector<cSensorCamPC *> & aVCam,
+          const cPhotogrammetricProject & aPhProj,
+          const std::string & aFolder
+      )
 {
    std::vector<cCam2_Line_2Dto3D*> aResult;
 
@@ -264,7 +271,7 @@ std::vector<cCam2_Line_2Dto3D*> cCam2_Line_2Dto3D::AllocV(const std::vector<cSen
 
    for (const auto & aCam : aVCam)
    {
-       cLinesAntiParal1Im aLAP = aPhProj.ReadLines(aCam->NameImage());
+       cLinesAntiParal1Im aLAP = aPhProj.ReadLinesFolder(aFolder,aCam->NameImage());
        aMML.AddLAP(aLAP);
    }
 
@@ -487,10 +494,10 @@ void cMMVII_BundleAdj::AddLineAdjust(const std::vector<std::string> & aVParam)
     for (auto aCam : mVSCPC)
         aCam->InternalCalib()->SetAndGet_EqProjSeg();
 
-    tREAL8 aSigmaIm =  cStrIO<double>::FromStr(aVParam.at(0));
-    int    aNbPts   =  cStrIO<int>::FromStr(aVParam.at(1));
+    tREAL8 aSigmaIm =  cStrIO<double>::FromStr(aVParam.at(1));
+    int    aNbPts   =  cStrIO<int>::FromStr(aVParam.at(2));
 
-    std::vector<cCam2_Line_2Dto3D*> aVecL =  cCam2_Line_2Dto3D::AllocV(mVSCPC,*mPhProj);
+    std::vector<cCam2_Line_2Dto3D*> aVecL =  cCam2_Line_2Dto3D::AllocV(mVSCPC,*mPhProj,aVParam.at(0));
 
     for (const auto & aPtrL : aVecL)
     {
