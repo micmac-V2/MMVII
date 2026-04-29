@@ -22,43 +22,59 @@ namespace MMVII
         mCano       (cPt2di(1,1)),
         mDCano      (nullptr),
         mSimu       (cPt2di(1,1)),
-        mVisib      (0)
+        mVisib      (0),
+        mVCamCorner({})
     {
         mIm = cIm2D<tU_INT1>::FromFile(mCam->NameImage());
-    }
-
-    int cCdTDiscr::visibility()
-    {
-        CamExtent();
-        if (mVisib > 0)
-        {
-            GenSimul();
-        }
-        return mVisib;
+        mDIm = &mIm.DIm();
     }
 
     void cCdTDiscr::CamExtent()
     {
-        std::vector<cPt3dr> aVCorner = mDescr.get3DCornersOnSimil();
-        if (mCam->IsVisible(aVCorner[0]) && mCam->IsVisible(aVCorner[2]))
+        CamCorners();
+        mExtent = BBox(mVCamCorner);
+        if (mCam->IsVisibleOnImFrame(ToR(mExtent.P0ByRef())) && mCam->IsVisibleOnImFrame(ToR(mExtent.P1ByRef())))
         {
-            cPt2dr aUl = mCam->Ground2Image(aVCorner[0]), aLr = mCam->Ground2Image(aVCorner[2]);
-            mExtent = cPixBox<2>(ToI(aUl), ToI(aLr));
             mCrop   = cIm2D<tU_INT1>(mExtent.Sz());
+            mDCrop  = &mCrop.DIm();
             mDCrop->CropIn(mExtent.P0ByRef(), *mDIm);
             mVisib  = 1;
         }
     }
 
-    void cCdTDiscr::GenSimul()
+    void cCdTDiscr::CamCorners()
     {
+        if (mVCamCorner.empty())
+        {
 
+        }
     }
 
-    cPt2dr cCdTDiscr::CdT2Cam(cPt2di aPix)
+    bool cCdTDiscr::FullExtentOnCam()
     {
-        cPt3dr aPt = CdT2Gnd(aPix);
-        return mCam->Ground2Image(aPt);
+        std::vector<cPt2dr> aVCorn = {};
+        std::vector<cPt3dr> aVGndCorn = mDescr.getGndCornersOnSimil();
+        for (const auto& aCorn : aVGndCorn)
+        {
+            aVCorn.push_back(mCam->Ground2Image(aCorn));
+        }
+    }
+
+    void cCdTDiscr::GenSimul()
+    {
+        //localAff2D
+        //
+    }
+
+    void cCdTDiscr::SaveCrop(const std::string& aDir)
+    {
+        SaveIm(mCrop, aDir + "Crop-" + mName + mCam->NameImage());
+    }
+
+    void cCdTDiscr::SaveIm(cIm2D<tU_INT1>& aIm, std::string aPath)
+    {
+        cDataIm2D<tU_INT1>* aDIm = &aIm.DIm();
+        aDIm->ToFile(aPath);
     }
 
     /**************************************************************************/
@@ -83,6 +99,7 @@ namespace MMVII
     {
         return anArgOpt
                << AOpt2007(mShow,"Show","Show useful details", {eTA2007::HDV})
+               << AOpt2007(mVisu,"Visu","Save visualisation of results", {eTA2007::HDV})
             ;
     }
 
@@ -102,20 +119,21 @@ namespace MMVII
         std::vector<std::string> aVIm = VectMainSet(0);
         ReadFromFile(mVDescr, cCdTDescr::NameFile(mPhProj, true));
 
-        //----- [1] DoOneImage
+        //----- [A] DoOneImage
 
         for (const auto& aIm : aVIm)
         {
             cSensorCamPC* aCam = mPhProj.ReadCamPC(aIm, true);
             for (const auto& aDes : mVDescr)
             {
+                //----- [1] Is CdT visible on Cam ?
+                    //----- (a) Is CdT full extent on Cam ?
                 cCdTDiscr aDis(aDes, aCam);
                 int aVis = aDis.visibility();//-> computes lots of things
-                (void) aVis;
-                //if (aVis > 3)
-                //{
-                //    ...
-                //}
+                if (aVis > 0 && mVisu)
+                {
+                    aDis.SaveCrop(mPhProj.DirVisuAppli());
+                }
             }
         }
 
@@ -140,4 +158,23 @@ namespace MMVII
             {eApDT::Console},//output
             __FILE__
             );
+
+    /**************************************************************************/
+    /*
+     * Other useful methods
+     */
+    /**************************************************************************/
+
+    cPixBox<2> BBox(std::vector<cPt2dr> aVPts, int aMin, int aMax)
+    {
+        cPt2dr aSup(aMax,aMax), aInf(aMin,aMin);
+        for (const auto& aPt : aVPts)
+        {
+            if (aPt.x() <= aSup.x()){aSup.x() = aPt.x();}
+            if (aPt.y() <= aSup.y()){aSup.y() = aPt.y();}
+            if (aPt.x() >= aInf.x()){aInf.x() = aPt.x();}
+            if (aPt.y() >= aInf.y()){aInf.y() = aPt.y();}
+        }
+        return cPixBox<2>(ToI(aSup), ToI(aInf));
+    }
 }

@@ -10,6 +10,11 @@
 
 namespace MMVII
 {
+
+    class cCdTDiscr;
+    cPixBox<2> BBox(std::vector<cPt2dr> aVPts, int aMin=0, int aMax=100000);
+
+
     class cAppli_CodedTargetRefine : public cMMVII_Appli
     {
     public:
@@ -24,11 +29,13 @@ namespace MMVII
         cPhotogrammetricProject mPhProj;
         std::string mSpecImIn;
         bool mShow;
+        bool mVisu;
         //------ members
         std::string                         mFSpecName;
         std::unique_ptr<cFullSpecifTarget>  mFSpec;
         std::vector<cCdTDescr>              mVDescr;
         //------ methods
+        std::string nameVisu();
     };
 
     /*!
@@ -44,6 +51,9 @@ namespace MMVII
 
         //----- methods
         int         visibility();
+        bool        FullExtentOnCam();
+        void        SaveCrop(const std::string& aDir);
+
 
     private:
         //----- members
@@ -60,12 +70,17 @@ namespace MMVII
         cIm2D<tU_INT1>          mSimu;  //-> simul. CdT
         cDataIm2D<tU_INT1>*     mDSimu;
         tU_INT1                 mVisib; //-> visibility score
+        std::vector<cPt2dr>     mVCamCorner;
 
         //----- methods
         void        CamExtent();//-> compute CdT extent in original image and set mVisib to 1
+        void        CamMasq();//-> computes CdT extent BBox
         void        True();     //-> computes extent from description and extract target in mTrue
         void        GenSimul();    //-> simulate from target extent
+        void        CamCorners();//-> computes CdT corners in mCam
+        void        SaveIm(cIm2D<tU_INT1>& aIm, std::string aPath);
         cPt3dr      CdT2Gnd(cPt2di aPix);
-        cPt2dr      CdT2Cam(cPt2di aPix);
+
     };
+
 }

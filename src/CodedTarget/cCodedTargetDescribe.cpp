@@ -34,7 +34,7 @@ namespace MMVII
 
     cCdTDescr::cCdTDescr()
     {
-        mVCdTCorners = {cPt2di(0,0), cPt2di(mRes,0), cPt2di(mRes,mRes), cPt2di(0,mRes)};
+        //
     }
 
     void cCdTDescr::AddDetect(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D)
@@ -104,14 +104,26 @@ namespace MMVII
         return aDet.mIm2Ref.Value(aImPt);
     }
 
-    std::vector<cPt3dr> cCdTDescr::get3DCornersOnSimil()
+    cPt3dr cCdTDescr::CdT2GndBySimil(cPt2di aPt)
     {
+        return mSimil3D.Value(cPt3dr(aPt.x(), aPt.y(), 0));
+    }
+
+    std::vector<cPt3dr> cCdTDescr::getGndCornersOnSimil()
+    {
+        if (mVCdTCorners.empty()) mVCdTCorners = getCdTCorners();
+
         std::vector<cPt3dr> aVRes;
         for (const auto& aPt : mVCdTCorners)
         {
             aVRes.push_back(CdT2GndBySimil(aPt));
         }
         return aVRes;
+    }
+
+    std::vector<cPt2di> cCdTDescr::getCdTCorners()
+    {
+        return {cPt2di(0,0), cPt2di(mRes,0), cPt2di(mRes,mRes), cPt2di(0,mRes)};
     }
 
     /*
@@ -122,7 +134,8 @@ namespace MMVII
     {
         MMVII::AddData(cAuxAr2007("Name", anAux), mName);
         MMVII::AddData(cAuxAr2007("CdT2Gnd", anAux), mSimil3D);
-        MMVII::AddData(cAuxAr2007("PixSz", anAux), mRes);
+        MMVII::AddData(cAuxAr2007("Res", anAux), mRes);
+        StdOut() << "Resol : " << mRes << '\n';
     }
 
     void AddData(const cAuxAr2007 &anAux, cCdTDescr &aCdTDescr)

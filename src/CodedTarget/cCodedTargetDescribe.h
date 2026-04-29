@@ -56,10 +56,11 @@ namespace MMVII
             void InterBitCenters(bool& aShow);
             void InterGndCorners(bool& aShow);
             void EstimateSimil3DOnCorners(bool& aShow);
-            std::vector<cPt3dr> get3DCornersOnSimil();
+            std::vector<cPt3dr> getGndCornersOnSimil();
 
             void AddData(const cAuxAr2007 &anAux);
             static std::string NameFile(const cPhotogrammetricProject & aPhProj, bool Input);
+
         private:
             //----- members
             std::vector<cCdTDetec> mVDetec;
@@ -70,6 +71,7 @@ namespace MMVII
             std::vector<cPt3dr> mVCdtCorners3D;
             std::vector<cPt3dr> mVGndCorners;
             //----- methods
+            std::vector<cPt2di> getCdTCorners();
             cPt2dr Gnd2CdT(cPt3dr& aPt, const cCdTDetec& aDet);
             cPt3dr CdT2GndByInter(const cPt2di& aPt, std::vector<tREAL8>* aVRes = nullptr);
             cPt3dr CdT2GndBySimil(cPt2di aPt);
