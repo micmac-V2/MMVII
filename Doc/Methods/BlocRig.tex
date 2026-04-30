@@ -100,9 +100,67 @@ several bloc, in case there are several block they will be distinguished by thei
 %-----------------------------------------------------
 \subsection{Introduction}
 
-The command can be used for creating and modifying a bloc. The 
-command take a single mandatory parameter which is the state of computation.
-The 
+The command can be used for creating and modifying the \emph{structure} of a bloc. The 
+command takes a single mandatory parameter which is the state of computation,
+let {\tt XXX} be this folder.
+Let {\tt YYY} be the name of the bloc created, it's default value is
+{\tt "TheBlock"} and it can be changed  with optionnal parameter {\tt NameBloc};
+as long as we use a single bloc, there is no use to fix the value.
+The block will be saved in the file :
+
+\begin{itemize}
+    \item  {\tt MMVII-PhgrProj/InstrBlock/XXX/FileRB\_YYY.xml}  ;
+\end{itemize}
+
+If the file does not exist, it is created with an empty block. 
+If the file exist, it'is possible to reset it to an empty block
+with optionnal parameter {\tt FromScratch}.
+
+We call time stamp, an identifier that caracterize the  image (or more
+generally any measure) acquired  at the same time : \emph{two images
+were acquired simultaneously if and only if they have the same time stamp}.
+
+
+%-----------------------------------------------------
+\subsection{Adding cameras}
+
+The assumption made by \PPP is that two different images , if they
+are present in the bloc, occupy the same place \emph{if and only if}
+they have they have the same name of intrinsic parameter associated
+(because this means that they correspond to the same camera).
+
+The optionnal parameter  for adding camera is {\tt PatsIm4Cam}, it's a
+vector containg $1$ to $3$ regular expression, knowing that :
+
+\begin{itemize}
+    \item  if not settled the second  equals the first;
+    \item  if not settled the third  equals the second;
+\end{itemize}
+
+
+The first pattern indicate a set of image file, for each file the
+name of the camera associated to this file is computed, and if not already
+present is added to the bloc. Of course, for this to work, this mean 
+that user has already given the necessary information for computing the
+name of a camera (for example with command {\tt EditCalcMTDI}).
+
+The second pattern indicate how to compute the times stamp from one image.
+In this pattern, the first parenthesis expression correpond to the time stamp.
+For example :
+
+\begin{itemize}
+	\item  Pattern= {\tt [0-9]\{3\}\_([0-9]\{4\}).*.tif} ;
+	\item  Image= {\tt 949\_3118-Clino2.tif};
+        \item  TimeStamp={\tt 3118}.
+\end{itemize}
+
+
+The tird pattern can be used to indicate if an image is included in the bloc.
+In fact, it can happen that the same camera  is  used simultaneously
+inside and outside a bloc, in this case this pattern can be used to indicate
+which images belong to the bloc.
+
+
 
 %-----------------------------------------------------
 %-----------------------------------------------------
