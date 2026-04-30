@@ -258,3 +258,131 @@ In this example, we have $4$ different folder for orientation in {\tt Ori} :
 
 {\tt MMVII Bench 1 PatBench=MemoryOperation KeyBug} : pattern specified but no match, print all benche existing
 
+
+  %---------------------------------------------
+%---------------------------------------------
+%---------------------------------------------
+
+\section{Image metadata calculator : \texttt{EditCalcMTDI}}
+\index{EditCalcMTDI}
+
+\subsection{Purpose}
+
+When images lack embedded metadata (EXIF information), {\tt MMVII} needs the user
+to supply camera parameters such as focal length, aperture, or camera model.
+The command {\tt EditCalcMTDI} lets the user define and edit a set of
+\emph{pattern-based rules} stored in a project file; these rules are then applied
+automatically to associate each image filename with the correct metadata value.
+
+Rules are written in the file {\tt CalcMTD.xml} located in
+{\tt MMVII-PhgrProj/MetaData/<DirIn>/}.
+Each rule is a pair (regular expression pattern, substitution value).
+When a metadata attribute is queried for a given image filename, the rules are
+tested in order and the first matching rule wins.
+
+\subsection{Syntax}
+
+\begin{verbatim}
+	== Mandatory unnamed args : ==
+	* string  :: MetaData input directory (e.g. Std)
+	* eMTDIm  :: Type of metadata attribute to edit
+	{Focalmm, FocalPix, PPPix, Aperture, ModelCam, NbPixel, AdditionalName}
+
+	== Optional named args : ==
+	* [Name=ImTest]        string              :: Image filename to test the rules against
+	* [Name=Show]          bool                :: Print all existing rules for the chosen type
+	* [Name=Save]          bool                :: Save modifications to CalcMTD.xml
+	* [Name=Modif]         [string,string,int] :: Rule to add/replace: [Pattern, Substitution, Rank]
+\end{verbatim}
+
+\subsection{Metadata attribute types}
+
+The second mandatory argument selects which metadata attribute to edit:
+
+\begin{itemize}
+	\item {\tt Focalmm} --- focal length in millimetres;
+
+	\item {\tt FocalPix} --- focal length expressed directly in pixels;
+
+	\item {\tt PPPix} --- principal point position in pixels (2D point);
+
+	\item {\tt Aperture} --- aperture value (f-stop), used by the radiometric model;
+
+	\item {\tt ModelCam} --- camera model name, e.g.\ {\tt "NIKON D5600"}, used to query the
+	internal camera database;
+
+	\item {\tt NbPixel} --- image dimensions in pixels, useful when no camera database entry
+	is available (e.g.\ after rescaling);
+
+	\item {\tt AdditionalName} --- an extra string to distinguish cameras that share the same
+	model name and focal length. This is typically needed when the dataset contains a
+	\emph{block of cameras} (e.g.\ a multi-camera rig or a synchronised aerial system)
+	where several camera bodies are identical in model and focal length but must receive
+	separate calibrations. The {\tt AdditionalName} value groups images by camera body
+	so that each body is treated as a distinct sensor.
+\end{itemize}
+
+\subsection{The \texttt{Modif} argument}
+
+{\tt Modif} takes exactly three values: {\tt [Pattern, Substitution, Rank]}.
+
+\begin{itemize}
+	\item {\tt Pattern} is a C++ regular expression matched against the image filename;
+
+	\item {\tt Substitution} is the value to assign when the pattern matches.
+	It may contain C++ regex back-references (e.g.\ {\tt \$1} for the first
+	captured group);
+
+	\item {\tt Rank} controls where the rule is inserted in the ordered list:
+	\begin{itemize}
+		\item $\geq 0$ : insert or replace at position {\tt Rank} (0-based); if {\tt Rank}
+		is beyond the current list length the rule is appended;
+		\item $-1$ : prepend the rule (highest priority);
+		\item $-2$ : replace the entire rule list with this single rule.
+	\end{itemize}
+\end{itemize}
+
+Modifications are only persisted when {\tt Save=1} is passed.  Before overwriting,
+{\tt MMVII} keeps up to 5 backup copies of the previous {\tt CalcMTD.xml}.
+
+\subsection{Testing rules with \texttt{ImTest}}
+
+{\tt ImTest} is optional: the command runs without it and is useful on its own
+to add a rule ({\tt Modif=\dots~Save=1}) or inspect the current rule set ({\tt Show=1}).
+When {\tt ImTest=<filename>} is supplied, {\tt MMVII} additionally runs the full
+matching procedure on that filename and prints a trace showing each rule that was
+tested and whether it matched, finishing with the final computed value.
+This makes it easy to verify that a newly added rule behaves as expected before
+saving, or to diagnose why a particular image is receiving an unexpected value.
+
+\subsection{Examples}
+
+Assign the camera model {\tt "NIKON D5600"} to every {\tt .JPG} file and verify
+the result on a test image:
+
+\begin{lstlisting}
+	MMVII EditCalcMTDI Std ModelCam ImTest=043_0136.JPG \
+	Modif=[.*.JPG,"NIKON D5600",0] Save=1
+\end{lstlisting}
+
+Assign a focal length of 24\,mm to rescaled {\tt .tif} files:
+
+\begin{lstlisting}
+	MMVII EditCalcMTDI Std Focalmm ImTest=043_0005_Scaled.tif \
+	Modif=[.*_Scaled.tif,24,0] Save=1
+\end{lstlisting}
+
+Use a regex capture group to derive the {\tt AdditionalName} from the filename
+(everything before the first underscore):
+
+\begin{lstlisting}
+	MMVII EditCalcMTDI Std AdditionalName ImTest=043_0005_Scaled.tif \
+	Modif=["(.*)_.*","$1",0] Save=1
+\end{lstlisting}
+
+Display all rules currently defined for focal length, without modifying anything:
+
+\begin{lstlisting}
+	MMVII EditCalcMTDI Std Focalmm Show=1
+\end{lstlisting}
+
