@@ -10,6 +10,50 @@
 
 namespace MMVII
 {
+std::string ArithmReplace(const std::string & aStrIn0,const std::regex& aPat,const std::vector<std::string> & aVArg)
+{
+    std::string anOp = aVArg[0];
+    int aOffset = cStrIO<int>::FromStr(aVArg[1]);
+    int aKExpr = cStrIO<int>::FromStr(aVArg[2]);
+
+    std::smatch aBoundMatch;
+    bool aGotMatch = std::regex_search(aStrIn0, aBoundMatch, aPat);
+    MMVII_INTERNAL_ASSERT_tiny(aGotMatch,"cCRegex::BoundsMatch no match");
+
+  //  StdOut() << " KKK=" << aKExpr  << " BM=" << aBoundMatch.size() << "\n";
+
+    if ((aKExpr<0)||(aKExpr >= (int) aBoundMatch.size()))
+    {
+     //   StdOut() << " PAT=" << <<"\n";
+         MMVII_UnclasseUsEr("Num of expr incompatible with pattern : " );
+    }
+
+    // auto aMatch  = aBoundMatch[aKExpr];
+
+    std::string aStrNumIn = aBoundMatch[aKExpr];
+
+  //  StdOut() << " NNNN [" << aStrNumIn << "]\n";
+    int aNum    = cStrIO<int>::FromStr(aStrNumIn);
+
+    if (anOp=="+")
+       aNum += aOffset;
+    else if (anOp=="-")
+       aNum -= aOffset;
+    else if (anOp=="%")
+       aNum %= aOffset;
+    else
+    {
+       MMVII_UnclasseUsEr("Bad operand in arithmetic : " + aVArg[0]);
+    }
+
+    int aNbDig = (aVArg.size()> 3) ? cStrIO<int>::FromStr(aVArg[3]) : aStrNumIn.size();
+    std::string aStrNumOut = ToStr(aNum,aNbDig);
+
+    std::string aStrIn = aStrIn0;
+    aStrIn.replace(aBoundMatch.position(aKExpr),aBoundMatch.length(aKExpr),aStrNumOut);
+
+    return aStrIn;
+}
 
 /*
 void CreateLink(const std::string & aFileTarget,const std::string & aLink2Create,bool fileMustExist = true)
@@ -249,10 +293,15 @@ class cAppli_Rename : public cMMVII_Appli
      public :
         cAppli_Rename(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli &);  ///< constructor
         int Exe() override;                                             ///< execute action
+
+        int OldExe();
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override; ///< return spec of  mandatory args
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override; ///< return spec of optional args
      protected :
      private :
+
+        std::string ComputeReplace(const std::string & aNameIn) const;
+
         std::vector<std::string>  Samples() const override;
 
         void TestSet(const std::string & aName);
@@ -317,8 +366,91 @@ std::vector<std::string>  cAppli_Rename::Samples() const
          };
 }
 
+
+
+
+std::string cAppli_Rename::ComputeReplace(const std::string & aStrIn0) const
+{
+    //StdOut() << "aStrIn0aStrIn0=[" << aStrIn0 << "]\n";
+
+   std::regex aPat(mPatternRepl);
+
+   std::string aStrIn = aStrIn0;
+   if (IsInit(&mArithmReplace))
+      aStrIn =  ArithmReplace(aStrIn0, aPat,mArithmReplace);
+
+  //StdOut() << "P="<< mPatternRepl  << " Sub=" << mSubst  << " Str=" << aStrIn << "\n";
+   aStrIn =  ReplacePattern(mPatternRepl,mSubst,aStrIn);
+
+   return aStrIn;
+}
+
+
 int cAppli_Rename::Exe()
 {
+    SetIfNotInit(mShow,!mDoReplace);
+
+    // Not the defaut value is not Pattern glob but mPatOfMS, because with single file
+    // the pattern has been replaced by the file (used for parallelization)
+    if (!IsInit(&mPatternRepl))
+       mPatternRepl = FileOfPath(mPatOfMS[0],false);
+
+    // Compute the map Replace <= [Init1,Init2...]
+    bool gotAmbig = false;
+    std::map<std::string,std::vector<std::string>> aMapTransfo;
+    for (const auto & aStrIn0 : VectMainSet(0))
+    {
+        std::string aReplace = ComputeReplace(aStrIn0);
+        aMapTransfo[aReplace].push_back(aStrIn0);
+        if ( aMapTransfo[aReplace].size()>1)
+            gotAmbig = true;
+        if (mShow)
+           StdOut()  << "STR IN=" << aStrIn0 << " => " << aReplace << "\n";
+    }
+
+    // is there was any replacement coming from multiple input
+    if (gotAmbig)
+    {
+        StdOut() << "=== BAD REPLACE FOR ===============\n";
+        for (const auto & [aOut,aIn]: aMapTransfo)
+        {
+            if (aOut.size()>1)
+            {
+                StdOut() << " * "<< aOut << " <=== " << aIn << "\n";
+             }
+        }
+        MMVII_UnclasseUsEr("Renaming woul lead to lost file");
+    }
+
+    if (mDoReplace)
+    {
+        for (const auto & [aOut,aVecIn]: aMapTransfo)
+        {
+            std::string aIn= DirProject() + aVecIn.at(0);
+            std::string aDirOut = DirOfPath(aOut,false);
+            if ( ExistFile(aDirOut))
+                CreateDirectories(aDirOut,false);
+          //  StdOut() << "DIOOOO=" << aDirOut  << " " << ExistFile(aDirOut) << "\n";
+            if (mByLink)
+            {
+                CreateLink(aIn,aOut);
+            }
+            else
+            {
+                 RenameFiles(aIn,aOut);
+            }
+
+        }
+    }
+
+    return EXIT_SUCCESS;
+}
+
+
+#if(0)
+int cAppli_Rename::OldExe()
+{
+
     std::set<std::string> aSetStr;
     //  StdOut() <<  "============= Proposed replacement  ====== " << std::endl;
 
@@ -450,7 +582,7 @@ int cAppli_Rename::Exe()
 
     return EXIT_SUCCESS;
 }
-
+#endif
 
 
 tMMVII_UnikPApli Alloc_Rename(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)

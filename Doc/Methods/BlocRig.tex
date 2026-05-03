@@ -100,8 +100,8 @@ several bloc, in case there are several block they will be distinguished by thei
 %-----------------------------------------------------
 \subsection{Introduction}
 
-The command can be used for creating and modifying the \emph{structure} of a bloc. The 
-command takes a single mandatory parameter which is the state of computation,
+This command can be used for creating and modifying the \emph{structure} of a bloc. The 
+command takes a single mandatory parameter which is a folder corresponding to  state of computation,
 let {\tt XXX} be this folder.
 Let {\tt YYY} be the name of the bloc created, it's default value is
 {\tt "TheBlock"} and it can be changed  with optionnal parameter {\tt NameBloc};
@@ -125,7 +125,7 @@ were acquired simultaneously if and only if they have the same time stamp}.
 \subsection{Adding cameras}
 
 The assumption made by \PPP is that two different images , if they
-are present in the bloc, occupy the same place \emph{if and only if}
+are present in the bloc, occupy the same place inside the bloc \emph{if and only if}
 they have they have the same name of intrinsic parameter associated
 (because this means that they correspond to the same camera).
 
@@ -155,12 +155,49 @@ For example :
 \end{itemize}
 
 
-The tird pattern can be used to indicate if an image is included in the bloc.
+The third pattern can be used to indicate if an image is included in the bloc.
 In fact, it can happen that the same camera  is  used simultaneously
 inside and outside a bloc, in this case this pattern can be used to indicate
 which images belong to the bloc.
 
+%-----------------------------------------------------
+\subsection{Adding clinometers}
 
+The optionnal parameter {\tt InMeasureClino} allow to add 
+new clinometers. It's a folder where  the clinometer
+measures are stored, generally resulting from the call to command {\tt ImportMeasuresClino}.
+
+It's also possible to add constraint orthogonality between  pairs of clinometers
+with parameter {\tt CstrOrthog}, its value :
+
+\begin{itemize}
+	\item  is a vector of vector;
+	\item  each sub-vector must have a size of $3$ and contain name of clino1, name of clino2,
+              and \emph{a priori} sigma of the orthogonality constraint.
+\end{itemize}
+
+%-----------------------------------------------------
+\subsection{ToDo}
+
+For more complicated case, allow to create the bloc even when there is no data present : 
+
+\begin{itemize}
+    \itm  explicitely  add cameras by the name of intrinsic calib (w/o images) ;
+    \itm  explicitely  add clinometers by their name  (w/o measures files).
+\end{itemize}
+
+%-----------------------------------------------------
+%-----------------------------------------------------
+%-----------------------------------------------------
+
+\section{Initializing parameters of the bloc}
+
+%-----------------------------------------------------
+\subsection{Introduction}
+Like often in photogrammetry, before using parameter in adjustment, we
+need approximate values of these parameters for linearizing the equation.
+So we need special algorithm, and associated command, for computing the
+initial value of these parameters.
 
 %-----------------------------------------------------
 %-----------------------------------------------------

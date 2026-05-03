@@ -789,6 +789,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
          // Check range
          CheckRangeMainSet(aNum);
 
+         mPatOfMS[aNum] = aVValues[aK];
          // don't accept multiple initialisation
          if (!mVMainSets.at(aNum).IsInit())
          {
