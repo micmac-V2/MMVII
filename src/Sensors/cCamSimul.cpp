@@ -312,7 +312,7 @@ struct cBenchScene
     std::map<int,cPt3dr>            mGTPts3D;  ///< GT 3D coords keyed by tie-point ID (aPtImIdx)
 };
 
-/// Generate cameras, triplets, tie-points and GT relative poses for one projection type.
+/// Generate cameras, triplets, tie-points and GT relative poses for one projection type
 static cBenchScene BuildBenchScene(int aNbCam, int aNbTri, int aNbHPts,
                                    eProjPC aProj, bool isSubVert,
                                    double aPtNoiseAmpl,

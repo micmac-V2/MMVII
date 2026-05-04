@@ -119,7 +119,7 @@ tMMVII_UnikPApli Alloc_VisuPoseStr3D(const std::vector<std::string> & aVArgs,con
 
 cSpecMMVII_Appli  TheSpec_VisuPoseStr3D
     (
-        "VisSfm",
+        "VisPose3D",
         Alloc_VisuPoseStr3D,
         "Create PLY with poses and 3D structure",
         {eApF::Ori},
