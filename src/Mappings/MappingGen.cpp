@@ -168,7 +168,7 @@ template <class Type,const int DimIn,const int DimOut>
        mEpsJac          (aEpsJac),
        mJacByFiniteDif  (mEpsJac.x()>0)
 #if (! MAP_STATIC_BUF)
-   ,  mBufIn1Val       ({tPtIn()})
+  // ,  mBufIn1Val       ({tPtIn()})
 #endif
 {
     // BufIn1Val().clear();
@@ -224,10 +224,11 @@ template <class Type,const int DimIn,const int DimOut>
 
     ///   call previous method with local buffer
 template <class Type,const int DimIn,const int DimOut>
-    const typename cDataMapping<Type,DimIn,DimOut>::tVecOut &
+    const typename cDataMapping<Type,DimIn,DimOut>::tVecOut
                    cDataMapping<Type,DimIn,DimOut>::Values(const tVecIn & aVIn) const
 {
-   return Values(BufOutCleared(),aVIn);
+    tVecOut aVectOut;
+   return Values(aVectOut,aVIn);
 }
 
 
@@ -238,13 +239,17 @@ template <class Type,const int DimIn,const int DimOut>
     typename cDataMapping<Type,DimIn,DimOut>::tPtOut
              cDataMapping<Type,DimIn,DimOut>::Value(const tPtIn & aPt) const
 {
-   BufIn1Val()[0] = aPt;
-   const tVecOut & aRes = Values(BufIn1Val());
-   return aRes[0];
+   return  Values(tVecIn{aPt}).at(0);
+
+  // BufIn1Val()[0] = aPt;
+  /* tVecIn aVecIn {aPt};
+   const tVecOut & aRes = Values(tVecIn{aPt});
+   return aRes[0];*/
 }
 
      //  =========== Compute jacobian and vals =============
 
+#if (0)
 template <class Type,const int DimIn,const int DimOut>
     typename cDataMapping<Type,DimIn,DimOut>::tVecJac &
              cDataMapping<Type,DimIn,DimOut>::BufJac(tU_INT4 aSz)
@@ -272,13 +277,24 @@ template <class Type,const int DimIn,const int DimOut>
 #endif
    return mJacResult;
 }
+#endif
 
 
+template <class Type,const int DimIn,const int DimOut>
+    typename cDataMapping<Type,DimIn,DimOut>::tVecJac
+             cDataMapping<Type,DimIn,DimOut>::VecJac(tU_INT4 aSz) const
+{
+   tVecJac aRes;
+   while (aRes.size()<aSz)
+         aRes.push_back(tJac(DimIn,DimOut));
+
+   return aRes;
+}
 
     ///   Buffered mode by default calls finit difference OR  unbeferred mode
 template <class Type,const int DimIn,const int DimOut>
-    typename cDataMapping<Type,DimIn,DimOut>::tCsteResVecJac
-                   cDataMapping<Type,DimIn,DimOut>::Jacobian(tResVecJac aRes,const tVecIn & aVIn) const
+    typename cDataMapping<Type,DimIn,DimOut>::tCsteResPtrVecJac
+                   cDataMapping<Type,DimIn,DimOut>::Jacobian(tResPtrVecJac aRes,const tVecIn & aVIn) const
 {
 /**/MACRO_CHECK_RECURS_BEGIN;
 
@@ -296,7 +312,8 @@ template <class Type,const int DimIn,const int DimOut>
        for (tU_INT4 aKpt0=0 ; aKpt0<aNbIn ; aKpt0+=aNbInBuf)
        {
           tU_INT4 aKpt1 = std::min(aKpt0+aNbInBuf,aNbIn);
-          tVecIn& aBufIn = JBufInCleared(); // buf in of jacobian, dif of buf in used in values
+       //   tVecIn& aBufIn = JBufInCleared(); // buf in of jacobian, dif of buf in used in values
+          tVecIn aBufIn;
           for (tU_INT4 aKpt=aKpt0 ; aKpt<aKpt1 ; aKpt++) // put all points
           {
               tPtIn aPK = aVIn[aKpt];  // make a copy of input
@@ -337,30 +354,35 @@ template <class Type,const int DimIn,const int DimOut>
     }
 /**/MACRO_CHECK_RECURS_END;
       // StdOut() <<  "TO CHECK LINE " << __LINE__  << " of " << __FILE__ << std::endl;
-     return tCsteResVecJac(aRes.first,aRes.second);
+     return tCsteResPtrVecJac(aRes.first,aRes.second);
      //  return aRes;  // dont understand why not that, maybe some type checking with some version of compilor ?
 }
 
 template <class Type,const int DimIn,const int DimOut>
-    typename cDataMapping<Type,DimIn,DimOut>::tCsteResVecJac
+    typename cDataMapping<Type,DimIn,DimOut>::tResVecJac
                    cDataMapping<Type,DimIn,DimOut>::Jacobian(const tVecIn & aVIn) const
 {
 /**/MACRO_CHECK_RECURS_BEGIN;
     tU_INT4 aNbIn = aVIn.size();
-    tVecOut & aJBufOut = JBufOutCleared();
-    tVecJac & aBufJac = BufJac(aNbIn);
-    tResVecJac aRes(&aJBufOut,&aBufJac);
+    // tVecOut & aJBufOut = JBufOutCleared();
+    tVecOut aJBufOut;
+
+    tVecJac  aBufJac = VecJac(aNbIn);
+    tResPtrVecJac aRes(&aJBufOut,&aBufJac);
 /**/MACRO_CHECK_RECURS_END;
-    return Jacobian(aRes,aVIn);
+    tCsteResPtrVecJac aResPtr = Jacobian(aRes,aVIn);
+
+    return tResVecJac(*aResPtr.first,*aResPtr.second);
 }
 
 template <class Type,const int DimIn,const int DimOut>
     typename cDataMapping<Type,DimIn,DimOut>::tResJac
                    cDataMapping<Type,DimIn,DimOut>::Jacobian(const tPtIn & aPtIn) const
 {
-   BufIn1Val()[0] = aPtIn;
-   tCsteResVecJac  aResVec = Jacobian(BufIn1Val());
-   return tResJac(aResVec.first->at(0),aResVec.second->at(0));
+   //BufIn1Val()[0] = aPtIn;
+   //tVecIn
+   tResVecJac  aResVec = Jacobian(tVecIn{aPtIn});
+   return tResJac(aResVec.first.at(0),aResVec.second.at(0));
 }
 
 
@@ -653,8 +675,8 @@ template <class TypeMap> void OneBenchMapping(cParamExeBench & aParam)
         auto [aVO3,aVG3] = aPM->Jacobian(aVIn);
         for (tU_INT4 aKP=0 ; aKP<aSzV ; aKP++)
         {
-            MMVII_INTERNAL_ASSERT_bench(Norm2(aVOut[aKP]-(*aVO3)[aKP])<1e-5,"Val in Grad in mapping");
-            MMVII_INTERNAL_ASSERT_bench(aVDif[aKP].L2Dist(aVG3->at(aKP))<1e-3,"Jacobian in mapping");
+            MMVII_INTERNAL_ASSERT_bench(Norm2(aVOut[aKP]-(aVO3)[aKP])<1e-5,"Val in Grad in mapping");
+            MMVII_INTERNAL_ASSERT_bench(aVDif[aKP].L2Dist(aVG3.at(aKP))<1e-3,"Jacobian in mapping");
         }
     }
 }
