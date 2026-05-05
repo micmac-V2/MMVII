@@ -408,7 +408,7 @@ int cAppli_Rename::Exe()
            StdOut()  << "STR IN=" << aStrIn0 << " => " << aReplace << "\n";
     }
 
-    // is there was any replacement coming from multiple input
+    // is there was any replacement coming from multiple input => error
     if (gotAmbig)
     {
         StdOut() << "=== BAD REPLACE FOR ===============\n";
@@ -417,7 +417,7 @@ int cAppli_Rename::Exe()
             if (aOut.size()>1)
             {
                 StdOut() << " * "<< aOut << " <=== " << aIn << "\n";
-             }
+            }
         }
         MMVII_UnclasseUsEr("Renaming woul lead to lost file");
     }

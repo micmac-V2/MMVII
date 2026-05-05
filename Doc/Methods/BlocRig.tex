@@ -38,16 +38,27 @@ the following restriction :
 
 \section{Formalisation}
 
-\COM
-{
 %-----------------------------------------------------
 \subsection{Repair of the block}
 
-For each bloc $k$ we have an unknown pose  $(R_k,C_k)$,
+For each bloc $k$ we have an unknown pose  $Pk=(R_k,C_k)$
+that compute the transformation between bloc-coordinate $P_{Bk}$
+and word coordinates $P_W$:
 
+\begin{equation}
+    P_W = C_k + R_k   P_{Bk}
+\end{equation}
+
+
+
+For now the 
 
 %-----------------------------------------------------
-\subsection{Equation between instrument}
+\subsection{Equation between cameras}
+
+
+
+
 
 Let $k_1$ and $k_2$ be $2$ instrument,
 
@@ -61,6 +72,8 @@ of coordinates and we have to introduce multiple coordinate system.
 
 Another case of use, is when we "stick" targets on a camera (the so called 
 "arroseur arros\'e" or "bitter bit").
+\COM
+{
 }
 
 %-----------------------------------------------------
