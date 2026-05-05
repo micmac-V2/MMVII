@@ -475,7 +475,7 @@ cDataGenUnTypedIm<2> *resampleToEpipolar(
     const int outSx = frame.outSx;
     const int outSy = frame.outSy;
 
-    auto outImg = AllocIm2DGen(cPt2di{outSx, outSy},Im->TypeVal());
+    auto outImg = AllocImGen(cPt2di{outSx, outSy},Im->TypeVal());
 
     for (int v = 0; v < outSy; ++v) {
         // Y coordinate in the common rectified space

@@ -356,18 +356,31 @@ template <const int Dim> class cDataGenUnTypedIm : public cPixBox<Dim>,
 
         virtual double GetVBL(const  tPixR & aP) const  = 0;
 
+
+        cDataGenUnTypedIm<Dim>* AllocReSampleGen(
+            const cInterpolator1D &anInterpol,
+            const cDataInvertibleMapping<tREAL8, Dim> &aMap,
+            const cPixBox<Dim> aBox,
+            double aDefValOut=0) const;
+        std::pair<cPtxd<int,Dim>,cDataGenUnTypedIm<Dim>*> AllocReSampleGen(
+            const cInterpolator1D &anInterpol,
+            const cDataInvertibleMapping<tREAL8, Dim> &aMap,
+            double aDefVal = 0) const;
         /// Interpolated value, using a generic interpolator
-        virtual double ClipedGetValueInterpol(const cInterpolator1D &,const cPt2dr & aP,double  aDefVal=0,bool * Ok=nullptr) const;
+        virtual double ClipedGetValueInterpol(const cInterpolator1D &,const cPtxd<double,Dim> & aP,double  aDefVal=0,bool * Ok=nullptr) const;
         /// Interpolated value+derivative, using a generic diffentiable interpolator
-        virtual std::pair<tREAL8,cPt2dr> GetValueAndGradInterpol(const cDiffInterpolator1D &,const cPt2dr & aP) const;
+        virtual std::pair<tREAL8,cPtxd<double,Dim>> GetValueAndGradInterpol(const cDiffInterpolator1D &,const cPtxd<double,Dim> & aP) const;
 
         virtual void ToFile(const std::string& aName, const std::vector<std::string>& aOptions={}) const = 0;
 };
 
 /// Allocate
-cDataGenUnTypedIm<2> * AllocIm2DGen(const cPt2di& aP0, const cPt2di& aP1, eTyNums aType);
-/// Allocate
-cDataGenUnTypedIm<2> * AllocIm2DGen(const cPt2di& aSz, eTyNums aType);
+template<int Dim>
+cDataGenUnTypedIm<Dim> * AllocImGen(const cPtxd<int,Dim>& aSz, eTyNums aType);
+
+template<int Dim>
+cDataGenUnTypedIm<Dim> * AllocImGen(const cPtxd<int,Dim>& aP0, const cPtxd<int,Dim>& aP1, eTyNums aType);
+
 /// Specfy the box, if EmptyBox full file
 cDataGenUnTypedIm<2> * ReadIm2DGen(const std::string &aName, const cBox2di& aBox = cBox2di::Empty());
 /// Dynamically force type od image. Specfy the box, if EmptyBox full file
@@ -721,6 +734,8 @@ template <class Type>  class cDataIm3D  : public cDataTypedIm<Type,3>
         virtual ~cDataIm3D();
 
         cDataIm3D(const cPt3di & aSz,Type * aRawDataLin=nullptr,eModeInitImage aModeInit=eModeInitImage::eMIA_NoInit) ;
+        cDataIm3D(const cPt3di & aP0,const cPt3di & aP1,Type * aRawDataLin=nullptr,eModeInitImage aModeInit=eModeInitImage::eMIA_NoInit);
+
 
     private :
         cDataIm3D(const cDataIm3D &) = delete;

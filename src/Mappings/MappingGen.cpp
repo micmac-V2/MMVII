@@ -567,6 +567,8 @@ INSTANCE_TWO_DIM_MAPPING(3,1)
 
 template class cDataMapping<double,5,1>;
 template class cDataMapping<double,4,1>;
+template class cDataMapping<double,4,4>;
+template class cDataMapping<double,5,5>;
 
 /* ============================================= */
 /* ============================================= */
