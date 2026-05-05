@@ -1,5 +1,6 @@
 #include "MMVII_Images.h"
 #include "MMVII_Image2D.h"
+#include "MMVII_Mappings.h"
 #include <algorithm>
 // #include <Eigen/Dense>
 
@@ -38,42 +39,62 @@ template <const int Dim> void cDataGenUnTypedIm<Dim>::VD_VPtsSetV(const  std::ve
 }
 
 
-
-template <class Type> cDataGenUnTypedIm<2> * Tpl_ReadAllocIm2DGen(const cBox2di& aBox, const cDataFileIm2D *aDFI, const cPt2di& aP0)
+template <class Type,int Dim>
+cDataGenUnTypedIm<Dim> * Tpl_ReadAllocImGen(const cTplBox<int,Dim>& aBox, const cDataFileIm2D *aDFI, const cPtxd<int,Dim>& aP0)
 {
-    cDataIm2D<Type> * aDIm  =  new  cDataIm2D<Type>(aBox.P0(),aBox.P1());
-    if (aDFI)
-        aDIm->Read(*aDFI,aP0);
-    return aDIm;
+    if constexpr(Dim == 2) {
+        auto aDIm  =  new  cDataIm2D<Type>(aBox.P0(),aBox.P1());
+        if (aDFI)
+            aDIm->Read(*aDFI,aP0);
+        return aDIm;
+    } else if constexpr (Dim ==1) {
+        auto aDIm  =  new  cDataIm1D<Type>(aBox.P0(),aBox.P1());
+        return aDIm;
+    } else if constexpr (Dim ==3) {
+        auto aDIm  =  new  cDataIm3D<Type>(aBox.P0(),aBox.P1());
+        return aDIm;
+    } else {
+        auto aDIm  =  new  cDataTypedIm<Type,Dim>(aBox.P0(),aBox.P1());
+        return aDIm;
+    }
 }
 
-
-
-static cDataGenUnTypedIm<2> * ReadAllocIm2DGen(eTyNums aType, const cBox2di& aBox, const cDataFileIm2D *aDFI=nullptr, const cPt2di& aP0 = cPt2di{})
+template<int Dim>
+static cDataGenUnTypedIm<Dim> * ReadAllocImGen(eTyNums aType, const cTplBox<int,Dim>& aBox, const cDataFileIm2D *aDFI=nullptr, const cPtxd<int,Dim>& aP0 = cPtxd<int,Dim>{})
 {
     switch (aType)
     {
-    case eTyNums::eTN_U_INT1 : return Tpl_ReadAllocIm2DGen<tU_INT1>(aBox,aDFI,aP0);
-    case eTyNums::eTN_U_INT2 : return Tpl_ReadAllocIm2DGen<tU_INT2>(aBox,aDFI,aP0);
-    case eTyNums::eTN_INT1   : return Tpl_ReadAllocIm2DGen<tINT1>(aBox,aDFI,aP0);
-    case eTyNums::eTN_INT2   : return Tpl_ReadAllocIm2DGen<tINT2>(aBox,aDFI,aP0);
-    case eTyNums::eTN_INT4   : return Tpl_ReadAllocIm2DGen<tINT4>(aBox,aDFI,aP0);
-    case eTyNums::eTN_REAL4  : return Tpl_ReadAllocIm2DGen<tREAL4>(aBox,aDFI,aP0);
+    case eTyNums::eTN_U_INT1 : return Tpl_ReadAllocImGen<tU_INT1>(aBox,aDFI,aP0);
+    case eTyNums::eTN_U_INT2 : return Tpl_ReadAllocImGen<tU_INT2>(aBox,aDFI,aP0);
+    case eTyNums::eTN_INT1   : return Tpl_ReadAllocImGen<tINT1>(aBox,aDFI,aP0);
+    case eTyNums::eTN_INT2   : return Tpl_ReadAllocImGen<tINT2>(aBox,aDFI,aP0);
+    case eTyNums::eTN_INT4   : return Tpl_ReadAllocImGen<tINT4>(aBox,aDFI,aP0);
+    case eTyNums::eTN_REAL4  : return Tpl_ReadAllocImGen<tREAL4>(aBox,aDFI,aP0);
     default : break;
     }
     MMVII_INTERNAL_ERROR("Unhandled type in ReadIm2DGen");
     return nullptr;
 }
 
-cDataGenUnTypedIm<2> * AllocIm2DGen(const cPt2di& aSz, eTyNums aType)
+template<int Dim>
+cDataGenUnTypedIm<Dim> * AllocImGen(const cPtxd<int,Dim>& aSz, eTyNums aType)
 {
-    return ReadAllocIm2DGen(aType, cBox2di(aSz));
+    return ReadAllocImGen(aType, cTplBox<int,Dim>(aSz));
 }
 
-cDataGenUnTypedIm<2> * AllocIm2DGen(const cPt2di& aP0, const cPt2di& aP1,eTyNums aType)
+template<int Dim>
+cDataGenUnTypedIm<Dim> * AllocImGen(const cPtxd<int,Dim>& aP0, const cPtxd<int,Dim>& aP1, eTyNums aType)
 {
-    return ReadAllocIm2DGen(aType, cBox2di(aP0,aP1));
+    return ReadAllocImGen(aType, cTplBox<int,Dim>(aP0,aP1));
 }
+
+// Instanciate previous functions
+template cDataGenUnTypedIm<1> * AllocImGen(const cPtxd<int,1>& aSz, eTyNums aType);
+template cDataGenUnTypedIm<2> * AllocImGen(const cPtxd<int,2>& aSz, eTyNums aType);
+template cDataGenUnTypedIm<3> * AllocImGen(const cPtxd<int,3>& aSz, eTyNums aType);
+template cDataGenUnTypedIm<1> * AllocImGen(const cPtxd<int,1>& aP0, const cPtxd<int,1>& aP1, eTyNums aType);
+template cDataGenUnTypedIm<2> * AllocImGen(const cPtxd<int,2>& aP0, const cPtxd<int,2>& aP1, eTyNums aType);
+template cDataGenUnTypedIm<3> * AllocImGen(const cPtxd<int,3>& aP0, const cPtxd<int,3>& aP1, eTyNums aType);
 
 static cDataGenUnTypedIm<2> * ReadIm2DGen(const std::string& aName, std::optional<eTyNums> aOptType, const cBox2di  &aBox)
 {
@@ -86,7 +107,7 @@ static cDataGenUnTypedIm<2> * ReadIm2DGen(const std::string& aName, std::optiona
         aP0 = aBox.P0();
     }
     auto aType = aOptType ? *aOptType : aDFI.Type();
-    return ReadAllocIm2DGen(aType,cBox2di(aSz),&aDFI,aP0);
+    return ReadAllocImGen(aType,cBox2di(aSz),&aDFI,aP0);
 }
 
 
@@ -102,19 +123,50 @@ cDataGenUnTypedIm<2> * ReadIm2DGen(const std::string &aName, eTyNums aType, cons
 }
 
 
+
 template <const int Dim>
-double cDataGenUnTypedIm<Dim>::ClipedGetValueInterpol(const cInterpolator1D &,const cPt2dr &,double ,bool* ) const
+double cDataGenUnTypedIm<Dim>::ClipedGetValueInterpol(const cInterpolator1D &,const cPtxd<double,Dim> &,double ,bool* ) const
 {
     MMVII_INTERNAL_ERROR("Unhandled type in cDataGenUnTypedIm::GetValueAndGradInterpol");
     return 0;
 }
 
 template <const int Dim>
-std::pair<tREAL8,cPt2dr> cDataGenUnTypedIm<Dim>::GetValueAndGradInterpol(const cDiffInterpolator1D &,const cPt2dr &) const
+std::pair<tREAL8,cPtxd<double,Dim>> cDataGenUnTypedIm<Dim>::GetValueAndGradInterpol(const cDiffInterpolator1D &, const cPtxd<double, Dim> &) const
 {
     MMVII_INTERNAL_ERROR("Unhandled type in cDataGenUnTypedIm::GetValueAndGradInterpol");
-    return {0.,{0.,0.}};
+    return {0.,cPtxd<double,Dim>{}};
 }
+
+
+template <const int Dim>
+cDataGenUnTypedIm<Dim>* cDataGenUnTypedIm<Dim>::AllocReSampleGen(
+        const cInterpolator1D &anInterpol,
+        const cDataInvertibleMapping<tREAL8, Dim> &aMap,
+        const cPixBox<Dim> aBox,
+        double aDefValOut) const
+{
+    auto aResult = AllocImGen(aBox.Sz(),this->TypeVal());
+
+    for (auto & aPixOut : *aResult)
+    {
+        auto aPixIn = aMap.Inverse(MMVII::ToR(aPixOut+aBox.P0()));
+        auto val = this->Inside(ToI(aPixIn)) ? this->ClipedGetValueInterpol(anInterpol,aPixIn) : aDefValOut;
+        aResult->VD_SetV(aPixOut,val);
+    }
+    return aResult;
+}
+
+template <const int Dim>
+std::pair<cPtxd<int,Dim>,cDataGenUnTypedIm<Dim>*> cDataGenUnTypedIm<Dim>::AllocReSampleGen(
+    const cInterpolator1D &anInterpol,
+    const cDataInvertibleMapping<tREAL8, Dim> &aMap,
+    double aDefValOut) const
+{
+    auto aBoxOut = aMap.BoxOfFrontier(this->ToR(),1.0).ToI();
+    return {aBoxOut.P0(),this->AllocReSampleGen(anInterpol,aMap,aBoxOut,aDefValOut)};
+}
+
 
 
 /* ========================== */

@@ -38,16 +38,34 @@ the following restriction :
 
 \section{Formalisation}
 
-\COM
-{
 %-----------------------------------------------------
 \subsection{Repair of the block}
 
-For each bloc $k$ we have an unknown pose  $(R_k,C_k)$,
+For each bloc $k$ we have an unknown pose  $Pk=(R_k,C_k)$
+that compute the transformation between bloc-coordinate $P_{Bk}$
+and word coordinates $P_W$:
 
+\begin{equation}
+    P_W = C_k + R_k   P_{Bk}
+\end{equation}
+
+In the following, we will consider instrument belonging to the
+same block and we will omit the index $k$ because
+block are independant.
 
 %-----------------------------------------------------
-\subsection{Equation between instrument}
+\subsection{Equation between cameras}
+
+Let  :
+
+\begin{itemize}
+    \item $C_j$ and $C_j$ be two cameras of the same block;
+    \item $P_i$ and $P_j$  their poses ine the block
+    \item $t$ , $t'$ be two time stamps;
+    \item $P_{i,t}$ and $P_{j,t}$  the poses of camera
+	    $i$ and $j$ at time stamp $t$.
+\end{itemize}
+
 
 Let $k_1$ and $k_2$ be $2$ instrument,
 
@@ -61,6 +79,8 @@ of coordinates and we have to introduce multiple coordinate system.
 
 Another case of use, is when we "stick" targets on a camera (the so called 
 "arroseur arros\'e" or "bitter bit").
+\COM
+{
 }
 
 %-----------------------------------------------------

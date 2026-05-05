@@ -649,6 +649,17 @@ enum class eTyCodeTarget
 };
 bool IsCircularTarge(eTyCodeTarget);
 
+
+// Common vertical interval for epipolar Image pair resamling
+enum class eEpipFrm
+{
+    eIntersect,         // Contains only common parts
+    eUnion,             // Contains all parts
+    eImg_1,             // Frame height from Image 1
+    eImg_2,             // Frame height from Image 2
+    eNbVals
+};
+
 enum class eMTDIm
            {
               eFocalmm,   //< if we fix the focal in mm
@@ -709,6 +720,7 @@ const std::string & E2Str(const eModePaddingEpip &);
 const std::string & E2Str(const eModeCaracMatch &);
 const std::string & E2Str(const eModeSSR &);
 const std::string & E2Str(const eModResBund &);
+const std::string & E2Str(const eEpipFrm &);
 
 
 template <class Type> Type  Str2E(const std::string &,bool WithDef=false);

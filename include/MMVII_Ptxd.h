@@ -672,6 +672,13 @@ template <class Type,const int Dim>  Type AbsSurfParalogram(const cPtxd<Type,Dim
 // Most frequent conversion
 inline cPt2di ToI(const cPt2dr & aP) {return cPt2di(round_ni(aP.x()),round_ni(aP.y()));}
 inline cPt3di ToI(const cPt3dr & aP) {return cPt3di(round_ni(aP.x()),round_ni(aP.y()),round_ni(aP.z()));}
+template<int Dim>
+inline cPtxd<int,Dim> ToI(const cPtxd<double,Dim> & aP) {
+    cPtxd<int,Dim> aRes;
+    for (int i=0; i<Dim; i++)
+        aRes.PtRawData()[i] = round_ni(aP.PtRawData()[i]);
+    return aRes;
+}
 
 template <class T> inline cPtxd<tREAL8,1> ToR(const cPtxd<T,1> & aP) {return cPtxd<tREAL8,1>(aP.x());}
 template <class T> inline cPtxd<tREAL8,2> ToR(const cPtxd<T,2> & aP) {return cPtxd<tREAL8,2>(aP.x(),aP.y());}

@@ -562,6 +562,16 @@ template<> cE2Str<eTAAr>::tMapE2Str cE2Str<eTAAr>::mE2S
                 {eTAAr::eUndef,"???"}
            };
 
+template<> cE2Str<eEpipFrm>::tMapE2Str cE2Str<eEpipFrm>::mE2S
+            {
+                {eEpipFrm::eIntersect,"Intersect"},
+                {eEpipFrm::eUnion,"Union"},
+                {eEpipFrm::eImg_1,"Img_1"},
+                {eEpipFrm::eImg_2,"Img_2"},
+            };
+
+const std::string & E2Str(const eEpipFrm &);
+
 
 template<> cE2Str<eModeCaracMatch>::tMapE2Str cE2Str<eModeCaracMatch>::mE2S
            {
@@ -707,6 +717,7 @@ void BenchEnum(cParamExeBench & aParam)
     TplBenchEnum<eTyClino>();
     TplBenchEnum<eTyInstr>();
     TplBenchEnum<eTyCodeTarget>();
+    TplBenchEnum<eEpipFrm>();
 
 
     aParam.EndBench();
@@ -1103,7 +1114,7 @@ template <class Type>  std::vector<Type> Str2Vec(const std::string & aStrGlob)
        {
           aStrV.push_back(*aC);
        }
-               
+
        aC++;
    }
 
@@ -1315,7 +1326,7 @@ MACRO_INSTANTITATE_STRIO_ENUM(eTyUnitAngle,"AngleUnit")
 MACRO_INSTANTITATE_STRIO_ENUM(eModeFusionData,"ModeFusionData")
 MACRO_INSTANTITATE_STRIO_ENUM(eTyClino,"TypeClino")
 MACRO_INSTANTITATE_STRIO_ENUM(eTyInstr,"TypeInstr")
-
+MACRO_INSTANTITATE_STRIO_ENUM(eEpipFrm,"EpipFrame")
 
 MACRO_INSTANTITATE_STRIO_ENUM(eTypeSensor,"TypeSensor")
 MACRO_INSTANTITATE_STRIO_ENUM(eFormatSensor,"FormatSensor")
@@ -1351,7 +1362,7 @@ template <>  const std::string cStrIO<bool>::msNameType = "bool";
 
 template <>  std::string cStrIO<char>::ToStr(const char & anI)
 {
- 
+
    std::string aStrI;
    aStrI += anI;
    return   aStrI ;
