@@ -37,6 +37,8 @@ private :
     std::string mOutDir;
     std::string mOutNamePat = "Epip_%1_%2.tif";
     std::vector<std::string> mInterpol = {"Cubic","-0.5"};
+    eEpipFrm mFrame = eEpipFrm::eIntersect;
+//    cEpipolarModel::eFramingType mFrame = cEpipolarModel::eFramingType::INTERSECT;
 };
 
 cAppli_EpipResampling::cAppli_EpipResampling (
@@ -50,6 +52,15 @@ cAppli_EpipResampling::cAppli_EpipResampling (
 
 
 // TODOCM: Separate Geom calulation & resampling
+// TODOCM: Serialisation classes EpipMap EpipModel
+// TODOCM: Creer les RPC des images Epipolaires
+// TODOCM: X Steps /= Y Steps. Steps or pixels  => degre liberté * 10 , bonne répartition, Nb min en X et Y.
+
+// TODOCM: Gestion grosses images : daller ... Cache pour bout d'images ?
+
+// TODOCM: adapter/utiliser le resample de la cDataIm2D
+
+
 
 
 int cAppli_EpipResampling::Exe()
@@ -69,7 +80,7 @@ int cAppli_EpipResampling::Exe()
         aOutDir += "/";
     }
     CreateDirectories(aOutDir,false);
-    const cInterpolator1D* anInterp = cDiffInterpolator1D::AllocFromNames(mInterpol);
+    const cInterpolator1D* aInterp = cDiffInterpolator1D::AllocFromNames(mInterpol);
 
 
     // TODOCM: Enlever margin ? Mieux le définir ?
@@ -98,29 +109,34 @@ int cAppli_EpipResampling::Exe()
     auto aRectifier = cEpipolarRectification(*aSI1, *aSI2, aParams);
     auto aEpipModel = aRectifier.Compute();
 
-    const auto* Im1 = ReadIm2DGen(mNameIm1);
-    const auto* Im2 = ReadIm2DGen(mNameIm2);
+    StdOut() << "Interpolator: " << aInterp->VNames() << ", Kernel Size: " << aInterp->SzKernel() << std::endl;
 
-    StdOut() << "Interpolator: " << anInterp->VNames() << ", Kernel Size: " << anInterp->SzKernel() << std::endl;
-
-    auto aResult = generateEpipolarImages(aEpipModel, Im1, Im2, *anInterp, mMargin);
+    const auto* aIm1 = ReadIm2DGen(mNameIm1);
+    const auto* aIm2 = ReadIm2DGen(mNameIm2);
+    aEpipModel.ComputeCommonFraming(aIm1,aIm2,mFrame,mMargin);
+    StdOut() << "[EpipolarResample] Resampling image 1 ("<< aEpipModel.mFrame1.Sz() << ")...\n";
+    auto aIm1Rectif = aIm1->AllocReSampleGen(*aInterp,aEpipModel.EpipMap1(),aEpipModel.mFrame1);
+    StdOut() << "[EpipolarResample] Resampling image 2 ("<< aEpipModel.mFrame2.Sz() << ")...\n";
+    auto aIm2Rectif = aIm2->AllocReSampleGen(*aInterp,aEpipModel.EpipMap2(),aEpipModel.mFrame2);
 
 
     // TODOCM: Make name generation accessible for other apps
-    // TODOCM: Make sure image extension is present (and not doubled ?) ! (i.e. .tif)
-    auto anEpip1Name = aOutDir + replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",mNameIm1),"%2",mNameIm2);
-    auto anEpip2Name = aOutDir + replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",mNameIm2),"%2",mNameIm1);
-    aResult.im1_rect->ToFile(anEpip1Name);
-    aResult.im2_rect->ToFile(anEpip2Name);
+    // TODOCM: Make sure image extension is present ?
+    auto aName1 = LastPrefix(FileOfPath(mNameIm1,false));
+    auto aName2 = LastPrefix(FileOfPath(mNameIm2,false));
+    auto anEpip1Name = aOutDir + replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",aName1),"%2",aName2);
+    auto anEpip2Name = aOutDir + replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",aName2),"%2",aName1);
     StdOut() << "Image1: " << anEpip1Name << std::endl;
+    aIm1Rectif->ToFile(anEpip1Name);
     StdOut() << "Image2: " << anEpip2Name << std::endl;
+    aIm2Rectif->ToFile(anEpip2Name);
 
 
-    delete aResult.im1_rect;
-    delete aResult.im2_rect;
-    delete anInterp;
-    delete Im1;
-    delete Im2;
+    delete aIm1Rectif;
+    delete aIm2Rectif;
+    delete aInterp;
+    delete aIm1;
+    delete aIm2;
     return EXIT_SUCCESS;
 }
 
@@ -145,9 +161,10 @@ cCollecSpecArg2007 & cAppli_EpipResampling::ArgOpt(cCollecSpecArg2007 & anArgOpt
            << AOpt2007(mNbByXY,"XYSteps","Nb XY steps",{eTA2007::HDV})
            << AOpt2007(mNbByZ,"ZSteps","Nb Z steps",{eTA2007::HDV})
            << AOpt2007(mEpsMarginRel,"MarginRel","Relative margin for H-compatible points grid (X,Y,Z)",{eTA2007::HDV})
-           << AOpt2007(mMargin,"Margin","Output image margin (black contour)",{eTA2007::HDV})
+           << AOpt2007(mMargin,"Margin","Output image margin",{eTA2007::HDV})
+           << AOpt2007(mFrame,"FrameAlgo","Output image height algo",{eTA2007::HDV,AC_ListVal<eEpipFrm>()})
            << AOpt2007(mOutDir,"OutDir","Output directory (Default: VISU/" + TheSpec_EpipResampling.Name()+")")
-           << AOpt2007(mOutNamePat,"OutNamer","Output name pattern", {eTA2007::HDV})
+           << AOpt2007(mOutNamePat,"OutName","Output name pattern", {eTA2007::HDV})
            << AOpt2007(mInterpol,"Interpol","Interpolator", {eTA2007::HDV})
         ;
 }

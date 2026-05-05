@@ -2,28 +2,106 @@
 #define C_EPIPOLAR_RECTIFICATION_H
 
 #include "cPolyXY_N.h"
+#include "MMVII_Mappings.h"
 #include "MMVII_AllClassDeclare.h"  // cPt2dr, cPt3dr, cPt2di, etc.
 
 namespace MMVII {
 // Forward declaration
 class cSensorImage;
 
+class cEpipolarMapping : public cDataInvertibleMapping<tREAL8,2>
+{
+public:
+    cEpipolarMapping() {}
+    cPt2dr ToEpipolar(const cPt2dr& aPt) const { return Value(aPt); }
+    cPt2dr FromEpipolar(const cPt2dr& aPt) const { return Inverse(aPt); }
+};
+
+
+
+
 class cEpipolarModel
 {
 public:
-    virtual cPt2dr ToEpipolar1(const cPt2dr& p) const = 0;
-    virtual cPt2dr ToEpipolar2(const cPt2dr& p) const = 0;
-    virtual cPt2dr FromEpipolar1(const cPt2dr& p) const = 0;
-    virtual cPt2dr FromEpipolar2(const cPt2dr& p) const = 0;
-    cPt2dr ToEpipolar(int k, const cPt2dr& p) const
-    {
-        return k == 1 ? ToEpipolar1(p) : ToEpipolar2(p);
-    }
-    cPt2dr FromEpipolar(int k, const cPt2dr& p) const
-    {
-        return k == 1 ? FromEpipolar1(p) : FromEpipolar2(p);
-    }
+    virtual const cEpipolarMapping& EpipMap1() const = 0;
+    virtual const cEpipolarMapping& EpipMap2() const = 0;
+    cPt2dr ToEpipolar1(const cPt2dr& aPt) const { return EpipMap1().ToEpipolar(aPt); }
+    cPt2dr FromEpipolar1(const cPt2dr& aPt) const { return EpipMap1().ToEpipolar(aPt); }
+    cPt2dr ToEpipolar2(const cPt2dr& aPt) const { return EpipMap2().ToEpipolar(aPt); }
+    cPt2dr FromEpipolar2(const cPt2dr& aPt) const { return EpipMap2().ToEpipolar(aPt); }
+
+    void ComputeCommonFraming(
+        const cDataGenUnTypedIm<2> *aIm1,
+        const cDataGenUnTypedIm<2> *aIm2,
+        eEpipFrm aFrmType=eEpipFrm::eIntersect,
+        int aMargin=0
+    );
+
+    cRect2 mFrame1{cPt2di{},cPt2di{},true};
+    cRect2 mFrame2{cPt2di{},cPt2di{},true};
+
 };
+
+
+template<typename T>
+#if __cplusplus >= 202002L
+    requires std::derived_from<T, cEpipolarModelBase>
+#endif
+class cEpipolarModelTpl : public cEpipolarModel
+{
+public:
+    typedef std::unique_ptr<T> Ptr_T;
+    cEpipolarModelTpl(Ptr_T aEpipMap1, Ptr_T aEpipMap2)
+        : aEpipMap1(std::move(aEpipMap1)),aEpipMap2(std::move(aEpipMap2)  )
+    {}
+    const cEpipolarMapping& EpipMap1() const override { return *aEpipMap1; }
+    const cEpipolarMapping& EpipMap2() const override { return *aEpipMap2; }
+
+private:
+    Ptr_T aEpipMap1;
+    Ptr_T aEpipMap2;
+};
+
+
+
+class cEpipPolyMapping: public cEpipolarMapping
+{
+public:
+    cEpipPolyMapping(const cPolyXY_Nd& aV,
+const cPolyXY_Nd& aW,
+                     cPt2dr aCenter,
+                     cPt2dr aDir)
+        : mV(aV)
+        , mW(aW)
+        , mCenter{aCenter}
+        , mDir{aDir}
+    {}
+
+    cPt2dr Value(const cPt2dr& aPt) const override;
+    cPt2dr Inverse(const cPt2dr& aPt) const override;
+
+private:
+    /// (p - C) / D  (complex division = rotation)
+    cPt2dr ToRotatedFrame(const cPt2dr& p) const;
+
+    /// q * D + C
+    cPt2dr FromRotatedFrame(const cPt2dr& q) const;
+
+    // --- Forward polynomial Vk (image -> epipolar) ---
+    cPolyXY_Nd mV;
+    // --- Inverse polynomial Wk (epipolar -> image) ---
+    cPolyXY_Nd mW;
+    cPt2dr mCenter;   ///< centroids of the image point sets
+    cPt2dr mDir;      ///< unit epipolar direction per image
+};
+
+
+class cEpipPolyModel : public cEpipolarModelTpl<cEpipPolyMapping>
+{
+public:
+    using cEpipolarModelTpl<cEpipPolyMapping>::cEpipolarModelTpl;
+};
+
 
 // ============================================================
 //  Epipolar rectification for a generic stereo camera pair.
@@ -65,46 +143,6 @@ public:
     };
 
     // --------------------------------------------------------
-    //  Rectification result
-    // --------------------------------------------------------
-    struct cEpipolarModel : public MMVII::cEpipolarModel
-    {
-        // --- Rotation parameters (one per image) ---
-        cPt2dr mCenter1, mCenter2;   ///< centroids of the image point sets
-        cPt2dr mDir1,    mDir2;      ///< unit epipolar direction per image
-
-        // --- Forward polynomials Vk (image -> epipolar) ---
-        cPolyXY_N_IdentityOnYAxis<double> mV1;
-        cPolyXY_N<double>                 mV2;
-
-        // --- Inverse polynomials Wk (epipolar -> image) ---
-        cPolyXY_N<double> mW1;
-        cPolyXY_N<double> mW2;
-
-        cEpipolarModel(int aPolyDeg, int aPolyDegInv);
-
-        /// F1(p) : image-1 pixel -> epipolar pixel
-        cPt2dr ToEpipolar1   (const cPt2dr& p) const override;
-        /// F2(p) : image-2 pixel -> epipolar pixel
-        cPt2dr ToEpipolar2   (const cPt2dr& p) const override;
-
-        /// G1(e) : epipolar pixel -> image-1 pixel
-        cPt2dr FromEpipolar1(const cPt2dr& e) const override;
-        /// G2(e) : epipolar pixel -> image-2 pixel
-        cPt2dr FromEpipolar2(const cPt2dr& e) const override;
-
-    private:
-        /// (p - C) / D  (complex division = rotation)
-        static cPt2dr ToRotatedFrame  (const cPt2dr& p,
-                                       const cPt2dr& aCenter,
-                                       const cPt2dr& aDir);
-        /// q * D + C
-        static cPt2dr FromRotatedFrame(const cPt2dr& q,
-                                       const cPt2dr& aCenter,
-                                       const cPt2dr& aDir);
-    };
-
-    // --------------------------------------------------------
     //  Constructor
     // --------------------------------------------------------
     cEpipolarRectification(const cSensorImage& aCam1,
@@ -114,7 +152,7 @@ public:
     // --------------------------------------------------------
     //  Main entry point
     // --------------------------------------------------------
-    cEpipolarModel Compute() const;
+    cEpipPolyModel Compute() const;
 
 private:
     // --------------------------------------------------------
@@ -147,27 +185,21 @@ private:
     //  System (eq. 24) :  V1(q1) = V2(q2)
     // ----------------------------------------------------------
     void EstimateForwardPolynomials(
-            const std::vector<cEpiPair>&        aPairs,
-            cPolyXY_N_IdentityOnYAxis<double>&  aV1,
-            cPolyXY_N<double>&                  aV2) const;
+            const std::vector<cEpiPair>& aPairs,
+            cPolyXY_Nd&           aV1,
+            cPolyXY_Nd&           aV2) const;
 
     // ----------------------------------------------------------
     //  Estimate inverse polynomials W1, W2 (eq. 33-34).
     //
     //  System :  Wk( qk.x ,  Vk(qk) ) = qk.y
     // ----------------------------------------------------------
-    void EstimateInversePolynomials(
+    enum class UseFromPair{PT1,PT2};
+    void EstimateInversePolynomial(
             const std::vector<cEpiPair>& aPairs,
-            const cPolyXY_N<double>&     aV1,
-            const cPolyXY_N<double>&     aV2,
-            cPolyXY_N<double>&           aW1,
-            cPolyXY_N<double>&           aW2) const;
-
-    void EstimateOneInversePolynomial(
-            const std::vector<cEpiPair>& aPairs,
-            const cPolyXY_N<double>&     aVk,
-            cPolyXY_N<double>&           aWk,
-            bool                         aUsePt1) const;
+            const cPolyXY_Nd&     aVk,
+            cPolyXY_Nd&           aWk,
+            UseFromPair                  aUsePt) const;
 
     // --------------------------------------------------------
     //  Members
@@ -178,138 +210,6 @@ private:
 };
 
 
-// ---------------------------------------------------------------------------
-// Layout descriptor for a single rectified image
-// ---------------------------------------------------------------------------
-
-struct EpipolarFrame {
-    // Footprint in rectified space (coordinates phi_k applied to the original image)
-    double xMin_rect = 0, xMax_rect = 0;   ///< X extent specific to image k
-    double yMin_rect = 0, yMax_rect = 0;   ///< Y extent before intersection
-
-    // Final common framing (Y shared between the two images)
-    double yMin_common = 0, yMax_common = 0;
-
-    // Integer offset applied to the output image.
-    // Pixel (u, v) in the output <-> rectified coordinate (u + xOff, v + yOff)
-    double xOff = 0;   ///< X offset, specific to image k
-    double yOff = 0;   ///< Y offset, common to both images
-
-    // Output image dimensions (pixels)
-    int outSx = 0, outSy = 0;
-};
-
-// ---------------------------------------------------------------------------
-// Full resampling result
-// ---------------------------------------------------------------------------
-
-struct EpipolarImages {
-    cDataGenUnTypedIm<2>* im1_rect;   ///< rectified image 1
-    cDataGenUnTypedIm<2>* im2_rect;   ///< rectified image 2
-    EpipolarFrame frame1;     ///< layout descriptor for image 1
-    EpipolarFrame frame2;     ///< layout descriptor for image 2
-};
-
-// ---------------------------------------------------------------------------
-// Framing computation  (steps 1-3)
-// ---------------------------------------------------------------------------
-
-/**
- * Computes the rectified footprint of one image by projecting its original
- * boundary into epipolar space.
- *
- * Each of the four edges is densely sampled (nSample points per side) to
- * capture the curvature of epipolar lines, which can be significant for
- * pushbroom images.
- *
- * @param m        epipolar model
- * @param k        camera index (1 or 2)
- * @param ImSz    size of the original image (pixels)
- * @param nSample  number of sample points per edge (default 200)
- */
-EpipolarFrame computeFrame(const cEpipolarModel& m, int k,
-                           const cPt2di& ImSz,
-                           int nSample = 200);
-
-/**
- * Computes the common Y framing and the final dimensions of both rectified
- * images.
- *
- * Guarantees that the same row index v in im1_rect and im2_rect corresponds
- * to the same epipolar line.
- *
- * @param m              epipolar model
- * @param Im1Sz          dimensions of image 1
- * @param Im2Sz          dimensions of image 2
- * @param[out] f1, f2    computed layout descriptor for each image
- * @param margin         pixel margin added around the footprint (default 2)
- * @param nSample        edge sampling density (default 200)
- */
-void computeCommonFraming(const cEpipolarModel& m,
-                          const cPt2di& Im1Sz,
-                          const cPt2di& Im2Sz,
-                          EpipolarFrame& f1, EpipolarFrame& f2,
-                          int margin  = 2,
-                          int nSample = 200);
-
-// ---------------------------------------------------------------------------
-// Resampling of one image into epipolar geometry  (step 4)
-// ---------------------------------------------------------------------------
-
-/**
- * Fills a rectified image from the original image.
- *
- * For each pixel (u, v) of the output image:
- *   rectified coordinate  e = (frame.xOff + u,  frame.yOff + v)
- *   original point        p = phi_k^{-1}(e)
- *   value                 outImg(u,v) = inImg.GetVBL(p)
- *
- * @param m       epipolar model
- * @param k       image index (1 or 2)
- * @param inImg   original image (accessed via DIm().GetVBL)
- * @param frame   layout computed by computeCommonFraming
- * @param defVal  default value for out-of-bounds pixels (default 0)
- */
-cDataGenUnTypedIm<2>* resampleToEpipolar(const cEpipolarModel& m,
-                                         int k,
-                                         const cDataGenUnTypedIm<2>* Im,
-                                         const EpipolarFrame& frame,
-                                         const cInterpolator1D& anInterp,
-                                         double defVal);
-
-
-
-// ---------------------------------------------------------------------------
-// Main entry point
-// ---------------------------------------------------------------------------
-
-/**
- * Generates both rectified images in the common epipolar geometry.
- *
- * Usage:
- *   EpipolarModel model = rectifier.compute();
- *   EpipolarImages result = generateEpipolarImages(model, im1, im2,
- *                                                  im1.DIm().Sx(), im1.DIm().Sy(),
- *                                                  im2.DIm().Sx(), im2.DIm().Sy());
- *   // result.im1_rect and result.im2_rect are the rectified images.
- *   // A pixel (u, v) in im1_rect is conjugate to (u', v) in im2_rect
- *   // for any u' (correspondence search is 1D along u').
- *
- * @param m               epipolar model (from EpipolarRectifier::compute())
- * @param Im1, Im2        original images
- * @param margin          pixel margin added around the footprint (default 2)
- * @param nSample         edge sampling density (default 200)
- * @param defVal          out-of-bounds fill value (default 0)
- */
-
-EpipolarImages generateEpipolarImages(
-    const cEpipolarModel& m,
-    const cDataGenUnTypedIm<2>* Im1,
-    const cDataGenUnTypedIm<2>* Im2,
-    const cInterpolator1D& anInterp,
-    int   margin  = 2,
-    int   nSample = 200,
-    double defVal  = 0);
 
 #if 0
 // ---------------------------------------------------------------------------
