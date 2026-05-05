@@ -11,9 +11,25 @@
 namespace MMVII
 {
 
-    class cCdTDiscr;
-    cPixBox<2> BBox(std::vector<cPt2dr> aVPts, int aMin=0, int aMax=100000);
+    typedef cIm2D<tU_INT1>      tIm;
+    typedef cDataIm2D<tU_INT1>  tDIm;
 
+    class cCdTDiscr;
+    struct cRansacSol;
+
+    cPixBox<2> BBox(std::vector<cPt2dr> aVPts, int aMin=0, int aMax=100000);
+    cRansacSol RansacTF(std::vector<cPt2dr> aVBPts, std::vector<cPt2dr> aVWPts, tIm& aIm1, tIm& aIm2,
+                        int aIt=200, int aRDist=50, tDIm* aDMasq=nullptr, tU_INT1 aMasqV=255);
+    std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1);
+
+    cAff2D_r Descr2Aff(const cCdTDescr& aDes, cSensorCamPC* aCam);
+
+    struct cRansacSol
+    {
+        cRansacSol(cPt2dr aSol, tREAL8 aL1Score);
+        cPt2dr mSol;
+        tREAL8 mL1Score;
+    };
 
     class cAppli_CodedTargetRefine : public cMMVII_Appli
     {
@@ -34,8 +50,13 @@ namespace MMVII
         std::string                         mFSpecName;
         std::unique_ptr<cFullSpecifTarget>  mFSpec;
         std::vector<cCdTDescr>              mVDescr;
+        tIm                                 mIm;        //-> current image
+        tDIm*                               mDIm;
+        cSensorCamPC*                       mCam;       //-> current camera
+        cSetMesPtOf1Im                      mSetImMes;  //-> current image measurements
         //------ methods
         std::string nameVisu();
+        void        BuildDiscr(cCdTDiscr& aDis, cAff2D_r aCdT2Im);
     };
 
     /*!
@@ -45,42 +66,51 @@ namespace MMVII
     class cCdTDiscr
     {
     public:
-        cCdTDiscr(cCdTDescr aDes, cSensorCamPC* aCam);
+
+        cCdTDiscr(const std::string& aName, const std::string& aImName);
         //----- members
-        std::string             mName;
+        const std::string             mName;
+        const std::string             mImName;
 
         //----- methods
-        int         visibility();
-        bool        FullExtentOnCam();
-        void        SaveCrop(const std::string& aDir);
-
+        int                         visibility();
+        tREAL8                      RansacTFOnBits();
+        tU_INT1                     CornersOnIm();
+        void                        SaveCrop(const std::string& aDir);
+        void                        SaveMasq(const std::string& aDir);
+        void                        SetCdT2Im(cAff2D_r aCdT2Im);
+        cPt2dr                      CdT2Im(cPt2dr aPt, bool inverse=false);
+        std::vector<cPt2dr>         VCdT2Im(std::vector<cPt2dr> aVPts, bool inverse=false);
+        void                        SetExtent(cRect2 aExt);
+        cRect2                      Extent();
+        void                        SetMasq(tIm aMasq);
+        cAff2D_r                    GetCdT2Im();
 
     private:
         //----- members
-        cCdTDescr               mDescr; //-> CdT description from previous computation
-        cSensorCamPC*           mCam;
         std::string             mNum;
         cPixBox<2>              mExtent;//-> extent of the CdT formed by predicted corners
-        cIm2D<tU_INT1>          mIm;    //-> original image
-        cDataIm2D<tU_INT1>*     mDIm;
-        cIm2D<tU_INT1>          mCrop;  //-> croped from input image
-        cDataIm2D<tU_INT1>*     mDCrop;
-        cIm2D<tU_INT1>          mCano;  //-> canonical CdT
-        cDataIm2D<tU_INT1>*     mDCano;
-        cIm2D<tU_INT1>          mSimu;  //-> simul. CdT
-        cDataIm2D<tU_INT1>*     mDSimu;
+        std::vector<cPt2dr>     mVBitCenters;
+        tIm                     mIm;    //-> original image
+        tDIm*                   mDIm;
+        tIm                     mCrop;  //-> croped from input image
+        tDIm*                   mDCrop;
+        tIm                     mCano;  //-> canonical CdT
+        tDIm*                   mDCano;
+        tIm                     mSimu;  //-> simul. CdT
+        tDIm*                   mDSimu;
+        tIm                     mMasq;  //-> simul. CdT
+        tDIm*                   mDMasq;
         tU_INT1                 mVisib; //-> visibility score
-        std::vector<cPt2dr>     mVCamCorner;
+        std::vector<cPt2dr>     mVImCorners;
+        cAff2D_r                mCdT2Im;
+        cAff2D_r                mIm2CdT;
+        std::vector<cPt2di>     mVCorners;
 
         //----- methods
-        void        CamExtent();//-> compute CdT extent in original image and set mVisib to 1
-        void        CamMasq();//-> computes CdT extent BBox
-        void        True();     //-> computes extent from description and extract target in mTrue
-        void        GenSimul();    //-> simulate from target extent
-        void        CamCorners();//-> computes CdT corners in mCam
-        void        SaveIm(cIm2D<tU_INT1>& aIm, std::string aPath);
-        cPt3dr      CdT2Gnd(cPt2di aPix);
-
+        void            SaveIm(tDIm* aDIm, std::string aPath);
+        tIm  Crop();
+        tIm  Sample();
     };
 
 }

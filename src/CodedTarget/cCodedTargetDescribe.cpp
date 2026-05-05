@@ -23,13 +23,14 @@ namespace MMVII
     /**************************************************************************/
 
     cCdTDescr::cCdTDescr(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec):
-        mName(aName),
-        mEnc(aSpec->EncodingFromName(aName)),
-        mRes(600),
-        mVBitCenters2D(aSpec->BitsCenters())
+        mName           (aName),
+        mEnc            (aSpec->EncodingFromName(aName)),
+        mVBitCenters2D  (aSpec->BitsCenters())
     {
-        mVCdTCorners = {cPt2di(0,0), cPt2di(mRes,0), cPt2di(mRes,mRes), cPt2di(0,mRes)};
-        for (const auto& aPt : mVCdTCorners){mVCdtCorners3D.push_back(cPt3dr(aPt.x(), aPt.y(), 0));}
+        cPt2di aSup(0,0), aInf(ToI(aSpec->Center()) * 2);
+        mVCorners = {aSup, cPt2di(aInf.x(), aSup.y()),
+                     aInf, cPt2di(aSup.x(), aInf.y())};
+        mRes = aInf.x();
     }
 
     cCdTDescr::cCdTDescr()
@@ -45,7 +46,7 @@ namespace MMVII
 
     void cCdTDescr::InterGndCorners(bool& aShow)
     {
-        for (const cPt2di& aCorn : mVCdTCorners)
+        for (const cPt2di& aCorn : mVCorners)
         {
             std::vector<tREAL8> aVRes = {};
             cPt3dr aInter = CdT2GndByInter(aCorn, &aVRes);
@@ -61,19 +62,24 @@ namespace MMVII
         }
     }
 
-    void cCdTDescr::Estimate3DSimil(std::vector<cPt3dr>& aVInPts, std::vector<cPt3dr>& aVOutPts, bool& aShow)
+    void cCdTDescr::EstimateCdT2Gnd(std::vector<cPt3dr>& aVInPts, std::vector<cPt3dr>& aVOutPts, bool& aShow)
     {
         tREAL8 aRes;
-        mSimil3D = mSimil3D.StdGlobEstimate(aVInPts, aVOutPts, &aRes, nullptr, cParamCtrlOpt::Default());
+        mCdT2Gnd = mCdT2Gnd.StdGlobEstimate(aVInPts, aVOutPts, &aRes, nullptr, cParamCtrlOpt::Default());
         if (aShow)
         {
-            StdOut() << "3D SIMIL ESTIMATE -> " << aRes << mSimil3D.Tr() << '\n';
+            StdOut() << "3D SIMIL ESTIMATE -> " << aRes << mCdT2Gnd.Tr() << '\n';
         }
     }
 
-    void cCdTDescr::EstimateSimil3DOnCorners(bool& aShow)
+    void cCdTDescr::EstimateCdT2GndOnCorners(bool& aShow)
     {
-        Estimate3DSimil(mVCdtCorners3D, mVGndCorners, aShow);
+        std::vector<cPt3dr> aVCornersZ0 = {};
+        for (const auto& aC : mVCorners)
+        {
+            aVCornersZ0.push_back(cPt3dr(aC.x(), aC.y(), 0));
+        }
+        EstimateCdT2Gnd(aVCornersZ0, mVGndCorners, aShow);
     }
 
     cPt3dr cCdTDescr::CdT2GndByInter(const cPt2di& aPt, std::vector<tREAL8>* aVRes)
@@ -106,24 +112,7 @@ namespace MMVII
 
     cPt3dr cCdTDescr::CdT2GndBySimil(cPt2di aPt)
     {
-        return mSimil3D.Value(cPt3dr(aPt.x(), aPt.y(), 0));
-    }
-
-    std::vector<cPt3dr> cCdTDescr::getGndCornersOnSimil()
-    {
-        if (mVCdTCorners.empty()) mVCdTCorners = getCdTCorners();
-
-        std::vector<cPt3dr> aVRes;
-        for (const auto& aPt : mVCdTCorners)
-        {
-            aVRes.push_back(CdT2GndBySimil(aPt));
-        }
-        return aVRes;
-    }
-
-    std::vector<cPt2di> cCdTDescr::getCdTCorners()
-    {
-        return {cPt2di(0,0), cPt2di(mRes,0), cPt2di(mRes,mRes), cPt2di(0,mRes)};
+        return mCdT2Gnd.Value(cPt3dr(aPt.x(), aPt.y(), 0));
     }
 
     /*
@@ -133,9 +122,8 @@ namespace MMVII
     void cCdTDescr::AddData(const cAuxAr2007& anAux)
     {
         MMVII::AddData(cAuxAr2007("Name", anAux), mName);
-        MMVII::AddData(cAuxAr2007("CdT2Gnd", anAux), mSimil3D);
+        MMVII::AddData(cAuxAr2007("CdT2Gnd", anAux), mCdT2Gnd);
         MMVII::AddData(cAuxAr2007("Res", anAux), mRes);
-        StdOut() << "Resol : " << mRes << '\n';
     }
 
     void AddData(const cAuxAr2007 &anAux, cCdTDescr &aCdTDescr)
@@ -231,7 +219,7 @@ namespace MMVII
         {
             if (mShow) StdOut() << "CdT -> " << mVDescr[ix].mName << ":\n";
             mVDescr[ix].InterGndCorners(mShow);//-> computes mVGndCorners
-            mVDescr[ix].EstimateSimil3DOnCorners(mShow);//-> computes m3DSimil
+            mVDescr[ix].EstimateCdT2GndOnCorners(mShow);//-> computes m3DSimil
         }
         SaveInFile(mVDescr, cCdTDescr::NameFile(mPhProj, false));//-> export to CdTDescript-?.xml
 
