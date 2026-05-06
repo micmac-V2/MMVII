@@ -209,6 +209,8 @@ class cPerspCamIntrCalib : public cObj2DelAtEnd,
     // ================== construction of object ===============
             static cPerspCamIntrCalib * Alloc(const cDataPerspCamIntrCalib &);
 
+             cPerspCamIntrCalib * Duplicate() const;
+
         /**  Generate random calib, with assurance that distorsion will be inverible,
            the KDeg (in 0,1,2,3)  pick one of the pre-defined degree */
             //  KDEG =>  {{0,0,0},{2,0,0},{3,1,1},{0,0,1}};

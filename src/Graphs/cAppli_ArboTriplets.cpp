@@ -98,9 +98,23 @@ void cNodeArborTriplets::ComputeResursiveSolution()
     CmpWithGT();
 }
 
+std::string GetThreadId() {
+    std::ostringstream oss;
+    oss << std::this_thread::get_id();
+    return oss.str();
+}
+
+
+thread_local static int NUMTHREAD=0;
+void InitNumThread(int aNumThread)
+{
+    NUMTHREAD = aNumThread+1;
+}
+int GetNumThread() {return NUMTHREAD;}
+
+
 void cNodeArborTriplets::finalize()
 {
-
     if (mChildren.at(0) == nullptr)
     {}
     else
