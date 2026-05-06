@@ -11,7 +11,7 @@
 
 namespace MMVII
 {
-    tU_INT1 MaskInV = 255, MaskOutV = 0;
+    tU_INT1 MaskOutV = 255, MaskInV = 0;
 
     typedef cIm2D<tU_INT1>      tIm;
     typedef cDataIm2D<tU_INT1>  tDIm;
@@ -20,8 +20,8 @@ namespace MMVII
     struct cRansacSol;
 
     cPixBox<2> BBox(std::vector<cPt2dr> aVPts, int aMin=0, int aMax=100000);
-    cRansacSol RansacTF(std::vector<cPt2dr> aVBPts, std::vector<cPt2dr> aVWPts, tIm& aIm1, tIm& aIm2,
-                        int aIt=200, int aRDist=50, tDIm* aDMask=nullptr, tU_INT1 aMaskV=255);
+    cRansacSol RansacLTF(std::vector<cPt2dr> aVBPts, std::vector<cPt2dr> aVWPts, tIm& aIm1, tIm& aIm2,
+                        tDIm* aDMask=nullptr, tU_INT1 aMaskOutV=255, int aIt=200, int aRDist=50);
     std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1);
 
     cAff2D_r Descr2Aff(const cCdTDescr& aDes, cSensorCamPC* aCam);
@@ -59,6 +59,7 @@ namespace MMVII
         //------ methods
         std::string nameVisu();
         void        BuildDiscr(cCdTDiscr& aDis, cAff2D_r aCdT2Im);
+        void        DiscrMapRefine(cCdTDiscr& aDis);
     };
 
     /*!
@@ -87,10 +88,13 @@ namespace MMVII
         cRect2                      Extent();
         void                        SetMask(tIm& aMask);
         void                        SetCdT(tIm& aCdT);
-        tIm&                        CdT();
         void                        SetCrop(tIm& aCrop);
-        tIm&                        Crop();
         void                        Sample();
+        tIm&                        Mask();
+        tIm&                        Crop();
+        tIm&                        CdT();
+        tIm&                        Samp();
+        void                        MapRefine();
 
     private:
         //----- members

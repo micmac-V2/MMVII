@@ -82,6 +82,11 @@ namespace MMVII
         }
     }
 
+    void cCdTDiscr::MapRefine()
+    {
+
+    }
+
     /*
      * Export methods
      */
@@ -121,7 +126,10 @@ namespace MMVII
 
     cRect2  cCdTDiscr::Extent(){return mExtent;}
     tIm&    cCdTDiscr::CdT(){return mCdT;}
-    tIm&    cCdTDiscr::Crop(){return mCrop;};
+    tIm&    cCdTDiscr::Crop(){return mCrop;}
+    tIm&    cCdTDiscr::Samp(){return mSamp;}
+    tIm&    cCdTDiscr::Mask(){return mMask;}
+
     void    cCdTDiscr::SetCdT2Im(cAff2D_r aCdT2Im){mCdT2Im = aCdT2Im;}
     void    cCdTDiscr::SetExtent(cRect2 aExt){mExtent = aExt;}
     void    cCdTDiscr::SetCdT(tIm& aCdT){mCdT = aCdT;}
@@ -192,13 +200,16 @@ namespace MMVII
             for (const auto& aEll : aVEll)
             {
                 cCdTDiscr aDis = cCdTDiscr(aEll.mNameCode, aIm);
-                BuildDiscr(aDis, aEll.mAffIm2Ref.MapInverse());
-                aDis.Sample();
+                BuildDiscr(aDis, aEll.mAffIm2Ref.MapInverse());//-> set prerequisites
+                aDis.Sample();//-> creates simulated CdT
+                DiscrMapRefine(aDis);
 
                 if (mShow)
                 {
                     aDis.SaveSample(mPhProj.DirVisuAppli());
                 }
+
+
                 //RefineDiscr
             }
 
@@ -216,17 +227,6 @@ namespace MMVII
                 }
             }
             */
-
-            //for (auto& aDis : aVDiscr)
-            //{
-            //    auto aNb = aDis.NbCornersOnCam();//-> computes number of CdT corners visible on aIm
-
-            //    if (mVisu && aNb > 3)
-            //    {
-            //        aDis.SaveCrop(mPhProj.DirVisuAppli());
-            //        //aDis.SaveMask(mPhProj.DirVisuAppli());
-            //    }
-            //}
         }
 
         return EXIT_SUCCESS;
@@ -245,7 +245,7 @@ namespace MMVII
 
         aDis.SetExtent(BBox(aVImCorn));//-> bounding box of CdT image corners
 
-    //-> Set CdT croped image
+        //----- set CdT croped image
 
         tIm aCrop(aDis.Extent().Sz());
         aDis.SetCrop(aCrop);
@@ -253,13 +253,13 @@ namespace MMVII
         tDIm* aCropDIm = &aDis.Crop().DIm();
         aCropDIm->CropIn(aDis.Extent().P0ByRef(), mIm.DIm());
 
-    //-> Set CdT in/out mask
+        //----- set CdT in/out mask
         tIm aMask = tIm(aDis.Extent().Sz());
         tDIm* aDMask  = &aMask.DIm();
 
         for (const auto& aPix : aDis.Extent())
         {
-            tU_INT1 aVal = aDCdT->Inside(ToI(aDis.CdT2Im(ToR(aPix), true))) ? MaskInV : MaskOutV;
+            tU_INT1 aVal = aDCdT->Inside(ToI(aDis.CdT2Im(ToR(aPix), true))) ? MaskOutV : MaskInV;
             aDMask->SetV(aPix - aDis.Extent().P0(), aVal);
         }
 
@@ -270,6 +270,21 @@ namespace MMVII
             aDis.SaveMask(mPhProj.DirVisuAppli());
             aDis.SaveCrop(mPhProj.DirVisuAppli());
         }
+    }
+
+    void cAppli_CodedTargetRefine::DiscrMapRefine(cCdTDiscr& aDis)
+    {
+        //----- compute better aSamp 2 aCrop mapping
+        //----- compute ResMask for aSamp based on residuals after LTF radiometric correction
+        std::vector<cPt2dr> aVSampWC = {}, aVSampBC = {};//-> w/b bits centers in mSamp
+        for (const auto& aC : mFSpec->BitsCenters())
+        {
+            auto aSampC = aDis.CdT2Im(aC) - ToR(aDis.Extent().P0());
+            aDis.CdT().DIm().GetV(ToI(aC)) < 125 ? aVSampBC.push_back(aSampC) : aVSampWC.push_back(aSampC);
+        }
+        cRansacSol aLTF = RansacLTF(aVSampBC, aVSampWC, aDis.Samp(), aDis.Crop(), &aDis.Mask().DIm(), MaskInV);
+
+        StdOut() << aLTF.mSol;
     }
 
     //----- memory allocation
@@ -317,19 +332,19 @@ namespace MMVII
     }
 
     /*!
-     * @brief RansacTF
+     * @brief RansacLTF : computes Linear Transfert Function of a couple of images
      * @param aVBPts    : classified points as black values
      * @param aVWPts    : classified points as white values
      * @param aIm1      : in image
      * @param aIm2      : out image
      * @param aIt       : nb iterations (200)
      * @param aRDist    : minimal grey level distance between b/w values (50)
-     * @param aDMask     : pts to forget when computing solution score (nullptr)
+     * @param aDMask    : pts to forget when computing solution score (nullptr)
      * @return
      */
 
-    cRansacSol RansacTF(std::vector<cPt2dr> aVBPts, std::vector<cPt2dr> aVWPts, tIm& aIm1, tIm& aIm2,
-                        int aIt, int aRDist, tDIm* aDMask, tU_INT1 aMaskV)
+    cRansacSol RansacLTF(std::vector<cPt2dr> aVBPts, std::vector<cPt2dr> aVWPts, tIm& aIm1, tIm& aIm2,
+                         tDIm* aDMask, tU_INT1 aMaskV, int aIt, int aRDist)
     {
         //----- set primitives and load data images
         tREAL8              a = 1, b = 0;
