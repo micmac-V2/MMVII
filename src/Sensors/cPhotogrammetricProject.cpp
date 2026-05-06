@@ -801,6 +801,15 @@ cPerspCamIntrCalib *   cPhotogrammetricProject::InternalCalibFromStdNameCalib
     std::string aFullNameCalib = FullDirCalibIn() + aLocalNameCalib + "." + TaggedNameDefSerial();
     cPerspCamIntrCalib * aCalib = cPerspCamIntrCalib::FromFile(aFullNameCalib,isRemanent);
 
+
+    static int aCpt=0 ; aCpt++;
+    static std::map<cPerspCamIntrCalib *,int> aCptC;
+    aCptC[aCalib]++;
+
+    StdOut() << " XXeeeRR CGlob=" << aCpt
+             << " Sz=" << aCptC.size()
+        << " CC=" << aCptC[aCalib] << " Ptr=" << aCalib << " N=" << aFullNameCalib
+             << " isRemanent= " <<   isRemanent          << "\n";
     return aCalib;
 }
 

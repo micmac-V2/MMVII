@@ -144,27 +144,21 @@ int cAppli_HierarchSfm::Exe()
 
     TimeSegm().SetIndex("MakeGraphPose");
     aMk3.MakeGraphPose();
-    StdOut() << "MakeGraphPose DONE" << std::endl;
 
     TimeSegm().SetIndex("InitialiseCalibs");
     aMk3.InitialiseCalibs();
-    StdOut() << "InitialiseCalibs DONE" << std::endl;
 
     TimeSegm().SetIndex("PoseRef");
     aMk3.DoPoseRef();
-    StdOut() << "DoPoseRef DONE" << std::endl;
 
     TimeSegm().SetIndex("MakeCnxTriplet");
     aMk3.MakeCnxTriplet();
-    StdOut() << "MakeCnxTriplet DONE" << std::endl;
 
     TimeSegm().SetIndex("TripletWeighting");
     aMk3.MakeWeightingGraphTriplet();
-    StdOut() << "MakeWeightingGraphTriplet DONE" << std::endl;
 
     TimeSegm().SetIndex("ComputeArbor");
     aMk3.ComputeArbor();
-    StdOut() << "ComputeArbor DONE" << std::endl;
 
     if (mPhProj.DPOrient().DirOutIsInit())
     {

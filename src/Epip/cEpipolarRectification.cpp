@@ -348,8 +348,10 @@ void cEpipolarModel::ComputeCommonFraming(
     auto P2_0 = frame2.P0()-cPt2dr(aMargin,aMargin);;
     auto P2_1 = frame2.P1()+cPt2dr(aMargin,aMargin);;;
 
-    double yMin;
-    double yMax;
+    double yMin=0;
+    double yMax=0;
+    FakeUseIt(yMin);
+    FakeUseIt(yMax);
     switch(aFrmType) {
     case eEpipFrm::eNbVals:
     case eEpipFrm::eIntersect:

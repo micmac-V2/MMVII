@@ -13,8 +13,8 @@ namespace MMVII
 cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols):
     mPMAT      (aPMAT),
     mNbIter    (aPMAT->NbIterBA()),
-    mSigAttFinal(2.0),
-    mThrFinal   (10.0),
+    mSigAttFinal(1.0),
+    mThrFinal   (1000.0),
     mSigARange  ({std::max(mSigAttFinal,std::min(5.0,aPMAT->SigmaTPt())),mSigAttFinal}), // {max,min} <=> {initial,final}
     mThrRange   ({std::max(mThrFinal,std::min(30.0,aPMAT->SigmaTPt()*aPMAT->FacElim())),mThrFinal}), // {max,min} <=> {initial,final}
     mSys      (nullptr),
