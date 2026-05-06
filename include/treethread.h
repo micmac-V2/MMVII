@@ -149,14 +149,20 @@ private:
 
     std::deque<typename Node::PNode> mReadyQueue;           // List of pointer to nodes ready to be executed. Running nodes are removed from this list before being executed
     std::mutex mMutex_ReadyQueue;                           // Mutex to protect push in and pop from the readyQueue from multiple threads.
+    int mCurNbThread;                                       // Number of thread allowable in //
+    int mCptThread;                                         // Count thread already thrown
 };
 
 
+void InitNumThread(int aNumThread);
+int GetNumThread() ;
 
 
 template <class T>
 void TreeThreads<T>::Exec(T root, int nbThread)
 {
+    mCptThread = -1;
+    mCurNbThread = nbThread;
     mReadyQueue.clear();
     auto rootNode = std::make_shared<Node>(root,std::shared_ptr<Node>(nullptr));		// Create our root node
     rootNode->descend(this,rootNode);													//  and resurvelu build our depandancy tree
@@ -174,6 +180,7 @@ void TreeThreads<T>::ExecLoop()
     // We pop the first element in the readyQueue, execute it,
     //  and if it was the last child of its parent, push the parent node in the readyQueue
     while (true) {
+
         typename Node::PNode node;
         {
             // This lock protect mReadyQueue  access/modifying from different threads. The lock is removed at the end of this code bloc (destructor called)
@@ -182,8 +189,11 @@ void TreeThreads<T>::ExecLoop()
                 return;             // No more node to execute: end of this thread, it will be really ended in the 't.join()' above from the main thread
             node = mReadyQueue.front();
             mReadyQueue.pop_front();
+            mCptThread++;
         }
-        node->finalize();           // do the job
+        InitNumThread(mCptThread%mCurNbThread); // Allow each thread to have a unique "small" number
+        node->finalize();
+        //node->finalize();           // do the job
         // Atomically decrement parent not-terminated-child count and return true if this was the last terminated child
         if (node->isLastChild()) {
             // Protect the mReadyQueue and add this node's parent: all its children have terminated
