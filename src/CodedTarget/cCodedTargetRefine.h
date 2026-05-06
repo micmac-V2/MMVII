@@ -7,9 +7,11 @@
 #include "MMVII_PCSens.h"
 #include "cMMVII_Appli.h"
 #include "cCodedTargetDescribe.h"
+#include "MMVII_Interpolators.h"
 
 namespace MMVII
 {
+    tU_INT1 MaskInV = 255, MaskOutV = 0;
 
     typedef cIm2D<tU_INT1>      tIm;
     typedef cDataIm2D<tU_INT1>  tDIm;
@@ -19,7 +21,7 @@ namespace MMVII
 
     cPixBox<2> BBox(std::vector<cPt2dr> aVPts, int aMin=0, int aMax=100000);
     cRansacSol RansacTF(std::vector<cPt2dr> aVBPts, std::vector<cPt2dr> aVWPts, tIm& aIm1, tIm& aIm2,
-                        int aIt=200, int aRDist=50, tDIm* aDMasq=nullptr, tU_INT1 aMasqV=255);
+                        int aIt=200, int aRDist=50, tDIm* aDMask=nullptr, tU_INT1 aMaskV=255);
     std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1);
 
     cAff2D_r Descr2Aff(const cCdTDescr& aDes, cSensorCamPC* aCam);
@@ -51,7 +53,7 @@ namespace MMVII
         std::unique_ptr<cFullSpecifTarget>  mFSpec;
         std::vector<cCdTDescr>              mVDescr;
         tIm                                 mIm;        //-> current image
-        tDIm*                               mDIm;
+        tDIm*                               mDIm;       //-> current image data
         cSensorCamPC*                       mCam;       //-> current camera
         cSetMesPtOf1Im                      mSetImMes;  //-> current image measurements
         //------ methods
@@ -73,18 +75,22 @@ namespace MMVII
         const std::string             mImName;
 
         //----- methods
-        int                         visibility();
         tREAL8                      RansacTFOnBits();
         tU_INT1                     CornersOnIm();
         void                        SaveCrop(const std::string& aDir);
-        void                        SaveMasq(const std::string& aDir);
+        void                        SaveMask(const std::string& aDir);
+        void                        SaveSample(const std::string& aDir);
         void                        SetCdT2Im(cAff2D_r aCdT2Im);
         cPt2dr                      CdT2Im(cPt2dr aPt, bool inverse=false);
         std::vector<cPt2dr>         VCdT2Im(std::vector<cPt2dr> aVPts, bool inverse=false);
         void                        SetExtent(cRect2 aExt);
         cRect2                      Extent();
-        void                        SetMasq(tIm aMasq);
-        cAff2D_r                    GetCdT2Im();
+        void                        SetMask(tIm& aMask);
+        void                        SetCdT(tIm& aCdT);
+        tIm&                        CdT();
+        void                        SetCrop(tIm& aCrop);
+        tIm&                        Crop();
+        void                        Sample();
 
     private:
         //----- members
@@ -95,12 +101,10 @@ namespace MMVII
         tDIm*                   mDIm;
         tIm                     mCrop;  //-> croped from input image
         tDIm*                   mDCrop;
-        tIm                     mCano;  //-> canonical CdT
-        tDIm*                   mDCano;
-        tIm                     mSimu;  //-> simul. CdT
-        tDIm*                   mDSimu;
-        tIm                     mMasq;  //-> simul. CdT
-        tDIm*                   mDMasq;
+        tIm                     mCdT;
+        tIm                     mSamp;
+        tIm                     mMask;  //-> simul. CdT
+        tDIm*                   mDMask;
         tU_INT1                 mVisib; //-> visibility score
         std::vector<cPt2dr>     mVImCorners;
         cAff2D_r                mCdT2Im;
@@ -109,8 +113,6 @@ namespace MMVII
 
         //----- methods
         void            SaveIm(tDIm* aDIm, std::string aPath);
-        tIm  Crop();
-        tIm  Sample();
     };
 
 }

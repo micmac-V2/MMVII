@@ -18,11 +18,10 @@ namespace MMVII
         mDIm        (nullptr),
         mCrop       (cPt2di(1,1)),
         mDCrop      (nullptr),
-        mCano       (cPt2di(1,1)),
-        mDCano      (nullptr),
-        mSimu       (cPt2di(1,1)),
-        mMasq       (cPt2di(1,1)),
-        mDMasq      (nullptr)
+        mCdT       (cPt2di(1,1)),
+        mSamp       (cPt2di(1,1)),
+        mMask       (cPt2di(1,1)),
+        mDMask      (nullptr)
         {
             //
         }
@@ -43,7 +42,7 @@ namespace MMVII
         std::vector<cPt2dr> aVBBits = {}, aVWBits = {};
         for (const cPt2dr& aBit : mVBitCenters)
         {
-            if (mDCano->GetV(ToI(aBit)) == 0)
+            if (mCdT.DIm().GetV(ToI(aBit)) == 0)
             {
                 aVBBits.push_back(mCdT2Im.Value(aBit));
             } else {
@@ -54,22 +53,34 @@ namespace MMVII
         return 0;
     }
 
-    tIm cCdTDiscr::Crop()
+    void cCdTDiscr::Sample()
     {
-        tIm aCropIm(mExtent.Sz());
-        tDIm* aCropDIm = &aCropIm.DIm();
+        mSamp = tIm(mExtent.Sz());
+        tDIm* aDSamp = &mSamp.DIm();
 
-        aCropDIm->CropIn(mExtent.P0ByRef(), *mDIm);
-
-        return aCropIm;
+        for (const auto& aPix : *aDSamp)
+        {
+            if (mMask.DIm().GetV(aPix) == MaskInV)
+            {
+                //-> to avoid aliasing
+                cRessampleWeigth aRW = cRessampleWeigth::GaussBiCub(ToR(aPix + mExtent.P0()), mCdT2Im.MapInverse(), 2);
+                const std::vector<cPt2di>  & aVPts = aRW.mVPts;
+                if (!aVPts.empty())
+                {
+                    tU_INT1 aV = 0;
+                    for (int aK=0; aK<int(aVPts.size()) ; aK++)
+                    {
+                        if (mCdT.DIm().Inside(aVPts[aK]))
+                        {
+                            double aW = aRW.mVWeight[aK];
+                            aV += aW * mCdT.DIm().GetV(aVPts[aK]);
+                        }
+                    }
+                    aDSamp->SetV(aPix, aV);
+                }
+            }
+        }
     }
-
-
-    /*tIm cCdTDiscr::Sample()
-    {
-        tIm aSample = tIm(mFrame.Sz());//-> the image to fill with interpolated values
-
-    }*/
 
     /*
      * Export methods
@@ -77,13 +88,17 @@ namespace MMVII
 
     void cCdTDiscr::SaveCrop(const std::string& aDir)
     {
-        tIm aCropIm = Crop();
-        SaveIm(&aCropIm.DIm(), aDir + "Crop-CdT" + mName + '-' + mImName);
+        SaveIm(&mCrop.DIm(), aDir + "Crop-CdT" + mName + '-' + mImName);
     }
 
-    void cCdTDiscr::SaveMasq(const std::string& aDir)
+    void cCdTDiscr::SaveMask(const std::string& aDir)
     {
-        SaveIm(&mMasq.DIm(), aDir + "Masq-CdT" + mName + '-' + mImName);
+        SaveIm(&mMask.DIm(), aDir + "Mask-CdT" + mName + '-' + mImName);
+    }
+
+    void cCdTDiscr::SaveSample(const std::string& aDir)
+    {
+        SaveIm(&mSamp.DIm(), aDir + "Samp-CdT" + mName + '-' + mImName);
     }
 
     void cCdTDiscr::SaveIm(tDIm* aDIm, std::string aPath)
@@ -91,39 +106,7 @@ namespace MMVII
         aDIm->ToFile(aPath);
     }
 
-    /*
-     * SET/GET
-     */
-
-    void cCdTDiscr::SetCdT2Im(cAff2D_r aCdT2Im)
-    {
-        mCdT2Im = aCdT2Im;
-    }
-
-    void cCdTDiscr::SetExtent(cRect2 aExt)
-    {
-        mExtent = aExt;
-    }
-
-    void cCdTDiscr::SetMasq(tIm aMasq)
-    {
-        mMasq = aMasq;
-    }
-
-    cRect2 cCdTDiscr::Extent()
-    {
-        return mExtent;
-    }
-
-    cPt2dr cCdTDiscr::CdT2Im(cPt2dr aPt, bool inverse)
-    {
-        return (inverse ? mCdT2Im.Inverse(aPt) : mCdT2Im.Value(aPt));
-    }
-
-    cAff2D_r cCdTDiscr::GetCdT2Im()
-    {
-        return mCdT2Im;
-    }
+    cPt2dr cCdTDiscr::CdT2Im(cPt2dr aPt, bool inverse) {return (inverse ? mCdT2Im.Inverse(aPt) : mCdT2Im.Value(aPt));}
 
     std::vector<cPt2dr> cCdTDiscr::VCdT2Im(std::vector<cPt2dr> aVPts, bool inverse)
     {
@@ -131,6 +114,19 @@ namespace MMVII
         for (const auto& aPt : aVPts) aRes.push_back(CdT2Im(aPt, inverse));
         return aRes;
     }
+
+    /*
+     * SET/GET
+     */
+
+    cRect2  cCdTDiscr::Extent(){return mExtent;}
+    tIm&    cCdTDiscr::CdT(){return mCdT;}
+    tIm&    cCdTDiscr::Crop(){return mCrop;};
+    void    cCdTDiscr::SetCdT2Im(cAff2D_r aCdT2Im){mCdT2Im = aCdT2Im;}
+    void    cCdTDiscr::SetExtent(cRect2 aExt){mExtent = aExt;}
+    void    cCdTDiscr::SetCdT(tIm& aCdT){mCdT = aCdT;}
+    void    cCdTDiscr::SetMask(tIm& aMask){mMask = aMask;}
+    void    cCdTDiscr::SetCrop(tIm& aCrop){mCrop = aCrop;};
 
     /**************************************************************************/
     /*
@@ -197,8 +193,12 @@ namespace MMVII
             {
                 cCdTDiscr aDis = cCdTDiscr(aEll.mNameCode, aIm);
                 BuildDiscr(aDis, aEll.mAffIm2Ref.MapInverse());
-                aDis.SaveMasq(mPhProj.DirVisuAppli());
-                //SampleDiscr
+                aDis.Sample();
+
+                if (mShow)
+                {
+                    aDis.SaveSample(mPhProj.DirVisuAppli());
+                }
                 //RefineDiscr
             }
 
@@ -224,7 +224,7 @@ namespace MMVII
             //    if (mVisu && aNb > 3)
             //    {
             //        aDis.SaveCrop(mPhProj.DirVisuAppli());
-            //        //aDis.SaveMasq(mPhProj.DirVisuAppli());
+            //        //aDis.SaveMask(mPhProj.DirVisuAppli());
             //    }
             //}
         }
@@ -234,29 +234,42 @@ namespace MMVII
 
     void cAppli_CodedTargetRefine::BuildDiscr(cCdTDiscr& aDis, cAff2D_r aCdT2Im)
     {
+        aDis.SetCdT2Im(aCdT2Im);//-> set CdT <-> image mapping
 
-        aDis.SetCdT2Im(aCdT2Im);//-> set CdT/image mapping
+        tIm aCdT = mFSpec->OneImTarget(*mFSpec->EncodingFromName(aDis.mName));
+        aDis.SetCdT(aCdT);
 
-        tIm aCdTIm                      = mFSpec->OneImTarget(*mFSpec->EncodingFromName(aDis.mName));
-        tDIm* aDCdTIm                   = &aCdTIm.DIm();
-        std::vector<cPt2dr> aVCdTCorn   = Corners(ToR(aDCdTIm->P0()), ToR(aDCdTIm->P1()));//-> CdT corners
-        std::vector<cPt2dr> aVImCorn    = aDis.VCdT2Im(aVCdTCorn, true);//-> CdT image corners
+        tDIm* aDCdT = &aDis.CdT().DIm();
+        std::vector<cPt2dr> aVCdTCorn   = Corners(ToR(aDCdT->P0()), ToR(aDCdT->P1()));//-> CdT corners
+        std::vector<cPt2dr> aVImCorn    = aDis.VCdT2Im(aVCdTCorn);//-> CdT image corners
 
         aDis.SetExtent(BBox(aVImCorn));//-> bounding box of CdT image corners
-        tIm aMasq = tIm(aDis.Extent().Sz());
-        tDIm* aDMasq  = &aMasq.DIm();
 
-        StdOut() << "set masq " << aDis.mName << std::endl;
+    //-> Set CdT croped image
+
+        tIm aCrop(aDis.Extent().Sz());
+        aDis.SetCrop(aCrop);
+
+        tDIm* aCropDIm = &aDis.Crop().DIm();
+        aCropDIm->CropIn(aDis.Extent().P0ByRef(), mIm.DIm());
+
+    //-> Set CdT in/out mask
+        tIm aMask = tIm(aDis.Extent().Sz());
+        tDIm* aDMask  = &aMask.DIm();
+
         for (const auto& aPix : aDis.Extent())
         {
-            if (aDCdTIm->Inside(ToI(aDis.CdT2Im(ToR(aPix)))))
-            {
-                aDMasq->SetVTruncIfInside(aPix, 125);
-            }
+            tU_INT1 aVal = aDCdT->Inside(ToI(aDis.CdT2Im(ToR(aPix), true))) ? MaskInV : MaskOutV;
+            aDMask->SetV(aPix - aDis.Extent().P0(), aVal);
         }
-        aDis.SetMasq(aMasq);
-        StdOut() << "masq ok" << aDis.mName << std::endl;
 
+        aDis.SetMask(aMask);
+
+        if (mVisu)
+        {
+            aDis.SaveMask(mPhProj.DirVisuAppli());
+            aDis.SaveCrop(mPhProj.DirVisuAppli());
+        }
     }
 
     //----- memory allocation
@@ -311,12 +324,12 @@ namespace MMVII
      * @param aIm2      : out image
      * @param aIt       : nb iterations (200)
      * @param aRDist    : minimal grey level distance between b/w values (50)
-     * @param aDMasq     : pts to forget when computing solution score (nullptr)
+     * @param aDMask     : pts to forget when computing solution score (nullptr)
      * @return
      */
 
     cRansacSol RansacTF(std::vector<cPt2dr> aVBPts, std::vector<cPt2dr> aVWPts, tIm& aIm1, tIm& aIm2,
-                        int aIt, int aRDist, tDIm* aDMasq, tU_INT1 aMasqV)
+                        int aIt, int aRDist, tDIm* aDMask, tU_INT1 aMaskV)
     {
         //----- set primitives and load data images
         tREAL8              a = 1, b = 0;
@@ -347,9 +360,9 @@ namespace MMVII
             //-> compute score of the solution
             for (const auto& aPix : *aDIm2)
             {
-                if (aDMasq)//-> reject pixel based on masq
+                if (aDMask)//-> reject pixel based on Mask
                 {
-                    if (aDMasq->GetV(aPix) == aMasqV){continue;}
+                    if (aDMask->GetV(aPix) == aMaskV){continue;}
                 }
                 tU_INT1 aVal = a * aDIm1->GetV(aPix) + b;
                 aL1Score += aVal - aDIm2->GetV(aPix);
