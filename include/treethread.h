@@ -204,6 +204,34 @@ void TreeThreads<T>::ExecLoop()
  */
 
 
+
+/*
+ * Helper class to serialize output to screen
+ * In fact not specific to stdout, it's just a conventionnal name
+ *
+ * Use:
+ *  StdOutLock::lock();
+ *  std::cout << "toto ";
+ *  std::cout << " tata";
+ *  StdOutLock::unlock();
+ *
+*/
+
+class StdOutLock
+{
+public:
+    StdOutLock() { lock();}
+    ~StdOutLock() { unlock();}
+    static void lock() { mutex().lock(); }
+    static void unlock() { mutex().unlock();}
+private:
+    static std::mutex& mutex() {
+        static std::mutex theMutex;
+        return theMutex;
+    }
+};
+
+
 /*
  Full test/example program
 
