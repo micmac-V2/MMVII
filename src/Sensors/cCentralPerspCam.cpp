@@ -59,11 +59,34 @@ cDataPerspCamIntrCalib:: cDataPerspCamIntrCalib
     mSzBuf           (aSzBuf)
 {
     // correct vect param, when first use, parameter can be empty meaning all 0
+   /* if (mVTmpCopyParams.size() != mDir_VDesc.size())
+    {
+       MMVII_INTERNAL_ASSERT_strong(mVTmpCopyParams.empty(),"cPerspCamIntrCalib Bad size for params");
+       mVTmpCopyParams.resize(mDir_VDesc.size(),0.0);
+    }*/
+    ResizeVTmpCopyParams();
+}
+
+void cDataPerspCamIntrCalib::ResizeVTmpCopyParams()
+{
     if (mVTmpCopyParams.size() != mDir_VDesc.size())
     {
        MMVII_INTERNAL_ASSERT_strong(mVTmpCopyParams.empty(),"cPerspCamIntrCalib Bad size for params");
        mVTmpCopyParams.resize(mDir_VDesc.size(),0.0);
+
+     //  StdOut() << "ResizeVTmpCopyParamsResizeVTmpCopyParams" << mVTmpCopyParams << "\n";
     }
+}
+
+
+const std::vector<double>& cDataPerspCamIntrCalib::VTmpCopyParams() const
+{
+    return mVTmpCopyParams;
+}
+
+void cDataPerspCamIntrCalib::SetVTmpCopyParams(const std::vector<double>& aVParam)
+{
+    mVTmpCopyParams = aVParam;
 }
 
 cDataPerspCamIntrCalib::cDataPerspCamIntrCalib
@@ -233,7 +256,12 @@ cPerspCamIntrCalib * cPerspCamIntrCalib::Alloc(const cDataPerspCamIntrCalib & aD
 
 cPerspCamIntrCalib * cPerspCamIntrCalib::Duplicate() const
 {
-    return Alloc(*this);
+    cDataPerspCamIntrCalib aData = *this;
+
+    aData.SetVTmpCopyParams(VParamDist());
+    //StdOut()  << "DUUUp:" << VTmpCopyParams() << aData.VTmpCopyParams() << "\n"; getchar();
+   // aData.ResizeVTmpCopyParams();
+    return Alloc(aData);
 }
 
         //  ==================  read/write 2 files  ====================

@@ -107,8 +107,11 @@ void cCamSimul::AddCam(cPerspCamIntrCalib * aPC,bool SubVert,std::string Name)
       mListCam.push_back(new cSensorCamPC(Name,aPose,aPC));
 }
 
+
+bool  BUG_DUP_CAM=false;
 void cCamSimul::AddCam(eProjPC aProj,bool SubVert,std::string Name)
 {
+
     // 1 => means Deg of direct dist is 2 (dir inverse is 5,1,1)
     cPerspCamIntrCalib * aCalib = cPerspCamIntrCalib::RandomCalib(aProj,1);
 
@@ -133,6 +136,7 @@ cCamSimul * cCamSimul::AllocNVIewTerrestrial(int aNb,eProjPC aProj,bool SubVert)
     for (int aK=0; aK<aNb; aK++)
     {
         aRes->AddCam(aProj,SubVert,"SimCam"+ToStr(aK));
+
     }
 
     return aRes;
@@ -202,13 +206,11 @@ void cCamSimul::BenchPoseRel2Cam
                   aSetH.Add(aCple);
                }
 
-      ///     StdOut() << "Ouut IssssPllannnn " << isPlanar << "\n";
 
                // Make 3D direction of points
                cSetHomogCpleDir aSetD (aSetH,*(aCam1->InternalCalib()),*(aCam2->InternalCalib()));
 
                cAutoTimerSegm aTSGetMax(aTS,"GetMaxK");
-         //   StdOut() << "Ouut IssssPllannnn " << isPlanar << "\n";
 
                if (isPlanar )
                {
@@ -296,8 +298,9 @@ void Bench_HBA(cParamExeBench & aParam)
 
 
     cCamSimul::BenchHierchBA_InitOnly(aTS,false);
-    //cCamSimul::BenchHierchBA_BAOnly(aTS,false);
-    // cCamSimul::BenchHierchBA(aTS,true,false);
+    cCamSimul::BenchHierchBA_BAOnly(aTS,false);
+    // HERE
+    cCamSimul::BenchHierchBA(aTS,true,false);
 
     delete aTS;
     aParam.EndBench();

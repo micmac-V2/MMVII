@@ -133,6 +133,9 @@ class cDataPerspCamIntrCalib
    public :
       void AddData(const cAuxAr2007 & anAux);
 
+      void ResizeVTmpCopyParams();
+
+
       cDataPerspCamIntrCalib();
       cDataPerspCamIntrCalib
       (
@@ -155,6 +158,10 @@ class cDataPerspCamIntrCalib
       const cMapPProj2Im& MapPProj2Im() const { return mMapPProj2Im;}
       cMapPProj2Im& MapPProj2Im() { return mMapPProj2Im;}
       const std::string & Name() const; ///< Accessor
+
+       const std::vector<double>& VTmpCopyParams() const;
+       void SetVTmpCopyParams(const std::vector<double>&) ;
+
 
    protected :
       std::string                    mName;
