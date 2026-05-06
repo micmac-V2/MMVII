@@ -63,15 +63,25 @@ cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromStdName(co
     auto aIt = mCalibMap.find(aNameIm);
     if (aIt == mCalibMap.end())
         MMVII_UserError(eTyUEr::eUnClassedError, "cPhotogrammetricProjectMemory: no calib for image " + aNameIm);
-    return aIt->second;
+
+    // DEGUEU
+    cPerspCamIntrCalib * aRes =  aIt->second->Duplicate();
+      cMMVII_Appli::AddObj2DelAtEnd(aRes);
+    return aRes;
+    //return aIt->second;
 }
 
 cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromImage(const std::string & aNameIm) const
 {
+    return InternalCalibFromStdName(aNameIm);
+
+    /*
     cSensorCamPC * aPC = ReadCamPC(aNameIm, false, SVP::Yes);
+
     if (aPC == nullptr)
         return InternalCalibFromStdName(aNameIm);
     return aPC->InternalCalib();
+    */
 }
 
 cSensorCamPC *  cPhotogrammetricProjectMemory::ReadCamPC(const std::string & aNameIm,

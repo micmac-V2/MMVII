@@ -230,6 +230,12 @@ cPerspCamIntrCalib * cPerspCamIntrCalib::Alloc(const cDataPerspCamIntrCalib & aD
      return aRes;
 }
 
+
+cPerspCamIntrCalib * cPerspCamIntrCalib::Duplicate() const
+{
+    return Alloc(*this);
+}
+
         //  ==================  read/write 2 files  ====================
 
 void AddData(const cAuxAr2007 & anAux,cDataPerspCamIntrCalib & aPCIC)

@@ -442,6 +442,11 @@ class cParamRansac
         double mErrAdm;      //< admissible global error
 };
 
+//  Thread stuff to see where put it later
+std::string GetThreadId() ;
+void InitNumThread(int aNumThread);
+int GetNumThread() ;
+
 
 };
 
