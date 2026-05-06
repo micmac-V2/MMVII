@@ -151,7 +151,7 @@ cDataGenUnTypedIm<Dim>* cDataGenUnTypedIm<Dim>::AllocReSampleGen(
     for (auto & aPixOut : *aResult)
     {
         auto aPixIn = aMap.Inverse(MMVII::ToR(aPixOut+aBox.P0()));
-        auto val = this->Inside(ToI(aPixIn)) ? this->ClipedGetValueInterpol(anInterpol,aPixIn) : aDefValOut;
+        auto val = this->Inside(MMVII::ToI(aPixIn)) ? this->ClipedGetValueInterpol(anInterpol,aPixIn) : aDefValOut;
         aResult->VD_SetV(aPixOut,val);
     }
     return aResult;
