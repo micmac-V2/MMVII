@@ -118,6 +118,20 @@ void  TestDNA()
 /*                                                      */
 /* ==================================================== */
 
+// ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1 input.jpg
+// ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 video.mp4
+
+
+/*
+cPt2di GetSzVideo(const std::string &)
+{
+   std::string aStrBase = "ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0";
+   s
+   std::string aCom = aStrBase+ " " + aNameVideo + " > "
+
+}
+*/
+
 
 /** Application for concatenating videos */
 
@@ -219,58 +233,58 @@ int cAppli_ReduceVideo::Exe()
              std::string aNameInit = FileOfPath(aFullN0);
              if (! starts_with(aNameInit,mPrefixRed))
              {
-                     StdOut() << "NN=[" << aNameInit << "] RR=[" << mPrefixRed << "]" << std::endl;
+                 StdOut() << "NN=[" << aNameInit << "] RR=[" << mPrefixRed << "]" << std::endl;
                  // if name of file has ' ' , replace with '_'
                  if (false) // ( (aNameInit.find(' ') !=  std::string::npos) || (aNameInit.find('&') !=  std::string::npos))
                  {
-                      std::string aNameCor;
-                      for (const auto & aCar : aNameInit)
-                      {
-                           char aNew = aCar;
-                           if (aNew==' ' ) aNew = '_';
-                           if (aNew=='&' ) aNew = 'a';
-                           aNameCor.push_back(aNew);
-                      }
+                     std::string aNameCor;
+                     for (const auto & aCar : aNameInit)
+                     {
+                         char aNew = aCar;
+                         if (aNew==' ' ) aNew = '_';
+                         if (aNew=='&' ) aNew = 'a';
+                         aNameCor.push_back(aNew);
+                     }
 
-                      RenameFiles(aCurDir+aNameInit,aCurDir+aNameCor);
-                      aNameInit = aNameCor;
+                     RenameFiles(aCurDir+aNameInit,aCurDir+aNameCor);
+                     aNameInit = aNameCor;
                  }
                  std::string aNameTmp   =  mPrefixRed + LastPrefix(aNameInit) + "-TmpRed" + mPostFRes;
 
-         cParamCallSys aCom("ffmpeg","-i",aCurDir+aNameInit);
-         if ((mSzReduc.x()>0) && (!mIsAudio))  //  x=-1 => convention for conserving size
-         {
-                    aCom.AddArgs("-vf","scale=" + ToStr(mSzReduc.x()) + ":" + ToStr(mSzReduc.y()));
-         }
-         aCom.AddArgs(aCurDir+aNameTmp);
+                 cParamCallSys aCom("ffmpeg","-i",aCurDir+aNameInit);
+                 if ((mSzReduc.x()>0) && (!mIsAudio))  //  x=-1 => convention for conserving size
+                 {
+                     aCom.AddArgs("-vf","scale=" + ToStr(mSzReduc.x()) + ":" + ToStr(mSzReduc.y()));
+                 }
+                 aCom.AddArgs(aCurDir+aNameTmp);
 
                  if (mExec)
                  {
-                    if ( GlobSysCall(aCom,true) == EXIT_SUCCESS)
-                    {
+                     if ( GlobSysCall(aCom,true) == EXIT_SUCCESS)
+                     {
                          std::string aNameReduc =  mPrefixRed + LastPrefix(aNameInit) + mPostFRes;
                          std::string aNameDone  =     mPrefixRed + LastPrefix(aNameInit) + "-DONE."+ LastPostfix(aNameInit) ;
 
                          // if reduction didnt work, maintain names
                          if (SizeFile(aFullN0)<SizeFile(aCurDir+aNameTmp))
                          {
-                            std::string aNameUnReduc =  mPrefixUnRed + LastPrefix(aNameInit) + mPostFRes;
-                            RenameFiles(aFullN0         ,aCurDir+aNameUnReduc);
-                            RemoveFile(aCurDir+aNameTmp,false);
-                            // aNameDone  =     mPrefixRed + LastPrefix(aNameInit) + "-DONE-00."+ LastPostfix(aNameInit) ;
-                           // std::swap(aNameReduc,aNameReduc);
+                             std::string aNameUnReduc =  mPrefixUnRed + LastPrefix(aNameInit) + mPostFRes;
+                             RenameFiles(aFullN0         ,aCurDir+aNameUnReduc);
+                             RemoveFile(aCurDir+aNameTmp,false);
+                             // aNameDone  =     mPrefixRed + LastPrefix(aNameInit) + "-DONE-00."+ LastPostfix(aNameInit) ;
+                             // std::swap(aNameReduc,aNameReduc);
                          }
                          else
                          {
-                            RenameFiles(aCurDir+aNameTmp,aCurDir+aNameReduc);
-                            RenameFiles(aFullN0         ,aCurDir+aNameDone);
+                             RenameFiles(aCurDir+aNameTmp,aCurDir+aNameReduc);
+                             RenameFiles(aFullN0         ,aCurDir+aNameDone);
                          }
 
-                    }
-                    else
-                    {
+                     }
+                     else
+                     {
                          aFileFails.push_back(aFullN0);
-                    }
+                     }
                  }
                  StdOut() << "COM=[" << aCom.Com() <<"]" << std::endl;
              }
@@ -279,19 +293,19 @@ int cAppli_ReduceVideo::Exe()
 
     if (! aDirsWithWhite.empty())
     {
-       StdOut() << "===============  FOLDER WITH WHITE ===============" << std::endl;
-       for (const auto & aDir : aDirsWithWhite)
-       {
-           StdOut() << "    DIR=[" << aDir << "]" << std::endl;
-       }
+        StdOut() << "===============  FOLDER WITH WHITE ===============" << std::endl;
+        for (const auto & aDir : aDirsWithWhite)
+        {
+            StdOut() << "    DIR=[" << aDir << "]" << std::endl;
+        }
     }
     if (! aFileFails.empty())
     {
-       StdOut() << "===============  FILE WITH FAILS ===============" << std::endl;
-       for (const auto & aName : aFileFails)
-       {
-           StdOut() << "    Name=[" << aName << "]" << std::endl;
-       }
+        StdOut() << "===============  FILE WITH FAILS ===============" << std::endl;
+        for (const auto & aName : aFileFails)
+        {
+            StdOut() << "    Name=[" << aName << "]" << std::endl;
+        }
     }
 
     // std::vector<std::string> RecGetFilesFromDir(const std::string & aDir,tNameSelector  aNS,int aLevMin, int aLevMax);

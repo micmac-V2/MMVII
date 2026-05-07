@@ -1,3 +1,13 @@
+
+
+Aubin => export simul
+
+ER => Ramses & co   (// en bench et conditon reelle w/o duplication ...)
+
+Video => reduce
+
+
+
 CERN vs ECT dist fils:
 
 * calibration facteur echelle mesure clino
