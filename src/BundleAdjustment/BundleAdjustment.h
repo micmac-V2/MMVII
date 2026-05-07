@@ -559,7 +559,7 @@ class cBA_ArboTriplets
 {
     public:
         /// Sets up cameras, collinearity calculators, solver, local tie-points subset.
-        cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols);
+        cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols, int aTDepth);
         ~cBA_ArboTriplets();
 
         /// One BA iteration. Pre-computes u,v vectors on first call (aIter==0).
@@ -574,7 +574,7 @@ class cBA_ArboTriplets
         void SetGTPts3D(std::map<int,cPt3dr>* aGT) { mGTPts3D = aGT; }
 
     private:
-        cMakeArboTriplet*                                  mPMAT;
+        cMakeArboTriplet*                            mPMAT;
         int                                                mNbIter;
         tREAL8                                             mSigAttFinal;
         tREAL8                                             mThrFinal;
@@ -589,6 +589,8 @@ class cBA_ArboTriplets
         cComputeMergeMulTieP*                              mTPts;   ///< local tie-points subset
         std::vector<std::vector<std::pair<cPt3dr,cPt3dr>>> mVecConfUV; ///< precomputed u,v per config
         std::map<int,cPt3dr>*                              mGTPts3D = nullptr; ///< optional GT pts for diagnosis
+
+        const int                                          mTreeDepth;
 };
 
 class cMMVII_BundleAdj

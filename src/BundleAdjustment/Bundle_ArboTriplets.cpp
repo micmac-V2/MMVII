@@ -10,7 +10,7 @@ namespace MMVII
 /*                                                           */
 /* ********************************************************* */
 
-cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols):
+cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols,int aTDepth):
     mPMAT      (aPMAT),
     mNbIter    (aPMAT->NbIterBA()),
     mSigAttFinal(1.0),
@@ -20,7 +20,8 @@ cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocN
     mSigARange  ({std::max(mSigAttFinal,aPMAT->SigmaTPt()),mSigAttFinal}), // {max,min} <=> {initial,final}
     mThrRange   ({mThrFinal,mThrFinal}),            // {max,min} <=> {initial,final}
     mSys      (nullptr),
-    mTPts     (nullptr)
+    mTPts     (nullptr),
+    mTreeDepth(aTDepth)
 {
     // get image names in current node
     std::vector<std::string> aVNames;
@@ -232,20 +233,20 @@ void cBA_ArboTriplets::OneIteration(int aIter)
         aConfigNum++;
     }
 
-    double aPercInliersTP = (aNumAllTiePts>0) ? (aNumTPts*100)/aNumAllTiePts : 0.0;
-    double aPercIn3DP = (aNumAll3DPts>0) ? (aNum3DPts*100)/aNumAll3DPts : 0.0;
-    if (aIter==0)
-        StdOut() << "[iter0] residuals: weightedAvg=" << aWeigthedRes.Average()
-                 << " max=" << aMaxRes
-                 << " #eliminated=" << (aNumAllTiePts-aNumTPts) << "/" << aNumAllTiePts
-                 << " (" << (100.0*(aNumAllTiePts-aNumTPts)/std::max(1,aNumAllTiePts)) << "%)"
-                 << " [DegVis<=0: " << aNumElimDegVis << ", Weight==0: " << aNumElimWeight << "]\n";
-    StdOut() << "#Iter=" << aIter
-             << " Res=" << aWeigthedRes.Average()
-             << ", #3D points=" << aNumAll3DPts << ", " << aPercIn3DP << "%"
-             << ", #2D features=" << aNumTPts << ", " << aPercInliersTP << "%"
-             // << ", MaxRes=" << aMaxRes
-             << std::endl;
+    if (aIter==(mPMAT->NbIterBA()-1))
+    {
+        StdOutLock::lock();
+        StdOut() << "----------------------   Tree depth=" << mTreeDepth << ", images "
+                 << NbCams() << "/" << mPMAT->GOP().AllVertices().size() << std::endl;
+
+        StdOut() << "  # End Iter" << aIter
+                 << " : Weighted Residual=" << aWeigthedRes.Average()
+                 << ", #tie-points=" << aNumTPts << " #eliminated="
+                 << " " << (100.0*(aNumAllTiePts-aNumTPts)/std::max(1,aNumAllTiePts)) << "%"
+                 << " [DegVis<=0: " << aNumElimDegVis << ", Weight==0: " << aNumElimWeight << "]"
+                 << std::endl;
+        StdOutLock::unlock();
+    }
 
     const auto& aVectSol = mSys->SolveUpdateReset({mPMAT->LVM()}, {}, {});
     mSetIntervUK.SetVUnKnowns(aVectSol);

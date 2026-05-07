@@ -618,7 +618,7 @@ void cCamSimul::BenchHierchBA_BAOnly(cTimerSegm* aTS, bool isSubVert)
         }
 
         // run BA from GT initial poses
-        cBA_ArboTriplets aBA(&aMk3, aLocSols);
+        cBA_ArboTriplets aBA(&aMk3, aLocSols,1.0);
         aBA.SetGTPts3D(&aScene.mGTPts3D);
         for (int aIter=0; aIter<aNbIterBA; aIter++)
             aBA.OneIteration(aIter);
