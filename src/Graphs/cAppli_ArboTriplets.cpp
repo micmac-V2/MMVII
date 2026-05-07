@@ -1492,8 +1492,6 @@ void cMakeArboTriplet::ComputeArbor()
 
    mArbor->DoTerminalNode();
 
-   StdOut() << "END DoTerminalNode" << std::endl;
-   //
    cMemManager::SetActiveMemoryCount(false);
    mAppli.SetMultiThread(true);
    TreeThreads<cNodeArborTriplets*> tp;
@@ -1501,7 +1499,7 @@ void cMakeArboTriplet::ComputeArbor()
    mAppli.SetMultiThread(false);
    cMemManager::SetActiveMemoryCount(true);
 
-   StdOut() << "END Exec" << std::endl;
+   StdOut() << "----------------------" << std::endl;
 
 
 }
