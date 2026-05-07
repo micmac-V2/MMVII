@@ -348,12 +348,9 @@ void cEpipolarModel::ComputeCommonFraming(
     auto P2_0 = frame2.P0()-cPt2dr(aMargin,aMargin);;
     auto P2_1 = frame2.P1()+cPt2dr(aMargin,aMargin);;;
 
-    double yMin=0;
-    double yMax=0;
-    FakeUseIt(yMin);
-    FakeUseIt(yMax);
+    double yMin = std::max(P1_0.y(), P2_0.y());
+    double yMax = std::min(P1_1.y(), P2_1.y());
     switch(aFrmType) {
-    case eEpipFrm::eNbVals:
     case eEpipFrm::eIntersect:
         yMin = std::max(P1_0.y(), P2_0.y());
         yMax = std::min(P1_1.y(), P2_1.y());
@@ -369,6 +366,10 @@ void cEpipolarModel::ComputeCommonFraming(
     case eEpipFrm::eImg_2:
         yMin = P2_0.y();
         yMax = P2_1.y();
+        break;
+    case eEpipFrm::eNbVals:
+    default:
+        MMVII_INTERNAL_ERROR("Invalid value for FrameType : " + ToStr(aFrmType));
         break;
     }
 

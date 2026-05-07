@@ -133,6 +133,9 @@ class cDataPerspCamIntrCalib
    public :
       void AddData(const cAuxAr2007 & anAux);
 
+      void ResizeVTmpCopyParams();
+
+
       cDataPerspCamIntrCalib();
       cDataPerspCamIntrCalib
       (
@@ -155,6 +158,10 @@ class cDataPerspCamIntrCalib
       const cMapPProj2Im& MapPProj2Im() const { return mMapPProj2Im;}
       cMapPProj2Im& MapPProj2Im() { return mMapPProj2Im;}
       const std::string & Name() const; ///< Accessor
+
+       const std::vector<double>& VTmpCopyParams() const;
+       void SetVTmpCopyParams(const std::vector<double>&) ;
+
 
    protected :
       std::string                    mName;
@@ -208,6 +215,8 @@ class cPerspCamIntrCalib : public cObj2DelAtEnd,
 
     // ================== construction of object ===============
             static cPerspCamIntrCalib * Alloc(const cDataPerspCamIntrCalib &);
+
+             cPerspCamIntrCalib * Duplicate() const;
 
         /**  Generate random calib, with assurance that distorsion will be inverible,
            the KDeg (in 0,1,2,3)  pick one of the pre-defined degree */

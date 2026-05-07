@@ -149,14 +149,21 @@ private:
 
     std::deque<typename Node::PNode> mReadyQueue;           // List of pointer to nodes ready to be executed. Running nodes are removed from this list before being executed
     std::mutex mMutex_ReadyQueue;                           // Mutex to protect push in and pop from the readyQueue from multiple threads.
+    //std::vector<int>   mFreeNumber;
+  //  int mCurNbThread;                                       // Number of thread allowable in //
+  //  int mCptThread;                                         // Count thread already thrown
 };
-
 
 
 
 template <class T>
 void TreeThreads<T>::Exec(T root, int nbThread)
 {
+   // mCptThread = -1;
+   // mCurNbThread = nbThread;
+   // for (int i = 0; i < nbThread; ++i) 													// We start nbThread and each will execute ExecLoop
+   //     mFreeNumber.push_back(i);
+
     mReadyQueue.clear();
     auto rootNode = std::make_shared<Node>(root,std::shared_ptr<Node>(nullptr));		// Create our root node
     rootNode->descend(this,rootNode);													//  and resurvelu build our depandancy tree
@@ -174,6 +181,8 @@ void TreeThreads<T>::ExecLoop()
     // We pop the first element in the readyQueue, execute it,
     //  and if it was the last child of its parent, push the parent node in the readyQueue
     while (true) {
+
+       // int aNumThread=-1;
         typename Node::PNode node;
         {
             // This lock protect mReadyQueue  access/modifying from different threads. The lock is removed at the end of this code bloc (destructor called)
@@ -182,13 +191,23 @@ void TreeThreads<T>::ExecLoop()
                 return;             // No more node to execute: end of this thread, it will be really ended in the 't.join()' above from the main thread
             node = mReadyQueue.front();
             mReadyQueue.pop_front();
+            //mCptThread++;
+            /*
+            MMVII_INTERNAL_ASSERT_always(!mFreeNumber.empty(),"No mFreeNumber in TreeThreads");
+            aNumThread = mFreeNumber.back();
+            mFreeNumber.pop_back();
+            InitNumThread(aNumThread); // Allow each thread to have a unique "small" number
+            */
         }
-        node->finalize();           // do the job
+        node->finalize();
+
+        //node->finalize();           // do the job
         // Atomically decrement parent not-terminated-child count and return true if this was the last terminated child
         if (node->isLastChild()) {
             // Protect the mReadyQueue and add this node's parent: all its children have terminated
             std::lock_guard<std::mutex> lock(mMutex_ReadyQueue);
             mReadyQueue.push_back(node->parent());
+        //    mFreeNumber.push_back(aNumThread);
         }
         // Here the node have been removed for mReadyQueue and variable node is destroyed : the shared_ptr is de-allocated
     }
@@ -202,6 +221,34 @@ void TreeThreads<T>::ExecLoop()
  * Hence, the number of remaining nodes can't be greater than the number of threads, so we always garantee
  *   a maximal usage of the threads.
  */
+
+
+
+/*
+ * Helper class to serialize output to screen
+ * In fact not specific to stdout, it's just a conventionnal name
+ *
+ * Use:
+ *  StdOutLock::lock();
+ *  std::cout << "toto ";
+ *  std::cout << " tata";
+ *  StdOutLock::unlock();
+ *
+*/
+
+class StdOutLock
+{
+public:
+    StdOutLock() { lock();}
+    ~StdOutLock() { unlock();}
+    static void lock() { mutex().lock(); }
+    static void unlock() { mutex().unlock();}
+private:
+    static std::mutex& mutex() {
+        static std::mutex theMutex;
+        return theMutex;
+    }
+};
 
 
 /*

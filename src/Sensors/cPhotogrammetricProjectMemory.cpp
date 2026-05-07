@@ -57,21 +57,46 @@ void  cPhotogrammetricProjectMemory::AddMulTieP(const std::string & aNameIm,
 
 // ==================  cIPhProj interface  ==================
 
+cPerspCamIntrCalib * DupCamAndAddDel(cPerspCamIntrCalib * aCalib)
+{
+    cPerspCamIntrCalib * aRes = aCalib->Duplicate();
+    cMMVII_Appli::AddObj2DelAtEnd(aRes);
+
+    /*
+    for (int aK=0 ; aK<10 ; aK++)
+    {
+        cSensorCamPC aPC("",tPoseR::Identity(),aCalib);
+        cPt2dr aP1 = aPC.RandomVisiblePIm();
+        cPt3dr aB1 = aCalib->DirBundle(aP1);
+        cPt3dr aB2 = aRes->DirBundle(aP1);
+        StdOut()  << "----NNNN " << Norm2(aB1-aB2) << "\n";
+
+    }
+    */
+    return aRes;
+}
+
 cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromStdName(const std::string aNameIm,
                                                                                bool /*isRemanent*/) const
 {
     auto aIt = mCalibMap.find(aNameIm);
     if (aIt == mCalibMap.end())
         MMVII_UserError(eTyUEr::eUnClassedError, "cPhotogrammetricProjectMemory: no calib for image " + aNameIm);
-    return aIt->second;
+
+   return DupCamAndAddDel(aIt->second);
 }
 
 cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromImage(const std::string & aNameIm) const
 {
+    //return InternalCalibFromStdName(aNameIm);
+
+
     cSensorCamPC * aPC = ReadCamPC(aNameIm, false, SVP::Yes);
+
     if (aPC == nullptr)
         return InternalCalibFromStdName(aNameIm);
-    return aPC->InternalCalib();
+    return DupCamAndAddDel(aPC->InternalCalib());
+
 }
 
 cSensorCamPC *  cPhotogrammetricProjectMemory::ReadCamPC(const std::string & aNameIm,
