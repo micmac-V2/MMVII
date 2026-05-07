@@ -444,9 +444,6 @@ class cParamRansac
 
 //  Thread stuff to see where put it later
 std::string GetThreadId() ;
-void InitNumThread(int aNumThread);
-int GetNumThread() ;
-
 
 };
 
