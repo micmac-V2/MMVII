@@ -10,15 +10,18 @@ namespace MMVII
 /*                                                           */
 /* ********************************************************* */
 
-cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols):
+cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols,int aTDepth):
     mPMAT      (aPMAT),
     mNbIter    (aPMAT->NbIterBA()),
-    mSigAttFinal(2.0),
-    mThrFinal   (10.0),
-    mSigARange  ({std::max(mSigAttFinal,std::min(5.0,aPMAT->SigmaTPt())),mSigAttFinal}), // {max,min} <=> {initial,final}
-    mThrRange   ({std::max(mThrFinal,std::min(30.0,aPMAT->SigmaTPt()*aPMAT->FacElim())),mThrFinal}), // {max,min} <=> {initial,final}
+    mSigAttFinal(1.0),
+    mThrFinal   (aPMAT->FacElim()),
+    //mSigARange  ({std::max(mSigAttFinal,std::min(5.0,aPMAT->SigmaTPt())),mSigAttFinal}), // {max,min} <=> {initial,final}
+    //mThrRange   ({std::max(mThrFinal,std::min(30.0,aPMAT->SigmaTPt()*aPMAT->FacElim())),mThrFinal}), // {max,min} <=> {initial,final}
+    mSigARange  ({std::max(mSigAttFinal,aPMAT->SigmaTPt()),mSigAttFinal}), // {max,min} <=> {initial,final}
+    mThrRange   ({mThrFinal,mThrFinal}),            // {max,min} <=> {initial,final}
     mSys      (nullptr),
-    mTPts     (nullptr)
+    mTPts     (nullptr),
+    mTreeDepth(aTDepth)
 {
     // get image names in current node
     std::vector<std::string> aVNames;
@@ -106,8 +109,6 @@ void cBA_ArboTriplets::OneIteration(int aIter)
     tREAL8 aMaxRes=0;
     int aNumAllTiePts=0;
     int aNumTPts=0;
-    int aNumAll3DPts=0;
-    int aNum3DPts=0;
     int aNumElimDegVis=0;   // eliminated by DegreeVisibility <= 0
     int aNumElimWeight=0;   // eliminated by weight == 0 (DegreeVisibility was > 0)
     cWeightAv<tREAL8> aWeigthedRes;
@@ -124,7 +125,6 @@ void cBA_ArboTriplets::OneIteration(int aIter)
         // mVIdPts is only filled when created from MulTieP (with index); fall back to geometry-based count
         size_t aNbPts = aVals.mVIdPts.empty() ? NbPtsMul(aAllConfigs) : aVals.mVIdPts.size();
 
-        aNumAll3DPts+=aNbPts;
 
         // for every tie-point in current config
         for (size_t aKPts=0; aKPts<aNbPts; aKPts++)
@@ -223,27 +223,26 @@ void cBA_ArboTriplets::OneIteration(int aIter)
             if (aNbEqAdded>=2)
             {
                 mSys->R_AddObsWithTmpUK(aStrSubst,mPMAT->LVM());
-                aNum3DPts++;
             }
 
         }
         aConfigNum++;
     }
 
-    double aPercInliersTP = (aNumAllTiePts>0) ? (aNumTPts*100)/aNumAllTiePts : 0.0;
-    double aPercIn3DP = (aNumAll3DPts>0) ? (aNum3DPts*100)/aNumAll3DPts : 0.0;
-    if (aIter==0)
-        StdOut() << "[iter0] residuals: weightedAvg=" << aWeigthedRes.Average()
-                 << " max=" << aMaxRes
-                 << " #eliminated=" << (aNumAllTiePts-aNumTPts) << "/" << aNumAllTiePts
-                 << " (" << (100.0*(aNumAllTiePts-aNumTPts)/std::max(1,aNumAllTiePts)) << "%)"
-                 << " [DegVis<=0: " << aNumElimDegVis << ", Weight==0: " << aNumElimWeight << "]\n";
-    StdOut() << "#Iter=" << aIter
-             << " Res=" << aWeigthedRes.Average()
-             << ", #3D points=" << aNumAll3DPts << ", " << aPercIn3DP << "%"
-             << ", #2D features=" << aNumTPts << ", " << aPercInliersTP << "%"
-             // << ", MaxRes=" << aMaxRes
-             << std::endl;
+    if (aIter==(mPMAT->NbIterBA()-1))
+    {
+        StdOutLock::lock();
+        StdOut() << "----------------------   Tree depth=" << mTreeDepth << ", images "
+                 << NbCams() << "/" << mPMAT->GOP().AllVertices().size() << std::endl;
+
+        StdOut() << "  # End Iter" << aIter
+                 << " : Weighted Residual=" << aWeigthedRes.Average()
+                 << ", #tie-points=" << aNumTPts << " #eliminated="
+                 << " " << (100.0*(aNumAllTiePts-aNumTPts)/std::max(1,aNumAllTiePts)) << "%"
+                 << " [DegVis<=0: " << aNumElimDegVis << ", Weight==0: " << aNumElimWeight << "]"
+                 << std::endl;
+        StdOutLock::unlock();
+    }
 
     const auto& aVectSol = mSys->SolveUpdateReset({mPMAT->LVM()}, {}, {});
     mSetIntervUK.SetVUnKnowns(aVectSol);

@@ -820,14 +820,9 @@ void cNodeArborTriplets::RefineCurSolution()
 
     cBA_ArboTriplets* aBA;
     {
-        aBA = new cBA_ArboTriplets(mPMAT, mLocSols);
+        aBA = new cBA_ArboTriplets(mPMAT, mLocSols,mDepth);
     }
 
-
-    StdOut() << " ============\t"
-             << "  Tree depth=" << mDepth
-             << ", #Images " << aBA->NbCams() << "/" << mPMAT->GOP().AllVertices().size()
-             << " ============" << std::endl;
 
     for (int aIter = 0; aIter < mPMAT->NbIterBA(); aIter++)
         aBA->OneIteration(aIter);
