@@ -20,6 +20,22 @@
 namespace MMVII
 {
 
+
+cBaseTE::cBaseTE(const cPt2dr & aPt,tREAL4 aBlack,tREAL4 aWhite) :
+   mPt      (aPt),
+   mGT      (nullptr),
+   mVBlack  (aBlack),
+   mVWhite  (aWhite)
+{
+}
+
+cBaseTE::cBaseTE(const cPt2dr & aPt) :
+     cBaseTE(aPt,-1,-1)
+{
+}
+
+
+
 /**   Class for vehiculing all the threshold parameters relative to circ target extraction
  */
 struct cThresholdCircTarget
