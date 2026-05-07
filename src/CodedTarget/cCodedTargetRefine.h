@@ -11,7 +11,7 @@
 
 namespace MMVII
 {
-    tU_INT1 MaskOutV = 255, MaskInV = 0;
+    tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is out of the mask area
 
     typedef cIm2D<tU_INT1>      tIm;
     typedef cDataIm2D<tU_INT1>  tDIm;
@@ -19,12 +19,26 @@ namespace MMVII
     class cCdTDiscr;
     struct cRansacSol;
 
-    cPixBox<2> BBox(std::vector<cPt2dr> aVPts, int aMin=0, int aMax=100000);
-    cRansacSol RansacLTF(std::vector<cPt2dr> aVBPts, std::vector<cPt2dr> aVWPts, tIm& aIm1, tIm& aIm2,
-                        tDIm* aDMask=nullptr, tU_INT1 aMaskOutV=255, int aIt=200, int aRDist=50);
-    std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1);
+    /*!
+     * @brief RansacATF : computes Affine Transfert Function between 2 images
+     * @param aVBPts    : subset of classified points as black values
+     * @param aVWPts    : subset of classified points as white values
+     * @param aDIm1     : input image
+     * @param aDIm2     : output image
+     * @param aDMask    : mask image (no residual computation on points in the mask)
+     * @param aMaskInV  : value of pixels in the mask
+     * @param aIt       : number of iterations
+     * @param aRDist    : minimum grey level distance between two w/b subset points
+     * @return
+     */
 
-    cAff2D_r Descr2Aff(const cCdTDescr& aDes, cSensorCamPC* aCam);
+    cRansacSol RansacATF(std::vector<cPt2dr> aVBPts, std::vector<cPt2dr> aVWPts, tDIm* aDIm1, tDIm* aDIm2,
+                        tDIm* aDMask=nullptr, tU_INT1 aMaskOutV=255, int aIt=200, int aRDist=50);
+
+
+    /*!
+     * @brief The cRansacSol class : storage of RansacATF solution
+     */
 
     struct cRansacSol
     {
@@ -57,9 +71,8 @@ namespace MMVII
         cSensorCamPC*                       mCam;       //-> current camera
         cSetMesPtOf1Im                      mSetImMes;  //-> current image measurements
         //------ methods
-        std::string nameVisu();
-        void        BuildDiscr(cCdTDiscr& aDis, cAff2D_r aCdT2Im);
-        void        DiscrMapRefine(cCdTDiscr& aDis);
+        void        BuildDiscr(cCdTDiscr& aDis, cAff2D_r aCdT2Im); //cCdTDiscr builder
+        void        DiscrMapRefine(cCdTDiscr& aDis); //cCdTDiscr CdT2Im mapping refiner
     };
 
     /*!
@@ -81,6 +94,7 @@ namespace MMVII
         void                        SaveCrop(const std::string& aDir);
         void                        SaveMask(const std::string& aDir);
         void                        SaveSample(const std::string& aDir);
+        void                        SaveTmp(tIm& aTmp, const std::string& aDir, const std::string& aPref);
         void                        SetCdT2Im(cAff2D_r aCdT2Im);
         cPt2dr                      CdT2Im(cPt2dr aPt, bool inverse=false);
         std::vector<cPt2dr>         VCdT2Im(std::vector<cPt2dr> aVPts, bool inverse=false);
@@ -98,17 +112,13 @@ namespace MMVII
 
     private:
         //----- members
-        std::string             mNum;
-        cPixBox<2>              mExtent;//-> extent of the CdT formed by predicted corners
-        std::vector<cPt2dr>     mVBitCenters;
-        tIm                     mIm;    //-> original image
-        tDIm*                   mDIm;
+        cPixBox<2>              mExtent;//-> input image CdT extent formed by predicted corners (input image coordinates)
+        tIm                     mIm;    //-> input image
+        tDIm*                   mDIm;   //-> input image data
         tIm                     mCrop;  //-> croped from input image
-        tDIm*                   mDCrop;
-        tIm                     mCdT;
-        tIm                     mSamp;
-        tIm                     mMask;  //-> simul. CdT
-        tDIm*                   mDMask;
+        tIm                     mCdT;   //-> MMVII generated CdT
+        tIm                     mSamp;  //-> CdT sampled from CdT2Im mapping
+        tIm                     mMask;  //-> bbox of CdT formed by predicted corners (local coordinates, MaskIn/MaskOut)
         tU_INT1                 mVisib; //-> visibility score
         std::vector<cPt2dr>     mVImCorners;
         cAff2D_r                mCdT2Im;
@@ -119,4 +129,8 @@ namespace MMVII
         void            SaveIm(tDIm* aDIm, std::string aPath);
     };
 
+    cPixBox<2>          BBox(std::vector<cPt2dr> aVPts, int aMin=0, int aMax=100000);
+    std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1);//-> get corners of a rectangle formed by aP0/aP1
+
+    cAff2D_r Descr2Aff(const cCdTDescr& aDes, cSensorCamPC* aCam);//-> convert description to 2d affinity
 }

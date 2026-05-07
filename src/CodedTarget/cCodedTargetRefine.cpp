@@ -17,11 +17,9 @@ namespace MMVII
         mIm         (cPt2di(1,1)),
         mDIm        (nullptr),
         mCrop       (cPt2di(1,1)),
-        mDCrop      (nullptr),
-        mCdT       (cPt2di(1,1)),
+        mCdT        (cPt2di(1,1)),
         mSamp       (cPt2di(1,1)),
-        mMask       (cPt2di(1,1)),
-        mDMask      (nullptr)
+        mMask       (cPt2di(1,1))
         {
             //
         }
@@ -29,28 +27,8 @@ namespace MMVII
     tU_INT1 cCdTDiscr::CornersOnIm()
     {
         tU_INT1 aNb = 0;
-        for (const auto& aPt : mVImCorners)
-        {
-            (void) aPt;//if (mDIm->Inside(ToI(aPt))){++aNb;}
-        }
+        for (const auto& aPt : mVImCorners){if (mDIm->Inside(ToI(aPt))){++aNb;}}
         return aNb;
-    }
-
-    tREAL8 cCdTDiscr::RansacTFOnBits()
-    {
-        //-> filter b/w bit centers
-        std::vector<cPt2dr> aVBBits = {}, aVWBits = {};
-        for (const cPt2dr& aBit : mVBitCenters)
-        {
-            if (mCdT.DIm().GetV(ToI(aBit)) == 0)
-            {
-                aVBBits.push_back(mCdT2Im.Value(aBit));
-            } else {
-                aVWBits.push_back(mCdT2Im.Value(aBit));
-            }
-        }
-        //RansacTF();
-        return 0;
     }
 
     void cCdTDiscr::Sample()
@@ -60,7 +38,7 @@ namespace MMVII
 
         for (const auto& aPix : *aDSamp)
         {
-            if (mMask.DIm().GetV(aPix) == MaskInV)
+            if (mMask.DIm().GetV(aPix) == MaskOutV)
             {
                 //-> to avoid aliasing
                 cRessampleWeigth aRW = cRessampleWeigth::GaussBiCub(ToR(aPix + mExtent.P0()), mCdT2Im.MapInverse(), 2);
@@ -82,13 +60,8 @@ namespace MMVII
         }
     }
 
-    void cCdTDiscr::MapRefine()
-    {
-
-    }
-
     /*
-     * Export methods
+     * export methods
      */
 
     void cCdTDiscr::SaveCrop(const std::string& aDir)
@@ -111,6 +84,15 @@ namespace MMVII
         aDIm->ToFile(aPath);
     }
 
+    void cCdTDiscr::SaveTmp(tIm& aTmp, const std::string& aDir, const std::string& aPref)
+    {
+        SaveIm(&aTmp.DIm(), aDir + aPref + mName + '-' + mImName);
+    }
+
+    /*
+     * transformation methods
+     */
+
     cPt2dr cCdTDiscr::CdT2Im(cPt2dr aPt, bool inverse) {return (inverse ? mCdT2Im.Inverse(aPt) : mCdT2Im.Value(aPt));}
 
     std::vector<cPt2dr> cCdTDiscr::VCdT2Im(std::vector<cPt2dr> aVPts, bool inverse)
@@ -121,7 +103,7 @@ namespace MMVII
     }
 
     /*
-     * SET/GET
+     * set/get
      */
 
     cRect2  cCdTDiscr::Extent(){return mExtent;}
@@ -163,29 +145,29 @@ namespace MMVII
 
     cAppli_CodedTargetRefine::cAppli_CodedTargetRefine(const std::vector<std::string>& aVArgs,
                                                            const cSpecMMVII_Appli& aSpec):
-        cMMVII_Appli(aVArgs, aSpec),
-        mPhProj(*this),
-        mVDescr({}),
-        mIm(cPt2di(1,1)),
-        mDIm(nullptr)
+        cMMVII_Appli    (aVArgs, aSpec),
+        mPhProj         (*this),
+        mVDescr         ({}),
+        mIm             (cPt2di(1,1)),
+        mDIm            (nullptr)
     {
         //
     }
 
     int cAppli_CodedTargetRefine::Exe()
     {
-        //----- [0] Load project primitives
+        //----- PhProj primitives
         mPhProj.FinishInit();
         std::vector<std::string> aVIm = VectMainSet(0);
         mFSpec.reset(cFullSpecifTarget::CreateFromFile(mFSpecName));
 
-        //-> if descriptions are provided fill mVDescr
+        //-> if CdT descriptions are provided -> fill mVDescr (useful for CdT that have not been extracted)
         if(!mPhProj.DPGndPt3D().DirInIsNONE())
         {
             ReadFromFile(mVDescr, cCdTDescr::NameFile(mPhProj, true));
         }
 
-        //----- [A] DoOneImage
+        //----- independent process for each image
 
         for (const auto& aIm : aVIm)
         {
@@ -197,24 +179,21 @@ namespace MMVII
 
             ReadFromFile(aVEll, cSaveExtrEllipe::NameFile(mPhProj, mSetImMes, true));
 
+            //----- refinement for CdT that have been extracted
             for (const auto& aEll : aVEll)
             {
                 cCdTDiscr aDis = cCdTDiscr(aEll.mNameCode, aIm);
-                BuildDiscr(aDis, aEll.mAffIm2Ref.MapInverse());//-> set prerequisites
+                BuildDiscr(aDis, aEll.mAffIm2Ref.MapInverse());//-> set prerequisites to use cCdTDiscr
                 aDis.Sample();//-> creates simulated CdT
-                DiscrMapRefine(aDis);
-
                 if (mShow)
                 {
                     aDis.SaveSample(mPhProj.DirVisuAppli());
                 }
-
-
-                //RefineDiscr
+                DiscrMapRefine(aDis);
             }
 
+            //----- do something close with some extra steps for unextracted CdT
             /*
-             * Try do the same with not auto-extracted measurements
             if (!mVDescr.empty())
             {
                 for (const auto& aDes : mVDescr)
@@ -274,17 +253,46 @@ namespace MMVII
 
     void cAppli_CodedTargetRefine::DiscrMapRefine(cCdTDiscr& aDis)
     {
-        //----- compute better aSamp 2 aCrop mapping
-        //----- compute ResMask for aSamp based on residuals after LTF radiometric correction
+        //----- residual mask computation
         std::vector<cPt2dr> aVSampWC = {}, aVSampBC = {};//-> w/b bits centers in mSamp
+        tDIm* aDCdT = &aDis.CdT().DIm();
+        tDIm* aDSamp = &aDis.Samp().DIm();
+
         for (const auto& aC : mFSpec->BitsCenters())
         {
             auto aSampC = aDis.CdT2Im(aC) - ToR(aDis.Extent().P0());
-            aDis.CdT().DIm().GetV(ToI(aC)) < 125 ? aVSampBC.push_back(aSampC) : aVSampWC.push_back(aSampC);
+            aDCdT->GetV(ToI(aC)) < 125 ? aVSampBC.push_back(aSampC) : aVSampWC.push_back(aSampC);
         }
-        cRansacSol aLTF = RansacLTF(aVSampBC, aVSampWC, aDis.Samp(), aDis.Crop(), &aDis.Mask().DIm(), MaskInV);
 
-        StdOut() << aLTF.mSol;
+        cRansacSol aATF = RansacATF(aVSampBC, aVSampWC, aDSamp, &aDis.Crop().DIm(), &aDis.Mask().DIm(), MaskInV);
+
+        if (mShow)
+        {
+            StdOut() << aDis.mName << "RansacATF solution -> " << aATF.mSol << "\n";
+        }
+
+        if (mVisu)//-> save corrected sample CdT as CorSamp
+        {
+            tIm aCSamp = tIm(aDSamp->Sz());//-> corrected sample
+            tDIm* aDCSamp = &aCSamp.DIm();
+            tIm aRes = tIm(aDSamp->Sz());//-> aATF residual image
+            tDIm* aDRes = &aRes.DIm();
+            tDIm* aDCrop = &aDis.Crop().DIm();
+
+            //----- set w/b pixels on bit centers
+            for (const auto& aP : aVSampBC) {aDCSamp->SetV(ToI(aP), 255);}
+            for (const auto& aP : aVSampWC) {aDCSamp->SetV(ToI(aP), 0);}
+
+            //----- set corrected pixels from ransac sol
+            for (const auto& aP : *aDSamp)
+            {
+                aDCSamp->SetVTrunc(aP, aATF.mSol.x()*aDSamp->GetV(aP) + aATF.mSol.x());
+                aDRes->SetVTrunc(aP, abs(aATF.mSol.x()*aDSamp->GetV(aP) + aATF.mSol.x() - aDCrop->GetV(aP)));
+            }
+
+            aDis.SaveTmp(aCSamp, mPhProj.DirVisuAppli(), "CorSamp-");
+            aDis.SaveTmp(aRes, mPhProj.DirVisuAppli(), "ResSamp-");
+        }
     }
 
     //----- memory allocation
@@ -331,40 +339,26 @@ namespace MMVII
     {
     }
 
-    /*!
-     * @brief RansacLTF : computes Linear Transfert Function of a couple of images
-     * @param aVBPts    : classified points as black values
-     * @param aVWPts    : classified points as white values
-     * @param aIm1      : in image
-     * @param aIm2      : out image
-     * @param aIt       : nb iterations (200)
-     * @param aRDist    : minimal grey level distance between b/w values (50)
-     * @param aDMask    : pts to forget when computing solution score (nullptr)
-     * @return
-     */
-
-    cRansacSol RansacLTF(std::vector<cPt2dr> aVBPts, std::vector<cPt2dr> aVWPts, tIm& aIm1, tIm& aIm2,
-                         tDIm* aDMask, tU_INT1 aMaskV, int aIt, int aRDist)
+    cRansacSol RansacATF(std::vector<cPt2dr> aVBPts, std::vector<cPt2dr> aVWPts, tDIm* aDIm1, tDIm* aDIm2,
+                         tDIm* aDMask, tU_INT1 aMaskInV, int aIt, int aRDist)
     {
         //----- set primitives and load data images
-        tREAL8              a = 1, b = 0;
+        tREAL8              a = 1.0, b = 0.0;
         cPt2dr              aBestSol(1,0);
-        int                 aBestL1 = 100000;
-        tDIm* aDIm1 = &aIm1.DIm();
-        tDIm* aDIm2 = &aIm2.DIm();
+        int                 aBestL1 = 10000000;
 
         //----- iterates same process *it* times to find the best (a,b) solution
         for (int ix=0;ix<aIt;++ix)
         {
             int aL1Score = 0;
 
-            //-> choose 2 random pts from aVPts with distant grey level
+            //-> choose 2 w/b random pts with suffisant grey level distance
             cPt2dr aBPt = aVBPts[RandUnif_N(aVBPts.size())], aWPt = aVWPts[RandUnif_N(aVWPts.size())];
-            if (abs(aDIm1->GetV(ToI(aBPt)) - aDIm1->GetV(ToI(aWPt))) < aRDist) {--ix; continue;}
+            if (abs(aDIm1->GetV(ToI(aBPt)) - aDIm1->GetV(ToI(aWPt))) < aRDist) {continue;}
 
             //->get image value and compute (a,b)
-            tU_INT1 aB1 = aDIm1->GetV(ToI(aBPt)), aB2 = aDIm1->GetV(ToI(aWPt));
-            tU_INT1 aW1 = aDIm2->GetV(ToI(aBPt)), aW2 = aDIm2->GetV(ToI(aWPt));
+            tREAL8 aB1 = aDIm1->GetV(ToI(aBPt)), aB2 = aDIm2->GetV(ToI(aBPt));//-> must be tREAL8 to compute a & b as tREAL8
+            tREAL8 aW1 = aDIm1->GetV(ToI(aWPt)), aW2 = aDIm2->GetV(ToI(aWPt));
             /*
              * aB2 = a * aB1 + b
              * aW2 = a * aW1 + b
@@ -375,15 +369,15 @@ namespace MMVII
             //-> compute score of the solution
             for (const auto& aPix : *aDIm2)
             {
-                if (aDMask)//-> reject pixel based on Mask
+                if (aDMask)//-> reject pixel if they are located on the mask
                 {
-                    if (aDMask->GetV(aPix) == aMaskV){continue;}
+                    if (aDMask->GetV(aPix) == aMaskInV){continue;}
                 }
                 tU_INT1 aVal = a * aDIm1->GetV(aPix) + b;
-                aL1Score += aVal - aDIm2->GetV(aPix);
+                aL1Score += abs(aVal - aDIm2->GetV(aPix));
             }
 
-            //-> change best score and sol and if we find better solution
+            //-> change best score and sol and if we've found a better solution
             if (aL1Score < aBestL1)
             {
                 aBestL1     = aL1Score;
