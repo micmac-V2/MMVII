@@ -109,8 +109,6 @@ void cBA_ArboTriplets::OneIteration(int aIter)
     tREAL8 aMaxRes=0;
     int aNumAllTiePts=0;
     int aNumTPts=0;
-    int aNumAll3DPts=0;
-    int aNum3DPts=0;
     int aNumElimDegVis=0;   // eliminated by DegreeVisibility <= 0
     int aNumElimWeight=0;   // eliminated by weight == 0 (DegreeVisibility was > 0)
     cWeightAv<tREAL8> aWeigthedRes;
@@ -127,7 +125,6 @@ void cBA_ArboTriplets::OneIteration(int aIter)
         // mVIdPts is only filled when created from MulTieP (with index); fall back to geometry-based count
         size_t aNbPts = aVals.mVIdPts.empty() ? NbPtsMul(aAllConfigs) : aVals.mVIdPts.size();
 
-        aNumAll3DPts+=aNbPts;
 
         // for every tie-point in current config
         for (size_t aKPts=0; aKPts<aNbPts; aKPts++)
@@ -226,7 +223,6 @@ void cBA_ArboTriplets::OneIteration(int aIter)
             if (aNbEqAdded>=2)
             {
                 mSys->R_AddObsWithTmpUK(aStrSubst,mPMAT->LVM());
-                aNum3DPts++;
             }
 
         }
