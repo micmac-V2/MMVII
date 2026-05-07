@@ -54,7 +54,7 @@ cAppli_HierarchSfm::cAppli_HierarchSfm(const std::vector<std::string> & aVArgs,c
     mDoCheck     (true),
     mWBalance    (1.0),
     mViscPose    ({-1,-1}),
-    mLVM         (0.1),
+    mLVM         (1e-7),
     mSigmaTPt    (1.0),
     mFacElim     (10.0),
     mNbIterBA    (5)
@@ -103,10 +103,12 @@ int cAppli_HierarchSfm::Exe()
     cMakeArboTripletCfg aCfg;
     aCfg.mLVM      = mLVM;
     aCfg.mNbIterBA = mNbIterBA;
-    aCfg.mSigmaTPt = IsInit(&mSigmaTPt) ? mSigmaTPt : aQScoreStats.Avg() + aQScoreStats.DevStd();
-    aCfg.mFacElim  = IsInit(&mFacElim)  ? mFacElim  : aQScoreStats.ErrAtKthLast(1);
+    aCfg.mSigmaTPt = IsInit(&mSigmaTPt) ? mSigmaTPt : aQScoreStats.ErrAtProp(0.75);
+    aCfg.mFacElim  = IsInit(&mFacElim)  ? mFacElim  : 4.0*aQScoreStats.ErrAtProp(0.75);
     if (IsInit(&mViscPose))
         aCfg.mViscPose = mViscPose;
+
+    //StdOut() << aQScoreStats.ErrAtProp(0.75) << " " << 4.0*aQScoreStats.ErrAtProp(0.75) << std::endl;
 
 
     TimeSegm().SetIndex("cMakeArboTriplet");

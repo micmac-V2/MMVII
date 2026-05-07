@@ -494,12 +494,12 @@ void cCamSimul::BenchHierchBA(cTimerSegm * aTS,
     const int aNbHPts = 20;
 
     cMakeArboTripletCfg aCfg;
-    aCfg.mLVM      = 0.1;
+    aCfg.mLVM      = 1e-7;
     aCfg.mNbIterBA = 5;
     aCfg.mSigmaTPt = 1;
     aCfg.mFacElim  = 10;
 
-    StdOut() << "Nb of cams=" << aNbCam << ", nb of triplets=" << aNbTri << std::endl;
+    //StdOut() << "Nb of cams=" << aNbCam << ", nb of triplets=" << aNbTri << std::endl;
 
     cMMVII_Appli& anAp = cMMVII_Appli::CurrentAppli();
 
@@ -513,7 +513,7 @@ void cCamSimul::BenchHierchBA(cTimerSegm * aTS,
         if (PerfInter)
             aScene.mCamSim->mRandInterK = 0.0;
 
-        StdOut() << "Start Hierarchical SfM" << std::endl;
+        //StdOut() << "Start Hierarchical SfM" << std::endl;
         cMakeArboTriplet aMk3(aScene.m3Set, false, 1.0, aMemPhProj, anAp, aCfg);
         aMk3.InitTPtsStruct("", aScene.mSetIm);
         aMk3.MakeGraphPose();
@@ -541,7 +541,7 @@ void cCamSimul::BenchHierchBA_InitOnly(cTimerSegm* aTS, bool isSubVert)
     const int aNbHPts = 20;
 
     cMakeArboTripletCfg aCfg;
-    aCfg.mLVM      = 0.1;
+    aCfg.mLVM      = 1e-7;
     aCfg.mNbIterBA = 0;   // spanning tree only — no BA refinement
     aCfg.mSigmaTPt = 1;
     aCfg.mFacElim  = 10;
@@ -582,7 +582,7 @@ void cCamSimul::BenchHierchBA_BAOnly(cTimerSegm* aTS, bool isSubVert)
     const int aNbIterBA = 5;
 
     cMakeArboTripletCfg aCfg;
-    aCfg.mLVM      = 0.1;
+    aCfg.mLVM      = 1e-7;
     aCfg.mNbIterBA = aNbIterBA;
     aCfg.mSigmaTPt = 1;
     aCfg.mFacElim  = 10;
