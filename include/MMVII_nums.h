@@ -647,6 +647,8 @@ template <class Type> void OrderMinMax(Type & aV1,Type & aV2)
 // 4 now use sort, will enhance with home made
 template <class Type> Type NonConstMediane(std::vector<Type> & aV);
 template <class Type> Type ConstMediane(const std::vector<Type> & aV);
+template <class Type> Type NonConstWMediane(std::vector<std::pair<Type,Type>> & aVW,
+                                            Type & aTotWeight=0.0);
 
 
 /*  ******************************************* */

@@ -105,7 +105,7 @@ void  AddData(const cAuxAr2007  &anAux,cResModeSurfD& aRMS )
 
 cZBuffer::cZBuffer(cTri3DIterator & aMesh,const tSet &  aSetIn,const tMap & aMapI2O,
                    const tSet &  aSetOut,double aResolOut,bool aSameOri, bool IsBascProc,
-                    cTri3DIterator * aMesh2D) :
+                    cTri3DIterator * aMesh2D, const cPt2di & aForcedOutSize) :
     mIsOk       (true),
     mZF_SameOri (aSameOri),
     mMultZ      (mZF_SameOri ? -1 : 1),
@@ -122,7 +122,7 @@ cZBuffer::cZBuffer(cTri3DIterator & aMesh,const tSet &  aSetIn,const tMap & aMap
     mROut2Pix   (),
     mZBufIm     (cPt2di(1,1)),
     mImSign     (cPt2di(1,1)),
-    mMaxStretching(5.0)
+    mMaxStretching(4.0)
 {
     cTplBoxOfPts<tREAL8,3> aBoxOfPtsIn;
     cTplBoxOfPts<tREAL8,3> aBoxOfPtsOut;
@@ -179,6 +179,12 @@ cZBuffer::cZBuffer(cTri3DIterator & aMesh,const tSet &  aSetIn,const tMap & aMap
     mBoxOut = aBoxOfPtsOut.CurBox();
 
 
+    if (aForcedOutSize.x()>0 && aForcedOutSize.y()>0)
+    {
+        mBoxOut.P0ByRef() = cPt3dr(0,0, mBoxOut.P0().z());
+        mBoxOut.P1ByRef() = cPt3dr(aForcedOutSize.x(),aForcedOutSize.y(), mBoxOut.P1().z());
+    }
+
 
     cPt2di aBrd(2,2);
     //   aP0/aResout + aTr -> 1,1
@@ -203,6 +209,11 @@ std::vector<cResModeSurfD> & cZBuffer::VecResSurfD() {return mResSurfD;}
 void cZBuffer::AssertIsOk() const
 {
    MMVII_INTERNAL_ASSERT_tiny(mIsOk,"Non ok Buffer");
+}
+
+const cPt2di & cZBuffer::SzPix() const
+{
+    return mSzPix;
 }
 
 bool cZBuffer::IsOk() const {return mIsOk;}
@@ -339,6 +350,12 @@ eZBufRes cZBuffer::MakeOneTri(const tTri3dr & aTriIn,const tTri3dr &aTri3,eZBufM
     //  cTriangle2DCompiled<tREAL8>  aTri2(ToPix(aTri3.Pt(0)) , ToPix(aTri3.Pt(1)) ,ToPix(aTri3.Pt(2)));
     cTriangle2DCompiled<tREAL8>  aTri2 = ImageOfTri(Proj(aTri3),mROut2Pix);
 
+    // do no use wrapped triangles
+    int aIndexLongest = aTri2.IndexLongestSeg();
+    float aMaxLen = Norm2(aTri2.KVect(aIndexLongest));
+    if (aMaxLen > SzPix().x()/1.5)
+        return aRes;
+
     cPt3dr aPtZ(aTri3.Pt(0).z(),aTri3.Pt(1).z(),aTri3.Pt(2).z());
 
     std::vector<cPt2di> aVPix;
@@ -399,75 +416,68 @@ eZBufRes cZBuffer::MakeOneTri(const tTri3dr & aTriIn,const tTri3dr &aTri3,eZBufM
     return aRes;
 }
 
+
+
 bool cZBuffer::IsStretched(const tTri3dr & aTriIn, const tTri3dr & aTri3, double & aStretchingThreshold)
 {
 
      ///< Evaluate stretching of triangle where Mapping(aTri3) = aTriIn
 
      cPt3dr aP01 = aTriIn.Pt(1) - aTriIn.Pt(0);
-     cPt3dr aP12 = aTriIn.Pt(2) - aTriIn.Pt(1);
+     cPt3dr aP12 = aTriIn.Pt(2) - aTriIn.Pt(0);
 
      cPt3dr aP01_3d = aTri3.Pt(1) - aTri3.Pt(0);
-     cPt3dr aP12_3d = aTri3.Pt(2) - aTri3.Pt(1);
+     cPt3dr aP12_3d = aTri3.Pt(2) - aTri3.Pt(0);
 
-     // Gram-Schmidt orthonormal basis definition 
-     double aP01norm = Norm1(aP01);
-     cPt3dr aP01N = aP01/aP01norm;
-     double aX2 = Scal(aP12,aP01N);
-     double aY2 = Norm1( aP12 - (aP01N*aX2 )) ;
 
-    /* cDenseMatrix<tREAL8> aDm_1= M2x2FromCol(cPt2dr(aP01norm,0.0), 
-                                                cPt2dr(aX2,aY2)).Inverse();*/
+    /*tREAL8 anInArea =  Norm1(aP01 ^ aP12);
+    tREAL8 anOutArea =  Norm1(aP01_3d ^ aP12_3d);
 
-    
-    // compute the inverse analytically 
-    tREAL8 aDet = std::abs(aP01norm*aY2);
 
-    if( aDet<=0)
-        return true;
+    aStretchingThreshold = (anInArea/anOutArea) ;*/
 
-    cDenseMatrix<tREAL8> aDm_1 = M2x2FromCol(cPt2dr(aY2,-aX2)/aDet,
-                                            cPt2dr(0.0,aP01norm)/aDet);
 
-    // compute the Jacobian Matrix 
-    /*cDenseMatrix<tREAL8>  aDS(2,3); // col, row
-    SetCol(aDS,0, aP01_3d);
-    SetCol(aDS,1, aP12_3d);*/
+    // create the jacobian of the deformation matrix
+    cDenseMatrix<tREAL8> aMat_Out(2,3);
+    MMVII::SetCol(aMat_Out,0,aP01);
+    MMVII::SetCol(aMat_Out,1,aP12);
 
-    // Jacobian J = aDS * aDm^-1 manually
-    cPt3dr aJ01 = aP01_3d * aDm_1.GetElem(cPt2di(0,0)) + aP12_3d * aDm_1.GetElem(cPt2di(0,1));
-    cPt3dr aJ12 = aP01_3d * aDm_1.GetElem(cPt2di(1,0)) + aP12_3d * aDm_1.GetElem(cPt2di(1,1));
+    cDenseMatrix<tREAL8> aMat_In(2,3);
+    MMVII::SetCol(aMat_In,0,aP01_3d);
+    MMVII::SetCol(aMat_In,1,aP12_3d);
 
-    // JT J manually
 
-    /*
-         |aa bb|
-    JTJ =|     |
-         |bb cc|
-    */
+    auto aC = aMat_In.Transpose()*aMat_In;
+    auto aG = aMat_Out.Transpose()*aMat_Out;
 
-    tREAL8 aa = Scal(aJ01,aJ01);
-    tREAL8 bb = Scal(aJ01,aJ12);
-    tREAL8 cc = Scal(aJ12,aJ12);
 
-    tREAL8 trace = aa + cc;
-    tREAL8 det = aa*cc - bb*bb;
-    tREAL8 temp = std::sqrt(std::max(0.0, trace*trace * 0.25 - det));
-    
+    double A_ = aC.Det();
+    double C_ = aG.Det();
 
-    // eigen values
-    tREAL8 lambda1 = trace * 0.5 + temp;
-    tREAL8 lambda2 = trace * 0.5 - temp;
-    
-    tREAL8 sigma1 = std::sqrt(lambda1);
-    tREAL8 sigma2 = std::sqrt(lambda2);
+    // double trCG  = c22*g11 - 2.0*c12*g12 + c11*g22;
+
+    double tr_CG = aC.GetElem(cPt2di(1,1)) * aG.GetElem(cPt2di(0,0)) 
+                    - 2.0 * aC.GetElem(cPt2di(0,1)) * aG.GetElem(cPt2di(0,1))
+                    + aC.GetElem(cPt2di(0,0)) * aG.GetElem(cPt2di(1,1));
+
+    double B_ = -tr_CG;
+
+    //      |A_ B_|
+    // MAT =|     |
+    //      |B_ C_|
+
+    double disc  = std::sqrt(std::max(0.0, B_*B_ - 4.0*A_*C_));
+
+    // biggest eigenvalue
+    double lambda_1    = (-B_ + disc) / (2.0*A_);
+    double lambda_2    = (-B_ - disc) / (2.0*A_);
+
+    double sigma1 = std::sqrt(std::max(0.0, lambda_1));
+    double sigma2 = std::sqrt(std::max(0.0, lambda_2));
 
     aStretchingThreshold = (sigma1/sigma2) ;
 
-    // dirichlet energy 
-    //aStretchingThreshold= (sigma1*sigma1)+ (sigma2*sigma2)+ 1/(sigma1*sigma1) + 1/(sigma2*sigma2);
-
-    if( (sigma2<1e-6) || (aStretchingThreshold > mMaxStretching))
+    if( (sigma2<1e-6) ||  (aStretchingThreshold > mMaxStretching))
         return true;
     else
     {
@@ -476,37 +486,6 @@ bool cZBuffer::IsStretched(const tTri3dr & aTriIn, const tTri3dr & aTri3, double
     }
 
     return false;
-
-
-    /*
-
-    auto aJac = aDS * aDm_1;
-
-
-
-
-    auto aJacTaJac = aJac.Transpose()* aJac;
-
-    // eigen val
-    const cDenseVect<tREAL8> anEV = aJacTaJac.Eigen_Decomposition().mEigenVal_R;
-
-    //evaluate stretching level 
-    double aRatio = anEV(0)/anEV(1);
-    //double anArea = anEV(0)*anEV(1);
-    //StdOut()<<"aRatio "<<aRatio<<std::endl;
-    if( aRatio > mMaxStretching) return true;
-
-    // symmetric dirichlet energy 
-
-    if(anEV(1)<1e-6)
-        return true ;
-
-    if( aRatio > mMaxStretching) 
-        return true;
-
-    return false;
-
-    */
 
 }
 

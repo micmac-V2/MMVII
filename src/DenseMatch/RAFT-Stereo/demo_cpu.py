@@ -31,8 +31,7 @@ def demo(args):
     model.eval()
 
     output_file = Path(args.output_file)
-    #output_directory.mkdir(exist_ok=True)
-    #output_directory.mkdir(exist_ok=True)z
+
 
     with torch.no_grad():
         left_images = sorted(glob.glob(args.left_imgs, recursive=True))
@@ -43,15 +42,15 @@ def demo(args):
             image1 = load_image(imfile1,DEVICE)
             image2 = load_image(imfile2,DEVICE)
 
-            padder = InputPadder(image1.shape,mode="", divis_by=32)
-            image1, image2 = padder.pad(image1, image2)
+            #padder = InputPadder(image1.shape,mode="sintel", divis_by=32)
+            #image1, image2 = padder.pad(image1, image2)
+            
             """print( image1.shape, image2.shape)
-
-            tf.imwrite('/home/MAChebbi/Documents/study_change_alti/d38_isere/ll1.tif',image1[0,1,:,:].squeeze().detach().numpy())
-            tf.imwrite('/home/MAChebbi/Documents/study_change_alti/d38_isere/rr1.tif',image2[0,1,:,:].squeeze().detach().numpy())"""
-
+            tf.imwrite('/home/MAChebbi/Documents/study_change_alti/d38_isere/MaJ_MNS_IA/test_example_epipolar/testfusion/raft_check_inference/ll1.tif',image1[0,1,:,:].squeeze().detach().numpy())
+            tf.imwrite('/home/MAChebbi/Documents/study_change_alti/d38_isere/MaJ_MNS_IA/test_example_epipolar/testfusion/raft_check_inference/rr1.tif',image2[0,1,:,:].squeeze().detach().numpy())
+            """
             _, flow_up = model(image1, image2, iters=args.valid_iters, test_mode=True)
-            flow_up = padder.unpad(flow_up).squeeze()
+            #flow_up = padder.unpad(flow_up).squeeze()
 
             file_stem = imfile1#.split('/')[-2]
             #if args.save_numpy:

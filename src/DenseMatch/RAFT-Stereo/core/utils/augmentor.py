@@ -58,7 +58,13 @@ class AdjustGamma(object):
         return f"Adjust Gamma {self.gamma_min}, ({self.gamma_max}) and Gain ({self.gain_min}, {self.gain_max})"
 
 class FlowAugmentor:
-    def __init__(self, crop_size, min_scale=-0.2, max_scale=0.5, do_flip=True, yjitter=False, saturation_range=[0.6,1.4], gamma=[1,1,1,1]):
+    def __init__(self, crop_size, 
+                 min_scale=-0.2, 
+                 max_scale=0.5, 
+                 do_flip=True,
+                 yjitter=False, 
+                 saturation_range=[0.6,1.4], 
+                 gamma=[1,1,1,1]):
 
         # spatial augmentation params
         self.crop_size = crop_size
@@ -72,7 +78,7 @@ class FlowAugmentor:
         self.yjitter = yjitter
         self.do_flip = do_flip
         self.h_flip_prob = 0.5
-        self.v_flip_prob = 0.1
+        self.v_flip_prob = 0.3
 
         # photometric augmentation params
         self.photo_aug = Compose([ColorJitter(brightness=0.4, contrast=0.4, saturation=saturation_range, hue=0.5/3.14), AdjustGamma(*gamma)])
@@ -127,6 +133,7 @@ class FlowAugmentor:
         scale_x = np.clip(scale_x, min_scale, None)
         scale_y = np.clip(scale_y, min_scale, None)
 
+    
         if np.random.rand() < self.spatial_aug_prob:
             # rescale the images
             img1 = cv2.resize(img1, None, fx=scale_x, fy=scale_y, interpolation=cv2.INTER_LINEAR)
@@ -135,17 +142,12 @@ class FlowAugmentor:
             flow = flow * [scale_x, scale_y]
 
         if self.do_flip:
-            if np.random.rand() < self.h_flip_prob and self.do_flip == 'hf': # h-flip
+            if np.random.rand() > self.h_flip_prob: # h-flip with flow negation
                 img1 = img1[:, ::-1]
                 img2 = img2[:, ::-1]
                 flow = flow[:, ::-1] * [-1.0, 1.0]
 
-            if np.random.rand() < self.h_flip_prob and self.do_flip == 'h': # h-flip for stereo
-                tmp = img1[:, ::-1]
-                img1 = img2[:, ::-1]
-                img2 = tmp
-
-            if np.random.rand() < self.v_flip_prob and self.do_flip == 'v': # v-flip
+            if np.random.rand() < self.v_flip_prob:
                 img1 = img1[::-1, :]
                 img2 = img2[::-1, :]
                 flow = flow[::-1, :] * [1.0, -1.0]

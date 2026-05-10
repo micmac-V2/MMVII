@@ -12,6 +12,7 @@ from typing import Dict, List, Literal, Union,Tuple
 from pathlib import Path
 import pandas as pd
 import tifffile as tf
+from core.utils.augmentor import FlowAugmentor
 
 from typing import Callable, List
 
@@ -123,8 +124,7 @@ class HDF5Dataset(Dataset):
         sign_disp_multiplier: Number = 1,
         masq_divider: Number = 1,
         subtile_overlap_train: Number = 0,
-        train_transform: List[Callable] = None,
-        eval_transform: List[Callable] = None,
+        aug_params: Dict = None,
     ):
         """Initialization, taking care of HDF5 dataset preparation if needed, and indexation of its content.
 
@@ -142,9 +142,6 @@ class HDF5Dataset(Dataset):
             eval_transform (List[Callable], optional): Transforms to apply to a sample for evaluation (test/val sets). Defaults to None.
         """
 
-        self.train_transform = train_transform
-        self.eval_transform = eval_transform
-
         self.tile_width = tile_width
         self.tile_height=tile_height
         self.patch_size=patch_size
@@ -158,6 +155,9 @@ class HDF5Dataset(Dataset):
 
         # Instantiates these to null;
         # They are loaded within __getitem__ to support multi-processing training.
+        # add augmentor 
+        self.augmentor = FlowAugmentor(**aug_params) if aug_params else None
+
         self.dataset = None
         self._samples_hdf5_paths = None
 
@@ -179,15 +179,10 @@ class HDF5Dataset(Dataset):
         # Use property once to be sure that samples are all indexed into the hdf5 file.
         self.samples_hdf5_paths
 
-    def __getitem__(self, idx: int) -> Optional[Data]:
+    """def __getitem__(self, idx: int) -> Optional[Data]:
         sample_hdf5_path = self.samples_hdf5_paths[idx]
         data = self._get_data(sample_hdf5_path)
         #----------------------------------------------------------------------------#
-        transform = self.train_transform
-        if sample_hdf5_path.startswith("val") or sample_hdf5_path.startswith("test"):
-            transform = self.eval_transform
-        if transform:
-            data = transform(data)
         img1=data._left.squeeze().repeat(3,1,1).float()
         img2=data._right.squeeze().repeat(3,1,1).float()
         disp = data._disp.squeeze()
@@ -201,8 +196,52 @@ class HDF5Dataset(Dataset):
         valid = (flow[0].abs() < 512) & (flow[1].abs() < 512)
         flow = flow[:1]
         return  img1, img2, flow, valid.float()
+    """   
+
+    def __getitem__(self, idx: int) -> Optional[Data]:
+        # Get the data from the HDF5 file with the augmentor applied if in training mode.
+        sample_hdf5_path = self.samples_hdf5_paths[idx]
+        data = self._get_data(sample_hdf5_path)
+
+        img1 = data._left
+        img2 = data._right
+        disp = data._disp
+
+        if img1.ndim == 3:
+            img1 = img1.squeeze(0)
+        if img2.ndim == 3:
+            img2 = img2.squeeze(0)
+        if disp.ndim == 3:
+            disp = disp.squeeze(0)
 
 
+        # grayscale images
+        if len(img1.shape) == 2:
+            img1 = np.tile(img1[...,None], (1, 1, 3))
+            img2 = np.tile(img2[...,None], (1, 1, 3))
+        else:
+            img1 = img1[..., :3]
+            img2 = img2[..., :3]
+
+        if isinstance(disp, tuple):
+            disp, valid = disp
+        else:
+            valid = disp < 512
+
+        flow = np.stack([-disp, np.zeros_like(disp)], axis=-1)
+
+        if self.augmentor is not None:
+            img1, img2, flow = self.augmentor(img1, img2, flow)
+
+        img1 = torch.from_numpy(img1).permute(2, 0, 1).float()
+        img2 = torch.from_numpy(img2).permute(2, 0, 1).float()
+        flow = torch.from_numpy(flow).permute(2, 0, 1).float()
+
+        valid = (flow[0].abs() < 512) & (flow[1].abs() < 512)
+        flow = flow[:1]
+
+        return img1, img2, flow, valid.float()
+    
 
     def _get_data(self, sample_hdf5_path: str) -> Data:
         """Loads a Data object from the HDF5 dataset.
@@ -217,13 +256,13 @@ class HDF5Dataset(Dataset):
             self.dataset = h5py.File(self.hdf5_file_path, "r")
         split,basename=osp.dirname(sample_hdf5_path),osp.basename(sample_hdf5_path)
 
-        grp = self.dataset[split][basename]#[sample_hdf5_path]
+        grp = self.dataset[split][basename]
 
         return Data(
-            _left=torch.from_numpy(grp["l"][...]),
-            _right=torch.from_numpy(grp["r"][...]),
-            _disp=torch.from_numpy(grp["d"][...]).mul(self.sign_disp_multiplier), # do it once for all 
-            _masq=torch.from_numpy(grp["m"][...]).div(self.masq_divider), # do it once for all
+            _left=grp["l"][...].astype(np.uint8),
+            _right=grp["r"][...].astype(np.uint8),
+            _disp=grp["d"][...] * self.sign_disp_multiplier, # do it once for all 
+            _masq=grp["m"][...] / self.masq_divider, # do it once for all
         )
     
 

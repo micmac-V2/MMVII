@@ -56,7 +56,7 @@ template <class Type> int  ProgrIndexPseudoMediane(const std::vector<Type> & aVO
    }
    // recursively compute pseudo median of agregation
    return ProgrIndexPseudoMediane(aVObj,aVCluster,aNbMax);
-   
+
 }
 
 
@@ -81,7 +81,7 @@ template <class Type> cRotation3D<Type>::cRotation3D() :
 {
 }
               // cRotation3D<Type>(cDenseMatrix<Type>(3,3,eModeInitImage::eMIA_Null),false)
-              
+
 template <class Type> cRotation3D<Type>::cRotation3D(const cDenseMatrix<Type> & aMat,bool RefineIt) :
    mMat (aMat)
 {
@@ -1087,11 +1087,20 @@ cPt3dr cSampleSphere3D::KthPt(int aKPt) const
 {
     std::vector<tREAL8> aVC;
     mSHC.KthPt(aVC,aKPt);
-    
+
     return VUnit(cPt3dr::FromStdVector(aVC));
 }
 
+tREAL8  cSampleSphere3D::SqDist(const cPt3dr& aP1,const cPt3dr&aP2) const
+{
+    tREAL8 aD2 = SqN2(aP1-aP2);
+    if (!mSHC.IsProj())
+        return aD2;
 
+    return std::min(aD2,SqN2(aP1+aP2));
+}
+
+bool cSampleSphere3D::IsProj() const {return mSHC.IsProj();}
 
 /* ************************************************* */
 /*                                                   */
@@ -1108,7 +1117,8 @@ cSampleHyperCube::cSampleHyperCube(int aDim,int aNbStep,bool isProj) :
 {
 }
 
-int cSampleHyperCube::NbSamples() const {return mNbSamples;}
+int  cSampleHyperCube::NbSamples() const {return mNbSamples;}
+bool cSampleHyperCube::IsProj()    const {return mIsProj   ;}
 
 tREAL8 cSampleHyperCube::Int2Coord(int aK) const
 {
@@ -1130,7 +1140,7 @@ void  cSampleHyperCube::KthPt(std::vector<tREAL8> & aPts,int aKSample) const
    }
    aPts.at(aIndF) = aSign;  // now fix to -1/+1 in the face
 
-   
+
    aKSample /= mNbF;  /// now we code the cube of Dim-1 remaining direction
    for (int aD=1 ; aD<mDim ; aD++)
    {
@@ -1156,7 +1166,7 @@ template <const int Dim> void Tpl_TestcSampleHyperCube(int aNbStep)
           cPtxd<tREAL8,Dim> aPt = cPtxd<tREAL8,Dim>::FromStdVector(aVC);
 
           UpdateMin(aDMin,NormInf(aPt-aPRand));
-    
+
           // test they are on the cube
           MMVII_INTERNAL_ASSERT_bench(std::abs(NormInf(aPt)-1)<1e-9,"Tpl_TestcSampleHyperCube N1");
        }
@@ -1165,6 +1175,8 @@ template <const int Dim> void Tpl_TestcSampleHyperCube(int aNbStep)
        // StdOut() << " DMIN" << aDMin << " " << 1.0/(2.0 * aNbStep) << "\n";
    }
 }
+
+
 
 void  TestcSampleHyperCube()
 {
@@ -1185,7 +1197,12 @@ void  TestcSampleHyperCube()
 /*               cSampleQuat                         */
 /*                                                   */
 /* ************************************************* */
+cSampleQuat::cSampleQuat(int aNbStep,bool Is4R) :
+    cSampleHyperCube(4,aNbStep,Is4R)
+{
+}
 
+/*
 cSampleQuat::cSampleQuat(int aNbStep,bool Is4R) :
    m4R     (Is4R),
    mNbF    (m4R ? 4 :8),
@@ -1193,24 +1210,30 @@ cSampleQuat::cSampleQuat(int aNbStep,bool Is4R) :
    mNbRot  (round_ni(mNbF*std::pow(mNbStep,3)))
 {
 }
+*/
 
 cSampleQuat cSampleQuat::FromNbRot(int aNbRot,bool Is4R)
 {
         return cSampleQuat(round_up (std::pow(aNbRot/(Is4R ? 4.0 : 8.0),1/3.0)),Is4R) ;
 }
 
-size_t cSampleQuat::NbRot() const { return mNbRot; }
+size_t cSampleQuat::NbRot() const { return mNbSamples; }
+//size_t cSampleQuat::NbRot() const { return mNbRot; }
+
 size_t cSampleQuat::NbStep() const { return mNbStep; }
+//size_t cSampleQuat::NbStep() const { return mNbStep; }
+
 
 std::vector<cPt4dr>  cSampleQuat::VecAllQuat() const
 {
-    std::vector<cPt4dr> aRes(mNbRot);
-    for (size_t aK=0; aK<mNbRot ; aK++)
+    std::vector<cPt4dr> aRes(NbRot());
+    for (size_t aK=0; aK<NbRot() ; aK++)
             aRes[aK] = KthQuat(aK);
 
     return aRes;
 }
 
+/*
 tREAL8 cSampleQuat::Int2Coord(int aK) const
 {
     //  the sampling must be regular of step 1/2NbStep and
@@ -1219,15 +1242,23 @@ tREAL8 cSampleQuat::Int2Coord(int aK) const
     //               !! Bad computation if conversion to int is not forced for mNbStep
     return   (aK*2+1-(int)mNbStep) / double(mNbStep);
 }
+*/
+
 
 tRotR  cSampleQuat::KthRot(int aKQ) const
 {
-    MMVII_INTERNAL_ASSERT_always(m4R,"cSampleQuat::KthRot NoRot");
+    MMVII_INTERNAL_ASSERT_always(mIsProj,"cSampleQuat::KthRot NoRot");
     return  tRotR (Quat2MatrRot(KthQuat(aKQ)),false);
 }
 
+
 cPt4dr  cSampleQuat::KthQuat(int aK) const
 {
+    std::vector<tREAL8> aVCoord;
+    KthPt(aVCoord,aK);
+    return VUnit(cPt4dr::FromStdVector(aVCoord));
+
+    /*
    //  NbRot = 8 *  NbStep ^ 3
    cPt4dr  aRes;
 
@@ -1248,7 +1279,10 @@ cPt4dr  cSampleQuat::KthQuat(int aK) const
    aRes[(++aIndF)%4] = Int2Coord(aIndYZ/mNbStep); // and Z
 
    return VUnit(aRes);
+   */
 }
+
+
 
 std::vector<tREAL8 >  cSampleQuat::TestVecMinDist(size_t aNbTest)  const
 {
@@ -1272,7 +1306,7 @@ std::vector<tREAL8 >  cSampleQuat::TestVecMinDist(size_t aNbTest)  const
         for (size_t aKP=0 ; aKP<aNbTest ; aKP++)
         {
             //  distance between rot or quat, depending on "m4R"
-            tREAL8 aD = m4R ? Square(aM1.L2Dist(aVRot[aKP]))  : SqN2(aP1-aVPts[aKP]);
+            tREAL8 aD = mIsProj ? Square(aM1.L2Dist(aVRot[aKP]))  : SqN2(aP1-aVPts[aKP]);
             UpdateMin(aVDMin[aKP],aD);
         }
     }
@@ -1303,6 +1337,7 @@ tREAL8 cSampleQuat::TestMinDistPairQuat() const
     }
     return std::sqrt(aD12Min);
 }
+
 
 /*  Test of sampling of quaternion ; as it is difficult to make stritc test, by defauklt it is inactivated,
  *  if need activate in the if and check the values
@@ -1412,6 +1447,7 @@ void BenchSampleQuat()
         StdOut() << "DMAXR=" << aSQR.TestStatMinDist(aNbTest).Max() << std::endl;
 
         StdOut() << "D12Min=" << aSQ.TestMinDistPairQuat() << std::endl;
+        getchar();
     }
     TestcSampleHyperCube();
 }

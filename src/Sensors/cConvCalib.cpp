@@ -385,6 +385,8 @@ int cAppli_OriConvV1V2::Exe()
     for (const auto & aNameOri : aListOriV1)
     {
         std::string aNameIm = V1NameOri2NameImage(aNameOri); // ReplacePattern(ThePatOriV1,"$1",aName);
+        StdOut() << "Processing " << aNameOri << " -> " << aNameIm << "\n";
+        
         std::string aNameCalib ="";
         if (mUseStdNameCalib)
            aNameCalib = mPhProj.StdNameCalibOfImage(aNameIm);

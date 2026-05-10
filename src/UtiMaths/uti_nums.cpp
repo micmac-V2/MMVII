@@ -608,14 +608,42 @@ template <class Type> Type  NonConstMediane(std::vector<Type> & aV)
    return (aV.at(aSz/2-1) + aV.at(aSz/2)) / 2.0;
 }
 
+
 template <class Type> Type  ConstMediane(const std::vector<Type> & aV)
 {
     std::vector<Type> aDup(aV);
     return NonConstMediane(aDup);
 }
 
+template <class Type> Type NonConstWMediane(std::vector<std::pair<Type,Type>> & aVW, 
+                                        Type & aTotWeight)
+{
+    if(aVW.empty()) return 0.0;
+    //sort
+    std::sort(aVW.begin(), aVW.end(),
+        [](const auto& a, const auto& b) { return a.first < b.first; });
+
+    // find median at weightprop >= 0.5
+    if(aTotWeight==0.0)
+    {
+        Type aTotWeight = 0.0;
+        for (const auto& p : aVW) aTotWeight += p.second;
+    }
+    if(aTotWeight==0.0) return 0.0 ;
+
+    Type WeigtCum = 0.0;
+    for (const auto& [aZ, aW] : aVW) {
+        WeigtCum += aW;
+        if (WeigtCum / aTotWeight >= 0.5)
+            return aZ;
+    }
+    return 0.0;
+}
+
 template  double NonConstMediane(std::vector<double> &);
 template  double ConstMediane(const std::vector<double> &);
+template  double NonConstWMediane(std::vector<std::pair<double,double>> & ,
+                                 double &);
 
 
 bool SignalAtFrequence(tREAL8 anIndex,tREAL8 aFreq,tREAL8  aCenterPhase)

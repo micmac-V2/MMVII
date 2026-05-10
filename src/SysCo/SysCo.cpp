@@ -72,11 +72,27 @@ tPt3dr fromPjCoord(const PJ_COORD &aPtPJ)
 
 
 //---------------------------------------------------
+void AddData(const cAuxAr2007 & anAux, cCsteVerticalization & aCsteV)
+{
+    MMVII::AddData(cAuxAr2007("Vertical",anAux),aCsteV.mVertical);
+}
+
+cCsteVerticalization::cCsteVerticalization(const cPt3dr & aVert) :
+    mVertical(aVert)
+{
+}
+
+cCsteVerticalization::cCsteVerticalization() :
+  cCsteVerticalization(cPt3dr(0,0,1))
+{
+}
+
 
 void cSysCoData::AddData(const  cAuxAr2007 & anAuxInit)
 {
     cAuxAr2007 anAux("SysCoData",anAuxInit);
     MMVII::AddData(cAuxAr2007("Def",anAux),mDef);
+    MMVII::AddOptData(anAux,"CsteVert",mCsteVert);
 }
 
 void AddData(const cAuxAr2007 & anAux, cSysCoData & aSysCoData)
@@ -101,9 +117,9 @@ public :
     tPt Value(const tPt & in)   const override; //< to GeoC: error
     tPt Inverse(const tPt & in) const override; //< to GeoC: error
 
-     void SetVertical(const tPt &)   override;
+   /*  void SetVertical(const tPt &)   override;
      tPt  getCsteUpDirVert() const override;
-     bool isVerticalCste()   const override;
+     bool isVerticalCste()   const override;*/
 
 protected:
     cSysCoLocal(const std::string & def, bool aDebug);
@@ -247,11 +263,13 @@ bool cSysCo::isEuclidian() const
 
 cSysCoData cSysCo::toSysCoData()
 {
-    return {mDef};
+    return {mDef,mCsteVert};
 }
 
 cRotation3D<tREAL8> cSysCo::getRot2Vertical(const tPt &)   const
 {
+
+    // MPD->JMM Why is not defined for geographic coordinate ?
     MMVII_INTERNAL_ASSERT_User(false, eTyUEr::eSysCo,
                                std::string("Error: getVertical() not defined for SysCo type ") + E2Str(mType));
     return cRotation3D<tREAL8>::Identity();
@@ -259,23 +277,27 @@ cRotation3D<tREAL8> cSysCo::getRot2Vertical(const tPt &)   const
 
 cPt3dr cSysCo::getUpDirVert(const tPt & aPt)   const
 {
+    if (isVerticalCste())
+        return getCsteUpDirVert();
+
     // To check with JMM
     return getRot2Vertical(aPt).Value(cPt3dr(0,0,1));
 }
 
 bool cSysCo::isVerticalCste()   const
 {
-     return false;
+     return mCsteVert.has_value();
 }
 
 cPt3dr  cSysCo::getCsteUpDirVert() const
 {
-    MMVII_INTERNAL_ERROR("No getCsteUpDirVert");
-    return cPt3dr(0,0,0);
+    MMVII_INTERNAL_ASSERT_User(isVerticalCste(), eTyUEr::eSysCo,"No getCsteUpDirVert");
+    return mCsteVert.value().mVertical;
 }
-void cSysCo::SetVertical(const tPt &)
+
+void cSysCo::SetVertical(const tPt & aPt)
 {
-    MMVII_INTERNAL_ERROR("No SetVertical");
+    mCsteVert  = cCsteVerticalization(aPt);
 }
 
 
@@ -329,29 +351,37 @@ const tPoseR* cSysCo::getTranfo2GeoC() const
     return nullptr;
 }
 
-tPtrSysCo cSysCo::MakeSysCo(const std::string &aDef, bool aDebug)
+tPtrSysCo cSysCo::MakeSysCo(const std::string &aDef, bool aDebug,std::optional<cCsteVerticalization> aCsteVert)
 {
+    tPtrSysCo aRes(nullptr);
     if (starts_with(aDef,MMVII_SysCoLocal))
     {
-        return tPtrSysCo(new cSysCoLocal(aDef, aDebug));
+        aRes= tPtrSysCo(new cSysCoLocal(aDef, aDebug));
     }
     else if (starts_with(aDef,MMVII_SysCoGeoC))
     {
-        return tPtrSysCo(new cSysCoGeoC(aDef, aDebug));
+        aRes = tPtrSysCo(new cSysCoGeoC(aDef, aDebug));
     }
     else if (starts_with(aDef,MMVII_SysCoLEuc))
     {
-        return tPtrSysCo(new cSysCoLEuc(aDef, aDebug));
+        aRes= tPtrSysCo(new cSysCoLEuc(aDef, aDebug));
     }
     else if (starts_with(aDef,MMVII_SysCoRTL))
     {
-        return tPtrSysCo(new cSysCoRTL(aDef, aDebug));
+        aRes=  tPtrSysCo(new cSysCoRTL(aDef, aDebug));
     }
     else // def is supposed to be a libproj definition
     {
-        return tPtrSysCo(new cSysCoProj(aDef, aDebug));
+        aRes = tPtrSysCo(new cSysCoProj(aDef, aDebug));
     }
+
+    if (aCsteVert.has_value())
+        aRes->SetVertical(aCsteVert.value().mVertical);
+
+    return aRes;
 }
+
+
 
 tPtrSysCo cSysCo::makeRTL(const cPt3dr & anOrigin, const std::string & aSysCoInDef)
 {
@@ -374,7 +404,7 @@ tPtrSysCo cSysCo::FromFile(const std::string &aNameFile, bool aDebug)
 {
     cSysCoData aSysCoDataTmp;
     ReadFromFile(aSysCoDataTmp,aNameFile);
-    return MakeSysCo(aSysCoDataTmp.mDef, aDebug);
+    return MakeSysCo(aSysCoDataTmp.mDef, aDebug,aSysCoDataTmp.mCsteVert);
 }
 
 //------------------------------------------------------------
@@ -399,6 +429,8 @@ tPt3dr cSysCoLocal::Inverse(const tPt & in) const //< from GeoC
                                "Can not convert SysCoLocal from Geocentric")
     return {};
 }
+
+/*
 void cSysCoLocal::SetVertical(const tPt &aV)
 {
     mIsVerticalized = true;
@@ -410,7 +442,7 @@ cPt3dr  cSysCoLocal::getCsteUpDirVert() const
 {
     MMVII_INTERNAL_ASSERT_strong(mIsVerticalized, "cSysCoLocal::getCsteUpDirVert");
     return mUpVert;
-}
+}*/
 
 //------------------------------------------------------------
 

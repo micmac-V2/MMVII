@@ -774,7 +774,10 @@ template <const int Dim> class cVarPts
 
       void Add(const tPt&);  ///<  Add a new point
       tPt  VarPt() const;    ///<  Variance in x,y ...
+      tPt  Avg() const;    ///<  Variance in x,y ...
       tREAL8  StdDev() const;   ///< Standar deviation
+      tREAL8  UB_StdDev() const;   ///< Unbiased Standar deviation
+
    private :
       tREAL8  mNb;          ///< Number of points
       tPt     mSomP;        ///< Sum of points
@@ -852,6 +855,11 @@ class cStdStatRes
         cStdStatRes(const std::vector<tREAL8> &);
 
         void Add(tREAL8 aVal);
+
+        /// retunr the average if defined, and aDefIfUndef
+        std::string StrAvg(const std::string & aDefIfUndef="???") const;
+        /// retunr the unbiased estimation of stantdard dev if defined, and aDefIfUndef
+        std::string StrUBDevStd(const std::string & aDefIfUndef="???") const;
 
         tREAL8  Avg() const;
         tREAL8  QuadAvg() const;

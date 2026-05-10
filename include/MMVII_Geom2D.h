@@ -486,6 +486,10 @@ template <class Type>  class cAffin2D
           cAffin2D();
           tPt  Value(const tPt & aP) const ;
           tPt  Inverse(const tPt & aP) const ;
+
+          cTplBox<Type,2> ValueBox(const cTplBox<Type,2> & aBox) const;
+          cTplBox<Type,2> InverseBox(const cTplBox<Type,2> & aBox) const;
+          
           tTypeMapInv  MapInverse() const ;
 
           // ========== Accesors =================

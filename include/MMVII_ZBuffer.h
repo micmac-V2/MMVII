@@ -2,7 +2,7 @@
 #define  _MMVII_ZBUFFER_H_
 
 #include "MMVII_AllClassDeclare.h"
-
+#include "MMVII_Ptxd.h"
 
 
 namespace MMVII
@@ -59,6 +59,7 @@ class cMeshTri3DIterator : public cCountTri3DIterator
 {
      public :
         cMeshTri3DIterator(cTriangulation3D<tREAL8> *);
+        virtual ~cMeshTri3DIterator() = default;
 
         cPt3dr  KthP(int aKP) const override;
         tTri3dr KthF(int aKF) const override;
@@ -128,7 +129,10 @@ class  cZBuffer
                    double aResolOut,
                    bool aSameOri=false,
                    bool IsBascProc=false,
-                   cTri3DIterator * aMesh2DDepth=nullptr);
+                   cTri3DIterator * aMesh2DDepth=nullptr,
+                   const cPt2di & aForcedOutSize=cPt2di(-1,-1)
+               );
+
 
 
           ///
@@ -136,7 +140,7 @@ class  cZBuffer
           void MakeZBufForBasc(eZBufModeIter aMode);
 
 
-          const cPt2di  SzPix() ; ///< Accessor
+          const cPt2di & SzPix() const; ///< Accessor
           tIm   ZBufIm() const; ///< Accessor
           cResModeSurfD&  ResSurfD(size_t) ;   ///< accessor to VecResSurfD
           std::vector<cResModeSurfD> & VecResSurfD() ;   ///< accessor

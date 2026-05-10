@@ -22,10 +22,13 @@ class cStaticLidarImporter
     friend class cAppli_ImportStaticScan;
 public:
     cStaticLidarImporter();
-    void readPlyPoints(std::string aPlyFileName);
-    void readE57Points(std::string aE57FileName);
-    void readPtxPoints(std::string aPtxFileName);
-    bool read(const std::string & aName, bool OkNone=false, bool aForceStructured=false, std::string aStrInput2TSL="ijk"); //< Adapt to adequate function from postfix, return if some read suceeded
+    void readPlyPoints(std::string aPlyFileName, bool aForceGreenAsIntensity);
+    void readE57Points(std::string aE57FileName, bool aForceGreenAsIntensity);
+    void readPtxPoints(std::string aPtxFileName, bool aForceGreenAsIntensity);
+
+    /// Adapts to adequate function from postfix, return if some read suceeded
+    bool read(const std::string & aName, bool OkNone=false, bool aForceStructured=false,
+              std::string aStrInput2TSL="ijk", bool aForceGreenAsIntensity=false);
 
     void convertToThetaPhiDist();
     void convertToXYZ();
@@ -94,6 +97,15 @@ protected:
     cRotation3D<tREAL8> mRotInput2Raster; //< to go from z vertical to z view direction of PP, and make PPx in center
 };
 
+// record all data for each patch
+struct cLidarRasterPatch
+{
+    size_t                          mId;        //< Number in cStaticVector.mPatchCenters
+    std::vector<cPt2di>             mLPatchesP; //< px in raster, consituted by points in a lidar scan, begin() is center
+    std::unordered_set<std::string> mHiddenOnImage; //< for Im/scanB names, if hidden via zbuffers
+};
+
+
 class cStaticLidar: public cSensorCamPC
 {
     friend class cAppli_ImportStaticScan;
@@ -103,6 +115,7 @@ public :
     cStaticLidar(const std::string &aNameFile, const std::string & aStationName,
                  const std::string & aScanName, const tPose &aPose, cPerspCamIntrCalib *aCalib,
                  cRotation3D<tREAL8> aRotInput2Raster, tREAL8 aSigma);
+    ~cStaticLidar();
 
     static cStaticLidar *FromFile(const std::string & aNameScanFile, const std::string & aNameRastersDir="");
 
@@ -122,7 +135,7 @@ public :
     void SelectPatchCenters1(int aNbPatches);
     void SelectPatchCenters2(const cStaticLidarImporter &aSL_importer, int aNbPatches);
     void MakeVisu(const cPhotogrammetricProject & aPhProj) const;     ///< show 8bit dist image with patch centers
-    void MakePatches(std::list<std::set<cPt2di> > &aLPatches,
+    void MakePatches(std::list<cLidarRasterPatch> &aLPatches,
                      const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin) const;
 
     cPt3dr Image2InputXYZ(const cPt2di & aRasterPx) const; // in input frame
@@ -139,13 +152,18 @@ public :
 
     cPt2dr Ground2ImagePrecise(const cPt3dr & aGroundPt) const;
 
+    void TriangulateRegular(const std::string &aVisuPath, int aFactor=16);
+    void Triangulate(const std::string &aVisuPath, int aFactor=16);
+    cTriangulation3D<tREAL8> * getTriangulation() const;
+
     static std::string  PrefixName() ;
     std::string  V_PrefixName() const override;
     static std::string Pat2Sup(const std::string & aPatSelect);
 
     cDataIm2D<tREAL4> &getRasterDistance() const;
     bool IsValidPoint(const cPt2dr &aRasterPx) const;
-    tREAL8 Sigma() const { return mSigma; }
+    tREAL8 Sigma() const;
+    const std::vector<cPt2di> & PatchCenters() const;
 
 
 private :
@@ -184,6 +202,8 @@ private :
     std::unique_ptr<cIm2D<tREAL4>> mRasterScore; // updated on each filter, used to find patch centers. High=bad
 
     cRotation3D<tREAL8> mRotInput2Raster; //< to go from z vertical to z view direction of PP, and make PPx in center
+    // triangulation for patches selection
+    cTriangulation3D<tREAL8> * mTriangulation; ///< triangulation of the raster, for zbuffer
 };
 
 template <typename TYPE>

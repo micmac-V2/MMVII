@@ -76,7 +76,8 @@ cCollecSpecArg2007 & cAppli_HierarchSfm::ArgObl(cCollecSpecArg2007 & anArgObl)
 cCollecSpecArg2007 & cAppli_HierarchSfm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return    anArgOpt
-           <<  mPhProj.DPMulTieP().ArgDirInOpt("","Input features")
+           <<  mPhProj.DPMulTieP().ArgDirInOpt("","Input features (multiple tie-points format)")
+           <<  mPhProj.DPGndPt2D().ArgDirInOpt("","Input features (image measurements format)")
            <<  mPhProj.DPOrient().ArgDirInOpt("","Ground truth input orientation directory")
            <<  mPhProj.DPOrient().ArgDirOutOpt("","Global orientation output directory")
            //<<  mPhProj.DPOriTriplets().ArgDirOutOpt("","Directory for dmp-save of triplet (for faster read later)")
@@ -113,9 +114,31 @@ int cAppli_HierarchSfm::Exe()
         aMk3.NbIterBA() = mNbIterBA;
     if (mPhProj.DPMulTieP().DirInIsInit())
     {
-        aMk3.TPFolder() = mPhProj.DPMulTieP().DirIn() ;
+        aMk3.TPFolder() = mPhProj.DPMulTieP().DirIn();
         aMk3.InitTPtsStruct(mPhProj.DPMulTieP().DirIn(),aSetIm);
+    }
+    else if (mPhProj.DPGndPt2D().DirInIsInit())
+    {
+        // Build cComputeMergeMulTieP from pairwise cSetMesPtOf1Im matches (named GCP/target points)
+        std::vector<std::string> aSortedIm = aSetIm;
+        std::sort(aSortedIm.begin(), aSortedIm.end());
 
+        cMemoryInterfImportHom aMIIH;
+        for (size_t aK1=0; aK1<aSortedIm.size(); aK1++)
+        {
+            cSetMesPtOf1Im * aSetM1 = mPhProj.RemanentLoadMeasureIm(aSortedIm[aK1]);
+            if (!aSetM1) continue;
+            for (size_t aK2=aK1+1; aK2<aSortedIm.size(); aK2++)
+            {
+                cSetMesPtOf1Im * aSetM2 = mPhProj.RemanentLoadMeasureIm(aSortedIm[aK2]);
+                if (!aSetM2) continue;
+                cSetHomogCpleIm aCpleH;
+                aCpleH.AddPairSet(*aSetM1,*aSetM2);
+                if (aCpleH.NbH() > 0)
+                    aMIIH.Add(aCpleH,aSortedIm[aK1],aSortedIm[aK2]);
+            }
+        }
+        aMk3.InitTPtsStruct(new cComputeMergeMulTieP(aSortedIm,&aMIIH));
     }
 
     TimeSegm().SetIndex("MakeGraphPose");

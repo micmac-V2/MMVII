@@ -39,6 +39,7 @@ cCollecSpecArg2007 & cAppli_VisuPoseStr3D::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            << AOpt2007(mOutfile,"Outfile","Output filename",{eTA2007::HDV})
            << AOpt2007(mBinary,"Bin","Output in binary format",{eTA2007::HDV})
            << mPhProj.DPMulTieP().ArgDirInOpt("TPDir")
+           << mPhProj.DPGndPt2D().ArgDirInOpt()
         ;
 }
 
@@ -48,7 +49,8 @@ int cAppli_VisuPoseStr3D::Exe()
 
     if (!IsInit(&mOutfile))
         mOutfile = ("VisSFM_"+mPhProj.DPOrient().DirIn()+
-                    (mPhProj.DPMulTieP().DirInIsInit() ? "_"+mPhProj.DPMulTieP().DirIn() : "")  +".ply");
+                    (mPhProj.DPMulTieP().DirInIsInit() ? "_"+mPhProj.DPMulTieP().DirIn() :
+                     mPhProj.DPGndPt2D().DirInIsInit() ? "_"+mPhProj.DPGndPt2D().DirIn() : "")  +".ply");
 
 
     // vector of all image names
@@ -56,12 +58,16 @@ int cAppli_VisuPoseStr3D::Exe()
     // cameras
     std::vector<cSensorImage *> aVSens ;
 
-    // read names and cameras
+    // read names and cameras; skip images without an orientation
     for (const auto & aIm : VectMainSet(0))
     {
-        aVNames.push_back(aIm);
-        aVSens.push_back(mPhProj.ReadSensor(aIm,true,true));
-
+        cSensorImage* aSens = mPhProj.ReadSensor(aIm,true,true);
+        if (aSens)
+        {
+            aVNames.push_back(aIm);
+            aVSens.push_back(aSens);
+        }
+        else StdOut() << "Image " << aIm << " has no orientatoin" << std::endl;
     }
     // sort images alphbetically (and aVSens accordingly) for AllocStdFromMTPFromFolder
     Sort2VectFirstOne(aVNames,aVSens);
@@ -72,11 +78,32 @@ int cAppli_VisuPoseStr3D::Exe()
     {
         aTPts = AllocStdFromMTPFromFolder(
                 mPhProj.DPMulTieP().DirIn(),aVNames,mPhProj,true,false,true);
+    }
+    else if (mPhProj.DPGndPt2D().DirInIsInit())
+    {
+        // aVNames is already sorted (Sort2VectFirstOne above)
+        cMemoryInterfImportHom aMIIH;
+        for (size_t aK1=0; aK1<aVNames.size(); aK1++)
+        {
+            cSetMesPtOf1Im * aSetM1 = mPhProj.RemanentLoadMeasureIm(aVNames[aK1]);
+            if (!aSetM1) continue;
+            for (size_t aK2=aK1+1; aK2<aVNames.size(); aK2++)
+            {
+                cSetMesPtOf1Im * aSetM2 = mPhProj.RemanentLoadMeasureIm(aVNames[aK2]);
+                if (!aSetM2) continue;
+                cSetHomogCpleIm aCpleH;
+                aCpleH.AddPairSet(*aSetM1,*aSetM2);
+                if (aCpleH.NbH() > 0)
+                    aMIIH.Add(aCpleH,aVNames[aK1],aVNames[aK2]);
+            }
+        }
+        aTPts = new cComputeMergeMulTieP(aVNames,&aMIIH);
+    }
 
     // intersect in 3d
-    for (auto & aPair : aTPts->Pts())
-        MakePGround(aPair,aVSens);
-    }
+    if (aTPts)
+        for (auto & aPair : aTPts->Pts())
+            MakePGround(aPair,aVSens);
 
     WritePly(aTPts,aVSens);
 
@@ -92,7 +119,7 @@ tMMVII_UnikPApli Alloc_VisuPoseStr3D(const std::vector<std::string> & aVArgs,con
 
 cSpecMMVII_Appli  TheSpec_VisuPoseStr3D
     (
-        "___VisSfm",
+        "VisSfm",
         Alloc_VisuPoseStr3D,
         "Create PLY with poses and 3D structure",
         {eApF::Ori},

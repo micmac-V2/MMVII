@@ -112,12 +112,21 @@ def sequence_loss(flow_preds, flow_gt, valid, loss_gamma=0.9, max_flow=700):
 
 def fetch_optimizer(args, model):
     """ Create the optimizer and learning rate scheduler """
-    optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.wdecay, eps=1e-8)
+    optimizer = optim.AdamW(model.parameters(), 
+                            lr=args.lr, 
+                            weight_decay=args.wdecay, 
+                            eps=1e-8)
 
-    #scheduler = optim.lr_scheduler.OneCycleLR(optimizer, args.lr, args.num_steps+100,
-    #        pct_start=0.01, cycle_momentum=False, anneal_strategy='linear')
-    
-    scheduler = optim.lr_scheduler.StepLR( optimizer, step_size=5000, gamma=0.7)
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer,
+        max_lr=1e-4,          # peak LR
+        total_steps=args.num_steps,
+        pct_start=0.05,        # 5% warmup → 1500 steps
+        anneal_strategy='cos', # cosine annealing after peak
+        div_factor=25,         # initial_lr = max_lr / 25 = 4e-6
+        final_div_factor=1000, # final_lr = max_lr / 1000 = 1e-7
+        cycle_momentum=False   # required for AdamW
+)
 
     return optimizer, scheduler
 
@@ -177,15 +186,22 @@ def train(args):
     model = nn.DataParallel(RAFTStereo(args))
     print("Parameter Count: %d" % count_parameters(model))
 
-    # read hdf5 dataset 
+    # get augmentation parameters
+    aug_params = {'crop_size': args.image_size, 
+                  'min_scale': args.spatial_scale[0], 
+                  'max_scale': args.spatial_scale[1], 
+                  'do_flip': True, 
+                  'yjitter': False}
 
+    # read hdf5 dataset 
     stereo_dataset= HDF5StereoDataModule(None,
                                 None,
                                 args.hdf5_file_path,
                                 sign_disp_multiplier=-1.0,
                                 batch_size=args.batch_size,
-                                num_workers=12,##int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2,
+                                num_workers=12,
                                 prefetch_factor=6,
+                                aug_params=aug_params
                                 )
     
 
@@ -283,8 +299,8 @@ if __name__ == '__main__':
     # Training parameters
     parser.add_argument('--batch_size', type=int, default=6, help="batch size used during training.")
     parser.add_argument('--train_datasets', nargs='+', default=['sceneflow'], help="training datasets.")
-    parser.add_argument('--lr', type=float, default=0.0002, help="max learning rate.")
-    parser.add_argument('--num_steps', type=int, default=500000, help="length of training schedule.")
+    parser.add_argument('--lr', type=float, default=0.0001, help="max learning rate.")
+    parser.add_argument('--num_steps', type=int, default=60000, help="length of training schedule.")
     parser.add_argument('--image_size', type=int, nargs='+', default=[512, 512], help="size of the random image crops used during training.")
     parser.add_argument('--train_iters', type=int, default=16, help="number of updates to the disparity field in each forward pass.")
     parser.add_argument('--wdecay', type=float, default=.00001, help="Weight decay in optimizer.")
@@ -306,8 +322,8 @@ if __name__ == '__main__':
     # Data augmentation
     parser.add_argument('--img_gamma', type=float, nargs='+', default=None, help="gamma range")
     parser.add_argument('--saturation_range', type=float, nargs='+', default=None, help='color saturation')
-    parser.add_argument('--do_flip', default=False, choices=['h', 'v'], help='flip the images horizontally or vertically')
-    parser.add_argument('--spatial_scale', type=float, nargs='+', default=[0, 0], help='re-scale the images randomly')
+    parser.add_argument('--do_flip', default=True, choices=['h', 'v'], help='flip the images horizontally or vertically')
+    parser.add_argument('--spatial_scale', type=float, nargs='+', default=[-0.2, 0.5], help='re-scale the images randomly')
     parser.add_argument('--noyjitter', action='store_true', help='don\'t simulate imperfect rectification')
 
 

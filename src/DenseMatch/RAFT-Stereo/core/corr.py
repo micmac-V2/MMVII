@@ -13,6 +13,7 @@ except:
     # alt_cuda_corr is not compiled
     pass
 
+import tifffile as tf
 
 class CorrSampler(torch.autograd.Function):
     @staticmethod
@@ -128,7 +129,6 @@ class CorrBlock1D:
         r = self.radius
         coords = coords[:, :1].permute(0, 2, 3, 1)
         batch, h1, w1, _ = coords.shape
-
         out_pyramid = []
         for i in range(self.num_levels):
             corr = self.corr_pyramid[i]

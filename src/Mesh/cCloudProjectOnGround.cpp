@@ -20,7 +20,7 @@
 namespace MMVII
 {
 
- class cAppliNuageBascule : public cMMVII_Appli,
+ class cAppliCloudProjectOnGround : public cMMVII_Appli,
                             public cAppliParseBoxIm<tREAL4>
 {
     private:
@@ -74,7 +74,7 @@ namespace MMVII
         std::vector <tU_INT1> mVMasq;
 
     public:
-        cAppliNuageBascule(const std::vector<std::string> & aVArgs, const cSpecMMVII_Appli & aSpec );
+        cAppliCloudProjectOnGround(const std::vector<std::string> & aVArgs, const cSpecMMVII_Appli & aSpec );
         static constexpr tREAL8 mInfty =  -1e10;
         std::pair<cPt3dr,cPt3dr> BascOnePoint(cPt2di A,  cPt2di anOffSet);
         //void MakeBasc();
@@ -89,7 +89,7 @@ namespace MMVII
 };
 
 
-cAppliNuageBascule::cAppliNuageBascule(const std::vector<std::string> & aVArgs, const cSpecMMVII_Appli & aSpec ):
+cAppliCloudProjectOnGround::cAppliCloudProjectOnGround(const std::vector<std::string> & aVArgs, const cSpecMMVII_Appli & aSpec ):
     cMMVII_Appli(aVArgs,aSpec),
     cAppliParseBoxIm<tREAL4>(*this,eForceGray::No,cPt2di(2000,2000),cPt2di(50,50),true),
     mCamPC(nullptr),
@@ -117,12 +117,12 @@ cAppliNuageBascule::cAppliNuageBascule(const std::vector<std::string> & aVArgs, 
     mBascCorrel(false),
     mMultZ(mZF_SameOri ? 1 : -1),
     mMII(0.0),
-    mStretschingThresh(5.0)
+    mStretschingThresh(2.0)
 {
 }
 
 
-cCollecSpecArg2007 & cAppliNuageBascule::ArgObl(cCollecSpecArg2007 & anArgObl)
+cCollecSpecArg2007 & cAppliCloudProjectOnGround::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return
             APBI_ArgObl(anArgObl)
@@ -133,7 +133,7 @@ cCollecSpecArg2007 & cAppliNuageBascule::ArgObl(cCollecSpecArg2007 & anArgObl)
 }
 
 
-cCollecSpecArg2007 & cAppliNuageBascule::ArgOpt(cCollecSpecArg2007 & anArgOpt)
+cCollecSpecArg2007 & cAppliCloudProjectOnGround::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return
         APBI_ArgOpt
@@ -151,7 +151,7 @@ cCollecSpecArg2007 & cAppliNuageBascule::ArgOpt(cCollecSpecArg2007 & anArgOpt)
         ;
 }
 
-cBox2di cAppliNuageBascule::BoxUtile(cIm2D<tU_INT1> & anImMasq)
+cBox2di cAppliCloudProjectOnGround::BoxUtile(cIm2D<tU_INT1> & anImMasq)
 {
     cTplBoxOfPts<int,2> aBox;
     for (const auto & aPix: anImMasq.DIm())
@@ -164,7 +164,7 @@ cBox2di cAppliNuageBascule::BoxUtile(cIm2D<tU_INT1> & anImMasq)
 }
 
 
-std::pair<cPt3dr,cPt3dr> cAppliNuageBascule::BascOnePoint(cPt2di A,  cPt2di anOffSet)
+std::pair<cPt3dr,cPt3dr> cAppliCloudProjectOnGround::BascOnePoint(cPt2di A,  cPt2di anOffSet)
 {
     cPt3dr aPZA, aPWithDepth;
 
@@ -206,7 +206,7 @@ std::pair<cPt3dr,cPt3dr> cAppliNuageBascule::BascOnePoint(cPt2di A,  cPt2di anOf
 
 
 /*
-void cAppliNuageBascule::MakeBasc()
+void cAppliCloudProjectOnGround::MakeBasc()
 {
     //mImRed.DIm().Resize(CurSzIn(),eModeInitImage::eMIA_Null);
     cPt2di aP0 = CurP0();
@@ -322,7 +322,7 @@ void cAppliNuageBascule::MakeBasc()
 }
 */
 
-void cAppliNuageBascule::MakeFastBasc()
+void cAppliCloudProjectOnGround::MakeFastBasc()
 {
     //mImRed.DIm().Resize(CurSzIn(),eModeInitImage::eMIA_Null);
     cPt2di aP0 = CurP0();
@@ -331,7 +331,9 @@ void cAppliNuageBascule::MakeFastBasc()
     std::vector<cPt3dr> aVPtsDepth;
     std::vector<cPt3di> aVFaces;
 
+    StdOut() << "MakeFastBasc " << aP0 << " " << aP1 << "\n";
     cBox2di  aBoxUtileWithMasq = BoxUtile(mImMasq1);
+    StdOut() << "BoxUtileWithMasq " << aBoxUtileWithMasq << "\n";
 
     ///  Init index for faces
     ///
@@ -404,6 +406,7 @@ void cAppliNuageBascule::MakeFastBasc()
 
     cDataBoundedSet<tREAL8,3>  aSetCam(aBox);
 
+    
     cZBuffer aZBuf(aTriIt,
                    aSetVis,
                    aMapCamDepth,
@@ -413,9 +416,6 @@ void cAppliNuageBascule::MakeFastBasc()
                    true,
                    aTriIT2DDepth);
 
-
-
-    
     cAutoTimerSegm aTSBufferProjInit(TimeSegm(),"ZBuffer::ProjInit"); 
 
     aZBuf.MakeZBufForBasc(eZBufModeIter::ProjInit);
@@ -436,9 +436,13 @@ void cAppliNuageBascule::MakeFastBasc()
     
     cAutoTimerSegm aTSBufferPixellizer(TimeSegm(),"rasterization-pixellization"); 
     MakeBasculeTris(aZBuf);
+
+    //delete aTriIT2DDepth;
+    delete mTri2DDepth;
+    delete mTri3D;
 }
 
-void cAppliNuageBascule::GenTFW(const cAffin2D<tREAL8> & anAff, const std::string & aNameTFW)
+void cAppliCloudProjectOnGround::GenTFW(const cAffin2D<tREAL8> & anAff, const std::string & aNameTFW)
 {
     std::ofstream aFtfw(aNameTFW.c_str());
     aFtfw.precision(10);
@@ -450,7 +454,7 @@ void cAppliNuageBascule::GenTFW(const cAffin2D<tREAL8> & anAff, const std::strin
     aFtfw.close();
 }
 
-cAffin2D<tREAL8> cAppliNuageBascule::ReadTFW(const std::string & aNameTFW)
+cAffin2D<tREAL8> cAppliCloudProjectOnGround::ReadTFW(const std::string & aNameTFW)
 {
     std::ifstream aFtfw(aNameTFW.c_str());
     std::string aline;
@@ -471,7 +475,7 @@ cAffin2D<tREAL8> cAppliNuageBascule::ReadTFW(const std::string & aNameTFW)
     return cAffin2D<tREAL8>(cPt2dr(x_ul,y_ul),cPt2dr(gsd_x,0),cPt2dr(0,gsd_y));
 }
 
-void cAppliNuageBascule::ProcessNoPix(cZBuffer &  aZB)
+void cAppliCloudProjectOnGround::ProcessNoPix(cZBuffer &  aZB)
 {
     // comppute dual graph to have neigbouring relation between faces
     mTri3D->MakeTopo();
@@ -503,7 +507,7 @@ void cAppliNuageBascule::ProcessNoPix(cZBuffer &  aZB)
     }
 }
 
-void cAppliNuageBascule::MakeBasculeTris(cZBuffer & aZB)
+void cAppliCloudProjectOnGround::MakeBasculeTris(cZBuffer & aZB)
 {
     cPt3di aVInd;
     cPt3di aTriCorrel;
@@ -652,7 +656,7 @@ void cAppliNuageBascule::MakeBasculeTris(cZBuffer & aZB)
 
 
 
-void cAppliNuageBascule::MergeResults()
+void cAppliCloudProjectOnGround::MergeResults()
 {
     mDFI2d = cDataFileIm2D::Create(mNameIm,mIsGray);
     cParseBoxInOut<2> aPBIO =  cParseBoxInOut<2>::CreateFromSize(mDFI2d,mSzTiles);
@@ -840,7 +844,7 @@ void cAppliNuageBascule::MergeResults()
         aGlobCorrelIm.Write(aDFC,cPt2di(0,0));
     }
 }
-/*void cAppliNuageBascule::AnalyzeSurfParams()
+/*void cAppliCloudProjectOnGround::AnalyzeSurfParams()
 {
     ///< Estimates Ground Sampling Distance and Box of the image in target world coordinate system
     if (mSecCamPC)
@@ -855,7 +859,7 @@ void cAppliNuageBascule::MergeResults()
     }
 }*/
 
-int cAppliNuageBascule::ExeOnParsedBox()
+int cAppliCloudProjectOnGround::ExeOnParsedBox()
 {
     StdOut()<<"CURBX "<<CurBoxIn()<<std::endl;
     mImPx1= APBI_ReadIm<tREAL4>(mNameCloud2D_DepthIn);
@@ -875,7 +879,7 @@ int cAppliNuageBascule::ExeOnParsedBox()
 }
 
 
-int cAppliNuageBascule::Exe()
+int cAppliCloudProjectOnGround::Exe()
 {
     mPhProj.FinishInit();
 
@@ -926,16 +930,16 @@ int cAppliNuageBascule::Exe()
 /*       ALLOCATION                               */
 /*  ============================================= */
 
-tMMVII_UnikPApli Alloc_NuageBascule(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec)
+tMMVII_UnikPApli Alloc_CloudProjectOnGround(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec)
 {
-    return tMMVII_UnikPApli(new cAppliNuageBascule(aVArgs,aSpec));
+    return tMMVII_UnikPApli(new cAppliCloudProjectOnGround(aVArgs,aSpec));
 }
 
-cSpecMMVII_Appli  TheSpecNuageBascule
+cSpecMMVII_Appli  TheSpecCloudProjectOnGround
     (
-        "NuageBascule",
-        Alloc_NuageBascule,
-        "Bascule of Pax/Depth maps to ground",
+        "CloudProjectOnGround",
+        Alloc_CloudProjectOnGround,
+        "Project of Pax/Depth maps to ground",
         {eApF::Cloud},
         {eApDT::Image},
         {eApDT::Image},

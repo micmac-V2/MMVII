@@ -230,6 +230,7 @@ class cAppli : public cMMVII_Appli
         double         mMaxRatio;  ///< Maximal ratio between to level of pyramid
         double         mPropEstim; ///< Proportion used in histogram of paralax 4 estimate interval
         int            mNbDecim;   ///< Nb of decimation before estimating interval
+        int            mDivisorForModel; ///< Divisor for model, to define the size of input for regression model, ex : 32 for raft
 
             // Optional tuning args to avoid recomputation in developpment step
         bool           mDoPyram;  ///< Do we do the pyramid
@@ -356,8 +357,8 @@ cParamCallSys cOneLevel::StrComReduce(bool ModeIm) const
        NameImOrMasq(ModeIm),
        ToStr(mIm.mAppli.mRatioByL),
        std::string("Out=") + mDownLev->NameImOrMasq(ModeIm),
-       ModeIm ? "ModMasq=0" : " ModMasq=1",
-           "@ExitOnBrkp"
+       ModeIm ? "ModMasq=0" : "ModMasq=1",
+       "@ExitOnBrkp"
        );
 
 
@@ -484,25 +485,36 @@ cParamCallSys cOneLevel::StrComClipIm(bool ModeIm,const cPt2di & aInd,const cPar
    bool IsIm1 = mIm.mIsIm1;
    const cBox2di & aBox = IsIm1 ? aParam.mBoxIn1 : aParam.mBoxIn2;
 
+   cPt2di aClipSz = aBox.Sz();
 
+   if(mIm.mAppli.mModeMatchCur==eModeEpipMatch::eMEM_RAFTStereo || 
+      mIm.mAppli.mModeMatchCur==eModeEpipMatch::eMEM_PSMNet)
+   {  
+      int aSzX = ( ( (aClipSz.x()/mIm.mAppli.mDivisorForModel)+1 ) * mIm.mAppli.mDivisorForModel );
+      int aSzY = ( ( (aClipSz.y()/mIm.mAppli.mDivisorForModel)+1 ) * mIm.mAppli.mDivisorForModel );
+      aClipSz = cPt2di(aSzX,aSzY);
+   }
+
+   // add a specific padding for regression models as raft or psmnet as a predefined size is imposed. 
    cParamCallSys aCom(
          cMMVII_Appli::MMV1Bin(),
          "ClipIm",
           NameImOrMasq(ModeIm),
           ToStrComMMV1(aBox.P0()),
-          ToStrComMMV1(aBox.Sz()),
+          ToStrComMMV1(aClipSz),
           "Out=" + (ModeIm ? NameClipIm(aInd) : NameClipMasq(aInd)),
           "@ExitOnBrkp"
        );
 
-   if (IsIm1)
+   // get the most pixel information possible instead of 0 values in the clip.
+   /*if (IsIm1)
    {
       if (aParam.mBoxIn1.P1().x() != aParam.mBoxUtiIn1.P1().x())
           aCom.AddArgs("XMaxNot0=" + ToStr(aParam.mBoxUtiIn1.P1().x()));
 
       if (aParam.mBoxIn1.P0().x() != aParam.mBoxUtiIn1.P0().x())
           aCom.AddArgs("XMinNot0=" + ToStr(aParam.mBoxUtiIn1.P0().x()));
-   }
+   }*/
 
    if (ModeIm &&   mAppli.mRandPaded)
       aCom.AddArgs("AmplRandVout=255");
@@ -734,6 +746,7 @@ cAppli::cAppli
    mMaxRatio   (4.0),
    mPropEstim  (0.15),
    mNbDecim    (3),
+   mDivisorForModel(32),
    mDoPyram    (true),
    mDoClip     (true),
    mDoMatch    (true),
@@ -767,6 +780,7 @@ cCollecSpecArg2007 & cAppli::ArgOpt(cCollecSpecArg2007 & anArgOpt)
          << AOpt2007(mOutDir,"DirMEC","Name of Output folder, def=MEC_PSMNet_{Im1}/")
          << AOpt2007(mModePad,"ModePad","Type of padding, default depend of match mode",{AC_ListVal<eModePaddingEpip>()})
          << AOpt2007(mRandPaded,"RandPaded","Generate random value for added pixel")
+         << AOpt2007(mDivisorForModel,"DivisorForModel","Divisor for model, to define the size of input for regression model, ex : 32 for raft")
          // Case sgm cuda
          << AOpt2007(mModelPath,"Model2Call","Case when SGM CUDA IS TO BE LAUNCED WITH TRAINED CNN ?")
          << AOpt2007(mModelDecisionPath,"ModelDecision2Call","Case when SGM CUDA IS TO BE LAUNCED WITH TRAINED CNN ?")
@@ -1042,8 +1056,8 @@ void  cAppli::MatchOneLevel(int aLevel)
         // Create the parameters of match, incomplete at this step
         cParam1Match aParam
                      (
-                        aBoxParser.BoxIn(anIndex,mSzOverL),
-                        aBoxParser.BoxOut(anIndex),
+                        aBoxParser.BoxInput(anIndex,mSzOverL),
+                        aBoxParser.BoxOutput(anIndex),
                         anIndex,aILev1,aILev2
                      );
 

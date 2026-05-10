@@ -650,6 +650,32 @@ std::pair<tREAL8,cPt3dr> AnglesInterBundles
 /// Compute isometry between two 3D points vectors. at least 3 points
 tPoseR RobustIsometry(const std::vector<cPt3dr> & aPtsA, const std::vector<cPt3dr> & aPtsB);
 
+/// class for sampling regularly the hypercube, useful for sampling not so irregularly the hyper sphere
+
+class cSampleQuat;
+
+class cSampleHyperCube
+{
+   public :
+        friend class cSampleQuat;
+
+        cSampleHyperCube(int aDim,int aNbStep,bool isProj = false);
+        /// number of sampled points
+        int NbSamples() const;
+        ///  Main method return the Kth point
+        void  KthPt(std::vector<tREAL8> & aPts,int aK) const;
+        bool IsProj() const;
+
+   private :
+        tREAL8 Int2Coord(int aK) const;  ///< convert on 1 direction [0,NbStep] => [-1,1]
+
+        int  mDim;        // dimension of the cube
+        int  mNbStep;     // memo nuber of step
+        bool mIsProj;     // is it projective (i P ~ -P , and only of 2 is returned)
+        int  mNbF;        // number of face
+        int  mNbSamples;  // number of sample of the cube
+};
+
 /**  Class for sampling the space of quaternion/quaternion.  Method :
  *
  *     - we sample the sphere of R4
@@ -666,10 +692,10 @@ tPoseR RobustIsometry(const std::vector<cPt3dr> & aPtsA, const std::vector<cPt3d
  */
 
 
-class cSampleQuat
+class cSampleQuat :  cSampleHyperCube
 {
       public :
-         cSampleQuat(int aNbElem,bool ForRot);  ///< constructor indicating  number of step
+         cSampleQuat(int aNbStep,bool ForRot=true);  ///< constructor indicating  number of step
          static cSampleQuat FromNbRot(int aNbRot,bool ForRot);  ///< constructor indicating the min number of rotation expected
 
 
@@ -677,6 +703,7 @@ class cSampleQuat
          tRotR   KthRot(int aK) const;
          size_t NbRot() const;  ///< Accessor
          size_t NbStep() const;  ///< Accessor
+         bool   Is4R() const;
 
          //  compute vector, for NbTest random point, of  minimal distance to all sampled rot/quat
          std::vector<tREAL8 >  TestVecMinDist(size_t aNbTest) const;
@@ -690,35 +717,16 @@ class cSampleQuat
          // generate all the quaternions sampled
          std::vector<cPt4dr>  VecAllQuat() const;
       private :
-
-
-         tREAL8 Int2Coord(int aK) const;  ///< convert on 1 direction [0,NbStep] => [-1,1]
-
+         //tREAL8 Int2Coord(int aK) const;  ///< convert on 1 direction [0,NbStep] => [-1,1]
+/*
          bool    m4R;     // is it for rotation
          size_t  mNbF;    // number of face
          size_t  mNbStep;
          size_t  mNbRot;
+*/
 };
 
-/// class for sampling regularly the hypercube, useful for sampling not so irregularly the hyper sphere
-class cSampleHyperCube
-{
-   public :
-        cSampleHyperCube(int aDim,int aNbStep,bool isProj = false);
-        /// number of sampled points
-        int NbSamples() const;
-        ///  Main method return the Kth point
-        void  KthPt(std::vector<tREAL8> & aPts,int aK) const;
 
-   private :
-        tREAL8 Int2Coord(int aK) const;  ///< convert on 1 direction [0,NbStep] => [-1,1]
-
-        int  mDim;        // dimension of the cube
-        int  mNbStep;     // memo nuber of step
-        bool mIsProj;     // is it projective (i P ~ -P , and only of 2 is returned)
-        int  mNbF;        // number of face
-        int  mNbSamples;  // number of sample of the cube
-};
 
 ///  Class for sampling point +- regularly on the sphere
 class cSampleSphere3D
@@ -728,6 +736,9 @@ class cSampleSphere3D
 
       cPt3dr KthPt(int aK) const;
       int NbSamples() const;
+      bool IsProj() const;
+      /// Take into account the projective aspect if it exist
+      tREAL8  SqDist(const cPt3dr&,const cPt3dr&) const;
    private :
       cSampleHyperCube mSHC;
 };

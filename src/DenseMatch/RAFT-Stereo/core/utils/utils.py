@@ -10,14 +10,17 @@ class InputPadder:
         self.ht, self.wd = dims[-2:]
         pad_ht = (((self.ht // divis_by) + 1) * divis_by - self.ht) % divis_by
         pad_wd = (((self.wd // divis_by) + 1) * divis_by - self.wd) % divis_by
+        print(f"Padding (ht, wd): ({pad_ht}, {pad_wd})")
         if mode == 'sintel':
             self._pad = [pad_wd//2, pad_wd - pad_wd//2, pad_ht//2, pad_ht - pad_ht//2]
+        elif mode == 'kitti':
+            self._pad = [0, pad_wd, 0, pad_ht]
         else:
             self._pad = [pad_wd//2, pad_wd - pad_wd//2, 0, pad_ht]
 
     def pad(self, *inputs):
         assert all((x.ndim == 4) for x in inputs)
-        return [F.pad(x, self._pad, mode='replicate') for x in inputs]
+        return [F.pad(x, self._pad, mode='constant') for x in inputs]
 
     def unpad(self, x):
         assert x.ndim == 4

@@ -10,7 +10,27 @@ import idr_torch
 from core.hdf5 import CustomCompose, HDF5Dataset,Data
 from core.hdf5 import get_image_paths_by_split_dict
 import numpy as np
+import random
 
+class VerticalFlip:
+    def __init__(self,p=0.5):
+        self.p=p
+    def __call__(self, data: Data):
+        data=self.vflip(data)
+        return data
+    
+    def vflip(self, data: Data):
+        import torchvision.transforms as T
+        if random.random()< self.p:
+            return data
+        else:
+            return Data(
+                _left=T.functional.vflip(data._left),
+                _right=T.functional.vflip(data._right),
+                _disp=T.functional.vflip(data._disp),
+                _masq=T.functional.vflip(data._masq),
+
+            )
 
 class ClipAndComputeUsingPatchSizeRegression:
     def __init__(self,
@@ -63,6 +83,7 @@ class HDF5StereoDataModule(LightningDataModule):
         sampler: bool = False,
         #rank : int = 0,
         world_size: int = 0,
+        aug_params: Optional[Dict[str, Number]] = None,
         **kwargs,
     ):
         super().__init__()
@@ -92,13 +113,15 @@ class HDF5StereoDataModule(LightningDataModule):
         #self.preparation_predict_transform: TRANSFORMS_LIST = t.get(
         #    "preparations_predict_list", []
         #)
-        self.augmentation_transform: TRANSFORMS_LIST = [ClipAndComputeUsingPatchSizeRegression(tile_height,patch_size)] #t.get("augmentations_list", [])
+        self.augmentation_transform: TRANSFORMS_LIST = [ClipAndComputeUsingPatchSizeRegression(tile_height,patch_size),VerticalFlip(p=0.5)] #t.get("augmentations_list", [])
         self.normalization_transform: TRANSFORMS_LIST= [] #t.get("normalizations_list", [])
         self.sampler = sampler
         #self.rank= rank, 
         self.world_size=world_size
         self.train_sampler=None
         self.val_sampler= None
+
+        self.augmentation_params = aug_params
 
     @property
     def train_transform(self) -> CustomCompose:
@@ -162,8 +185,7 @@ class HDF5StereoDataModule(LightningDataModule):
             sign_disp_multiplier=self.sign_disp_multiplier,
             masq_divider=self.masq_divider,
             subtile_overlap_train=self.subtile_overlap_train,
-            train_transform=self.train_transform,
-            eval_transform=None,
+            aug_params=self.augmentation_params
         )
         return self._dataset
 

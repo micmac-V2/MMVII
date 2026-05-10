@@ -1024,14 +1024,10 @@ void cMakeArboTriplet::InitialiseCalibs()
     }
 }
 
-void cMakeArboTriplet::InitTPtsStruct(const std::string& aFolder, std::vector<std::string>& aVNames)
+void cMakeArboTriplet::ConvertTPtsToBundles()
 {
-    // read tie points
-    mTPtsStruct = AllocStdFromMTPFromFolder(aFolder,aVNames,mPhProj,true,false,true);
+    const std::vector<std::string>& aVNames = mTPtsStruct->VNames();
 
-    StdOut() << "Nb tie points=" << mTPtsStruct->Pts().size() << std::endl;
-
-    //convert tie points to bundles (i.e., normalise)
     for (auto & [aConf,aVals] : mTPtsStruct->Pts())
     {
         int NbIm = aConf.size();
@@ -1039,23 +1035,19 @@ void cMakeArboTriplet::InitTPtsStruct(const std::string& aFolder, std::vector<st
 
         // check that input points are not bundles
         MMVII_INTERNAL_ASSERT_medium(aVals.mVPZ.size()==0,"Observations are already bundles");
-        aVals.mVPZ.resize(NbIm*NbPts); //aVals.mVPBun.resize(NbIm*NbPts);
+        aVals.mVPZ.resize(NbIm*NbPts);
 
         // for every image
         for (int aKIm=0; aKIm<NbIm; aKIm++)
         {
-            cPerspCamIntrCalib *   aCal = mPhProj.InternalCalibFromImage(aVNames[aConf[aKIm]]);;// mPhProj.InternalCalibFromStdName(aVNames[aConf[aKIm]],true);
+            cPerspCamIntrCalib * aCal = mPhProj.InternalCalibFromImage(aVNames[aConf[aKIm]]);
 
             std::vector<cPt3dr> aOutBundles;
             std::vector<cPt2dr> aInObs;
 
-
             // for every image observation
             for (int aKObs=0; aKObs<NbPts; aKObs++)
-            {
-                aInObs.push_back(aVals.mVPIm[aKObs*NbIm+aKIm]);//aVals.mVPIm[aKIm*NbPts+aKObs]);
-                //StdOut() << aVals.mVPIm[aKObs*NbIm+aKIm] << std::endl;
-            }
+                aInObs.push_back(aVals.mVPIm[aKObs*NbIm+aKIm]);
 
             // transform point to bundle
             aCal->DirBundles(aOutBundles,aInObs);
@@ -1064,13 +1056,26 @@ void cMakeArboTriplet::InitTPtsStruct(const std::string& aFolder, std::vector<st
             for (int aKObs=0; aKObs<NbPts; aKObs++)
             {
                 aVals.mVPIm.at(aKObs*NbIm+aKIm) = cPt2dr(aOutBundles[aKObs].x()/aOutBundles[aKObs].z(),
-                                                         aOutBundles[aKObs].y()/aOutBundles[aKObs].z()),
+                                                          aOutBundles[aKObs].y()/aOutBundles[aKObs].z());
                 aVals.mVPZ.at(aKObs*NbIm+aKIm) = 1.0;
             }
         }
-
     }
+}
 
+void cMakeArboTriplet::InitTPtsStruct(const std::string& aFolder, std::vector<std::string>& aVNames)
+{
+    mTPtsStruct = AllocStdFromMTPFromFolder(aFolder,aVNames,mPhProj,true,false,true);
+    StdOut() << "Nb tie points=" << mTPtsStruct->Pts().size() << std::endl;
+    ConvertTPtsToBundles();
+}
+
+void cMakeArboTriplet::InitTPtsStruct(cComputeMergeMulTieP* aTPts)
+{
+    mTPtsStruct = aTPts;
+    mTPtsStruct->SetImageIndexe();
+    StdOut() << "Nb tie points=" << mTPtsStruct->Pts().size() << std::endl;
+    ConvertTPtsToBundles();
 }
 
 void cMakeArboTriplet::MakeGraphPose()

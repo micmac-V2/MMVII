@@ -10,6 +10,7 @@
 #include "MMVII_ImageInfoExtract.h"
 #include "MMVII_2Include_CSV_Serial_Tpl.h"
 #include "../SymbDerGen/Formulas_CentralProj.h"
+#include "../Utils/scoped_timer.h"
 
 
 namespace MMVII
@@ -59,7 +60,7 @@ cStaticLidarImporter::cStaticLidarImporter() :
 
 using  namespace happly;
 
-void cStaticLidarImporter::readPlyPoints(std::string aPlyFileName)
+void cStaticLidarImporter::readPlyPoints(std::string aPlyFileName, bool aForceGreenAsIntensity)
 {
     StdOut() << "Read ply file " << aPlyFileName << "..." << std::endl;
     mVectPtsXYZ.clear();
@@ -77,7 +78,7 @@ void cStaticLidarImporter::readPlyPoints(std::string aPlyFileName)
             mVectPtsXYZ.resize(aVecPts.size());
             for (size_t i=0; i<aVecPts.size(); ++i)
             {
-                mVectPtsXYZ.at(i) = cPt3dr(aVecPts[i][0],aVecPts[i][1],aVecPts[i][2]);
+                mVectPtsXYZ[i] = cPt3dr(aVecPts[i][0],aVecPts[i][1],aVecPts[i][2]);
             }
         }
 
@@ -91,10 +92,26 @@ void cStaticLidarImporter::readPlyPoints(std::string aPlyFileName)
         auto aPropIntensityName = std::find_if(aVertProps.begin(), aVertProps.end(), [](const std::string &s){
             return (ToLower(s)=="i") || (ToLower(s).find("intens") != std::string::npos);
         });
-        if (aPropIntensityName!= aVertProps.end())
+        auto aPropGreenName = std::find_if(aVertProps.begin(), aVertProps.end(), [](const std::string &s){
+            return (ToLower(s)=="g") || (ToLower(s).find("green") != std::string::npos);
+        });
+        if (aForceGreenAsIntensity)
         {
-            mHasIntensity = true;
-            mVectPtsIntens = aPlyF.getElement("vertex").getProperty<tREAL8>(*aPropIntensityName);
+            if (aPropGreenName!= aVertProps.end())
+            {
+                mHasIntensity = true;
+                mVectPtsIntens = aPlyF.getElement("vertex").getProperty<tREAL8>(*aPropGreenName);
+                for (size_t i=0; i<mVectPtsIntens.size(); ++i)
+                {
+                    mVectPtsIntens[i] = mVectPtsIntens[i]/255.;
+                }
+            }
+        } else {
+            if (aPropIntensityName!= aVertProps.end())
+            {
+                mHasIntensity = true;
+                mVectPtsIntens = aPlyF.getElement("vertex").getProperty<tREAL8>(*aPropIntensityName);
+            }
         }
 
     }
@@ -104,7 +121,7 @@ void cStaticLidarImporter::readPlyPoints(std::string aPlyFileName)
     }
 }
 
-void cStaticLidarImporter::readE57Points(std::string aE57FileName)
+void cStaticLidarImporter::readE57Points(std::string aE57FileName, bool aForceGreenAsIntensity)
 {
     StdOut() << "Read e57 file " << aE57FileName << "..." << std::endl;
     mVectPtsXYZ.clear();
@@ -135,7 +152,7 @@ void cStaticLidarImporter::readE57Points(std::string aE57FileName)
         MMVII_INTERNAL_ASSERT_tiny(cNumPoints==cNumRead, "Error: cNumPoints!=cNumRead")
 
         mHasCartesian = pointsData.cartesianX && pointsData.cartesianY && pointsData.cartesianZ;
-        mHasIntensity = pointsData.intensity;
+        mHasIntensity = aForceGreenAsIntensity ? (pointsData.colorGreen!=nullptr) : (pointsData.intensity!=nullptr);
         mHasSpherical = pointsData.sphericalAzimuth && pointsData.sphericalElevation && pointsData.sphericalRange;
         mHasRowCol = pointsData.columnIndex && pointsData.rowIndex;
 
@@ -151,8 +168,14 @@ void cStaticLidarImporter::readE57Points(std::string aE57FileName)
         }
         if (mHasIntensity){
             mVectPtsIntens.resize(cNumRead);
-            for (uint64_t i=0;i<cNumRead;++i)
-                mVectPtsIntens[i] = pointsData.intensity[i];
+            if (aForceGreenAsIntensity)
+            {
+                for (uint64_t i=0;i<cNumRead;++i)
+                    mVectPtsIntens[i] = pointsData.colorGreen[i]/255.;
+            } else {
+                for (uint64_t i=0;i<cNumRead;++i)
+                    mVectPtsIntens[i] = pointsData.intensity[i];
+            }
         }
         if (mHasRowCol){
             mVectPtsLine.resize(cNumRead);
@@ -183,7 +206,7 @@ void cStaticLidarImporter::readE57Points(std::string aE57FileName)
 }
 
 
-void cStaticLidarImporter::readPtxPoints(std::string aPtxFileName)
+void cStaticLidarImporter::readPtxPoints(std::string aPtxFileName, bool aForceGreenAsIntensity)
 {
     StdOut() << "Read PTX file " << aPtxFileName << "..." << std::endl;
     mVectPtsXYZ.clear();
@@ -268,15 +291,16 @@ void cStaticLidarImporter::readPtxPoints(std::string aPtxFileName)
     }
 }
 
-bool cStaticLidarImporter::read(const std::string & aName, bool OkNone, bool aForceStructured, std::string aStrInput2TSL)
+bool cStaticLidarImporter::read(const std::string & aName, bool OkNone,
+                                bool aForceStructured, std::string aStrInput2TSL, bool aForceGreenAsIntensity)
 {
     std::string aPost = LastPostfix(aName);
     if (UCaseEqual(aPost,"ply"))
-       readPlyPoints(aName);
+       readPlyPoints(aName, aForceGreenAsIntensity);
     else if (UCaseEqual(aPost,"e57"))
-       readE57Points(aName);
+       readE57Points(aName, aForceGreenAsIntensity);
     else if (UCaseEqual(aPost,"ptx"))
-        readPtxPoints(aName);
+        readPtxPoints(aName, aForceGreenAsIntensity);
     else
     {
         if (! OkNone)
@@ -615,8 +639,15 @@ cStaticLidar::cStaticLidar(const std::string & aNameFile, const std::string & aS
     mScanName(aScanName),
     mAreRastersReady(false),
     mSigma(aSigma),
-    mRotInput2Raster(aRotInput2Raster)
+    mRotInput2Raster(aRotInput2Raster),
+    mTriangulation(nullptr)
 {
+}
+
+cStaticLidar::~cStaticLidar()
+{
+    if (mTriangulation)
+        delete mTriangulation;
 }
 
 cStaticLidar * cStaticLidar::FromFile(const std::string & aNameScanFile, const std::string & aNameRastersDir)
@@ -679,6 +710,170 @@ cPt3dr cStaticLidar::Image2Ground(const cPt2dr & aRasterPx) const
     return Pose().Value(aCam3DPt);
 }
 
+
+
+
+void cStaticLidar::TriangulateRegular(const std::string & aVisuPath, int aFactor)
+{
+    if (mTriangulation)
+        delete mTriangulation;
+
+    //ScopedTimer aTimer("ToTriangulation3DRegular");
+    tREAL8 aLimitCosTriangles = 0.999;
+    tREAL8 aLimitLenOnMinDist = 50/InternalCalib()->F();
+    //TODO remove triangles too much in view direction?
+
+    //TODO make triangulation in instrument frame, add pose later?
+    std::vector<cPt3dr> aVPt3D;
+    std::vector<cPt2di> aVPt2D;
+    std::vector<bool>   aVPtOk;
+    std::vector<cPt3di> aVFace;
+    MMVII_INTERNAL_ASSERT_tiny(aFactor>0, "Error factor triangulation")
+
+    int aNewW = int((PixelDomain().Sz().x()-1)/aFactor) + 1;
+    int aNewH = int((PixelDomain().Sz().y()-1)/aFactor) + 1;
+    aVPt3D.reserve(aNewH*aNewW);
+    aVPt2D.reserve(aNewH*aNewW);
+    aVPtOk.reserve(aNewH*aNewW);
+    aVFace.reserve(aVPt3D.capacity()*2);
+
+    for (int l = 0 ; l < PixelDomain().Sz().y(); l+=aFactor)
+        for (int c = 0 ; c < PixelDomain().Sz().x(); c+=aFactor)
+        {
+            aVPt3D.push_back(Image2Ground(cPt2di(c, l))); // or Image2Camera3D
+            aVPt2D.push_back(cPt2di(c, l));
+            // aVPtOk.push_back(IsValidPoint(cPt2dr(c, l))); // mask of just dist=0 ?
+            aVPtOk.push_back( getRasterDistance().GetV(cPt2di(c, l))>1e-4 );
+        }
+
+    // TODO do not make triangle if any point inside triangle is masked
+    for (int l = 0 ; l < aNewH-1; ++l)
+        for (int c = 0 ; c < aNewW-1; ++c)
+        {
+            int aK0 = l*aNewW+c;
+            const std::array<std::array<int,3>,2> aVKs = {{{aK0, aK0+aNewW, aK0+1}, {aK0+1, aK0+aNewW, aK0+1+aNewW}}};
+            for (auto & [aKa, aKb, aKc]: aVKs)
+            {
+                if (aVPtOk[aKa] && aVPtOk[aKb] && aVPtOk[aKc])
+                {
+                    // do not use elongated triangles
+                    auto aAB = aVPt3D[aKb]-aVPt3D[aKa];
+                    auto aBC = aVPt3D[aKc]-aVPt3D[aKb];
+                    auto aCA = aVPt3D[aKa]-aVPt3D[aKc];
+                    tREAL4 aLenAB = Norm2(aAB);
+                    tREAL4 aLenBC = Norm2(aBC);
+                    tREAL4 aLenCA = Norm2(aCA);
+                    tREAL4 aABdotBC = Scal(aAB,aBC);
+                    tREAL4 aBCdotCA = Scal(aBC,aCA);
+                    tREAL4 aCAdotAB = Scal(aCA,aAB);
+                    if (fabs(aABdotBC) / (aLenAB*aLenBC) > aLimitCosTriangles)
+                        continue;
+                    if (fabs(aBCdotCA) / (aLenBC*aLenCA) > aLimitCosTriangles)
+                        continue;
+                    if (fabs(aCAdotAB) / (aLenCA*aLenAB) > aLimitCosTriangles)
+                        continue;
+                    // check size vs distance
+                    tREAL4 aDistA = getRasterDistance().GetV(cPt2di(aVPt2D[aKa].x(), aVPt2D[aKa].y()));
+                    tREAL4 aDistB = getRasterDistance().GetV(cPt2di(aVPt2D[aKb].x(), aVPt2D[aKb].y()));
+                    tREAL4 aDistC = getRasterDistance().GetV(cPt2di(aVPt2D[aKc].x(), aVPt2D[aKc].y()));
+                    tREAL4 aMaxLen = std::max({aLenAB, aLenBC, aLenCA});
+                    tREAL4 aMinDist = std::min({aDistA, aDistB, aDistC});
+                    //std::cout<<aMaxLen <<" / "<<aMinDist << " = " << aMaxLen/aMinDist << " > " << aLimitLenOnMinDist << ": " << (aMaxLen/aMinDist > aLimitLenOnMinDist) <<"\n";
+                    if (aMaxLen/aMinDist > aLimitLenOnMinDist)
+                        continue;
+                    aVFace.push_back(cPt3di(aKa, aKb, aKc));
+                }
+            }
+        }
+
+    mTriangulation = new cTriangulation3D<tREAL8>(aVPt3D, aVFace);
+    StdOut() <<"Scan triangulation regular "<< mStationName+"_"+mScanName <<": "<<aVPt3D.size()<<" pts, "<<aVFace.size()<<" faces\n";
+    mTriangulation->WriteFile(aVisuPath + mStationName+"_"+mScanName+"_regular.ply",true);
+}
+
+
+void cStaticLidar::Triangulate(const std::string & aVisuPath, int aFactor)
+{
+    if (mTriangulation)
+        delete mTriangulation;
+
+    //ScopedTimer aTimer("ToTriangulation3D");
+    tREAL8 aLimitCosTriangles = 0.9999;
+    tREAL8 aLimitLenOnMinDist = 0.2;
+    //TODO make triangulation in instrument frame, add pose later?
+    std::vector<cPt2dr> aVPt2D; // get regular points in 2D
+    std::vector<cPt3dr> aVPt3D; // swap points 2D for 3D
+    std::vector<cPt3di> aVFaceFiltered; // keep good 3D triangles
+    MMVII_INTERNAL_ASSERT_tiny(aFactor>0, "Error factor triangulation")
+
+    int aNewW = int((PixelDomain().Sz().x()-1)/aFactor) + 1;
+    int aNewH = int((PixelDomain().Sz().y()-1)/aFactor) + 1;
+    // maximum sizes
+    aVPt3D.reserve(aNewH*aNewW);
+    aVPt2D.reserve(aNewH*aNewW);
+    aVFaceFiltered.reserve(aVPt3D.capacity()*2);
+
+    // get 2d points
+    for (int l = 0 ; l < PixelDomain().Sz().y(); l+=aFactor)
+        for (int c = 0 ; c < PixelDomain().Sz().x(); c+=aFactor)
+        {
+            if (getRasterDistance().GetV(cPt2di(c, l))>1e-4)
+                aVPt2D.push_back(cPt2dr(c, l));
+        }
+
+    // triangulation
+    cTriangulation2D<tREAL8> aTriRaster(aVPt2D);
+    aTriRaster.MakeDelaunay();
+
+    // get 3D corresponding points
+    for (auto & aPt2d: aVPt2D)
+        aVPt3D.push_back(Image2Ground(cPt2di(aPt2d.x(),aPt2d.y())));
+
+    for (const auto & aFace: aTriRaster.VFaces())
+    {
+        const int & aKa = aFace.x();
+        const int & aKb = aFace.y();
+        const int & aKc = aFace.z();
+        auto aAB = aVPt3D[aKb]-aVPt3D[aKa];
+        auto aBC = aVPt3D[aKc]-aVPt3D[aKb];
+        auto aCA = aVPt3D[aKa]-aVPt3D[aKc];
+
+        // check angles
+        tREAL4 aLenAB = Norm2(aAB);
+        tREAL4 aLenBC = Norm2(aBC);
+        tREAL4 aLenCA = Norm2(aCA);
+        tREAL4 aABdotBC = Scal(aAB,aBC);
+        tREAL4 aBCdotCA = Scal(aBC,aCA);
+        tREAL4 aCAdotAB = Scal(aCA,aAB);
+        if (fabs(aABdotBC) / (aLenAB*aLenBC) > aLimitCosTriangles)
+            continue;
+        if (fabs(aBCdotCA) / (aLenBC*aLenCA) > aLimitCosTriangles)
+            continue;
+        if (fabs(aCAdotAB) / (aLenCA*aLenAB) > aLimitCosTriangles)
+            continue;
+
+        // check size vs distance
+        tREAL4 aDistA = getRasterDistance().GetV(cPt2di(aVPt2D[aKa].x(), aVPt2D[aKa].y()));
+        tREAL4 aDistB = getRasterDistance().GetV(cPt2di(aVPt2D[aKb].x(), aVPt2D[aKb].y()));
+        tREAL4 aDistC = getRasterDistance().GetV(cPt2di(aVPt2D[aKc].x(), aVPt2D[aKc].y()));
+        tREAL4 aMaxLen = std::max({aLenAB, aLenBC, aLenCA});
+        tREAL4 aMinDist = std::min({aDistA, aDistB, aDistC});
+        if (aMaxLen/aMinDist > aLimitLenOnMinDist)
+            continue;
+        aVFaceFiltered.push_back(aFace);
+    }
+
+    mTriangulation = new cTriangulation3D<tREAL8>(aVPt3D, aVFaceFiltered);
+    //StdOut() <<"Scan triangulation "<< mStationName+"_"+mScanName <<": "<<aVPt3D.size()<<" pts, "<<aVFaceFiltered.size()<<" faces\n";
+    mTriangulation->WriteFile(aVisuPath + mStationName+"_"+mScanName+".ply",true);
+
+}
+
+cTriangulation3D<tREAL8> * cStaticLidar::getTriangulation() const
+{
+    return mTriangulation;
+}
+
 std::string  cStaticLidar::V_PrefixName() const { return PrefixName() ; }
 std::string  cStaticLidar::PrefixName()  { return "Scan";}
 
@@ -692,11 +887,22 @@ cDataIm2D<tREAL4> & cStaticLidar::getRasterDistance() const
     return mRasterDistance.get()->DIm();
 }
 
-bool cStaticLidar::IsValidPoint(const cPt2dr & aRasterPx) const
+bool cStaticLidar::IsValidPoint(const cPt2dr &aRasterPx) const
 {
     MMVII_INTERNAL_ASSERT_tiny(mRasterMask, "Error: mRasterMask must be computed first");
     auto & aMaskImData = mRasterMask->DIm();
-    return aMaskImData.InsideBL(aRasterPx) && (aMaskImData.GetVBL(aRasterPx)==255.);
+    return aMaskImData.InsideBL(aRasterPx)
+           && (aMaskImData.GetV(cPt2di(aRasterPx.x()+0.5,aRasterPx.y()+0.5))==255.);
+}
+
+tREAL8 cStaticLidar::Sigma() const
+{
+    return mSigma;
+}
+
+const std::vector<cPt2di> & cStaticLidar::PatchCenters() const
+{
+    return mPatchCenters;
 }
 
 cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
@@ -1137,7 +1343,7 @@ void cStaticLidar::MakeVisu(const cPhotogrammetricProject & aPhProj) const
 }
 
 void cStaticLidar::MakePatches
-    (std::list<std::set<cPt2di> > &aLPatches,
+    (std::list<cLidarRasterPatch> &aLPatches,
      const std::vector<cSensorCamPC *> & aVCam,
      int    aNbPointByPatch,
      int    aSzMin
@@ -1151,18 +1357,20 @@ void cStaticLidar::MakePatches
     // shortcut if only 1 point needed: just get the centers
     if (aNbPointByPatch==1)
     {
-        for (auto & aCenter: mPatchCenters)
+        for (size_t i=0; i<mPatchCenters.size(); ++i)
         {
-            aLPatches.push_back( {aCenter} );
+            auto & aCenter = mPatchCenters[i];
+            aLPatches.push_back({i, {aCenter}, {}});
         }
         return;
     }
-
+//#define NUMMAKEPATCHDEBUG 0
     std::vector<tREAL8> aVectGndPixelSize;
     aVectGndPixelSize.resize(aVCam.size());
     // parse center points
-    for (auto & aCenter: mPatchCenters)
+    for (size_t i=0; i<mPatchCenters.size(); ++i)
     {
+        auto & aCenter = mPatchCenters[i];
         //search for average GndPixelSize
         aVectGndPixelSize.clear();
         cPt3dr aGndCenter = Image2Ground(aCenter);
@@ -1182,8 +1390,10 @@ void cStaticLidar::MakePatches
         }
         if (aNumCamVisib<2) continue;
         tREAL8 aGndPixelSize = NonConstMediane(aVectGndPixelSize);
-        //StdOut() << "GndPixelSize: " << aGndPixelSize << "\n";
-
+    #ifdef NUMMAKEPATCHDEBUG
+        if (i==NUMMAKEPATCHDEBUG)
+            StdOut() << "GndPixelSize: " << aGndPixelSize << "\n";
+    #endif
         // compute raster step to get aNbPointByPatch separated by aGndPixelSize
         tREAL4 aMeanDepth = aRasterDistData.GetV(aCenter);
 
@@ -1201,16 +1411,25 @@ void cStaticLidar::MakePatches
         tREAL4 aRasterPxGndH = fabs(aThetaStep) * aMeanDepth;
         tREAL4 aRasterStepPixelsY = aGndPixelSize / aRasterPxGndH;
         tREAL4 aRasterStepPixelsX = aGndPixelSize / aRasterPxGndW;
-        //StdOut() << "RasterStepPixels: " << aRasterStepPixelsX << " " << aRasterStepPixelsY << "\n";
-
+    #ifdef NUMMAKEPATCHDEBUG
+        if (i==NUMMAKEPATCHDEBUG)
+            StdOut() << "RasterStepPixels: " << aRasterStepPixelsX << " " << aRasterStepPixelsY << "\n";
+    #endif
         // have a least one scan step of difference between patch points
         if (aRasterStepPixelsX < 1.)
             aRasterStepPixelsX = 1.;
         if (aRasterStepPixelsY < 1.)
             aRasterStepPixelsY = 1.;
 
-        std::set<cPt2di> aPatch = {aCenter}; // convention: center is at first
-
+        std::vector<cPt2di> aPatchPts = {aCenter}; // convention: center is at first
+#ifdef NUMMAKEPATCHDEBUG
+        if (i==NUMMAKEPATCHDEBUG)
+        {
+            for (auto const & aPt:aPatchPts)
+                std::cout<<aPt<<" ";
+            std::cout<<"\n";
+        }
+#endif
         for (int aJ = -aNbStepRadius; aJ<=aNbStepRadius; ++aJ)
             for (int aI = -aNbStepRadius; aI<=aNbStepRadius; ++aI)
             {
@@ -1218,13 +1437,21 @@ void cStaticLidar::MakePatches
                     continue; // do not add center twice
                 cPt2di aPt = aCenter + cPt2di(aI*aRasterStepPixelsX,aJ*aRasterStepPixelsY);
                 if (aRasterMaskData.Inside(aPt) && aRasterMaskData.GetV(aPt))
-                    aPatch.insert(aPt);
+                    aPatchPts.push_back(aPt);
             }
 
         // some requirement on minimal size
-        if ((int)aPatch.size() > aSzMin)
+        if ((int)aPatchPts.size() > aSzMin)
         {
-            aLPatches.push_back(aPatch);
+            aLPatches.push_back({i, aPatchPts, {}});
+        #ifdef NUMMAKEPATCHDEBUG
+            if (i==NUMMAKEPATCHDEBUG)
+            {
+                for (auto const & aPt:aPatchPts)
+                    std::cout<<aPt<<" ";
+                std::cout<<"\n";
+            }
+        #endif
         }
     }
 }

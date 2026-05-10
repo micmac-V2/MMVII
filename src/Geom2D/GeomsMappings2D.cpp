@@ -374,6 +374,43 @@ template <class Type> cPtxd<Type,2>  cAffin2D<Type>::Inverse(const tPt & aP) con
 {
     return   mVInvX * (aP.x()-mTr.x()) + mVInvY * (aP.y()-mTr.y());
 }
+
+template <class Type> cTplBox<Type,2> cAffin2D<Type>::ValueBox(const cTplBox<Type,2> & aBox) const
+{
+    // get corners
+    cPtxd<Type,2> aCorners[4];
+    aBox.Corners(aCorners);
+    cPtxd<Type,2> aP0(Value(aCorners[0]));
+    cPtxd<Type,2> aP1 = aP0;
+
+    for (int aK=1; aK<4; aK++)
+    {
+        SetInfEq(aP0,Value(aCorners[aK]));
+        SetSupEq(aP1,Value(aCorners[aK]));
+    }
+    StdOut()<<"aP0 "<<aP0<<" aP1 "<<aP1<<std::endl;
+    return cTplBox<Type,2> (aP0,aP1); 
+}
+
+
+template <class Type> cTplBox<Type,2> cAffin2D<Type>::InverseBox(const cTplBox<Type,2> & aBox) const
+{
+    // get corners
+    cPtxd<Type,2> aCorners[4];
+    aBox.Corners(aCorners);
+    cPtxd<Type,2> aP0(Inverse(aCorners[0]));
+    cPtxd<Type,2> aP1 = aP0;
+
+    for (int aK=1; aK<4; aK++)
+    {
+        SetInfEq(aP0,Inverse(aCorners[aK]));
+        SetSupEq(aP1,Inverse(aCorners[aK]));
+    }
+    StdOut()<<"Inv aP0 "<<aP0<<" Inv aP1 "<<aP1<<std::endl;
+
+    return cTplBox<Type,2> (aP0,aP1); 
+}
+
 template <class Type>  cAffin2D<Type> cAffin2D<Type>::MapInverse() const
 {
         return tTypeMapInv ( VecInverse(-mTr), mVInvX, mVInvY);
@@ -384,7 +421,7 @@ template <class Type>  cAffin2D<Type> cAffin2D<Type>::MapInverse() const
  {
      MMVII::AddData(cAuxAr2007("Tr",anAux),mTr);
      MMVII::AddData(cAuxAr2007("Vx",anAux),mVX);
-     MMVII::AddData(cAuxAr2007("Vx",anAux),mVY);
+     MMVII::AddData(cAuxAr2007("Vy",anAux),mVY);
 
      if (anAux.Ar().Input())
          *this = cAffin2D<Type>(mTr,mVX,mVY);
