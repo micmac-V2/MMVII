@@ -89,26 +89,35 @@ namespace MMVII
         const std::string             mImName;
 
         //----- methods
-        tREAL8                      RansacTFOnBits();
+
+        std::string                 State();//-> returns actual content of the object
+        /*      M : mMask OK    E : mExtent OK
+         *      C : mCrop OK    R : mRef    OK
+         */
+
+        void                        Sample();//-> creates mSamp as a sampling of mCdT within mExtent
+        void                        TFSm2Cr();//-> computes mTFSm2Cr as a transfert function from mSamp to mCrop
+
         tU_INT1                     CornersOnIm();
+        cPt2dr                      Ref2Im(cPt2dr aPt, bool inverse=false);
+        std::vector<cPt2dr>         VRef2Im(std::vector<cPt2dr> aVPts, bool inverse=false);
+
+        void                        SetRef2Im(cAff2D_r aRef2Im);
+        void                        SetExtent(cRect2 aExt);
+        void                        SetMask(tIm& aMask);
+        void                        SetRef(tIm& aRef);
+        void                        SetCrop(tIm& aCrop);
+
+        cRect2                      Extent();
+        tIm&                        Mask();
+        tIm&                        Crop();
+        tIm&                        Ref();
+        tIm&                        Samp();
+
         void                        SaveCrop(const std::string& aDir);
         void                        SaveMask(const std::string& aDir);
         void                        SaveSample(const std::string& aDir);
         void                        SaveTmp(tIm& aTmp, const std::string& aDir, const std::string& aPref);
-        void                        SetCdT2Im(cAff2D_r aCdT2Im);
-        cPt2dr                      CdT2Im(cPt2dr aPt, bool inverse=false);
-        std::vector<cPt2dr>         VCdT2Im(std::vector<cPt2dr> aVPts, bool inverse=false);
-        void                        SetExtent(cRect2 aExt);
-        cRect2                      Extent();
-        void                        SetMask(tIm& aMask);
-        void                        SetCdT(tIm& aCdT);
-        void                        SetCrop(tIm& aCrop);
-        void                        Sample();
-        tIm&                        Mask();
-        tIm&                        Crop();
-        tIm&                        CdT();
-        tIm&                        Samp();
-        void                        MapRefine();
 
     private:
         //----- members
@@ -116,13 +125,13 @@ namespace MMVII
         tIm                     mIm;    //-> input image
         tDIm*                   mDIm;   //-> input image data
         tIm                     mCrop;  //-> croped from input image
-        tIm                     mCdT;   //-> MMVII generated CdT
+        tIm                     mRef;   //-> MMVII generated CdT
         tIm                     mSamp;  //-> CdT sampled from CdT2Im mapping
         tIm                     mMask;  //-> bbox of CdT formed by predicted corners (local coordinates, MaskIn/MaskOut)
         tU_INT1                 mVisib; //-> visibility score
         std::vector<cPt2dr>     mVImCorners;
-        cAff2D_r                mCdT2Im;
-        cAff2D_r                mIm2CdT;
+        cAff2D_r                mRef2Im;
+        cAff2D_r                mIm2Ref;
         std::vector<cPt2di>     mVCorners;
 
         //----- methods

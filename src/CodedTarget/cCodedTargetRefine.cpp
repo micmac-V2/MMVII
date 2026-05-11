@@ -11,13 +11,13 @@ namespace MMVII
     /**************************************************************************/
 
     cCdTDiscr::cCdTDiscr(const std::string& aName, const std::string& aImName):
-        mName   (aName),
-        mImName (aImName),
+        mName       (aName),
+        mImName     (aImName),
         mExtent     (cPt2di(1,1)),
         mIm         (cPt2di(1,1)),
         mDIm        (nullptr),
         mCrop       (cPt2di(1,1)),
-        mCdT        (cPt2di(1,1)),
+        mRef        (cPt2di(1,1)),
         mSamp       (cPt2di(1,1)),
         mMask       (cPt2di(1,1))
         {
@@ -41,17 +41,17 @@ namespace MMVII
             if (mMask.DIm().GetV(aPix) == MaskOutV)
             {
                 //-> to avoid aliasing
-                cRessampleWeigth aRW = cRessampleWeigth::GaussBiCub(ToR(aPix + mExtent.P0()), mCdT2Im.MapInverse(), 2);
+                cRessampleWeigth aRW = cRessampleWeigth::GaussBiCub(ToR(aPix + mExtent.P0()), mRef2Im.MapInverse(), 2);
                 const std::vector<cPt2di>  & aVPts = aRW.mVPts;
                 if (!aVPts.empty())
                 {
                     tU_INT1 aV = 0;
                     for (int aK=0; aK<int(aVPts.size()) ; aK++)
                     {
-                        if (mCdT.DIm().Inside(aVPts[aK]))
+                        if (mRef.DIm().Inside(aVPts[aK]))
                         {
                             double aW = aRW.mVWeight[aK];
-                            aV += aW * mCdT.DIm().GetV(aVPts[aK]);
+                            aV += aW * mRef.DIm().GetV(aVPts[aK]);
                         }
                     }
                     aDSamp->SetV(aPix, aV);
@@ -59,6 +59,13 @@ namespace MMVII
             }
         }
     }
+    //-> computes mTFSm2Cr as a transfert function from mSamp to mCrop
+
+    void cCdTDiscr::TFSm2Cr()
+    {
+
+    }
+
 
     /*
      * export methods
@@ -93,12 +100,12 @@ namespace MMVII
      * transformation methods
      */
 
-    cPt2dr cCdTDiscr::CdT2Im(cPt2dr aPt, bool inverse) {return (inverse ? mCdT2Im.Inverse(aPt) : mCdT2Im.Value(aPt));}
+    cPt2dr cCdTDiscr::Ref2Im(cPt2dr aPt, bool inverse) {return (inverse ? mRef2Im.Inverse(aPt) : mRef2Im.Value(aPt));}
 
-    std::vector<cPt2dr> cCdTDiscr::VCdT2Im(std::vector<cPt2dr> aVPts, bool inverse)
+    std::vector<cPt2dr> cCdTDiscr::VRef2Im(std::vector<cPt2dr> aVPts, bool inverse)
     {
         std::vector<cPt2dr> aRes {};
-        for (const auto& aPt : aVPts) aRes.push_back(CdT2Im(aPt, inverse));
+        for (const auto& aPt : aVPts) aRes.push_back(Ref2Im(aPt, inverse));
         return aRes;
     }
 
@@ -107,14 +114,14 @@ namespace MMVII
      */
 
     cRect2  cCdTDiscr::Extent(){return mExtent;}
-    tIm&    cCdTDiscr::CdT(){return mCdT;}
+    tIm&    cCdTDiscr::Ref(){return mRef;}
     tIm&    cCdTDiscr::Crop(){return mCrop;}
     tIm&    cCdTDiscr::Samp(){return mSamp;}
     tIm&    cCdTDiscr::Mask(){return mMask;}
 
-    void    cCdTDiscr::SetCdT2Im(cAff2D_r aCdT2Im){mCdT2Im = aCdT2Im;}
+    void    cCdTDiscr::SetRef2Im(cAff2D_r aRef2Im){mRef2Im = aRef2Im;}
     void    cCdTDiscr::SetExtent(cRect2 aExt){mExtent = aExt;}
-    void    cCdTDiscr::SetCdT(tIm& aCdT){mCdT = aCdT;}
+    void    cCdTDiscr::SetRef(tIm& aRef){mRef = aRef;}
     void    cCdTDiscr::SetMask(tIm& aMask){mMask = aMask;}
     void    cCdTDiscr::SetCrop(tIm& aCrop){mCrop = aCrop;};
 
@@ -182,13 +189,16 @@ namespace MMVII
             //----- refinement for CdT that have been extracted
             for (const auto& aEll : aVEll)
             {
+                //-> set prerequisites to use cCdTDiscr
                 cCdTDiscr aDis = cCdTDiscr(aEll.mNameCode, aIm);
-                BuildDiscr(aDis, aEll.mAffIm2Ref.MapInverse());//-> set prerequisites to use cCdTDiscr
-                aDis.Sample();//-> creates simulated CdT
+                BuildDiscr(aDis, aEll.mAffIm2Ref.MapInverse());
+                //-> creation of sampled CdT
+                aDis.Sample();
                 if (mShow)
                 {
                     aDis.SaveSample(mPhProj.DirVisuAppli());
                 }
+                //-> refinement of image measurement based on CdT sampling
                 DiscrMapRefine(aDis);
             }
 
@@ -211,18 +221,18 @@ namespace MMVII
         return EXIT_SUCCESS;
     }
 
-    void cAppli_CodedTargetRefine::BuildDiscr(cCdTDiscr& aDis, cAff2D_r aCdT2Im)
+    void cAppli_CodedTargetRefine::BuildDiscr(cCdTDiscr& aDis, cAff2D_r aRef2Im)
     {
-        aDis.SetCdT2Im(aCdT2Im);//-> set CdT <-> image mapping
+        aDis.SetRef2Im(aRef2Im);//-> set Ref <-> image mapping
 
-        tIm aCdT = mFSpec->OneImTarget(*mFSpec->EncodingFromName(aDis.mName));
-        aDis.SetCdT(aCdT);
+        tIm aRef = mFSpec->OneImTarget(*mFSpec->EncodingFromName(aDis.mName));
+        aDis.SetRef(aRef);
 
-        tDIm* aDCdT = &aDis.CdT().DIm();
-        std::vector<cPt2dr> aVCdTCorn   = Corners(ToR(aDCdT->P0()), ToR(aDCdT->P1()));//-> CdT corners
-        std::vector<cPt2dr> aVImCorn    = aDis.VCdT2Im(aVCdTCorn);//-> CdT image corners
+        tDIm* aDRef = &aDis.Ref().DIm();
+        std::vector<cPt2dr> aVRefCorn   = Corners(ToR(aDRef->P0()), ToR(aDRef->P1()));//-> Ref corners
+        std::vector<cPt2dr> aVImCorn    = aDis.VRef2Im(aVRefCorn);//-> Ref image corners
 
-        aDis.SetExtent(BBox(aVImCorn));//-> bounding box of CdT image corners
+        aDis.SetExtent(BBox(aVImCorn));//-> bounding box of Ref image corners
 
         //----- set CdT croped image
 
@@ -238,7 +248,7 @@ namespace MMVII
 
         for (const auto& aPix : aDis.Extent())
         {
-            tU_INT1 aVal = aDCdT->Inside(ToI(aDis.CdT2Im(ToR(aPix), true))) ? MaskOutV : MaskInV;
+            tU_INT1 aVal = aDRef->Inside(ToI(aDis.Ref2Im(ToR(aPix), true))) ? MaskOutV : MaskInV;
             aDMask->SetV(aPix - aDis.Extent().P0(), aVal);
         }
 
@@ -255,13 +265,13 @@ namespace MMVII
     {
         //----- residual mask computation
         std::vector<cPt2dr> aVSampWC = {}, aVSampBC = {};//-> w/b bits centers in mSamp
-        tDIm* aDCdT = &aDis.CdT().DIm();
+        tDIm* aDRef = &aDis.Ref().DIm();
         tDIm* aDSamp = &aDis.Samp().DIm();
 
         for (const auto& aC : mFSpec->BitsCenters())
         {
-            auto aSampC = aDis.CdT2Im(aC) - ToR(aDis.Extent().P0());
-            aDCdT->GetV(ToI(aC)) < 125 ? aVSampBC.push_back(aSampC) : aVSampWC.push_back(aSampC);
+            auto aSampC = aDis.Ref2Im(aC) - ToR(aDis.Extent().P0());
+            aDRef->GetV(ToI(aC)) < 125 ? aVSampBC.push_back(aSampC) : aVSampWC.push_back(aSampC);
         }
 
         cRansacSol aATF = RansacATF(aVSampBC, aVSampWC, aDSamp, &aDis.Crop().DIm(), &aDis.Mask().DIm(), MaskInV);
