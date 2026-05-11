@@ -1,0 +1,12 @@
+CMakeFiles/
+CMakeCache.txt
+bin/
+Makefile*
+cmake_install*
+CPackConfig.cmake
+CPackSourceConfig.cmake
+*.gz
+*.bz2
+_CPack_Packages/
+install_mainifest.txt
+docs/build
