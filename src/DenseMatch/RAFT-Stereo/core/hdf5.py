@@ -125,6 +125,7 @@ class HDF5Dataset(Dataset):
         masq_divider: Number = 1,
         subtile_overlap_train: Number = 0,
         aug_params: Dict = None,
+        nodata_value: Number = -9999.0
     ):
         """Initialization, taking care of HDF5 dataset preparation if needed, and indexation of its content.
 
@@ -157,6 +158,7 @@ class HDF5Dataset(Dataset):
         # They are loaded within __getitem__ to support multi-processing training.
         # add augmentor 
         self.augmentor = FlowAugmentor(**aug_params) if aug_params else None
+        self.nodata_value = nodata_value
 
         self.dataset = None
         self._samples_hdf5_paths = None
@@ -226,21 +228,24 @@ class HDF5Dataset(Dataset):
         if isinstance(disp, tuple):
             disp, valid = disp
         else:
-            valid = disp < 512
+            # consider nodata= -9999 as invalid, and also consider any disparity with an absolute value larger than 512 as invalid (as it is out of the range of disparities seen during training, and likely to be an error in the GT).
+            valid = (disp != self.nodata_value) & (np.abs(disp) < 512)
 
         flow = np.stack([-disp, np.zeros_like(disp)], axis=-1)
 
         if self.augmentor is not None:
-            img1, img2, flow = self.augmentor(img1, img2, flow)
+            img1, img2, flow, valid = self.augmentor(img1, img2, flow,valid)
 
         img1 = torch.from_numpy(img1).permute(2, 0, 1).float()
         img2 = torch.from_numpy(img2).permute(2, 0, 1).float()
         flow = torch.from_numpy(flow).permute(2, 0, 1).float()
 
-        valid = (flow[0].abs() < 512) & (flow[1].abs() < 512)
-        flow = flow[:1]
+        # nodata of -9999 is already considered in the valid mask, so we don't need to do anything else here.
+        valid = (flow[0].abs() < 512) & (flow[1].abs() < 512) & valid
 
-        return img1, img2, flow, valid.float()
+        flow = flow[:1]
+        valid = valid.unsqueeze(0).float()
+        return img1, img2, flow, valid
     
 
     def _get_data(self, sample_hdf5_path: str) -> Data:

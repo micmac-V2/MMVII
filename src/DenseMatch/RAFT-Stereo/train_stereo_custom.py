@@ -58,7 +58,7 @@ def validate_custom_dataset(model,dataset, iters=32, mixed_prec=False):
         epe = ((flow_pr - flow_gt)**2).sqrt().squeeze()
 
         epe = epe.flatten()
-        val = (valid_gt.flatten() >= 0.5) & (flow_gt.abs().flatten() < 192)
+        val = (valid_gt.flatten() >= 0.5) & (flow_gt.abs().flatten() < 512.0)
         out = (epe > 1.0)
         epe_list.append(epe[val].mean().item())
         out_list.append(out[val].cpu().numpy())

@@ -70,7 +70,7 @@ class FlowAugmentor:
         self.crop_size = crop_size
         self.min_scale = min_scale
         self.max_scale = max_scale
-        self.spatial_aug_prob = 1.0
+        self.spatial_aug_prob = 0.7
         self.stretch_prob = 0.8
         self.max_stretch = 0.2
 
@@ -78,12 +78,13 @@ class FlowAugmentor:
         self.yjitter = yjitter
         self.do_flip = do_flip
         self.h_flip_prob = 0.5
-        self.v_flip_prob = 0.3
+        self.v_flip_prob = 0.5
 
         # photometric augmentation params
         self.photo_aug = Compose([ColorJitter(brightness=0.4, contrast=0.4, saturation=saturation_range, hue=0.5/3.14), AdjustGamma(*gamma)])
         self.asymmetric_color_aug_prob = 0.2
         self.eraser_aug_prob = 0.5
+        self.disp_increase_prob = 0.5
 
     def color_transform(self, img1, img2):
         """ Photometric augmentation """
@@ -115,8 +116,52 @@ class FlowAugmentor:
                 img2[y0:y0+dy, x0:x0+dx, :] = mean_color
 
         return img1, img2
+    
+    def disparity_increase(self,img1,
+                           img2,
+                           flo,
+                           valid_mask,
+                            min_offset=-70, 
+                            max_offset=70,
+                            nodata_value=-9999.0):
+        """ Disparity augmentation by rescaling the flow and resizing the images accordingly """
+        if np.random.rand() >= self.disp_increase_prob:
+            return img1, img2, flo, valid_mask
+        else:
+            ht, wd = img1.shape[:2]
+            offset = np.random.randint(min_offset, max_offset)
+            img2_aug = np.full_like(img2, 0)
 
-    def spatial_transform(self, img1, img2, flow):
+            if offset > 0:
+                img2_aug[:, offset:]  = img2[:, : wd - offset] 
+            elif offset < 0:
+                img2_aug[:, :wd + offset] = img2[:, -offset:]   
+            else:        
+                img2_aug = img2.copy()
+            
+            if offset < 0:
+                valid = wd + offset
+                img1_aug = img1[:, :valid].copy()
+                img2_aug = img2_aug[:, :valid]
+                flo_aug = flo[:, :valid]
+                valid_mask = valid_mask[:, :valid]
+                flo_aug[valid_mask==1] += offset
+
+            elif offset > 0:
+                valid = wd - offset
+                img1_aug = img1[:, offset:].copy()
+                img2_aug = img2_aug[:, offset:]
+                flo_aug = flo[:, offset:]
+                valid_mask = valid_mask[:, offset:]
+                flo_aug[valid_mask==1] += offset
+
+            else:
+                img1_aug = img1.copy()
+                flo_aug = flo.copy()    
+
+            return img1_aug, img2_aug, flo_aug, valid_mask
+
+    def spatial_transform(self, img1, img2, flow, valid_mask):
         # randomly sample scale
         ht, wd = img1.shape[:2]
         min_scale = np.maximum(
@@ -139,18 +184,27 @@ class FlowAugmentor:
             img1 = cv2.resize(img1, None, fx=scale_x, fy=scale_y, interpolation=cv2.INTER_LINEAR)
             img2 = cv2.resize(img2, None, fx=scale_x, fy=scale_y, interpolation=cv2.INTER_LINEAR)
             flow = cv2.resize(flow, None, fx=scale_x, fy=scale_y, interpolation=cv2.INTER_LINEAR)
+            valid_mask = cv2.resize(valid_mask.astype(np.uint8), 
+                                    None, 
+                                    fx=scale_x, 
+                                    fy=scale_y, 
+                                    interpolation=cv2.INTER_NEAREST)
             flow = flow * [scale_x, scale_y]
+            flow [valid_mask < 0.5] = -9999.0
+
 
         if self.do_flip:
             if np.random.rand() > self.h_flip_prob: # h-flip with flow negation
                 img1 = img1[:, ::-1]
                 img2 = img2[:, ::-1]
                 flow = flow[:, ::-1] * [-1.0, 1.0]
+                valid_mask = valid_mask[:, ::-1]
 
             if np.random.rand() < self.v_flip_prob:
                 img1 = img1[::-1, :]
                 img2 = img2[::-1, :]
                 flow = flow[::-1, :] * [1.0, -1.0]
+                valid_mask = valid_mask[::-1, :]
 
         if self.yjitter:
             y0 = np.random.randint(2, img1.shape[0] - self.crop_size[0] - 2)
@@ -160,6 +214,7 @@ class FlowAugmentor:
             img1 = img1[y0:y0+self.crop_size[0], x0:x0+self.crop_size[1]]
             img2 = img2[y1:y1+self.crop_size[0], x0:x0+self.crop_size[1]]
             flow = flow[y0:y0+self.crop_size[0], x0:x0+self.crop_size[1]]
+            valid_mask= valid_mask[y0:y0+self.crop_size[0], x0:x0+self.crop_size[1]]
 
         else:
             y0 = np.random.randint(0, img1.shape[0] - self.crop_size[0])
@@ -168,23 +223,32 @@ class FlowAugmentor:
             img1 = img1[y0:y0+self.crop_size[0], x0:x0+self.crop_size[1]]
             img2 = img2[y0:y0+self.crop_size[0], x0:x0+self.crop_size[1]]
             flow = flow[y0:y0+self.crop_size[0], x0:x0+self.crop_size[1]]
+            valid_mask= valid_mask[y0:y0+self.crop_size[0], x0:x0+self.crop_size[1]]
 
-        return img1, img2, flow
+        return img1, img2, flow, valid_mask
 
 
-    def __call__(self, img1, img2, flow):
+    def __call__(self, img1, img2, flow, valid_mask):
         img1, img2 = self.color_transform(img1, img2)
         img1, img2 = self.eraser_transform(img1, img2)
-        img1, img2, flow = self.spatial_transform(img1, img2, flow)
+        img1,img2,flow,valid_mask = self.disparity_increase(img1, img2, flow, valid_mask)
+        img1, img2, flow, valid_mask = self.spatial_transform(img1, img2, flow, valid_mask)
 
         img1 = np.ascontiguousarray(img1)
         img2 = np.ascontiguousarray(img2)
         flow = np.ascontiguousarray(flow)
+        valid_mask = np.ascontiguousarray(valid_mask)
 
-        return img1, img2, flow
+        return img1, img2, flow, valid_mask
 
 class SparseFlowAugmentor:
-    def __init__(self, crop_size, min_scale=-0.2, max_scale=0.5, do_flip=False, yjitter=False, saturation_range=[0.7,1.3], gamma=[1,1,1,1]):
+    def __init__(self, crop_size, 
+                 min_scale=-0.2, 
+                 max_scale=0.5, 
+                 do_flip=False, 
+                 yjitter=False, 
+                 saturation_range=[0.7,1.3], 
+                 gamma=[1,1,1,1]):
         # spatial augmentation params
         self.crop_size = crop_size
         self.min_scale = min_scale
