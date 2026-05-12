@@ -6,7 +6,7 @@ from numpy.typing import ArrayLike
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 import torch
-import idr_torch
+#import idr_torch
 from core.hdf5 import CustomCompose, HDF5Dataset,Data
 from core.hdf5 import get_image_paths_by_split_dict
 import numpy as np

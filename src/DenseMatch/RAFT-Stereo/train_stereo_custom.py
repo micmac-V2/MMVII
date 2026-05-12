@@ -215,7 +215,7 @@ def train(args):
     logger = Logger(model, scheduler)
 
     if args.restore_ckpt is not None:
-        assert args.restore_ckpt.endswith(".pth")
+        assert args.restore_ckpt.endswith(".pth") or args.restore_ckpt.endswith(".pth.gz"), "Checkpoint file should end with .pth or .pth.gz"
         logging.info("Loading checkpoint...")
         checkpoint = torch.load(args.restore_ckpt)
         model.load_state_dict(checkpoint, strict=True)
