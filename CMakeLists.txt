@@ -88,8 +88,11 @@ include_directories(${CMAKE_BINARY_DIR}/E57-install/include)
 link_directories(${CMAKE_BINARY_DIR}/E57-install/lib)
 
 # LASlib (from LAStools)
-add_subdirectory(ExternalInclude/LAStools)
-include_directories(${LAStools_SOURCE_DIR}/LASlib/inc ${LAStools_SOURCE_DIR}/LASzip/include/laszip/ ${LAStools_SOURCE_DIR}/LASzip/src )
+include(ExternalProject)
+ExternalProject_Add(LASlib SOURCE_DIR ${CMAKE_SOURCE_DIR}/ExternalInclude/LAStools)
+#
+#add_subdirectory(ExternalInclude/LAStools)
+#include_directories(${LAStools_SOURCE_DIR}/LASlib/inc ${LAStools_SOURCE_DIR}/LASzip/include/laszip/ ${LAStools_SOURCE_DIR}/LASzip/src ${LAStools_SOURCE_DIR}/LASzip/include/laszip)
 
 get_cmake_property(_vars VARIABLES)
 foreach(_var ${_vars})
@@ -112,7 +115,7 @@ set(gnu_cxx  "$<COMPILE_LANG_AND_ID:CXX,GNU>")
 
 add_library(MMVII_compiler_flags INTERFACE)
 target_compile_options(MMVII_compiler_flags INTERFACE
-    "$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall;-Werror>>"
+	"$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall;-Werror;-Wno-unknown-pragmas>>"
     "$<${msvc_cxx}:$<BUILD_INTERFACE:/W3;/D_USE_MATH_DEFINES;/D_HAS_STD_BYTE=0;/wd4244;/wd4267;/wd4305;/wd4661;/D_CRT_SECURE_NO_WARNINGS>>"
     "$<$<CONFIG:Debug>:$<$<CXX_COMPILER_ID:MSVC>:/bigobj>>"
     "$<$<CONFIG:RelWithDebInfo>:$<$<CXX_COMPILER_ID:MSVC>:/bigobj>>"

@@ -7,7 +7,7 @@
 #include "MMVII_PCSens.h"
 #include "../PoseEstim/VisPoseAndStructure.h"
 
-#include <omp.h>
+//#include <omp.h>
 
 #include "ogrsf_frmts.h"
 #include "MMVII_AimeTieP.h"

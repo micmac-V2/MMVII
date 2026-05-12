@@ -535,7 +535,7 @@ public:
 
     /// accessors
     unsigned int NbPts();
-    const char* ProjStr();
+    std::string ProjStr();
     bool HasTime();
     bool HasColor();
     void SamplePts(const bool &, const Type &);
@@ -548,7 +548,7 @@ private :
     //void LasWrite(const std::string &);
     std::vector<int> mClassif;
     unsigned int mNbPoints;
-    const char * mProjStr=nullptr;
+    std::string mProjStr;
     bool mHasTime=false;
     bool mHasColor=false;
     //cBox2dr mDelimitBox=cBox2dr(cPt2dr(0,0),cPt2dr(1,1));

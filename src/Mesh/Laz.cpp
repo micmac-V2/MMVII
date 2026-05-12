@@ -56,7 +56,7 @@ template <class Type> unsigned int cTriangulation3DLas<Type>::NbPts()
     return this->mVPts.size();
   }
 
-template <class Type> const char* cTriangulation3DLas<Type>::ProjStr()
+template <class Type> std::string cTriangulation3DLas<Type>::ProjStr()
   {
     return mProjStr;
   }
@@ -191,7 +191,7 @@ template <class Type> void cTriangulation3DLas<Type>::SamplePts(const bool & tar
   // ============================================================
   static std::string ReadProjStr(const LASheader & aHeader)
   {
-      for (int i = 0; i < aHeader.number_of_variable_length_records; i++)
+      for (unsigned i = 0; i < aHeader.number_of_variable_length_records; i++)
       {
           const auto & vlr = aHeader.vlrs[i];
           if (std::string(vlr.user_id) == kVlrUserId_Projection
@@ -211,7 +211,7 @@ template <class Type> void cTriangulation3DLas<Type>::SamplePts(const bool & tar
   {
       cDsmMarkerInfo aInfo;
 
-      for (int i = 0; i < aHeader.number_of_variable_length_records; i++)
+      for (unsigned i = 0; i < aHeader.number_of_variable_length_records; i++)
       {
           const auto & vlr = aHeader.vlrs[i];
           if (std::string(vlr.user_id) != kVlrUserId_Spec
