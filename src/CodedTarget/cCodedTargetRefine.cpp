@@ -28,6 +28,7 @@ namespace MMVII
     {
         mSamp = tIm(mExtent.Sz());
         tDIm* aDSamp = &mSamp.DIm();
+        aDSamp->InitCste(255);
 
         for (const auto& aPix : *aDSamp)
         {
@@ -35,10 +36,10 @@ namespace MMVII
             {
                 //-> to avoid aliasing
                 cRessampleWeigth aRW = cRessampleWeigth::GaussBiCub(ToR(aPix + mExtent.P0()), mRef2Im.MapInverse(), 2);
-                const std::vector<cPt2di>  & aVPts = aRW.mVPts;
+                const std::vector<cPt2di>& aVPts = aRW.mVPts;
                 if (!aVPts.empty())
                 {
-                    tU_INT1 aV = 0;
+                    tREAL8 aV = 0;
                     for (int aK=0; aK<int(aVPts.size()) ; aK++)
                     {
                         if (mRef.DIm().Inside(aVPts[aK]))
@@ -71,22 +72,25 @@ namespace MMVII
 
         tIm aCSamp = tIm(aDSamp->Sz());//-> corrected sample image
         tDIm* aDCSamp = &aCSamp.DIm();
+        aDCSamp->InitCste(255);
+
+        //----- set corrected pixels from ransac solution
+        for (const auto& aP : *aDSamp)
+        {
+            if (mMask.DIm().GetV(aP)==MaskOutV)
+            aDCSamp->SetVTrunc(aP, mTFSm2Cr.mSol.x()*aDSamp->GetV(aP) + mTFSm2Cr.mSol.x());
+        }
 
         //----- set w/b pixels bit centers to check location
         for (const auto& aP : SampC('B')) {aDCSamp->SetV(ToI(aP), 255);}
         for (const auto& aP : SampC('W')) {aDCSamp->SetV(ToI(aP), 0);}
 
-        //----- set corrected pixels from ransac solution
-        for (const auto& aP : *aDSamp)
-        {
-            aDCSamp->SetVTrunc(aP, mTFSm2Cr.mSol.x()*aDSamp->GetV(aP) + mTFSm2Cr.mSol.x());
-        }
-
         tIm aRes = ResTFSm2Cr();//-> TF residual image
 
         //----- save images
-        SaveTmp(aCSamp, aDir, "CorSamp-");
-        SaveTmp(aRes, aDir, "ResSamp-");
+        SaveTmp(aCSamp, aDir, "CorSamp");
+        SaveTmp(aRes, aDir, "ResSamp");
+        SaveTmp(mTFSm2Cr.mInlMask, aDir, "InlMask");
     }
 
     /*
@@ -95,27 +99,32 @@ namespace MMVII
 
     void cCdTDiscr::SaveCrop(const std::string& aDir)
     {
-        SaveIm(&mCrop.DIm(), aDir + "Crop-CdT" + mName + '-' + mImName);
+        SaveIm(&mCrop.DIm(), aDir, "Crop");
     }
 
     void cCdTDiscr::SaveMask(const std::string& aDir)
     {
-        SaveIm(&mMask.DIm(), aDir + "Mask-CdT" + mName + '-' + mImName);
+        SaveIm(&mMask.DIm(), aDir, "Mask");
     }
 
     void cCdTDiscr::SaveSample(const std::string& aDir)
     {
-        SaveIm(&mSamp.DIm(), aDir + "Samp-CdT" + mName + '-' + mImName);
+        SaveIm(&mSamp.DIm(), aDir, "Samp");
     }
 
-    void cCdTDiscr::SaveIm(tDIm* aDIm, std::string aPath)
+    void cCdTDiscr::SaveRef(const std::string& aDir)
     {
-        aDIm->ToFile(aPath);
+        SaveIm(&mRef.DIm(), aDir, "Ref");
+    }
+
+    void cCdTDiscr::SaveIm(tDIm* aDIm, std::string aDir, std::string aPref)
+    {
+        aDIm->ToFile(aDir + "CdT" + mName + '-' + aPref + '-' + mImName);
     }
 
     void cCdTDiscr::SaveTmp(tIm& aTmp, const std::string& aDir, const std::string& aPref)
     {
-        SaveIm(&aTmp.DIm(), aDir + aPref + mName + '-' + mImName);
+        SaveIm(&aTmp.DIm(), aDir, aPref);
     }
 
     /*
@@ -184,8 +193,11 @@ namespace MMVII
         tDIm& aDCrop = mCrop.DIm();
         tIm aRes(aDSamp.Sz());
         tDIm& aDRes = aRes.DIm();
+        tDIm& aDMask = mMask.DIm();
+        aDRes.InitCste(255);
         for (const auto& aP : aDSamp)
         {
+            if (aDMask.GetV(aP) == MaskInV) continue;
             aDRes.SetVTrunc(aP, abs(mTFSm2Cr.mSol.x()*aDSamp.GetV(aP) + mTFSm2Cr.mSol.x() - aDCrop.GetV(aP)));
         }
         return aRes;
@@ -216,9 +228,8 @@ namespace MMVII
     cCollecSpecArg2007& cAppli_CodedTargetRefine::ArgObl(cCollecSpecArg2007& anArgObl)
     {
         return anArgObl
-                << Arg2007(mSpecImIn, "Pattern/file of images", {{eTA2007::MPatFile,"0"}, {eTA2007::FileDirProj}})
+                << Arg2007(mSpecImIn, "Pattern/file of images", {{eTA2007::MPatFile,"0"},eTA2007::FileImage})
                 << Arg2007(mFSpecName,"Xml/Json name for bit encoding struct",{{eTA2007::XmlOfTopTag,cFullSpecifTarget::TheMainTag}})
-                << mPhProj.DPOrient().ArgDirInMand("Cameras absolute orientations")
                 << mPhProj.DPGndPt2D().ArgDirInMand("Coded targets image measurements")
             ;
     }
@@ -251,17 +262,11 @@ namespace MMVII
         std::vector<std::string> aVIm = VectMainSet(0);
         mFSpec.reset(cFullSpecifTarget::CreateFromFile(mFSpecName));
 
-        //-> if CdT descriptions are provided -> fill mVDescr (useful for CdT that have not been extracted)
-        if(!mPhProj.DPGndPt3D().DirInIsNONE())
-        {
-            ReadFromFile(mVDescr, cCdTDescr::NameFile(mPhProj, true));
-        }
 
         //----- independent process for each image
 
         for (const auto& aIm : aVIm)
         {
-            mCam        = mPhProj.ReadCamPC(aIm, true);
             mIm         = tIm::FromFile(aIm);
             mSetImMes   = mPhProj.LoadMeasureIm(aIm);
             std::vector<cCdTDiscr>          aVDiscr;
@@ -288,6 +293,11 @@ namespace MMVII
                 }
             }
 
+            //-> if CdT descriptions are provided -> fill mVDescr (useful for CdT that have not been extracted)
+            //if(!mPhProj.DPGndPt3D().DirInIsNONE())
+            //{
+            //    ReadFromFile(mVDescr, cCdTDescr::NameFile(mPhProj, true));
+            //}
             //----- do something close with some extra steps for unextracted CdT
             /*
             if (!mVDescr.empty())
@@ -323,7 +333,6 @@ namespace MMVII
         aDis.SetWBCenters(mFSpec->BitsCenters());//-> set w/b bit centers w.r.t Ref images coordinates
 
         //----- set CdT croped image
-
         tIm aCrop(aDis.Extent().Sz());
         aDis.SetCrop(aCrop);
 
@@ -346,27 +355,81 @@ namespace MMVII
         {
             aDis.SaveMask(mPhProj.DirVisuAppli());
             aDis.SaveCrop(mPhProj.DirVisuAppli());
+            aDis.SaveRef(mPhProj.DirVisuAppli());
         }
     }
 
     void cAppli_CodedTargetRefine::DiscrMapRefine(cCdTDiscr& aDis)
     {
-        //----- ransac computation of Samp to Crop Transfert Function
+        //----- ransac computation of Samp to Crop Transfert Function to filter outliers
         mVisu ? aDis.VisuRansacTFSm2Cr(mPhProj.DirVisuAppli()) : aDis.RansacTFSm2Cr();
         if (mShow) StdOut() << aDis.mName << " -> ransac Sm2Cr solution " << aDis.TFSm2Cr().mSol << '\n';
 
-        //----- set outlier mask from TF computation
-        tIm aRes = aDis.ResTFSm2Cr();
-        tDIm& aDRes = aRes.DIm();
-        tIm aOMask(aDRes.Sz());//-> outlier mask
-        tDIm& aDOMask = aOMask.DIm();
-        for (const auto& aP : aDRes)
+        //----- least square computation of Samp to Crop 10-params mapping
+        auto& aDInlMask = aDis.TFSm2Cr().mInlMask.DIm();
+        auto& aDSamp = aDis.Samp().DIm();
+        auto& aDCrop = aDis.Crop().DIm();
+        //1-create LS struct
+        cLeasSqtAA<tREAL8> aLSSystem(10);
+        std::unique_ptr<cDiffInterpolator1D> aInterpol;
+        aInterpol.reset(cDiffInterpolator1D::AllocFromNames({"Linear"}));
+        //2-iterate on "good" pixels and add corresponding observations to the struct
+        int ix=0;
+        for (const auto& aPix : aDSamp)
         {
-            tU_INT1 aV= aDRes.GetV(aP) > mL1Lim ? MaskInV : MaskOutV;
-            aDOMask.SetV(aP, aV);
+            if (aDInlMask.GetV(aPix)==MaskInV)
+            {
+                if (aDSamp.InsideInterpolator(*aInterpol, ToR(aPix)))
+                {
+                    ++ix;
+                    (void) ix;
+                    auto [aValue,aGrad] = aDSamp.GetValueAndGradInterpol(*aInterpol,ToR(aPix));
+                    tREAL8 aI=(tREAL8)aDSamp.GetV(aPix);
+                    tREAL8 ai=(tREAL8)aDCrop.GetV(aPix);
+                    auto& aPartix=aGrad.x();//interpol
+                    auto& aPartiy=aGrad.y();//interpol
+                    cDenseVect<tREAL8> aVEqObs({aI*aPix.x(),
+                                                aI*aPix.y(),
+                                                aI,
+                                                1,
+                                                -aPartix*aPix.x(),
+                                                -aPartix*aPix.y(),
+                                                -aPartix,
+                                                -aPartiy*aPix.x(),
+                                                -aPartiy*aPix.y(),
+                                                -aPartiy});
+                    aLSSystem.PublicAddObservation(1, aVEqObs, ai);
+                }
+            }
         }
-        //aDis.SaveTmp(aOMask, mPhProj.DirVisuAppli(), "OMask-");
+        auto& aDMask = aDis.Mask().DIm();
 
+        //3-solve the system
+        auto aSol = aLSSystem.PublicSolve().ToStdVect();
+        StdOut() << "LS solution  : " << aSol << '\n';
+        //4-test the solution
+        tIm aSolIm(aDSamp.Sz());
+        tDIm& aDSIm = aSolIm.DIm();
+        aDSIm.InitCste(255);
+        aInterpol.reset(cDiffInterpolator1D::AllocFromNames({"Linear"}));
+        for (const auto& aP : aDSamp)
+        {
+            if (aDMask.GetV(aP)==MaskOutV)
+            {
+                if (aDSamp.InsideInterpolator(*aInterpol, ToR(aP)))
+                {
+                    auto [aValue,aGrad] = aDSamp.GetValueAndGradInterpol(*aInterpol,ToR(aP));
+                    auto& aDPx=aGrad.x();
+                    auto& aDPy=aGrad.y();
+                    tREAL8 aVS = aDSamp.GetV(aP);
+                    tREAL8 aV = aVS * (aSol[0]*aP.x() + aSol[1]*aP.y() + aSol[2]) + aSol[3]
+                                - aDPx * (aSol[4]*aP.x() + aSol[5]*aP.y() + aSol[6])
+                                - aDPy * (aSol[7]*aP.x() + aSol[8]*aP.y() + aSol[9]);
+                    aDSIm.SetVTrunc(aP, aV);
+                }
+            }
+        }
+        aDis.SaveTmp(aSolIm, mPhProj.DirVisuAppli(), "LS");
 
     }
 
@@ -381,10 +444,9 @@ namespace MMVII
         (
             "CodedTargetRefine",
             Alloc_CodedTargetRefine,
-            "blablabla",
-            //metadonnees
-            {eApF::Ori,eApF::GCP},//features
-            {eApDT::ObjCoordWorld, eApDT::ObjMesInstr},//inputs
+            "CdT refinement",
+            {eApF::CodedTarget,eApF::ImProc},
+            {eApDT::Image,eApDT::Xml},
             {eApDT::Console},//output
             __FILE__
             );
@@ -468,8 +530,8 @@ namespace MMVII
                 if (aD < aGVT)
                 {
                     ++aInliers;
-                    aDInlMask.SetV(aPix, MaskInV);
-                    aL1Score.Add(aD);
+                    aDInlMask.SetV(aPix, MaskInV);//-> add pixel to the inlier mask
+                    aL1Score.Add(aD);//-> add residual
                 }
             }
 
