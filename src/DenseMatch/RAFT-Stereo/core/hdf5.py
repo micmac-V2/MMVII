@@ -244,8 +244,7 @@ class HDF5Dataset(Dataset):
         valid = (flow[0].abs() < 512) & (flow[1].abs() < 512) & valid
 
         flow = flow[:1]
-        valid = valid.unsqueeze(0).float()
-        return img1, img2, flow, valid
+        return img1, img2, flow, valid.float()
     
 
     def _get_data(self, sample_hdf5_path: str) -> Data:

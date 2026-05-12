@@ -121,7 +121,7 @@ def fetch_optimizer(args, model):
         optimizer,
         max_lr=1e-4,          # peak LR
         total_steps=args.num_steps,
-        pct_start=0.05,        # 5% warmup → 1500 steps
+        pct_start=0.01,        # 1% warmup to peak learning rate
         anneal_strategy='cos', # cosine annealing after peak
         div_factor=25,         # initial_lr = max_lr / 25 = 4e-6
         final_div_factor=1000, # final_lr = max_lr / 1000 = 1e-7
