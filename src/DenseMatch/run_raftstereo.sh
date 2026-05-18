@@ -2,7 +2,7 @@
 
 ######### SET-UP
 mm3dBin=$(which MMVII)
-ModelsDir=${mm3dBin::(-15)}"MMVII-TrainedModels/"
+ModelsDir=${mm3dBin::(-9)}"MMVII-TrainedModels/"
 DenseMDir=${mm3dBin::(-9)}"src/DenseMatch/"
 
 
@@ -11,8 +11,9 @@ CodeDir=${DenseMDir}"RAFT-Stereo/"
 
 
 # path to your trained model
-MODELPATH=${RAFTSDir}"1000002_epoch_raftstereo_experiment-PATCH-640.pth.gz"
+#MODELPATH=${RAFTSDir}"1000002_epoch_raftstereo_experiment-PATCH-640.pth.gz"
 #MODELPATH=${CodeDir}"models/raftstereo-sceneflow.pth"
+MODELPATH=${RAFTSDir}"170000_raftstereo_experiment-PATCH-512_AUG_LARGE_DISP.pth"
 # disparity scale of the trained model
 #DISPSCALE=-256.0
 ########
