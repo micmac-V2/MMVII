@@ -16,8 +16,9 @@ namespace MMVII
     typedef cIm2D<tU_INT1>      tIm;
     typedef cDataIm2D<tU_INT1>  tDIm;
 
-    class cCdTDiscr;
-    struct cRansacSol;
+    class   cCdTDiscr;
+    struct  cRansacSol;
+    struct  cLS10PSol;
 
     /*!
      * @brief RansacATF : computes Affine Transfert Function between 2 images
@@ -34,8 +35,7 @@ namespace MMVII
      */
 
     cRansacSol RansacATF(std::vector<cPt2dr> aVBPts, std::vector<cPt2dr> aVWPts, tDIm* aDIm1, tDIm* aDIm2,
-                        tDIm* aDMask=nullptr, tU_INT1 aGVT=20, tU_INT1 aMaskOutV=255, int aIt=200, int aRDist=50);
-
+                        tDIm* aDMask=nullptr, tU_INT1 aGVT=20, tU_INT1 aMaskOutV=MaskOutV, int aIt=200, int aRDist=50);
 
     /*!
      * @brief The cRansacSol class : storage of RansacATF solution
@@ -49,6 +49,32 @@ namespace MMVII
         cPt2dr      mSol;//-> best fit solution
         cStdStatRes mL1Score;//-> vector of inliers residuals
         tIm         mInlMask;//-> inliers binary mask
+    };
+
+    class cLS10PSys
+    {
+    public:
+        cLS10PSys(tDIm* aDIm1, tDIm* aDIm2, tDIm* aDInlMask, tU_INT1 aMaskInV=MaskInV);
+
+        //-----methods
+        void        Build();
+        cLS10PSol   Solve();
+
+    private:
+        //----- members
+        tDIm*               mDIm1;
+        tDIm*               mDIm2;
+        tDIm*               mDInlMask;
+        tU_INT1             mMaskInV;
+        cLeasSqtAA<tREAL8>  mSys;
+    };
+
+    struct cLS10PSol
+    {
+        cLS10PSol();
+        cLS10PSol(cDenseVect<tREAL8> aVParams);
+        std::vector<tREAL8> mVP;
+        cAff2D_r            mAff;
     };
 
     class cAppli_CodedTargetRefine : public cMMVII_Appli
@@ -101,6 +127,8 @@ namespace MMVII
         void                        Sample();//-> creates mSamp as a sampling of mCdT within mExtent
         void                        RansacTFSm2Cr();//-> computes mTFSm2Cr as a transfert function from mSamp to mCrop
         void                        VisuRansacTFSm2Cr(const std::string& aDir);//-> visu version of RansacTFSm2Cr : saves lots of visualisations
+        void                        LS10ParamSm2Cr();//-> computes mSm2Cr mapping as a 10 parameters model
+        void                        VisuLS10ParamSm2Cr(const std::string &aDir);//-> computes mSm2Cr mapping as a 10 parameters model
 
         cPt2dr                      Ref2Im(cPt2dr aPt, bool inverse=false);//-> get input image coordinate from a point of MMVII generated CdT image
         std::vector<cPt2dr>         VRef2Im(std::vector<cPt2dr> aVPts, bool inverse=false);//-> Ref2Im for a point vector
@@ -117,9 +145,11 @@ namespace MMVII
         tIm&                        Crop();//-> input image cropped at mExtent bounds
         tIm&                        Ref();//-> referenced image (MMVII-generated)
         tIm&                        Samp();//-> sampled image
-        std::vector<cPt2dr>         SampC(char aC);//-> returns w/b bit centers w.r.t samp image coordinates
+        cPt2dr                      SampC();
+        std::vector<cPt2dr>         SampBitC(char aC);//-> returns w/b bit centers w.r.t samp image coordinates
         cRansacSol                  TFSm2Cr();//-> get radiometric transfert function from sampled image to cropped image
         tIm                         ResTFSm2Cr();//-> computes residual image from sampled to cropped transfert function
+        cLS10PSol                   Sm2Cr();
 
         void                        SaveCrop(const std::string& aDir);
         void                        SaveMask(const std::string& aDir);
@@ -140,6 +170,7 @@ namespace MMVII
         std::vector<cPt2dr>     mVBCenters;//-> white bit centers w.r.t Ref image coordinates
         std::vector<cPt2dr>     mVWCenters;//-> black bit centers w.r.t Ref image coordinates
         cRansacSol              mTFSm2Cr;//-> radiometric transfert function from sampled image to cropped image computed by RansacATF
+        cLS10PSol               mSm2Cr;
 
         //----- methods
         void            SaveIm(tDIm* aDIm, std::string aDir, std::string aPref);//-> generic image saving

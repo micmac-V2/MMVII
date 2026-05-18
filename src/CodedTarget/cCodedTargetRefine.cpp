@@ -56,8 +56,8 @@ namespace MMVII
 
     void cCdTDiscr::RansacTFSm2Cr()//-> computes mTFSm2Cr as a transfert function from mSamp to mCrop
     {
-        std::vector<cPt2dr> aVSampBC = SampC('B');
-        std::vector<cPt2dr> aVSampWC = SampC('W');
+        std::vector<cPt2dr> aVSampBC = SampBitC('B');
+        std::vector<cPt2dr> aVSampWC = SampBitC('W');
 
         //----- computes ransac solution on w/b bit centers
         mTFSm2Cr = RansacATF(aVSampBC, aVSampWC, &mSamp.DIm(), &mCrop.DIm(), &mMask.DIm(), 10, MaskInV);
@@ -82,8 +82,8 @@ namespace MMVII
         }
 
         //----- set w/b pixels bit centers to check location
-        for (const auto& aP : SampC('B')) {aDCSamp->SetV(ToI(aP), 255);}
-        for (const auto& aP : SampC('W')) {aDCSamp->SetV(ToI(aP), 0);}
+        for (const auto& aP : SampBitC('B')) {aDCSamp->SetV(ToI(aP), 255);}
+        for (const auto& aP : SampBitC('W')) {aDCSamp->SetV(ToI(aP), 0);}
 
         tIm aRes = ResTFSm2Cr();//-> TF residual image
 
@@ -91,6 +91,54 @@ namespace MMVII
         SaveTmp(aCSamp, aDir, "CorSamp");
         SaveTmp(aRes, aDir, "ResSamp");
         SaveTmp(mTFSm2Cr.mInlMask, aDir, "InlMask");
+    }
+
+    void cCdTDiscr::LS10ParamSm2Cr()
+    {
+        tDIm* aDSamp =      &mSamp.DIm();
+        tDIm* aDCrop =      &mCrop.DIm();
+        tDIm* aDInlMask =   &mTFSm2Cr.mInlMask.DIm();
+
+        cLS10PSys aSys = cLS10PSys(aDSamp, aDCrop, aDInlMask);
+        aSys.Build();
+        mSm2Cr = aSys.Solve();
+    }
+
+    void cCdTDiscr::VisuLS10ParamSm2Cr(const std::string& aDir)
+    {
+        LS10ParamSm2Cr();
+
+        tDIm& aDSamp = mSamp.DIm();
+        tDIm& aDMask = mMask.DIm();
+
+        tIm aIm(aDSamp.Sz());
+        tDIm& aDIm = aIm.DIm();
+        aDIm.InitCste(255);
+        std::unique_ptr<cDiffInterpolator1D> aInterpol;
+        aInterpol.reset(cDiffInterpolator1D::AllocFromNames({"Linear"}));
+
+        std::vector<tREAL8> aSol = mSm2Cr.mVP;
+
+        for (const auto& aP : aDSamp)
+        {
+            if (aDMask.GetV(aP)==MaskOutV)
+            {
+                if (aDSamp.InsideInterpolator(*aInterpol, ToR(aP)))
+                {
+                    auto [aVG,aG] = aDSamp.GetValueAndGradInterpol(*aInterpol,ToR(aP));
+                    auto& aDPx = aG.x();
+                    auto& aDPy = aG.y();
+                    tREAL8 aVS = aDSamp.GetV(aP);
+
+                    tREAL8 aV = aVS * (aSol[0]*aP.x() + aSol[1]*aP.y() + aSol[2]) + aSol[3]
+                                - aDPx * (aSol[4]*aP.x() + aSol[5]*aP.y() + aSol[6])
+                                - aDPy * (aSol[7]*aP.x() + aSol[8]*aP.y() + aSol[9]);
+
+                    aDIm.SetVTrunc(aP, aV);
+                }
+            }
+        }
+        SaveTmp(aIm, aDir, "LSCor");
     }
 
     /*
@@ -171,8 +219,9 @@ namespace MMVII
     tIm&        cCdTDiscr::Samp(){return mSamp;}
     tIm&        cCdTDiscr::Mask(){return mMask;}
     cRansacSol  cCdTDiscr::TFSm2Cr(){return mTFSm2Cr;}
+    cLS10PSol   cCdTDiscr::Sm2Cr(){return mSm2Cr;}
 
-    std::vector<cPt2dr> cCdTDiscr::SampC(char aC)
+    std::vector<cPt2dr> cCdTDiscr::SampBitC(char aC)
     {
         std::vector<cPt2dr> aRes {};
 
@@ -185,6 +234,11 @@ namespace MMVII
         }
 
         return aRes;
+    }
+
+    cPt2dr cCdTDiscr::SampC()
+    {
+        return Ref2Im(cPt2dr(ToR(mRef.DIm().P1()) / 2.0)) - ToR(Extent().P0());
     }
 
     tIm cCdTDiscr::ResTFSm2Cr()
@@ -290,6 +344,9 @@ namespace MMVII
                     }
                     //-> refinement of image measurement based on CdT sampling
                     DiscrMapRefine(aDis);
+
+                    auto aC = aDis.SampC();
+                    StdOut() << aDis.mName << aC << " CdT refined mes : " << aDis.Sm2Cr().mAff.Value(aC);
                 }
             }
 
@@ -363,75 +420,15 @@ namespace MMVII
     {
         //----- ransac computation of Samp to Crop Transfert Function to filter outliers
         mVisu ? aDis.VisuRansacTFSm2Cr(mPhProj.DirVisuAppli()) : aDis.RansacTFSm2Cr();
-        if (mShow) StdOut() << aDis.mName << " -> ransac Sm2Cr solution " << aDis.TFSm2Cr().mSol << '\n';
+        if (mShow) StdOut() << aDis.mName << " -> ransac TFSm2Cr solution " << aDis.TFSm2Cr().mSol << '\n';
 
         //----- least square computation of Samp to Crop 10-params mapping
-        auto& aDInlMask = aDis.TFSm2Cr().mInlMask.DIm();
-        auto& aDSamp = aDis.Samp().DIm();
-        auto& aDCrop = aDis.Crop().DIm();
-        //1-create LS struct
-        cLeasSqtAA<tREAL8> aLSSystem(10);
-        std::unique_ptr<cDiffInterpolator1D> aInterpol;
-        aInterpol.reset(cDiffInterpolator1D::AllocFromNames({"Linear"}));
-        //2-iterate on "good" pixels and add corresponding observations to the struct
-        int ix=0;
-        for (const auto& aPix : aDSamp)
-        {
-            if (aDInlMask.GetV(aPix)==MaskInV)
-            {
-                if (aDSamp.InsideInterpolator(*aInterpol, ToR(aPix)))
-                {
-                    ++ix;
-                    (void) ix;
-                    auto [aValue,aGrad] = aDSamp.GetValueAndGradInterpol(*aInterpol,ToR(aPix));
-                    tREAL8 aI=(tREAL8)aDSamp.GetV(aPix);
-                    tREAL8 ai=(tREAL8)aDCrop.GetV(aPix);
-                    auto& aPartix=aGrad.x();//interpol
-                    auto& aPartiy=aGrad.y();//interpol
-                    cDenseVect<tREAL8> aVEqObs({aI*aPix.x(),
-                                                aI*aPix.y(),
-                                                aI,
-                                                1,
-                                                -aPartix*aPix.x(),
-                                                -aPartix*aPix.y(),
-                                                -aPartix,
-                                                -aPartiy*aPix.x(),
-                                                -aPartiy*aPix.y(),
-                                                -aPartiy});
-                    aLSSystem.PublicAddObservation(1, aVEqObs, ai);
-                }
-            }
-        }
-        auto& aDMask = aDis.Mask().DIm();
-
-        //3-solve the system
-        auto aSol = aLSSystem.PublicSolve().ToStdVect();
-        StdOut() << "LS solution  : " << aSol << '\n';
-        //4-test the solution
-        tIm aSolIm(aDSamp.Sz());
-        tDIm& aDSIm = aSolIm.DIm();
-        aDSIm.InitCste(255);
-        aInterpol.reset(cDiffInterpolator1D::AllocFromNames({"Linear"}));
-        for (const auto& aP : aDSamp)
-        {
-            if (aDMask.GetV(aP)==MaskOutV)
-            {
-                if (aDSamp.InsideInterpolator(*aInterpol, ToR(aP)))
-                {
-                    auto [aValue,aGrad] = aDSamp.GetValueAndGradInterpol(*aInterpol,ToR(aP));
-                    auto& aDPx=aGrad.x();
-                    auto& aDPy=aGrad.y();
-                    tREAL8 aVS = aDSamp.GetV(aP);
-                    tREAL8 aV = aVS * (aSol[0]*aP.x() + aSol[1]*aP.y() + aSol[2]) + aSol[3]
-                                - aDPx * (aSol[4]*aP.x() + aSol[5]*aP.y() + aSol[6])
-                                - aDPy * (aSol[7]*aP.x() + aSol[8]*aP.y() + aSol[9]);
-                    aDSIm.SetVTrunc(aP, aV);
-                }
-            }
-        }
-        aDis.SaveTmp(aSolIm, mPhProj.DirVisuAppli(), "LS");
-
+        mVisu ? aDis.VisuLS10ParamSm2Cr(mPhProj.DirVisuAppli()) : aDis.LS10ParamSm2Cr();
+        //if (mShow) StdOut() << aDis.mName << " -> LS Sm2Cr solution " << aDis.Sm2Cr().mAff.Tr() <<
+        //        " (Vx):" << aDis.Sm2Cr().mAff.VX() << " (Vy):" << aDis.Sm2Cr().mAff.VY() << '\n';
+        StdOut() << aDis.Sm2Cr().mVP << "\n";
     }
+
 
     //----- memory allocation
     tMMVII_UnikPApli Alloc_CodedTargetRefine(const std::vector<std::string> & aVArgs,
@@ -544,6 +541,68 @@ namespace MMVII
         }
 
         return aBestSol;
+    }
+
+    cLS10PSys::cLS10PSys(tDIm* aDIm1, tDIm* aDIm2, tDIm* aDInlMask, tU_INT1 aMaskInV):
+        mDIm1(aDIm1),
+        mDIm2(aDIm2),
+        mDInlMask (aDInlMask),
+        mMaskInV (aMaskInV),
+        mSys(10)//-> LS system initialisation to a 10 parameters system
+    {
+    }
+
+    void cLS10PSys::Build()
+    {
+        std::unique_ptr<cDiffInterpolator1D> aInterpol;
+        aInterpol.reset(cDiffInterpolator1D::AllocFromNames({"Linear"}));
+
+        //----- filling system with inliers observations
+        for (const auto& aP : *mDIm1)
+        {
+            if (mDInlMask->GetV(aP)==MaskInV)//-> only points that are in inliers mask
+            {
+                if (mDIm1->InsideInterpolator(*aInterpol, ToR(aP)))//-> only points that are interpolable
+                {
+                    auto [aV,aG] = mDIm1->GetValueAndGradInterpol(*aInterpol,ToR(aP));//-> compute gradient to get partial derivative
+                    tREAL8 aV1 = (tREAL8)mDIm1->GetV(aP);
+                    tREAL8 aV2 = (tREAL8)mDIm2->GetV(aP);
+
+                    auto& aPDx = aG.x();//-> interpolation gives x/y first order partial derivative
+                    auto& aPDy = aG.y();
+
+                    cDenseVect<tREAL8> aVEqObs({aV1*aP.x(),
+                                                aV1*aP.y(),
+                                                aV1,
+                                                1,
+                                                -aPDx*aP.x(),
+                                                -aPDx*aP.y(),
+                                                -aPDx,
+                                                -aPDy*aP.x(),
+                                                -aPDy*aP.y(),
+                                                -aPDy});
+
+                    mSys.PublicAddObservation(1, aVEqObs, aV2);
+                }
+            }
+        }
+    }
+
+    cLS10PSol cLS10PSys::Solve()
+    {
+        return cLS10PSol(mSys.PublicSolve());
+    }
+
+    cLS10PSol::cLS10PSol(cDenseVect<tREAL8> aVParams):
+        mVP (aVParams.ToStdVect())
+    {
+        mAff = cAff2D_r(cPt2dr(mVP[6], mVP[9]),//-> Tr
+                        cPt2dr(mVP[4], mVP[7]),//-> Vx
+                        cPt2dr(mVP[5], mVP[8]));//-> Vy
+    }
+
+    cLS10PSol::cLS10PSol()
+    {
     }
 
     cAff2D_r Descr2Aff(const cCdTDescr& aDes, cSensorCamPC* aCam)
