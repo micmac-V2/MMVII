@@ -955,8 +955,11 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
         }
     }
 
-    aStrSubst.AddOneLinearObs(aNbPt,aVIndPt,aVFixAvg,0.0);  // force average
-    aStrSubst.AddOneLinearObs(aNbPt,aVIndPt,aVFixVar,0.0);  // force standard dev
+    // TODO: check weights with patch size
+    auto aW0 = aWeighter.WeightOfResidual({0.})[0];
+
+    aStrSubst.AddOneLinearObs(aW0*aNbPt,aVIndPt,aVFixAvg,0.0);  // force average
+    aStrSubst.AddOneLinearObs(aW0*aNbPt,aVIndPt,aVFixVar,0.0);  // force standard dev
 
     aMeanRes2 = aMeanRes2/(aVIndexUsedImages.size()*aVIndexUsedImages.size());
     aSys->R_AddObsWithTmpUK(aStrSubst,mBA.CurLVMParam());
