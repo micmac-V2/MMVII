@@ -245,8 +245,8 @@ void cCdRadiom::ComputePtsOfEllipse(std::vector<cPt2di> & aRes,tREAL8 aLength) c
     cPt2dr aV0 = FromPolar(aLength,mTetas[0]);
     cPt2dr aV1 = FromPolar(aLength,mTetas[1]);
 
-    cAff2D_r aMapEll2Ori(mC,aV0,aV1);
-    cAff2D_r aMapOri2Ell = aMapEll2Ori.MapInverse();
+    tAff2Dr aMapEll2Ori(mC,aV0,aV1);
+    tAff2Dr aMapOri2Ell = aMapEll2Ori.MapInverse();
 
     // [2] Compute the bounding box containing the ellipse
     cTplBoxOfPts<tREAL8,2> aBox;
@@ -594,7 +594,7 @@ void cCdEllipse::EstimateAffinity(bool secondCall)
      mCornerlEl_WB = mEll.InterSemiLine(mTetas[0]);
      mCornerlEl_BW = mEll.InterSemiLine(mTetas[1]+M_PI);
 
-     cAff2D_r::tTabMin  aTabIm{mC,mCornerlEl_WB,mCornerlEl_BW};
+     tAff2Dr::tTabMin  aTabIm{mC,mCornerlEl_WB,mCornerlEl_BW};
 
      cPt2dr aPC= mSpec->Center();
      cPt2dr aPWB = mSpec->CornerlEl_WB();
@@ -620,11 +620,11 @@ void cCdEllipse::EstimateAffinity(bool secondCall)
           }
      }
 
-     cAff2D_r::tTabMin  aTabMod{aPC,aPWB,aPBW};
+     tAff2Dr::tTabMin  aTabMod{aPC,aPWB,aPBW};
 
 //     cAff2D_r::tTabMin  aTabMod{mSpec->Center(),mSpec->CornerlEl_WB(),mSpec->CornerlEl_BW()};
 
-     mAffIm2Mod =  cAff2D_r::FromMinimalSamples(aTabIm,aTabMod);
+     mAffIm2Mod =  tAff2Dr::FromMinimalSamples(aTabIm,aTabMod);
 
 
    //  StdOut() << mCode->Code() << "\n";
@@ -633,7 +633,7 @@ void cCdEllipse::EstimateAffinity(bool secondCall)
 
 bool cCdEllipse::BOutCB()   const {return mBOutCB;}
 bool cCdEllipse::IsCircle() const {return mIsCircle;}
-const cAff2D_r   &  cCdEllipse::AffIm2Mod() const {return mAffIm2Mod;}
+const tAff2Dr   &  cCdEllipse::AffIm2Mod() const {return mAffIm2Mod;}
 
 bool cCdEllipse::IsOk() const {return mIsOk;}
 void cCdEllipse::AssertOk() const

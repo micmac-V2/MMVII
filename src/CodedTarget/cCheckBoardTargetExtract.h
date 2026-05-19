@@ -138,7 +138,7 @@ class cCdEllipse : public cCdRadiom
            cPt2dr  I2M(const cPt2dr & aPIM) const;
            bool  IsCircle() const;
 
-       const cAff2D_r   &  AffIm2Mod() const;
+       const tAff2Dr   &  AffIm2Mod() const;
 
 
 
@@ -183,7 +183,7 @@ class cCdEllipse : public cCdRadiom
            cEllipse             mEll;
            cPt2dr               mCornerlEl_WB;
            cPt2dr               mCornerlEl_BW;
-           cAff2D_r             mAffIm2Mod;
+           tAff2Dr             mAffIm2Mod;
            tREAL8               mMaxEllD; ///< Maximal distance 2 ellipse (for frontier point, not on lines)
            const cOneEncoding * mCode;
            bool                 mBOutCB;  ///< Is there black point outside the  check board

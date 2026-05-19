@@ -27,12 +27,14 @@ cGeomSimDCT::cGeomSimDCT() :
 {
 }
 
+/*
 void cGeomSimDCT::Translate(const cPt2dr & aTr)
 {
     mC += aTr;
     mCornEl1 += aTr;
     mCornEl2 += aTr;
 }
+*/
 
 
 cGeomSimDCT::cGeomSimDCT(const cOneEncoding & anEncod, const  cPt2dr& aC, const double& aR1, const double& aR2, const std::string &aName):
@@ -51,10 +53,13 @@ void AddData(const  cAuxAr2007 & anAux,cGeomSimDCT & aGSD)
    aGSD.mEncod.AddData(cAuxAr2007("Encod",anAux));
    //  ========   MMVII::AddData(cAuxAr2007("Name",anAux),aGSD.mName);
    MMVII::AddData(cAuxAr2007("Center",anAux),aGSD.mC);
-   MMVII::AddData(cAuxAr2007("CornEl1",anAux),aGSD.mCornEl1);
-   MMVII::AddData(cAuxAr2007("CornEl2",anAux),aGSD.mCornEl2);
+ //  MMVII::AddData(cAuxAr2007("CornEl1",anAux),aGSD.mCornEl1);
+ //  MMVII::AddData(cAuxAr2007("CornEl2",anAux),aGSD.mCornEl2);
    MMVII::AddData(cAuxAr2007("R1",anAux),aGSD.mR1);
    MMVII::AddData(cAuxAr2007("R2",anAux),aGSD.mR2);
+
+   MMVII::AddData(cAuxAr2007("HomogT2I",anAux),aGSD.mHomogT2Im);
+
 }
 
 /*  *********************************************************** */
@@ -83,6 +88,9 @@ void AddData(const  cAuxAr2007 & anAux,cResSimul & aRS)
    MMVII::AddData(cAuxAr2007("RadiusMinMax",anAux),aRS.mRadiusMinMax);
    MMVII::AddData(cAuxAr2007("RatioMax",anAux),aRS.mRatioMinMax);
    MMVII::AddData(cAuxAr2007("Geoms",anAux),aRS.mVG);
+
+
+
 }
 
 cResSimul  cResSimul::FromFile(const std::string& aName)
@@ -146,12 +154,14 @@ class cAppliSimulCodeTarget : public cMMVII_Appli
         cPt2dr              mAttenMul;         ///< min/max Multiplicative attenuation
         cPt2dr              mPropSysLin;      ///< min/max amplitude of (random) linear bias
         cPt2dr              mAmplWhiteNoise;  ///< min/max amplitude of random white noise
+        tREAL8              mAmplHomog;
 
         // =========== Internal param ============
         tIm                        mImIn;        ///< Input global image
         cFullSpecifTarget *        mSpec;        ///< Specification of target creation
         std::string                mSuplPref;   ///< Supplementary prefix
         std::string                mPrefixOut;   ///< Prefix for generating image & ground truth
+
 };
 
 
@@ -171,6 +181,7 @@ cAppliSimulCodeTarget::cAppliSimulCodeTarget(const std::vector<std::string> & aV
    mAttenMul        (0.0,0.4),
    mPropSysLin      (0.,0.2),
    mAmplWhiteNoise  (0.,0.1),
+   mAmplHomog       (0.0),
    mImIn            (cPt2di(1,1)),
    mSpec            (nullptr),
    mSuplPref        ("")
@@ -198,6 +209,7 @@ cCollecSpecArg2007 & cAppliSimulCodeTarget::ArgOpt(cCollecSpecArg2007 & anArgOpt
              <<   AOpt2007(mRS.mBorder,"Border","Border w/o target, prop to R Max",{eTA2007::HDV})
              <<   AOpt2007(mAmplWhiteNoise,"NoiseAmpl","Amplitude White Noise",{eTA2007::HDV})
              <<   AOpt2007(mPropSysLin,"PropLinBias","Amplitude Linear Bias",{eTA2007::HDV})
+             <<   AOpt2007(mAmplHomog,"AmplHomogDef","Amplitude of homographic deformation (recomand <0.1)",{eTA2007::HDV})
              <<   AOpt2007(mAttenContrast,"ContrastAtten","Attenution of B/W contrast",{eTA2007::HDV})
              <<   AOpt2007(mAttenMul,"MulAtten","Attenution multiplicatives",{eTA2007::HDV})
              <<   AOpt2007(mSuplPref,"SuplPref","Suplementary prefix for outputs")
@@ -278,9 +290,32 @@ void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
     tAffMap aMap3 =  tAffMap::Rotation(M_PI*RandUnif_C());                 //  Apply a rotation again
     tAffMap aMap4 =  tAffMap::Translation(aGSD.mC);                        // set 0,0 to center
 
-    tAffMap aMapT2Im =  aMap4 * aMap3 * aMap2 * aMap1 * aMap0;             // compute composition, get TargetCoord -> Image Coord
-    tAffMap aMapIm2T =  aMapT2Im.MapInverse();                             // need inverse for resample
+    tAffMap aAffT2Im =  aMap4 * aMap3 * aMap2 * aMap1 * aMap0;             // compute composition, get TargetCoord -> Image Coord
 
+    cHomogr2D<tREAL8> aMapT2Im(aAffT2Im);
+
+    if (IsInit(&mAmplHomog))
+    {
+       // StdOut() << "SIMULL HOMMMMM\n";
+        cBox2dr aBox(cPt2dr(0,0),ToR(aDImT.Sz()));
+        cPt2dr aVInit[4];
+        cPt2dr aVDef[4];
+
+        tREAL8 aAmplDef = Norm2(aDImT.Sz()) * mAmplHomog;
+
+        for (int aK=0 ; aK<4 ; aK++)
+        {
+            cPt2dr aPInit = aBox.CornerOfFlag(aK);
+            cPt2dr aPDef =  aPInit + cPt2dr::PRandC()*aAmplDef;
+            aVInit[aK] = aPInit;
+            aVDef[aK] = aPDef;
+        }
+        aMapT2Im = aMapT2Im* tHom2Dr::FromMinimalSamples(aVInit,aVDef);
+    }
+
+   // tAffMap aMapIm2T =  aMapT2Im.MapInverse();                             // need inverse for resample
+
+    cHomogr2D<tREAL8> aHomIm2T = aMapT2Im.MapInverse();
 
     // [4] -- Do the incrustation of target in  image
     cBox2di aBoxIm = ImageOfBox(aMapT2Im,aDImT.ToR()).Dilate(mSzKernel+2).ToI();
@@ -291,7 +326,7 @@ void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
         if ( aDImIn.Inside(aPix))
         {
             // compute a weighted coordinate in target coordinates,
-            cRessampleWeigth  aRW = cRessampleWeigth::GaussBiCub(ToR(aPix),aMapIm2T,mSzKernel);
+            cRessampleWeigth  aRW = cRessampleWeigth::GaussBiCub(ToR(aPix),aHomIm2T,mSzKernel);
             const std::vector<cPt2di>  & aVPts = aRW.mVPts;
             if (!aVPts.empty())
             {
@@ -315,10 +350,12 @@ void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
             }
         }
     }
+
+    aGSD.mHomogT2Im = aMapT2Im * tHom2Dr(tAff2Dr::Homot(1.0/mDownScale));
     // aGSD.mCornEl1 = aMapT2Im.Value(mPCT.mCornEl1/mDownScale);
     // aGSD.mCornEl2 = aMapT2Im.Value(mPCT.mCornEl2/mDownScale);
-    aGSD.mCornEl1 = aMapT2Im.Value(mSpec->CornerlEl_BW()/mDownScale);
-    aGSD.mCornEl2 = aMapT2Im.Value(mSpec->CornerlEl_WB()/mDownScale);
+  //  aGSD.mCornEl1 = aMapT2Im.Value(mSpec->CornerlEl_BW()/mDownScale);
+   // aGSD.mCornEl2 = aMapT2Im.Value(mSpec->CornerlEl_WB()/mDownScale);
 
     StdOut() << "NNN= " << aGSD.mEncod.Name() << " C0=" << aC0 <<  aBoxIm.Sz() <<  " " << aGSD.mR2/aGSD.mR1 << std::endl;
 }

@@ -143,7 +143,7 @@ class cGeomSimDCT
        bool Intersect(const cGeomSimDCT &  aG2) const ;
 
        /// Usable when we use a clipped file
-       void Translate(const cPt2dr &);
+       // void Translate(const cPt2dr &);
 
        cBaseTE *       mResExtr;   ///< contains the potentiel detected target extracted
 
@@ -155,8 +155,11 @@ class cGeomSimDCT
        // int    mNum;       ///< numbering
        cOneEncoding mEncod;
        cPt2dr       mC;         ///< Theoreticall center
-       cPt2dr       mCornEl1;   ///< Theoreticall corner 1 of ellipse
-       cPt2dr       mCornEl2;   ///< Theoreticall corner 2 of ellipse
+      // cPt2dr       mCornEl1;   ///< Theoreticall corner 1 of ellipse
+      // cPt2dr       mCornEl2;   ///< Theoreticall corner 2 of ellipse
+
+       tHom2Dr      mHomogT2Im;
+
        double       mR1;        ///< "small" size of deformaed rectangle
        double       mR2;        ///<  "big " size ....
        std::string  mName;
