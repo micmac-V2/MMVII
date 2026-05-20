@@ -24,11 +24,11 @@ namespace MMVII
      * @brief RansacATF : computes Affine Transfert Function between 2 images
      * @param aVBPts    : subset of classified points as black values
      * @param aVWPts    : subset of classified points as white values
-     * @param aDIm1     : input image
-     * @param aDIm2     : output image
+     * @param aDIm1     : input image data
+     * @param aDIm2     : output image data
      * @param aDMask    : mask image (no residual computation on points in the mask)
      * @param aGVT      : grey value treshold for i/o classification
-     * @param aMaskInV  : value of pixels in the mask
+     * @param aMaskOutV : value of out of the mask pixels
      * @param aIt       : number of iterations
      * @param aRDist    : minimum grey level distance between two w/b subset points
      * @return
@@ -38,7 +38,7 @@ namespace MMVII
                         tDIm* aDMask=nullptr, tU_INT1 aGVT=20, tU_INT1 aMaskOutV=MaskOutV, int aIt=200, int aRDist=50);
 
     /*!
-     * @brief The cRansacSol class : storage of RansacATF solution
+     * @brief The cRansacSol class stores RansacATF solution
      */
 
     struct cRansacSol
@@ -46,10 +46,24 @@ namespace MMVII
         cRansacSol();
         cRansacSol(cPt2dr aSol);
         cRansacSol(cPt2dr aSol, cStdStatRes aL1Score, tIm aInlMask);
-        cPt2dr      mSol;//-> best fit solution
-        cStdStatRes mL1Score;//-> vector of inliers residuals
-        tIm         mInlMask;//-> inliers binary mask
+        cPt2dr      mSol;       //-> best fit solution
+        cStdStatRes mL1Score;   //-> vector of inliers residuals
+        tIm         mInlMask;   //-> inliers binary mask
     };
+
+    struct cCBParams
+    {
+        cCBParams();
+        cCBParams(cPt2dr aC, tREAL8 aMLA, tREAL8 aLmA);
+        cPt2dr mC;//-> center
+        tREAL8 mLMA;//-> lenght of semi-Major axis
+        tREAL8 mLmA;//-> lenght of semi-minor axis
+    };
+
+    /*!
+     * @brief The cLS10PSys class represents the 10 parameters LS system to
+     * and solve when computing Samp2Cr mapping
+     */
 
     class cLS10PSys
     {
@@ -69,6 +83,10 @@ namespace MMVII
         cLeasSqtAA<tREAL8>  mSys;
     };
 
+    /*!
+     * @brief The cLS10PSol class stores cLS10PSys solution
+     */
+
     struct cLS10PSol
     {
         cLS10PSol();
@@ -80,7 +98,6 @@ namespace MMVII
     class cAppli_CodedTargetRefine : public cMMVII_Appli
     {
     public:
-        //------
         cAppli_CodedTargetRefine(const std::vector<std::string>& aVArgs,
                                  const cSpecMMVII_Appli& aSpec);
     private:
@@ -104,12 +121,13 @@ namespace MMVII
         tU_INT1                             mL1Lim;     //-> L1 limit to consider outliers from ransac TF computation
 
         //------ methods
-        void        BuildDiscr(cCdTDiscr& aDis, cAff2D_r aCdT2Im);  //-> cCdTDiscr builder
+        void        BuildDiscr(cCdTDiscr& aDis, cAff2D_r aCdT2Im, bool& isOk);  //-> cCdTDiscr builder
         void        DiscrMapRefine(cCdTDiscr& aDis);                //-> cCdTDiscr CdT2Im mapping refiner
     };
 
     /*!
-    * @brief The cCdTDiscr class stores all about coded target image discretisation
+    * @brief The cCdTDiscr class store and handles all about coded target discretisation
+    * for a specific image
     */
 
     class cCdTDiscr
@@ -129,27 +147,31 @@ namespace MMVII
         void                        VisuRansacTFSm2Cr(const std::string& aDir);//-> visu version of RansacTFSm2Cr : saves lots of visualisations
         void                        LS10ParamSm2Cr();//-> computes mSm2Cr mapping as a 10 parameters model
         void                        VisuLS10ParamSm2Cr(const std::string &aDir);//-> computes mSm2Cr mapping as a 10 parameters model
+        tIm                         MaskInCB();//-> computes Mask for pixels that are in checkboard pattern
 
-        cPt2dr                      Ref2Im(cPt2dr aPt, bool inverse=false);//-> get input image coordinate from a point of MMVII generated CdT image
-        std::vector<cPt2dr>         VRef2Im(std::vector<cPt2dr> aVPts, bool inverse=false);//-> Ref2Im for a point vector
+        cPt2dr                      Ref2Im(cPt2dr aPt, bool inv=false);//-> get input image coordinate from a point of MMVII generated CdT image
+        std::vector<cPt2dr>         VRef2Im(std::vector<cPt2dr> aVPts, bool inv=false);//-> Ref2Im for a point vector
+        cPt2dr                      Ref2Samp(cPt2dr aP, bool inv=false);//-> convert aP w.r.t ref CdT coordinates to samp CdT coordinates
 
         void                        SetRef2Im(cAff2D_r aRef2Im);//-> set reference CdT image to input image mapping
         void                        SetExtent(cRect2 aExt);//-> set rectangular extent w.r.t input image coordinates
-        void                        SetMask(tIm& aMask);//-> set binary i/o CdT mask
-        void                        SetRef(tIm& aRef);//-> set reference image (MMVII generated)
-        void                        SetCrop(tIm& aCrop);//-> set cropped image
+        void                        SetMask(tIm aMask);//-> set binary i/o CdT mask
+        void                        SetInlMask(tIm aInlMask);//-> set binary i/o CdT inliers mask
+        void                        SetRef(tIm aRef);//-> set reference image (MMVII generated)
+        void                        SetCrop(tIm aCrop);//-> set cropped image
         void                        SetWBCenters(const std::vector<cPt2dr>& aV);//-> set w/b CdT bit centers from point vector
+        void                        SetCB(std::unique_ptr<cFullSpecifTarget>& aFSpec);
 
         cRect2                      Extent();//-> rectangle extent of CdT in input image
         tIm&                        Mask();//-> i/o binary mask w.r.t samp image coordinates
         tIm&                        Crop();//-> input image cropped at mExtent bounds
         tIm&                        Ref();//-> referenced image (MMVII-generated)
         tIm&                        Samp();//-> sampled image
-        cPt2dr                      SampC();
-        std::vector<cPt2dr>         SampBitC(char aC);//-> returns w/b bit centers w.r.t samp image coordinates
+        cPt2dr                      SampC();//-> get sampled image center coordinate
+        std::vector<cPt2dr>         SampBitC(char aCol);//-> returns 'w'-hite or 'b'-lack (aCol) bit centers w.r.t samp image coordinates
         cRansacSol                  TFSm2Cr();//-> get radiometric transfert function from sampled image to cropped image
         tIm                         ResTFSm2Cr();//-> computes residual image from sampled to cropped transfert function
-        cLS10PSol                   Sm2Cr();
+        cLS10PSol                   LSSm2Cr();//-> get Samp to Crop mapping
 
         void                        SaveCrop(const std::string& aDir);
         void                        SaveMask(const std::string& aDir);
@@ -166,11 +188,14 @@ namespace MMVII
         tIm                     mRef;   //-> MMVII generated CdT
         tIm                     mSamp;  //-> CdT sampled from CdT2Im mapping
         tIm                     mMask;  //-> bbox of CdT formed by predicted corners (local coordinates, MaskIn/MaskOut)
+        tIm                     mInlMask; //-> mask for inliers used for mapping LS adjustment
         cAff2D_r                mRef2Im;//-> reference (MMVII generated) CdT image to input image mapping
         std::vector<cPt2dr>     mVBCenters;//-> white bit centers w.r.t Ref image coordinates
         std::vector<cPt2dr>     mVWCenters;//-> black bit centers w.r.t Ref image coordinates
         cRansacSol              mTFSm2Cr;//-> radiometric transfert function from sampled image to cropped image computed by RansacATF
-        cLS10PSol               mSm2Cr;
+        cLS10PSol               mSm2Cr;//-> solution of LS 10 parameters solving
+        cCBParams               mRefCB;//-> checkboard pattern parameters w.r.t Ref image coordinates
+
 
         //----- methods
         void            SaveIm(tDIm* aDIm, std::string aDir, std::string aPref);//-> generic image saving
@@ -178,9 +203,10 @@ namespace MMVII
         /*      M : mMask OK    E : mExtent OK      OK i.e : tIm.Sz() != cPt2di(1,1)
          *      C : mCrop OK    R : mRef    OK
          */
+        bool            InsideCB(cPt2dr aP);//-> checks if a point with ref CdT coordinates is inside checkboard
     };
 
-    cPixBox<2>          BBox(std::vector<cPt2dr> aVPts, int aMin=0, int aMax=100000);//-> compute bounding box from a point vector
-    std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1);//-> get corners of a rectangle formed by aP0/aP1
-    cAff2D_r Descr2Aff(const cCdTDescr& aDes, cSensorCamPC* aCam);//-> convert description to 2d affinity
+    cPixBox<2>          BBox(std::vector<cPt2dr> aVPts, int aMin=0, int aMax=100000);//-> computes bounding box from a point vector
+    std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1);//-> gets corners of a rectangle formed by aP0/aP1
+    cAff2D_r            Descr2Aff(const cCdTDescr& aDes, cSensorCamPC* aCam);//-> converts description to 2d affinity
 }

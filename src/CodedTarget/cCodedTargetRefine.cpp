@@ -19,16 +19,16 @@ namespace MMVII
         mCrop       (cPt2di(1,1)),
         mRef        (cPt2di(1,1)),
         mSamp       (cPt2di(1,1)),
-        mMask       (cPt2di(1,1))
+        mMask       (cPt2di(1,1)),
+        mInlMask    (cPt2di(1,1))
         {
-            //
         }
 
     void cCdTDiscr::Sample()
     {
         mSamp = tIm(mExtent.Sz());
         tDIm* aDSamp = &mSamp.DIm();
-        aDSamp->InitCste(255);
+        aDSamp->InitCste(0);
 
         for (const auto& aPix : *aDSamp)
         {
@@ -40,15 +40,17 @@ namespace MMVII
                 if (!aVPts.empty())
                 {
                     tREAL8 aV = 0;
+                    tREAL8 aSW = 0;
                     for (int aK=0; aK<int(aVPts.size()) ; aK++)
                     {
                         if (mRef.DIm().Inside(aVPts[aK]))
                         {
                             double aW = aRW.mVWeight[aK];
+                            aSW += aW;
                             aV += aW * mRef.DIm().GetV(aVPts[aK]);
                         }
                     }
-                    aDSamp->SetV(aPix, aV);
+                    aDSamp->SetV(aPix, aV/aSW);
                 }
             }
         }
@@ -97,7 +99,7 @@ namespace MMVII
     {
         tDIm* aDSamp =      &mSamp.DIm();
         tDIm* aDCrop =      &mCrop.DIm();
-        tDIm* aDInlMask =   &mTFSm2Cr.mInlMask.DIm();
+        tDIm* aDInlMask =   &mInlMask.DIm();
 
         cLS10PSys aSys = cLS10PSys(aDSamp, aDCrop, aDInlMask);
         aSys.Build();
@@ -141,6 +143,27 @@ namespace MMVII
         SaveTmp(aIm, aDir, "LSCor");
     }
 
+    tIm cCdTDiscr::MaskInCB()
+    {
+        tIm aInCBMask(mSamp.DIm().Sz());
+        tDIm& aDInCBMask = aInCBMask.DIm();
+        aDInCBMask.InitCste(MaskInV);
+
+        for (const auto& aP : aDInCBMask)
+        {
+            tU_INT1 aV = InsideCB(Ref2Samp(ToR(aP), true)) ? MaskOutV : MaskInV;
+            aDInCBMask.SetV(aP, aV);
+        }
+
+        return aInCBMask;
+    }
+
+
+    bool cCdTDiscr::InsideCB(cPt2dr aP)
+    {
+        return Norm2(aP - mRefCB.mC) <= mRefCB.mLmA;
+    }
+
     /*
      * export methods
      */
@@ -179,13 +202,18 @@ namespace MMVII
      * transformation methods
      */
 
-    cPt2dr cCdTDiscr::Ref2Im(cPt2dr aPt, bool inverse) {return (inverse ? mRef2Im.Inverse(aPt) : mRef2Im.Value(aPt));}
+    cPt2dr cCdTDiscr::Ref2Im(cPt2dr aPt, bool inv) {return (inv ? mRef2Im.Inverse(aPt) : mRef2Im.Value(aPt));}
 
-    std::vector<cPt2dr> cCdTDiscr::VRef2Im(std::vector<cPt2dr> aVPts, bool inverse)
+    std::vector<cPt2dr> cCdTDiscr::VRef2Im(std::vector<cPt2dr> aVPts, bool inv)
     {
         std::vector<cPt2dr> aRes {};
-        for (const auto& aPt : aVPts) aRes.push_back(Ref2Im(aPt, inverse));
+        for (const auto& aPt : aVPts) aRes.push_back(Ref2Im(aPt, inv));
         return aRes;
+    }
+
+    cPt2dr cCdTDiscr::Ref2Samp(cPt2dr aP, bool inv)
+    {
+        return (inv ? Ref2Im(aP + ToR(mExtent.P0()), inv) : Ref2Im(aP) - ToR(mExtent.P0()));
     }
 
     std::string cCdTDiscr::Cont()//-> fetch object actual content
@@ -219,15 +247,15 @@ namespace MMVII
     tIm&        cCdTDiscr::Samp(){return mSamp;}
     tIm&        cCdTDiscr::Mask(){return mMask;}
     cRansacSol  cCdTDiscr::TFSm2Cr(){return mTFSm2Cr;}
-    cLS10PSol   cCdTDiscr::Sm2Cr(){return mSm2Cr;}
+    cLS10PSol   cCdTDiscr::LSSm2Cr(){return mSm2Cr;}
 
-    std::vector<cPt2dr> cCdTDiscr::SampBitC(char aC)
+    std::vector<cPt2dr> cCdTDiscr::SampBitC(char aCol)
     {
         std::vector<cPt2dr> aRes {};
 
-        if (! contains("WB",aC)) return aRes;
+        if (! contains("WB", aCol)) return aRes;
 
-        std::vector<cPt2dr>& aVCenters = (aC == 'W') ? mVWCenters : mVBCenters;
+        std::vector<cPt2dr>& aVCenters = (aCol == 'W') ? mVWCenters : mVBCenters;
         for (const auto& aC : aVCenters)
         {
             aRes.push_back(Ref2Im(aC) - ToR(Extent().P0()));
@@ -238,16 +266,16 @@ namespace MMVII
 
     cPt2dr cCdTDiscr::SampC()
     {
-        return Ref2Im(cPt2dr(ToR(mRef.DIm().P1()) / 2.0)) - ToR(Extent().P0());
+        return Ref2Im(mRefCB.mC) - ToR(Extent().P0());
     }
 
     tIm cCdTDiscr::ResTFSm2Cr()
     {
         tDIm& aDSamp = mSamp.DIm();
         tDIm& aDCrop = mCrop.DIm();
+        tDIm& aDMask = mMask.DIm();
         tIm aRes(aDSamp.Sz());
         tDIm& aDRes = aRes.DIm();
-        tDIm& aDMask = mMask.DIm();
         aDRes.InitCste(255);
         for (const auto& aP : aDSamp)
         {
@@ -257,14 +285,14 @@ namespace MMVII
         return aRes;
     }
 
+    void cCdTDiscr::SetRef2Im(cAff2D_r aRef2Im){mRef2Im = aRef2Im;}
+    void cCdTDiscr::SetExtent(cRect2 aExt){mExtent = aExt;}
+    void cCdTDiscr::SetRef(tIm aRef){mRef = aRef;}
+    void cCdTDiscr::SetMask(tIm aMask){mMask = aMask;}
+    void cCdTDiscr::SetInlMask(tIm aInlMask){mInlMask = aInlMask;}
+    void cCdTDiscr::SetCrop(tIm aCrop){mCrop = aCrop;};
 
-    void    cCdTDiscr::SetRef2Im(cAff2D_r aRef2Im){mRef2Im = aRef2Im;}
-    void    cCdTDiscr::SetExtent(cRect2 aExt){mExtent = aExt;}
-    void    cCdTDiscr::SetRef(tIm& aRef){mRef = aRef;}
-    void    cCdTDiscr::SetMask(tIm& aMask){mMask = aMask;}
-    void    cCdTDiscr::SetCrop(tIm& aCrop){mCrop = aCrop;};
-
-    void    cCdTDiscr::SetWBCenters(const std::vector<cPt2dr>& aV)
+    void cCdTDiscr::SetWBCenters(const std::vector<cPt2dr>& aV)
     {
         tDIm* aDRef = &mRef.DIm();
         for (const auto& aC : aV)
@@ -272,6 +300,15 @@ namespace MMVII
             aDRef->GetV(ToI(aC)) < 125 ? mVBCenters.push_back(aC) : mVWCenters.push_back(aC);
         }
     }
+
+    void cCdTDiscr::SetCB(std::unique_ptr<cFullSpecifTarget>& aFSpec)
+    {
+        cPt2dr aMBW = aFSpec->CornerlEl_BW();//-> middle black to white corner
+        cPt2dr aLWB = aFSpec->CornerlEl_WB();//-> lower white to black corner
+        cPt2dr aC   = cPt2dr(aLWB.x(), aMBW.y());//-> center
+        mRefCB = cCBParams(aC, Norm2(aC - aMBW), Norm2(aC - aLWB));
+    }
+
 
     /**************************************************************************/
     /*
@@ -291,6 +328,7 @@ namespace MMVII
     cCollecSpecArg2007 & cAppli_CodedTargetRefine::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     {
         return anArgOpt
+               << mPhProj.DPGndPt2D().ArgDirOutOptWithDef("ref", "Output", "CdT 2D refined measurements")
                << mPhProj.DPGndPt3D().ArgDirInOpt("Descr","CdT 3D Descriptions")
                << AOpt2007(mShow,"Show","Show useful details", {eTA2007::HDV})
                << AOpt2007(mVisu,"Visu","Save visualisation of results", {eTA2007::HDV})
@@ -304,7 +342,7 @@ namespace MMVII
         mVDescr         ({}),
         mIm             (cPt2di(1,1)),
         mDIm            (nullptr),
-        mL1Lim (20)
+        mL1Lim          (20)
     {
         //
     }
@@ -326,7 +364,11 @@ namespace MMVII
             std::vector<cCdTDiscr>          aVDiscr;
             std::vector<cSaveExtrEllipe>    aVEll;
 
+            cSetMesPtOf1Im aSet(aIm);//-> to save refined image measurements
+
             ReadFromFile(aVEll, cSaveExtrEllipe::NameFile(mPhProj, mSetImMes, true));
+
+            if (mShow) StdOut() << "(Im):" << aIm <<'\n';
 
             //----- refinement for CdT that have been extracted
             for (const auto& aEll : aVEll)
@@ -334,21 +376,31 @@ namespace MMVII
                 if (!starts_with(aEll.mNameCode, MMVII_NONE))
                 {
                     //-> set prerequisites to use cCdTDiscr
+                    bool isOk = true;
                     cCdTDiscr aDis = cCdTDiscr(aEll.mNameCode, aIm);
-                    BuildDiscr(aDis, aEll.mAffIm2Ref.MapInverse());
-                    //-> creation of sampled CdT
-                    aDis.Sample();
-                    if (mShow)
+                    BuildDiscr(aDis, aEll.mAffIm2Ref.MapInverse(), isOk);
+                    if (isOk)
                     {
-                        aDis.SaveSample(mPhProj.DirVisuAppli());
-                    }
-                    //-> refinement of image measurement based on CdT sampling
-                    DiscrMapRefine(aDis);
+                        //-> creation of sampled CdT
+                        aDis.Sample();
+                        if (mShow)
+                        {
+                            aDis.SaveSample(mPhProj.DirVisuAppli());
+                        }
+                        //-> refinement of image measurement based on CdT sampling
+                        DiscrMapRefine(aDis);
 
-                    auto aC = aDis.SampC();
-                    StdOut() << aDis.mName << aC << " CdT refined mes : " << aDis.Sm2Cr().mAff.Value(aC);
+                        //-> save refined measurement
+                        auto aC = aDis.SampC();
+                        if (mShow)
+                            StdOut() << "CdT n°" << aDis.mName <<" refined mes :" << aC << "->" << ToR(aDis.Extent().P0()) + aC + aDis.LSSm2Cr().mAff.Value(aC) << "\n";
+                        cMesIm1Pt aMes(ToR(aDis.Extent().P0()) + aC + aDis.LSSm2Cr().mAff.Value(aC), aDis.mName, 1);
+                        aSet.AddMeasure(aMes);
+                    }
                 }
             }
+
+            mPhProj.SaveMeasureIm(aSet);
 
             //-> if CdT descriptions are provided -> fill mVDescr (useful for CdT that have not been extracted)
             //if(!mPhProj.DPGndPt3D().DirInIsNONE())
@@ -374,9 +426,11 @@ namespace MMVII
         return EXIT_SUCCESS;
     }
 
-    void cAppli_CodedTargetRefine::BuildDiscr(cCdTDiscr& aDis, cAff2D_r aRef2Im)
+    void cAppli_CodedTargetRefine::BuildDiscr(cCdTDiscr& aDis, cAff2D_r aRef2Im, bool &isOk)
     {
         aDis.SetRef2Im(aRef2Im);//-> set Ref to image mapping
+
+        aDis.SetCB(mFSpec);
 
         tIm aRef = mFSpec->OneImTarget(*mFSpec->EncodingFromName(aDis.mName));
         aDis.SetRef(aRef);
@@ -384,6 +438,16 @@ namespace MMVII
         tDIm* aDRef = &aDis.Ref().DIm();
         std::vector<cPt2dr> aVRefCorn   = Corners(ToR(aDRef->P0()), ToR(aDRef->P1()));//-> Ref corners
         std::vector<cPt2dr> aVImCorn    = aDis.VRef2Im(aVRefCorn);//-> Ref image corners
+
+        //----- fails if not all CdT corners are in the image
+        for (const auto& aC : aVImCorn)
+        {
+            if (!mIm.DIm().Inside(ToI(aC)))
+            {
+                isOk = false;
+                return;
+            }
+        }
 
         aDis.SetExtent(BBox(aVImCorn));//-> bounding box of Ref image corners
 
@@ -399,6 +463,7 @@ namespace MMVII
         //----- set CdT in/out mask
         tIm aMask = tIm(aDis.Extent().Sz());
         tDIm* aDMask  = &aMask.DIm();
+        aDMask->InitCste(MaskInV);//-> by default all extent is masked
 
         for (const auto& aPix : aDis.Extent())
         {
@@ -419,14 +484,22 @@ namespace MMVII
     void cAppli_CodedTargetRefine::DiscrMapRefine(cCdTDiscr& aDis)
     {
         //----- ransac computation of Samp to Crop Transfert Function to filter outliers
-        mVisu ? aDis.VisuRansacTFSm2Cr(mPhProj.DirVisuAppli()) : aDis.RansacTFSm2Cr();
-        if (mShow) StdOut() << aDis.mName << " -> ransac TFSm2Cr solution " << aDis.TFSm2Cr().mSol << '\n';
+        //mVisu ? aDis.VisuRansacTFSm2Cr(mPhProj.DirVisuAppli()) : aDis.RansacTFSm2Cr();
+        //if (mShow) StdOut() << "CdT n°" << aDis.mName << " -> ransac TFSm2Cr solution " << aDis.TFSm2Cr().mSol << '\n';
+
+        //aDis.SetInlMask(aDis.TFSm2Cr().mInlMask);
+
+        //----- samp CB insidness to filter outliers
+        tIm aInCBMask = aDis.MaskInCB();
+        aDis.SetInlMask(aInCBMask);
+
+        if (mVisu)
+        {
+            aDis.SaveTmp(aInCBMask, mPhProj.DirVisuAppli(), "InCB");
+        }
 
         //----- least square computation of Samp to Crop 10-params mapping
         mVisu ? aDis.VisuLS10ParamSm2Cr(mPhProj.DirVisuAppli()) : aDis.LS10ParamSm2Cr();
-        //if (mShow) StdOut() << aDis.mName << " -> LS Sm2Cr solution " << aDis.Sm2Cr().mAff.Tr() <<
-        //        " (Vx):" << aDis.Sm2Cr().mAff.VX() << " (Vy):" << aDis.Sm2Cr().mAff.VY() << '\n';
-        StdOut() << aDis.Sm2Cr().mVP << "\n";
     }
 
 
@@ -453,6 +526,17 @@ namespace MMVII
      * Other useful methods/classes
      */
     /**************************************************************************/
+
+    cCBParams::cCBParams()
+    {
+    }
+
+    cCBParams::cCBParams(cPt2dr aC, tREAL8 aMLA, tREAL8 aLmA):
+        mC      (aC),
+        mLMA    (aMLA),
+        mLmA    (aLmA)
+    {
+    }
 
     cPixBox<2> BBox(std::vector<cPt2dr> aVPts, int aMin, int aMax)
     {
@@ -499,6 +583,7 @@ namespace MMVII
         for (int ix=0;ix<aIt;++ix)
         {
             int aInliers = 0;
+            aDInlMask.InitCste(aMaskInV);//-> by default all pixels are outliers
             cStdStatRes aL1Score;
 
             //-> choose 2 w/b random pts with suffisant grey level distance
@@ -527,7 +612,7 @@ namespace MMVII
                 if (aD < aGVT)
                 {
                     ++aInliers;
-                    aDInlMask.SetV(aPix, MaskInV);//-> add pixel to the inlier mask
+                    aDInlMask.SetV(aPix, MaskOutV);//-> add pixel to the inlier mask with out-of-mask value MaskOutV
                     aL1Score.Add(aD);//-> add residual
                 }
             }
@@ -560,11 +645,11 @@ namespace MMVII
         //----- filling system with inliers observations
         for (const auto& aP : *mDIm1)
         {
-            if (mDInlMask->GetV(aP)==MaskInV)//-> only points that are in inliers mask
+            if (mDInlMask->GetV(aP)==MaskOutV)//-> only points that are out-of-mask value in inliers mask
             {
-                if (mDIm1->InsideInterpolator(*aInterpol, ToR(aP)))//-> only points that are interpolable
+                if (mDIm2->InsideInterpolator(*aInterpol, ToR(aP)))//-> only points that are interpolable
                 {
-                    auto [aV,aG] = mDIm1->GetValueAndGradInterpol(*aInterpol,ToR(aP));//-> compute gradient to get partial derivative
+                    auto [aV,aG] = mDIm2->GetValueAndGradInterpol(*aInterpol,ToR(aP));//-> compute gradient to get partial derivative
                     tREAL8 aV1 = (tREAL8)mDIm1->GetV(aP);
                     tREAL8 aV2 = (tREAL8)mDIm2->GetV(aP);
 
