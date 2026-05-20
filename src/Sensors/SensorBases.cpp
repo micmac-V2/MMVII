@@ -595,6 +595,15 @@ cIm2D<tREAL4> cSensorImage::ImageDepth2ImagePax
 
     return aImPax;
 }
+
+void cSensorImage::Show() const
+{
+    StdOut() << "Sensor : " << V_PrefixName() << std::endl;
+    StdOut() << "   Image  : " << NameImage() << " : " << std::endl;
+    StdOut() << "   Size   : " << Sz() << std::endl;
+    StdOut() << "   SysCo  : " << (HasCoordinateSystem() ? GetCoordinateSystem() : "None") << std::endl;
+}
+
 /* ******************************************************* */
 /*                                                         */
 /*                   cSIMap_Ground2ImageAndProf            */

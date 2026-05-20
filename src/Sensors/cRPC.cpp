@@ -138,7 +138,7 @@ class cRPCSens : public cSensorImage
 
         ~cRPCSens();
 
-        void Show();
+        void Show() const override;
 
         const cRatioPolynXY& DirectRPC() {return *mDirectRPC;}
         const cRatioPolynXY& InverseRPC() {return *mInverseRPC;}
@@ -482,8 +482,9 @@ cRPCSens::~cRPCSens()
     mInverseRPC = nullptr;
 }
 
-void cRPCSens::Show()
+void cRPCSens::Show() const
 {
+    cSensorImage::Show();
     StdOut() << "\t======= Direct model =======" << std::endl;
     mDirectRPC->Show();
 

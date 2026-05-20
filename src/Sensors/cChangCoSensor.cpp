@@ -30,6 +30,8 @@ class cChangCoordSensImage : public cSensorImage
 
          void CCSI_SetSensorAndMap(const cSensorImage * aSI,cDataInvertibleMapping<tREAL8,3>  *aChSys,bool DeleteSI);
       protected :
+         // ====  Method to display (debug) info
+         void Show() const override;
 
          // ====  Methods overiiding for being a cSensorImage =====
          tSeg3dr  Image2Bundle(const cPt2dr &) const override;
@@ -114,6 +116,14 @@ cChangCoordSensImage::~cChangCoordSensImage()
    delete mChCoord;
 }
 
+void cChangCoordSensImage::Show() const
+{
+    cSensorImage::Show();
+    StdOut() << "* Origin sensor :" << std::endl;
+    mSensorInit->Show();
+}
+
+
 std::string cChangCoordSensImage::V_PrefixName() const {return "ChangCoord";}
 
 tSeg3dr  cChangCoordSensImage::Image2Bundle(const cPt2dr & aPixIm) const
@@ -186,6 +196,8 @@ class cChSysSensImage : public cChangCoordSensImage
            void ToFile(const std::string & aNameFile) const override;
            void AddData(const  cAuxAr2007 & );
 
+           void Show() const override;
+
            static cChSysSensImage * TryRead(const cPhotogrammetricProject &,const std::string&aNameImage);
 
         private :
@@ -246,6 +258,15 @@ void cChSysSensImage::ToFile(const std::string & aNameFile) const
      SaveInFile(*this,aNameFile);
 }
 
+void cChSysSensImage::Show() const
+{
+    cSensorImage::Show();
+    StdOut() << "   DirIni : " << mDirSensInit << std::endl;
+    StdOut() << "   Image  : " << mNameImage << std::endl;
+    StdOut() << "   SyCoIni: " << mSysCoOri << std::endl;
+    StdOut() << "* Origin sensor :" << std::endl;
+    mSensorInit->Show();
+}
 
 std::string cChSysSensImage::StaticPrefixName() {return "ChangSys";}
 std::string cChSysSensImage::V_PrefixName() const {return StaticPrefixName();}

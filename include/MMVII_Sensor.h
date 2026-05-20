@@ -291,6 +291,8 @@ class cSensorImage  :   public cObj2DelAtEnd,
                             tREAL8 * aMaxPaxTrsv = nullptr
                        ) const;
 
+         /// Show (debug) information to StdOut
+         virtual void Show() const;
      private :
           cSensorImage(const cSensorImage &) = delete;
 

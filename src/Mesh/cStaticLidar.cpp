@@ -649,6 +649,14 @@ cStaticLidar::~cStaticLidar()
         delete mTriangulation;
 }
 
+void cStaticLidar::Show() const
+{
+    cSensorCamPC::Show();
+    StdOut()<<"   Station: " << mStationName << std::endl;
+    StdOut()<<"   Scan   : " << mScanName << std::endl;
+}
+
+
 cStaticLidar * cStaticLidar::FromFile(const std::string & aNameScanFile, const std::string & aNameRastersDir)
 {
     cStaticLidar * aRes = new cStaticLidar("NONE","?","?",tPoseR::Identity(),nullptr,tRotR::Identity(),NAN);

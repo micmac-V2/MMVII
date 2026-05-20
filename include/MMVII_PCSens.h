@@ -738,6 +738,8 @@ class cSensorCamPC : public cSensorImage
          const cSensorCamPC * GetSensorCamPC() const override;
          cSensorCamPC * GetSensorCamPC()  override;
 
+         void Show() const override;
+
      private :
         void Bench();
         cSensorCamPC(const cSensorCamPC&) = delete;
