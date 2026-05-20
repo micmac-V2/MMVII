@@ -59,7 +59,13 @@ void AddData(const  cAuxAr2007 & anAux,cGeomSimDCT & aGSD)
    MMVII::AddData(cAuxAr2007("R2",anAux),aGSD.mR2);
 
    MMVII::AddData(cAuxAr2007("HomogT2I",anAux),aGSD.mHomogT2Im);
+   MMVII::AddData(cAuxAr2007("C0",anAux),aGSD.mC0);
+   MMVII::AddData(cAuxAr2007("Diag",anAux),aGSD.mDiag);
+   MMVII::AddData(cAuxAr2007("DirBias",anAux),aGSD.mDirBiasXY);
+   MMVII::AddData(cAuxAr2007("MulBias",anAux),aGSD.mMulBias);
 
+   MMVII::AddData(cAuxAr2007("AttenContrast",anAux),aGSD.mAttenContr);
+   MMVII::AddData(cAuxAr2007("AttenMult",anAux),aGSD.mAttenMul);
 }
 
 /*  *********************************************************** */
@@ -149,7 +155,7 @@ class cAppliSimulCodeTarget : public cMMVII_Appli
         std::string         mPatternNames;
 
                 //  --
-        double              mDownScale;       ///< initial downscale of target
+        int                 mDownScale;       ///< initial downscale of target
         cPt2dr              mAttenContrast;         ///< min/max amplitude of (random) gray attenuatio,
         cPt2dr              mAttenMul;         ///< min/max Multiplicative attenuation
         cPt2dr              mPropSysLin;      ///< min/max amplitude of (random) linear bias
@@ -206,6 +212,7 @@ cCollecSpecArg2007 & cAppliSimulCodeTarget::ArgOpt(cCollecSpecArg2007 & anArgOpt
              <<   AOpt2007(mRS.mRatioMinMax,"Ratio","Min/Max ratio between target ellipses axis (<=1)",{eTA2007::HDV})
              <<   AOpt2007(mPatternNames,"PatNames","Pattern for selection of names",{eTA2007::HDV})
              <<   AOpt2007(mSzKernel,"SzK","Sz of Kernel for interpol",{eTA2007::HDV})
+             <<   AOpt2007(mDownScale,"DownS","Initial Down scale factor before ressampling",{eTA2007::HDV})
              <<   AOpt2007(mRS.mBorder,"Border","Border w/o target, prop to R Max",{eTA2007::HDV})
              <<   AOpt2007(mAmplWhiteNoise,"NoiseAmpl","Amplitude White Noise",{eTA2007::HDV})
              <<   AOpt2007(mPropSysLin,"PropLinBias","Amplitude Linear Bias",{eTA2007::HDV})
@@ -213,6 +220,7 @@ cCollecSpecArg2007 & cAppliSimulCodeTarget::ArgOpt(cCollecSpecArg2007 & anArgOpt
              <<   AOpt2007(mAttenContrast,"ContrastAtten","Attenution of B/W contrast",{eTA2007::HDV})
              <<   AOpt2007(mAttenMul,"MulAtten","Attenution multiplicatives",{eTA2007::HDV})
              <<   AOpt2007(mSuplPref,"SuplPref","Suplementary prefix for outputs")
+
    ;
 }
 
@@ -257,25 +265,26 @@ void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
    }
 */
     aImT =  aImT.GaussDeZoom(mDownScale,5);
-    
+
 
     // [2] -- Make a "noisy" version of image (white noise, affine biase, grey attenuation)
     tDIm & aDImT = aImT.DIm();
     cPt2dr aSz = ToR(aDImT.Sz());
-    cPt2dr aC0 = mSpec->Center() /mDownScale;
+    cPt2dr aC0 = mSpec->Center() / tREAL8(mDownScale);
     // cPt2dr aC0 = mPCT.mCenterF/mDownScale;
 
     cPt2dr aDirModif = FromPolar(1.0,M_PI*RandUnif_C());
     double aDiag = Norm2(aC0);
     double aAttenContrast = RandInInterval(mAttenContrast);
     double aAttenMul = (1-mAttenMul.y()) + RandInInterval(mAttenMul);
-    double aAttenLin  = RandInInterval(mPropSysLin);
+    double aMulBias  = RandInInterval(mPropSysLin);
     for (const auto & aPix : aDImT)
     {
          double aVal = aDImT.GetV(aPix);
          aVal =  128  + (aVal-128) * (1-aAttenContrast)   ;              //  attenuate, to have grey-level
          double aScal = Scal(ToR(aPix)-aC0,aDirModif) / aDiag;   // compute amplitude of linear bias
-         aVal =  128  + (aVal-128) * (1-aAttenLin)  + aAttenLin * aScal * 128;
+        // aVal =  128  + (aVal-128) * (1-aMulBias)  + aMulBias * aScal * 128;
+         aVal = aVal * (1-aScal*aMulBias);
          aVal = aVal * aAttenMul;
          //
          aDImT.SetV(aPix,aVal);
@@ -312,6 +321,15 @@ void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
         }
         aMapT2Im = aMapT2Im* tHom2Dr::FromMinimalSamples(aVInit,aVDef);
     }
+
+    tHom2Dr aHomotDS = (tAff2Dr::Homot(1.0/mDownScale));
+    aGSD.mHomogT2Im = aMapT2Im * aHomotDS;
+    aGSD.mC0 = aC0 * tREAL8(mDownScale);
+    aGSD.mDiag = aDiag * mDownScale;
+    aGSD.mDirBiasXY = aDirModif;
+    aGSD.mMulBias = aMulBias;
+    aGSD.mAttenContr = aAttenContrast;
+    aGSD.mAttenMul   = aAttenMul;
 
    // tAffMap aMapIm2T =  aMapT2Im.MapInverse();                             // need inverse for resample
 
@@ -351,11 +369,6 @@ void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
         }
     }
 
-    aGSD.mHomogT2Im = aMapT2Im * tHom2Dr(tAff2Dr::Homot(1.0/mDownScale));
-    // aGSD.mCornEl1 = aMapT2Im.Value(mPCT.mCornEl1/mDownScale);
-    // aGSD.mCornEl2 = aMapT2Im.Value(mPCT.mCornEl2/mDownScale);
-  //  aGSD.mCornEl1 = aMapT2Im.Value(mSpec->CornerlEl_BW()/mDownScale);
-   // aGSD.mCornEl2 = aMapT2Im.Value(mSpec->CornerlEl_WB()/mDownScale);
 
     StdOut() << "NNN= " << aGSD.mEncod.Name() << " C0=" << aC0 <<  aBoxIm.Sz() <<  " " << aGSD.mR2/aGSD.mR1 << std::endl;
 }

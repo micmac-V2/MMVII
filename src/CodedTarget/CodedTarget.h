@@ -159,6 +159,14 @@ class cGeomSimDCT
       // cPt2dr       mCornEl2;   ///< Theoreticall corner 2 of ellipse
 
        tHom2Dr      mHomogT2Im;
+       cPt2dr       mC0;
+       tREAL8       mDiag;
+       cPt2dr       mDirBiasXY;
+       tREAL8       mMulBias;
+       tREAL8       mAttenContr;
+       tREAL8       mAttenMul;
+
+
 
        double       mR1;        ///< "small" size of deformaed rectangle
        double       mR2;        ///<  "big " size ....
@@ -438,6 +446,8 @@ class cFullSpecifTarget : public cMemCheck
          const  cSpecBitEncoding &          Specs()     const;
          cPt2dr    Pix2Norm(const cPt2dr &) const;  // integrate the DeZoomIm
          cPt2dr    Norm2Pix(const cPt2dr &) const;  // integrate the DeZoomIm
+         int    DeZoomIm() const;
+
       private :
          ///  default constructor required for step by step buildin
          cFullSpecifTarget();
@@ -449,7 +459,6 @@ class cFullSpecifTarget : public cMemCheck
          // static void TestReloadAndShow(const std::string & aName,int aZoom);
 
 
-         int    DeZoomIm() const;
 
          std::string NameOfImPattern() const;
          std::string NameOfEncode(const cOneEncoding & anEnCode) const;
