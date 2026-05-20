@@ -1054,7 +1054,7 @@ void cBA_LidarLidarRaster::AddObs()
 {
     if (mBA.Iter()==0)
     {
-        CreateZbuffers(mPhProj, mBA, true, true);
+        //CreateZbuffers(mPhProj, mBA, true, true); // useless for lidarlidar
     }
 
     mLastResidual.Reset();

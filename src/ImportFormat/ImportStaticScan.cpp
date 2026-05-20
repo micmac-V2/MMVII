@@ -57,6 +57,7 @@ private :
     std::string              mPoseXYZFilename;
     tREAL8                   mSigma;              ///< in m
     cPt2di                   mDecimXY;            ///< skip one point out of mDecimXY in x and y
+    tREAL8                   mDistNoiseSigma;
 
     // data
     tPoseR                   mForcedPose;
@@ -79,6 +80,7 @@ cAppli_ImportStaticScan::cAppli_ImportStaticScan(const std::vector<std::string> 
     mNbPatches      (1000),
     mSigma          (0.001),
     mDecimXY        (1,1),
+    mDistNoiseSigma  (0.),
     mForcedPose     (tPoseR::Identity()),
     mPhiStepApprox  (NAN)
 {
@@ -109,6 +111,7 @@ cCollecSpecArg2007 & cAppli_ImportStaticScan::ArgOpt(cCollecSpecArg2007 & anArgO
            << AOpt2007(mSigma,"Sigma","Initial sigma of measurements (in m)",{{eTA2007::HDV}})
            << AOpt2007(mPoseXYZFilename,"PoseXYZ","Set initial pose from a Comp3D .xyz file",{{eTA2007::HDV, eTA2007::FileAny}})
            << AOpt2007(mDecimXY,"DecimXY","Keep one point out of DecimXY, in line and col",{{eTA2007::HDV}})
+           << AOpt2007(mDistNoiseSigma,"DistNoiseSigma","Sigma of added noise on distance",{{eTA2007::HDV}})
         ;
 }
 
@@ -669,6 +672,17 @@ int cAppli_ImportStaticScan::Exe()
     }
 
     mSL_importer.read(mNameFile, false, mForceStructured, mStrInput2TSL, mForceGreenAsIntensity);
+
+    if (mDistNoiseSigma!=0.)
+    {
+        // add noise on distances
+        for (size_t i=0; i<mSL_importer.mVectPtsTPD.size(); ++i)
+        {
+            mSL_importer.mVectPtsTPD[i].z() = mSL_importer.mVectPtsTPD[i].z() + RandNormal(0.,mDistNoiseSigma);
+        }
+        mSL_importer.convertToXYZ();
+    }
+
 
     MMVII_INTERNAL_ASSERT_tiny(!mSL_importer.mVectPtsXYZ.empty(),"Error reading "+mNameFile);
     if (mSL_importer.HasIntensity())
