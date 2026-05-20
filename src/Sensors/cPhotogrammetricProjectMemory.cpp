@@ -1,6 +1,7 @@
 #include "MMVII_PCSens.h"
 #include "MMVII_DeclareCste.h"
 #include "MMVII_2Include_Serial_Tpl.h"
+#include "treethread.h"
 
 /**
    \file  cPhotogrammetricProjectMemory.cpp
@@ -88,6 +89,9 @@ cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromStdName(co
 
 cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromImage(const std::string & aNameIm) const
 {
+    TreeThreadsBase::Id();
+
+
     //return InternalCalibFromStdName(aNameIm);
 
 
