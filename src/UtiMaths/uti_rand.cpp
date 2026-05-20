@@ -1,3 +1,4 @@
+#include "MMVII_Matrix.h"
 #include "MMVII_Random.h"
 #include "MMVII_Ptxd.h"
 #include "cMMVII_Appli.h"
@@ -119,6 +120,20 @@ void OneBench_Random(cParamExeBench & aParam)
 
       // => Apparently correlation is very high : 0.08 !! maybe change the generator ?
       
+   }
+   {
+       int aNb = std::min(3e6,1e6 *(1+pow(aParam.Level(),1.5)));
+       double aTolerancy = 100.; // heuristic results
+       double aRefMean = (RandUnif_0_1()-0.5);
+       double aRefStdDev = RandUnif_0_1()+0.001;
+       cComputeStdDev<double> aCSD;
+       for (int aK=0 ; aK< aNb ; aK++)
+           aCSD.Add(RandNormal(aRefMean,aRefStdDev));
+       std::cout<<aNb<<" "<<aCSD.SomWV()/aCSD.SomW()<<" ~ "<<aRefMean<<" "<<aCSD.StdDev()<<" ~ "<<aRefStdDev
+                 <<" max "<<aTolerancy/sqrt(aNb)<<" "<<std::abs(aCSD.SomWV()/aCSD.SomW()-aRefMean)/(std::abs(aRefMean)+0.01)<<" "
+                 <<std::abs(aCSD.StdDev()-aRefStdDev)/(aRefStdDev+0.01)<<std::endl;
+       MMVII_INTERNAL_ASSERT_bench(std::abs(aCSD.SomWV()/aCSD.SomW()-aRefMean)/(std::abs(aRefMean)+0.01)<aTolerancy/sqrt(aNb),"Random Normal Test");
+       MMVII_INTERNAL_ASSERT_bench(std::abs(aCSD.StdDev()-aRefStdDev)/(aRefStdDev+0.01)<aTolerancy/sqrt(aNb),"Random Normal Test");
    }
 }
 
@@ -246,6 +261,10 @@ bool HeadOrTail()
      return  RandUnif_0_1() > 0.5;
 }
 
+double RandNormal(double aMean, double aStdDev)
+{
+    return cRandGenerator::TheOne()->Normal_0_1()*aStdDev+aMean;
+}
 
 
 cFctrRR cFctrRR::TheOne;
@@ -357,11 +376,13 @@ class cRand19937 : public cRandGenerator
          size_t next() override;
          double Unif_0_1() override ;
          int    Unif_N(int aN) override;
+         double Normal_0_1() override ;
          ~cRand19937() {}
      private :
           // std::random_device mRD;                    //Will be used to obtain a seed for the random number engine
           std::mt19937       mGen;                   //Standard mersenne_twister_engine seeded with rd()
           std::uniform_real_distribution<> mDis01;
+          std::normal_distribution<double> mDisNormal;
           std::unique_ptr<std::uniform_int_distribution<> > mDisInt;
           int                                               mLastN;
           //uniform_01<mt19937> mU01;
@@ -372,6 +393,7 @@ cRand19937::cRand19937(int aSeed) :
     // mRD      (),
     mGen     (aSeed),
     mDis01   (0.0,1.0),
+    mDisNormal(0.0,1.0),
     mDisInt  (nullptr)
 {
 }
@@ -401,6 +423,12 @@ int    cRand19937::Unif_N(int aN)
 
    return (*mDisInt)(mGen);
 }
+
+double    cRand19937::Normal_0_1()
+{
+    return mDisNormal(mGen);
+}
+
 
 
 cRandGenerator * cRandGenerator::msTheOne = nullptr;
