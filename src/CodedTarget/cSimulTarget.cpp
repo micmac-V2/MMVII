@@ -168,6 +168,8 @@ class cAppliSimulCodeTarget : public cMMVII_Appli
         std::string                mSuplPref;   ///< Supplementary prefix
         std::string                mPrefixOut;   ///< Prefix for generating image & ground truth
 
+        std::string                mStrSeedR;  ///<  Global random seed, if was set by user, to add to others
+
 };
 
 
@@ -252,7 +254,7 @@ void   cAppliSimulCodeTarget::AddPosTarget(const cOneEncoding & anEncod)
 void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
 {
     // We want that random is different for each image, but deterministic, independent of number of pixel noise drawn
-    cRandGenerator::TheOne()->setSeed(HashValue(mNameIm+"*"+aGSD.mName,true));
+    cRandGenerator::TheOne()->setSeed(HashValue(mNameIm+"*"+aGSD.mName+mStrSeedR,true));
 
     // [1] -- Load and scale image of target
     tIm aImT =  Convert((tElem*)nullptr,mSpec->OneImTarget(aGSD.mEncod).DIm());
@@ -393,6 +395,8 @@ int  cAppliSimulCodeTarget::Exe()
 {
    mPhProj.FinishInit();
 
+   mStrSeedR = ToStr(SeedRandom());
+
    if (RunMultiSet(0,0))
    {
            return ResultMultiSet();
@@ -419,7 +423,7 @@ int  cAppliSimulCodeTarget::Exe()
 
 
    // We want that random is different for each image, but deterministic for one given image
-   cRandGenerator::TheOne()->setSeed(HashValue(mNameIm,true));
+    cRandGenerator::TheOne()->setSeed(HashValue(mNameIm+mStrSeedR,true));
 
    mPrefixOut =  ThePrefixSimulTarget +  mSuplPref + LastPrefix(FileOfPath(mNameIm));
    mRS.mCom = CommandOfMain().Com();
@@ -434,7 +438,7 @@ int  cAppliSimulCodeTarget::Exe()
         if (MatchRegex(anEncod.Name(),mPatternNames))
         {
             // We want that random is different for each image, but deterministic for one given image
-            cRandGenerator::TheOne()->setSeed(HashValue(mNameIm+"/"+anEncod.Name(),true));
+            cRandGenerator::TheOne()->setSeed(HashValue(mNameIm+"/"+anEncod.Name()+mStrSeedR,true));
             AddPosTarget(anEncod);
             //StdOut() <<  "Target " << anEncod.Name() << " " << mRS.mVG.back().mC << std::endl;
         }
