@@ -143,7 +143,7 @@ namespace MMVII
         SaveTmp(aIm, aDir, "LSCor");
     }
 
-    tIm cCdTDiscr::MaskInCB()
+    tIm cCdTDiscr::MaskInCB(bool ext)
     {
         tIm aInCBMask(mSamp.DIm().Sz());
         tDIm& aDInCBMask = aInCBMask.DIm();
@@ -151,7 +151,8 @@ namespace MMVII
 
         for (const auto& aP : aDInCBMask)
         {
-            tU_INT1 aV = InsideCB(Ref2Samp(ToR(aP), true)) ? MaskOutV : MaskInV;
+            tREAL8 aExt = ext ? mRefCB.mBCD - mRefCB.mLmA : 0;
+            tU_INT1 aV = InsideCB(Ref2Samp(ToR(aP), true), aExt) ? MaskOutV : MaskInV;
             aDInCBMask.SetV(aP, aV);
         }
 
@@ -159,9 +160,9 @@ namespace MMVII
     }
 
 
-    bool cCdTDiscr::InsideCB(cPt2dr aP)
+    bool cCdTDiscr::InsideCB(cPt2dr aP, tREAL8 ext)
     {
-        return Norm2(aP - mRefCB.mC) <= mRefCB.mLmA;
+        return Norm2(aP - mRefCB.mC) <= mRefCB.mLmA + ext;
     }
 
     /*
@@ -246,6 +247,7 @@ namespace MMVII
     tIm&        cCdTDiscr::Crop(){return mCrop;}
     tIm&        cCdTDiscr::Samp(){return mSamp;}
     tIm&        cCdTDiscr::Mask(){return mMask;}
+    tIm&        cCdTDiscr::InlMask(){return mInlMask;}
     cRansacSol  cCdTDiscr::TFSm2Cr(){return mTFSm2Cr;}
     cLS10PSol   cCdTDiscr::LSSm2Cr(){return mSm2Cr;}
 
@@ -305,8 +307,9 @@ namespace MMVII
     {
         cPt2dr aMBW = aFSpec->CornerlEl_BW();//-> middle black to white corner
         cPt2dr aLWB = aFSpec->CornerlEl_WB();//-> lower white to black corner
+        cPt2dr aBC  = aFSpec->BitsCenters()[0];//-> random bit center
         cPt2dr aC   = cPt2dr(aLWB.x(), aMBW.y());//-> center
-        mRefCB = cCBParams(aC, Norm2(aC - aMBW), Norm2(aC - aLWB));
+        mRefCB = cCBParams(aC, Norm2(aC - aMBW), Norm2(aC - aLWB), Norm2(aC - aBC));
     }
 
 
@@ -391,10 +394,19 @@ namespace MMVII
                         DiscrMapRefine(aDis);
 
                         //-> save refined measurement
-                        auto aC = aDis.SampC();
+                        cPt2dr aC = aDis.SampC();
+                        cPt2dr aCorC = ToR(aDis.Extent().P0()) + aC + aDis.LSSm2Cr().mAff.Value(aC);
+
                         if (mShow)
-                            StdOut() << "CdT n°" << aDis.mName <<" refined mes :" << aC << "->" << ToR(aDis.Extent().P0()) + aC + aDis.LSSm2Cr().mAff.Value(aC) << "\n";
-                        cMesIm1Pt aMes(ToR(aDis.Extent().P0()) + aC + aDis.LSSm2Cr().mAff.Value(aC), aDis.mName, 1);
+                        {
+                            StdOut() << "-------------------\n"
+                                     << "CdT n°" << aDis.mName << '\n'
+                                     << "-----\n"
+                                     << "LS Params: " << aDis.LSSm2Cr().mVP << '\n'
+                                     <<" refined mes :" << aC << "->" << aCorC << '\n';
+                        }
+
+                        cMesIm1Pt aMes(aCorC, aDis.mName, 1);
                         aSet.AddMeasure(aMes);
                     }
                 }
@@ -444,6 +456,8 @@ namespace MMVII
         {
             if (!mIm.DIm().Inside(ToI(aC)))
             {
+                StdOut() << aC;
+                if (mShow) StdOut() << "Out!" << '\n';
                 isOk = false;
                 return;
             }
@@ -493,13 +507,21 @@ namespace MMVII
         tIm aInCBMask = aDis.MaskInCB();
         aDis.SetInlMask(aInCBMask);
 
-        if (mVisu)
-        {
-            aDis.SaveTmp(aInCBMask, mPhProj.DirVisuAppli(), "InCB");
-        }
-
         //----- least square computation of Samp to Crop 10-params mapping
         mVisu ? aDis.VisuLS10ParamSm2Cr(mPhProj.DirVisuAppli()) : aDis.LS10ParamSm2Cr();
+
+        //----- pseudo-significativity test on radio bias
+        if (aDis.LSSm2Cr().mVP[3] > 80)
+        {
+            tIm aInCBExtMask = aDis.MaskInCB(true);
+            aDis.SetInlMask(aInCBExtMask);
+            mVisu ? aDis.VisuLS10ParamSm2Cr(mPhProj.DirVisuAppli()) : aDis.LS10ParamSm2Cr();
+        }
+
+        if (mVisu)
+        {
+            aDis.SaveTmp(aDis.InlMask(), mPhProj.DirVisuAppli(), "InlMask");
+        }
     }
 
 
@@ -531,10 +553,11 @@ namespace MMVII
     {
     }
 
-    cCBParams::cCBParams(cPt2dr aC, tREAL8 aMLA, tREAL8 aLmA):
+    cCBParams::cCBParams(cPt2dr aC, tREAL8 aMLA, tREAL8 aLmA, tREAL8 aBCD):
         mC      (aC),
         mLMA    (aMLA),
-        mLmA    (aLmA)
+        mLmA    (aLmA),
+        mBCD    (aBCD)
     {
     }
 

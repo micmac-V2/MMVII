@@ -54,10 +54,11 @@ namespace MMVII
     struct cCBParams
     {
         cCBParams();
-        cCBParams(cPt2dr aC, tREAL8 aMLA, tREAL8 aLmA);
+        cCBParams(cPt2dr aC, tREAL8 aMLA, tREAL8 aLmA, tREAL8 aBCD);
         cPt2dr mC;//-> center
         tREAL8 mLMA;//-> lenght of semi-Major axis
         tREAL8 mLmA;//-> lenght of semi-minor axis
+        tREAL8 mBCD;//-> bit center distance
     };
 
     /*!
@@ -147,7 +148,7 @@ namespace MMVII
         void                        VisuRansacTFSm2Cr(const std::string& aDir);//-> visu version of RansacTFSm2Cr : saves lots of visualisations
         void                        LS10ParamSm2Cr();//-> computes mSm2Cr mapping as a 10 parameters model
         void                        VisuLS10ParamSm2Cr(const std::string &aDir);//-> computes mSm2Cr mapping as a 10 parameters model
-        tIm                         MaskInCB();//-> computes Mask for pixels that are in checkboard pattern
+        tIm                         MaskInCB(bool ext=false);//-> computes Mask for pixels that are in checkboard pattern
 
         cPt2dr                      Ref2Im(cPt2dr aPt, bool inv=false);//-> get input image coordinate from a point of MMVII generated CdT image
         std::vector<cPt2dr>         VRef2Im(std::vector<cPt2dr> aVPts, bool inv=false);//-> Ref2Im for a point vector
@@ -164,6 +165,7 @@ namespace MMVII
 
         cRect2                      Extent();//-> rectangle extent of CdT in input image
         tIm&                        Mask();//-> i/o binary mask w.r.t samp image coordinates
+        tIm&                        InlMask();//-> inliers mask for Samp to Crop mapping computation
         tIm&                        Crop();//-> input image cropped at mExtent bounds
         tIm&                        Ref();//-> referenced image (MMVII-generated)
         tIm&                        Samp();//-> sampled image
@@ -203,7 +205,7 @@ namespace MMVII
         /*      M : mMask OK    E : mExtent OK      OK i.e : tIm.Sz() != cPt2di(1,1)
          *      C : mCrop OK    R : mRef    OK
          */
-        bool            InsideCB(cPt2dr aP);//-> checks if a point with ref CdT coordinates is inside checkboard
+        bool            InsideCB(cPt2dr aP, tREAL8 ext=0);//-> checks if a point with ref CdT coordinates is inside checkboard
     };
 
     cPixBox<2>          BBox(std::vector<cPt2dr> aVPts, int aMin=0, int aMax=100000);//-> computes bounding box from a point vector
