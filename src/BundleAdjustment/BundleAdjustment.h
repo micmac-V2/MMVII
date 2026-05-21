@@ -544,6 +544,7 @@ protected :
          int                     aKPt
          ) override;
 
+    tREAL8 mNormalDiffMinCos = 0.98;
 };
 
 

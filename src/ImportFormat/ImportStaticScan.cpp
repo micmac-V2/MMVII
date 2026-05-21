@@ -1,6 +1,7 @@
 #include "MMVII_StaticLidar.h"
 #include "MMVII_Sensor.h"
 #include "MMVII_Geom3D.h"
+#include "MMVII_Interpolators.h"
 
 /**
    \file importStaticScan.cpp
@@ -858,6 +859,22 @@ int cAppli_ImportStaticScan::Exe()
     aSL_data.MakeVisu(mPhProj);
 
     aSL_data.ToFile(mPhProj.DPOrient().FullDirOut() + aSL_data.NameOriStd());
+
+
+    // check scan normals
+    /*auto aInterp  = cDiffInterpolator1D::AllocFromNames({"Linear"});
+    int step=10;
+    for (int y=step/2; y<mSL_importer.NbLine()-step/2; y+=step)
+        for (int x=step/2; x<mSL_importer.NbCol()-step/2; x+=step)
+        {
+            cPt2dr aPt(x,y);
+            //aSL_data.Image2NormalInstr(aPt, *aInterp);
+        }
+    aSL_data.Image2NormalInstr(cPt2dr(mSL_importer.NbCol()/2, mSL_importer.NbLine()/2), *aInterp);
+    aSL_data.Image2NormalInstr(cPt2dr(mSL_importer.NbCol()/2+1, mSL_importer.NbLine()/2), *aInterp);
+    aSL_data.Image2NormalInstr(cPt2dr(mSL_importer.NbCol()/2, mSL_importer.NbLine()/2+1), *aInterp);
+    delete aInterp;
+    */
 
     //aSL_data.ToPly("Out_filtered.ply", true);
     delete aCalib;

@@ -103,6 +103,7 @@ struct cLidarRasterPatch
     size_t                          mId;        //< Number in cStaticVector.mPatchCenters
     std::vector<cPt2di>             mLPatchesP; //< px in raster, consituted by points in a lidar scan, begin() is center
     std::unordered_set<std::string> mHiddenOnImage; //< for Im/scanB names, if hidden via zbuffers
+    cPt3dr                          mNormalInstr; //< normal in instrument frame
 };
 
 
@@ -136,13 +137,15 @@ public :
     void SelectPatchCenters2(const cStaticLidarImporter &aSL_importer, int aNbPatches);
     void MakeVisu(const cPhotogrammetricProject & aPhProj) const;     ///< show 8bit dist image with patch centers
     void MakePatches(std::list<cLidarRasterPatch> &aLPatches,
-                     const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin) const;
+                     const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin,
+                     const cDiffInterpolator1D &aInterp) const;
 
     cPt3dr Image2InputXYZ(const cPt2di & aRasterPx) const; // in input frame
     cPt3dr Image2InputXYZ(const cPt2dr & aRasterPx) const;
 
     template <typename TYPE>
     cPt3dr Image2Camera3D(const TYPE & aRasterPx) const; // in sensor frame (Z forward)
+    cPt3dr Image2NormalInstr(const cPt2dr &aRasterPx, const cDiffInterpolator1D &aInterp) const; //< normal in sensor frame
 
     template <typename TYPE>
         cPt3dr Image2ThetaPhiDist(const TYPE & aRasterPx) const;
@@ -222,8 +225,15 @@ template <typename TYPE>
     tREAL8 aDist = Norm2(aPtCam3D);
     cPt2dr aPx = InternalCalib()->Value(aPtCam3D);
     cPt2dr aDir = (aPx - InternalCalib()->PP()) / InternalCalib()->F();
+    if (aDir.x()<-M_PI)
+        aDir.x()+=2*M_PI;
+    if (aDir.x()>M_PI)
+        aDir.x()-=2*M_PI;
+    //std::cout<<"Image2ThetaPhiDist "<<aRasterPx<<" "<<aPtCam3D
+    //          <<" "<<aPx<<" "<<InternalCalib()->PP()<<" "<<aDir<<"\n";
     return {aDir.x(), aDir.y(), aDist};
 }
+
 void AddData(const  cAuxAr2007 & anAux,cStaticLidar & aSL);
 
 }
