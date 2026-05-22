@@ -113,11 +113,12 @@ namespace NS_CHKBRD_TARGET_EXTR {
 int cCdSadle::TheCptNum=0;
 int cCdSadle::TheNum2Debug=-2;
 
-cCdSadle::cCdSadle (const cPt2dr & aC,tREAL8 aCrit,bool isPTest) :
-    mC        (aC) ,
-    mSadCrit  (aCrit) ,
-    mIsPTest  (isPTest),
-    mNum      (TheCptNum++)
+cCdSadle::cCdSadle (tREAL8 aScaleDetec,const cPt2dr & aC,tREAL8 aCrit,bool isPTest) :
+    mC          (aC) ,
+    mScaleDetec (aScaleDetec),
+    mSadCrit    (aCrit) ,
+    mIsPTest    (isPTest),
+    mNum        (TheCptNum++)
 {
 }
 cCdSadle::cCdSadle () :
@@ -594,7 +595,18 @@ void cCdEllipse::EstimateAffinity(bool secondCall)
      mCornerlEl_WB = mEll.InterSemiLine(mTetas[0]);
      mCornerlEl_BW = mEll.InterSemiLine(mTetas[1]+M_PI);
 
-     tAff2Dr::tTabMin  aTabIm{mC,mCornerlEl_WB,mCornerlEl_BW};
+     tAff2Dr::tTabMin  aTabImZ1{mC*mScaleDetec,mCornerlEl_WB*mScaleDetec,mCornerlEl_BW*mScaleDetec};
+     tAff2Dr::tTabMin  aTabImComp{mC,mCornerlEl_WB,mCornerlEl_BW};
+
+
+    /* {
+         static bool First=true;
+         if (First)
+         {
+             First=false;
+             StdOut() << "xxyytu_EtsAff :" << aTabIm[0] << aTabIm[1] << "\n";
+         }
+     }*/
 
      cPt2dr aPC= mSpec->Center();
      cPt2dr aPWB = mSpec->CornerlEl_WB();
@@ -624,7 +636,8 @@ void cCdEllipse::EstimateAffinity(bool secondCall)
 
 //     cAff2D_r::tTabMin  aTabMod{mSpec->Center(),mSpec->CornerlEl_WB(),mSpec->CornerlEl_BW()};
 
-     mAffIm2Mod =  tAff2Dr::FromMinimalSamples(aTabIm,aTabMod);
+     mAffImCompToMod =  tAff2Dr::FromMinimalSamples(aTabImComp,aTabMod);
+     mAffImZ1ToMod   =  tAff2Dr::FromMinimalSamples(aTabImZ1,aTabMod);
 
 
    //  StdOut() << mCode->Code() << "\n";
@@ -633,7 +646,9 @@ void cCdEllipse::EstimateAffinity(bool secondCall)
 
 bool cCdEllipse::BOutCB()   const {return mBOutCB;}
 bool cCdEllipse::IsCircle() const {return mIsCircle;}
-const tAff2Dr   &  cCdEllipse::AffIm2Mod() const {return mAffIm2Mod;}
+const tAff2Dr   &  cCdEllipse::AffImCompToMod() const {return mAffImCompToMod;}
+const tAff2Dr   &  cCdEllipse::AffImZ1ToMod() const {return mAffImZ1ToMod;}
+
 
 bool cCdEllipse::IsOk() const {return mIsOk;}
 void cCdEllipse::AssertOk() const
@@ -644,13 +659,13 @@ void cCdEllipse::AssertOk() const
 cPt2dr  cCdEllipse::M2I(const cPt2dr & aPMod) const
 {
     AssertOk();
-    return mAffIm2Mod.Inverse(aPMod);
+    return mAffImCompToMod.Inverse(aPMod);
 }
 
 cPt2dr  cCdEllipse::I2M(const cPt2dr & aPMod) const
 {
     AssertOk();
-    return mAffIm2Mod.Value(aPMod);
+    return mAffImCompToMod.Value(aPMod);
 }
 
 
@@ -940,8 +955,8 @@ cOptimPosCdM::cOptimPosCdM(const cCdMerged & aCdM,const cDiffInterpolator1D & aI
 
 bool cOptimPosCdM::AddPts1Seg(const cPt2dr & aSCorn1, const cPt2dr & aSCorn2,bool toAvoid2)
 {
-     cPt2dr  aCorn1 = aSCorn1  * mCdM.mScale;
-     cPt2dr  aCorn2 = aSCorn2  * mCdM.mScale;
+     cPt2dr  aCorn1 = aSCorn1  * mCdM.mScaleDetec;
+     cPt2dr  aCorn2 = aSCorn2  * mCdM.mScaleDetec;
 
      tREAL8 aStep = 0.25;
      tREAL8 aWidth = 1.0;
@@ -987,10 +1002,9 @@ bool cOptimPosCdM::AddPts1Seg(const cPt2dr & aSCorn1, const cPt2dr & aSCorn2,boo
 /*                                               */
 /* ********************************************* */
 
-cCdMerged::cCdMerged(const cDataIm2D<tREAL4> * aDIm0,const cCdEllipse & aCDE,tREAL8 aScale) :
+cCdMerged::cCdMerged(const cDataIm2D<tREAL4> * aDIm0,const cCdEllipse & aCDE) :
     cCdEllipse (aCDE),
-    mScale     (aScale),
-    mC0        (mC * mScale),
+    mC0        (mC * mScaleDetec),
     mDIm0      (aDIm0)
 {
 }

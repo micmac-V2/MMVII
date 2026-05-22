@@ -45,13 +45,14 @@ static constexpr tU_INT1 eFilterCodedTarget  = 8 ;
 class cCdSadle
 {
     public :
-        cCdSadle (const cPt2dr & aC,tREAL8 aCrit,bool isPTest) ;
+        cCdSadle (tREAL8 aScaleDetect,const cPt2dr & aC,tREAL8 aCrit,bool isPTest) ;
         cCdSadle ();
 
         bool Is4Debug() const;
 
         /// Center
         cPt2dr mC;
+        tREAL8 mScaleDetec;
 
         ///  Criterion of sadle point, obtain by fiting a quadric on gray level
         tREAL8 mSadCrit;
@@ -138,7 +139,9 @@ class cCdEllipse : public cCdRadiom
            cPt2dr  I2M(const cPt2dr & aPIM) const;
            bool  IsCircle() const;
 
-       const tAff2Dr   &  AffIm2Mod() const;
+           const tAff2Dr   &  AffImCompToMod() const;
+           const tAff2Dr   &  AffImZ1ToMod() const;
+
 
 
 
@@ -183,7 +186,10 @@ class cCdEllipse : public cCdRadiom
            cEllipse             mEll;
            cPt2dr               mCornerlEl_WB;
            cPt2dr               mCornerlEl_BW;
-           tAff2Dr             mAffIm2Mod;
+           tAff2Dr              mAffImCompToMod; // Afiinity for image of computation
+           tAff2Dr              mAffImZ1ToMod;    // Affinity for image
+
+
            tREAL8               mMaxEllD; ///< Maximal distance 2 ellipse (for frontier point, not on lines)
            const cOneEncoding * mCode;
            bool                 mBOutCB;  ///< Is there black point outside the  check board
@@ -194,14 +200,11 @@ class cCdEllipse : public cCdRadiom
 class cCdMerged : public  cCdEllipse
 {
         public :
-            cCdMerged(const cDataIm2D<tREAL4> *,const cCdEllipse & aCDE,tREAL8 aScale) ;
-
-            tREAL8 mScale;
-            cPt2dr mC0;  // center at initial image scale
+            cCdMerged(const cDataIm2D<tREAL4> *,const cCdEllipse & aCDE) ;
             void  HeuristikOptimizePosition(const cDiffInterpolator1D &,tREAL8 aStepEnd);
-
             void  GradOptimizePosition(const cDiffInterpolator1D &,tREAL8 aStepEnd);
 
+            cPt2dr mC0;  // center at initial image scale
             const cDataIm2D<tREAL4> * mDIm0;
 };
 
