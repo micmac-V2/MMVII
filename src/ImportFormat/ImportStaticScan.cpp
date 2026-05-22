@@ -175,6 +175,10 @@ void cAppli_ImportStaticScan::estimatePhiStep()
             if ((aPtAng2.y()-aPtAng1.y())/mPhiStepApprox < angularPrecisionInSteps)
             {
                 mThetaStepApprox = aPtAng2.x()-aPtAng1.x();
+                if (mThetaStepApprox>M_PI)
+                    mThetaStepApprox-=2*M_PI;
+                if (mThetaStepApprox<-M_PI)
+                    mThetaStepApprox+=2*M_PI;
                 StdOut() << "ThetaStep " << mThetaStepApprox << "\n";
                 return;
             }
@@ -336,6 +340,11 @@ void cAppli_ImportStaticScan::computeAngStartStep()
                         auto & a1stPtAng = mSL_importer.mVectPtsTPD[a1stPti];
                         mSL_importer.mPhiStep = (aPtAng.y()-a1stPtAng.y())/(mSL_importer.mVectPtsLine[i]-mSL_importer.mVectPtsLine[a1stPti]);
                         mSL_importer.mThetaStep = (aPtAng.x()-a1stPtAng.x())/(mSL_importer.mVectPtsCol[i]-mSL_importer.mVectPtsCol[a1stPti]);
+                        if (mSL_importer.mThetaStep>M_PI)
+                            mSL_importer.mThetaStep-=2*M_PI;
+                        if (mSL_importer.mThetaStep<-M_PI)
+                            mSL_importer.mThetaStep+=2*M_PI;
+
                         mSL_importer.mPhiStart = a1stPtAng.y() - mSL_importer.mPhiStep * mSL_importer.mVectPtsLine[a1stPti];
                         mSL_importer.mThetaStart = a1stPtAng.x() - mSL_importer.mThetaStep * mSL_importer.mVectPtsCol[a1stPti];
                         StdOut() << "computeAngStartStep " << a1stPti << " " << i << " " << mSL_importer.mThetaStep << " " << mSL_importer.mPhiStep << " " << "\n";

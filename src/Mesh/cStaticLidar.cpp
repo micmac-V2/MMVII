@@ -740,7 +740,7 @@ cPt3dr cStaticLidar::Image2NormalInstr(const cPt2dr & aRasterPx, const cDiffInte
     //    <<" "<<aTPD.z() * sin(aTPD.y())<<" "<<aTPD.z() * cos(aTPD.y()) * cos(aTPD.x())<<"\n";
 
 
-    tREAL8 aDiffDistTheta = aDistGr.x() * InternalCalib()->F(); // TODO verif ! vraiment grand!!
+    tREAL8 aDiffDistTheta = aDistGr.x() * InternalCalib()->F();
     tREAL8 aDiffDistPhi   = aDistGr.y() * InternalCalib()->F();
     cPt3dr aDiffPtTheta(
         aTPD.z() * cos(aTPD.y()) * cos(aTPD.x()) + aDiffDistTheta * cos(aTPD.y()) * sin(aTPD.x()),
