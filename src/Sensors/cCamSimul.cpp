@@ -1,5 +1,6 @@
 #include "MMVII_PoseRel.h"
 #include "MMVII_Tpl_Images.h"
+#include "MMVII_cPhotogrammetricProjectMemory.h"
 #include "../Graphs/ArboTriplets.h"
 #include "../BundleAdjustment/BundleAdjustment.h"
 

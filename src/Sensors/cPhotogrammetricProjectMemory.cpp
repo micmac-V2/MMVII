@@ -1,6 +1,8 @@
 #include "MMVII_PCSens.h"
 #include "MMVII_DeclareCste.h"
 #include "MMVII_2Include_Serial_Tpl.h"
+#include "MMVII_cPhotogrammetricProjectMemory.h"
+
 #include "treethread.h"
 
 /**

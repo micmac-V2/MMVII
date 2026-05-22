@@ -964,6 +964,8 @@ class cPhotogrammetricProject : public cIPhProj
 void SaveAndFilterAttrEll(const cPhotogrammetricProject & aPhp,const cSetMesPtOf1Im &  aSetM,const std::set<std::string> & ToRem);
 
 
+#if (0)
+
 /**  In-memory implementation of cIPhProj.
  *   Calibrations, orientations and homologous points are stored
  *   in maps keyed by image name rather than read from disk.
@@ -1029,6 +1031,7 @@ class cPhotogrammetricProjectMemory : public cIPhProj
         std::map<std::pair<std::string,std::string>, cSetHomogCpleIm>  mHomolMap;
         std::map<std::string, cVecTiePMul>                             mMulTiePMap;
 };
+#endif
 
 
 };
