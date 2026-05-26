@@ -23,7 +23,8 @@ namespace MMVII
 /*                                          */
 /* **************************************** */
 
-cPhotogrammetricProjectMemory::cPhotogrammetricProjectMemory()
+cPhotogrammetricProjectMemory::cPhotogrammetricProjectMemory() :
+    mMode (eModeBenchPhMI::eDupl)
 {
 }
 
@@ -37,7 +38,15 @@ cPhotogrammetricProjectMemory::~cPhotogrammetricProjectMemory()
 
 void  cPhotogrammetricProjectMemory::AddCalib(const std::string & aNameIm, cPerspCamIntrCalib * aCalib)
 {
-    mCalibMap[aNameIm] = aCalib;
+    if (mMode==eModeBenchPhMI::eTLS)
+    {
+       mGLOB_CalibMap[aNameIm] = aCalib;
+    }
+    else
+    {
+
+    }
+
 }
 
 /*
@@ -84,8 +93,8 @@ cPerspCamIntrCalib * DupCamAndAddDel(cPerspCamIntrCalib * aCalib)
 cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromStdName(const std::string aNameIm,
                                                                                bool /*isRemanent*/) const
 {
-    auto aIt = mCalibMap.find(aNameIm);
-    if (aIt == mCalibMap.end())
+    auto aIt = mGLOB_CalibMap.find(aNameIm);
+    if (aIt == mGLOB_CalibMap.end())
         MMVII_UserError(eTyUEr::eUnClassedError, "cPhotogrammetricProjectMemory: no calib for image " + aNameIm);
 
    return DupCamAndAddDel(aIt->second);
@@ -93,7 +102,7 @@ cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromStdName(co
 
 cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromImage(const std::string & aNameIm) const
 {
-   // Apparently in Bench  ReadCamPC is always 0;  to simplify the code I return this :
+   // Apparently in the Benches  ReadCamPC is always 0;  to simplify the code I return this :
    // Before  we check that the case never happen
 
    MMVII_INTERNAL_ASSERT_always(ReadCamPC(aNameIm, false, SVP::Yes)==0,"cPhotogrammetricProjectMemory::InternalCalibFromImage");

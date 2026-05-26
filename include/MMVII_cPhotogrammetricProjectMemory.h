@@ -9,6 +9,16 @@ using namespace NS_SymbolicDerivative;
 namespace MMVII
 {
 
+/// Mode for handling intrinsic calibration in cPhotogrammetricProjectMemory
+enum class eModeBenchPhMI
+           {
+              eDupl,      ///<  case duplication of each intrinsic camera
+          //     eTL,        ///< case we use a thread local static map
+              eTLS        ///< case thread local static
+
+           };
+
+
 /**  In-memory implementation of cIPhProj.
  *   Calibrations, orientations and homologous points are stored
  *   in maps keyed by image name rather than read from disk.
@@ -68,7 +78,11 @@ class cPhotogrammetricProjectMemory : public cIPhProj
     private :
         cPhotogrammetricProjectMemory(const cPhotogrammetricProjectMemory &) = delete;
 
-        std::map<std::string, cPerspCamIntrCalib *>                    mCalibMap;
+        std::map<std::string, cPerspCamIntrCalib *>                           mGLOB_CalibMap;
+        // thread_local   std::map<std::string, cPerspCamIntrCalib *>            mTL_CalibMap;
+        thread_local static   std::map<std::string, cPerspCamIntrCalib *>     mTLS_CalibMap;
+
+        eModeBenchPhMI                                                 mMode;
         mutable std::map<std::string, cSensorCamPC *>                  mSensorMap;
         mutable std::map<std::string, cSensorCamPC *>                  mOwnedSensorMap;  ///< owns sensors written via SaveCamPC (destructor deletes)
         std::map<std::pair<std::string,std::string>, cSetHomogCpleIm>  mHomolMap;

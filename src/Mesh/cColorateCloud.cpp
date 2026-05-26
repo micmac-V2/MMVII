@@ -305,6 +305,8 @@ void cProjPointCloud::ProcessOneProj
      mVPtsInit = & mGlobPtsInit;  // Default case , take all the point
      std::vector<cPt3dr>  aVPtsSel;  // will contain the selection if required, must be at the same scope
 
+     StdOut() << "ProcessOneProjProcessOneProj at L=" << __LINE__ << "\n";
+
      // this index of selected is required as in mode image the index of mGlobPtsInit in point cloud are different of mVPtsInit
      std::vector<int> aVIndeSel;
      if (isModeImage)
@@ -327,7 +329,8 @@ void cProjPointCloud::ProcessOneProj
                 aVIndeSel.push_back(aKPt);
      }
 
-   //  StdOut() << " Ratio Sel " << aVPtsSel.size() / double(mGlobPtsInit.size()) << "\n";
+     if (isModeImage)
+         StdOut() << " Ratio Sel " << aVPtsSel.size() / double(mGlobPtsInit.size()) << "\n";
      
      //    [0.1] ---  Compute 3D proj+ its 2d-box ----
      mVPtsProj.clear();
@@ -370,7 +373,7 @@ void cProjPointCloud::ProcessOneProj
      mSzIm = ( isModeImage ?    mBoxInd.CurBox().P1() : mBoxInd.CurBox().Sz())   + cPt2di(1,1);
 
 
-     if (false && isModeImage)
+     if (true && isModeImage)
      {
         auto aBox = cBox3dr::FromVect(mVPtsProj);
         StdOut() <<  " Box3D= " << aBox
