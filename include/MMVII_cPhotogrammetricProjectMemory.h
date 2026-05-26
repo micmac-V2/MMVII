@@ -29,7 +29,7 @@ class cPhotogrammetricProjectMemory : public cIPhProj
         /// Register calibration for a given image name (does NOT take ownership)
         void  AddCalib(const std::string & aNameIm, cPerspCamIntrCalib *);
         /// Register sensor for a given image name (does NOT take ownership)
-        void  AddSensor(const std::string & aNameIm, cSensorCamPC *);
+   //  Unused ?     void  AddSensor(const std::string & aNameIm, cSensorCamPC *);
         /// Store homologous points for an image pair (copied)
         void  AddHomol(const std::string & aNameIm1, const std::string & aNameIm2,
                        const cSetHomogCpleIm &);

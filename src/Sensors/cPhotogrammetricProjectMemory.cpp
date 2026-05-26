@@ -40,10 +40,12 @@ void  cPhotogrammetricProjectMemory::AddCalib(const std::string & aNameIm, cPers
     mCalibMap[aNameIm] = aCalib;
 }
 
+/*
 void  cPhotogrammetricProjectMemory::AddSensor(const std::string & aNameIm, cSensorCamPC * aSensor)
 {
     mSensorMap[aNameIm] = aSensor;
 }
+*/
 
 void  cPhotogrammetricProjectMemory::AddHomol(const std::string & aNameIm1,
                                               const std::string & aNameIm2,
@@ -91,18 +93,26 @@ cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromStdName(co
 
 cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromImage(const std::string & aNameIm) const
 {
-    TreeThreadsBase::Id();
+   // Apparently in Bench  ReadCamPC is always 0;  to simplify the code I return this :
+   // Before  we check that the case never happen
 
+   MMVII_INTERNAL_ASSERT_always(ReadCamPC(aNameIm, false, SVP::Yes)==0,"cPhotogrammetricProjectMemory::InternalCalibFromImage");
 
-    //return InternalCalibFromStdName(aNameIm);
+   return InternalCalibFromStdName(aNameIm);
 
+/*  ------ PREVIOUS VERSION -----------------------------------------------
 
     cSensorCamPC * aPC = ReadCamPC(aNameIm, false, SVP::Yes);
 
     if (aPC == nullptr)
+    {
+        StdOut() << "Memory::InternalCali " << __LINE__ << "\n"; // getchar();
         return InternalCalibFromStdName(aNameIm);
-    return DupCamAndAddDel(aPC->InternalCalib());
+    }
+    StdOut() << "Memory::InternalCali " << __LINE__ << "\n"; getchar();
 
+    return DupCamAndAddDel(aPC->InternalCalib());
+*/
 }
 
 cSensorCamPC *  cPhotogrammetricProjectMemory::ReadCamPC(const std::string & aNameIm,
