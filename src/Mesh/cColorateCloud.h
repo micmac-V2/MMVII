@@ -98,6 +98,18 @@ class cResImagesPPC
 };
 
 
+class cDemiConeVert
+{
+   public :
+        cDemiConeVert(const cPt3dr & aC,tREAL8 aTgt2Max);
+        bool  Inside(const cPt3dr &) const;
+   private :
+        cPt3dr mC;
+        tREAL8 mTgt2;
+
+};
+
+
 class cProjPointCloud
 {
      public :
@@ -118,7 +130,9 @@ class cProjPointCloud
                     bool ModeImage,
                     const std::string& aMsg,
                     bool  ShowMsg,
-                    bool  ExportIm
+                    bool  ExportIm,
+                    const cDemiConeVert * aPresel= nullptr ///< Presel to avoid most visb test (for accelerate)
+
               );
          
          cResImagesPPC ProcessImage(tREAL8 aSurResol,const cSensorImage &);

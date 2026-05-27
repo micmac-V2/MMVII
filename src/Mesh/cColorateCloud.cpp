@@ -283,7 +283,8 @@ void cProjPointCloud::ProcessOneProj
              bool isModeImage,
              const std::string & aMsg,
              bool  ShowMsg,
-             bool  ExportIm
+             bool  ExportIm,
+             const cDemiConeVert * aPreSel
      )
 {
 
@@ -305,7 +306,7 @@ void cProjPointCloud::ProcessOneProj
      mVPtsInit = & mGlobPtsInit;  // Default case , take all the point
      std::vector<cPt3dr>  aVPtsSel;  // will contain the selection if required, must be at the same scope
 
-     StdOut() << "ProcessOneProjProcessOneProj at L=" << __LINE__ << "\n";
+     //StdOut() << "ProcessOneProjProcessOneProj at L=" << __LINE__ << "\n";
 
      // this index of selected is required as in mode image the index of mGlobPtsInit in point cloud are different of mVPtsInit
      std::vector<int> aVIndeSel;
@@ -315,10 +316,13 @@ void cProjPointCloud::ProcessOneProj
          for (size_t aKPt=0 ; aKPt<mGlobPtsInit.size() ; aKPt++)
          {
              const auto & aPt = mGlobPtsInit.at(aKPt);
-             if (aSensor.DegreeVisibility(aPt)>0)
+             if ( (aPreSel==nullptr) || (aPreSel->Inside(aPt)))
              {
-                aVPtsSel.push_back(aPt);
-                aVIndeSel.push_back(aKPt);
+                 if (aSensor.DegreeVisibility(aPt)>0)
+                 {
+                   aVPtsSel.push_back(aPt);
+                   aVIndeSel.push_back(aKPt);
+                 }
              }
          }
          mVPtsInit  = & aVPtsSel;
@@ -329,11 +333,16 @@ void cProjPointCloud::ProcessOneProj
                 aVIndeSel.push_back(aKPt);
      }
 
-     if (isModeImage)
-         StdOut() << " Ratio Sel " << aVPtsSel.size() / double(mGlobPtsInit.size()) << "\n";
+
+
+
+     //if (isModeImage)
+     //    StdOut() << " Ratio Sel " << aVPtsSel.size() / double(mGlobPtsInit.size()) << "\n";
      
      //    [0.1] ---  Compute 3D proj+ its 2d-box ----
      mVPtsProj.clear();
+     cPt3dr aCenter3D   (0,0,0);
+
      for (const auto & aPt : *mVPtsInit)
      {
          /*
@@ -345,8 +354,11 @@ void cProjPointCloud::ProcessOneProj
          }*/
 
           mVPtsProj.push_back(aSensor.Ground2ImageAndDepth(aPt));
-
+          aCenter3D +=   aPt;
      }
+     aCenter3D = aCenter3D / tREAL8(mVPtsInit->size());
+
+
 
      cPt2dr aPMin(0.0,0.0);
      if (! isModeImage)
@@ -373,7 +385,7 @@ void cProjPointCloud::ProcessOneProj
      mSzIm = ( isModeImage ?    mBoxInd.CurBox().P1() : mBoxInd.CurBox().Sz())   + cPt2di(1,1);
 
 
-     if (true && isModeImage)
+     if (false && isModeImage)
      {
         auto aBox = cBox3dr::FromVect(mVPtsProj);
         StdOut() <<  " Box3D= " << aBox
@@ -420,8 +432,8 @@ void cProjPointCloud::ProcessOneProj
      //    [0.4]  ---------- Alloc vector SzLeaf -> neighboor in image coordinate (time efficiency) ----------------
      std::vector<std::vector<cPt2di>> aVVdisk(256);  // as size if store 8-byte, its sufficient
      {
-         cPt3dr aCenter = mPC.Centroid();
-         tREAL8 aGS = aSensor.Gen_GroundSamplingDistance(aCenter);
+        // cPt3dr aCenter = mPC.Centroid();
+         tREAL8 aGS = aSensor.Gen_GroundSamplingDistance(aCenter3D);
          for (int aK=0 ; aK<=255 ; aK++)
          {
              tREAL8 aSzL = mPC.ConvertInt2SzLeave(aK) / aGS;
