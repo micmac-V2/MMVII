@@ -38,7 +38,7 @@ cPhotogrammetricProjectMemory::~cPhotogrammetricProjectMemory()
 
 void  cPhotogrammetricProjectMemory::AddCalib(const std::string & aNameIm, cPerspCamIntrCalib * aCalib)
 {
-    if (mMode==eModeBenchPhMI::eTLS)
+    if (mMode==eModeBenchPhMI::eDupl)
     {
        mGLOB_CalibMap[aNameIm] = aCalib;
     }
