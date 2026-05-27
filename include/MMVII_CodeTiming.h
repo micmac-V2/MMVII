@@ -72,10 +72,23 @@ public:
 
     // Print a one-line summary to stdout.
     void report() const {
+        auto f = std::cout.setf(std::ios::fixed);
+        auto p = std::cout.precision(3);
         std::cout << "[Timer] " << name_
-                  << "  total="  << std::fixed << std::setprecision(3) << total_ms() << " ms"
+                  << "  total=" << total_ms() << " ms"
                   << "  calls=" << calls_
                   << "  avg="   << std::setprecision(2) << avg_us()   << " µs\n";
+        std::cout.precision(p);
+        std::cout.flags(f);
+    }
+
+    // Print a one-line summary to stdout with only totol time, useful for one-shot timers.
+    void oneshot_report() const {
+        auto f = std::cout.setf(std::ios::fixed);
+        auto p = std::cout.precision(3);
+        std::cout << "[Timer] " << name_ << ": "  << std::setprecision(2) << total_ms()   << " ms\n";
+        std::cout.precision(p);
+        std::cout.flags(f);
     }
 
 private:
@@ -98,20 +111,25 @@ private:
 // ---------------------------------------------------------------------------
 struct cScopedCodeTimer {
     cCodeTimer& t;
-    explicit cScopedCodeTimer(cCodeTimer& t) : t(t) { t.start(); }
-    ~cScopedCodeTimer()                       { t.stop(); }
+    explicit cScopedCodeTimer(cCodeTimer& t) : t(t),timer("") { t.start(); }
+    explicit cScopedCodeTimer(std::string name = std::string{}) : t(timer),timer(std::move(name)) { t.start(); }
+    ~cScopedCodeTimer()                       { t.stop(); if (&t == &timer) t.oneshot_report();}
     // Non-copyable: copying a guard would double-stop the timer.
     cScopedCodeTimer(const cScopedCodeTimer&) = delete;
     cScopedCodeTimer& operator=(const cScopedCodeTimer&) = delete;
+private:
+     cCodeTimer timer;
 };
 
 
 /*
   Usage Example:
 
+// Accumulated and mean timings for two different code regions, measured over 1000 iterations.
 cCodeTimer tA("parsing"), tB("rendering");
 
 for (int i = 0; i < 1000; ++i) {
+
 
     // RAII style: stop() fires automatically at the closing brace,
     // even if do_parse() throws.
@@ -121,7 +139,8 @@ for (int i = 0; i < 1000; ++i) {
     tB.start();
     do_render(i);
     tB.stop();
-}
+
+    { cScopedCodeTimer st("Reporting"); do_report(i) ; }  // [Timer] Reporting 55.34 ms  <-- displayed at each iteration
 
 tA.report();  // [Timer] parsing    total=12.847 ms  calls=1000  avg=12.85 µs
 tB.report();  // [Timer] rendering  total=38.012 ms  calls=1000  avg=38.01 µs
