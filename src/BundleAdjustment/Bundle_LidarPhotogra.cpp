@@ -2,7 +2,6 @@
 #include "MMVII_Interpolators.h"
 #include "MMVII_Tpl_Images.h"
 #include "MMVII_ZBuffer.h"
-#include "../Utils/scoped_timer.h"
 
 namespace MMVII
 {

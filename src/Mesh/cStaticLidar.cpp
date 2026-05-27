@@ -10,7 +10,6 @@
 #include "MMVII_ImageInfoExtract.h"
 #include "MMVII_2Include_CSV_Serial_Tpl.h"
 #include "../SymbDerGen/Formulas_CentralProj.h"
-#include "../Utils/scoped_timer.h"
 
 
 namespace MMVII
