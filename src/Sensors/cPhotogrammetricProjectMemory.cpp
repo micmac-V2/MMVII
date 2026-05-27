@@ -23,7 +23,8 @@ namespace MMVII
 /*                                          */
 /* **************************************** */
 
-cPhotogrammetricProjectMemory::cPhotogrammetricProjectMemory()
+cPhotogrammetricProjectMemory::cPhotogrammetricProjectMemory() :
+    mMode (eModeBenchPhMI::eDupl)
 {
 }
 
@@ -37,13 +38,23 @@ cPhotogrammetricProjectMemory::~cPhotogrammetricProjectMemory()
 
 void  cPhotogrammetricProjectMemory::AddCalib(const std::string & aNameIm, cPerspCamIntrCalib * aCalib)
 {
-    mCalibMap[aNameIm] = aCalib;
+    if (mMode==eModeBenchPhMI::eTLS)
+    {
+       mGLOB_CalibMap[aNameIm] = aCalib;
+    }
+    else
+    {
+
+    }
+
 }
 
+/*
 void  cPhotogrammetricProjectMemory::AddSensor(const std::string & aNameIm, cSensorCamPC * aSensor)
 {
     mSensorMap[aNameIm] = aSensor;
 }
+*/
 
 void  cPhotogrammetricProjectMemory::AddHomol(const std::string & aNameIm1,
                                               const std::string & aNameIm2,
@@ -82,8 +93,8 @@ cPerspCamIntrCalib * DupCamAndAddDel(cPerspCamIntrCalib * aCalib)
 cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromStdName(const std::string aNameIm,
                                                                                bool /*isRemanent*/) const
 {
-    auto aIt = mCalibMap.find(aNameIm);
-    if (aIt == mCalibMap.end())
+    auto aIt = mGLOB_CalibMap.find(aNameIm);
+    if (aIt == mGLOB_CalibMap.end())
         MMVII_UserError(eTyUEr::eUnClassedError, "cPhotogrammetricProjectMemory: no calib for image " + aNameIm);
 
    return DupCamAndAddDel(aIt->second);
@@ -91,18 +102,26 @@ cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromStdName(co
 
 cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromImage(const std::string & aNameIm) const
 {
-    TreeThreadsBase::Id();
+   // Apparently in the Benches  ReadCamPC is always 0;  to simplify the code I return this :
+   // Before  we check that the case never happen
 
+   MMVII_INTERNAL_ASSERT_always(ReadCamPC(aNameIm, false, SVP::Yes)==0,"cPhotogrammetricProjectMemory::InternalCalibFromImage");
 
-    //return InternalCalibFromStdName(aNameIm);
+   return InternalCalibFromStdName(aNameIm);
 
+/*  ------ PREVIOUS VERSION -----------------------------------------------
 
     cSensorCamPC * aPC = ReadCamPC(aNameIm, false, SVP::Yes);
 
     if (aPC == nullptr)
+    {
+        StdOut() << "Memory::InternalCali " << __LINE__ << "\n"; // getchar();
         return InternalCalibFromStdName(aNameIm);
-    return DupCamAndAddDel(aPC->InternalCalib());
+    }
+    StdOut() << "Memory::InternalCali " << __LINE__ << "\n"; getchar();
 
+    return DupCamAndAddDel(aPC->InternalCalib());
+*/
 }
 
 cSensorCamPC *  cPhotogrammetricProjectMemory::ReadCamPC(const std::string & aNameIm,
