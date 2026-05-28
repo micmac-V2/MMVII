@@ -27,7 +27,7 @@ thread_local    std::map<std::string, cPerspCamIntrCalib *>   cPhotogrammetricPr
 
 cPhotogrammetricProjectMemory::cPhotogrammetricProjectMemory() :
     mMode        (eModeBenchPhMI::eVMTI),
-    mNbMaxProc   ((mMode == eModeBenchPhMI::eVMTI) ? 20 : 0),
+    mNbMaxProc   ((mMode == eModeBenchPhMI::eVMTI) ? 200 : 0),
     mVecCalibMap (mNbMaxProc)
 {
 
