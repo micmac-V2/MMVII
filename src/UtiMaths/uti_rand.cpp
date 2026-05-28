@@ -129,9 +129,9 @@ void OneBench_Random(cParamExeBench & aParam)
        cComputeStdDev<double> aCSD;
        for (int aK=0 ; aK< aNb ; aK++)
            aCSD.Add(RandNormal(aRefMean,aRefStdDev));
-       std::cout<<aNb<<" "<<aCSD.SomWV()/aCSD.SomW()<<" ~ "<<aRefMean<<" "<<aCSD.StdDev()<<" ~ "<<aRefStdDev
-                 <<" max "<<aTolerancy/sqrt(aNb)<<" "<<std::abs(aCSD.SomWV()/aCSD.SomW()-aRefMean)/(std::abs(aRefMean)+0.01)<<" "
-                 <<std::abs(aCSD.StdDev()-aRefStdDev)/(aRefStdDev+0.01)<<std::endl;
+       //StdOut()<<aNb<<" "<<aCSD.SomWV()/aCSD.SomW()<<" ~ "<<aRefMean<<" "<<aCSD.StdDev()<<" ~ "<<aRefStdDev
+       //          <<" max "<<aTolerancy/sqrt(aNb)<<" "<<std::abs(aCSD.SomWV()/aCSD.SomW()-aRefMean)/(std::abs(aRefMean)+0.01)<<" "
+       //          <<std::abs(aCSD.StdDev()-aRefStdDev)/(aRefStdDev+0.01)<<std::endl;
        MMVII_INTERNAL_ASSERT_bench(std::abs(aCSD.SomWV()/aCSD.SomW()-aRefMean)/(std::abs(aRefMean)+0.01)<aTolerancy/sqrt(aNb),"Random Normal Test");
        MMVII_INTERNAL_ASSERT_bench(std::abs(aCSD.StdDev()-aRefStdDev)/(aRefStdDev+0.01)<aTolerancy/sqrt(aNb),"Random Normal Test");
    }
