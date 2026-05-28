@@ -12,10 +12,9 @@ namespace MMVII
 /// Mode for handling intrinsic calibration in cPhotogrammetricProjectMemory
 enum class eModeBenchPhMI
            {
-              eDupl,      ///<  case duplication of each intrinsic camera
-          //     eTL,        ///< case we use a thread local static map
-              eTLS        ///< case thread local static
-
+              eDupl,    ///<  case duplication of each intrinsic camera
+              eTLS,     ///< case thread local static
+              eVMTI     ///< case vector of map by thread id
            };
 
 
@@ -76,13 +75,18 @@ class cPhotogrammetricProjectMemory : public cIPhProj
         const std::map<std::string, cSensorCamPC *> & SensorMap() const { return mSensorMap; }  ///< Accessor
 
     private :
+        cPerspCamIntrCalib * DupCamAndAddDel(const std::string&,cPerspCamIntrCalib * aCalib) const;
+
         cPhotogrammetricProjectMemory(const cPhotogrammetricProjectMemory &) = delete;
 
-        std::map<std::string, cPerspCamIntrCalib *>                           mGLOB_CalibMap;
-        // thread_local   std::map<std::string, cPerspCamIntrCalib *>            mTL_CalibMap;
-        thread_local static   std::map<std::string, cPerspCamIntrCalib *>     mTLS_CalibMap;
+        typedef  std::map<std::string, cPerspCamIntrCalib *> tMapC;
+        eModeBenchPhMI                                                      mMode;
+        int                                                                 mNbMaxProc;
 
-        eModeBenchPhMI                                                 mMode;
+        tMapC                          mGLOB_CalibMap;
+        thread_local static  tMapC     mTLS_CalibMap;
+        mutable std::vector<tMapC>     mVecCalibMap;   ///< Indexed by the "small" int id of threads
+
         mutable std::map<std::string, cSensorCamPC *>                  mSensorMap;
         mutable std::map<std::string, cSensorCamPC *>                  mOwnedSensorMap;  ///< owns sensors written via SaveCamPC (destructor deletes)
         std::map<std::pair<std::string,std::string>, cSetHomogCpleIm>  mHomolMap;

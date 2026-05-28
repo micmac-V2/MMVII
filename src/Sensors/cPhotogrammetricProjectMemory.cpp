@@ -17,6 +17,8 @@
 namespace MMVII
 {
 
+thread_local    std::map<std::string, cPerspCamIntrCalib *>   cPhotogrammetricProjectMemory::mTLS_CalibMap;
+
 /* **************************************** */
 /*                                          */
 /*     cPhotogrammetricProjectMemory        */
@@ -24,8 +26,11 @@ namespace MMVII
 /* **************************************** */
 
 cPhotogrammetricProjectMemory::cPhotogrammetricProjectMemory() :
-    mMode (eModeBenchPhMI::eDupl)
+    mMode        (eModeBenchPhMI::eVMTI),
+    mNbMaxProc   ((mMode == eModeBenchPhMI::eVMTI) ? 20 : 0),
+    mVecCalibMap (mNbMaxProc)
 {
+
 }
 
 cPhotogrammetricProjectMemory::~cPhotogrammetricProjectMemory()
@@ -38,6 +43,8 @@ cPhotogrammetricProjectMemory::~cPhotogrammetricProjectMemory()
 
 void  cPhotogrammetricProjectMemory::AddCalib(const std::string & aNameIm, cPerspCamIntrCalib * aCalib)
 {
+    mGLOB_CalibMap[aNameIm] = aCalib;
+/*
     if (mMode==eModeBenchPhMI::eDupl)
     {
        mGLOB_CalibMap[aNameIm] = aCalib;
@@ -45,7 +52,7 @@ void  cPhotogrammetricProjectMemory::AddCalib(const std::string & aNameIm, cPers
     else
     {
 
-    }
+    }*/
 
 }
 
@@ -71,22 +78,39 @@ void  cPhotogrammetricProjectMemory::AddMulTieP(const std::string & aNameIm,
 
 // ==================  cIPhProj interface  ==================
 
-cPerspCamIntrCalib * DupCamAndAddDel(cPerspCamIntrCalib * aCalib)
+cPerspCamIntrCalib * cPhotogrammetricProjectMemory::DupCamAndAddDel(const std::string & aNameIm,cPerspCamIntrCalib * aCalib) const
 {
+    if (mMode==eModeBenchPhMI::eTLS)
+    {
+      //  mTLS_CalibMap
+
+         auto aIt = mTLS_CalibMap.find(aNameIm);
+         if (aIt!= mTLS_CalibMap.end())
+         {
+          //   StdOut() << "DAaaa Im=" << aIt->first << " Cam=" << aIt->second <<  " PS=" << "\n";
+             return aIt->second;
+         }
+    }
+    else if (mMode==eModeBenchPhMI::eVMTI)
+    {
+        const auto & aMap = mVecCalibMap.at(TreeThreadsBase::Id());
+        auto aIt = aMap.find(aNameIm);
+        if (aIt!= aMap.end())
+        {
+            return aIt->second;
+        }
+    }
     cPerspCamIntrCalib * aRes = aCalib->Duplicate();
     cMMVII_Appli::AddObj2DelAtEnd(aRes);
 
-    /*
-    for (int aK=0 ; aK<10 ; aK++)
+    if (mMode==eModeBenchPhMI::eTLS)
     {
-        cSensorCamPC aPC("",tPoseR::Identity(),aCalib);
-        cPt2dr aP1 = aPC.RandomVisiblePIm();
-        cPt3dr aB1 = aCalib->DirBundle(aP1);
-        cPt3dr aB2 = aRes->DirBundle(aP1);
-        StdOut()  << "----NNNN " << Norm2(aB1-aB2) << "\n";
-
+        mTLS_CalibMap[aNameIm]= aRes;
     }
-    */
+    else if (mMode==eModeBenchPhMI::eVMTI)
+    {
+        mVecCalibMap.at(TreeThreadsBase::Id())[aNameIm] = aRes;
+    }
     return aRes;
 }
 
@@ -97,7 +121,7 @@ cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromStdName(co
     if (aIt == mGLOB_CalibMap.end())
         MMVII_UserError(eTyUEr::eUnClassedError, "cPhotogrammetricProjectMemory: no calib for image " + aNameIm);
 
-   return DupCamAndAddDel(aIt->second);
+   return DupCamAndAddDel(aIt->first,aIt->second);
 }
 
 cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromImage(const std::string & aNameIm) const
