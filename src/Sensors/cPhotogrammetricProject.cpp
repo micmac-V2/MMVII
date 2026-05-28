@@ -881,13 +881,25 @@ cSetMesPtOf1Im* cPhotogrammetricProject::RemanentLoadMeasureIm(const std::string
     return SimpleRemanentNewObjectFromFile<cSetMesPtOf1Im>(NameMeasureGCPIm(aNameIm,true));
 }
 
-void cPhotogrammetricProject::SaveGCP3D(const cSetMesGnd3D & aMGCP3D, const std::string &aDefaultOutName, bool aDoAddCurSysCo) const
+void cPhotogrammetricProject::SaveGCP3D(const cSetMesGnd3D & aMGCP3D, const std::string &aDefaultOutName, bool aDoAddCurSysCo, cMMVII_BundleAdj *aBA) const
 {
     std::map<std::string, MMVII::cSetMesGnd3D> aSplittedGCP3D = aMGCP3D.SplitPerOutDir(aDefaultOutName);
-    for (const auto& [aDirName, aSetMesGnd3D] : aSplittedGCP3D)
+    for (auto& [aDirName, aSetMesGnd3D] : aSplittedGCP3D)
     {
         if (!aDirName.empty()) // outname="" means do not export
         {
+            bool aDoExportSigmas = false;
+            if ((aSetMesGnd3D.Measures().size()>0)
+                &&(aSetMesGnd3D.Measures()[0].mMesDirInfo))
+                    aDoExportSigmas = aSetMesGnd3D.Measures()[0].mMesDirInfo->mDoExportSigmas;
+
+            if (aDoExportSigmas) // update all points sigmas
+            {
+                MMVII_INTERNAL_ASSERT_User(aBA, eTyUEr::eUnClassedError, "SaveGCP3D tries to exports sigmas but no BA given");
+                for (auto & aMesGnd : aSetMesGnd3D.Measures())
+                    aMesGnd.SetSigma2(aBA->GetGCP_UC_UK(aMesGnd.mNamePt));
+            }
+
             cAutoChgRestoreDefFolder  aCRDF(aDirName,DPGndPt3D(),false); // Chg output Folder and restore at destruction
             aSetMesGnd3D.ToFile(mDPGndPt3D.FullDirOut() + aMGCP3D.StdNameFile());
             if (aDoAddCurSysCo)

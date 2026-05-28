@@ -40,6 +40,7 @@ class  cBA_Topo;
 class  cBA_GCP;
 class  cDataSolOriTriplet;
 class  cStaticLidar;
+class  cMMVII_BundleAdj;
 
 /**  helper for cPixelDomain, as the cPixelDomain must be serialisable we must separate the
  * minimal data for description, with def contructor from the more "sophisticated" object  */
@@ -721,7 +722,8 @@ class cPhotogrammetricProject : public cIPhProj
           void LoadImFromFolder(const std::string & aFolder, cSetMesGndPt&, cMes2DDirInfo *aMesDirInfo, const std::string & aNameIm,
                                 cSensorImage * =nullptr, bool SVP=false) const;
 
-          void SaveGCP3D(const cSetMesGnd3D&aMGCP3D, const std::string &aDefaultOutName="", bool aDoAddCurSysCo=false) const; // default out name for measures without cMes3DDirInfo
+          void SaveGCP3D(const cSetMesGnd3D&aMGCP3D, const std::string &aDefaultOutName="",
+                         bool aDoAddCurSysCo=false, cMMVII_BundleAdj * aBA = nullptr) const; // default out name for measures without cMes3DDirInfo
           cSetMesGnd3D LoadGCP3DFromFolder(const std::string &) const;
           cSetMesGnd3D LoadGCP3D() const;
 

@@ -273,12 +273,14 @@ class cMes3DDirInfo
 {
 public:
     static cMes3DDirInfo* addMes3DDirInfo(cBA_GCP &aBA_GCP, const std::string & aDirNameIn,
-                                            const std::string & aDirNameOut, tREAL8 aSGlob);
+                                          const std::string & aDirNameOut, tREAL8 aSGlob,
+                                          bool aDoExportSigmas);
     std::string mDirNameIn;
     std::string mDirNameOut;
     tREAL8 mSGlob; // factor, shurred or fixed
+    bool mDoExportSigmas;
 protected:
-    cMes3DDirInfo(const std::string &aDirNameIn, const std::string &aDirNameOut, tREAL8 aSGlob);
+    cMes3DDirInfo(const std::string &aDirNameIn, const std::string &aDirNameOut, tREAL8 aSGlob, bool aDoExportSigmas);
 };
 
 // class to record data specific to a measurement directory : In name, weighter
@@ -313,10 +315,13 @@ class cBA_GCP
           std::vector<cMes2DDirInfo*> mAllMes2DDirInfo;
           std::vector<cMes3DDirInfo*> mAllMes3DDirInfo;
           const std::vector<cPt3dr_UK*>  & getGCP_UK() const { return mGCP_UK; }
+          bool getDoComputeGCP_UC_UK() const { return mDoComputeGCP_UC_UK ;}
+
     protected:
           cSetMesGndPt             mMesGCP; //< initial
           cSetMesGndPt             mNewGCP; //< set of gcp after adjust
           std::vector<cPt3dr_UK*>  mGCP_UK; //< as many elements as mMesGCP, nullptr for shurred points
+          bool                     mDoComputeGCP_UC_UK=false; //< force UC_UK at least on GCPs
 
 };
 
@@ -677,6 +682,7 @@ class cMMVII_BundleAdj
 
           void Set_UC_UK(const std::vector<std::string> & aParam);
           void ShowUKNames(const std::vector<std::string> & aParam, const std::string &aSuffix, cMMVII_Appli* =nullptr) ;
+          cPt3dr GetGCP_UC_UK(const std::string & aGCPName) const;
           // Save results of clino bundle adjustment
           void SaveClino();
           void  AddBenchSensor(cSensorCamPC *); // Add sensor, used in Bench Clino
