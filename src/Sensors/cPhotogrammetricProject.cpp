@@ -918,6 +918,9 @@ std::vector<std::string>  cPhotogrammetricProject::ListFileGCP(const std::string
 void cPhotogrammetricProject::LoadGCP3D(cSetMesGndPt& aSetMes,cMes3DDirInfo * aMesDirInfo, const std::string & aArgPatFiltr,const std::string & aFiltrNameGCP,
                                       const std::string & aFiltrAdditionalInfoGCP) const
 {
+    if (mDPGndPt3D.DirIn()==MMVII_NONE) // allow no input
+        return;
+
    std::vector<std::string> aListFileGCP = ListFileGCP(aArgPatFiltr);
    MMVII_INTERNAL_ASSERT_User(!aListFileGCP.empty(),eTyUEr::eUnClassedError,"No file found in LoadGCP");
 

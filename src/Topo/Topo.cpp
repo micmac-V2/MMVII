@@ -156,12 +156,8 @@ void cBA_Topo::AddPointsFromDataToGCP(cBA_GCP &aBA_GCP, cPhotogrammetricProject 
             aAllPointsNamesNotFound.insert(aPointName);
     }
 
-    cMes3DDirInfo * aMes3DDirInfo = nullptr;
-    if (!aAllPointsNamesNotFound.empty())
-    {
-        aMes3DDirInfo = cMes3DDirInfo::addMes3DDirInfo(aBA_GCP, "newTopoIn",
-                                          mPhProj?mPhProj->DPTopoMes().DirIn():"newTopoOut",1.0); // aDirNameIn and aSGlob are not used
-    }
+    cMes3DDirInfo * aMes3DDirInfo = aBA_GCP.mAllMes3DDirInfo.empty()?
+                                        nullptr:aBA_GCP.mAllMes3DDirInfo.front();
 
     for (auto & aPointName: aAllPointsNamesNotFound)
     {
