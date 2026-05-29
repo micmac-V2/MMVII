@@ -55,17 +55,31 @@ class cDataPixelDomain
            cPt2di     mSz;
 };
 
+/*
+class cTagByPtrPixDom
+{
+   public :
+      cTagByPtrPixDom() {}
+};
 
+*/
 /**  base-class  4 definition of validity domaine in image space  */
 class cPixelDomain :  public cDataBoundedSet<tREAL8,2>
 {
         public :
-                cPixelDomain(cDataPixelDomain *);
+              //  cPixelDomain(cDataPixelDomain *);
+               ///(const cNewDataPixelDomain *,cTagByPtrPixDom);
+               cPixelDomain(const cDataPixelDomain &);
+               cPixelDomain(const cPt2di  & aSz);
+
+
                 const cPt2di & Sz() const;
                 // probably to virtualize later
                 tREAL8 DegreeVisibility(const cPt2dr & aP) const;
         private :
-                cDataPixelDomain * mDPD;
+               // cDataPixelDomain * mDPD;
+                cDataPixelDomain   mDPD;
+
 };
 
 

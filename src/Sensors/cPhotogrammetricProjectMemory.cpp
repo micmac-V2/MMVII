@@ -26,11 +26,16 @@ thread_local    std::map<std::string, cPerspCamIntrCalib *>   cPhotogrammetricPr
 /* **************************************** */
 
 cPhotogrammetricProjectMemory::cPhotogrammetricProjectMemory() :
-    mMode        (eModeBenchPhMI::eTLS),
+    mMode        (eModeBenchPhMI::eVMTI),
     mNbMaxProc   ((mMode == eModeBenchPhMI::eVMTI) ? 200 : 0),
     mVecCalibMap (mNbMaxProc)
 {
-   mTLS_CalibMap.clear();
+  if (0)
+  {
+         static int aCpt=0; aCpt++;
+       StdOut() << " CCCCCCCCCCCCCCCCCCCCCCCCCCC " << aCpt << " " << TreeThreadsBase::Id() << "\n";
+  }
+  mTLS_CalibMap.clear();
 }
 
 cPhotogrammetricProjectMemory::~cPhotogrammetricProjectMemory()

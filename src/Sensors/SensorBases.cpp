@@ -38,13 +38,27 @@ void cDataPixelDomain::AddData(const cAuxAr2007 & anAux)
 
       //  ============ cPixelDomain  ================
 
-cPixelDomain::cPixelDomain(cDataPixelDomain * aDPD) :
-     cDataBoundedSet<tREAL8,2>(cBox2dr(cPt2dr(0,0),ToR(aDPD->Sz()))),
+cPixelDomain::cPixelDomain(const cDataPixelDomain & aDPD) :
+     cDataBoundedSet<tREAL8,2>(cBox2dr(cPt2dr(0,0),ToR(aDPD.Sz()))),
      mDPD  (aDPD)
 {
 }
 
-const cPt2di & cPixelDomain::Sz() const {return mDPD->Sz();}
+/*
+cPixelDomain::cPixelDomain(const cDataPixelDomain * aDPD,cTagByPtrPixDom) :
+    cPixelDomain(*aDPD)
+{
+
+}
+*/
+
+
+cPixelDomain::cPixelDomain(const cPt2di & aSz) :
+    cPixelDomain(cDataPixelDomain(aSz))
+{
+}
+
+const cPt2di & cPixelDomain::Sz() const {return mDPD.Sz();}
 
 tREAL8 cPixelDomain::DegreeVisibility(const cPt2dr & aP) const
 {

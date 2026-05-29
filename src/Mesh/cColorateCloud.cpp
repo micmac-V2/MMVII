@@ -113,8 +113,8 @@ const  std::vector<cPt3dr> &  cOrthoProj::Inverses(tVecP3 & aVOut,const tVecP3 &
 cCamOrthoC::cCamOrthoC(const std::string &aNameImage,const cOrthoProj & aProj,const cPt2di & aSz) :
      cSensorImage (aNameImage),
      mProj        (aProj),
-     mDataPixDom  (aSz),
-     mPixelDomain (&mDataPixDom)
+    // mDataPixDom  (aSz),
+     mPixelDomain (aSz)
 {
 }
       

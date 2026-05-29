@@ -78,7 +78,7 @@ class cCamOrthoC  :  public  cSensorImage
 
     private :
        cOrthoProj         mProj;
-       cDataPixelDomain   mDataPixDom;
+       //cDataPixelDomain   mDataPixDom;
        cPixelDomain       mPixelDomain;
 };
 

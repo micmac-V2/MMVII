@@ -215,7 +215,7 @@ class cRPCSens : public cSensorImage
         //  For Image 2 Bundle, we need to know how we generate
         tREAL8 mAmplZB;
         //  cPixelDomain
-        cDataPixelDomain  mDataPixelDomain;
+       //  cNewDataPixelDomain  mNewDataPixelDomain;
         cPixelDomain      mPixelDomain;
         cBox3dr           mBoxGround;
 
@@ -440,8 +440,9 @@ cRPCSens::cRPCSens(const std::string& aNameImage) :
     mSwapXYGround      (true),
     mSwapIJImage       (true),
     mAmplZB            (1.0),
-    mDataPixelDomain   (cPt2di(1,1)),  // No default constructor
-    mPixelDomain       (&mDataPixelDomain),
+ //   mNewDataPixelDomain   (cPt2di(1,1)),  // No default constructor
+  //  mPixelDomain       (&mNewDataPixelDomain,cTagByPtrPixDom()),
+    mPixelDomain       (cPt2di(1,1)),
     mBoxGround         (cBox3dr::Empty())  // Empty box because no default init
 {
     ///  For now assume RPC is WGS84 Degree always, see later if we change that
@@ -626,7 +627,8 @@ void cRPCSens::Dimap_ReadXMLNorms(const cSerialTree& aTree)
 
     int anX = round_ni(ReadRealXmlItem(*aData,"LAST_COL"));
     int anY = round_ni(ReadRealXmlItem(*aData,"LAST_ROW"));
-    mDataPixelDomain =  cDataPixelDomain(cPt2di(anX,anY));
+    // mNewDataPixelDomain =  cNewDataPixelDomain(cPt2di(anX,anY));
+    mPixelDomain = cPixelDomain(cPt2di(anX,anY));
 
     // compute the validity of bounding box
     cPt3dr aP0Gr;

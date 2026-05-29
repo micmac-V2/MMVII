@@ -171,7 +171,7 @@ class cDataPerspCamIntrCalib
       std::vector<cDescOneFuncDist>  mDir_VDesc;
       mutable std::vector<double>    mVTmpCopyParams;     ///< tempo copy of param, used 4 serialization
       cMapPProj2Im                   mMapPProj2Im;                ///< Calib w/o dist
-      cDataPixelDomain               mDataPixDomain;              ///< sz, domaine of validity in pixel
+      cDataPixelDomain            mDataPixDomain;              ///< sz, domaine of validity in pixel
       cPt3di                         mInv_Degr;       ///< degree of inverse approx by least square
       int                            mSzBuf;                         ///< sz of buffers in computation
       std::vector<std::string>       mVectInfo;  ///< vector of potential commentarys

@@ -206,7 +206,9 @@ cPerspCamIntrCalib::cPerspCamIntrCalib(const cDataPerspCamIntrCalib & aData) :
     cDataPerspCamIntrCalib (aData),
     mVoidDist           (mDir_Degr==cPt3di(0,0,0)),
     mDefProj            (cDefProjPerspC::ProjOfType(mTypeProj)),
-    mPixDomain          (&mDataPixDomain),
+  //  mPixDomain          (&mDataPixDomain,cTagByPtrPixDom()),
+    mPixDomain           (mDataPixDomain),
+
         // ------------ direct -------------
     mDir_Proj           ( new  cDataMapCalcSymbDer<tREAL8,3,2>
                                (
@@ -999,7 +1001,7 @@ cPerspCamIntrCalib * cPerspCamIntrCalib::RandomCalib(eProjPC aTypeProj,int aKDeg
                                                 std::vector<double>(),
                                                 cMapPProj2Im(aFoc,aPP),
                                                 cDataPixelDomain(aSz),
-                                            aDegInv.at(aKDeg),
+                                                 aDegInv.at(aKDeg),
                                                 100
                                          )
                                 );
