@@ -26,11 +26,11 @@ thread_local    std::map<std::string, cPerspCamIntrCalib *>   cPhotogrammetricPr
 /* **************************************** */
 
 cPhotogrammetricProjectMemory::cPhotogrammetricProjectMemory() :
-    mMode        (eModeBenchPhMI::eVMTI),
+    mMode        (eModeBenchPhMI::eTLS),
     mNbMaxProc   ((mMode == eModeBenchPhMI::eVMTI) ? 200 : 0),
     mVecCalibMap (mNbMaxProc)
 {
-
+   mTLS_CalibMap.clear();
 }
 
 cPhotogrammetricProjectMemory::~cPhotogrammetricProjectMemory()
@@ -44,16 +44,6 @@ cPhotogrammetricProjectMemory::~cPhotogrammetricProjectMemory()
 void  cPhotogrammetricProjectMemory::AddCalib(const std::string & aNameIm, cPerspCamIntrCalib * aCalib)
 {
     mGLOB_CalibMap[aNameIm] = aCalib;
-/*
-    if (mMode==eModeBenchPhMI::eDupl)
-    {
-       mGLOB_CalibMap[aNameIm] = aCalib;
-    }
-    else
-    {
-
-    }*/
-
 }
 
 /*
@@ -100,6 +90,7 @@ cPerspCamIntrCalib * cPhotogrammetricProjectMemory::DupCamAndAddDel(const std::s
             return aIt->second;
         }
     }
+
     cPerspCamIntrCalib * aRes = aCalib->Duplicate();
     cMMVII_Appli::AddObj2DelAtEnd(aRes);
 
