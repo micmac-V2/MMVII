@@ -1299,9 +1299,9 @@ void cPhotogrammetricProject::SaveClino(const cCalibSetClino & aCalib) const
 {
     std::vector<cOneCalibClino> aOneCalibClinoVector = aCalib.ClinosCal();
     std::string aCameraName = aCalib.NameCam();
-    for (auto aOneCalibClino : aOneCalibClinoVector)
+    for (const auto& aOneCalibClino : aOneCalibClinoVector)
     {
-        std::string aClinoName = aOneCalibClino.NameClino();
+        const std::string& aClinoName = aOneCalibClino.NameClino();
         SaveInFile(aOneCalibClino,NameFileClino(aCameraName,false, aClinoName));
     }
 }
