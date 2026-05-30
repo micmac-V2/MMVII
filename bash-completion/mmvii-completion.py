@@ -206,6 +206,17 @@ def printSpecHelp(all_specs, spec, value) -> None:
         print(f"File:compgen -d -o filenames -- '{value}'")
         return
 
+def printPatBench(arg) -> None:
+    try:
+        result=subprocess.run(['MMVII','Bench','1','PatBench=XXX'],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
+    except:
+        printMsgExit('>ERROR: MMVII not found.',1)
+
+    benches=re.findall(r'^\s*[-#]\s*(\S+)', result.stdout, flags=re.MULTILINE)
+    benches.append("XXX")
+    printFilter(arg,benches)
+
+
 def getAllSpecs() -> dict:
     try:
         result=subprocess.run(['MMVII','GenArgsSpec'],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
@@ -261,6 +272,9 @@ def main() -> int:
     global helpArgPossible
     helpArgPossible = False
     arg=arg_split.group(1)
+    if arg == 'PatBench':
+        printPatBench(arg_split.group(3))
+        return 0
     specs = [ s for s in applet.get('optional') if s['name'].lower() == arg.lower() ] 
     if len(specs) != 1:
         return 0
