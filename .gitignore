@@ -8,6 +8,7 @@ include/CodeGen_*.h
 *.pyc
 MMVII-TestDir/Input/Files/RelTest.xml
 MMVII-TestDir/Input/Files/RelTest_0-5.xml
+MMVII-TestDir/Tmp/
 MMVII-PhgrProj/
 MMVII-PhgrProj*/
 MMVII-Tmp-Dir-Glob/

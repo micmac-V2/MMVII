@@ -258,11 +258,13 @@ class cMultipleOfs
 {
     public :
         cMultipleOfs(std::ostream & aOfs) :
-            mOfsCreated(nullptr)
+            mOfsCreated(nullptr),
+            mSilent(false)
         {
            Add(aOfs);
         }
-        cMultipleOfs(const std::string & aS,eFileModeOut aMode)
+        cMultipleOfs(const std::string & aS,eFileModeOut aMode) :
+             mSilent(false)
         {
              mOfsCreated = new cMMVII_Ofs(aS,aMode);
              Add(mOfsCreated->Ofs());
@@ -274,6 +276,7 @@ class cMultipleOfs
 
         void Add(std::ostream & aOfs) {mVOfs.push_back(&aOfs);}
         void Clear() {mVOfs.clear();}
+        void SetSilent(bool on=true) {mSilent = on;}
 
         cMultipleOfs& flush() {
             for (const auto & Ofs :  mVOfs)
@@ -281,7 +284,6 @@ class cMultipleOfs
             return *this;
         }
 
-        // template <class Type> cMultipleOfs & operator << (Type & aVal);
         template <class Type> cMultipleOfs & ShowCont (const Type & aCont,const std::string & aGram)
         {
              *this << aGram[0];
@@ -316,24 +318,30 @@ class cMultipleOfs
         // General version
         template <class Type> cMultipleOfs & operator << (const Type & aVal)
         {
-             for (const auto & Ofs :  mVOfs)
-                 *Ofs << aVal;
-             return *this;
+            for (const auto & Ofs :  VOfs())
+                *Ofs << aVal;
+            return *this;
         }
 
         // CM: This will allow standard stream manipulator to work with cMultipleOgs (std::endl, ...)
         cMultipleOfs& operator<<(std::ostream&(*f)(std::ostream&))
         {
-             for (const auto & Ofs :  mVOfs)
-                 *Ofs << f;
-             return *this;
+            for (const auto & Ofs :  VOfs())
+                *Ofs << f;
+            return *this;
         }
 
     private :
+        const std::vector<std::ostream *>& VOfs() const
+        {
+            static std::vector<std::ostream *> NullOfs;
+            return mSilent ? NullOfs : mVOfs;
+        }
 
         cMultipleOfs(const cMultipleOfs &) = delete;
         cMMVII_Ofs *                mOfsCreated;
         std::vector<std::ostream *> mVOfs;
+        bool mSilent;
 };
 
 
