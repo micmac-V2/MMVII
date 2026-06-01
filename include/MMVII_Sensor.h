@@ -106,6 +106,10 @@ class cSensorImage  :   public cObj2DelAtEnd,
 
           /// create a sensor in a new coordinate system, default error
           virtual cSensorImage * SensorChangSys(const std::string & aDir, cChangeSysCo &) const ;
+          /// Create a RPC sensor with an optional resampling map and an optional change of coordinate system map.
+          /// (Use nullptr to indicate that no map is provided).
+          /// Original Sensor needs to have a defined Z interval.
+          cSensorImage * GenerateSensorRPC(const std::string& aNameIm, const cDataInvertibleMapping<tREAL8,2>* aResampleMap, const cDataInvertibleMapping<tREAL8,3>* aChSysCoMap, bool SVP=false) const;;
 
           virtual const cPixelDomain & PixelDomain() const = 0;
           const cPt2di & Sz() const;

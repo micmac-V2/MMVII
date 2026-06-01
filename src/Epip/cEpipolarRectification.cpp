@@ -23,12 +23,13 @@ cPt2dr cEpipPolyMapping::FromRotatedFrame(const cPt2dr& q) const
 cPt2dr cEpipPolyMapping::Value(const cPt2dr& aPt) const
 {
     const cPt2dr q = ToRotatedFrame(aPt);
-    return cPt2dr(q.x(), mV.Eval(q));
+    return cPt2dr(q.x(), mV.Eval(q)) - ToR(mEpipImFrame.P0());
 }
 
 cPt2dr cEpipPolyMapping::Inverse(const cPt2dr& aPt) const
 {
-    return FromRotatedFrame(cPt2dr(aPt.x(), mW.Eval(aPt)));
+    auto aPtEpip = aPt + ToR(mEpipImFrame.P0());
+    return FromRotatedFrame(cPt2dr(aPtEpip.x(), mW.Eval(aPtEpip)));
 }
 
 
@@ -127,10 +128,12 @@ cEpipPolyModel cEpipolarRectification::Compute() const
     EstimateInversePolynomial(aRotPairs, aV1, aW1, UseFromPair::PT1);
     EstimateInversePolynomial(aRotPairs, aV2, aW2, UseFromPair::PT2);
 
-    return cEpipPolyModel {
+    auto anEpipPolyModel = cEpipPolyModel {
         std::make_unique<cEpipPolyMapping>(aV1,aW1,aCenter1,aDir1),
         std::make_unique<cEpipPolyMapping>(aV2,aW2,aCenter2,aDir2),
     };
+    anEpipPolyModel.ComputeCommonFraming(mCam1.PixelDomain().Box(),mCam2.PixelDomain().Box(),mParams.mEpipFrm, mParams.mMargin);
+    return anEpipPolyModel;
 }
 
 // ============================================================
@@ -198,6 +201,7 @@ void cEpipolarRectification::EstimateForwardPolynomials(
     }
 
     const cDenseVect<double> aSol = aSolver.PublicSolve();
+    // TODOCM : error on too big variance
     StdOut() << "V1,V2 var = " << aSolver.VarCurSol() << std::endl;
 
     // Restore V1 : locked coefficients are already set in the
@@ -291,9 +295,9 @@ void cEpipolarRectification::GenerateData(const cSensorImage &aCamM,
             // cSensorImage::ImageAndZ2Ground expects a cPt3dr
             // with x=col, y=row, z=altitude
             const cPt3dr aGround0 =
-                aCamM.ImageAndZ2Ground(cPt3dr(pM.x(), pM.y(), Z0));
+                aCamM.ImageAndZ2Ground(TP3z(pM, Z0));
             const cPt3dr aGround1 =
-                aCamM.ImageAndZ2Ground(cPt3dr(pM.x(), pM.y(), Z1));
+                aCamM.ImageAndZ2Ground(TP3z(pM, Z1));
 
             // Project into the slave image
             const cPt2dr pS0 = aCamS.Ground2Image(aGround0);
@@ -328,25 +332,20 @@ void cEpipolarRectification::GenerateData(const cSensorImage &aCamM,
     aOutDirS = VUnit(aOutDirS);
 }
 
-
-
 void cEpipolarModel::ComputeCommonFraming(
-    const cDataGenUnTypedIm<2> *aIm1,
-    const cDataGenUnTypedIm<2> *aIm2,
+    const cTplBox<tREAL8,2> aBox1,
+    const cTplBox<tREAL8,2> aBox2,
     eEpipFrm aFrmType,
     int aMargin
     )
 {
-
-    // TODOCM : use margin
-    // TODOCM: add option : minimum, maximum, im1 , im2
-    auto frame1 = EpipMap1().BoxOfFrontier(aIm1->ToR(),1.0);
-    auto frame2 = EpipMap2().BoxOfFrontier(aIm2->ToR(),1.0);
+    auto frame1 = EpipMap1().BoxOfFrontier(aBox1,1.0);
+    auto frame2 = EpipMap2().BoxOfFrontier(aBox2,1.0);
 
     auto P1_0 = frame1.P0()-cPt2dr(aMargin,aMargin);
-    auto P1_1 = frame1.P1()+cPt2dr(aMargin,aMargin);;
-    auto P2_0 = frame2.P0()-cPt2dr(aMargin,aMargin);;
-    auto P2_1 = frame2.P1()+cPt2dr(aMargin,aMargin);;;
+    auto P1_1 = frame1.P1()+cPt2dr(aMargin,aMargin);
+    auto P2_0 = frame2.P0()-cPt2dr(aMargin,aMargin);
+    auto P2_1 = frame2.P1()+cPt2dr(aMargin,aMargin);
 
     double yMin = std::max(P1_0.y(), P2_0.y());
     double yMax = std::min(P1_1.y(), P2_1.y());
@@ -376,8 +375,9 @@ void cEpipolarModel::ComputeCommonFraming(
     P1_0.y() = P2_0.y() = yMin;
     P1_1.y() = P2_1.y() = yMax;
 
-    mFrame1 = cTplBox<double,2>(P1_0,P1_1).ToI();
-    mFrame2 = cTplBox<double,2>(P2_0,P2_1).ToI();
+    GetEpipMap1().SetEpipImFrame(cTplBox<double,2>(P1_0,P1_1).ToI());
+    GetEpipMap2().SetEpipImFrame(cTplBox<double,2>(P2_0,P2_1).ToI());
 }
+
 
 } // namespace MMVII

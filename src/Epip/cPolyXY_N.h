@@ -106,9 +106,7 @@ template <typename T> inline int cPolyXY_N<T>::Index(int a, int b) const
         idx += (mDegree - aa + 1);
     idx += b;
     return idx;
-    // TODOCM:
- //   MMVII_INTERNAL_ASSERT_medium(a>=0 && b>=0 && a+b<=mDegree,"Bad usage of cPolyXY_N");
- //   return b + ((mDegree + 1) * (mDegree + 2) - (mDegree - a + 1) * (mDegree - a + 2)) / 2;
+// TODOCM: MMVII_INTERNAL_ASSERT_medium(a>=0 && b>=0 && a+b<=mDegree,"Bad usage of cPolyXY_N"); return b + ((mDegree + 1) * (mDegree + 2) - (mDegree - a + 1) * (mDegree - a + 2)) / 2;
 }
 
 template <typename T> inline T &cPolyXY_N<T>::Coeff(int a, int b)

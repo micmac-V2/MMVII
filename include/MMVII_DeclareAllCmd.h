@@ -155,6 +155,7 @@ extern cSpecMMVII_Appli  TheSpec_VisuPoseStr3D;
 extern cSpecMMVII_Appli  TheSpec_TransformPoses;
 
 extern cSpecMMVII_Appli  TheSpec_EpipResampling;
+extern cSpecMMVII_Appli  TheSpec_EpipTest;
 
 extern cSpecMMVII_Appli  TheSpecAppliBenchAPBI;
 extern cSpecMMVII_Appli  TheSpecAppliTestElemBundle;

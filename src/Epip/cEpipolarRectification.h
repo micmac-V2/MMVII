@@ -6,15 +6,18 @@
 #include "MMVII_AllClassDeclare.h"  // cPt2dr, cPt3dr, cPt2di, etc.
 
 namespace MMVII {
-// Forward declaration
+
 class cSensorImage;
 
 class cEpipolarMapping : public cDataInvertibleMapping<tREAL8,2>
 {
 public:
     cEpipolarMapping() {}
-    cPt2dr ToEpipolar(const cPt2dr& aPt) const { return Value(aPt); }
-    cPt2dr FromEpipolar(const cPt2dr& aPt) const { return Inverse(aPt); }
+    void SetEpipImFrame(const cRect2& aFrame) { mEpipImFrame = aFrame;}
+    cRect2 EpipFrame() const { return mEpipImFrame; }
+    cPt2di EpipImSz() const { return mEpipImFrame.Sz(); }
+protected:
+    cRect2 mEpipImFrame{cPt2di{0,0},cPt2di{0,0},true}; ///< frame in epipolar space (for resampling)
 };
 
 
@@ -23,22 +26,18 @@ public:
 class cEpipolarModel
 {
 public:
-    virtual const cEpipolarMapping& EpipMap1() const = 0;
-    virtual const cEpipolarMapping& EpipMap2() const = 0;
-    cPt2dr ToEpipolar1(const cPt2dr& aPt) const { return EpipMap1().ToEpipolar(aPt); }
-    cPt2dr FromEpipolar1(const cPt2dr& aPt) const { return EpipMap1().ToEpipolar(aPt); }
-    cPt2dr ToEpipolar2(const cPt2dr& aPt) const { return EpipMap2().ToEpipolar(aPt); }
-    cPt2dr FromEpipolar2(const cPt2dr& aPt) const { return EpipMap2().ToEpipolar(aPt); }
-
+    virtual ~cEpipolarModel() {}
+    const cEpipolarMapping& EpipMap1() const { return (const_cast<cEpipolarModel*>(this))->GetEpipMap1();}
+    const cEpipolarMapping& EpipMap2() const { return (const_cast<cEpipolarModel*>(this))->GetEpipMap2();;}
     void ComputeCommonFraming(
-        const cDataGenUnTypedIm<2> *aIm1,
-        const cDataGenUnTypedIm<2> *aIm2,
+        const cTplBox<tREAL8,2> aBox1,
+        const cTplBox<tREAL8,2> aBox2,
         eEpipFrm aFrmType=eEpipFrm::eIntersect,
         int aMargin=0
     );
-
-    cRect2 mFrame1{cPt2di{},cPt2di{},true};
-    cRect2 mFrame2{cPt2di{},cPt2di{},true};
+protected:
+    virtual cEpipolarMapping& GetEpipMap1() = 0;
+    virtual cEpipolarMapping& GetEpipMap2() = 0;
 
 };
 
@@ -54,10 +53,11 @@ public:
     cEpipolarModelTpl(Ptr_T aEpipMap1, Ptr_T aEpipMap2)
         : aEpipMap1(std::move(aEpipMap1)),aEpipMap2(std::move(aEpipMap2)  )
     {}
-    const cEpipolarMapping& EpipMap1() const override { return *aEpipMap1; }
-    const cEpipolarMapping& EpipMap2() const override { return *aEpipMap2; }
 
 private:
+    cEpipolarMapping& GetEpipMap1() override { return *aEpipMap1; }
+    cEpipolarMapping& GetEpipMap2() override { return *aEpipMap2; }
+
     Ptr_T aEpipMap1;
     Ptr_T aEpipMap2;
 };
@@ -68,7 +68,7 @@ class cEpipPolyMapping: public cEpipolarMapping
 {
 public:
     cEpipPolyMapping(const cPolyXY_Nd& aV,
-const cPolyXY_Nd& aW,
+                     const cPolyXY_Nd& aW,
                      cPt2dr aCenter,
                      cPt2dr aDir)
         : mV(aV)
@@ -135,11 +135,13 @@ public:
     // --------------------------------------------------------
     struct cParams
     {
-        int    mPolyDegree    = 3;      ///< degree of V polynomials
-        int    mPolyDegreeInv = 7;      ///< degree of inverse W polynomials
-        int    mNbXYSteps     = 100;    ///< number of image grid sampling steps (X & Y)
-        int    mNbZLevels     = 3;      ///< number of altitude sampling levels
-        double mEpsMarginRel  = 0.05;   ///< Relative Margin for X,Y and Z sampling
+        int      mPolyDegree    = 3;      ///< degree of V polynomials
+        int      mPolyDegreeInv = 7;      ///< degree of inverse W polynomials
+        int      mNbXYSteps     = 100;    ///< number of image grid sampling steps (X & Y)
+        int      mNbZLevels     = 3;      ///< number of altitude sampling levels
+        double   mEpsMarginRel  = 0.05;   ///< Relative Margin for X,Y and Z sampling
+        eEpipFrm mEpipFrm       = eEpipFrm::eIntersect; ///< Framing type for epipolar images (Resmampling)
+        int      mMargin        = 2;      ///< Margin in pixels for epipolar image framing (Resampling)
     };
 
     // --------------------------------------------------------
@@ -210,58 +212,6 @@ private:
 };
 
 
-
-#if 0
-// ---------------------------------------------------------------------------
-// Resampling quality check
-// ---------------------------------------------------------------------------
-
-/**
- * For a set of known conjugate point pairs (p1, p2), computes the residual
- * y-parallax in the rectified images.
- *
- * The V coordinate in rectified image k is:
- *   v_k = phi_k(p_k).y - frame_k.yOff
- *
- * The residual y-parallax is |v1 - v2|.
- *
- * @return max, mean, and RMS parallax statistics
- */
-struct ResidualStats {
-    double maxPar = 0, meanPar = 0, rmsPar = 0;
-    size_t n = 0;
-};
-
-ResidualStats checkResiduals(const cEpipolarModel& m,
-                             const EpipolarFrame& f1,
-                             const EpipolarFrame& f2,
-                             const std::vector<Pt2d>& pts1,
-                             const std::vector<Pt2d>& pts2)
-{
-    if (pts1.size() != pts2.size())
-        throw std::invalid_argument("checkResiduals: point vectors have different sizes");
-
-    ResidualStats s;
-    s.n = pts1.size();
-    double sum = 0, sum2 = 0;
-
-    for (size_t i = 0; i < s.n; ++i) {
-        double v1  = toEpipolar(m, 1, pts1[i]).y - f1.yOff;
-        double v2  = toEpipolar(m, 2, pts2[i]).y - f2.yOff;
-        double par = std::abs(v1 - v2);
-        s.maxPar = std::max(s.maxPar, par);
-        sum  += par;
-        sum2 += par * par;
-    }
-    if (s.n > 0) {
-        s.meanPar = sum  / s.n;
-        s.rmsPar  = std::sqrt(sum2 / s.n);
-    }
-    return s;
-}
-
-
-#endif
 } // namespace MMVII
 
 #endif // C_EPIPOLAR_RECTIFICATION_H
