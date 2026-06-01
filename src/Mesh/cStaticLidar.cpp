@@ -1537,9 +1537,12 @@ void BenchTSL(cParamExeBench & aParam)
     TestRaster2Gnd2Raster(aVectPtsTest2, aScan);
 
     // set a bad F, to make Ground2ImagePrecise different from simple projection
+    tREAL8 aOriginalF = aScan->InternalCalib()->MapPProj2Im().F();
     aScan->InternalCalib()->MapPProj2Im().F()*=0.9;
     // TestRaster2Gnd2Raster(aVectPtsTest1, aScan); // TODO: what to do with points out of raster?
     TestRaster2Gnd2Raster(aVectPtsTest2, aScan);
+    // restore original For next iteration
+    aScan->InternalCalib()->MapPProj2Im().F() = aOriginalF;
 
     delete aScan;
 
