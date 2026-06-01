@@ -166,21 +166,30 @@ The following measurements types are currently supported:
     \item direct Euclidian vector observation
 \end{itemize}
 
-The measurements can be made between cameras poses, GCPs or undeclared points that will be inserted into the last GCP set of the adjustment
-(if automatic coordinates initialization succeeds).
+The measurements can be made between cameras poses, GCPs or undeclared points.
+Topo adjustment tries to initialize the undeclared points based on known points and observations.
+If automatic coordinates initialization succeeds the new points are added to the first GCP set of the adjustment
+(if an output dir is given).
 
-The command \texttt{OriBundleAdj} can use topo measurements in compensation via the optional parameter \texttt{TopoDirIn}.
-It can be used with photogrammetric constraints, or even without images nor ORIs.
+The command \texttt{OriBundleAdj} can use topo measurements in compensation via the optional parameter \texttt{TopoDirIn}. Optional parameter \texttt{TopoDirOut} can be used to get a detailed list of observations with their residuals.
+
+\texttt{TopoDirIn} can be used with photogrammetric constraints, or even without images nor ORIs.
 In this case, the command line should be like:
 
-\begin{verbatim}
+\begin{lstlisting}
 MMVII OriBundleAdj NONE NONE NONE GCP3D=[[InitRTL,1.,FinalRTL]] TopoDirIn=Obs1 TopoDirOut=Obs1_out
-\end{verbatim}
+\end{lstlisting}
 
 The topo measurements files can be given as a set of \CdPPP\ json or xml files, or in a simplified text format (named \texttt{OBS} file) inherited from IGN's
 Comp3D\footnote{\url{https://github.com/IGNF/Comp3D}} micro-geodesy compensation software.
 
 All the measurements files must be in the \texttt{MMVII-PhgrProj/Topo/[TopoObsName]} folder.
+
+To separate newly initialized points from previous GCPs, an empty GCP set can be given as first \texttt{GCP3D}:
+\begin{lstlisting}
+MMVII OriBundleAdj NONE NONE NONE GCP3D=[[NONE,1.,NewPts], [InitRTL,1.,FinalRTL]] TopoDirIn=Obs1
+\end{lstlisting}
+
 
 \section{\texttt{OBS} file format}
 \label{sec:compObsFormat}
@@ -203,9 +212,9 @@ A measurement line is composed by:
 
 Example of an \texttt{OBS} line describing a measured distance of 100.0000 m, with a $\sigma$ of 1 mm from \texttt{PointA} to \texttt{PointB}:
 
-\begin{verbatim}
+\begin{lstlisting}
     3   PointA    PointB    100.0000    0.001    * comment
-\end{verbatim}
+\end{lstlisting}
 
 The observations codes are:
 
@@ -238,13 +247,13 @@ It corresponds to this configuration:
 \subsection{3D points file}
 The initial coordinates of the 4 points, in Lambert 93, are in a simple text file (\texttt{inputs/coords.txt}):
 
-\begin{verbatim}
+\begin{lstlisting}
 * 1st column:  0 = free point
 1  PtA  657700.000  6860700.000  10.000
 0  PtB  657710      6860700      10   * approx
 0  PtC  657710      6860710      10   * approx
 1  PtD  657700.000  6860690.000  10.000
-\end{verbatim}
+\end{lstlisting}
 
 The coordinates of PtA and PtD are supposed known (with a certain precision).
 The coordinates of PtB and PtC are just for initialization.
