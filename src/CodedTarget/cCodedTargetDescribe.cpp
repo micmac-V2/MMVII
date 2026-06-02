@@ -33,7 +33,8 @@ namespace MMVII
         mRes = aInf.x();
     }
 
-    cCdTDescr::cCdTDescr()
+    cCdTDescr::cCdTDescr():
+        m3DOK (false)
     {
         //
     }
@@ -43,6 +44,8 @@ namespace MMVII
         cCdTDetec aDet(aCam, aMes, aAff2D);
         mVDetec.push_back(aDet);
     }
+
+    int cCdTDescr::NbDetec(){return mVDetec.size();}
 
     void cCdTDescr::InterGndCorners(bool& aShow)
     {
@@ -139,6 +142,61 @@ namespace MMVII
                + "."+ cMMVII_Appli::CurrentAppli().TaggedNameDefSerial();
     }
 
+    /* new stuff cAugCdT & cExtract */
+
+    cExtract::cExtract(const cSensorCamPC*& aCam, cSaveExtrEllipe aEll):
+        mCam (aCam),
+        mEll (aEll)
+    {
+        //
+    }
+
+    cAugCdT::cAugCdT(std::string aName, std::unique_ptr<cFullSpecifTarget>& aFSpec):
+        mName (aName),
+        mFSpec (aFSpec)
+    {
+        //
+    }
+
+    void cAugCdT::AddExtract(cExtract aExt)
+    {
+        mVExtracts.push_back(aExt);
+    }
+
+    std::vector<cPt2dr> cAugCdT::Corners()//-> specific to IGN Indoor CdT pattern
+    {
+        std::vector<cPt2dr> aRes = {};
+        cPt2dr aMBW = mFSpec->CornerlEl_BW();//-> middle black to white corner
+        cPt2dr aC   = cPt2dr(aMBW.x(), aMBW.x());//-> target centre
+        for (const auto& aP : SqCorners) {aRes.push_back(aC * aP);}
+        return aRes;
+    }
+
+    void cAugCdT::Spatialize()
+    {
+        //----- init reference/ground correspondences
+        std::vector<cPt3dr> aRefMarks = {}, aVGndPts = {};
+
+        for (const auto& aP : Corners())//-> space intersection of reference marks from extractions
+        {
+            aRefMarks.push_back(cPt3dr(aP.x(), aP.y(), 0));//-> corners points planar coordinates and z=0
+            std::vector<tSeg3dr> aVBundles = {};
+            for (const auto& aExt : mVExtracts)
+            {
+                cPt2dr aImP = aExt.mEll.mAffIm2Ref.Inverse(aP);//-> image point
+                aVBundles.push_back(aExt.mCam->Image2Bundle(aImP));//-> camera to ground bundle
+            }
+            cPt3dr aGndP = BundleInters(aVBundles);
+            aVGndPts.push_back(aGndP);
+        }
+        //----- estimate spatial similarity
+        tREAL8 aRes;
+        mRef2Gnd = mRef2Gnd.StdGlobEstimate(aRefMarks, aVGndPts, &aRes, nullptr, cParamCtrlOpt::Default());
+        StdOut() << aRes;
+        mOKAug = true;
+    }
+
+
     /**************************************************************************/
     /*
      * cAppli_CodedTargetDescribe methods
@@ -185,12 +243,17 @@ namespace MMVII
         std::vector<std::string> aVIm = VectMainSet(0);
         mFSpec.reset(cFullSpecifTarget::CreateFromFile(mFSpecName));
 
-        //----- [1] Load image measures
+        //----- [1] Single image processing: filling mVDescr
         for (const std::string& aIm : aVIm)
         {
-            const cSensorCamPC* aCam = mPhProj.ReadCamPC(aIm, true);
-            cSetMesPtOf1Im aSetImMes = mPhProj.LoadMeasureIm(aIm);
+            const cSensorCamPC* aCam = mPhProj.ReadCamPC(aIm, true, true);
+            if (aCam == nullptr)//->checks if image has been oriented
+                {
+                    if (mShow) StdOut() << aIm << " not oriented -> rejected\n";
+                    continue;
+                }
 
+            cSetMesPtOf1Im aSetImMes = mPhProj.LoadMeasureIm(aIm);
             std::vector<cSaveExtrEllipe> aVEll;
             ReadFromFile(aVEll, cSaveExtrEllipe::NameFile(mPhProj, aSetImMes, true));
 
@@ -215,13 +278,36 @@ namespace MMVII
         }
 
         //------ [2] Space intersection of corners & 3D similitude estimation
+        std::vector<cCdTDescr> aVNotOKDescr = {};//-> for details
+
         for (decltype(mVDescr.size()) ix = 0; ix < mVDescr.size(); ++ix)
         {
+            cCdTDescr& aDescr = mVDescr[ix];
             if (mShow) StdOut() << "CdT -> " << mVDescr[ix].mName << ":\n";
-            mVDescr[ix].InterGndCorners(mShow);//-> computes mVGndCorners
-            mVDescr[ix].EstimateCdT2GndOnCorners(mShow);//-> computes m3DSimil
+            if (aDescr.NbDetec() <= 3)
+            {
+                if (mShow) StdOut() << " not enough detections ("
+                             << aDescr.NbDetec() << ") -> spatial description will not be computed\n";
+                aVNotOKDescr.push_back(aDescr);
+                continue;
+            }
+            aDescr.InterGndCorners(mShow);//-> computes mVGndCorners
+            aDescr.EstimateCdT2GndOnCorners(mShow);//-> computes m3DSimil
+            mVOKDescr.push_back(aDescr);
         }
-        SaveInFile(mVDescr, cCdTDescr::NameFile(mPhProj, false));//-> export to CdTDescript-?.xml
+
+        //----- [3] Save description if similiraty has been computed
+        SaveInFile(mVOKDescr, cCdTDescr::NameFile(mPhProj, false));//-> export to CdTDescript-?.xml
+
+        if (mShow)
+        {
+            StdOut() << "unsaved CdT descriptions: ";
+            for (const auto& aDes : aVNotOKDescr)
+            {
+                StdOut() << aDes.mName << "-";
+            }
+            StdOut() << " -> OK saved: " << mVOKDescr.size() << '/' << mVDescr.size() << "\n";
+        }
 
         return EXIT_SUCCESS;
     }

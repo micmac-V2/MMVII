@@ -12,6 +12,9 @@
 namespace MMVII
 {
 
+    //-> square corners coordinates from square centre
+    std::vector<cPt2dr> SqCorners = {cPt2dr(-1,-1), cPt2dr(1,-1), cPt2dr(1,1), cPt2dr(-1,1)};
+
     typedef cSegment<tREAL8,3> tSeg3dr;
 
     class cCdTDescr;
@@ -37,6 +40,7 @@ namespace MMVII
             std::string                         mFSpecName;
             std::unique_ptr<cFullSpecifTarget>  mFSpec;
             std::vector<cCdTDescr>              mVDescr;
+            std::vector<cCdTDescr>              mVOKDescr;//-> 3D validated descriptions
 
             //------ methods
             void AddDescr(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec);
@@ -56,6 +60,7 @@ namespace MMVII
             std::string             mName;
             cSimilitud3D<tREAL8>    mCdT2Gnd;
             int                     mRes;
+            bool                    m3DOK;
 
         //----- methods
             void                AddDetect(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D);
@@ -63,6 +68,7 @@ namespace MMVII
             void                EstimateCdT2GndOnCorners(bool& aShow);
             void                AddData(const cAuxAr2007 &anAux);
             static std::string  NameFile(const cPhotogrammetricProject & aPhProj, bool Input);
+            int                 NbDetec();
 
         private:
 
@@ -93,4 +99,29 @@ namespace MMVII
         cMesIm1Pt           mMes;
         cAff2D_r            mIm2Ref;
     };
+
+    struct cExtract
+    {
+        cExtract(const cSensorCamPC*& aCam, cSaveExtrEllipe aEll);
+        const cSensorCamPC*& mCam;
+        const cSaveExtrEllipe mEll;
+    };
+
+    class cAugCdT
+    {
+        cAugCdT(std::string aName, std::unique_ptr<cFullSpecifTarget>& aFSpec);
+    public:
+        void Spatialize();
+        void AddExtract(cExtract aExt);
+        bool mOKAug;
+
+    private:
+        std::string mName;
+        std::unique_ptr<cFullSpecifTarget>& mFSpec;
+        std::vector<cExtract> mVExtracts;
+        cSimilitud3D<tREAL8> mRef2Gnd;
+        std::vector<cPt2dr> Corners();
+    };
+
+
 }
