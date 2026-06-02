@@ -12,7 +12,7 @@ cv2.setNumThreads(0)
 cv2.ocl.setUseOpenCL(False)
 
 import torch
-from torchvision.transforms import ColorJitter, functional, Compose
+from torchvision.transforms import ColorJitter, functional, Compose,RandomInvert, GaussianBlur
 import torch.nn.functional as F
 
 def get_middlebury_images():
@@ -81,7 +81,10 @@ class FlowAugmentor:
         self.v_flip_prob = 0.5
 
         # photometric augmentation params
-        self.photo_aug = Compose([ColorJitter(brightness=0.4, contrast=0.4, saturation=saturation_range, hue=0.5/3.14), AdjustGamma(*gamma)])
+        self.photo_aug = Compose([ColorJitter(brightness=0.4, contrast=0.4, saturation=saturation_range, hue=0.5/3.14),
+                                  AdjustGamma(*gamma),
+                                  RandomInvert(p=0.5),
+                                  GaussianBlur(kernel_size=3, sigma=(0.1, 2.0))])
         self.asymmetric_color_aug_prob = 0.2
         self.eraser_aug_prob = 0.5
         self.disp_increase_prob = 0.5
