@@ -13,7 +13,7 @@ CodeDir=${DenseMDir}"RAFT-Stereo/"
 # path to your trained model
 #MODELPATH=${RAFTSDir}"1000002_epoch_raftstereo_experiment-PATCH-640.pth.gz"
 #MODELPATH=${CodeDir}"models/raftstereo-sceneflow.pth"
-MODELPATH=${RAFTSDir}"170000_raftstereo_experiment-PATCH-512_AUG_LARGE_DISP.pth"
+MODELPATH=${RAFTSDir}"260000_raftstereo_experiment-PATCH-512_AUG_LARGE_DISP_300K.pth"
 # disparity scale of the trained model
 #DISPSCALE=-256.0
 ########

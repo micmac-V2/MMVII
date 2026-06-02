@@ -67,7 +67,7 @@ class cAppliEpipDMEval : public cMMVII_Appli,
         int           mNbDecimPx; ///< Decimation for fast paralx statistic
         int           mSzW;       ///< Size of windows
         cBox2di       mBoxWOk;    ///< Box of pixels where score can be computed taken into account windows size
-         
+        cBox2di       mBoxIm2;    ///< Box of image 2, for fast test of inclusion
         std::string   mMasqHidden_Name; ///< Name for saving hidden pixel masq
         std::string   mImCorrel_Name;   ///< Name for saving correlation image
 
@@ -91,7 +91,8 @@ cAppliEpipDMEval::cAppliEpipDMEval
    mMasq2Redr                 (cPt2di(1,1)),
    mNbDecimPx                 (4),
    mSzW                       (2),
-   mBoxWOk                    (cBox2di::Empty())
+   mBoxWOk                    (cBox2di::Empty()),
+   mBoxIm2                    (cBox2di::Empty())
 {
 }
 
@@ -270,7 +271,7 @@ void cAppliEpipDMEval::MakeImRectified()
    int aPxMin,aPxMax;
    BornesFonc (aPxMin,aPxMax,mImPx1,&mImMasq1,mNbDecimPx,mPropIntervPx,1.0);
    cBox2di aBoxPx = DilateFromIntervPx(CurBoxIn(),aPxMin,aPxMax);
-   aBoxPx = aBoxPx.Inter(DFI2d()); // Must be include in file im2
+   aBoxPx = aBoxPx.Inter(mBoxIm2); // Must be included in file im2
 
    if ( (aBoxPx.Sz().x()>0) && (aBoxPx.Sz().y()>0))
    {
@@ -299,6 +300,8 @@ int cAppliEpipDMEval::ExeOnParsedBox()
    MMVII_INTERNAL_ASSERT_strong(mR2L,"mode L2R need data to test ");
 
    StdOut() << "======== ONEBOX =================" << std::endl;
+   mBoxIm2 =cBox2di(cDataFileIm2D::Create(mNameIm2,eForceGray::No).Sz());
+   
    mImPx1 = APBI_ReadIm<tREAL4>(mNamePx1);
    mBoxWOk = CurBoxInLoc().Dilate(-mSzW); // Box of pix with window include => erosion of cur box
    mImMasq1 = ReadMasqWithDef(CurBoxIn(),mNameMasq1);
