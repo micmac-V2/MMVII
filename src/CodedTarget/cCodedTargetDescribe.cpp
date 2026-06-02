@@ -2,6 +2,8 @@
 
 namespace MMVII
 {
+    const std::vector<cPt2dr> SqCorners = {cPt2dr(-1,-1), cPt2dr(1,-1), cPt2dr(1,1), cPt2dr(-1,1)};
+
     /**************************************************************************/
     /*
      * cCdTDetec methods
@@ -122,22 +124,21 @@ namespace MMVII
      * Serialization methods
      */
 
-    void cCdTDescr::AddData(const cAuxAr2007& anAux)
+    void cAugCdT::AddData(const cAuxAr2007& anAux)
     {
         MMVII::AddData(cAuxAr2007("Name", anAux), mName);
-        MMVII::AddData(cAuxAr2007("CdT2Gnd", anAux), mCdT2Gnd);
-        MMVII::AddData(cAuxAr2007("Res", anAux), mRes);
+        MMVII::AddData(cAuxAr2007("Ref2Gnd", anAux), mRef2Gnd);
     }
 
-    void AddData(const cAuxAr2007 &anAux, cCdTDescr &aCdTDescr)
+    void AddData(const cAuxAr2007 &anAux, cAugCdT &anEx)
     {
-        aCdTDescr.AddData(anAux);
+        anEx.AddData(anAux);
     }
 
-    std::string cCdTDescr::NameFile(const cPhotogrammetricProject & aPhProj, bool Input)
+    std::string cAugCdT::NameFile(const cPhotogrammetricProject& aPhProj, bool Input)
     {
         return  (Input ? aPhProj.DPGndPt3D().FullDirIn() : aPhProj.DPGndPt3D().FullDirOut())
-               + "CdTDescript-"
+               + "Aug-"
                +  aPhProj.DPOrient().DirIn()
                + "."+ cMMVII_Appli::CurrentAppli().TaggedNameDefSerial();
     }
@@ -151,16 +152,26 @@ namespace MMVII
         //
     }
 
-    cAugCdT::cAugCdT(std::string aName, std::unique_ptr<cFullSpecifTarget>& aFSpec):
+    cAugCdT::cAugCdT(std::string aName, std::shared_ptr<cFullSpecifTarget> aFSpec):
         mName (aName),
         mFSpec (aFSpec)
     {
         //
     }
 
+    cAugCdT::cAugCdT():
+        mFSpec (nullptr)
+    {
+    }
+
     void cAugCdT::AddExtract(cExtract aExt)
     {
         mVExtracts.push_back(aExt);
+    }
+
+    tU_INT1 cAugCdT::NbExtracts() const
+    {
+        return mVExtracts.size();
     }
 
     std::vector<cPt2dr> cAugCdT::Corners()//-> specific to IGN Indoor CdT pattern
@@ -190,9 +201,7 @@ namespace MMVII
             aVGndPts.push_back(aGndP);
         }
         //----- estimate spatial similarity
-        tREAL8 aRes;
-        mRef2Gnd = mRef2Gnd.StdGlobEstimate(aRefMarks, aVGndPts, &aRes, nullptr, cParamCtrlOpt::Default());
-        StdOut() << aRes;
+        mRef2Gnd = mRef2Gnd.StdGlobEstimate(aRefMarks, aVGndPts, &m3DPrec, nullptr, cParamCtrlOpt::Default());
         mOKAug = true;
     }
 
@@ -230,84 +239,75 @@ namespace MMVII
         //
     }
 
-    void cAppli_CodedTargetDescribe::AddDescr(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec)
-    {
-        cCdTDescr aDes(aName, aSpec);
-        mVDescr.push_back(aDes);
-    }
-
     int cAppli_CodedTargetDescribe::Exe()
     {
-        //----- [0] Load project primitives
+        //----- mPhProj prerequisites
         mPhProj.FinishInit();
         std::vector<std::string> aVIm = VectMainSet(0);
-        mFSpec.reset(cFullSpecifTarget::CreateFromFile(mFSpecName));
+        mFSpec = std::shared_ptr<cFullSpecifTarget>(cFullSpecifTarget::CreateFromFile(mFSpecName));
 
-        //----- [1] Single image processing: filling mVDescr
+        //----- single image processing: init mVAugCdT
+        std::vector<std::string> aVNOriIm = {};//-> not oriented images
+
         for (const std::string& aIm : aVIm)
         {
             const cSensorCamPC* aCam = mPhProj.ReadCamPC(aIm, true, true);
-            if (aCam == nullptr)//->checks if image has been oriented
+            if (aCam == nullptr)//-> checks if image has been oriented
                 {
-                    if (mShow) StdOut() << aIm << " not oriented -> rejected\n";
-                    continue;
+                    aVNOriIm.push_back(aIm);
+                    continue;//-> reject image
                 }
 
-            cSetMesPtOf1Im aSetImMes = mPhProj.LoadMeasureIm(aIm);
-            std::vector<cSaveExtrEllipe> aVEll;
-            ReadFromFile(aVEll, cSaveExtrEllipe::NameFile(mPhProj, aSetImMes, true));
+            std::vector<cSaveExtrEllipe> aVEll;//-> saved ellipses extrinsics from target extraction
+            ReadFromFile(aVEll, cSaveExtrEllipe::NameFile(mPhProj, mPhProj.LoadMeasureIm(aIm), true));
 
             for (const cSaveExtrEllipe& aEll : aVEll)
             {
                 bool isOK = false;
-                for (cCdTDescr& aDes : mVDescr)
+                for (cAugCdT& aCdT : mVAugCdT)//-> look if AugCdT has already been created
                 {
-                    if (aDes.mName == aEll.mNameCode)
+                    if (aCdT.mName == aEll.mNameCode)//-> corresponding AugCdT already exists
                     {
-                        aDes.AddDetect(aCam, aSetImMes.MeasuresOfName(aEll.mNameCode), aEll.mAffIm2Ref);
+                        aCdT.AddExtract(cExtract(aCam, aEll));//-> add extraction from current image
                         isOK = true;
                         break;
                     }
                 }
-                if (!isOK && !starts_with(aEll.mNameCode, MMVII_NONE))
+                (void) isOK;
+
+                if (!isOK && !starts_with(aEll.mNameCode, MMVII_NONE))//-> if not found
                 {
-                    AddDescr(aEll.mNameCode, mFSpec);
-                    mVDescr.back().AddDetect(aCam, aSetImMes.MeasuresOfName(aEll.mNameCode), aEll.mAffIm2Ref);
+                    cAugCdT aCdT(aEll.mNameCode, mFSpec);//-> new AugCdT !! SEGMENTATION FAULT !!
+                    aCdT.AddExtract(cExtract(aCam, aEll));//-> add extraction from current image
+                    mVAugCdT.push_back(aCdT);
                 }
             }
         }
 
-        //------ [2] Space intersection of corners & 3D similitude estimation
-        std::vector<cCdTDescr> aVNotOKDescr = {};//-> for details
+        if (mShow) StdOut() << "rejected images (no orientation) : " << aVNOriIm
+                     << '\n' << aVNOriIm.size() << '/' << aVIm.size() << '\n';
 
-        for (decltype(mVDescr.size()) ix = 0; ix < mVDescr.size(); ++ix)
+        //------ CdT spatialization
+        std::vector<cAugCdT> aVOKAugCdT = {};//-> for details
+
+        for (auto& aCdT : mVAugCdT)
         {
-            cCdTDescr& aDescr = mVDescr[ix];
-            if (mShow) StdOut() << "CdT -> " << mVDescr[ix].mName << ":\n";
-            if (aDescr.NbDetec() <= 3)
+            if (mShow) StdOut() << "CdT " << aCdT.mName;
+            if (aCdT.NbExtracts() <= 3)
             {
-                if (mShow) StdOut() << " not enough detections ("
-                             << aDescr.NbDetec() << ") -> spatial description will not be computed\n";
-                aVNotOKDescr.push_back(aDescr);
+                if (mShow) StdOut() << "-> Not OK (not enough measurements)\n";
                 continue;
             }
-            aDescr.InterGndCorners(mShow);//-> computes mVGndCorners
-            aDescr.EstimateCdT2GndOnCorners(mShow);//-> computes m3DSimil
-            mVOKDescr.push_back(aDescr);
-        }
-
-        //----- [3] Save description if similiraty has been computed
-        SaveInFile(mVOKDescr, cCdTDescr::NameFile(mPhProj, false));//-> export to CdTDescript-?.xml
-
-        if (mShow)
-        {
-            StdOut() << "unsaved CdT descriptions: ";
-            for (const auto& aDes : aVNotOKDescr)
+            aCdT.Spatialize();
+            if (mShow && aCdT.mOKAug)
             {
-                StdOut() << aDes.mName << "-";
+                StdOut() << "-> OK: " << aCdT.m3DPrec << '\n';
+                aVOKAugCdT.push_back(aCdT);
             }
-            StdOut() << " -> OK saved: " << mVOKDescr.size() << '/' << mVDescr.size() << "\n";
         }
+
+        //----- save result
+        SaveInFile(aVOKAugCdT, cAugCdT::NameFile(mPhProj, false));//-> export to Aug-?.xml
 
         return EXIT_SUCCESS;
     }

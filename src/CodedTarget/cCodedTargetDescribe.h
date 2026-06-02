@@ -13,12 +13,12 @@ namespace MMVII
 {
 
     //-> square corners coordinates from square centre
-    std::vector<cPt2dr> SqCorners = {cPt2dr(-1,-1), cPt2dr(1,-1), cPt2dr(1,1), cPt2dr(-1,1)};
-
+    extern const std::vector<cPt2dr> SqCorners;
     typedef cSegment<tREAL8,3> tSeg3dr;
 
     class cCdTDescr;
     struct cCdTDetec;
+    class cAugCdT;
 
     class cAppli_CodedTargetDescribe : public cMMVII_Appli
     {
@@ -38,9 +38,9 @@ namespace MMVII
 
             //------ members
             std::string                         mFSpecName;
-            std::unique_ptr<cFullSpecifTarget>  mFSpec;
-            std::vector<cCdTDescr>              mVDescr;
-            std::vector<cCdTDescr>              mVOKDescr;//-> 3D validated descriptions
+            std::shared_ptr<cFullSpecifTarget>  mFSpec;
+            std::vector<cAugCdT>              mVAugCdT;
+            std::vector<cAugCdT>              mVOKDescr;//-> 3D validated descriptions
 
             //------ methods
             void AddDescr(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec);
@@ -109,19 +109,26 @@ namespace MMVII
 
     class cAugCdT
     {
-        cAugCdT(std::string aName, std::unique_ptr<cFullSpecifTarget>& aFSpec);
     public:
+        cAugCdT(std::string aName, std::shared_ptr<cFullSpecifTarget> aFSpec);
+        cAugCdT();
         void Spatialize();
         void AddExtract(cExtract aExt);
+        tU_INT1 NbExtracts() const;
+        static std::string NameFile(const cPhotogrammetricProject & aPhProj, bool Input);
+        void AddData(const cAuxAr2007& anAux);
+        std::string mName;
         bool mOKAug;
+        tREAL8 m3DPrec;
 
     private:
-        std::string mName;
-        std::unique_ptr<cFullSpecifTarget>& mFSpec;
+        std::shared_ptr<cFullSpecifTarget> mFSpec;
         std::vector<cExtract> mVExtracts;
         cSimilitud3D<tREAL8> mRef2Gnd;
         std::vector<cPt2dr> Corners();
     };
+
+    void AddData(const cAuxAr2007& anAux, cAugCdT& anEx);
 
 
 }
