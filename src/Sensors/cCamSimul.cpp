@@ -510,7 +510,7 @@ void cCamSimul::BenchHierchBA(cTimerSegm * aTS,
 
         cPhotogrammetricProjectMemory aMemPhProj;
         cBenchScene aScene = BuildBenchScene(aNbCam, aNbTri, aNbHPts, eProjPC(aK1), isSubVert,
-                                             0.0, 0.0, 20.0, 0.0, {0.5, 0.1}, aMemPhProj);
+                                             1.0, 0.0, 20.0, 0.0, {0.5, 0.1}, aMemPhProj);
         if (PerfInter)
             aScene.mCamSim->mRandInterK = 0.0;
 
@@ -526,7 +526,8 @@ void cCamSimul::BenchHierchBA(cTimerSegm * aTS,
         aMk3.SaveGlobSol();
 
         auto aSolCams = aMemPhProj.SensorMap();
-        CompareWithGT(aScene.mCamSim->ListCam(), aSolCams);
+        double aErrTr = CompareWithGT(aScene.mCamSim->ListCam(), aSolCams);
+        MMVII_INTERNAL_ASSERT_bench(aErrTr < 1e-2, "BenchHierchBA: BA from GT should give near-zero error on perfect data");
     }
 }
 
@@ -569,7 +570,8 @@ void cCamSimul::BenchHierchBA_InitOnly(cTimerSegm* aTS, bool isSubVert)
         aMk3.SaveGlobSol();
 
         auto aSolCams = aMemPhProj.SensorMap();
-        CompareWithGT(aScene.mCamSim->ListCam(), aSolCams);
+        double aErrTr = CompareWithGT(aScene.mCamSim->ListCam(), aSolCams);
+        MMVII_INTERNAL_ASSERT_bench(aErrTr < 1e-3, "BenchHierchBA_InitOnly: BA from GT should give near-zero error on perfect data");
     }
 }
 
@@ -587,6 +589,7 @@ void cCamSimul::BenchHierchBA_BAOnly(cTimerSegm* aTS, bool isSubVert)
     aCfg.mNbIterBA = aNbIterBA;
     aCfg.mSigmaTPt = 1;
     aCfg.mFacElim  = 10;
+    aCfg.mNbExtraIterAtRoot = 2;
     //aCfg.mViscPose = {0.1,0.1};
 
     cMMVII_Appli& anAp = cMMVII_Appli::CurrentAppli();
@@ -619,7 +622,8 @@ void cCamSimul::BenchHierchBA_BAOnly(cTimerSegm* aTS, bool isSubVert)
         }
 
         // run BA from GT initial poses
-        cBA_ArboTriplets aBA(&aMk3, aLocSols,1.0);
+        int aNbIterEnd = aCfg.mNbIterBA + aCfg.mNbExtraIterAtRoot;
+        cBA_ArboTriplets aBA(&aMk3, aLocSols,1.0,aNbIterEnd);
         aBA.SetGTPts3D(&aScene.mGTPts3D);
         for (int aIter=0; aIter<aNbIterBA; aIter++)
             aBA.OneIteration(aIter);
