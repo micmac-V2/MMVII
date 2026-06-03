@@ -20,6 +20,22 @@
 namespace MMVII
 {
 
+
+cBaseTE::cBaseTE(const cPt2dr & aPt,tREAL4 aBlack,tREAL4 aWhite) :
+   mPt      (aPt),
+   mGT      (nullptr),
+   mVBlack  (aBlack),
+   mVWhite  (aWhite)
+{
+}
+
+cBaseTE::cBaseTE(const cPt2dr & aPt) :
+     cBaseTE(aPt,-1,-1)
+{
+}
+
+
+
 /**   Class for vehiculing all the threshold parameters relative to circ target extraction
  */
 struct cThresholdCircTarget
@@ -187,7 +203,7 @@ cSaveExtrEllipe::cSaveExtrEllipe(const cCircTargExtr & aCTE,const std::string & 
 
 
 cSaveExtrEllipe::cSaveExtrEllipe()  :
-    mAffIm2Ref (cAff2D_r::Translation(cPt2dr(0,0))),
+    mAffIm2Ref (tAff2Dr::Translation(cPt2dr(0,0))),
     mEllipse (cEllipse(cDenseVect<tREAL8>(std::vector<tREAL8>{1,0,1,0,0}) ,cPt2dr(0,0)))
 {
 }

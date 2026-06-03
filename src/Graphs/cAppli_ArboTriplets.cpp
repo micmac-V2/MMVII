@@ -105,14 +105,6 @@ std::string GetThreadId() {
 }
 
 
-thread_local static int NUMTHREAD=0;
-void InitNumThread(int aNumThread)
-{
-    NUMTHREAD = aNumThread+1;
-}
-int GetNumThread() {return NUMTHREAD;}
-
-
 void cNodeArborTriplets::finalize()
 {
     if (mChildren.at(0) == nullptr)
@@ -817,14 +809,11 @@ void cNodeArborTriplets::MergeChildrenSol()
 /* Refinement on bundles (any camera projection) */
 void cNodeArborTriplets::RefineCurSolution()
 {
+    int aNbIterEnd = mPMAT->NbIterBA() + (mDepth==0 ? mPMAT->NbExtraIterAtRoot() : 0);
 
-    cBA_ArboTriplets* aBA;
-    {
-        aBA = new cBA_ArboTriplets(mPMAT, mLocSols,mDepth);
-    }
+    cBA_ArboTriplets* aBA = new cBA_ArboTriplets(mPMAT, mLocSols,mDepth,aNbIterEnd);
 
-
-    for (int aIter = 0; aIter < mPMAT->NbIterBA(); aIter++)
+    for (int aIter = 0; aIter < aNbIterEnd; aIter++)
         aBA->OneIteration(aIter);
 
     aBA->UpdateLocSols(mLocSols);
@@ -991,7 +980,8 @@ cMakeArboTriplet::cMakeArboTriplet(std::vector<cDataSolOriTriplet> & aSet3,bool 
    mLVM         (aCfg.mLVM),
    mSigmaTPt    (aCfg.mSigmaTPt),
    mFacElim     (aCfg.mFacElim),
-   mNbIterBA    (aCfg.mNbIterBA)
+   mNbIterBA    (aCfg.mNbIterBA),
+   mNbExtraIterAtRoot (aCfg.mNbExtraIterAtRoot)
 {
 }
 
@@ -1492,6 +1482,8 @@ void cMakeArboTriplet::ComputeArbor()
 
    mArbor->DoTerminalNode();
 
+   //StdOut() << "END DoTerminalNode" << std::endl;
+   //
    cMemManager::SetActiveMemoryCount(false);
    mAppli.SetMultiThread(true);
    TreeThreads<cNodeArborTriplets*> tp;
@@ -1499,7 +1491,7 @@ void cMakeArboTriplet::ComputeArbor()
    mAppli.SetMultiThread(false);
    cMemManager::SetActiveMemoryCount(true);
 
-   StdOut() << "----------------------" << std::endl;
+   //StdOut() << "END Exec" << std::endl;
 
 
 }

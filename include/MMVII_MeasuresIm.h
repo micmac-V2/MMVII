@@ -195,6 +195,7 @@ class cSetMesGnd3D : public cMemCheck
           std::string StdNameFile() const;
 
           const std::vector<cMes1Gnd3D> &   Measures() const;  ///< Accessor
+          std::vector<cMes1Gnd3D> &   Measures();  ///< Accessor
           static  const std::string ThePrefixFiles;
           // return null ptr if not found
           const cMes1Gnd3D * GetAdrMeasureOfNamePt(const std::string& aName,bool SVP=false) const;

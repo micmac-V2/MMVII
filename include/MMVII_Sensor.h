@@ -40,6 +40,7 @@ class  cBA_Topo;
 class  cBA_GCP;
 class  cDataSolOriTriplet;
 class  cStaticLidar;
+class  cMMVII_BundleAdj;
 
 /**  helper for cPixelDomain, as the cPixelDomain must be serialisable we must separate the
  * minimal data for description, with def contructor from the more "sophisticated" object  */
@@ -54,17 +55,31 @@ class cDataPixelDomain
            cPt2di     mSz;
 };
 
+/*
+class cTagByPtrPixDom
+{
+   public :
+      cTagByPtrPixDom() {}
+};
 
+*/
 /**  base-class  4 definition of validity domaine in image space  */
 class cPixelDomain :  public cDataBoundedSet<tREAL8,2>
 {
         public :
-                cPixelDomain(cDataPixelDomain *);
+              //  cPixelDomain(cDataPixelDomain *);
+               ///(const cNewDataPixelDomain *,cTagByPtrPixDom);
+               cPixelDomain(const cDataPixelDomain &);
+               cPixelDomain(const cPt2di  & aSz);
+
+
                 const cPt2di & Sz() const;
                 // probably to virtualize later
                 tREAL8 DegreeVisibility(const cPt2dr & aP) const;
         private :
-                cDataPixelDomain * mDPD;
+               // cDataPixelDomain * mDPD;
+                cDataPixelDomain   mDPD;
+
 };
 
 
@@ -91,6 +106,10 @@ class cSensorImage  :   public cObj2DelAtEnd,
 
           /// create a sensor in a new coordinate system, default error
           virtual cSensorImage * SensorChangSys(const std::string & aDir, cChangeSysCo &) const ;
+          /// Create a RPC sensor with an optional resampling map and an optional change of coordinate system map.
+          /// (Use nullptr to indicate that no map is provided).
+          /// Original Sensor needs to have a defined Z interval.
+          cSensorImage * GenerateSensorRPC(const std::string& aNameIm, const cDataInvertibleMapping<tREAL8,2>* aResampleMap, const cDataInvertibleMapping<tREAL8,3>* aChSysCoMap, bool SVP=false) const;;
 
           virtual const cPixelDomain & PixelDomain() const = 0;
           const cPt2di & Sz() const;
@@ -276,6 +295,8 @@ class cSensorImage  :   public cObj2DelAtEnd,
                             tREAL8 * aMaxPaxTrsv = nullptr
                        ) const;
 
+         /// Show (debug) information to StdOut
+         virtual void Show() const;
      private :
           cSensorImage(const cSensorImage &) = delete;
 
@@ -721,7 +742,8 @@ class cPhotogrammetricProject : public cIPhProj
           void LoadImFromFolder(const std::string & aFolder, cSetMesGndPt&, cMes2DDirInfo *aMesDirInfo, const std::string & aNameIm,
                                 cSensorImage * =nullptr, bool SVP=false) const;
 
-          void SaveGCP3D(const cSetMesGnd3D&aMGCP3D, const std::string &aDefaultOutName="", bool aDoAddCurSysCo=false) const; // default out name for measures without cMes3DDirInfo
+          void SaveGCP3D(const cSetMesGnd3D&aMGCP3D, const std::string &aDefaultOutName="",
+                         bool aDoAddCurSysCo=false, cMMVII_BundleAdj * aBA = nullptr) const; // default out name for measures without cMes3DDirInfo
           cSetMesGnd3D LoadGCP3DFromFolder(const std::string &) const;
           cSetMesGnd3D LoadGCP3D() const;
 
@@ -964,6 +986,8 @@ class cPhotogrammetricProject : public cIPhProj
 void SaveAndFilterAttrEll(const cPhotogrammetricProject & aPhp,const cSetMesPtOf1Im &  aSetM,const std::set<std::string> & ToRem);
 
 
+#if (0)
+
 /**  In-memory implementation of cIPhProj.
  *   Calibrations, orientations and homologous points are stored
  *   in maps keyed by image name rather than read from disk.
@@ -1029,6 +1053,7 @@ class cPhotogrammetricProjectMemory : public cIPhProj
         std::map<std::pair<std::string,std::string>, cSetHomogCpleIm>  mHomolMap;
         std::map<std::string, cVecTiePMul>                             mMulTiePMap;
 };
+#endif
 
 
 };

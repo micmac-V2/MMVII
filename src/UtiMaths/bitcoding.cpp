@@ -750,9 +750,9 @@ void BenchHammingCode(int aNbB)
 
 void BenchHamming(cParamExeBench & aParam)
 {
+    if (! aParam.NewBench("Hamming")) return;
     Bench_Target_Encoding();
     BenchCircCoding();
-    if (! aParam.NewBench("Hamming")) return;
 
     BenchHammingDist(0,2);
     for (int aK1=0 ; aK1<23; aK1++)

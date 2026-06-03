@@ -156,12 +156,8 @@ void cBA_Topo::AddPointsFromDataToGCP(cBA_GCP &aBA_GCP, cPhotogrammetricProject 
             aAllPointsNamesNotFound.insert(aPointName);
     }
 
-    cMes3DDirInfo * aMes3DDirInfo = nullptr;
-    if (!aAllPointsNamesNotFound.empty())
-    {
-        aMes3DDirInfo = cMes3DDirInfo::addMes3DDirInfo(aBA_GCP, "newTopoIn",
-                                          mPhProj?mPhProj->DPTopoMes().DirIn():"newTopoOut",1.0); // aDirNameIn and aSGlob are not used
-    }
+    cMes3DDirInfo * aMes3DDirInfo = aBA_GCP.mAllMes3DDirInfo.empty()?
+                                        nullptr:aBA_GCP.mAllMes3DDirInfo.front();
 
     for (auto & aPointName: aAllPointsNamesNotFound)
     {
@@ -437,7 +433,7 @@ void BenchTopoComp1example(const std::pair<cTopoData, cSetMesGnd3D>& aBenchData,
     aTopo->mAllTopoDataIn.InsertTopoData(aBenchData.first);
 
     cSetMesGnd3D aMesGCP3Dtmp = aBenchData.second;
-    cMes3DDirInfo * aMes3DDirInfo = cMes3DDirInfo::addMes3DDirInfo(aBA.getGCP(), "in","out",1.0);
+    cMes3DDirInfo * aMes3DDirInfo = cMes3DDirInfo::addMes3DDirInfo(aBA.getGCP(), "in","out",1.0,true);
     aBA.AddGCP3D(aMes3DDirInfo, aMesGCP3Dtmp, false);
     aTopo->AddPointsFromDataToGCP(aBA.getGCP(), nullptr);
     //here no 2d mes, fake it

@@ -45,6 +45,7 @@ class cAppli_HierarchSfm : public cMMVII_Appli
         tREAL8                    mSigmaTPt;
         tREAL8                    mFacElim;
         int                       mNbIterBA;
+        int                       mNbExtraIterAtRoot;
 
 };
 
@@ -57,7 +58,8 @@ cAppli_HierarchSfm::cAppli_HierarchSfm(const std::vector<std::string> & aVArgs,c
     mLVM         (1e-7),
     mSigmaTPt    (1.0),
     mFacElim     (10.0),
-    mNbIterBA    (5)
+    mNbIterBA    (5),
+    mNbExtraIterAtRoot (2)
 {}
 
 cCollecSpecArg2007 & cAppli_HierarchSfm::ArgObl(cCollecSpecArg2007 & anArgObl)
@@ -82,6 +84,8 @@ cCollecSpecArg2007 & cAppli_HierarchSfm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            <<  AOpt2007(mSigmaTPt,"SigmaTPt","Sigma for tie-points",{eTA2007::Tuning})
            <<  AOpt2007(mFacElim,"FacElim","Outlier threshold=(FacElim*SigmaTPt)",{eTA2007::Tuning})
            <<  AOpt2007(mNbIterBA,"NbIterBA","Number of iteration in BA refinement",{eTA2007::HDV})
+           <<  AOpt2007(mNbExtraIterAtRoot,"NbExtraIter",
+                       "Extra BA iterations at root node (all images)",{eTA2007::HDV})
         ;
 }
 
@@ -103,6 +107,7 @@ int cAppli_HierarchSfm::Exe()
     cMakeArboTripletCfg aCfg;
     aCfg.mLVM      = mLVM;
     aCfg.mNbIterBA = mNbIterBA;
+    aCfg.mNbExtraIterAtRoot = mNbExtraIterAtRoot;
     aCfg.mSigmaTPt = IsInit(&mSigmaTPt) ? mSigmaTPt : aQScoreStats.ErrAtProp(0.75);
     aCfg.mFacElim  = IsInit(&mFacElim)  ? mFacElim  : 4.0*aQScoreStats.ErrAtProp(0.75);
     if (IsInit(&mViscPose))
@@ -138,29 +143,33 @@ int cAppli_HierarchSfm::Exe()
                 cSetHomogCpleIm aCpleH;
                 aCpleH.AddPairSet(*aSetM1,*aSetM2);
                 if (aCpleH.NbH() > 0)
-                    aMIIH.Add(aCpleH,aSortedIm[aK1],aSortedIm[aK2]);
-            }
         }
         aMk3.InitTPtsStruct(new cComputeMergeMulTieP(aSortedIm,&aMIIH));
     }
 
     TimeSegm().SetIndex("MakeGraphPose");
     aMk3.MakeGraphPose();
+    //StdOut() << "MakeGraphPose DONE" << std::endl;
 
     TimeSegm().SetIndex("InitialiseCalibs");
     aMk3.InitialiseCalibs();
+    //StdOut() << "InitialiseCalibs DONE" << std::endl;
 
     TimeSegm().SetIndex("PoseRef");
     aMk3.DoPoseRef();
+    //StdOut() << "DoPoseRef DONE" << std::endl;
 
     TimeSegm().SetIndex("MakeCnxTriplet");
     aMk3.MakeCnxTriplet();
+    //StdOut() << "MakeCnxTriplet DONE" << std::endl;
 
     TimeSegm().SetIndex("TripletWeighting");
     aMk3.MakeWeightingGraphTriplet();
+    //StdOut() << "MakeWeightingGraphTriplet DONE" << std::endl;
 
     TimeSegm().SetIndex("ComputeArbor");
     aMk3.ComputeArbor();
+    //StdOut() << "ComputeArbor DONE" << std::endl;
 
     if (mPhProj.DPOrient().DirOutIsInit())
     {

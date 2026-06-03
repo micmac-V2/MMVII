@@ -37,6 +37,8 @@ class cExternalSensorModif2D  : public cSensorImage
          ) ;
          ~cExternalSensorModif2D();
 
+    // - - - - - - -  Method to display (debug) info on the sensor   -  - - - - - -
+         void Show() const override;
 
    // - - - - - - - Serialization (read/write)  - - - - - - - -
               
@@ -460,6 +462,16 @@ void cExternalSensorModif2D::PerturbateRandom(tREAL8 anAmpl,bool Show)
     }
 }
 
+void cExternalSensorModif2D::Show() const
+{
+    cSensorImage::Show();
+    StdOut() << "   DirIni : " << mDirSensInit << std::endl;
+    StdOut() << "   Image  : " << mNameImage << std::endl;
+    StdOut() << "   PolyDeg: " << mDegree << std::endl;
+
+    StdOut() << "* Origin sensor :" << std::endl;
+    mSensorInit->Show();
+}
 
 /* =============================================== */
 /*                                                 */

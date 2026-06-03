@@ -165,7 +165,7 @@ public :
     tREAL8 Sigma() const;
     const std::vector<cPt2di> & PatchCenters() const;
 
-
+    void Show() const override;
 private :
     template <typename TYPE> void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
                     std::function<TYPE (int)> func, bool saveRaster); // do not keep image in memory

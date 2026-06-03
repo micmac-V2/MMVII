@@ -81,7 +81,7 @@ cAppliCheckBoardTargetExtract::cAppliCheckBoardTargetExtract(const std::vector<s
    mDImLabel         (nullptr),
    mImTmp            (cPt2di(1,1)),
    mDImTmp           (nullptr),
-   mCurScale         (false),
+   mCurScale         (-1.0),
    mMainScale        (true),
    mInterpol         (nullptr)
 {
@@ -308,7 +308,7 @@ void cAppliCheckBoardTargetExtract::GenerateVisuFinal() const
          {
              cPt3di aCoul =  aCdt.Code() ?  (aCdt.IsCircle() ? cRGBImage::Cyan : cRGBImage::Green)  : cRGBImage::Red;
              aIm.SetRGBrectWithAlpha(ToI(aCdt.mC0),50,aCoul, 0.5);
-             if (aCdt.mScale!= 1.0)
+             if (aCdt.mScaleDetec!= 1.0)
                 aIm.SetRGBBorderRectWithAlpha(ToI(aCdt.mC0),60,10,cRGBImage::Blue, 0.5);
 
              if (aCdt.Code())
@@ -491,7 +491,7 @@ void cAppliCheckBoardTargetExtract::SaddleCritFiler()
          if (mDImLabel->GetV(aPix)==eTopoMaxOfCC)
          {
              tREAL8 aCritS = aCalcSBlur.CalcSaddleCrit(*mDImBlur,aPix);
-             mVCdtSad.push_back(cCdSadle(ToR(aPix),aCritS,IsPtTest(ToR(aPix))) );
+             mVCdtSad.push_back(cCdSadle(mCurScale,ToR(aPix),aCritS,IsPtTest(ToR(aPix))) );
          }
     }
     mNbSads.push_back(mVCdtSad.size()); // memo size for info
@@ -545,7 +545,7 @@ void cAppliCheckBoardTargetExtract::SymetryFiler()
 
 void  cAppliCheckBoardTargetExtract::AddCdtE(const cCdEllipse & aCDE)
 {
-     cCdMerged aNewCdM(mDImIn0,aCDE,mCurScale);
+     cCdMerged aNewCdM(mDImIn0,aCDE);
 
      for (auto & aCdM : mVCdtMerged)
      {
@@ -575,9 +575,9 @@ void  cAppliCheckBoardTargetExtract::DoExport()
              aSetM.AddMeasure(aMesIm);
              Tpl_AddOneObjReportCSV(*this,mIdExportCSV,aMesIm);
 
-             cEllipse anEl = aCdtM.Ell().Scale(aCdtM.mScale);
+             cEllipse anEl = aCdtM.Ell().Scale(aCdtM.mScaleDetec);
              cSaveExtrEllipe aSEE(anEl,aCdtM.mBlack,aCdtM.mWhite,aCode);
-             aSEE.mAffIm2Ref = aCdtM.AffIm2Mod();
+             aSEE.mAffIm2Ref = aCdtM.AffImZ1ToMod();
              aVSavE.push_back(aSEE);
              //  cSaveExtrEllipe anESave(*anEE,aCode);
          }

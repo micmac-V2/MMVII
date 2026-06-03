@@ -27,16 +27,16 @@ cMes2DDirInfo* cMes2DDirInfo::addMes2DDirInfo(cBA_GCP &aBA_GCP, const std::strin
 /*                cMes3DDirInfo                                     */
 /* -------------------------------------------------------------- */
 
-cMes3DDirInfo::cMes3DDirInfo (const std::string &aDirNameIn, const std::string &aDirNameOut, tREAL8 aSGlob) :
-    mDirNameIn(aDirNameIn), mDirNameOut(aDirNameOut), mSGlob(aSGlob)
+cMes3DDirInfo::cMes3DDirInfo (const std::string &aDirNameIn, const std::string &aDirNameOut, tREAL8 aSGlob, bool aDoExportSigmas) :
+    mDirNameIn(aDirNameIn), mDirNameOut(aDirNameOut), mSGlob(aSGlob), mDoExportSigmas(aDoExportSigmas)
 {
 
 }
 
 cMes3DDirInfo* cMes3DDirInfo::addMes3DDirInfo(cBA_GCP &aBA_GCP, const std::string & aDirNameIn,
-                                        const std::string & aDirNameOut, tREAL8 aSGlob)
+                                              const std::string & aDirNameOut, tREAL8 aSGlob, bool aDoExportSigmas)
 {
-    aBA_GCP.mAllMes3DDirInfo.push_back(new cMes3DDirInfo(aDirNameIn,aDirNameOut, aSGlob));
+    aBA_GCP.mAllMes3DDirInfo.push_back(new cMes3DDirInfo(aDirNameIn,aDirNameOut, aSGlob, aDoExportSigmas));
     return aBA_GCP.mAllMes3DDirInfo.back();
 }
 
@@ -57,6 +57,7 @@ cBA_GCP::~cBA_GCP()
 
 void cBA_GCP::AddGCP3D(cMes3DDirInfo * aMesDirInfo, cSetMesGnd3D &aSetMesGnd3D, bool verbose)
 {
+    mDoComputeGCP_UC_UK |= aMesDirInfo->mDoExportSigmas;
     mMesGCP.AddMes3D(aSetMesGnd3D, aMesDirInfo);
 }
 
@@ -271,7 +272,7 @@ void cMMVII_BundleAdj::OneItere_GCP()
 
 void cMMVII_BundleAdj::Save_newGCP3D()
 {
-    mPhProj->SaveGCP3D(mGCP.mNewGCP.ExtractSetGCP("NewGCP"), "", true);
+    mPhProj->SaveGCP3D(mGCP.mNewGCP.ExtractSetGCP("NewGCP"), "", true, this);
 }
 
     /* ---------------------------------------- */

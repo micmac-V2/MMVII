@@ -14,6 +14,22 @@
 namespace MMVII
 {
 
+
+cDemiConeVert::cDemiConeVert(const cPt3dr & aC,tREAL8 aTgt2Max ):
+  mC (aC),
+  mTgt2 (aTgt2Max)
+{
+}
+bool  cDemiConeVert::Inside(const cPt3dr& aPt) const
+{
+    cPt3dr aVec = aPt - mC;
+    if (aVec.z()>=0) return false;
+
+    tREAL8 aTg2 =  (Square(aVec.x())+Square(aVec.y())) / Square(aVec.z()) ;
+
+    return aTg2 < mTgt2;
+}
+
 /* =============================================== */
 /*                                                 */
 /*             cAppli_MMVII_CloudImProj            */
@@ -194,6 +210,9 @@ int  cAppli_MMVII_CloudImProj::Exe()
 }
 
 
+
+
+
 void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud  & aPC_In,cProjPointCloud& aPPC)
 {
     aPPC.SetComputeProfMax(false);
@@ -202,14 +221,17 @@ void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud  & aPC_In,cProjPoint
     cPt3dr aCenter = aPC_In.Centroid();
 
     tREAL8 aFocal = Norm2(mSzIm) / mFOV ;
+    cPt2dr aPP (mSzIm.x()/2.0,mSzIm.y()/2.0);
     mCalib = cPerspCamIntrCalib::SimpleCalib
             (
                 "Cam-" + mPrefixImGen,
                 eProjPC::eStenope,
                 mSzIm,  // sz
-                cPt3dr(mSzIm.x()/2.0,mSzIm.y()/2.0,aFocal),  // PP + F
+                TP3z(aPP,aFocal),  // PP + F
                 cPt3di(0,0,0)  // degree
             );
+
+    tREAL8 aTgt2 = SqN2(aPP) / Square(aFocal);
 
     tREAL8  aResol = aPC_In.GroundSampling() *  mSensDownSample;
 
@@ -242,8 +264,9 @@ void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud  & aPC_In,cProjPoint
 
              std::string aDirIm =  mPhProj.DPOrient().FullDirOut();
 
+             cDemiConeVert aDCV(aC3,aTgt2);
 
-            aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,aCam,0.0,true,"",false,false); // HERE
+            aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,aCam,0.0,true,"",false,false,&aDCV); // HERE
             cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud*mSensDownSample,aCam);
 
             aResIm.mImRadiom.DIm().ToFile(aDirIm+aNameImage);

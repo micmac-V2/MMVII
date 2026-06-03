@@ -51,16 +51,18 @@ cAppli_EpipResampling::cAppli_EpipResampling (
 }
 
 
-// TODOCM: Separate Geom calulation & resampling
-// TODOCM: Serialisation classes EpipMap EpipModel
-// TODOCM: Creer les RPC des images Epipolaires
+// TODOCM: Serialisation classes EpipMap EpipModel ?
 // TODOCM: X Steps /= Y Steps. Steps or pixels  => degre liberté * 10 , bonne répartition, Nb min en X et Y.
-
 // TODOCM: Gestion grosses images : daller ... Cache pour bout d'images ?
-
-// TODOCM: adapter/utiliser le resample de la cDataIm2D
-
-
+// TODOCM: Enlever margin ? Mieux le définir ?
+// TODOCM: Test d'epipolarisabilite ...
+// TODOCM: Dans GenerateData, ajouter un Z aléatoire
+// TODOCM: Test de la validité de l'intervalle Z, et de son utilisation pour les points d'echantillonnage
+// TODOCM: Prendre en compte le fait que les 2 images n'ont pas forcement le même intervalle Z, et que celui ci peut être différent de celui des points d'echantillonnage
+// TODOCM: Faire des benchs en utilisant recalcul des RPCs
+// TODOCM: Make output image name generation accessible for other apps
+// TODOCM: Make sure image  file extension is present ? (.tif)
+// TODOCM: Changer nom fichier RPC (RPC-xxx.xml ?)
 
 
 int cAppli_EpipResampling::Exe()
@@ -83,55 +85,68 @@ int cAppli_EpipResampling::Exe()
     const cInterpolator1D* aInterp = cDiffInterpolator1D::AllocFromNames(mInterpol);
 
 
-    // TODOCM: Enlever margin ? Mieux le définir ?
-    // TODOCM: Test d'epipolarisabilite ...
-
-
     const cSensorImage *  aSI1 =  mPhProj.ReadSensor(FileOfPath(mNameIm1,false /* Ok Not Exist*/),true/*DelAuto*/,false /* Not SVP*/);
     if (! aSI1->HasIntervalZ())
     {
-        MMVII_UserError(eTyUEr::eOpenFile,"Image 1 is not from a RPC sensor");
+        MMVII_UserError(eTyUEr::eOpenFile,"Image 1 has no Z validity interval");
     }
+
     const cSensorImage *  aSI2 =  mPhProj.ReadSensor(FileOfPath(mNameIm2,false /* Ok Not Exist*/),true/*DelAuto*/,false /* Not SVP*/);
     if (! aSI2->HasIntervalZ())
     {
-        MMVII_UserError(eTyUEr::eOpenFile,"Imag,e 2 is not from a RPC sensor");
+        MMVII_UserError(eTyUEr::eOpenFile,"Image 2 has no Z validity interval");
     }
 
     auto aDIm1 = cDataFileIm2D::Create(mNameIm1,eForceGray::No);
     auto aDIm2 = cDataFileIm2D::Create(mNameIm2,eForceGray::No);
-    StdOut() <<  "Image1=" <<  mNameIm1;
+    StdOut() <<  "Image_1: " <<  mNameIm1;
     StdOut() << " " << aDIm1.Sz() << " " << ToStr(aDIm1.Type()) << " " << aDIm1.NbChannel() << " chan" << std::endl;
-    StdOut() <<  "Image2=" <<  mNameIm2;
+    StdOut() <<  "Image_2: " <<  mNameIm2;
     StdOut() << " " << aDIm2.Sz() << " "  << ToStr(aDIm2.Type()) << " " << aDIm2.NbChannel() << " chan" << std::endl;
 
-    auto aParams = cEpipolarRectification::cParams{mDegree,mDegreeInv,mNbByXY,mNbByZ,mEpsMarginRel};
+    StdOut() << "Degree: " << mDegree << ", DegreeInv: " << mDegreeInv << std::endl;
+    StdOut() << "NbByXY: " << mNbByXY << ", NbByZ: " << mNbByZ << ", EpsMarginRel: " << mEpsMarginRel << std::endl;
+    StdOut() << "Frame: " << ToStr(mFrame) << ", Margin: " << mMargin << std::endl;
+
+    auto aParams = cEpipolarRectification::cParams{mDegree,mDegreeInv,mNbByXY,mNbByZ,mEpsMarginRel,mFrame,mMargin};
     auto aRectifier = cEpipolarRectification(*aSI1, *aSI2, aParams);
     auto aEpipModel = aRectifier.Compute();
+    const auto& anEpipMap1 = aEpipModel.EpipMap1();
+    const auto& anEpipMap2 = aEpipModel.EpipMap2();
 
     StdOut() << "Interpolator: " << aInterp->VNames() << ", Kernel Size: " << aInterp->SzKernel() << std::endl;
 
-    const auto* aIm1 = ReadIm2DGen(mNameIm1);
-    const auto* aIm2 = ReadIm2DGen(mNameIm2);
-    aEpipModel.ComputeCommonFraming(aIm1,aIm2,mFrame,mMargin);
-    StdOut() << "[EpipolarResample] Resampling image 1 ("<< aEpipModel.mFrame1.Sz() << ")...\n";
-    auto aIm1Rectif = aIm1->AllocReSampleGen(*aInterp,aEpipModel.EpipMap1(),aEpipModel.mFrame1);
-    StdOut() << "[EpipolarResample] Resampling image 2 ("<< aEpipModel.mFrame2.Sz() << ")...\n";
-    auto aIm2Rectif = aIm2->AllocReSampleGen(*aInterp,aEpipModel.EpipMap2(),aEpipModel.mFrame2);
-
-
-    // TODOCM: Make name generation accessible for other apps
-    // TODOCM: Make sure image extension is present ?
     auto aName1 = LastPrefix(FileOfPath(mNameIm1,false));
     auto aName2 = LastPrefix(FileOfPath(mNameIm2,false));
     auto anEpip1Name = aOutDir + replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",aName1),"%2",aName2);
     auto anEpip2Name = aOutDir + replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",aName2),"%2",aName1);
-    StdOut() << "Image1: " << anEpip1Name << std::endl;
+    auto aRPC1Name = anEpip1Name + ".xml";
+    auto aRPC2Name = anEpip2Name + ".xml";
+
+    // Resample Img1
+    const auto* aIm1 = ReadIm2DGen(mNameIm1);
+    StdOut() << "[EpipolarResample] Resampling image 1 "<< anEpipMap1.EpipFrame() << " Sz: " << anEpipMap1.EpipImSz() << std::endl;
+    auto aIm1Rectif = aIm1->AllocReSampleGen(*aInterp,anEpipMap1,cTplBox(anEpipMap1.EpipImSz()));
+
+    // Resample Img2
+    const auto* aIm2 = ReadIm2DGen(mNameIm2);
+    StdOut() << "[EpipolarResample] Resampling image 2 "<< anEpipMap2.EpipFrame() << " Sz: " << anEpipMap2.EpipImSz() << std::endl;
+    auto aIm2Rectif = aIm2->AllocReSampleGen(*aInterp,anEpipMap2,cTplBox(anEpipMap2.EpipImSz()));
+
+    StdOut() << "Image_1: " << anEpip1Name << std::endl;
     aIm1Rectif->ToFile(anEpip1Name);
+    StdOut() << "RPC_1: " << aRPC1Name << std::endl;
+    auto aResampSI1 = aSI1->GenerateSensorRPC(anEpip1Name, &anEpipMap1, nullptr, true);
+    aResampSI1->ToFile(anEpip1Name + ".xml");
+
     StdOut() << "Image2: " << anEpip2Name << std::endl;
     aIm2Rectif->ToFile(anEpip2Name);
+    StdOut() << "RPC_2: " << aRPC2Name << std::endl;
+    auto aResampSI2 = aSI2->GenerateSensorRPC(anEpip2Name, &anEpipMap2, nullptr, true);
+    aResampSI2->ToFile(anEpip2Name + ".xml");
 
-
+    delete aResampSI1;
+    delete aResampSI2;
     delete aIm1Rectif;
     delete aIm2Rectif;
     delete aInterp;
@@ -183,11 +198,91 @@ cSpecMMVII_Appli  TheSpec_EpipResampling
         "EpipResampling",
         Alloc_EpipResampling,
         "Epipolar geometry of two images",
-        {eApF::Ori},
-        {eApDT::Orient},
-        {eApDT::Orient},
+        {eApF::ImProc},
+        {eApDT::Orient,eApDT::Image},
+        {eApDT::Orient,eApDT::Image},
         __FILE__
         );
+
+
+
+/* ==================================================== */
+/*                  TESTS                               */
+/* ==================================================== */
+
+
+class cAppli_EpipTest : public cMMVII_Appli
+{
+public :
+
+    cAppli_EpipTest(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli &);
+    int Exe() override;
+    cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
+    cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
+
+private :
+    cPhotogrammetricProject  mPhProj;
+    std::string  mNameIm1;
+    cPt2dr mP;
+};
+
+cAppli_EpipTest::cAppli_EpipTest (
+    const std::vector<std::string> &  aVArgs,
+    const cSpecMMVII_Appli & aSpec
+    )
+    : cMMVII_Appli  (aVArgs,aSpec)
+    , mPhProj       (*this)
+{
+}
+
+
+cCollecSpecArg2007 & cAppli_EpipTest::ArgObl(cCollecSpecArg2007 & anArgObl)
+{
+    return anArgObl
+           << Arg2007(mNameIm1,"Image",{eTA2007::FileImage})
+           << mPhProj.DPOrient().ArgDirInMand()
+           << Arg2007(mP,"Image Point",{})
+        ;
+}
+
+
+cCollecSpecArg2007 & cAppli_EpipTest::ArgOpt(cCollecSpecArg2007 & anArgOpt)
+{
+
+    return anArgOpt
+        ;
+}
+
+
+int cAppli_EpipTest::Exe()
+{
+    mPhProj.FinishInit();
+
+
+    const cSensorImage *  aSI1 =  mPhProj.ReadSensor(FileOfPath(mNameIm1,false /* Ok Not Exist*/),true/*DelAuto*/,false /* Not SVP*/);
+    auto PG  = aSI1->ImageAndZ2Ground(cPt3dr(mP.x(), mP.y(), (aSI1->GetIntervalZ().x() + aSI1->GetIntervalZ().y()) / 2));
+    StdOut() << std::setprecision(10) << "PI: " << mP << " -> PG: " << PG << " -> PI:" << aSI1->Ground2ImageAndZ(PG)  << std::endl;
+    return 0;
+
+}
+
+
+tMMVII_UnikPApli Alloc_EpipTest(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
+{
+    return tMMVII_UnikPApli(new cAppli_EpipTest(aVArgs,aSpec));
+}
+
+cSpecMMVII_Appli  TheSpec_EpipTest
+    (
+        "EpipTest",
+        Alloc_EpipTest,
+        "Epipolar geometry tests (temporary for joe)",
+        {eApF::Test},
+        {eApDT::Orient,eApDT::Image},
+        {eApDT::Orient,eApDT::Image},
+        __FILE__
+        );
+
 
 
 }; // MMVII

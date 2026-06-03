@@ -10,9 +10,9 @@ namespace MMVII
 /*                                                           */
 /* ********************************************************* */
 
-cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols,int aTDepth):
+cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols,int aTDepth,int aNbIterEnd):
     mPMAT      (aPMAT),
-    mNbIter    (aPMAT->NbIterBA()),
+    mNbIter    (aNbIterEnd),
     mSigAttFinal(1.0),
     mThrFinal   (aPMAT->FacElim()),
     //mSigARange  ({std::max(mSigAttFinal,std::min(5.0,aPMAT->SigmaTPt())),mSigAttFinal}), // {max,min} <=> {initial,final}
@@ -125,6 +125,7 @@ void cBA_ArboTriplets::OneIteration(int aIter)
         // mVIdPts is only filled when created from MulTieP (with index); fall back to geometry-based count
         size_t aNbPts = aVals.mVIdPts.empty() ? NbPtsMul(aAllConfigs) : aVals.mVIdPts.size();
 
+
         // for every tie-point in current config
         for (size_t aKPts=0; aKPts<aNbPts; aKPts++)
         {
@@ -228,7 +229,8 @@ void cBA_ArboTriplets::OneIteration(int aIter)
         aConfigNum++;
     }
 
-    if (aIter==(mPMAT->NbIterBA()-1))
+    // print BA message only if at the last iterations
+    if (aIter==(mNbIter-1))
     {
         StdOutLock::lock();
         StdOut() << "----------------------   Tree depth=" << mTreeDepth << ", images "

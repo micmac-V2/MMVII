@@ -10,7 +10,6 @@
 #include "MMVII_ImageInfoExtract.h"
 #include "MMVII_2Include_CSV_Serial_Tpl.h"
 #include "../SymbDerGen/Formulas_CentralProj.h"
-#include "../Utils/scoped_timer.h"
 
 
 namespace MMVII
@@ -649,6 +648,14 @@ cStaticLidar::~cStaticLidar()
     if (mTriangulation)
         delete mTriangulation;
 }
+
+void cStaticLidar::Show() const
+{
+    cSensorCamPC::Show();
+    StdOut()<<"   Station: " << mStationName << std::endl;
+    StdOut()<<"   Scan   : " << mScanName << std::endl;
+}
+
 
 cStaticLidar * cStaticLidar::FromFile(const std::string & aNameScanFile, const std::string & aNameRastersDir)
 {
@@ -1538,9 +1545,12 @@ void BenchTSL(cParamExeBench & aParam)
     TestRaster2Gnd2Raster(aVectPtsTest2, aScan);
 
     // set a bad F, to make Ground2ImagePrecise different from simple projection
+    tREAL8 aOriginalF = aScan->InternalCalib()->MapPProj2Im().F();
     aScan->InternalCalib()->MapPProj2Im().F()*=0.9;
     // TestRaster2Gnd2Raster(aVectPtsTest1, aScan); // TODO: what to do with points out of raster?
     TestRaster2Gnd2Raster(aVectPtsTest2, aScan);
+    // restore original For next iteration
+    aScan->InternalCalib()->MapPProj2Im().F() = aOriginalF;
 
     delete aScan;
 

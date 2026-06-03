@@ -881,13 +881,25 @@ cSetMesPtOf1Im* cPhotogrammetricProject::RemanentLoadMeasureIm(const std::string
     return SimpleRemanentNewObjectFromFile<cSetMesPtOf1Im>(NameMeasureGCPIm(aNameIm,true));
 }
 
-void cPhotogrammetricProject::SaveGCP3D(const cSetMesGnd3D & aMGCP3D, const std::string &aDefaultOutName, bool aDoAddCurSysCo) const
+void cPhotogrammetricProject::SaveGCP3D(const cSetMesGnd3D & aMGCP3D, const std::string &aDefaultOutName, bool aDoAddCurSysCo, cMMVII_BundleAdj *aBA) const
 {
     std::map<std::string, MMVII::cSetMesGnd3D> aSplittedGCP3D = aMGCP3D.SplitPerOutDir(aDefaultOutName);
-    for (const auto& [aDirName, aSetMesGnd3D] : aSplittedGCP3D)
+    for (auto& [aDirName, aSetMesGnd3D] : aSplittedGCP3D)
     {
         if (!aDirName.empty()) // outname="" means do not export
         {
+            bool aDoExportSigmas = false;
+            if ((aSetMesGnd3D.Measures().size()>0)
+                &&(aSetMesGnd3D.Measures()[0].mMesDirInfo))
+                    aDoExportSigmas = aSetMesGnd3D.Measures()[0].mMesDirInfo->mDoExportSigmas;
+
+            if (aDoExportSigmas) // update all points sigmas
+            {
+                MMVII_INTERNAL_ASSERT_User(aBA, eTyUEr::eUnClassedError, "SaveGCP3D tries to exports sigmas but no BA given");
+                for (auto & aMesGnd : aSetMesGnd3D.Measures())
+                    aMesGnd.SetSigma2(aBA->GetGCP_UC_UK(aMesGnd.mNamePt));
+            }
+
             cAutoChgRestoreDefFolder  aCRDF(aDirName,DPGndPt3D(),false); // Chg output Folder and restore at destruction
             aSetMesGnd3D.ToFile(mDPGndPt3D.FullDirOut() + aMGCP3D.StdNameFile());
             if (aDoAddCurSysCo)
@@ -918,6 +930,9 @@ std::vector<std::string>  cPhotogrammetricProject::ListFileGCP(const std::string
 void cPhotogrammetricProject::LoadGCP3D(cSetMesGndPt& aSetMes,cMes3DDirInfo * aMesDirInfo, const std::string & aArgPatFiltr,const std::string & aFiltrNameGCP,
                                       const std::string & aFiltrAdditionalInfoGCP) const
 {
+    if (mDPGndPt3D.DirIn()==MMVII_NONE) // allow no input
+        return;
+
    std::vector<std::string> aListFileGCP = ListFileGCP(aArgPatFiltr);
    MMVII_INTERNAL_ASSERT_User(!aListFileGCP.empty(),eTyUEr::eUnClassedError,"No file found in LoadGCP");
 
@@ -1284,9 +1299,9 @@ void cPhotogrammetricProject::SaveClino(const cCalibSetClino & aCalib) const
 {
     std::vector<cOneCalibClino> aOneCalibClinoVector = aCalib.ClinosCal();
     std::string aCameraName = aCalib.NameCam();
-    for (auto aOneCalibClino : aOneCalibClinoVector)
+    for (const auto& aOneCalibClino : aOneCalibClinoVector)
     {
-        std::string aClinoName = aOneCalibClino.NameClino();
+        const std::string& aClinoName = aOneCalibClino.NameClino();
         SaveInFile(aOneCalibClino,NameFileClino(aCameraName,false, aClinoName));
     }
 }

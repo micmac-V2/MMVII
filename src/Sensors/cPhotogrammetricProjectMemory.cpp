@@ -1,6 +1,9 @@
 #include "MMVII_PCSens.h"
 #include "MMVII_DeclareCste.h"
 #include "MMVII_2Include_Serial_Tpl.h"
+#include "MMVII_cPhotogrammetricProjectMemory.h"
+
+#include "treethread.h"
 
 /**
    \file  cPhotogrammetricProjectMemory.cpp
@@ -14,14 +17,25 @@
 namespace MMVII
 {
 
+thread_local    std::map<std::string, cPerspCamIntrCalib *>   cPhotogrammetricProjectMemory::mTLS_CalibMap;
+
 /* **************************************** */
 /*                                          */
 /*     cPhotogrammetricProjectMemory        */
 /*                                          */
 /* **************************************** */
 
-cPhotogrammetricProjectMemory::cPhotogrammetricProjectMemory()
+cPhotogrammetricProjectMemory::cPhotogrammetricProjectMemory() :
+    mMode        (eModeBenchPhMI::eVMTI),
+    mNbMaxProc   ((mMode == eModeBenchPhMI::eVMTI) ? 200 : 0),
+    mVecCalibMap (mNbMaxProc)
 {
+  if (0)
+  {
+         static int aCpt=0; aCpt++;
+       StdOut() << " CCCCCCCCCCCCCCCCCCCCCCCCCCC " << aCpt << " " << TreeThreadsBase::Id() << "\n";
+  }
+  mTLS_CalibMap.clear();
 }
 
 cPhotogrammetricProjectMemory::~cPhotogrammetricProjectMemory()
@@ -34,13 +48,15 @@ cPhotogrammetricProjectMemory::~cPhotogrammetricProjectMemory()
 
 void  cPhotogrammetricProjectMemory::AddCalib(const std::string & aNameIm, cPerspCamIntrCalib * aCalib)
 {
-    mCalibMap[aNameIm] = aCalib;
+    mGLOB_CalibMap[aNameIm] = aCalib;
 }
 
+/*
 void  cPhotogrammetricProjectMemory::AddSensor(const std::string & aNameIm, cSensorCamPC * aSensor)
 {
     mSensorMap[aNameIm] = aSensor;
 }
+*/
 
 void  cPhotogrammetricProjectMemory::AddHomol(const std::string & aNameIm1,
                                               const std::string & aNameIm2,
@@ -57,46 +73,75 @@ void  cPhotogrammetricProjectMemory::AddMulTieP(const std::string & aNameIm,
 
 // ==================  cIPhProj interface  ==================
 
-cPerspCamIntrCalib * DupCamAndAddDel(cPerspCamIntrCalib * aCalib)
+cPerspCamIntrCalib * cPhotogrammetricProjectMemory::DupCamAndAddDel(const std::string & aNameIm,cPerspCamIntrCalib * aCalib) const
 {
+    if (mMode==eModeBenchPhMI::eTLS)
+    {
+      //  mTLS_CalibMap
+
+         auto aIt = mTLS_CalibMap.find(aNameIm);
+         if (aIt!= mTLS_CalibMap.end())
+         {
+          //   StdOut() << "DAaaa Im=" << aIt->first << " Cam=" << aIt->second <<  " PS=" << "\n";
+             return aIt->second;
+         }
+    }
+    else if (mMode==eModeBenchPhMI::eVMTI)
+    {
+        const auto & aMap = mVecCalibMap.at(TreeThreadsBase::Id());
+        auto aIt = aMap.find(aNameIm);
+        if (aIt!= aMap.end())
+        {
+            return aIt->second;
+        }
+    }
+
     cPerspCamIntrCalib * aRes = aCalib->Duplicate();
     cMMVII_Appli::AddObj2DelAtEnd(aRes);
 
-    /*
-    for (int aK=0 ; aK<10 ; aK++)
+    if (mMode==eModeBenchPhMI::eTLS)
     {
-        cSensorCamPC aPC("",tPoseR::Identity(),aCalib);
-        cPt2dr aP1 = aPC.RandomVisiblePIm();
-        cPt3dr aB1 = aCalib->DirBundle(aP1);
-        cPt3dr aB2 = aRes->DirBundle(aP1);
-        StdOut()  << "----NNNN " << Norm2(aB1-aB2) << "\n";
-
+        mTLS_CalibMap[aNameIm]= aRes;
     }
-    */
+    else if (mMode==eModeBenchPhMI::eVMTI)
+    {
+        mVecCalibMap.at(TreeThreadsBase::Id())[aNameIm] = aRes;
+    }
     return aRes;
 }
 
 cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromStdName(const std::string aNameIm,
                                                                                bool /*isRemanent*/) const
 {
-    auto aIt = mCalibMap.find(aNameIm);
-    if (aIt == mCalibMap.end())
+    auto aIt = mGLOB_CalibMap.find(aNameIm);
+    if (aIt == mGLOB_CalibMap.end())
         MMVII_UserError(eTyUEr::eUnClassedError, "cPhotogrammetricProjectMemory: no calib for image " + aNameIm);
 
-   return DupCamAndAddDel(aIt->second);
+   return DupCamAndAddDel(aIt->first,aIt->second);
 }
 
 cPerspCamIntrCalib *  cPhotogrammetricProjectMemory::InternalCalibFromImage(const std::string & aNameIm) const
 {
-    //return InternalCalibFromStdName(aNameIm);
+   // Apparently in the Benches  ReadCamPC is always 0;  to simplify the code I return this :
+   // Before  we check that the case never happen
 
+   MMVII_INTERNAL_ASSERT_always(ReadCamPC(aNameIm, false, SVP::Yes)==0,"cPhotogrammetricProjectMemory::InternalCalibFromImage");
+
+   return InternalCalibFromStdName(aNameIm);
+
+/*  ------ PREVIOUS VERSION -----------------------------------------------
 
     cSensorCamPC * aPC = ReadCamPC(aNameIm, false, SVP::Yes);
 
     if (aPC == nullptr)
+    {
+        StdOut() << "Memory::InternalCali " << __LINE__ << "\n"; // getchar();
         return InternalCalibFromStdName(aNameIm);
-    return DupCamAndAddDel(aPC->InternalCalib());
+    }
+    StdOut() << "Memory::InternalCali " << __LINE__ << "\n"; getchar();
 
+    return DupCamAndAddDel(aPC->InternalCalib());
+*/
 }
 
 cSensorCamPC *  cPhotogrammetricProjectMemory::ReadCamPC(const std::string & aNameIm,

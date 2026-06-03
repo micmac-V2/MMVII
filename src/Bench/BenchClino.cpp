@@ -285,7 +285,7 @@ namespace MMVII
             AddGCP(aPName, aCoords, aSensorCamPC, aSetMesGCP, aSetMesPtOf1Im, aGCPSigma);
         }
         // Solve least squares
-        cMes3DDirInfo * aMes3DDirInfo = cMes3DDirInfo::addMes3DDirInfo(aBundleAdj->getGCP(),"in","out",0.0); // fixed 3d
+        cMes3DDirInfo * aMes3DDirInfo = cMes3DDirInfo::addMes3DDirInfo(aBundleAdj->getGCP(),"in","out",0.0, false); // fixed 3d
         aBundleAdj->AddGCP3D(aMes3DDirInfo, aSetMesGCP);
         cMes2DDirInfo * aMes2DDirInfo = cMes2DDirInfo::addMes2DDirInfo(aBundleAdj->getGCP(),"in",cStdWeighterResidual());
         aBundleAdj->AddGCP2D(aMes2DDirInfo, aSetMesPtOf1Im,&aNewSensorCamPC);
@@ -403,7 +403,7 @@ namespace MMVII
         
         
         // Solve least squares
-        cMes3DDirInfo * aMes3DDirInfo = cMes3DDirInfo::addMes3DDirInfo(aBundleAdj->getGCP(),"in","out",0.0); // fixed 3d
+        cMes3DDirInfo * aMes3DDirInfo = cMes3DDirInfo::addMes3DDirInfo(aBundleAdj->getGCP(),"in","out",0.0,false); // fixed 3d
         aBundleAdj->AddGCP3D(aMes3DDirInfo, aSetMesGCP);
         cMes2DDirInfo * aMes2DDirInfo = cMes2DDirInfo::addMes2DDirInfo(aBundleAdj->getGCP(),"in",cStdWeighterResidual());
         aBundleAdj->AddGCP2D(aMes2DDirInfo, aSetMesPtOf1Im,&aNewSensorCamPC);

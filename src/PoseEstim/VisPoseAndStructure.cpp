@@ -17,7 +17,7 @@ cAppli_VisuPoseStr3D::cAppli_VisuPoseStr3D(const std::vector<std::string> & aVAr
     cMMVII_Appli (aVArgs,aSpec),
     mPhProj      (*this),
     mErrProjMax  (10.0),
-    mCamScale    (1.0),
+    mCamScale    (0.1),
     mOutfile     ("VisSFM_${ori}_${features}.ply"),
     mBinary      (true)
 {
