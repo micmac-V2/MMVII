@@ -11,6 +11,43 @@ extern bool mmvii_use_mmv1_image;
 #endif
 
 
+static bool containsCaseInsensitive(const std::string& str,
+                             const std::string& search)
+{
+    return std::search(
+               str.begin(), str.end(),
+               search.begin(), search.end(),
+               [](char c1, char c2)
+               {
+                   return std::tolower(static_cast<unsigned char>(c1))
+                   == std::tolower(static_cast<unsigned char>(c2));
+               }
+               ) != str.end();
+}
+
+static bool cmd_match(const std::string& aCmd, const std::string& (cSpecMMVII_Appli::*method)() const, const std::string &descr)
+{
+    const auto &allSpecs = cSpecMMVII_Appli::VecAll();
+    std::vector<const cSpecMMVII_Appli*> matchName;
+    std::copy_if(
+        allSpecs.begin(), allSpecs.end(),
+        std::back_inserter(matchName),
+        [&](const cSpecMMVII_Appli* aSpec)
+        {
+            return containsCaseInsensitive((aSpec->*method)(), aCmd);
+        }
+    );
+    if (matchName.size()) {
+        StdOut() << "** Command '" << aCmd << "' not found, but the following commands contain '" << aCmd << "' in their " << descr << ":\n";
+        for (const auto& aSpec : matchName) {
+            StdOut()  << aSpec->Name() << " => " << aSpec->Comment() << std::endl;
+        }
+        return true;
+    }
+    return false;
+}
+
+
 
 int main(int argc, char ** argv)
 {
@@ -27,25 +64,13 @@ int main(int argc, char ** argv)
    // std::setlocale(LC_ALL, "en_US.UTF-8");
 
    cMMVII_Appli::InitMMVIIDirs(MMVII_CanonicalRootDirFromExec());
-   // Debug, print command
-#if 0
-   {
-       StdOut() << "==========COMM=====   " << std::endl;
-       for (int aK=0 ; aK<argc ; aK++)
-       {
-            if (aK) StdOut() << " ";
-            StdOut() << argv[aK];
-       }
-       StdOut() << std::endl;
-   }
-#endif
     
    if (argc>1)
    {
       std::string aNameCom = argv[1];
 
       // Recherche la specif correspondant au nom de commande
-      cSpecMMVII_Appli*  aSpec = cSpecMMVII_Appli::SpecOfName(aNameCom,true);
+      const cSpecMMVII_Appli*  aSpec = cSpecMMVII_Appli::SpecOfName(aNameCom,true);
 
       // Execute si match
       if (aSpec)
@@ -55,6 +80,20 @@ int main(int argc, char ** argv)
              aVArgs.push_back(argv[aK]);
          int aRes =  aSpec->AllocExecuteDestruct(aVArgs);
          return aRes;
+      }
+
+      // Command not found
+      if (! UCaseEqual(aNameCom,"help") && aNameCom !=  "?")
+      {
+          if (aNameCom.size() && aNameCom.back() == '?')
+          {
+              aNameCom.pop_back();
+          } else {
+              if (cmd_match(aNameCom, &cSpecMMVII_Appli::Name, "name"))
+                  return EXIT_SUCCESS;
+          }
+          if (cmd_match(aNameCom, &cSpecMMVII_Appli::Comment, "comment"))
+              return EXIT_SUCCESS;
       }
    }
 
