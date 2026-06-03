@@ -159,6 +159,24 @@ namespace MMVII
         return aInCBMask;
     }
 
+    tIm cCdTDiscr::MaskInCt(int aD)
+    {
+        tIm aInCtMask(mSamp.DIm().Sz());
+        tDIm& aDInCtMask = aInCtMask.DIm();
+        aDInCtMask.InitCste(MaskInV);
+        tDIm& aDMask = mMask.DIm();
+
+        for (const auto& aP : cRect2(aDInCtMask.Dilate(-aD)))
+        {
+            if (aDMask.GetV(aP)==MaskOutV)
+            {
+                aDInCtMask.SetV(aP, MaskOutV);
+            }
+        }
+
+        return aInCtMask;
+    }
+
 
     bool cCdTDiscr::InsideCB(cPt2dr aP, tREAL8 ext)
     {
@@ -342,7 +360,7 @@ namespace MMVII
                                                            const cSpecMMVII_Appli& aSpec):
         cMMVII_Appli    (aVArgs, aSpec),
         mPhProj         (*this),
-        mVDescr         ({}),
+        //mVDescr         ({}),
         mIm             (cPt2di(1,1)),
         mDIm            (nullptr),
         mL1Lim          (20)
@@ -504,19 +522,22 @@ namespace MMVII
         //aDis.SetInlMask(aDis.TFSm2Cr().mInlMask);
 
         //----- samp CB insidness to filter outliers
-        tIm aInCBMask = aDis.MaskInCB();
+        tIm aInCBMask = aDis.MaskInCB(true);
         aDis.SetInlMask(aInCBMask);
+
+        //tIm aInCtMask = aDis.MaskInCt(2);
+        //aDis.SetInlMask(aInCtMask);
 
         //----- least square computation of Samp to Crop 10-params mapping
         mVisu ? aDis.VisuLS10ParamSm2Cr(mPhProj.DirVisuAppli()) : aDis.LS10ParamSm2Cr();
 
         //----- pseudo-significativity test on radio bias
-        if (aDis.LSSm2Cr().mVP[3] > 80)
-        {
-            tIm aInCBExtMask = aDis.MaskInCB(true);
-            aDis.SetInlMask(aInCBExtMask);
-            mVisu ? aDis.VisuLS10ParamSm2Cr(mPhProj.DirVisuAppli()) : aDis.LS10ParamSm2Cr();
-        }
+        //if (aDis.LSSm2Cr().mVP[3] > 80)
+        //{
+        //    tIm aInCBExtMask = aDis.MaskInCB(true);
+        //    aDis.SetInlMask(aInCBExtMask);
+        //    mVisu ? aDis.VisuLS10ParamSm2Cr(mPhProj.DirVisuAppli()) : aDis.LS10ParamSm2Cr();
+        //}
 
         if (mVisu)
         {
@@ -713,7 +734,7 @@ namespace MMVII
     {
     }
 
-    cAff2D_r Descr2Aff(const cCdTDescr& aDes, cSensorCamPC* aCam)
+    /*cAff2D_r Descr2Aff(const cCdTDescr& aDes, cSensorCamPC* aCam)
     {
         const tREAL8& aR = aDes.mRes;
         std::vector<cPt2di> aVCorners = {cPt2di(0,0), cPt2di(aR,0), cPt2di(aR,aR), cPt2di(0,aR)};
@@ -730,7 +751,7 @@ namespace MMVII
         aAff = aAff.StdGlobEstimate(aVIn, aVOut, &aRes, nullptr, cParamCtrlOpt::Default());
 
         return aAff;
-    }
+    }*/
 
     std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1)
     {

@@ -6,123 +6,103 @@ namespace MMVII
 
     /**************************************************************************/
     /*
-     * cCdTDetec methods
+     * cExtract
      */
     /**************************************************************************/
 
-    cCdTDetec::cCdTDetec(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D):
-        mCam(aCam),
-        mMes(aMes),
-        mIm2Ref (aAff2D)
+    cExtract::cExtract(const cSensorCamPC *aCam, cSaveExtrEllipe aEll):
+        mCam (aCam),
+        mEll (aEll)
     {
-        //
     }
 
     /**************************************************************************/
     /*
-     * cCdTDescr methods
+     * cAugCdT
      */
     /**************************************************************************/
 
-    cCdTDescr::cCdTDescr(std::string aName, std::unique_ptr<cFullSpecifTarget>& aSpec):
-        mName           (aName),
-        mEnc            (aSpec->EncodingFromName(aName)),
-        mVBitCenters2D  (aSpec->BitsCenters())
+    cAugCdT::cAugCdT(std::string aName, std::shared_ptr<cFullSpecifTarget> aFSpec):
+        mName (aName),
+        mOKAug(false),
+        mOKInter (false),
+        mFSpec (aFSpec)
     {
-        cPt2di aSup(0,0), aInf(ToI(aSpec->Center()) * 2);
-        mVCorners = {aSup, cPt2di(aInf.x(), aSup.y()),
-                     aInf, cPt2di(aSup.x(), aInf.y())};
-        mRes = aInf.x();
     }
 
-    cCdTDescr::cCdTDescr():
-        m3DOK (false)
+    cAugCdT::cAugCdT():
+        mFSpec (nullptr)
     {
-        //
     }
 
-    void cCdTDescr::AddDetect(const cSensorCamPC* aCam, cMesIm1Pt aMes, cAff2D_r aAff2D)
+    bool cAugCdT::operator<(const cAugCdT& aAug) const
     {
-        cCdTDetec aDet(aCam, aMes, aAff2D);
-        mVDetec.push_back(aDet);
+        return mName < aAug.mName;
     }
 
-    int cCdTDescr::NbDetec(){return mVDetec.size();}
-
-    void cCdTDescr::InterGndCorners(bool& aShow)
+    void cAugCdT::AddExtract(cExtract aExt)
     {
-        for (const cPt2di& aCorn : mVCorners)
+        mVExtracts.push_back(aExt);
+    }
+
+    tU_INT1 cAugCdT::NbExtracts() const
+    {
+        return mVExtracts.size();
+    }
+
+    std::vector<cPt2dr> cAugCdT::Corners() const
+    {
+        std::vector<cPt2dr> aRes = {};
+        const cPt2dr& aC = mFSpec->Center();
+        for (const auto& aP : SqCorners) aRes.push_back(aC + cPt2dr(aC.x()*aP.x(), aC.y()*aP.y()));
+        return aRes;
+    }
+
+    std::vector<cPt3dr> cAugCdT::GndCorners() const
+    {
+        std::vector<cPt3dr> aRes = {};
+        for (const auto& aP : Corners())
         {
-            std::vector<tREAL8> aVRes = {};
-            cPt3dr aInter = CdT2GndByInter(aCorn, &aVRes);
-            mVGndCorners.push_back(aInter);
-            if (aShow)
-            {
-                StdOut() << "3D BUNDLE INTER" << aCorn << " -> " << aInter << ":\n";
-                for (decltype(aVRes.size()) ix=0; ix<aVRes.size(); ++ix)
-                {
-                    StdOut() << mVDetec[ix].mCam->NameImage() << " -> " << aVRes[ix] << '\n';
-                }
-            }
+            aRes.push_back(mRef2Gnd.Value(cPt3dr(aP.x(), aP.y(), 0)));
         }
+        return aRes;
     }
 
-    void cCdTDescr::EstimateCdT2Gnd(std::vector<cPt3dr>& aVInPts, std::vector<cPt3dr>& aVOutPts, bool& aShow)
+    void cAugCdT::Spatialize(tREAL8 aGndInterTol)
     {
+        //----- init reference/ground correspondences
+        std::vector<cPt3dr> aVMarks = {}, aVGndPts = {};
+        cStdStatRes aStatRes;//-> for intersection validation
+
+        for (const auto& aP : Corners())
+        {
+            aVMarks.push_back(cPt3dr(aP.x(), aP.y(), 0));//-> corners points planar coordinates and z=0
+            std::vector<tSeg3dr> aVBundles = {};
+            //----- intersection computation from all images extractions of current CdT
+            for (const auto& aExt : mVExtracts)
+            {
+                cPt2dr aImP = aExt.mEll.mAffIm2Ref.Inverse(aP);//-> image point
+                aVBundles.push_back(aExt.mCam->Image2Bundle(aImP));//-> camera-to-ground bundle
+            }
+            cPt3dr aGndP = BundleInters(aVBundles);//-> spatial intersection of bundles
+            aVGndPts.push_back(aGndP);//-> spatial coordinates of the mark
+            //----- intersection validation
+            for (const auto& aExt : mVExtracts)
+            {//-> ground distance between back projected ground corner and theoretical coordinates
+                cPt2dr aBackProjP = aExt.mCam->Ground2Image(aGndP);
+                cPt2dr aImP = aExt.mEll.mAffIm2Ref.Inverse(aP);
+                tREAL8 aPixD = Norm2(aImP - aBackProjP);
+                aStatRes.Add(aExt.mCam->Gen_GroundSamplingDistance(aGndP) * aPixD);
+            }
+            m3DPrec = aStatRes.Avg();
+            if (m3DPrec <= aGndInterTol) mOKInter = true;
+        }
+        //----- estimation of spatial similarity from correspondences
         tREAL8 aRes;
-        mCdT2Gnd = mCdT2Gnd.StdGlobEstimate(aVInPts, aVOutPts, &aRes, nullptr, cParamCtrlOpt::Default());
-        if (aShow)
-        {
-            StdOut() << "3D SIMIL ESTIMATE -> " << aRes << mCdT2Gnd.Tr() << '\n';
-        }
+        mRef2Gnd = mRef2Gnd.StdGlobEstimate(aVMarks, aVGndPts, &aRes, nullptr, cParamCtrlOpt::Default());
+        //----- similarity validation -> smthg with aRes ??
+        mOKAug = true;
     }
-
-    void cCdTDescr::EstimateCdT2GndOnCorners(bool& aShow)
-    {
-        std::vector<cPt3dr> aVCornersZ0 = {};
-        for (const auto& aC : mVCorners)
-        {
-            aVCornersZ0.push_back(cPt3dr(aC.x(), aC.y(), 0));
-        }
-        EstimateCdT2Gnd(aVCornersZ0, mVGndCorners, aShow);
-    }
-
-    cPt3dr cCdTDescr::CdT2GndByInter(const cPt2di& aPt, std::vector<tREAL8>* aVRes)
-    {
-        std::vector<tSeg3dr> aVBundles;
-        for (const auto& aDet : mVDetec)
-        {
-            cPt2dr aImPt = aDet.mIm2Ref.Inverse(ToR(aPt));
-            aVBundles.push_back(aDet.mCam->Image2Bundle(aImPt));
-        }
-        cPt3dr aInter = BundleInters(aVBundles);
-
-        if(aVRes)
-        {
-            for (const auto& aDet : mVDetec)
-            {
-                tREAL8 aRes = Norm2(aDet.mIm2Ref.Inverse(ToR(aPt))-aDet.mCam->Ground2Image(aInter));
-                aVRes->push_back(aRes);
-            }
-        }
-
-        return aInter;
-    }
-
-    cPt2dr cCdTDescr::Gnd2CdT(cPt3dr& aPt, const cCdTDetec& aDet)
-    {
-        cPt2dr aImPt = aDet.mCam->Ground2Image(aPt);
-        return aDet.mIm2Ref.Value(aImPt);
-    }
-
-    cPt3dr cCdTDescr::CdT2GndBySimil(cPt2di aPt)
-    {
-        return mCdT2Gnd.Value(cPt3dr(aPt.x(), aPt.y(), 0));
-    }
-
-    /*
-     * Serialization methods
-     */
 
     void cAugCdT::AddData(const cAuxAr2007& anAux)
     {
@@ -143,74 +123,40 @@ namespace MMVII
                + "."+ cMMVII_Appli::CurrentAppli().TaggedNameDefSerial();
     }
 
-    /* new stuff cAugCdT & cExtract */
-
-    cExtract::cExtract(const cSensorCamPC*& aCam, cSaveExtrEllipe aEll):
-        mCam (aCam),
-        mEll (aEll)
+    std::string cAugCdT::Show() const
     {
-        //
-    }
-
-    cAugCdT::cAugCdT(std::string aName, std::shared_ptr<cFullSpecifTarget> aFSpec):
-        mName (aName),
-        mFSpec (aFSpec)
-    {
-        //
-    }
-
-    cAugCdT::cAugCdT():
-        mFSpec (nullptr)
-    {
-    }
-
-    void cAugCdT::AddExtract(cExtract aExt)
-    {
-        mVExtracts.push_back(aExt);
-    }
-
-    tU_INT1 cAugCdT::NbExtracts() const
-    {
-        return mVExtracts.size();
-    }
-
-    std::vector<cPt2dr> cAugCdT::Corners()//-> specific to IGN Indoor CdT pattern
-    {
-        std::vector<cPt2dr> aRes = {};
-        cPt2dr aMBW = mFSpec->CornerlEl_BW();//-> middle black to white corner
-        cPt2dr aC   = cPt2dr(aMBW.x(), aMBW.x());//-> target centre
-        for (const auto& aP : SqCorners) {aRes.push_back(aC * aP);}
-        return aRes;
-    }
-
-    void cAugCdT::Spatialize()
-    {
-        //----- init reference/ground correspondences
-        std::vector<cPt3dr> aRefMarks = {}, aVGndPts = {};
-
-        for (const auto& aP : Corners())//-> space intersection of reference marks from extractions
-        {
-            aRefMarks.push_back(cPt3dr(aP.x(), aP.y(), 0));//-> corners points planar coordinates and z=0
-            std::vector<tSeg3dr> aVBundles = {};
-            for (const auto& aExt : mVExtracts)
-            {
-                cPt2dr aImP = aExt.mEll.mAffIm2Ref.Inverse(aP);//-> image point
-                aVBundles.push_back(aExt.mCam->Image2Bundle(aImP));//-> camera to ground bundle
-            }
-            cPt3dr aGndP = BundleInters(aVBundles);
-            aVGndPts.push_back(aGndP);
-        }
-        //----- estimate spatial similarity
-        mRef2Gnd = mRef2Gnd.StdGlobEstimate(aRefMarks, aVGndPts, &m3DPrec, nullptr, cParamCtrlOpt::Default());
-        mOKAug = true;
+        return "CdT: " + mName + "\t | "
+               + "Mul: " + std::to_string(NbExtracts()) + "\t | "
+               + "Inter: " + (mOKInter ? "yes" : "no") + "\t | "
+               + "3DPrec: " + (m3DPrec > 1e-6 ? std::to_string(m3DPrec) : "***") + '\n';
     }
 
 
     /**************************************************************************/
     /*
-     * cAppli_CodedTargetDescribe methods
+     * cAppli_CodedTargetDescribe
      */
     /**************************************************************************/
+
+    class cAppli_CodedTargetDescribe : public cMMVII_Appli
+    {
+    public:
+        cAppli_CodedTargetDescribe(const std::vector<std::string>& aVArgs,
+                                   const cSpecMMVII_Appli& aSpec);
+    private:
+        int Exe() override;
+        cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
+        cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
+        void VisuAugCdT(const std::vector<cAugCdT>& aVAugCdT, cSensorCamPC* aCam);
+        std::string NameVisu(const std::string & aIm, const std::string & aPref, const std::string aPost);
+        cPhotogrammetricProject             mPhProj;
+        std::string                         mSpecImIn;
+        bool                                mShow;
+        bool                                mVisu;
+        std::string                         mFSpecName;
+        std::shared_ptr<cFullSpecifTarget>  mFSpec;
+        tREAL8                              mGndInterTol;
+    };
 
     cCollecSpecArg2007& cAppli_CodedTargetDescribe::ArgObl(cCollecSpecArg2007& anArgObl)
     {
@@ -227,6 +173,8 @@ namespace MMVII
     {
         return anArgOpt
                << AOpt2007(mShow,"Show","Show useful details", {eTA2007::HDV})
+               << AOpt2007(mVisu,"Visu", "Generate vizualisation images with results", {eTA2007::HDV})
+               << AOpt2007(mGndInterTol,"GndInterTol","Ground tolerance for spatial intersection of corners", {eTA2007::HDV})
             ;
     }
 
@@ -234,9 +182,54 @@ namespace MMVII
                                                            const cSpecMMVII_Appli& aSpec):
         cMMVII_Appli(aVArgs, aSpec),
         mPhProj(*this),
-        mFSpec (nullptr)
+        mShow (false),
+        mVisu (false),
+        mFSpec (nullptr),
+        mGndInterTol (1e-2)
     {
-        //
+    }
+
+    void cAppli_CodedTargetDescribe::VisuAugCdT(const std::vector<cAugCdT>& aVAugCdT, cSensorCamPC *aCam)
+    {
+        StdOut() << "generation of: " << aCam->NameImage() << " visualization image\n";
+        cRGBImage aIm = cRGBImage::FromFile(aCam->NameImage());
+        auto aDIm = &aIm;
+        for (const auto& aAug : aVAugCdT)
+        {
+            if (!aAug.mOKInter) continue;
+            std::vector<cPt2dr> aVImP = {};
+            auto& aCol = (aAug.mOKInter ? cRGBImage::Red : cRGBImage::White);
+            tU_INT1 ix = 0;
+            for (const auto& aP : aAug.GndCorners())
+            {
+                ++ix;
+                auto& aC = mFSpec->Center();
+                auto aImC = aCam->Ground2Image(aAug.mRef2Gnd.Value(cPt3dr(aC.x(), aC.y(), 0)));
+                auto aImP = aCam->Ground2Image(aP);
+                aVImP.push_back(aImP);
+                if (aDIm->InsideBL(aImP))
+                {
+                    aDIm->DrawCircle(aCol, aImP, 5);
+                    aDIm->DrawString(std::to_string(ix), cRGBImage::White, aImP, cPt2dr(0,0));
+                    aDIm->DrawLine(aImP + cPt2dr(0,5), aImP + cPt2dr(0,-5), aCol, 0.5);
+                    aDIm->DrawLine(aImP + cPt2dr(5,0), aImP + cPt2dr(-5,0), aCol, 0.5);
+                    aDIm->DrawString(aAug.mName, cRGBImage::White, aImC, cPt2dr(0,0));
+                }
+            }
+            aDIm->DrawLine(aVImP[0], aVImP[1], cRGBImage::White, 0.5);
+            aDIm->DrawLine(aVImP[1], aVImP[2], cRGBImage::White, 0.5);
+            aDIm->DrawLine(aVImP[2], aVImP[3], cRGBImage::White, 0.5);
+            aDIm->DrawLine(aVImP[3], aVImP[0], cRGBImage::White, 0.5);
+
+        }
+        aIm.ToFile(NameVisu(aCam->NameImage(), "Marks", ""));
+    }
+
+    std::string cAppli_CodedTargetDescribe::NameVisu(const std::string & aIm, const std::string & aPref, const std::string aPost)
+    {
+        std::string aRes = mPhProj.DirVisuAppli() +  aPref +"-" + LastPrefix(FileOfPath(aIm));
+        if (aPost!="") aRes = aRes + "-"+aPost;
+        return aRes + ".tif";
     }
 
     int cAppli_CodedTargetDescribe::Exe()
@@ -246,7 +239,8 @@ namespace MMVII
         std::vector<std::string> aVIm = VectMainSet(0);
         mFSpec = std::shared_ptr<cFullSpecifTarget>(cFullSpecifTarget::CreateFromFile(mFSpecName));
 
-        //----- single image processing: init mVAugCdT
+        //----- single image processing: init aVAugCdT
+        std::vector<cAugCdT> aVAugCdT = {};
         std::vector<std::string> aVNOriIm = {};//-> not oriented images
 
         for (const std::string& aIm : aVIm)
@@ -255,16 +249,16 @@ namespace MMVII
             if (aCam == nullptr)//-> checks if image has been oriented
                 {
                     aVNOriIm.push_back(aIm);
-                    continue;//-> reject image
+                    continue;//-> reject image measurements
                 }
 
-            std::vector<cSaveExtrEllipe> aVEll;//-> saved ellipses extrinsics from target extraction
+            std::vector<cSaveExtrEllipe> aVEll;//-> load saved ellipses extrinsics from target extraction
             ReadFromFile(aVEll, cSaveExtrEllipe::NameFile(mPhProj, mPhProj.LoadMeasureIm(aIm), true));
 
             for (const cSaveExtrEllipe& aEll : aVEll)
             {
                 bool isOK = false;
-                for (cAugCdT& aCdT : mVAugCdT)//-> look if AugCdT has already been created
+                for (cAugCdT& aCdT : aVAugCdT)//-> look if AugCdT has already been created
                 {
                     if (aCdT.mName == aEll.mNameCode)//-> corresponding AugCdT already exists
                     {
@@ -273,38 +267,43 @@ namespace MMVII
                         break;
                     }
                 }
-                (void) isOK;
 
                 if (!isOK && !starts_with(aEll.mNameCode, MMVII_NONE))//-> if not found
                 {
-                    cAugCdT aCdT(aEll.mNameCode, mFSpec);//-> new AugCdT !! SEGMENTATION FAULT !!
+                    cAugCdT aCdT(aEll.mNameCode, mFSpec);//-> new AugCdT
                     aCdT.AddExtract(cExtract(aCam, aEll));//-> add extraction from current image
-                    mVAugCdT.push_back(aCdT);
+                    aVAugCdT.push_back(aCdT);
                 }
             }
         }
 
-        if (mShow) StdOut() << "rejected images (no orientation) : " << aVNOriIm
-                     << '\n' << aVNOriIm.size() << '/' << aVIm.size() << '\n';
+        StdOut() << "-----\n"
+                 << "rejected images (no orientation): " << aVNOriIm << '\n'
+                << "--> " << aVNOriIm.size() << '/' << aVIm.size() << '\n'
+                << "-----\n";
+
+        sort(aVAugCdT.begin(), aVAugCdT.end());//-> sort vector on target names
 
         //------ CdT spatialization
-        std::vector<cAugCdT> aVOKAugCdT = {};//-> for details
+        std::vector<cAugCdT> aVOKAugCdT = {};//-> OK augmented CdT
 
-        for (auto& aCdT : mVAugCdT)
+        for (cAugCdT& aCdT : aVAugCdT)
         {
-            if (mShow) StdOut() << "CdT " << aCdT.mName;
-            if (aCdT.NbExtracts() <= 3)
-            {
-                if (mShow) StdOut() << "-> Not OK (not enough measurements)\n";
-                continue;
-            }
-            aCdT.Spatialize();
-            if (mShow && aCdT.mOKAug)
-            {
-                StdOut() << "-> OK: " << aCdT.m3DPrec << '\n';
-                aVOKAugCdT.push_back(aCdT);
-            }
+            if (aCdT.NbExtracts() <= 3) continue;//-> no intersection with < 4 bundles
+            aCdT.Spatialize(mGndInterTol);//-> spatial properties computation
+            if (aCdT.mOKAug) aVOKAugCdT.push_back(aCdT);
         }
+
+        if (mShow) for (const auto& aCdT : aVAugCdT) StdOut() << aCdT.Show();
+        StdOut() << "--> network augmentation: " << aVOKAugCdT.size()
+                 << '/' << aVAugCdT.size() << '\n';
+
+        if (mVisu) for (const std::string& aIm : aVIm)
+            {
+                auto aCam = mPhProj.ReadCamPC(aIm, true, true);
+                if (aCam == nullptr) continue;
+                VisuAugCdT(aVOKAugCdT, aCam);
+            }
 
         //----- save result
         SaveInFile(aVOKAugCdT, cAugCdT::NameFile(mPhProj, false));//-> export to Aug-?.xml
@@ -323,7 +322,7 @@ namespace MMVII
         (
             "CodedTargetDescribe",
             Alloc_CodedTargetDescribe,
-            "Generates coded target 3D description from poses & images measurements",
+            "Computes coded target 3D spatial properties from poses & images measurements",
             //metadonnees
             {eApF::Ori,eApF::GCP},//features
             {eApDT::ObjCoordWorld, eApDT::ObjMesInstr},//inputs

@@ -114,7 +114,7 @@ namespace MMVII
         //------ members
         std::string                         mFSpecName; //-> full specification file name
         std::unique_ptr<cFullSpecifTarget>  mFSpec;     //-> full specification object
-        std::vector<cCdTDescr>              mVDescr;    //-> descriptions from Describe
+        //std::vector<cCdTDescr>              mVDescr;    //-> descriptions from Describe
         tIm                                 mIm;        //-> current image
         tDIm*                               mDIm;       //-> current image data
         cSensorCamPC*                       mCam;       //-> current camera
@@ -149,6 +149,7 @@ namespace MMVII
         void                        LS10ParamSm2Cr();//-> computes mSm2Cr mapping as a 10 parameters model
         void                        VisuLS10ParamSm2Cr(const std::string &aDir);//-> computes mSm2Cr mapping as a 10 parameters model
         tIm                         MaskInCB(bool ext=false);//-> computes Mask for pixels that are in checkboard pattern
+        tIm                         MaskInCt(int aD);
 
         cPt2dr                      Ref2Im(cPt2dr aPt, bool inv=false);//-> get input image coordinate from a point of MMVII generated CdT image
         std::vector<cPt2dr>         VRef2Im(std::vector<cPt2dr> aVPts, bool inv=false);//-> Ref2Im for a point vector
@@ -210,5 +211,5 @@ namespace MMVII
 
     cPixBox<2>          BBox(std::vector<cPt2dr> aVPts, int aMin=0, int aMax=100000);//-> computes bounding box from a point vector
     std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1);//-> gets corners of a rectangle formed by aP0/aP1
-    cAff2D_r            Descr2Aff(const cCdTDescr& aDes, cSensorCamPC* aCam);//-> converts description to 2d affinity
+    //cAff2D_r            Descr2Aff(const cCdTDescr& aDes, cSensorCamPC* aCam);//-> converts description to 2d affinity
 }
