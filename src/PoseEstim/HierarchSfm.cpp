@@ -143,6 +143,8 @@ int cAppli_HierarchSfm::Exe()
                 cSetHomogCpleIm aCpleH;
                 aCpleH.AddPairSet(*aSetM1,*aSetM2);
                 if (aCpleH.NbH() > 0)
+                    aMIIH.Add(aCpleH,aSortedIm[aK1],aSortedIm[aK2]);
+            }
         }
         aMk3.InitTPtsStruct(new cComputeMergeMulTieP(aSortedIm,&aMIIH));
     }
