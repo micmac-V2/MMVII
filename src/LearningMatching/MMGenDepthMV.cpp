@@ -9,6 +9,8 @@
 #include "LearnDM.h"
 #include "MMVII_AllClassDeclare.h"
 #include "MMVII_Interpolators.h"
+#include "MMVII_PointCloud.h"
+#include "../Mesh/cColorateCloud.h"
 
 //static int NODATA=-9999;
 
@@ -731,7 +733,7 @@ void cAppliMMGenDepthMV::Generate_sparse_depth(std::string aNameImage,
   }
 
 
-  int cAppliMMGenDepthMV::Exe()
+  /*int cAppliMMGenDepthMV::Exe()
   {
       mPhProj.FinishInit();
 
@@ -798,23 +800,59 @@ void cAppliMMGenDepthMV::Generate_sparse_depth(std::string aNameImage,
               //mCamPC=mPhProj.ReadCamPC(anImageName,true);
 
                // densify
-              /*if (RunMultiSet(0,0))
-                  return ResultMultiSet();*/
+              //if (RunMultiSet(0,0))
+              //    return ResultMultiSet();
 
               APBI_ExecAll();
           }
 
     }
 
-
-
       return EXIT_SUCCESS;
-  }
+  }*/
 
 
  // Test MulScaledInterpolator
 
+int cAppliMMGenDepthMV::Exe()
+    {
+        mPhProj.FinishInit();
 
+        tREAL8 mSensDownSample=2.0;
+        tREAL8 mSurResCloud=2.0;
+    
+        // image names pattern
+        std::vector<std::string> aVecIms= VectMainSet(0);
+
+        // read cloud 
+        cPointCloud   aPC_In ;
+        ReadFromFile(aPC_In,mPatternLidar);
+
+        cProjPointCloud  aPPC(aPC_In,1.0);
+
+        std::string aDirIm = mPhProj.DirVisu() + "/DepthMapForImage/";
+
+        for (const auto & aNameImage : aVecIms)
+        {
+            mCamPC=mPhProj.ReadCamPC(aNameImage,true);
+            std::string aGenImageName = aDirIm + "Gen_" + LastPrefix(aNameImage) + ".tif";
+
+            //compute depth map from cloud
+
+            aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,*mCamPC,0.0,true,"",false,false); // HERE
+
+            cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud*mSensDownSample,*mCamPC);
+
+            aResIm.mImRadiom.DIm().ToFile(aDirIm+aNameImage);
+            //#aResIm.mImWeight.DIm().ToFile(aDirIm+aPrefix+"Weight-"+".tif");
+            aResIm.mImDepth.DIm().ToFile (aDirIm+"Depth-"+LastPrefix(aNameImage)+".tif");
+        }
+        return EXIT_SUCCESS;
+
+    }
+
+
+/*
   int cAppliMMGenDepthMV::ExeScale()
   {
       mPhProj.FinishInit();
@@ -849,7 +887,8 @@ void cAppliMMGenDepthMV::Generate_sparse_depth(std::string aNameImage,
       delete mInterp;
 
       return EXIT_SUCCESS;
-  }
+  }*/
+
 
 };
 

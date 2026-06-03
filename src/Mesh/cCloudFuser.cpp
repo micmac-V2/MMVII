@@ -365,9 +365,6 @@ void cAppliCloudFuser::FuseDemsByMedian( std::vector<cIm2D<tREAL4>> & aVDems,
         aMergedCorrel.DIm().SetV(aPix,aCorrel);
         aMergedMask.DIm().SetV(aPix,aNb>0 ? 1 : 0);
     }
-
-
-
 }
 
 
