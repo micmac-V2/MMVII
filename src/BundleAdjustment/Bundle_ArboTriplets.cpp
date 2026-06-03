@@ -1,8 +1,60 @@
 #include "BundleAdjustment.h"
 #include "../src/Graphs/ArboTriplets.h"
 
+#include <latch>
+#include <barrier>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+
+struct Barrier {
+    int n, count = 0, generation = 0;
+    std::mutex m;
+    std::condition_variable cv;
+
+    explicit Barrier(int n) : n(n) {}
+
+    void wait() {
+        std::unique_lock lock(m);
+        int gen = generation;
+        if (++count == n) {
+            ++generation;
+            count = 0;
+            cv.notify_all();
+        } else {
+            cv.wait(lock, [&]{ return generation != gen; });
+        }
+    }
+};
+
+
+
 namespace MMVII
 {
+
+/*
+class cThreadCreateSim
+{
+    public :
+     
+    private :
+};
+*/
+
+Barrier aBar(5);
+
+void MThreadForcConcurenceLock()
+{
+  if (!UserIsMPD()) return;
+ // static int aCpt=0;
+
+  aBar.wait();
+
+  std::cout << "LTTTT " << TreeThreadsBase::Id() << " MPD?=" << UserIsMPD() << "\n";
+}
+
+
+
 
 /* ********************************************************* */
 /*                                                           */
@@ -157,6 +209,7 @@ void cBA_ArboTriplets::OneIteration(int aIter)
 
                 // handle visibility
                 //
+              //   MThreadForcConcurenceLock();
                 tREAL8 aDegVis = aCam->DegreeVisibility(aP3D);
                 if (aDegVis > 0.0)
                 {
