@@ -147,12 +147,12 @@ namespace MMVII
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
-        void VisuAugCdT(const std::vector<cAugCdT>& aVAugCdT, cSensorCamPC* aCam);
+        void VisuAugCdT(const std::vector<cAugCdT>& aVAugCdT, cSensorCamPC* aCam, std::string StrV="J");
         std::string NameVisu(const std::string & aIm, const std::string & aPref, const std::string aPost);
         cPhotogrammetricProject             mPhProj;
         std::string                         mSpecImIn;
         bool                                mShow;
-        bool                                mVisu;
+        std::vector<std::string>            mVisu;
         std::string                         mFSpecName;
         std::shared_ptr<cFullSpecifTarget>  mFSpec;
         tREAL8                              mGndInterTol;
@@ -172,9 +172,9 @@ namespace MMVII
     cCollecSpecArg2007 & cAppli_CodedTargetDescribe::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     {
         return anArgOpt
-               << AOpt2007(mShow,"Show","Show useful details", {eTA2007::HDV})
-               << AOpt2007(mVisu,"Visu", "Generate vizualisation images with results", {eTA2007::HDV})
                << AOpt2007(mGndInterTol,"GndInterTol","Ground tolerance for spatial intersection of corners", {eTA2007::HDV})
+               << AOpt2007(mShow,"Show","Show useful details", {eTA2007::HDV})
+               << AOpt2007(mVisu,"Visu", "Generate visualisation images with results [StrV(J-peg, T-iff), PatImV]", {{eTA2007::HDV, "['','*']"}})
             ;
     }
 
@@ -183,46 +183,43 @@ namespace MMVII
         cMMVII_Appli(aVArgs, aSpec),
         mPhProj(*this),
         mShow (false),
-        mVisu (false),
+        mVisu ({"","*"}),
         mFSpec (nullptr),
         mGndInterTol (1e-2)
     {
     }
 
-    void cAppli_CodedTargetDescribe::VisuAugCdT(const std::vector<cAugCdT>& aVAugCdT, cSensorCamPC *aCam)
+    void cAppli_CodedTargetDescribe::VisuAugCdT(const std::vector<cAugCdT>& aVAugCdT, cSensorCamPC *aCam, std::string StrV)
     {
         StdOut() << "generation of: " << aCam->NameImage() << " visualization image\n";
         cRGBImage aIm = cRGBImage::FromFile(aCam->NameImage());
         auto aDIm = &aIm;
+        aDIm->ResetGray();
         for (const auto& aAug : aVAugCdT)
         {
             if (!aAug.mOKInter) continue;
             std::vector<cPt2dr> aVImP = {};
-            auto& aCol = (aAug.mOKInter ? cRGBImage::Red : cRGBImage::White);
-            tU_INT1 ix = 0;
+            auto& aCol = (aAug.mOKInter ? cRGBImage::Red : cRGBImage::Cyan);
+            //tU_INT1 ix = 0;
             for (const auto& aP : aAug.GndCorners())
             {
-                ++ix;
-                auto& aC = mFSpec->Center();
-                auto aImC = aCam->Ground2Image(aAug.mRef2Gnd.Value(cPt3dr(aC.x(), aC.y(), 0)));
+                //++ix;
                 auto aImP = aCam->Ground2Image(aP);
-                aVImP.push_back(aImP);
                 if (aDIm->InsideBL(aImP))
                 {
-                    aDIm->DrawCircle(aCol, aImP, 5);
-                    aDIm->DrawString(std::to_string(ix), cRGBImage::White, aImP, cPt2dr(0,0));
-                    aDIm->DrawLine(aImP + cPt2dr(0,5), aImP + cPt2dr(0,-5), aCol, 0.5);
-                    aDIm->DrawLine(aImP + cPt2dr(5,0), aImP + cPt2dr(-5,0), aCol, 0.5);
-                    aDIm->DrawString(aAug.mName, cRGBImage::White, aImC, cPt2dr(0,0));
+                    aDIm->DrawFiducial(aImP, cPt2dr(8,8), 5, aCol, .1);
+                    //aDIm->DrawString(std::to_string(ix), cRGBImage::Green, aImP, cPt2dr(1,0));
                 }
+                //aVImP.push_back(aImP);
             }
-            aDIm->DrawLine(aVImP[0], aVImP[1], cRGBImage::White, 0.5);
-            aDIm->DrawLine(aVImP[1], aVImP[2], cRGBImage::White, 0.5);
-            aDIm->DrawLine(aVImP[2], aVImP[3], cRGBImage::White, 0.5);
-            aDIm->DrawLine(aVImP[3], aVImP[0], cRGBImage::White, 0.5);
-
+            auto& aC = mFSpec->Center();
+            auto aImC = aCam->Ground2Image(aAug.mRef2Gnd.Value(cPt3dr(aC.x(), aC.y(), 0)));
+            if (aDIm->InsideBL(aImC)) aDIm->DrawString(aAug.mName, aCol, aImC, cPt2dr(0.5,0.05));
+            //aDIm->DrawPolygon(aVImP, cRGBImage::White, .5);
         }
-        aIm.ToFile(NameVisu(aCam->NameImage(), "Marks", ""));
+        std::string aNameV = NameVisu(aCam->NameImage(), "Marks", "");
+        StrV == "J" ? aIm.ToJpgFileDeZoom(aNameV, 1, {"QUALITY=90"}) : aIm.ToFile(aNameV);
+
     }
 
     std::string cAppli_CodedTargetDescribe::NameVisu(const std::string & aIm, const std::string & aPref, const std::string aPost)
@@ -294,16 +291,22 @@ namespace MMVII
             if (aCdT.mOKAug) aVOKAugCdT.push_back(aCdT);
         }
 
+        //----- show results & generate visualisation
         if (mShow) for (const auto& aCdT : aVAugCdT) StdOut() << aCdT.Show();
         StdOut() << "--> network augmentation: " << aVOKAugCdT.size()
                  << '/' << aVAugCdT.size() << '\n';
 
-        if (mVisu) for (const std::string& aIm : aVIm)
+        if (mVisu[0] != "")
+        {
+            tNameSelector aSel = AllocRegex(mVisu[1]);
+            for (const std::string& aIm : aVIm)
             {
                 auto aCam = mPhProj.ReadCamPC(aIm, true, true);
                 if (aCam == nullptr) continue;
-                VisuAugCdT(aVOKAugCdT, aCam);
+                if (aSel.Match(aIm)) VisuAugCdT(aVOKAugCdT, aCam, mVisu[0]);
             }
+        }
+
 
         //----- save result
         SaveInFile(aVOKAugCdT, cAugCdT::NameFile(mPhProj, false));//-> export to Aug-?.xml

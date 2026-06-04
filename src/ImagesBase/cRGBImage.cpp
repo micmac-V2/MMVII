@@ -408,6 +408,21 @@ void cRGBImage::DrawLine(const cPt2dr & aP1,const cPt2dr & aP2,const cPt3di & aC
     }
 }
 
+void cRGBImage::DrawFiducial(const cPt2dr& aP1, const cPt2dr& aP2, tREAL8 aRay, const cPt3di& aCoul, tREAL8 aWidth)
+{
+    DrawCircle(aCoul, aP1, aRay);
+    DrawLine(cPt2dr(-aP2.x(), aP1.y()), cPt2dr(aP2.x(), aP1.y()), aCoul, aWidth);//-> horizontal
+    DrawLine(cPt2dr(aP1.x(), -aP2.y()), cPt2dr(aP1.x(), aP2.y()), aCoul, aWidth);//-> vertical
+}
+
+void cRGBImage::DrawPolygon(const std::vector<cPt2dr>& aVPts, const cPt3di& aCoul, tREAL8 aWidth, bool IsClosed)
+{
+    for (decltype(aVPts.size()) ix=0; ix<aVPts.size()-1; ++ix)
+    {
+        DrawLine(aVPts[ix], aVPts[ix+1], aCoul, aWidth);
+    }
+    if (IsClosed) DrawLine(aVPts.back(), aVPts.front(), aCoul, aWidth);
+}
 std::vector<cPt3di>  cRGBImage::LutVisuLabRand(int aNbLab)
 {
     int aNbByC = round_up(std::sqrt(aNbLab));
