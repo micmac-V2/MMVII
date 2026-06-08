@@ -249,6 +249,8 @@ public :
     int                 & NbExtraIterAtRoot() { return mNbExtraIterAtRoot;}
     int                   NbExtraIterAtRoot() const { return mNbExtraIterAtRoot;}
 
+    cPerspCamIntrCalib *  InternalCalibFromNameImage(const std::string aNameIm) const;
+
 
 private :
 

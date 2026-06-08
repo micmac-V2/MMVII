@@ -632,9 +632,7 @@ void cNodeArborTriplets::SaveGlobSol(const std::string & aPrefix) const
 
         //StdOut() << "== " << aSol.mPose.Tr() << std::endl;
 
-       // cPerspCamIntrCalib *  aCalib = mPMAT->PhProj().InternalCalibFromImage(mPMAT->MapI2Str(aSol.mNumPose));// mPMAT->PhProj().InternalCalibFromStdName(mPMAT->MapI2Str(aSol.mNumPose));
-        cPerspCamIntrCalib *  aCalib = mPMAT->PhProj().InternalCalibFromStdName(mPMAT->MapI2Str(aSol.mNumPose));// mPMAT->PhProj().InternalCalibFromStdName(mPMAT->MapI2Str(aSol.mNumPose));
-
+        cPerspCamIntrCalib *  aCalib = mPMAT->InternalCalibFromNameImage(mPMAT->MapI2Str(aSol.mNumPose));
 
         cSensorCamPC aCam(aCurImName,aSol.mPose,aCalib); //mmv2 convention
         mPMAT->PhProj().SaveCamPC(aCam);
@@ -1012,6 +1010,14 @@ void cMakeArboTriplet::ShowStat()
    StdOut() << "\n";
 }
 
+cPerspCamIntrCalib *  cMakeArboTriplet::InternalCalibFromNameImage(const std::string aNameIm) const
+{
+   if (true)
+       return mPhProj.InternalCalibFromImage(aNameIm);
+    return mPhProj.InternalCalibFromStdName(aNameIm);// mPhPr
+}
+
+
 void cMakeArboTriplet::SaveGlobSol() const
 {
 
@@ -1022,10 +1028,7 @@ void cMakeArboTriplet::InitialiseCalibs()
 {
     for (size_t aKIm=0 ; aKIm<mMapStrI.size() ; aKIm++)
     {
-        //StdOut() << *mMapStrI.I2Obj(aKIm) << std::endl; InternalCalibFromImage
-       // cPerspCamIntrCalib *   aCal = mPhProj.InternalCalibFromImage(*mMapStrI.I2Obj(aKIm));// mPhProj.InternalCalibFromStdName(*mMapStrI.I2Obj(aKIm));
-        cPerspCamIntrCalib *   aCal = mPhProj.InternalCalibFromStdName(*mMapStrI.I2Obj(aKIm));// mPhProj.InternalCalibFromStdName(*mMapStrI.I2Obj(aKIm));
-
+        cPerspCamIntrCalib *   aCal =InternalCalibFromNameImage(*mMapStrI.I2Obj(aKIm));
         FakeUseIt(aCal);
     }
 }
@@ -1047,7 +1050,7 @@ void cMakeArboTriplet::ConvertTPtsToBundles()
         for (int aKIm=0; aKIm<NbIm; aKIm++)
         {
           //  cPerspCamIntrCalib * aCal = mPhProj.InternalCalibFromImage(aVNames[aConf[aKIm]]); MPD
-            cPerspCamIntrCalib * aCal = mPhProj.InternalCalibFromStdName(aVNames[aConf[aKIm]]);
+            cPerspCamIntrCalib * aCal = InternalCalibFromNameImage(aVNames[aConf[aKIm]]);
 
 
             std::vector<cPt3dr> aOutBundles;
