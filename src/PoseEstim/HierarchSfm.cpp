@@ -85,7 +85,7 @@ cCollecSpecArg2007 & cAppli_HierarchSfm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            <<  AOpt2007(mFacElim,"FacElim","Outlier threshold=(FacElim*SigmaTPt)",{eTA2007::Tuning})
            <<  AOpt2007(mNbIterBA,"NbIterBA","Number of iteration in BA refinement",{eTA2007::HDV})
            <<  AOpt2007(mNbExtraIterAtRoot,"NbExtraIter",
-                       "Extra BA iterations at root node (all images)",{eTA2007::HDV})
+                       "Extra BA iterations at root node (all images)",{eTA2007::Tuning})
         ;
 }
 
@@ -108,8 +108,8 @@ int cAppli_HierarchSfm::Exe()
     aCfg.mLVM      = mLVM;
     aCfg.mNbIterBA = mNbIterBA;
     aCfg.mNbExtraIterAtRoot = mNbExtraIterAtRoot;
-    aCfg.mSigmaTPt = IsInit(&mSigmaTPt) ? mSigmaTPt : aQScoreStats.ErrAtProp(0.75);
-    aCfg.mFacElim  = IsInit(&mFacElim)  ? mFacElim  : 4.0*aQScoreStats.ErrAtProp(0.75);
+    aCfg.mSigmaTPt = IsInit(&mSigmaTPt) ? mSigmaTPt : std::max(1.0,aQScoreStats.ErrAtProp(0.75));
+    aCfg.mFacElim  = IsInit(&mFacElim)  ? mFacElim  : std::max(5.0,4.0*aQScoreStats.ErrAtProp(0.75));
     if (IsInit(&mViscPose))
         aCfg.mViscPose = mViscPose;
 
@@ -151,27 +151,21 @@ int cAppli_HierarchSfm::Exe()
 
     TimeSegm().SetIndex("MakeGraphPose");
     aMk3.MakeGraphPose();
-    //StdOut() << "MakeGraphPose DONE" << std::endl;
 
     TimeSegm().SetIndex("InitialiseCalibs");
     aMk3.InitialiseCalibs();
-    //StdOut() << "InitialiseCalibs DONE" << std::endl;
 
     TimeSegm().SetIndex("PoseRef");
     aMk3.DoPoseRef();
-    //StdOut() << "DoPoseRef DONE" << std::endl;
 
     TimeSegm().SetIndex("MakeCnxTriplet");
     aMk3.MakeCnxTriplet();
-    //StdOut() << "MakeCnxTriplet DONE" << std::endl;
 
     TimeSegm().SetIndex("TripletWeighting");
     aMk3.MakeWeightingGraphTriplet();
-    //StdOut() << "MakeWeightingGraphTriplet DONE" << std::endl;
 
     TimeSegm().SetIndex("ComputeArbor");
     aMk3.ComputeArbor();
-    //StdOut() << "ComputeArbor DONE" << std::endl;
 
     if (mPhProj.DPOrient().DirOutIsInit())
     {
@@ -181,7 +175,7 @@ int cAppli_HierarchSfm::Exe()
 
 
     aMk3.ShowStat();
-
+    //aCfg.Show();
 
     return EXIT_SUCCESS;
 }
