@@ -10,6 +10,7 @@
 #include "MMVII_ImageInfoExtract.h"
 #include "MMVII_2Include_CSV_Serial_Tpl.h"
 #include "../SymbDerGen/Formulas_CentralProj.h"
+#include "MMVII_Interpolators.h"
 
 
 namespace MMVII
@@ -718,6 +719,52 @@ cPt3dr cStaticLidar::Image2Ground(const cPt2dr & aRasterPx) const
 }
 
 
+/// normal in sensor frame
+cPt3dr cStaticLidar::Image2NormalInstr(const cPt2dr & aRasterPx, const cDiffInterpolator1D & aInterp) const
+{
+    //std::cout<<"normal for im pt "<<aRasterPx<<"\n";
+    //std::cout<<"gnd pt "<<Image2Ground(aRasterPx)<<"\n";
+    //std::cout<<"instr vect "<<Image2Camera3D(aRasterPx)<<"\n";
+    //std::cout<<"TPD vect "<<Image2ThetaPhiDist(aRasterPx)<<"\n";
+
+    // all computation is done in Raster frame
+    cDataGenUnTypedIm<2> & aGenDImDist = getRasterDistance();
+    auto [aDist, aDistGr] = aGenDImDist.GetValueAndGradInterpol(aInterp,aRasterPx);
+    auto aTPD = Image2ThetaPhiDist(aRasterPx);
+    // differencial of cartesian point regarding theta and phi
+    // x = d cos(phi) sin(theta)
+    // y = d sin(phi)
+    // z = d cos(phi) cos(theta)
+
+    //std::cout<<"recalcul instr "<<aTPD.z() * cos(aTPD.y()) * sin(aTPD.x())
+    //    <<" "<<aTPD.z() * sin(aTPD.y())<<" "<<aTPD.z() * cos(aTPD.y()) * cos(aTPD.x())<<"\n";
+
+
+    tREAL8 aDiffDistTheta = aDistGr.x() * InternalCalib()->F();
+    tREAL8 aDiffDistPhi   = aDistGr.y() * InternalCalib()->F();
+    cPt3dr aDiffPtTheta(
+        aTPD.z() * cos(aTPD.y()) * cos(aTPD.x()) + aDiffDistTheta * cos(aTPD.y()) * sin(aTPD.x()),
+        aDiffDistTheta * sin(aTPD.y()),
+        -aTPD.z() * cos(aTPD.y()) * sin(aTPD.x()) + aDiffDistTheta * cos(aTPD.y()) * cos(aTPD.x())
+        );
+    cPt3dr aDiffPtPhi(
+        -aTPD.z() * sin(aTPD.y()) * sin(aTPD.x()) + aDiffDistPhi * cos(aTPD.y()) * sin(aTPD.x()),
+        aTPD.z() * cos(aTPD.y()) + aDiffDistPhi * sin(aTPD.y()),
+        -aTPD.z() * sin(aTPD.y()) * cos(aTPD.x()) + aDiffDistPhi * cos(aTPD.y()) * cos(aTPD.x())
+        );
+    cPt3dr aN = aDiffPtTheta ^ aDiffPtPhi;
+    tREAL8 aNNorm = Norm2(aN);
+    if (aNNorm>0.)
+        aN = aN / aNNorm;
+    //std::cout<<"Dist v dx dy "<<aDist<<" "<<aDiffDistTheta<<" "<<aDiffDistPhi<<"\n";
+    //std::cout<<"Normal in Raster frame: "<<aN<<"\n";
+    //std::cout<<"Normal in Ground frame: "<<Pose().Rot().Value(aN)<<"\n";
+
+
+    // test with std::pair<cPlane3D,tREAL8> LSQEstimate(co
+    return aN;
+}
+
 
 
 void cStaticLidar::TriangulateRegular(const std::string & aVisuPath, int aFactor)
@@ -1353,10 +1400,11 @@ void cStaticLidar::MakePatches
     (std::list<cLidarRasterPatch> &aLPatches,
      const std::vector<cSensorCamPC *> & aVCam,
      int    aNbPointByPatch,
-     int    aSzMin
+     int    aSzMin,
+     const cDiffInterpolator1D & aInterp
      ) const
 {
-    StdOut() << "MakePatches\n";
+    //StdOut() << "MakePatches\n";
     MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
     auto & aRasterDistData = mRasterDistance->DIm();
     auto & aRasterMaskData = mRasterMask->DIm();
@@ -1367,7 +1415,13 @@ void cStaticLidar::MakePatches
         for (size_t i=0; i<mPatchCenters.size(); ++i)
         {
             auto & aCenter = mPatchCenters[i];
-            aLPatches.push_back({i, {aCenter}, {}});
+            auto aCenterR = cPt2dr(aCenter.x(),aCenter.y());
+            if (getRasterDistance().InsideInterpolator(aInterp,aCenterR,1.0))  // is it sufficiently inside
+            {
+                auto aN = Image2NormalInstr(aCenterR, aInterp);
+                aLPatches.push_back({i, {aCenter}, {}, aN});
+                //std::cout<<"make patch "<<aCenter<<" N="<<aN<<"\n";
+            }
         }
         return;
     }
@@ -1378,6 +1432,9 @@ void cStaticLidar::MakePatches
     for (size_t i=0; i<mPatchCenters.size(); ++i)
     {
         auto & aCenter = mPatchCenters[i];
+        auto aCenterR = cPt2dr(aCenter.x(),aCenter.y());
+        if (!getRasterDistance().InsideInterpolator(aInterp,aCenterR,1.0))  // is it sufficiently inside
+            continue;
         //search for average GndPixelSize
         aVectGndPixelSize.clear();
         cPt3dr aGndCenter = Image2Ground(aCenter);
@@ -1450,7 +1507,9 @@ void cStaticLidar::MakePatches
         // some requirement on minimal size
         if ((int)aPatchPts.size() > aSzMin)
         {
-            aLPatches.push_back({i, aPatchPts, {}});
+            auto aN = Image2NormalInstr(aCenterR, aInterp);
+            aLPatches.push_back({i, aPatchPts, {}, aN});
+            //std::cout<<"make patch "<<aCenter<<" N="<<aN<<"\n";
         #ifdef NUMMAKEPATCHDEBUG
             if (i==NUMMAKEPATCHDEBUG)
             {

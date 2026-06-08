@@ -206,14 +206,15 @@ A measurement line is composed by:
     \item station name
     \item target name
     \item measurement value (in meters for distances, in gon for angles)
-    \item measurement \textit{a priori} $\sigma$ (in meters for distances, in gon for angles)
+    \item measurement \textit{a priori} absolute precision $\sigma_{abs}$ (in meters for distances, in gon for angles)
+    \item optinal \textit{a priori} relative precision $\sigma_{rel}$
     \item anything else is ignored until the end of the line
 \end{itemize}
 
-Example of an \texttt{OBS} line describing a measured distance of 100.0000 m, with a $\sigma$ of 1 mm from \texttt{PointA} to \texttt{PointB}:
+Example of an \texttt{OBS} line describing a measured distance of 100.0000 m, with a $\sigma$ of 1 mm + 1 PPM from \texttt{PointA} to \texttt{PointB}:
 
 \begin{lstlisting}
-    3   PointA    PointB    100.0000    0.001    * comment
+    3   PointA    PointB    100.0000    0.001   0.000001 * comment
 \end{lstlisting}
 
 The observations codes are:
@@ -228,6 +229,10 @@ The observations codes are:
     \item \textbf{15}: local $\Delta$y
     \item \textbf{16}: local $\Delta$z
 \end{itemize}
+
+The total precision of an observation depends on its type and lenght:
+$$\sigma_{total} = \sigma_{abs} + \sigma_{rel} \cdot len$$ for distances,
+$$\sigma_{total} = \sigma_{abs} + \sigma_{rel} / len$$ for angles.
 
 \newpage
 \section{Quickstart example}

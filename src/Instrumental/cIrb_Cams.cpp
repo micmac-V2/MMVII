@@ -369,7 +369,16 @@ int cIrbCal_CamSet::IndexCamFromNameCalib(const std::string& aNameCalib,bool SVP
     for (size_t aK=0 ; aK< mVCams.size() ; aK++)
         if ( mVCams.at(aK).NameCal() == aNameCalib)
            return aK;
-    MMVII_INTERNAL_ASSERT_strong(SVP,"Cannot get calib for camera " + aNameCalib);
+
+    if (!SVP)
+    {
+       StdOut() << " ======== Existing calibration ============\n";
+       for (size_t aK=0 ; aK< mVCams.size() ; aK++)
+           StdOut() << " Cal["<< aK<< "]" << mVCams.at(aK).NameCal() << "]\n";
+
+       MMVII_INTERNAL_ASSERT_strong(false,"Cannot get calib for camera " + aNameCalib);
+    }
+
     return -1;
 }
 
