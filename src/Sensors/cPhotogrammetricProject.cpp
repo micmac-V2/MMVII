@@ -691,7 +691,7 @@ cSensorImage* cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,bo
      return aSI;
 }
 
-void cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,cSensorImage* & aSI,cSensorCamPC * & aSPC,bool ToDeleteAutom,bool SVP) const
+void cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,cSensorImage* & aSI,cSensorCamPC * & aSPC,bool ToDeleteAutom,bool SVP,bool aReadData) const
 {
      aSI = nullptr;
      aSPC =nullptr;
@@ -703,6 +703,8 @@ void cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,cSensorImag
         aSI = aSPC;
         return;
      }
+     // try TSL
+     if (aSI==nullptr) aSI =  ReadStaticLidar(aNameIm,ToDeleteAutom,true,aReadData);
 
      // Else try an external sensor
      if (aSI==nullptr) aSI =  SensorTryReadImported(*this,aNameIm);
@@ -1417,21 +1419,22 @@ cBlocOfCamera * cPhotogrammetricProject::ReadUnikBlocCam() const
 
 //  =============  Static Lidar  =================
 
-cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const
+cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const
 {
     aDP.AssertDirInIsInit();
-    std::string aScanFileName  =  aDP.FullDirIn() + aScanName;
+    std::string aScanFileName  =  aDP.FullDirIn() + cStaticLidar::OriNameFromId(aScanName);
+
     cStaticLidar * aScan = nullptr;
-    aScan = cStaticLidar::FromFile(aScanFileName, DirStaticLidarRasters(), LoadRasters);
+    aScan = cStaticLidar::FromFile(aScanFileName, DirStaticLidarRasters(), SVP, LoadRasters);
 
     if (ToDeleteAutom)
        cMMVII_Appli::AddObj2DelAtEnd(aScan);
     return aScan;
 }
 
-cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const
+cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const
 {
-    return ReadStaticLidar(mDPOrient,aScanName,ToDeleteAutom,LoadRasters);
+    return ReadStaticLidar(mDPOrient,aScanName,ToDeleteAutom,SVP,LoadRasters);
 }
 
 

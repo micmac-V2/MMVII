@@ -119,7 +119,7 @@ public :
                  cRotation3D<tREAL8> aRotInput2Raster, tREAL8 aSigma);
     ~cStaticLidar();
 
-    static cStaticLidar *FromFile(const std::string & aNameScanId, const std::string & aDataDir, bool aReadRasters);
+    static cStaticLidar *FromFile(const std::string & aNameScanFile, const std::string & aDataDir, bool aSVP, bool aReadRasters);
 
     bool AreRastersReady() const { return mAreRastersReady;}
     void ToPly(const std::string & aName, bool useMask=false) const;

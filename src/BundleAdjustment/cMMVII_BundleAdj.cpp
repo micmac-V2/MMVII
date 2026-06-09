@@ -892,11 +892,11 @@ cStaticLidar * cMMVII_BundleAdj::AddStaticLidar(const std::string &aScanFileName
 {
     AssertPhpAndPhaseAdd();
     // fisrt, read xml to get sensor name
-    cStaticLidar * aLidarTmp = mPhProj->ReadStaticLidar(aScanFileName, true, false);
+    cStaticLidar * aLidarTmp = mPhProj->ReadStaticLidar(aScanFileName, true, false, false);
 
     if (mMapTSL.count(aLidarTmp->NameImage())==0)
     {
-        cStaticLidar * aLidarData = mPhProj->ReadStaticLidar(aScanFileName, true, true);
+        cStaticLidar * aLidarData = mPhProj->ReadStaticLidar(aScanFileName, true, false, true);
         MMVII_INTERNAL_ASSERT_User(aLidarData,
                                    eTyUEr::eUnClassedError,"Error opening static scans " + aScanFileName);
         mMapTSL[aLidarData->NameImage()] = aLidarData;

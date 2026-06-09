@@ -11,7 +11,7 @@
 #include "MMVII_2Include_CSV_Serial_Tpl.h"
 #include "../SymbDerGen/Formulas_CentralProj.h"
 #include "MMVII_Interpolators.h"
-
+#include "MMVII_util.h"
 
 namespace MMVII
 {
@@ -706,9 +706,13 @@ void cStaticLidar::Show() const
 }
 
 
-cStaticLidar * cStaticLidar::FromFile(const std::string & aNameScanId, const std::string & aDataDir, bool aReadRasters)
+cStaticLidar * cStaticLidar::FromFile(const std::string & aNameScanFile, const std::string & aDataDir, bool aSVP, bool aReadRasters)
 {
-    std::string aNameScanFile = aDataDir + OriNameFromId(aNameScanId);
+    if ( aSVP && (!ExistFile(aNameScanFile)) )
+    {
+        return nullptr;
+    }
+
     cStaticLidar * aRes = new cStaticLidar("NONE","?","?",tPoseR::Identity(),nullptr,tRotR::Identity(),NAN);
     ReadFromFile(*aRes, aNameScanFile);
 
@@ -718,7 +722,7 @@ cStaticLidar * cStaticLidar::FromFile(const std::string & aNameScanId, const std
 
     if (aReadRasters)
     {
-        StdOut() << "Read rasters " << aNameScanId <<"..."<<std::endl;
+        StdOut() << "Read rasters " << aNameScanFile <<"..."<<std::endl;
         aRes->mRasterDistance = std::make_unique<cIm2D<tREAL4>>(cIm2D<tREAL4>::FromFile(aDataDir+"/"+aRes->mRasterDistancePath));
         aRes->mRasterIntensity = std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(aDataDir+"/"+aRes->mRasterIntensityPath));
         aRes->mRasterMask = std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(aDataDir+"/"+aRes->mRasterMaskPath));
@@ -1652,7 +1656,7 @@ void TestRaster2Gnd2Raster(const std::vector<TYPE> &aVectPtsTest, cStaticLidar *
 /// tests the scans of a cube, where summit is {0,0,-8.66} in ground coords
 void TestPose(const std::string & aInPath, const std::string & aScanName, const cPt2dr& aSummitPx)
 {
-    cStaticLidar * aScan =  cStaticLidar::FromFile(aInPath + aScanName, aInPath, true);
+    cStaticLidar * aScan =  cStaticLidar::FromFile(aInPath + aScanName, aInPath, false, true);
     auto aRasterPx = aScan->Ground2ImagePrecise({0,0,-8.66});
     //std::cout<<"Result: "<<aRasterPx<<" - theoritical "<<aSummitPx<<" -> error "<<Norm2(aRasterPx-aSummitPx)<<"\n";
     MMVII_INTERNAL_ASSERT_bench(Norm2(aRasterPx-aSummitPx)<1e-3 ,"TestPose " + aScanName);
@@ -1666,7 +1670,7 @@ void BenchTSL(cParamExeBench & aParam)
     const std::string & aInPath = cMMVII_Appli::CurrentAppli().InputDirTestMMVII() + "/TSL/Scan1/";
 
     // test with scan pose = Id
-    cStaticLidar * aScan =  cStaticLidar::FromFile(aInPath + "Scan-St1-Sc1.xml", aInPath, true);
+    cStaticLidar * aScan =  cStaticLidar::FromFile(aInPath + "Scan-St1-Sc1.xml", aInPath, false, true);
 
     //aScan->ToPly(cMMVII_Appli::CurrentAppli().TmpDirTestMMVII() + "/TSL.ply");
 
