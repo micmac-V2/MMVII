@@ -179,7 +179,7 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpecScaleImage_Std);
         TheVecAll.push_back(&TheSpec_StackIm);
         TheVecAll.push_back(&TheSpec_StackDep);
-        TheVecAll.push_back(&TheSpecCalcDiscIm);
+        TheVecAll.push_back(&TheSpecFilterImDepth);
         TheVecAll.push_back(&TheSpecCalcDescPCar);
         TheVecAll.push_back(&TheSpecMatchTieP);
         TheVecAll.push_back(&TheSpec_TiePConv);
@@ -281,6 +281,7 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_CernInitRep);
         TheVecAll.push_back(&TheSpec_ClinoInit);
         TheVecAll.push_back(&TheSpecRename);
+        TheVecAll.push_back(&TheSpecRenameSubFolder);
         TheVecAll.push_back(&TheSpec_V2ImportCalib);
         TheVecAll.push_back(&TheSpec_ImportOri);
         TheVecAll.push_back(&TheSpecDicoRename);

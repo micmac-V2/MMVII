@@ -1,8 +1,60 @@
 #include "BundleAdjustment.h"
 #include "../src/Graphs/ArboTriplets.h"
 
+#include <latch>
+#include <barrier>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+
+struct Barrier {
+    int n, count = 0, generation = 0;
+    std::mutex m;
+    std::condition_variable cv;
+
+    explicit Barrier(int n) : n(n) {}
+
+    void wait() {
+        std::unique_lock lock(m);
+        int gen = generation;
+        if (++count == n) {
+            ++generation;
+            count = 0;
+            cv.notify_all();
+        } else {
+            cv.wait(lock, [&]{ return generation != gen; });
+        }
+    }
+};
+
+
+
 namespace MMVII
 {
+
+/*
+class cThreadCreateSim
+{
+    public :
+     
+    private :
+};
+*/
+
+Barrier aBar(5);
+
+void MThreadForcConcurenceLock()
+{
+  if (!UserIsMPD()) return;
+ // static int aCpt=0;
+
+  aBar.wait();
+
+  std::cout << "LTTTT " << TreeThreadsBase::Id() << " MPD?=" << UserIsMPD() << "\n";
+}
+
+
+
 
 /* ********************************************************* */
 /*                                                           */
@@ -10,15 +62,15 @@ namespace MMVII
 /*                                                           */
 /* ********************************************************* */
 
-cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols,int aTDepth):
+cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols,int aTDepth,int aNbIterEnd):
     mPMAT      (aPMAT),
-    mNbIter    (aPMAT->NbIterBA()),
+    mNbIter    (aNbIterEnd),
     mSigAttFinal(1.0),
     mThrFinal   (aPMAT->FacElim()),
     //mSigARange  ({std::max(mSigAttFinal,std::min(5.0,aPMAT->SigmaTPt())),mSigAttFinal}), // {max,min} <=> {initial,final}
     //mThrRange   ({std::max(mThrFinal,std::min(30.0,aPMAT->SigmaTPt()*aPMAT->FacElim())),mThrFinal}), // {max,min} <=> {initial,final}
-    mSigARange  ({std::max(mSigAttFinal,aPMAT->SigmaTPt()),mSigAttFinal}), // {max,min} <=> {initial,final}
-    mThrRange   ({mThrFinal,mThrFinal}),            // {max,min} <=> {initial,final}
+    mSigARange  ({2*std::max(mSigAttFinal,aPMAT->SigmaTPt()),mSigAttFinal}), // {max,min} <=> {initial,final}
+    mThrRange   ({2*mThrFinal,mThrFinal}),            // {max,min} <=> {initial,final}
     mSys      (nullptr),
     mTPts     (nullptr),
     mTreeDepth(aTDepth)
@@ -157,6 +209,7 @@ void cBA_ArboTriplets::OneIteration(int aIter)
 
                 // handle visibility
                 //
+              //   MThreadForcConcurenceLock();
                 tREAL8 aDegVis = aCam->DegreeVisibility(aP3D);
                 if (aDegVis > 0.0)
                 {
@@ -229,7 +282,8 @@ void cBA_ArboTriplets::OneIteration(int aIter)
         aConfigNum++;
     }
 
-    if (aIter==(mPMAT->NbIterBA()-1))
+    // print BA message only if at the last iterations
+    if (aIter==(mNbIter-1))
     {
         StdOutLock::lock();
         StdOut() << "----------------------   Tree depth=" << mTreeDepth << ", images "

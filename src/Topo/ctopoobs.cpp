@@ -8,10 +8,72 @@
 namespace MMVII
 {
 
+cTopoSigma::cTopoSigma() :
+    mSigmaAbs(0.), mSigmaRel(0.)
+{
+}
 
-cTopoObs::cTopoObs(cTopoObsSet* set, cBA_Topo *aBA_Topo, eTopoObsType type, const std::vector<std::string> &ptsNames, const std::vector<tREAL8> & measures, const cResidualWeighterExplicit<tREAL8> &aWeights):
+cTopoSigma::cTopoSigma(tREAL8 aSigmaAbs, tREAL8 aSigmaRel) :
+    mSigmaAbs(aSigmaAbs), mSigmaRel(aSigmaRel)
+{
+}
+
+tREAL8 cTopoSigma::getTotalSigma(const cTopoObs& aTopoObs, tREAL8 aLength) const
+{
+    tREAL8 aDistFactor = NAN;
+    switch (aTopoObs.getType()) {
+    case eTopoObsType::eDist:
+    case eTopoObsType::eDH:
+    case eTopoObsType::eDX:
+    case eTopoObsType::eDY:
+    case eTopoObsType::eDZ:
+        aDistFactor = aLength;
+        break;
+    case eTopoObsType::eHz:
+    case eTopoObsType::eZen:
+        aDistFactor = 1./aLength;
+        break;
+    case eTopoObsType::eNbVals:
+        MMVII_INTERNAL_ERROR("unknown obs type")
+    }
+    return mSigmaAbs + mSigmaRel * aDistFactor;
+}
+
+tREAL8 cTopoSigma::getTotalWeight(const cTopoObs& aTopoObs, tREAL8 aLength) const
+{
+    return 1./Square(getTotalSigma(aTopoObs, aLength));
+}
+
+
+void AddData(const cAuxAr2007 & anAuxInit, cTopoSigma & aTopoSigma)
+{
+    cAuxAr2007 anAux("TopoSigma",anAuxInit);
+
+    MMVII::AddData(cAuxAr2007("SigmaAbs",anAux),aTopoSigma.mSigmaAbs);
+    MMVII::AddData(cAuxAr2007("SigmaRel",anAux),aTopoSigma.mSigmaRel);
+}
+
+cTopoWeighter::cTopoWeighter(cTopoObs* aTopoObs):
+    mTopoObs(aTopoObs)
+{
+}
+
+std::vector<tREAL8> cTopoWeighter::WeightOfResidual(const tStdVect &aVResidual) const
+{
+    MMVII_INTERNAL_ASSERT_tiny(mTopoObs->getTopoSigmas().size() == aVResidual.size(), "Number of weights does not correpond to number of residuals");
+
+    tREAL8 aLength = mTopoObs->getLength();
+    std::vector<tREAL8> aTotalW(mTopoObs->getTopoSigmas().size());
+    for (size_t i =0; i<aTotalW.size(); ++i)
+    {
+        aTotalW[i] = mTopoObs->getTopoSigmas()[i].getTotalWeight(*mTopoObs, aLength);
+    }
+    return aTotalW;
+}
+
+cTopoObs::cTopoObs(cTopoObsSet* set, cBA_Topo *aBA_Topo, eTopoObsType type, const std::vector<std::string> &ptsNames, const std::vector<tREAL8> & measures, const std::vector<cTopoSigma> &aTopoSigmas):
     mSet(set), mBA_Topo(aBA_Topo), mType(type),
-    mPtsNames(ptsNames), mMeasures(measures), mWeights(aWeights),
+    mPtsNames(ptsNames), mMeasures(measures), mTopoSigmas(aTopoSigmas), mWeights(this),
     mLastResiduals(measures.size(), NAN)
 {
     if (!mSet)
@@ -25,7 +87,7 @@ cTopoObs::cTopoObs(cTopoObsSet* set, cBA_Topo *aBA_Topo, eTopoObsType type, cons
         MMVII_INTERNAL_ASSERT_strong(mSet->getType()==eTopoObsSetType::eSimple, "Obs: incorrect set type")
         MMVII_INTERNAL_ASSERT_strong(ptsNames.size()==2, "Obs: incorrect number of points")
         MMVII_INTERNAL_ASSERT_strong(measures.size()==1, "Obs: 1 value should be given")
-        MMVII_INTERNAL_ASSERT_strong(aWeights.size()==1, "Obs: 1 weight should be given")
+        MMVII_INTERNAL_ASSERT_strong(aTopoSigmas.size()==1, "Obs: 1 weight should be given")
         break;
     case eTopoObsType::eHz:
     case eTopoObsType::eZen:
@@ -35,7 +97,7 @@ cTopoObs::cTopoObs(cTopoObsSet* set, cBA_Topo *aBA_Topo, eTopoObsType type, cons
         MMVII_INTERNAL_ASSERT_strong(mSet->getType()==eTopoObsSetType::eStation, "Obs: incorrect set type")
         MMVII_INTERNAL_ASSERT_strong(ptsNames.size()==2, "Obs: incorrect number of points")
         MMVII_INTERNAL_ASSERT_strong(measures.size()==1, "Obs: 1 value should be given")
-        MMVII_INTERNAL_ASSERT_strong(aWeights.size()==1, "Obs: 1 weight should be given")
+        MMVII_INTERNAL_ASSERT_strong(aTopoSigmas.size()==1, "Obs: 1 weight should be given")
         break;
 /*    case eTopoObsType::eDistParam:
         MMVII_INTERNAL_ASSERT_strong(mSet->getType()==eTopoObsSetType::eDistParam, "Obs: incorrect set type")
@@ -64,6 +126,7 @@ cTopoObs::cTopoObs(cTopoObsSet* set, cBA_Topo *aBA_Topo, eTopoObsType type, cons
 std::string cTopoObs::toString() const
 {
     std::ostringstream oss;
+    tREAL8 aObsLen = getLength();
     oss<<"TopoObs "<<E2Str(mType)<<" ";
     for (auto & pt: mPtsNames)
         oss<<pt<<" ";
@@ -71,11 +134,11 @@ std::string cTopoObs::toString() const
     for (auto & val: mMeasures)
         oss<<val<<" ";
     oss<<"sigma: ";
-    for (auto & val: mWeights.getSigmas())
-        oss<<val<<" ";
+    for (auto & sig: getTopoSigmas())
+        oss<<sig.getTotalSigma(*this, aObsLen)<<" ";
     oss<<"prev res norm: ";
     for (unsigned int i=0; i<mLastResiduals.size(); ++i)
-        oss<<mLastResiduals.at(i)/mWeights.getSigmas().at(i)<<" ";
+        oss<<mLastResiduals.at(i)/getTopoSigmas()[i].getTotalSigma(*this, aObsLen)<<" ";
     return oss.str();
 }
 
@@ -215,9 +278,16 @@ std::vector<tREAL8> cTopoObs::getVals() const
     return vals;
 }
 
-cResidualWeighterExplicit<tREAL8> &cTopoObs::getWeights()
+cTopoWeighter & cTopoObs::getWeights()
 {
     return mWeights;
+}
+
+tREAL8 cTopoObs::getLength() const
+{
+    auto & aPtFrom = mBA_Topo->getPoint(getPointName(0));
+    auto & aPtTo = mBA_Topo->getPoint(getPointName(1));
+    return Norm2(*aPtTo.getPt()-*aPtFrom.getPt());
 }
 
 /*std::vector<tREAL8> cTopoObs::getResiduals(const cTopoComp *comp) const

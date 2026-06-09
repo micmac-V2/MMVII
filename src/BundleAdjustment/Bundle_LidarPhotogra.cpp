@@ -477,7 +477,7 @@ cBA_LidarPhotograRaster::cBA_LidarPhotograRaster(cPhotogrammetricProject * aPhPr
     for (auto & aScanData: mVScans)
     {
         auto &aScan = aScanData.mLidarRaster;
-        aScan->MakePatches(aScanData.mLPatches,aBA.VSCPC(),mNbPointByPatch,5);
+        aScan->MakePatches(aScanData.mLPatches,aBA.VSCPC(),mNbPointByPatch,5,*mInterp);
         StdOut() << "Nb patches for " << aScan->NameImage() << ": " << aScanData.mLPatches.size() << "\n";
     }
 }
@@ -880,12 +880,12 @@ std::pair<int, tREAL8> cBA_LidarPhotogra::AddPatchCorrel(const cResidualWeighter
              aV(aK)  = aData.mVGr.at(aK).first;
          }
          aListVRad.push_back(aV);
-         cDenseVect<tREAL8> aV01 = NormalizeMoyVar(aV);  // noramlize value
+         cDenseVect<tREAL8> aV01 = NormalizeMoyNorm2(aV);  // noramlize value
          aVMoy += aV01;  //  accumulate in a vector
      }
 
      aVMoy *=  1/ tREAL8(aVData.size()); // make VMoy, average of normalized
-     aVMoy =  NormalizeMoyVar(aVMoy);  // re normalized
+     aVMoy =  NormalizeMoyNorm2(aVMoy);  // re normalized
        
      // -------------- [2] Intialize the temporary  --------------------
 
@@ -1603,7 +1603,7 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
             aV(aK)  = aData.mVGr.at(aK).first;
         }
         aListVRad.push_back(aV);
-        aListVRadNorm.push_back(NormalizeMoyVar(aV));  // normalize value
+        aListVRadNorm.push_back(NormalizeMoyNorm2(aV));  // normalize value
 
     }
     for (size_t aK=0 ; aK< aNbPt ; aK++)
@@ -1615,7 +1615,7 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
         }
         aVMedian(aK) = NonConstMediane(aVV);
     }
-    aVMedian =  NormalizeMoyVar(aVMedian);  // re normalized
+    aVMedian =  NormalizeMoyNorm2(aVMedian);  // re normalized
 
     // -------------- [2] Intialize the temporary  --------------------
 
@@ -1642,7 +1642,7 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
         auto [A,B] =  LstSq_Fit_AxPBEqY(aVRad,aVMedian);  // solve  Ri = Aj Imj + Bj
         // get residuals
         cDenseVect<tREAL8> aVect1(aNbPt,eModeInitImage::eMIA_V1);
-        auto aRes = sqrt((A * aVRad + aVect1*B - aVMedian).SqL2Norm(true)); //quadratic mean residual for stddev=1 images
+        auto aRes = sqrt((A * aVRad + aVect1*B - aVMedian).SqL2Norm(false)); //quadratic mean residual for stddev=1 images
         // zncc = 1-aRes/2 ?
         auto aW = aWeighter.WeightOfResidual({aRes})[0];
 #ifdef NUMPATCHDEBUG
@@ -1689,7 +1689,7 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
         int aIndPt = -(1+aKPt);     // indexe of point are {-1,-2,....}
         aVIndPt.push_back(aIndPt);  // accumulat set of global indexe of unknown patch
         aVFixAvg.push_back(1.0);     //  Sum Rk = 0 => all weight = 1
-        //  S(R+dR) ^ 2 = N  ;  S (2 R dR ) = N - S(R^2)  ; but S(R^2)=N by construction ...
+        //  S(R+dR) ^ 2 = 1  ;  S (2 R dR ) = 1 - S(R^2)  ; but S(R^2)=1 by construction ...
         aVFixVar.push_back(2*aVMedian(aKPt));
 
         int aNumUsedIm = 0; // for uk index
@@ -1708,8 +1708,11 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
         }
     }
 
-    aStrSubst.AddOneLinearObs(aNbPt,aVIndPt,aVFixAvg,0.0);  // force average
-    aStrSubst.AddOneLinearObs(aNbPt,aVIndPt,aVFixVar,0.0);  // force standard dev
+    // TODO: check weights with patch size
+    auto aW0 = aWeighter.WeightOfResidual({0.})[0];
+
+    aStrSubst.AddOneLinearObs(aW0*aNbPt,aVIndPt,aVFixAvg,0.0);  // force average
+    aStrSubst.AddOneLinearObs(aW0*aNbPt,aVIndPt,aVFixVar,0.0);  // force standard dev
 
     aMeanRes2 = aMeanRes2/(aVIndexUsedImages.size()*aVIndexUsedImages.size());
     aSys->R_AddObsWithTmpUK(aStrSubst,mBA.CurLVMParam());
@@ -1762,7 +1765,7 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
     for (auto & aScanData: mVScans)
     {
         auto & aScan = aScanData.mLidarRaster;
-        aScan->MakePatches(aScanData.mLPatches,aBA.VSCPC(),1,5);
+        aScan->MakePatches(aScanData.mLPatches,aBA.VSCPC(),1,5, *mInterp);
         StdOut() << "Nb patches for " << aScan->NameImage()<< ": " << aScanData.mLPatches.size() << "\n";
 
         //for (auto &aTestRasterPoint: {cPt2di(10672,2238), cPt2di(2552,2121) })
@@ -1802,9 +1805,9 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
 
 void cBA_LidarLidarRaster::AddObs()
 {
-    if (mBA.Iter()==0)
+    if (mBA.Iter()>=0)
     {
-        CreateZbuffers(mPhProj, mBA, true, true);
+        //CreateZbuffers(mPhProj, mBA, true, true); // useless for lidarlidar
     }
 
     mLastResidual.Reset();
@@ -1904,6 +1907,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
     std::vector<cData1ImLidPhgr> aVData; // for each image where patch is visible will store the data
     cWeightAv<tREAL8>   aAvgRes;    // compute average residual
     tREAL8 aMinResidual = INFINITY;
+    cPt3dr aNormalGndA = aScanA->Pose().Rot().Value(aPatch.mNormalInstr);
 
     //  Parse all the scans B, we will select the ones where the patch is visible
     for (auto & aScanBData: mVScans)
@@ -1912,28 +1916,31 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
         auto & aWeighter = mWeightersMap.at(aScanA->NameImage()+"-"+aScanB->NameImage());
         if (aScanB->NameImage()==aScanA->NameImage())
             continue; // no obs on the same scan
-        cStaticLidar * aScanTo = aScanBData.mLidarRaster;
 
         // 1st test: zbuffer visibility
         //std::cout<<"Im "<<aScanBData.mScanName<<" patch "<<aPatch.mId<<" vis "<<aPatch.mImVisible.at(aScanBData.mScanName)<<"\n";
         if (aPatch.mHiddenOnImage.count(aScanB->NameImage())>0)
             continue;
-        cDataGenUnTypedIm<2> & aGenDImDist = aScanTo->getRasterDistance();
+        cDataGenUnTypedIm<2> & aGenDImDist = aScanB->getRasterDistance();
 
         // recheck if central point visible, TODO: remove, aPatch.mImVisible should be enought
-        if (aScanTo->IsVisible(aPGround))
+        if (aScanB->IsVisible(aPGround))
         {
             cData1ImLidPhgr  aData; // data that will be filled
             aData.mScanAName = aScanA->NameImage();
             aData.mScanBName = aScanB->NameImage();
-            cPt2dr aPIm = aScanTo->Ground2Image(aPGround); // extract the image  projection
-            tREAL8 aDist = Norm2(aPGround-aScanTo->Center());
-            if (!aScanTo->IsValidPoint(aPIm))
+            cPt2dr aPIm = aScanB->Ground2Image(aPGround); // extract the image  projection
+            tREAL8 aDist = Norm2(aPGround-aScanB->Center());
+            if (!aScanB->IsValidPoint(aPIm))
                 continue;
             if (aGenDImDist.InsideInterpolator(*mInterp,aPIm,1.0))  // is it sufficiently inside
             {
                 auto aVGr = aGenDImDist.GetValueAndGradInterpol(*mInterp,aPIm); // extract pair Value/Grad of image
                 aData.mVGr = {aVGr};
+                //std::cout<<aPIm<<" GetValueAndGradInterpol: "<<aVGr.first<<" "<<aVGr.second.x()*1940<<" "<<aVGr.second.y()*1940<<"\n";
+                //auto aVGrTest = aGenDImDist.GetValueAndGradInterpol(*mInterp,{6173,3847});
+                //std::cout<<cPt2dr(6173,3847)<<" GetValueAndGradInterpol: "<<aVGrTest.first<<" "<<aVGrTest.second.x()*1940<<" "<<aVGrTest.second.y()*1940<<"\n";
+
                 tREAL8 aValIm = aData.mVGr.at(0).first;   // value of first/central pixel in this image
                 tREAL8 aResidual = aValIm-aDist;
                 if (fabs(aResidual)<fabs(aMinResidual))
@@ -1943,6 +1950,16 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                     //std::cout<<"removed\n";
                     continue;
                 }
+                cPt3dr aNormalInstrB = aScanB->Image2NormalInstr(aPIm, *mInterp);
+                cPt3dr aNormalGndB = aScanB->Pose().Rot().Value(aNormalInstrB);
+                if (Scal(aNormalGndA,aNormalGndB)<mNormalDiffMinCos)
+                {
+                    //std::cout<<"Removed "<<aPatch.mLPatchesP[0]<<" due to normals: "<<aNormalGndA<<" "<<aNormalGndB
+                    //         <<" "<<acos(Scal(aNormalGndA,aNormalGndB))*180/M_PI<<"deg\n";
+                    continue;
+                }
+                //std::cout<<"Patch "<<aPatch.mLPatchesP[0]<<" accepted. Normals: "<<aNormalGndA<<" "<<aNormalGndB
+                //         <<" "<<acos(Scal(aNormalGndA,aNormalGndB))*180/M_PI<<"deg\n";
                 aAvgRes.Add(1.0,fabs(aResidual));  // compute std deviation
                 aVData.push_back(aData); // memorize the data for this image
             }

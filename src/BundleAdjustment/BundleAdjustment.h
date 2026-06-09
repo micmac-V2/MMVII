@@ -584,6 +584,7 @@ protected :
          int                     aKPt
          ) override;
 
+    tREAL8 mNormalDiffMinCos = 0.98;
 };
 
 
@@ -604,7 +605,7 @@ class cBA_ArboTriplets
 {
     public:
         /// Sets up cameras, collinearity calculators, solver, local tie-points subset.
-        cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols, int aTDepth);
+        cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols, int aTDepth, int aNbIterEnd);
         ~cBA_ArboTriplets();
 
         /// One BA iteration. Pre-computes u,v vectors on first call (aIter==0).
@@ -614,6 +615,7 @@ class cBA_ArboTriplets
         void UpdateLocSols(std::vector<cSolLocNode>& aLocSols);
 
         size_t NbCams() const { return mVCams.size(); }
+        int    NbIter() const { return mNbIter; }
 
         /// Optional GT 3D points (keyed by tie-point ID) for diagnostic comparison at iter==0.
         void SetGTPts3D(std::map<int,cPt3dr>* aGT) { mGTPts3D = aGT; }

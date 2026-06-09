@@ -106,7 +106,7 @@ void cBA_Topo::AddPointsFromDataToGCP(cBA_GCP &aBA_GCP, cPhotogrammetricProject 
         for (auto & aObsData: mAllTopoDataIn.mObsSetSimple.mObs)
         {
             aSet->addObs(aObsData.mType, this, aObsData.mPtsNames, aObsData.mMeasures,
-                         {true, aObsData.mSigmas});
+                         aObsData.mSigmas);
         }
     }
     for (auto & aSetData: mAllTopoDataIn.mAllObsSetStations)
@@ -117,7 +117,7 @@ void cBA_Topo::AddPointsFromDataToGCP(cBA_GCP &aBA_GCP, cPhotogrammetricProject 
         for (auto & aObsData: aSetData.mObs)
         {
             aSet->addObs(aObsData.mType, this, aObsData.mPtsNames, aObsData.mMeasures,
-                         {true, aObsData.mSigmas});
+                         aObsData.mSigmas);
         }
     }
 
@@ -314,11 +314,12 @@ void cBA_Topo::AddTopoEquations(cResolSysNonLinear<tREAL8> & aSys)
 #ifdef VERBOSE_TOPO
                 StdOut() << obs->toString() << "      " ;
 #endif
+            tREAL8 aObsLen = obs->getLength();
             for (unsigned int i=0; i<obs->getMeasures().size();++i)
             {
                 double residual = equation->ValComp(0,i);
                 obs->getResiduals().at(i) = residual;
-                double residual_norm = residual/obs->getWeights().getSigmas()[i];
+                double residual_norm = residual/obs->getTopoSigmas()[i].getTotalSigma(*obs, aObsLen);
 #ifdef VERBOSE_TOPO
                 StdOut() << "  resid: " << residual_norm << " ";
 #endif

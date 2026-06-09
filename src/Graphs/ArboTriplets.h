@@ -157,6 +157,7 @@ struct cMakeArboTripletCfg
     tREAL8               mSigmaTPt  = 2.0;       ///< Sigma on tie-points
     tREAL8               mFacElim   = 10.0;      ///< Outlier threshold
     int                  mNbIterBA  = 5;         ///< Number of BA iterations
+    int                  mNbExtraIterAtRoot = 2;  ///< Extra BA iterations at the tree root (all images)
 
     void Show(std::ostream & aOS = std::cout) const
     {
@@ -167,6 +168,7 @@ struct cMakeArboTripletCfg
             << "  SigmaTPt  = " << mSigmaTPt  << "\n"
             << "  FacElim   = " << mFacElim   << "\n"
             << "  NbIterBA  = " << mNbIterBA  << "\n"
+            << "  NbExtraIterAtRoot = " << mNbExtraIterAtRoot << "\n"
             << " ===================== " << "\n" ;
     }
 };
@@ -244,6 +246,10 @@ public :
     tREAL8                FacElim() const {return mFacElim;} ///< Accessor
     int                 & NbIterBA()  {return mNbIterBA;}
     int                   NbIterBA() const {return mNbIterBA;} ///< Accessor
+    int                 & NbExtraIterAtRoot() { return mNbExtraIterAtRoot;}
+    int                   NbExtraIterAtRoot() const { return mNbExtraIterAtRoot;}
+
+    cPerspCamIntrCalib *  InternalCalibFromNameImage(const std::string aNameIm) const;
 
 
 private :
@@ -282,6 +288,7 @@ private :
     tREAL8                  mSigmaTPt;       ///< Sigma on tie-points
     tREAL8                  mFacElim;        ///< Control outlier threshold, thres=mSigmaTPt*mFacElim
     int                     mNbIterBA;       ///< Number of iteration in bundle adjustment (Refine)
+    int                     mNbExtraIterAtRoot;  ///< Extra BA iterations at tree root
 };
 
 

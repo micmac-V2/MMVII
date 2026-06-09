@@ -6,11 +6,12 @@
 
 using namespace NS_SymbolicDerivative;
 
-
 namespace MMVII
 {
 
 class cBA_Topo;
+class cTopoSigma;
+
 
 /**
  * @brief The cTopoObsData class represents the serializable data of a cTopoObs
@@ -22,7 +23,7 @@ public:
     eTopoObsType mType;
     std::vector<std::string> mPtsNames;
     std::vector<tREAL8> mMeasures;
-    std::vector<tREAL8> mSigmas;
+    std::vector<cTopoSigma> mSigmas;
     std::optional<std::vector<tREAL8>> mLastResiduals; // just for output
 };
 
@@ -108,7 +109,7 @@ public:
     static std::pair<cTopoData, cSetMesGnd3D>  createEx4();
 
     bool addObs(std::vector<cTopoObsSetStationData> & aCurrentVectObsSetStations, MMVII::eCompObsType code,
-                       const std::string & nameFrom, const std::string & nameTo, double val, double sigma, eTopoStOriStat aStationStatus);
+                const std::string & nameFrom, const std::string & nameTo, double val, double sigma, double sigma_rel, eTopoStOriStat aStationStatus);
 
     std::vector<cTopoObsSetStationData> mAllObsSetStations;
     cTopoObsSetData mObsSetSimple;

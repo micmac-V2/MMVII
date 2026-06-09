@@ -632,7 +632,8 @@ void cNodeArborTriplets::SaveGlobSol(const std::string & aPrefix) const
 
         //StdOut() << "== " << aSol.mPose.Tr() << std::endl;
 
-        cPerspCamIntrCalib *  aCalib = mPMAT->PhProj().InternalCalibFromImage(mPMAT->MapI2Str(aSol.mNumPose));// mPMAT->PhProj().InternalCalibFromStdName(mPMAT->MapI2Str(aSol.mNumPose));
+        cPerspCamIntrCalib *  aCalib = mPMAT->InternalCalibFromNameImage(mPMAT->MapI2Str(aSol.mNumPose));
+
         cSensorCamPC aCam(aCurImName,aSol.mPose,aCalib); //mmv2 convention
         mPMAT->PhProj().SaveCamPC(aCam);
 
@@ -809,14 +810,11 @@ void cNodeArborTriplets::MergeChildrenSol()
 /* Refinement on bundles (any camera projection) */
 void cNodeArborTriplets::RefineCurSolution()
 {
+    int aNbIterEnd = mPMAT->NbIterBA() + (mDepth==0 ? mPMAT->NbExtraIterAtRoot() : 0);
 
-    cBA_ArboTriplets* aBA;
-    {
-        aBA = new cBA_ArboTriplets(mPMAT, mLocSols,mDepth);
-    }
+    cBA_ArboTriplets* aBA = new cBA_ArboTriplets(mPMAT, mLocSols,mDepth,aNbIterEnd);
 
-
-    for (int aIter = 0; aIter < mPMAT->NbIterBA(); aIter++)
+    for (int aIter = 0; aIter < aNbIterEnd; aIter++)
         aBA->OneIteration(aIter);
 
     aBA->UpdateLocSols(mLocSols);
@@ -983,7 +981,8 @@ cMakeArboTriplet::cMakeArboTriplet(std::vector<cDataSolOriTriplet> & aSet3,bool 
    mLVM         (aCfg.mLVM),
    mSigmaTPt    (aCfg.mSigmaTPt),
    mFacElim     (aCfg.mFacElim),
-   mNbIterBA    (aCfg.mNbIterBA)
+   mNbIterBA    (aCfg.mNbIterBA),
+   mNbExtraIterAtRoot (aCfg.mNbExtraIterAtRoot)
 {
 }
 
@@ -1011,6 +1010,14 @@ void cMakeArboTriplet::ShowStat()
    StdOut() << "\n";
 }
 
+cPerspCamIntrCalib *  cMakeArboTriplet::InternalCalibFromNameImage(const std::string aNameIm) const
+{
+   if (true)
+       return mPhProj.InternalCalibFromImage(aNameIm);
+    return mPhProj.InternalCalibFromStdName(aNameIm);// mPhPr
+}
+
+
 void cMakeArboTriplet::SaveGlobSol() const
 {
 
@@ -1021,8 +1028,7 @@ void cMakeArboTriplet::InitialiseCalibs()
 {
     for (size_t aKIm=0 ; aKIm<mMapStrI.size() ; aKIm++)
     {
-        //StdOut() << *mMapStrI.I2Obj(aKIm) << std::endl; InternalCalibFromImage
-        cPerspCamIntrCalib *   aCal = mPhProj.InternalCalibFromImage(*mMapStrI.I2Obj(aKIm));// mPhProj.InternalCalibFromStdName(*mMapStrI.I2Obj(aKIm));
+        cPerspCamIntrCalib *   aCal =InternalCalibFromNameImage(*mMapStrI.I2Obj(aKIm));
         FakeUseIt(aCal);
     }
 }
@@ -1043,7 +1049,9 @@ void cMakeArboTriplet::ConvertTPtsToBundles()
         // for every image
         for (int aKIm=0; aKIm<NbIm; aKIm++)
         {
-            cPerspCamIntrCalib * aCal = mPhProj.InternalCalibFromImage(aVNames[aConf[aKIm]]);
+          //  cPerspCamIntrCalib * aCal = mPhProj.InternalCalibFromImage(aVNames[aConf[aKIm]]); MPD
+            cPerspCamIntrCalib * aCal = InternalCalibFromNameImage(aVNames[aConf[aKIm]]);
+
 
             std::vector<cPt3dr> aOutBundles;
             std::vector<cPt2dr> aInObs;
@@ -1484,7 +1492,7 @@ void cMakeArboTriplet::ComputeArbor()
 
    mArbor->DoTerminalNode();
 
-   StdOut() << "END DoTerminalNode" << std::endl;
+   //StdOut() << "END DoTerminalNode" << std::endl;
    //
    cMemManager::SetActiveMemoryCount(false);
    mAppli.SetMultiThread(true);
@@ -1493,7 +1501,7 @@ void cMakeArboTriplet::ComputeArbor()
    mAppli.SetMultiThread(false);
    cMemManager::SetActiveMemoryCount(true);
 
-   StdOut() << "END Exec" << std::endl;
+   //StdOut() << "END Exec" << std::endl;
 
 
 }

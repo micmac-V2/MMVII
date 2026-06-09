@@ -149,17 +149,35 @@ void cMMVII_BundleAdj::OneItere_GCP()
     //  Parse all GCP
     for (size_t aKp=0 ; aKp < aNbGCP ; aKp++)
     {
-        const tREAL8 & aSigmaGCP              = aVMesGCP.at(aKp).mMesDirInfo->mSGlob;
+        tREAL8  aSigmaGCP              = aVMesGCP.at(aKp).mMesDirInfo->mSGlob;
         //   W>0  obs is an unknown "like others"
         //   W=0 , obs is fix , use schurr subst and fix the variables
         //   W<0 , obs is substitued
         bool  aGcpUk = (aSigmaGCP>0);  // are GCP unknowns
+        cPt3dr  aPtSigmas = aVMesGCP.at(aKp).SigmasXYZ();
+
+        // MPD=>JMM  If one of the coord is 0 the div by sigma will be complicated ...
+        if (MinAbsCoord(aPtSigmas)==0)
+        {
+            // So far so good, it's just a fixed GCP
+            if (IsNull(aPtSigmas))
+            {
+                aSigmaGCP = 0;
+            }
+            else
+            {
+                // More complicated case, we should process separately each coord, but I am lazy today ...
+                MMVII_USER_WARNING("found sigma null for some coords, but not all ...");
+                aPtSigmas = cPt3dr::PCste(Norm2(aPtSigmas/3.0));
+            }
+        }
+
         bool  aGcpFix = (aSigmaGCP==0);  // is GCP just an obervation
         //  Three temporary unknowns for x-y-z of the 3d point
         std::vector<int> aVIndFix = (aGcpFix ? aVIndGround : std::vector<int>());
 
         const cPt3dr & aPGr = aVMesGCP.at(aKp).mPt;
-        const cPt3dr & aPtSigmas = aVMesGCP.at(aKp).SigmasXYZ();
+       // const cPt3dr & aPtSigmas = aVMesGCP.at(aKp).SigmasXYZ();
         cPt3dr_UK * aPtrGcpUk =  aGcpUk ? aGCP_UK[aKp] : nullptr;
         cSetIORSNL_SameTmp<tREAL8>  aStrSubst(aPGr.ToStdVector(),aVIndFix);
 
@@ -228,7 +246,11 @@ void cMMVII_BundleAdj::OneItere_GCP()
 
         cPt3dr aWeightGroundXYZ(1., 1., 1.);
         if (!aGcpFix)
+        {
+            //  MPD=>JMM : here is the problem
+            // StdOut() << "SIGMAS " << aSigmaGCP << " " << aPtSigmas << "\n";
             aWeightGroundXYZ = DivCByC( {1., 1., 1.}, Square(aSigmaGCP)* MulCByC(aPtSigmas,aPtSigmas));
+        }
 
         if (! aGcpUk) // case  subst,  we now can make schurr commpl and subst aSigmaGCP<=0
         {

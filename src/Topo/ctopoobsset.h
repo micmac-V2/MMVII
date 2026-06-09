@@ -30,7 +30,7 @@ public:
     size_t nbObs() const {return mObs.size();}
     cTopoObs* getObs(size_t i) {return mObs.at(i);}
     std::vector<cTopoObs*> & getAllObs() {return mObs;}
-    bool addObs(eTopoObsType type, cBA_Topo * aBA_Topo, const std::vector<std::string> &pts, const std::vector<tREAL8> & vals,  const cResidualWeighterExplicit<tREAL8> & aWeights);
+    bool addObs(eTopoObsType type, cBA_Topo * aBA_Topo, const std::vector<std::string> &pts, const std::vector<tREAL8> & vals,  const std::vector<cTopoSigma> &aTopoSigmas);
     virtual void makeConstraints(cResolSysNonLinear<tREAL8> & aSys) = 0; ///< add constraints for current set
     virtual bool initialize() = 0; ///< initialize set parameters, after all obs and points were added
     bool isInit() const {return mInit;}
