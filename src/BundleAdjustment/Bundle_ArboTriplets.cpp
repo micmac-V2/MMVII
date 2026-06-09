@@ -69,8 +69,8 @@ cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocN
     mThrFinal   (aPMAT->FacElim()),
     //mSigARange  ({std::max(mSigAttFinal,std::min(5.0,aPMAT->SigmaTPt())),mSigAttFinal}), // {max,min} <=> {initial,final}
     //mThrRange   ({std::max(mThrFinal,std::min(30.0,aPMAT->SigmaTPt()*aPMAT->FacElim())),mThrFinal}), // {max,min} <=> {initial,final}
-    mSigARange  ({std::max(mSigAttFinal,aPMAT->SigmaTPt()),mSigAttFinal}), // {max,min} <=> {initial,final}
-    mThrRange   ({mThrFinal,mThrFinal}),            // {max,min} <=> {initial,final}
+    mSigARange  ({2*std::max(mSigAttFinal,aPMAT->SigmaTPt()),mSigAttFinal}), // {max,min} <=> {initial,final}
+    mThrRange   ({2*mThrFinal,mThrFinal}),            // {max,min} <=> {initial,final}
     mSys      (nullptr),
     mTPts     (nullptr),
     mTreeDepth(aTDepth)
