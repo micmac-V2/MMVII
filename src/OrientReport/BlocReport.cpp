@@ -149,7 +149,7 @@ cAppli_ReportBlock::cAppli_ReportBlock
 ) :
      cMMVII_Appli   (aVArgs,aSpec),
      mPhProj        (*this),
-     mShow          (false),
+     mShow          (true),
      mNameBloc      (cIrbCal_Block::theDefaultName),
      mCalBlocInstr  (nullptr),
      mCompBlocInstr (nullptr),
@@ -307,7 +307,7 @@ void cAppli_ReportBlock::TestWire3D(const std::string & anIdSync,const std::vect
 
      int aNbPl = aVPlane.size();
 
-   //   StdOut() << "NBBBBB " << aNbPl << " " << mWireFolder << "\n";
+//StdOut() << "NBBBBB " << aNbPl << " " << mWireFolder << "\n";
      // if we can compute plane
      if (aNbPl>=2)
      {
@@ -347,6 +347,7 @@ void cAppli_ReportBlock::TestWire3D(const std::string & anIdSync,const std::vect
                 tREAL8 aDistPix =  aWPix.Average() * aRatio;
 
                 mStatGlobWire.Add(aDistPix);
+ //StdOut() << " DPIX=" << aDistPix  << " Id=" << mIdRepWire << "\n";
                 AddOneReportCSV(mIdRepWire,{anIdSync,ToStr(aNbPl),ToStr(aDist3D),ToStr(aDistPix)});
             }
         }
@@ -532,6 +533,8 @@ int cAppli_ReportBlock::Exe()
     mWithTargetPoint = contains(mStrM2T,'T');
     mWithWire = contains(mStrM2T,'W') || IsInit(&mWireFolder);
 
+   // StdOut() << "WITH WIRE=" << mWithWire << "\n";
+
     mWithClino = mPhProj.DPMeasuresClino().DirInIsInit() ;
     mWithCoordGround = mPhProj.DPGndPt3D().DirInIsInit();
     mWithAgregateDist = mWithClino && mWithClino && IsInit(&mPatAgregateDist);
@@ -596,7 +599,7 @@ int cAppli_ReportBlock::Exe()
 
    // Add the stat for all the points
     CSV_AddStat(mIdRepPtGlob,"GlobAVG ",mStatGlobPt);
-    StdOut() << mStatGlobPt.Show("Pt-Pix",{50,85}) << "\n";
+    // StdOut() << mStatGlobPt.Show("Pt-Pix",{50,85}) << "\n";
 
    if (IsInit(&mParamReportShared))
    {
