@@ -35,12 +35,13 @@ class cAppliBenchAnswer
 class cParamExeBench
 {
     public :
-         cParamExeBench(const std::string & aPattern,const std::string & aPatRefut,const std::string & aBugKey,int aLevInit,bool Show);
+         cParamExeBench(const std::string & aPattern,const std::string & aPatRefut,const std::string & aBugKey,int aLevInit,bool Show, bool Verbose);
 
          bool  NewBench(const std::string & aName,bool ExactMatch=false); ///< Memo the name, Indicate if the bench is executed,
          bool  GenerateBug(const std::string & aKey);
          void  EndBench(); ///< Application must signal end of the bench
          bool  Show() const;   ///< Show intermediar msg,
+         bool  Verbose() const; ///< Show normal messages from benches
          bool  DemoTest() const;   ///< Show intermediar msg,
          void  SetDemoTest(bool isDemoTest) ;  ///< Show intermediar msg,
          int   Level() const;  ///< Bench are piped with increasing levels, higher level/ more test
@@ -59,6 +60,7 @@ class cParamExeBench
          int                       mCurLev;     ///< Current level of test
          bool                      mShow;       ///< Do the function print msg on console
          bool                      mDemoTest;   ///< Maximum msg & eventually breakpoint
+         bool                      mVerbose;
          int                       mNbExe;
          std::string               mName;    ///< Exact Name for exact select
          tNameSelector             mPattern;    ///< Pattern for select bench
@@ -160,7 +162,7 @@ void BenchL1Solver(cParamExeBench & aParam); /// test that L1 solver is ok
 void Bench_MatEss(cParamExeBench & aParam); /// test that L1 solver is ok
 void Bench_ToHomMult(cParamExeBench & aParam); // Test conversion set pair Hom => Hom Multiple
 
-//void Bench_HBA(cParamExeBench & aParam); // test hierarchical initial solution and BA
+void Bench_HBA(cParamExeBench & aParam); // test hierarchical initial solution and BA
 
 
 

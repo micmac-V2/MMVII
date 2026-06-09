@@ -93,6 +93,8 @@ double RandUnif_Angle(); ///<  Uniform distribution in [0 2Pi]
 
 int RandUnif_M_N(int aM,int aN); ///< Uniform disrtibution in [M,N]
 
+double RandNormal(double aMean, double aStdDev);
+
 /** Class for mapping object R->R */
 class cFctrRR
 {

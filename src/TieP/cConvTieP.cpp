@@ -15,7 +15,71 @@
 namespace MMVII
 {
 
+constexpr int SINGLE_OBS_PT_COLMAP=-1;
+constexpr double IMAGE_ORIGIN_OFFSET=0.5;
 
+std::map<int, std::vector<std::pair<std::string, tPt2dr>>> ReadColmapImagesTxt(const std::string & aFilePath)
+{
+    // image_id => vector of points saved as an id and coordiantes, i.e.:
+    //            {{id1,x1,y1},{id2,x2,y2},...,{idN,xN,yN}}
+    std::map<int, std::vector<std::pair<std::string, tPt2dr>>> aRes;
+
+    // make sure the file exists
+    if (! ExistFile(aFilePath))
+    {
+        MMVII_UserError(eTyUEr::eOpenFile,std::string("For file ") + aFilePath);
+    }
+    cMMVII_Ifs aInFile(aFilePath, eFileModeIn::Text);
+
+    std::string aLine;
+
+    // read 2nd/3rd line and make sure the file did not change its format
+    std::string a2ndLine = "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, NAME";
+    std::string a3rdLine = "#   POINTS2D[] as (X, Y, POINT3D_ID)";
+
+    bool bFound2nd = false, bFound3rd = false;
+    while (std::getline(aInFile.Ifs(), aLine))
+    {
+        if (aLine.empty() || aLine[0] != '#') break;
+        if (aLine == a2ndLine) bFound2nd = true;
+        if (aLine == a3rdLine) bFound3rd = true;
+    }
+    MMVII_INTERNAL_ASSERT_always(bFound2nd, "Colmap images.txt: IMAGE_ID format line not found");
+    MMVII_INTERNAL_ASSERT_always(bFound3rd, "Colmap images.txt: POINTS2D format line not found");
+
+    int aImageId, aCameraId;
+    double aQw, aQx, aQy, aQz, aTx, aTy, aTz;
+    std::string aImName;
+
+
+    // read the file
+    std::istringstream aSS(aLine);   // aLine = first image header, already read
+    while (true)
+    {
+        aSS >> aImageId >> aQw >> aQx >> aQy >> aQz >> aTx >> aTy >> aTz >> aCameraId >> aImName;
+
+        if (!std::getline(aInFile.Ifs(), aLine)) break;   // tie-point line
+        aSS.clear(); aSS.str(aLine);
+
+        double aX, aY;
+        int aId, aCount = 0;
+
+        while (aSS >> aX >> aY >> aId)
+            if (aId != SINGLE_OBS_PT_COLMAP)
+            {
+                aRes[aId].emplace_back(aImName, tPt2dr(aX-IMAGE_ORIGIN_OFFSET,aY-IMAGE_ORIGIN_OFFSET));
+                aCount++;
+            }
+
+        StdOut() << aImName << ", #points= " << aCount << std::endl;
+
+        if (!std::getline(aInFile.Ifs(), aLine)) break;
+
+        aSS.clear(); aSS.str(aLine);
+    }
+
+    return aRes;
+}
 
 
    /* ********************************************************** */
@@ -36,6 +100,7 @@ class cAppli_TiePConvert : public cMMVII_Appli
         eFormatExtern            mFormat;
         cPhotogrammetricProject  mPhProj;
         std::string              mExtV1;
+        std::string              mInTiePFile;
         double                   mDownScale;
         std::string              mNameDSByIm;  ///< Name of File, for computing downscale by image
         bool                     mTimingTest;
@@ -69,6 +134,7 @@ cCollecSpecArg2007 & cAppli_TiePConvert::ArgOpt(cCollecSpecArg2007 & anArgObl)
     
     return anArgObl
              << AOpt2007(mExtV1,"V1Ext","Extension of V1 input file if !) Homol/")
+             << AOpt2007(mInTiePFile,"InTieP","File with input tie-points (for formats other than MMV1)")
              << AOpt2007(mPostV1,"Post","V1 postifx like txt or dat",{eTA2007::HDV})
              << AOpt2007(mDownScale,"DS","Downscale, if want to adapt to smaller images",{eTA2007::HDV})
              << AOpt2007(mNameDSByIm,"UpSByIm","",{eTA2007::HDV})
@@ -82,100 +148,135 @@ int cAppli_TiePConvert::Exe()
 {
    mPhProj.FinishInit();
    cInterfImportHom * aIIH = nullptr;
+
+   int aNbExist = 0;
     
    if (mFormat==eFormatExtern::eMMV1)
    {
        aIIH = cInterfImportHom::CreateImportV1(DirProject(),mExtV1,mPostV1);
+
+       auto aVName = VectMainSet(0);
+
+       tNameSelector  aRegDebug =  AllocRegex(mPatNameDebug);
+
+       cComputeAssociation aCompUpS;
+       if (IsInit(& mNameDSByIm))
+           aCompUpS = cComputeAssociation::FromFile(mNameDSByIm);
+
+       // parse all pair, in only one sense, as we will merge "AB" with "BA" when both exist
+       int aFreqMsg = std::max(1,std::min(100,int(aVName.size())/10));
+       for (size_t aK1=0; aK1<aVName.size() ; aK1++)
+       {
+           if (IsInit(&mPatNameDebug) && (aK1%aFreqMsg==0))
+               StdOut() << "Still " << aVName.size() - aK1 << " to process " << std::endl;
+           for (size_t aK2=aK1+1; aK2<aVName.size() ; aK2++)
+           {
+               std::string aN1 = aVName[aK1];
+               std::string aN2 = aVName[aK2];
+               OrderMinMax(aN1,aN2);  //  prefer to fix arbitrary order
+
+               bool aDebug = aRegDebug.Match(aN1) && aRegDebug.Match(aN2);
+
+               bool Exist12 = aIIH->HasHom(aN1,aN2);
+               bool Exist21 = aIIH->HasHom(aN2,aN1);
+
+               if (aDebug)  StdOut() << aN1 << "/" << aN2 << " Exist :" << Exist12 << "/" << Exist21 << std::endl;
+
+               if (Exist12 || Exist21) // if one of both exist : create
+               {
+                   aNbExist++;
+                   std::vector<std::string> aV12({aN1,aN2});
+                   // structure to make the fusion
+                   cComputeMergeMulTieP aSMTP(aV12,aIIH);
+
+                   const auto & aSetP = aSMTP.Pts(); // get the map config -> points
+                   if (aSetP.empty()) // no coherent  pair no config
+                   {
+                   }
+                   else if (aSetP.size()==1)  // some coherent pair
+                   {
+                       tREAL8 aDS1 = mDownScale;
+                       tREAL8 aDS2 = mDownScale;
+                       if (IsInit(& mNameDSByIm))
+                       {
+                           aDS1 = 1.0 / cStrIO<double>::FromStr(aCompUpS.Translate(aN1));
+                           aDS2 = 1.0 / cStrIO<double>::FromStr(aCompUpS.Translate(aN2));
+                           // cComputeAssociation aCompUpS;
+                       }
+                       const auto & aVP = aSetP.begin()->second.mVPIm;
+                       cSetHomogCpleIm  aSetH;
+                       // point ar stored "A1 A2 B1 B2 C1 C2 ..."
+                       for (size_t  aKP=0 ; aKP<aVP.size() ; aKP+=2)
+                       {
+                           aSetH.Add(cHomogCpleIm(aVP.at(aKP)/aDS1,aVP.at(aKP+1)/aDS2));
+                       }
+
+                       mPhProj.SaveHomol(aSetH,aN1,aN2);
+
+
+                       if (mTimingTest && (aK1==0)  && (aK2==1))
+                       {
+                           // on meramptah test :  TIME SAVE 1.38784 TIME READ 0.295475
+
+                           double aT0 = SecFromT0();
+                           for (int aTime=0 ;aTime<100; aTime++)
+                               mPhProj.SaveHomol(aSetH,aN1,aN2);
+                           double aT1 = SecFromT0();
+                           StdOut() << "TIME SAVE " << aT1-aT0 << std::endl;
+
+                           for (int aTime=0 ;aTime<100; aTime++)
+                               mPhProj.ReadHomol(aSetH,aN1,aN2,mPhProj.DPTieP().FullDirOut());
+                           double aT2 = SecFromT0();
+                           StdOut() << "TIME READ " << aT2-aT1 << std::endl;
+                       }
+                   }
+                   else  // this case should never happen
+                   {
+                       MMVII_INTERNAL_ERROR("Incoherence in tie points merge");
+                   }
+
+               }
+           }
+       }
+
+   }
+   else if (mFormat==eFormatExtern::eColmap)
+   {
+       MMVII_INTERNAL_ASSERT_always(IsInit(&mInTiePFile),"mInTiePFile not initialised");
+       std::map<int, std::vector<std::pair<std::string, tPt2dr>>> aMapTP = ReadColmapImagesTxt(mInTiePFile);
+
+       // acumulates tracks for pairs of images (image1-image2, set of tie-pts)
+       std::map<std::pair<std::string,std::string>, cSetHomogCpleIm> aPairMap;
+
+       for (auto & aTrack : aMapTP)
+       {
+           auto & aObs = aTrack.second;
+           for (size_t aK1=0; aK1<aObs.size(); aK1++)
+           {
+               for (size_t aK2=aK1+1; aK2<aObs.size(); aK2++)
+               {
+                   std::string aN1 = aObs[aK1].first;
+                   std::string aN2 = aObs[aK2].first;
+                   tPt2dr aP1 = aObs[aK1].second;
+                   tPt2dr aP2 = aObs[aK2].second;
+                   if (aN1 > aN2) { std::swap(aN1,aN2); std::swap(aP1,aP2); }
+                   aPairMap[{aN1,aN2}].Add(cHomogCpleIm(aP1,aP2));
+               }
+           }
+       }
+
+       for (auto & aPair : aPairMap)
+       {
+           mPhProj.SaveHomol(aPair.second, aPair.first.first, aPair.first.second);
+           aNbExist++;
+       }
+
    }
    else
    {
-       MMVII_UnclasseUsEr("Only mmv1 suported now for tie point import");
+       MMVII_UnclasseUsEr("Only mmv1 and Colmap suported now for tie point import");
    }
 
-   auto aVName = VectMainSet(0);
-
-   tNameSelector  aRegDebug =  AllocRegex(mPatNameDebug);
-
-   cComputeAssociation aCompUpS;
-   if (IsInit(& mNameDSByIm))
-      aCompUpS = cComputeAssociation::FromFile(mNameDSByIm);
-
-   int aNbExist = 0;
-   // parse all pair, in only one sense, as we will merge "AB" with "BA" when both exist
-   int aFreqMsg = std::max(1,std::min(100,int(aVName.size())/10));
-   for (size_t aK1=0; aK1<aVName.size() ; aK1++)
-   {
-      if (IsInit(&mPatNameDebug) && (aK1%aFreqMsg==0))
-         StdOut() << "Still " << aVName.size() - aK1 << " to process " << std::endl;
-      for (size_t aK2=aK1+1; aK2<aVName.size() ; aK2++)
-      {
-           std::string aN1 = aVName[aK1];
-           std::string aN2 = aVName[aK2];
-           OrderMinMax(aN1,aN2);  //  prefer to fix arbitrary order
-
-           bool aDebug = aRegDebug.Match(aN1) && aRegDebug.Match(aN2);
-
-           bool Exist12 = aIIH->HasHom(aN1,aN2);
-           bool Exist21 = aIIH->HasHom(aN2,aN1);
-
-           if (aDebug)  StdOut() << aN1 << "/" << aN2 << " Exist :" << Exist12 << "/" << Exist21 << std::endl;
-
-           if (Exist12 || Exist21) // if one of both exist : create
-           {
-               aNbExist++;
-               std::vector<std::string> aV12({aN1,aN2});
-               // structure to make the fusion
-               cComputeMergeMulTieP aSMTP(aV12,aIIH);
-
-               const auto & aSetP = aSMTP.Pts(); // get the map config -> points
-               if (aSetP.empty()) // no coherent  pair no config
-               {
-               }
-               else if (aSetP.size()==1)  // some coherent pair
-               {
-                   tREAL8 aDS1 = mDownScale;
-                   tREAL8 aDS2 = mDownScale;
-                   if (IsInit(& mNameDSByIm))
-                   {
-                      aDS1 = 1.0 / cStrIO<double>::FromStr(aCompUpS.Translate(aN1));
-                      aDS2 = 1.0 / cStrIO<double>::FromStr(aCompUpS.Translate(aN2));
-   // cComputeAssociation aCompUpS;
-                   }
-                   const auto & aVP = aSetP.begin()->second.mVPIm;
-                   cSetHomogCpleIm  aSetH;
-                   // point ar stored "A1 A2 B1 B2 C1 C2 ..."
-                   for (size_t  aKP=0 ; aKP<aVP.size() ; aKP+=2)
-                   {
-                       aSetH.Add(cHomogCpleIm(aVP.at(aKP)/aDS1,aVP.at(aKP+1)/aDS2));
-                   }
-
-                   mPhProj.SaveHomol(aSetH,aN1,aN2);
-
-
-                   if (mTimingTest && (aK1==0)  && (aK2==1))
-                   {
-                      // on meramptah test :  TIME SAVE 1.38784 TIME READ 0.295475
-
-                      double aT0 = SecFromT0();
-                      for (int aTime=0 ;aTime<100; aTime++)
-                          mPhProj.SaveHomol(aSetH,aN1,aN2);
-                      double aT1 = SecFromT0();
-                      StdOut() << "TIME SAVE " << aT1-aT0 << std::endl;
-
-                      for (int aTime=0 ;aTime<100; aTime++)
-                           mPhProj.ReadHomol(aSetH,aN1,aN2,mPhProj.DPTieP().FullDirOut());
-                      double aT2 = SecFromT0();
-                      StdOut() << "TIME READ " << aT2-aT1 << std::endl;
-                   }
-               }
-               else  // this case should never happen
-               {
-                   MMVII_INTERNAL_ERROR("Incoherence in tie points merge");
-               }
-
-           }
-      }
-   }
 
    if (aNbExist==0)
    {

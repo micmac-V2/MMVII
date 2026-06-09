@@ -813,7 +813,7 @@ cPt3dr cMes1Gnd3D::SigmasXYZ() const
 {
     if (mOptSigma2)
     {
-        return {sqrt((*mOptSigma2)[IndXX]), sqrt((*mOptSigma2)[IndXX]), sqrt((*mOptSigma2)[IndXX]) };
+        return {sqrt((*mOptSigma2)[IndXX]), sqrt((*mOptSigma2)[IndYY]), sqrt((*mOptSigma2)[IndZZ]) };
     } else {
         return cPt3dr::Dummy();
     }
@@ -906,6 +906,7 @@ void cSetMesGnd3D::ToFile(const std::string & aNameFile) const
 
 
 const std::vector<cMes1Gnd3D> &   cSetMesGnd3D::Measures() const {return mMeasures;}
+std::vector<cMes1Gnd3D> &   cSetMesGnd3D::Measures() {return mMeasures;}
 
 cSetMesGnd3D  cSetMesGnd3D::Filter(const std::string &aFilter, const std::string &aFiltrAdditionalInfo) const
 {

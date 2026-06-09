@@ -45,7 +45,14 @@ class cRessampleWeigth
 {
     public :
         // aSzK = 1 correspond to a "perfect sensor"
-         static cRessampleWeigth  GaussBiCub(const cPt2dr & aPtsIn,const cAff2D_r & aMapIn, double aSzK);
+         cRessampleWeigth(const cPt2dr & aPtsIn,const   cDataInvertibleMapping<tREAL8,2> & aMapIn, double aSzK);
+
+
+         static cRessampleWeigth  GaussBiCub(const cPt2dr & aPtsIn,const tAff2Dr & aMapIn, double aSzK);
+         static cRessampleWeigth  GaussBiCub(const cPt2dr & aPtsIn,const cHomogr2D<tREAL8>  & aMapIn, double aSzK);
+
+         //static cRessampleWeigth  GaussBiCub(const cPt2dr & aPtsIn,const   cDataInvertibleMapping<tREAL8,2> & aMapIn, double aSzK);
+
     // private :
          std::vector<cPt2di>  mVPts;  // Pts used
          std::vector<double>  mVWeight;

@@ -492,7 +492,7 @@ int cAppli_BlockInstrInitClino::Exe()
 
 
     mBlock->ComputePoseInstrument();
-    mBlock->SetClinoValues();
+    mBlock->SetClinoValues(eModeAddDataTimeS::eSkipIfNew);
 
     if (!IsInit(&mPairOrthog))
     {

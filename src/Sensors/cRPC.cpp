@@ -39,6 +39,7 @@ class cRPC_Polyn : public cDataMapping<tREAL8,3,1>
         void SetCoeffs(const std::vector<tREAL8>&,size_t aK0);
 
 
+        void ToXML_RPC(cMMVII_Ofs& anOfs, const std::string &aPrefix) const;
     private:
         double Val(const cPt3dr &) const;
 
@@ -64,6 +65,8 @@ class cRPC_RatioPolyn
 
         void PushCoeffs(std::vector<tREAL8>&) const;
         void SetCoeffs(const std::vector<tREAL8>&);
+
+        void ToXML_RPC(cMMVII_Ofs& anOfs, const std::string &aPrefix) const;
     private:
         double Val(const cPt3dr &) const;
         cRPC_Polyn mNumPoly; // numerator polynomial
@@ -91,11 +94,13 @@ class cRatioPolynXY
 
         cPt2dr Val(const cPt3dr &) const;
         void   Show();
+        void ToXML_RPC(cMMVII_Ofs& anOfs, const std::string& aModel) const;
 
         void PushCoeffs(std::vector<tREAL8>&) const;
 
         //  Recompute a new RPC using correspondance
         void  InitFromSamples(const std::vector<cPt3dr> & aVIn,const std::vector<cPt3dr> & aVOut);
+
     private:
         cRPC_RatioPolyn mX;
         cRPC_RatioPolyn mY;
@@ -131,6 +136,7 @@ class cRPCSens : public cSensorImage
 
          cRPCSens(const std::string& aNameImage);
          void InitFromFile(const cAnalyseTSOF &);
+         void InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &aVGr);
 
          void Dimap_ReadXML_Glob(const cSerialTree&);
 
@@ -138,14 +144,13 @@ class cRPCSens : public cSensorImage
 
         ~cRPCSens();
 
-        void Show();
+        void Show() const override;
+        void ToFile(const std::string &) const override;
 
         const cRatioPolynXY& DirectRPC() {return *mDirectRPC;}
         const cRatioPolynXY& InverseRPC() {return *mInverseRPC;}
 
         cPt3dr  PseudoCenterOfProj() const override;
-
-        cRPCSens * RPCChangSys(cDataInvertibleMapping<tREAL8,3> &) const ;
 
     private:
         const cPt2dr & ImOffset() const {return mImOffset;}
@@ -176,6 +181,7 @@ class cRPCSens : public cSensorImage
 
          //  --------------- END  NOT IMPLEMANTED -----------------------------------------------
 
+         void FinalizeInit();
 
         cPt2dr NormIm(const cPt2dr &aP,bool) const;
         cPt3dr NormGround(const cPt3dr &aP,bool) const;
@@ -188,6 +194,7 @@ class cRPCSens : public cSensorImage
         void   Dimap_ReadXMLNorms(const cSerialTree&);
 
         cPt2dr  IO_PtIm(const cPt2dr &) const;  // Id or SwapXY, depending mSwapIJImage
+        cPt3dr  IO_PtIm(const cPt3dr &) const;  // Id or SwapXY, depending mSwapIJImage
         cPt3dr  IO_PtGr(const cPt3dr &) const;  // Id or SwapXY, depending mSwapXYGround
 
         cRatioPolynXY * mDirectRPC; // rational polynomial for image to ground projection
@@ -215,7 +222,7 @@ class cRPCSens : public cSensorImage
         //  For Image 2 Bundle, we need to know how we generate
         tREAL8 mAmplZB;
         //  cPixelDomain
-        cDataPixelDomain  mDataPixelDomain;
+       //  cNewDataPixelDomain  mNewDataPixelDomain;
         cPixelDomain      mPixelDomain;
         cBox3dr           mBoxGround;
 
@@ -336,6 +343,18 @@ void cRPC_Polyn::SetCoeffs(const std::vector<tREAL8>& aVC,size_t aK0)
         mCoeffs[aK] =  aVC[aK+aK0];
 }
 
+void cRPC_Polyn::ToXML_RPC(cMMVII_Ofs &anOfs,const std::string& aPrefix) const
+{
+    auto prefix = aPrefix + "_COEFF";
+    anOfs.Ofs() << "    <" + prefix + ">\n";
+    for (unsigned i=0; i<TheNbRPCoeff; i++)
+    {
+        auto tag = prefix + "_" + std::to_string(i+1);
+        anOfs.Ofs() << "      <" + tag + ">" << mCoeffs[i] << "</" + tag + ">\n";
+    }
+    anOfs.Ofs() << "    </" + prefix + ">\n";
+}
+
 void cRPC_Polyn::Show()
 {
     for (int aK=0; aK<20; aK++)
@@ -391,6 +410,14 @@ void cRPC_RatioPolyn::SetCoeffs(const std::vector<tREAL8>& aVC)
    mDenPoly.SetCoeffs(aVC,TheNbRPCoeff);
 }
 
+void cRPC_RatioPolyn::ToXML_RPC(cMMVII_Ofs &anOfs, const std::string& aPrefix) const
+{
+    auto prefix = aPrefix+"_NUM";
+    mNumPoly.ToXML_RPC(anOfs,prefix);
+    prefix = aPrefix+"_DEN";
+    mDenPoly.ToXML_RPC(anOfs,prefix);
+}
+
 /* =============================================== */
 /*                                                 */
 /*                 cRatioPolynXY                   */
@@ -422,6 +449,14 @@ void cRatioPolynXY::Show()
     mY.Show();
 }
 
+void cRatioPolynXY::ToXML_RPC(cMMVII_Ofs &anOfs,const std::string& aModel) const
+{
+    anOfs.Ofs() << "  <" + aModel + ">\n";
+    mY.ToXML_RPC(anOfs,"SAMP");
+    mX.ToXML_RPC(anOfs,"LINE");
+    anOfs.Ofs() << "  </" + aModel + ">\n";
+}
+
 void cRatioPolynXY::PushCoeffs(std::vector<tREAL8>& aVObs) const
 {
     mX.PushCoeffs(aVObs);
@@ -440,8 +475,9 @@ cRPCSens::cRPCSens(const std::string& aNameImage) :
     mSwapXYGround      (true),
     mSwapIJImage       (true),
     mAmplZB            (1.0),
-    mDataPixelDomain   (cPt2di(1,1)),  // No default constructor
-    mPixelDomain       (&mDataPixelDomain),
+ //   mNewDataPixelDomain   (cPt2di(1,1)),  // No default constructor
+  //  mPixelDomain       (&mNewDataPixelDomain,cTagByPtrPixDom()),
+    mPixelDomain       (cPt2di(1,1)),
     mBoxGround         (cBox3dr::Empty())  // Empty box because no default init
 {
     ///  For now assume RPC is WGS84 Degree always, see later if we change that
@@ -456,21 +492,66 @@ void cRPCSens::InitFromFile(const cAnalyseTSOF & anAnalyse)
    {
         Dimap_ReadXML_Glob(*anAnalyse.mSTree);
    }
+   FinalizeInit();
+}
 
-   mCenterOfFootPrint =  IO_PtGr(mGroundOffset);
 
-   //  For now trust the scale
-   cPt3dr aScGrV2 = IO_PtGr(mGroundScale);
-   cPt2dr aScGrIm = IO_PtIm(mImScale);
+// TODOCM:  aVIm : vector of cPt2dr ???
+void cRPCSens::InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &aVGr)
+{
+    cBox3dr aBoxIn = cTplBoxOfPts<tREAL8,3>::FromVect(aVIm).CurBox();
+    cBox3dr aBoxOut = cTplBoxOfPts<tREAL8,3>::FromVect(aVGr).CurBox();
 
-   tREAL8 aNbPixel = 5.0;
-   //  Make the Epsilon so that a dif of 1 Epislon correspond ~ to aNbPixel
-   mEpsCoord.x() = (aScGrV2.x() / aScGrIm.x()) * aNbPixel;
-   mEpsCoord.y() = (aScGrV2.y() / aScGrIm.y()) * aNbPixel;
+    mGroundOffset = aBoxOut.Middle();
+    mGroundScale = aBoxOut.Sz() / 2.0;
 
-   mEpsCoord.z() =  1.0 * aNbPixel; // very rough
-                                    //
-   // StdOut() << "EPSILON : " << mEpsCoord << "\n";
+    mImOffset = Proj(aBoxIn.Middle());
+    mImScale =  Proj(aBoxIn.Sz() / 2.0);
+
+    m3DImOffset = TP3z(mImOffset, aBoxIn.Middle().z());
+    m3DImScale = TP3z(mImScale, aBoxIn.Sz().z() / 2.0);
+
+
+    for (auto &aPIm : aVIm)
+    {
+        aPIm = IO_PtIm(DivCByC(aPIm - m3DImOffset, m3DImScale)); // Normalize to [-1,1]
+    }
+    for (auto &aPGr : aVGr)
+    {
+        aPGr = IO_PtGr(DivCByC(aPGr - mGroundOffset, mGroundScale)); // Normalize to [-1,1]
+    }
+
+    mBoxGround = cBox3dr(aBoxOut.P0(),aBoxOut.P1());
+
+    mImOffset = IO_PtIm(mImOffset);
+    mImScale = IO_PtIm(mImScale);
+    mGroundOffset = IO_PtGr(mGroundOffset);
+    mGroundScale = IO_PtGr(mGroundScale);
+    mPixelDomain = cPixelDomain(cPt2di(round_down(aBoxIn.Sz().x()),round_down(aBoxIn.Sz().y())));
+
+    mDirectRPC = new cRatioPolynXY();
+    mInverseRPC = new cRatioPolynXY();
+    mDirectRPC->InitFromSamples(aVIm,aVGr);
+    mInverseRPC->InitFromSamples(aVGr,aVIm);
+    FinalizeInit();
+}
+
+void cRPCSens::FinalizeInit()
+{
+    mCenterOfFootPrint =  IO_PtGr(mGroundOffset);
+
+    //  For now trust the scale
+    cPt3dr aScGrV2 = IO_PtGr(mGroundScale);
+    cPt2dr aScGrIm = IO_PtIm(mImScale);
+
+    tREAL8 aNbPixel = 5.0;
+    //  Make the Epsilon so that a dif of 1 Epislon correspond ~ to aNbPixel
+    mEpsCoord.x() = (aScGrV2.x() / aScGrIm.x()) * aNbPixel;
+    mEpsCoord.y() = (aScGrV2.y() / aScGrIm.y()) * aNbPixel;
+
+    mEpsCoord.z() =  1.0 * aNbPixel; // very rough
+    //
+    // StdOut() << "EPSILON : " << mEpsCoord << "\n";
 }
 
 cRPCSens::~cRPCSens()
@@ -481,8 +562,9 @@ cRPCSens::~cRPCSens()
     mInverseRPC = nullptr;
 }
 
-void cRPCSens::Show()
+void cRPCSens::Show() const
 {
+    cSensorImage::Show();
     StdOut() << "\t======= Direct model =======" << std::endl;
     mDirectRPC->Show();
 
@@ -497,7 +579,48 @@ void cRPCSens::Show()
     StdOut() << "IMAGE SCALE=\t" << mImScale << std::endl;
     StdOut() << "GROUND OFFSET=\t" << mGroundOffset << std::endl;
     StdOut() << "GROUND SCALE=\t" << mGroundScale << std::endl;
+}
 
+template <typename T>
+static void ValueToRCP_XML(cMMVII_Ofs& anOfs,const std::string& tag, const T& value)
+{
+    anOfs.Ofs() << "    <" << tag << ">" << value << "</" << tag << ">\n";
+}
+
+void cRPCSens::ToFile(const std::string &aFileName) const
+{
+    cMMVII_Ofs anOfs(aFileName,eFileModeOut::CreateText);
+    auto aP0Gr = IO_PtGr(mBoxGround.P0());
+    auto aP1Gr = IO_PtGr(mBoxGround.P1());
+
+    anOfs.Ofs() << "<?xml version=\"1.0\" ?>\n";
+    anOfs.Ofs() << "<Xml_RPC>\n";
+    anOfs.Ofs() << "  <METADATA_FORMAT>DIMAP</METADATA_FORMAT>\n";
+    anOfs.Ofs() << "  <METADATA_VERSION>2.0</METADATA_VERSION>\n";
+    anOfs.Ofs() << std::setprecision(17);
+    mDirectRPC->ToXML_RPC(anOfs,"Direct_Model");
+    mInverseRPC->ToXML_RPC(anOfs,"Inverse_Model");
+    anOfs.Ofs() << "  <RFM_Validity>\n";
+    ValueToRCP_XML(anOfs,"FIRST_ROW",1);
+    ValueToRCP_XML(anOfs,"FIRST_COL",1);
+    ValueToRCP_XML(anOfs,"LAST_ROW",PixelDomain().Sz().y());
+    ValueToRCP_XML(anOfs,"LAST_COL",PixelDomain().Sz().x());
+    ValueToRCP_XML(anOfs,"FIRST_LON",aP0Gr.y());
+    ValueToRCP_XML(anOfs,"FIRST_LAT",aP0Gr.x());
+    ValueToRCP_XML(anOfs,"LAST_LON",aP1Gr.y());
+    ValueToRCP_XML(anOfs,"LAST_LAT",aP1Gr.x());
+    ValueToRCP_XML(anOfs,"LONG_SCALE",mGroundScale.y());
+    ValueToRCP_XML(anOfs,"LONG_OFF",mGroundOffset.y());
+    ValueToRCP_XML(anOfs,"LAT_SCALE",mGroundScale.x());
+    ValueToRCP_XML(anOfs,"LAT_OFF",mGroundOffset.x());
+    ValueToRCP_XML(anOfs,"HEIGHT_SCALE",mGroundScale.z());
+    ValueToRCP_XML(anOfs,"HEIGHT_OFF",mGroundOffset.z());
+    ValueToRCP_XML(anOfs,"SAMP_SCALE",mImScale.y());
+    ValueToRCP_XML(anOfs,"SAMP_OFF",mImOffset.y());
+    ValueToRCP_XML(anOfs,"LINE_SCALE",mImScale.x());
+    ValueToRCP_XML(anOfs,"LINE_OFF",mImOffset.x());
+    anOfs.Ofs() << "  </RFM_Validity>\n";
+    anOfs.Ofs() << "</Xml_RPC>\n";
 }
 
 std::string  cRPCSens::V_PrefixName() const
@@ -505,11 +628,10 @@ std::string  cRPCSens::V_PrefixName() const
         return "RPC";
 }
 
+
+// Samples must be normalized [-1,1]
 void  cRatioPolynXY::InitFromSamples(const std::vector<cPt3dr> & aVIn,const std::vector<cPt3dr> & aVOut)
 {
-    cBox3dr aBoxIn = cTplBoxOfPts<tREAL8,3>::FromVect(aVIn).CurBox();
-    cBox3dr aBoxOut = cTplBoxOfPts<tREAL8,3>::FromVect(aVOut).CurBox();
-
     for (auto IsX : {true,false})
     {
         cLeasSqtAA<tREAL8>   aSys(2*TheNbRPCoeff);
@@ -520,11 +642,9 @@ void  cRatioPolynXY::InitFromSamples(const std::vector<cPt3dr> & aVIn,const std:
         size_t IndNumCste = 0;
         for (size_t aKPt=0; aKPt<aVIn.size() ; aKPt++)
         {
-            cPt3dr aPNormIn  = aBoxIn.ToNormaliseCoord(aVIn.at(aKPt));
-            cRPC_Polyn::FillCubicCoeff(aVPolXYZ,aPNormIn);
+            cRPC_Polyn::FillCubicCoeff(aVPolXYZ,aVIn.at(aKPt));
 
-            cPt3dr aPNormOut = aBoxOut.ToNormaliseCoord(aVOut.at(aKPt));
-            tREAL8 aCoord = IsX ? aPNormOut.x() : aPNormOut.y() ;
+            tREAL8 aCoord = IsX ? aVOut.at(aKPt).x() : aVOut.at(aKPt).y() ;
          
             //   Num Coef - Den * Coef * I =0    , N [0] = 0
             for (int aKC=0 ; aKC<TheNbRPCoeff ; aKC++)
@@ -538,7 +658,10 @@ void  cRatioPolynXY::InitFromSamples(const std::vector<cPt3dr> & aVIn,const std:
             aSys.PublicAddObservation(1.0,aVCoeff,-aValCste);
         }
         aSys.AddObsFixVar(std::sqrt(aSomC2),IndNumCste,1.0);
+
+        // TODOCM: check variance
         std::vector<tREAL8> aSol = aSys.PublicSolve().ToStdVect();
+        StdOut() << "RPC Var(" << (IsX ? "X" : "Y") << ") : " << aSys.VarCurSol() << "\n";
 
         if (IsX)
            mX.SetCoeffs(aSol);
@@ -548,29 +671,6 @@ void  cRatioPolynXY::InitFromSamples(const std::vector<cPt3dr> & aVIn,const std:
                    
 }
 
-//  Not finisehd
-cRPCSens * cRPCSens::RPCChangSys(cDataInvertibleMapping<tREAL8,3> & aMap) const
-{
-    cRPCSens * aRes = new cRPCSens(NameImage());
-    cSet2D3D aSet = SyntheticsCorresp3D2D(30,5,mBoxGround.P0().z(),mBoxGround.P1().z(),false,0.0);
-
-    std::vector<cPt3dr> aVIm;
-    std::vector<cPt3dr> aVGr;
-
-    for (const auto & aPair : aSet.Pairs())
-    {
-         cPt3dr  aPGr = aMap.Value(aPair.mP3);
-         cPt3dr  aPIm = TP3z(aPair.mP2,aPGr.z());
-
-         aVIm.push_back(aPIm);
-         aVGr.push_back(aPGr);
-    }
-
-    // InitFromSamples(aVIm,aVGr);
-    // InitFromSamples(aVGr,aVIm);
-
-    return aRes;
-}
 
      // ======================  Dimap creation ===========================
 
@@ -626,7 +726,7 @@ void cRPCSens::Dimap_ReadXMLNorms(const cSerialTree& aTree)
 
     int anX = round_ni(ReadRealXmlItem(*aData,"LAST_COL"));
     int anY = round_ni(ReadRealXmlItem(*aData,"LAST_ROW"));
-    mDataPixelDomain =  cDataPixelDomain(cPt2di(anX,anY));
+    mPixelDomain = cPixelDomain(cPt2di(anX,anY));
 
     // compute the validity of bounding box
     cPt3dr aP0Gr;
@@ -723,6 +823,7 @@ double cRPCSens::NormZ(const double aZ,bool Direct) const
 // cPt3dr cRPCSens::IO_PtGr(const cPt3dr&aPt) const {return mSwapXYGround?cPt3dr(aPt.y(),aPt.x(),aPt.z()):aPt;}
 
 cPt2dr cRPCSens::IO_PtIm(const cPt2dr&aPt) const {return mSwapIJImage?PSymXY(aPt):aPt;}
+cPt3dr cRPCSens::IO_PtIm(const cPt3dr&aPt) const {return mSwapIJImage?PSymXY(aPt):aPt;}
 cPt3dr cRPCSens::IO_PtGr(const cPt3dr&aPt) const {return mSwapXYGround?PSymXY(aPt):aPt;}
 
 cPt2dr cRPCSens::Ground2Image(const cPt3dr& aP) const
@@ -791,12 +892,10 @@ cPt3dr  cRPCSens::EpsDiffGround2Im(const cPt3dr & ) const {return mEpsCoord;}
 
 cPt3dr cRPCSens::ImageZToGround(const cPt2dr& aPIm,const double aZ) const
 {
-
     cPt2dr aPImN = NormIm(IO_PtIm(aPIm),true); // image normalised
     double aZN = NormZ(aZ,true); // norm Z
     cPt2dr aPGrN = mDirectRPC->Val(cPt3dr(aPImN.x(),aPImN.y(),aZN)); // ground normalised
     cPt3dr aRes = NormGround( cPt3dr(aPGrN.x(),aPGrN.y(),aZN) ,false); // ground unnormalised
-
     return IO_PtGr(aRes);
 }
 
@@ -843,6 +942,38 @@ cSensorImage *  AllocRPCDimap(const cAnalyseTSOF & anAnalyse,const std::string &
 {
     cRPCSens* aRes = new cRPCSens(aNameImage);
     aRes->InitFromFile(anAnalyse);
+
+    return aRes;
+}
+
+
+cSensorImage * cSensorImage::GenerateSensorRPC(const std::string& aNameIm, const cDataInvertibleMapping<tREAL8,2>* aResampleMap, const cDataInvertibleMapping<tREAL8,3>* aChSysCoMap, bool SVP) const
+{
+    if (! HasIntervalZ())
+    {
+        if (SVP)
+            return nullptr;
+        MMVII_INTERNAL_ERROR("cSensorImage::GenerateSensorRPC no interval Z");
+    }
+    std::vector<cPt2dr>  aVPts =  PtsSampledOnSensor(3,0);
+
+    // TODOCM: Must infer correct values for 30,5
+    cSet2D3D aSet = SyntheticsCorresp3D2D(30,5,GetIntervalZ().x(),GetIntervalZ().y(),false,0.0);
+
+    std::vector<cPt3dr> aVIm;
+    std::vector<cPt3dr> aVGr;
+
+    for (const auto & aPair : aSet.Pairs())
+    {
+        cPt3dr  aPGr = aChSysCoMap ? aChSysCoMap->Value(aPair.mP3) : aPair.mP3;
+        cPt3dr  aPIm = TP3z(aResampleMap ? aResampleMap->Value(aPair.mP2) : aPair.mP2, aPGr.z());
+
+        aVIm.push_back(aPIm);
+        aVGr.push_back(aPGr);
+    }
+
+    cRPCSens * aRes = new cRPCSens(aNameIm);
+    aRes->InitFromSamples(aVIm, aVGr);
 
     return aRes;
 }

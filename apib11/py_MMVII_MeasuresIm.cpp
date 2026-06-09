@@ -80,7 +80,7 @@ void pyb_init_MeasuresIm(py::module_ &m) {
             .def_static("fromFile", &cSetMesGnd3D::FromFile,DOC(MMVII_cSetMesGnd3D,FromFile))
             .def("toFile", py::overload_cast<const std::string &>(&cSetMesGnd3D::ToFile, py::const_),DOC(MMVII_cSetMesGnd3D,ToFile))
             .def("stdNameFile", &cSetMesGnd3D::StdNameFile,DOC(MMVII_cSetMesGnd3D,StdNameFile))
-            .def("measures", &cSetMesGnd3D::Measures, py::return_value_policy::reference_internal, DOC(MMVII_cSetMesGnd3D,Measures))
+            .def("measures", py::overload_cast<>(&cSetMesGnd3D::Measures), py::return_value_policy::reference_internal, DOC(MMVII_cSetMesGnd3D,Measures))
             .def("__repr__",
                  [](const cSetMesGnd3D &m) {
                    std::ostringstream ss;

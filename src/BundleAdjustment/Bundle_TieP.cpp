@@ -99,12 +99,12 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
                        mSys->R_AddEq2Subst(aStrSubst,anEqColin,aVIndGlob,aVObs,aWeightImage);
                        aNbEqAdded++;
                    }
-           }
+               }
            }
 
            // if at least 2 tie-point, we can add equation with schurr-complement
            if (aNbEqAdded>=2)
-              mSys->R_AddObsWithTmpUK(aStrSubst);  // finnaly add obs accummulated
+              mSys->R_AddObsWithTmpUK(aStrSubst,mCurLVMParam);  // finnaly add obs accummulated
        }
 
    }

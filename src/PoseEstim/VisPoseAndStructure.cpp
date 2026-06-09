@@ -38,8 +38,8 @@ cCollecSpecArg2007 & cAppli_VisuPoseStr3D::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            << AOpt2007(mCamScale,"CamScale","Scale camera frustum",{eTA2007::HDV})
            << AOpt2007(mOutfile,"Outfile","Output filename",{eTA2007::HDV})
            << AOpt2007(mBinary,"Bin","Output in binary format",{eTA2007::HDV})
-           << mPhProj.DPMulTieP().ArgDirInOpt("TPDir")
-           << mPhProj.DPGndPt2D().ArgDirInOpt()
+           << mPhProj.DPMulTieP().ArgDirInOpt("","Input features (multiple tie-points format)")
+           << mPhProj.DPGndPt2D().ArgDirInOpt("","Input features (image measurements format)")
         ;
 }
 
@@ -119,7 +119,7 @@ tMMVII_UnikPApli Alloc_VisuPoseStr3D(const std::vector<std::string> & aVArgs,con
 
 cSpecMMVII_Appli  TheSpec_VisuPoseStr3D
     (
-        "VisSfm",
+        "VisPose3D",
         Alloc_VisuPoseStr3D,
         "Create PLY with poses and 3D structure",
         {eApF::Ori},

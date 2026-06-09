@@ -10,14 +10,18 @@ namespace MMVII
 /*                                                           */
 /* ********************************************************* */
 
-cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols):
-    mPMAT     (aPMAT),
-    mNbIter   (aPMAT->NbIterBA()),
-    mSigAtt   (aPMAT->SigmaTPt()),
-    mThrRange ({aPMAT->SigmaTPt()*aPMAT->FacElim(), aPMAT->SigmaTPt()*5}),
-    mDeltaThr (aPMAT->SigmaTPt()*aPMAT->FacElim() - aPMAT->SigmaTPt()*5),
+cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols,int aTDepth):
+    mPMAT      (aPMAT),
+    mNbIter    (aPMAT->NbIterBA()),
+    mSigAttFinal(1.0),
+    mThrFinal   (aPMAT->FacElim()),
+    //mSigARange  ({std::max(mSigAttFinal,std::min(5.0,aPMAT->SigmaTPt())),mSigAttFinal}), // {max,min} <=> {initial,final}
+    //mThrRange   ({std::max(mThrFinal,std::min(30.0,aPMAT->SigmaTPt()*aPMAT->FacElim())),mThrFinal}), // {max,min} <=> {initial,final}
+    mSigARange  ({std::max(mSigAttFinal,aPMAT->SigmaTPt()),mSigAttFinal}), // {max,min} <=> {initial,final}
+    mThrRange   ({mThrFinal,mThrFinal}),            // {max,min} <=> {initial,final}
     mSys      (nullptr),
-    mTPts     (nullptr)
+    mTPts     (nullptr),
+    mTreeDepth(aTDepth)
 {
     // get image names in current node
     std::vector<std::string> aVNames;
@@ -65,15 +69,48 @@ void cBA_ArboTriplets::OneIteration(int aIter)
     for (auto& aPair : mTPts->Pts())
         MakePGroundFromBundles(aPair, mVSens);
 
-    tREAL8 aThr = mDeltaThr*(1 - double(aIter)/(mNbIter-1)) + mThrRange[1];
-    cStdWeighterResidual aTPtsW(1.0, mSigAtt, aThr, 2.0);
+    // diagnostic: compare triangulated P3D with GT at first iteration
+    if (aIter==0 && mGTPts3D)
+    {
+        double aTotDist=0; int aNComp=0;
+        double aMaxDist=0;
+        for (auto& aAllConfigs : mTPts->Pts())
+        {
+            const auto& aVals = aAllConfigs.second;
+            size_t aNbPts = aVals.mVIdPts.empty() ? NbPtsMul(aAllConfigs) : aVals.mVIdPts.size();
+            for (size_t aKPts=0; aKPts<aNbPts; aKPts++)
+            {
+                if (aVals.mVIdPts.empty()) continue;
+                int anId = aVals.mVIdPts.at(aKPts);
+                auto it = mGTPts3D->find(anId);
+                if (it == mGTPts3D->end()) continue;
+                tREAL8 aDist = Norm2(aVals.mVPGround.at(aKPts) - it->second);
+                aTotDist += aDist; aNComp++;
+                UpdateMax(aMaxDist, (double)aDist);
+            }
+        }
+        if (aNComp>0)
+            StdOut() << "[DiagP3D] GT-vs-triangulated: avg=" << aTotDist/aNComp
+                     << " max=" << aMaxDist << " over " << aNComp << " pts\n";
+        else
+            StdOut() << "[DiagP3D] no matching GT pts found (mVIdPts empty or no overlap)\n";
+    }
+
+    auto CurrentVal = [&](int iterCur,int iterMax,tREAL8 delta,tREAL8 bias)
+    {
+        return delta*(1 - double(iterCur)/(iterMax-1)) + bias;
+    };
+
+    tREAL8 aSigA = CurrentVal(aIter,mNbIter,mSigARange.at(0) - mSigARange.at(1),mSigARange.at(1));
+    tREAL8 aThr = CurrentVal(aIter,mNbIter,mThrRange.at(0) - mThrRange.at(1),mThrRange.at(1));
+    cStdWeighterResidual aTPtsW(1.0, aSigA, aThr, 2.0);
 
     // add observation equations for all tie-points
     tREAL8 aMaxRes=0;
     int aNumAllTiePts=0;
     int aNumTPts=0;
-    int aNumAll3DPts=0;
-    int aNum3DPts=0;
+    int aNumElimDegVis=0;   // eliminated by DegreeVisibility <= 0
+    int aNumElimWeight=0;   // eliminated by weight == 0 (DegreeVisibility was > 0)
     cWeightAv<tREAL8> aWeigthedRes;
 
     int aConfigNum=0; //track id of current config
@@ -88,7 +125,6 @@ void cBA_ArboTriplets::OneIteration(int aIter)
         // mVIdPts is only filled when created from MulTieP (with index); fall back to geometry-based count
         size_t aNbPts = aVals.mVIdPts.empty() ? NbPtsMul(aAllConfigs) : aVals.mVIdPts.size();
 
-        aNumAll3DPts+=aNbPts;
 
         // for every tie-point in current config
         for (size_t aKPts=0; aKPts<aNbPts; aKPts++)
@@ -115,31 +151,35 @@ void cBA_ArboTriplets::OneIteration(int aIter)
                 if (aIter==0)
                 {
                     cPt3dr u = VUnit(VOrthog(aPBun));
-                    cPt3dr v = aPBun ^ u;
+                    cPt3dr v = VUnit(aPBun ^ u);
                     this->mVecConfUV.at(aConfigNum).push_back(std::make_pair(u,v));
                 }
 
                 // handle visibility
                 //
-                if (aCam->DegreeVisibility(aP3D) >0.0)
+                tREAL8 aDegVis = aCam->DegreeVisibility(aP3D);
+                if (aDegVis > 0.0)
                 {
-                    cPt3dr aPBunPred = aCam->Pt_W2L(aP3D);
-                    aPBunPred.x() /= aPBunPred.z();
-                    aPBunPred.y() /= aPBunPred.z();
-                    aPBunPred.z() = 1.0;
-                    cPt2dr aResidual { aCam->InternalCalib()->F()  * (aPBun.x() - aPBunPred.x()),
-                                     aCam->InternalCalib()->F() * (aPBun.y() - aPBunPred.y())};
+                    // angle-based residual
+                    const auto& [u, v] = mVecConfUV.at(aConfigNum).at(aKPts*aNbIm+aKIm);
+                    cPt3dr aPBunPredUnit = VUnit(aCam->Pt_W2L(aP3D));
+
+                    tREAL8 aF = aCam->InternalCalib()->F();
+                    cPt2dr aResidual { aF * aPBunPredUnit.ToVect().DotProduct(u.ToVect()),
+                                       aF * aPBunPredUnit.ToVect().DotProduct(v.ToVect()) };
                     tREAL8 aResNorm = Norm2(aResidual);
 
                     tREAL8 aWeight = aTPtsW.SingleWOfResidual(aResidual);
-                    //StdOut() << "RRRR " << aResidual << " W=" << aWeight << ", "
-                    //         << ", 3D=" << aP3D <<  ", F="
-                    //         << aCam->InternalCalib()->F() << " "
-                    //         << aPBun << " "
-                    //         << aPBunPred << "\n";
+
+                    /*if (aWeight<=0.0)
+                        StdOut() << "RRRR " << aResidual << " W=" << aWeight << ", "
+                             << ", 3D=" << aP3D <<  ", F="
+                             << aCam->InternalCalib()->F() << " "
+                             << aPBun << " "
+                             << aPBunPredUnit << "\n";*/
 
 
-                    cCalculator<double> * aEqCol =  this->mVEqCol.at(aKIm);
+                    cCalculator<double> * aEqCol =  this->mVEqCol.at(aKImSorted);//aKIm
 
 
                     // add observations:
@@ -169,32 +209,40 @@ void cBA_ArboTriplets::OneIteration(int aIter)
                         aNbEqAdded++;
                         aNumTPts++;
 
-
                         if (aMaxRes<aResNorm)
                             aMaxRes=aResNorm;
                     }
+                    else
+                        aNumElimWeight++;
                 }
+                else
+                    aNumElimDegVis++;
                 aNumAllTiePts++;
             }
 
             if (aNbEqAdded>=2)
             {
-                mSys->R_AddObsWithTmpUK(aStrSubst);
-                aNum3DPts++;
+                mSys->R_AddObsWithTmpUK(aStrSubst,mPMAT->LVM());
             }
 
         }
         aConfigNum++;
     }
 
-    double aPercInliersTP = (aNumAllTiePts>0) ? (aNumTPts*100)/aNumAllTiePts : 0.0;
-    double aPercIn3DP = (aNumAll3DPts>0) ? (aNum3DPts*100)/aNumAll3DPts : 0.0;
-    StdOut() << "#Iter=" << aIter
-             << " Res=" << aWeigthedRes.Average()
-             << ", #3D points=" << aNumAll3DPts << ", " << aPercIn3DP << "%"
-             << ", #2D features=" << aNumTPts << ", " << aPercInliersTP << "%"
-             // << ", MaxRes=" << aMaxRes
-             << std::endl;
+    if (aIter==(mPMAT->NbIterBA()-1))
+    {
+        StdOutLock::lock();
+        StdOut() << "----------------------   Tree depth=" << mTreeDepth << ", images "
+                 << NbCams() << "/" << mPMAT->GOP().AllVertices().size() << std::endl;
+
+        StdOut() << "  # End Iter" << aIter
+                 << " : Weighted Residual=" << aWeigthedRes.Average()
+                 << ", #tie-points=" << aNumTPts << " #eliminated="
+                 << " " << (100.0*(aNumAllTiePts-aNumTPts)/std::max(1,aNumAllTiePts)) << "%"
+                 << " [DegVis<=0: " << aNumElimDegVis << ", Weight==0: " << aNumElimWeight << "]"
+                 << std::endl;
+        StdOutLock::unlock();
+    }
 
     const auto& aVectSol = mSys->SolveUpdateReset({mPMAT->LVM()}, {}, {});
     mSetIntervUK.SetVUnKnowns(aVectSol);

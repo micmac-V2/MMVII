@@ -341,7 +341,7 @@ template<class Type>  class cSparseLeasSqtAA : public cSparseLeasSq<Type>
 
 
 
-         void  SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>& aSetSetEq)  override;
+         void  SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>& aSetSetEq,const Type aEpsLVM)  override;
          /// Put bufferd line in matrixs, used at end or during filling to liberate memorry
          void PutBufererEqInNormalMatrix() ;
 
@@ -725,12 +725,13 @@ template<class Type> void  cSparseLeasSqtAA<Type>::PutBufererEqInNormalMatrix()
 }
 
 
-template<class Type>  void  cSparseLeasSqtAA<Type>::SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>& aSetSetEq)
+template<class Type>
+    void  cSparseLeasSqtAA<Type>::SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>& aSetSetEq,const Type aEpsLVM)
 {
 // StdOut() << "cSparseLeasSqtAA<Type>::AddObsWithTmpUK " << std::endl;
 
     //  1 - Compute the reduce schur matrix
-    mBufSchur.CompileSubst(aSetSetEq);
+    mBufSchur.CompileSubst(aSetSetEq,aEpsLVM);
     const std::vector<size_t> & aVInd = mBufSchur.VIndexUsed();
 
 
@@ -829,7 +830,7 @@ template<class Type>  class cSparseLeasSqGC : public cSparseLeasSq<Type>
 
 
          /// Here the temporay are in fact processed like standards equation, they decoded an memorized
-         void SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>&) override;
+         void SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>&,const Type aEpsLVM) override;
 
 
       private :
@@ -877,7 +878,8 @@ template<class Type>  cDenseVect<Type>  cSparseLeasSqGC<Type>::SpecificSolve()
      return aRes.SubVect(0,this->mNbVar);
 }
 
-template<class Type>  void  cSparseLeasSqGC<Type>::SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>& aSetSetEq)
+template<class Type>
+   void  cSparseLeasSqGC<Type>::SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>& aSetSetEq, const Type aEpsLVM)
 {
     aSetSetEq.AssertOk();
 
@@ -897,7 +899,16 @@ template<class Type>  void  cSparseLeasSqGC<Type>::SpecificAddObsWithTmpUK(const
                      if (cSetIORSNL_SameTmp<Type>::IsIndTmp(aInd))
                         aInd = aIndTmp + cSetIORSNL_SameTmp<Type>::ToIndTmp(aInd);
                      tTri aTri(mVRhs.size(),aInd,aVDer.at(aKGlob)*aSW);
+
+
                      mVTri.push_back(aTri);
+
+                     // That's here we shoul process the LVM constant by adding an equation on aInd
+                     {
+                         MMVII_INTERNAL_ASSERT_always(aEpsLVM==0.0,"No LVM now 4 cSparseLeasSqGC");
+                        // tTri aTri(mVRhs.size(),aInd,aVDer.at(aKGlob)*aSW);
+                     }
+
                  }
                  // Note the minus sign because we have a taylor expansion we need to annulate
                  mVRhs.push_back(-aSetEq.mVals.at(aKEq)*aSW);

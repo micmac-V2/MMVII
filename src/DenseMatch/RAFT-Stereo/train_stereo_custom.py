@@ -119,7 +119,7 @@ def fetch_optimizer(args, model):
 
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer,
-        max_lr=1e-4,          # peak LR
+        max_lr=args.lr,          # peak LR
         total_steps=args.num_steps,
         pct_start=0.01,        # 1% warmup to peak learning rate
         anneal_strategy='cos', # cosine annealing after peak

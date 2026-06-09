@@ -690,10 +690,12 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         bool                                      mInitParamDone; ///< To Check Post Init was not forgotten
         cColStrAObl                               mColStrAObl;    ///< To use << for passing multiple string
         cColStrAOpt                               mColStrAOpt;    ///< To use << for passing multiple pair
+        static const int                          NbMaxMainSets=3; ///< seems sufficient, Do not hesitate to increase if one command requires more
+        std::string                               mPatOfMS[NbMaxMainSets]; ///<Initial pattern of main set, in case was modified
+
     private :
         cCollecSpecArg2007                        mArgObl;        ///< Mandatory args
         cCollecSpecArg2007                        mArgFac;        ///< Optional args
-        static const int                          NbMaxMainSets=3; ///< seems sufficient, Do not hesitate to increase if one command requires more
         std::vector<tNameSet>                     mVMainSets;  ///< For a many commands probably
         int                                       mResulMultiS;///< Save Result of Mutlti Set Recall in //
         bool                                      mRMSWasUsed; ///< Indicate if MultiCall was used

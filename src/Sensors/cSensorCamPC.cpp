@@ -907,6 +907,15 @@ void  cSensorCamPC::FillGetAdrInfoParam(cGetAdrInfoParam<tREAL8> & aGAIP)
    aGAIP.SetNameType("PoseCamPC");
    aGAIP.SetIdObj(NameImage());
 }
+
+void cSensorCamPC::Show() const
+{
+    cSensorImage::Show();
+    StdOut() << "   Pose   : " << Pose().Tr() <<  std::endl;
+    StdOut() << "   Calib  : " << (mInternalCalib ? mInternalCalib->Name() : "none") << std::endl;
+}
+
+
      // =================  becnh ===================
 
 void cSensorCamPC::Bench()

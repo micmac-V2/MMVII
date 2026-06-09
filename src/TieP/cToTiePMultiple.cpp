@@ -83,7 +83,6 @@ cPt3dr BundleInter(const tPairTiePMult & aPair,size_t aKPts,const std::vector<cS
 
 cPt3dr BundleDirInter(const tPairTiePMult & aPair,size_t aKPts,const std::vector<cSensorImage *>&  aVSI)
 {
-    double aDepth = 1.0;
 
     const auto &  aConfig = Config(aPair);
     const cVal1ConfTPM & aVal =  Val(aPair);
@@ -100,13 +99,12 @@ cPt3dr BundleDirInter(const tPairTiePMult & aPair,size_t aKPts,const std::vector
 
         cSensorCamPC * aCamPC = aSI->GetSensorCamPC();
 
+        cPt3dr aDirCam = VUnit(cPt3dr(aPBundle.x(),aPBundle.y(),aZ));
         tSeg3dr aSeg = tSeg3dr(aCamPC->Center(),
-                               aCamPC->Pose().Value(
-                               cPt3dr(aPBundle.x(),aPBundle.y(),aZ) * (aDepth/aZ)));
-
+                               aCamPC->Pose().Value(aDirCam));
         aVSeg.push_back(aSeg);
-
     }
+
     cPt3dr aResInter = BundleInters(aVSeg);
 
     return aResInter;

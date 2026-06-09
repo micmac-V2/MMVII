@@ -651,7 +651,7 @@ void  cDevTriangu3d::OneIterationCompens(bool IsLast)
 
                cSetIORSNL_SameTmp<tREAL8>  aSetIO(aVTmp);
                mSys->AddEq2Subst(aSetIO,mCalcTriRot,aVIndUk,aVObs,aWeighter);
-               mSys->AddObsWithTmpUK(aSetIO);
+               mSys->AddObsWithTmpUK(aSetIO,0.0);
 
 
 

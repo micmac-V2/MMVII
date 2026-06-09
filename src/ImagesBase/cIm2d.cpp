@@ -123,18 +123,18 @@ template <class Type> Type * cDataIm2D<Type>::GetLine(int aY)
    AssertYInside(aY);
    return mRawData2D[aY];
 }
-template <class Type>  void cDataIm2D<Type>::ToFile(const std::string & aName,eTyNums aType, const tFileOptions& aOptions) const
+template <class Type>  void cDataIm2D<Type>::ToFile(const std::string & aName,eTyNums aType, const std::vector<std::string>& aOptions) const
 {
     cDataFileIm2D aDFI = cDataFileIm2D::CreateOnWrite(aName,aType,Sz(),aOptions,1);
     Write(aDFI,P0());
 }
 
-template <class Type>  void cDataIm2D<Type>::ToFile(const std::string & aName, const tFileOptions& aOptions) const
+template <class Type>  void cDataIm2D<Type>::ToFile(const std::string & aName, const std::vector<std::string>& aOptions) const
 {
     ToFile(aName,tElemNumTrait<Type>::TyNum(),aOptions);
 }
 
-template <class Type>  void cDataIm2D<Type>::ClipToFile(const std::string & aName,const cRect2& aBox, const tFileOptions& aOptions) const
+template <class Type>  void cDataIm2D<Type>::ClipToFile(const std::string & aName,const cRect2& aBox, const std::vector<std::string>& aOptions) const
 {
     cDataFileIm2D aDFI = cDataFileIm2D::CreateOnWrite(aName,tElemNumTrait<Type>::TyNum(),aBox.Sz(),aOptions,1);
     Write(aDFI,-aBox.P0(),1.0,aBox);
@@ -142,7 +142,7 @@ template <class Type>  void cDataIm2D<Type>::ClipToFile(const std::string & aNam
 
 
 
-template <class Type>  void cDataIm2D<Type>::ToFile(const std::string & aName,const tIm &aIG,const tIm &aIB, const tFileOptions& aOptions) const
+template <class Type>  void cDataIm2D<Type>::ToFile(const std::string & aName,const tIm &aIG,const tIm &aIB, const std::vector<std::string>& aOptions) const
 {
     cDataFileIm2D aDFI = cDataFileIm2D::CreateOnWrite(aName,tElemNumTrait<Type>::TyNum(),Sz(),aOptions,3);
     Write(aDFI,aIG,aIB,P0());
@@ -271,11 +271,15 @@ template <class Type>  void  cIm2D<Type>::DecimateInThis(int aFact,const cIm2D<T
    const cDataIm2D<Type> & aDIn = aI.DIm();
 
    for (const auto & aP : DIm())
+   {
       mPIm->SetV(aP,aDIn.GetV(aP*aFact));
+   }
 }
 
 template <class Type>  cIm2D<Type>  cIm2D<Type>::GaussDeZoom(int aFact, int aNbIterExp,double dilate) const
 {
+    if (aFact==1) return Dup();
+
     double aS0 = DefStdDevImWellSample;
     double aSTarg = DefStdDevImWellSample * aFact;
 
@@ -311,7 +315,7 @@ class cAppliWithMasqIma
 
         cCollecSpecArg2007 & AWMI_ArgObl(cCollecSpecArg2007 & anArgObl) ; ///< If Masq is mandatory
         cCollecSpecArg2007 & AWMI_ArgOpt(cCollecSpecArg2007 & anArgOpt); ///<  If Masq is optionnal
-                                                                         
+
       protected :
          cAppliWithMasqIma(cMMVII_Appli & anAppli);
          void InitNameImage(const std::string & aNameImage);

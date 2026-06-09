@@ -427,7 +427,7 @@ template <class Type>  cAffin2D<Type> cAffin2D<Type>::MapInverse() const
          *this = cAffin2D<Type>(mTr,mVX,mVY);
  }
 
-void AddData(const  cAuxAr2007 & anAux,cAff2D_r& anAff)
+void AddData(const  cAuxAr2007 & anAux,tAff2Dr& anAff)
 {
     anAff.AddData(anAux);
 }
@@ -629,6 +629,37 @@ template <class Type> cHomogr2D<Type>::cHomogr2D() :
     cHomogr2D<Type>(tElemH(1,0,0),tElemH(0,1,0),tElemH(0,0,1))
 {
 }
+
+//     return  mTr + mVX * aP.x() + mVY *aP.y();
+
+template <class Type> cHomogr2D<Type>::cHomogr2D(const cAffin2D<Type> &aA)  :
+    cHomogr2D<Type>
+    (
+        tElemH(aA.VX().x(),aA.VY().x(),aA.Tr().x()),
+        tElemH(aA.VX().y(),aA.VY().y(),aA.Tr().y()),
+        tElemH(0,0,1)
+    )
+{
+
+}
+
+template <class Type>  void cHomogr2D<Type>::AddData(const  cAuxAr2007 & anAux)
+{
+    MMVII::AddData(cAuxAr2007("Hx",anAux),mHX);
+    MMVII::AddData(cAuxAr2007("Hy",anAux),mHY);
+    MMVII::AddData(cAuxAr2007("Hz",anAux),mHZ);
+
+    if (anAux.Ar().Input())
+        *this = cHomogr2D<Type>(mHX,mHY,mHZ);
+}
+
+
+void AddData(const  cAuxAr2007 & anAux,tHom2Dr& aH)
+{
+    aH.AddData(anAux);
+
+}
+
 
 template <class Type> cHomogr2D<Type> cHomogr2D<Type>::FromParam(const cDenseVect<Type> & aV)
 {

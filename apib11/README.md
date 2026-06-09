@@ -17,7 +17,7 @@ In the Python virtual environment used for compilation:
 Compilation
 -----------
 
-First, compile MMv1 and MMv2.
+First, compile MMv2.
 
 Then, in 'apib11' directory and the correct Python virtual environment:
 

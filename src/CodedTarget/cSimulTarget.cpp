@@ -27,12 +27,14 @@ cGeomSimDCT::cGeomSimDCT() :
 {
 }
 
+/*
 void cGeomSimDCT::Translate(const cPt2dr & aTr)
 {
     mC += aTr;
     mCornEl1 += aTr;
     mCornEl2 += aTr;
 }
+*/
 
 
 cGeomSimDCT::cGeomSimDCT(const cOneEncoding & anEncod, const  cPt2dr& aC, const double& aR1, const double& aR2, const std::string &aName):
@@ -51,10 +53,19 @@ void AddData(const  cAuxAr2007 & anAux,cGeomSimDCT & aGSD)
    aGSD.mEncod.AddData(cAuxAr2007("Encod",anAux));
    //  ========   MMVII::AddData(cAuxAr2007("Name",anAux),aGSD.mName);
    MMVII::AddData(cAuxAr2007("Center",anAux),aGSD.mC);
-   MMVII::AddData(cAuxAr2007("CornEl1",anAux),aGSD.mCornEl1);
-   MMVII::AddData(cAuxAr2007("CornEl2",anAux),aGSD.mCornEl2);
+ //  MMVII::AddData(cAuxAr2007("CornEl1",anAux),aGSD.mCornEl1);
+ //  MMVII::AddData(cAuxAr2007("CornEl2",anAux),aGSD.mCornEl2);
    MMVII::AddData(cAuxAr2007("R1",anAux),aGSD.mR1);
    MMVII::AddData(cAuxAr2007("R2",anAux),aGSD.mR2);
+
+   MMVII::AddData(cAuxAr2007("HomogT2I",anAux),aGSD.mHomogT2Im);
+   MMVII::AddData(cAuxAr2007("C0",anAux),aGSD.mC0);
+   MMVII::AddData(cAuxAr2007("Diag",anAux),aGSD.mDiag);
+   MMVII::AddData(cAuxAr2007("DirBias",anAux),aGSD.mDirBiasXY);
+   MMVII::AddData(cAuxAr2007("MulBias",anAux),aGSD.mMulBias);
+
+   MMVII::AddData(cAuxAr2007("AttenContrast",anAux),aGSD.mAttenContr);
+   MMVII::AddData(cAuxAr2007("AttenMult",anAux),aGSD.mAttenMul);
 }
 
 /*  *********************************************************** */
@@ -83,6 +94,9 @@ void AddData(const  cAuxAr2007 & anAux,cResSimul & aRS)
    MMVII::AddData(cAuxAr2007("RadiusMinMax",anAux),aRS.mRadiusMinMax);
    MMVII::AddData(cAuxAr2007("RatioMax",anAux),aRS.mRatioMinMax);
    MMVII::AddData(cAuxAr2007("Geoms",anAux),aRS.mVG);
+
+
+
 }
 
 cResSimul  cResSimul::FromFile(const std::string& aName)
@@ -141,17 +155,21 @@ class cAppliSimulCodeTarget : public cMMVII_Appli
         std::string         mPatternNames;
 
                 //  --
-        double              mDownScale;       ///< initial downscale of target
+        int                 mDownScale;       ///< initial downscale of target
         cPt2dr              mAttenContrast;         ///< min/max amplitude of (random) gray attenuatio,
         cPt2dr              mAttenMul;         ///< min/max Multiplicative attenuation
         cPt2dr              mPropSysLin;      ///< min/max amplitude of (random) linear bias
         cPt2dr              mAmplWhiteNoise;  ///< min/max amplitude of random white noise
+        tREAL8              mAmplHomog;
 
         // =========== Internal param ============
         tIm                        mImIn;        ///< Input global image
         cFullSpecifTarget *        mSpec;        ///< Specification of target creation
         std::string                mSuplPref;   ///< Supplementary prefix
         std::string                mPrefixOut;   ///< Prefix for generating image & ground truth
+
+        std::string                mStrSeedR;  ///<  Global random seed, if was set by user, to add to others
+
 };
 
 
@@ -171,6 +189,7 @@ cAppliSimulCodeTarget::cAppliSimulCodeTarget(const std::vector<std::string> & aV
    mAttenMul        (0.0,0.4),
    mPropSysLin      (0.,0.2),
    mAmplWhiteNoise  (0.,0.1),
+   mAmplHomog       (0.0),
    mImIn            (cPt2di(1,1)),
    mSpec            (nullptr),
    mSuplPref        ("")
@@ -195,12 +214,15 @@ cCollecSpecArg2007 & cAppliSimulCodeTarget::ArgOpt(cCollecSpecArg2007 & anArgOpt
              <<   AOpt2007(mRS.mRatioMinMax,"Ratio","Min/Max ratio between target ellipses axis (<=1)",{eTA2007::HDV})
              <<   AOpt2007(mPatternNames,"PatNames","Pattern for selection of names",{eTA2007::HDV})
              <<   AOpt2007(mSzKernel,"SzK","Sz of Kernel for interpol",{eTA2007::HDV})
+             <<   AOpt2007(mDownScale,"DownS","Initial Down scale factor before ressampling",{eTA2007::HDV})
              <<   AOpt2007(mRS.mBorder,"Border","Border w/o target, prop to R Max",{eTA2007::HDV})
              <<   AOpt2007(mAmplWhiteNoise,"NoiseAmpl","Amplitude White Noise",{eTA2007::HDV})
              <<   AOpt2007(mPropSysLin,"PropLinBias","Amplitude Linear Bias",{eTA2007::HDV})
+             <<   AOpt2007(mAmplHomog,"AmplHomogDef","Amplitude of homographic deformation (recomand <0.1)",{eTA2007::HDV})
              <<   AOpt2007(mAttenContrast,"ContrastAtten","Attenution of B/W contrast",{eTA2007::HDV})
              <<   AOpt2007(mAttenMul,"MulAtten","Attenution multiplicatives",{eTA2007::HDV})
              <<   AOpt2007(mSuplPref,"SuplPref","Suplementary prefix for outputs")
+
    ;
 }
 
@@ -232,7 +254,7 @@ void   cAppliSimulCodeTarget::AddPosTarget(const cOneEncoding & anEncod)
 void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
 {
     // We want that random is different for each image, but deterministic, independent of number of pixel noise drawn
-    cRandGenerator::TheOne()->setSeed(HashValue(mNameIm+"*"+aGSD.mName,true));
+    cRandGenerator::TheOne()->setSeed(HashValue(mNameIm+"*"+aGSD.mName+mStrSeedR,true));
 
     // [1] -- Load and scale image of target
     tIm aImT =  Convert((tElem*)nullptr,mSpec->OneImTarget(aGSD.mEncod).DIm());
@@ -245,25 +267,26 @@ void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
    }
 */
     aImT =  aImT.GaussDeZoom(mDownScale,5);
-    
+
 
     // [2] -- Make a "noisy" version of image (white noise, affine biase, grey attenuation)
     tDIm & aDImT = aImT.DIm();
     cPt2dr aSz = ToR(aDImT.Sz());
-    cPt2dr aC0 = mSpec->Center() /mDownScale;
+    cPt2dr aC0 = mSpec->Center() / tREAL8(mDownScale);
     // cPt2dr aC0 = mPCT.mCenterF/mDownScale;
 
     cPt2dr aDirModif = FromPolar(1.0,M_PI*RandUnif_C());
     double aDiag = Norm2(aC0);
     double aAttenContrast = RandInInterval(mAttenContrast);
     double aAttenMul = (1-mAttenMul.y()) + RandInInterval(mAttenMul);
-    double aAttenLin  = RandInInterval(mPropSysLin);
+    double aMulBias  = RandInInterval(mPropSysLin);
     for (const auto & aPix : aDImT)
     {
          double aVal = aDImT.GetV(aPix);
          aVal =  128  + (aVal-128) * (1-aAttenContrast)   ;              //  attenuate, to have grey-level
          double aScal = Scal(ToR(aPix)-aC0,aDirModif) / aDiag;   // compute amplitude of linear bias
-         aVal =  128  + (aVal-128) * (1-aAttenLin)  + aAttenLin * aScal * 128;
+        // aVal =  128  + (aVal-128) * (1-aMulBias)  + aMulBias * aScal * 128;
+         aVal = aVal * (1-aScal*aMulBias);
          aVal = aVal * aAttenMul;
          //
          aDImT.SetV(aPix,aVal);
@@ -278,9 +301,41 @@ void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
     tAffMap aMap3 =  tAffMap::Rotation(M_PI*RandUnif_C());                 //  Apply a rotation again
     tAffMap aMap4 =  tAffMap::Translation(aGSD.mC);                        // set 0,0 to center
 
-    tAffMap aMapT2Im =  aMap4 * aMap3 * aMap2 * aMap1 * aMap0;             // compute composition, get TargetCoord -> Image Coord
-    tAffMap aMapIm2T =  aMapT2Im.MapInverse();                             // need inverse for resample
+    tAffMap aAffT2Im =  aMap4 * aMap3 * aMap2 * aMap1 * aMap0;             // compute composition, get TargetCoord -> Image Coord
 
+    cHomogr2D<tREAL8> aMapT2Im(aAffT2Im);
+
+    if (IsInit(&mAmplHomog))
+    {
+       // StdOut() << "SIMULL HOMMMMM\n";
+        cBox2dr aBox(cPt2dr(0,0),ToR(aDImT.Sz()));
+        cPt2dr aVInit[4];
+        cPt2dr aVDef[4];
+
+        tREAL8 aAmplDef = Norm2(aDImT.Sz()) * mAmplHomog;
+
+        for (int aK=0 ; aK<4 ; aK++)
+        {
+            cPt2dr aPInit = aBox.CornerOfFlag(aK);
+            cPt2dr aPDef =  aPInit + cPt2dr::PRandC()*aAmplDef;
+            aVInit[aK] = aPInit;
+            aVDef[aK] = aPDef;
+        }
+        aMapT2Im = aMapT2Im* tHom2Dr::FromMinimalSamples(aVInit,aVDef);
+    }
+
+    tHom2Dr aHomotDS = (tAff2Dr::Homot(1.0/mDownScale));
+    aGSD.mHomogT2Im = aMapT2Im * aHomotDS;
+    aGSD.mC0 = aC0 * tREAL8(mDownScale);
+    aGSD.mDiag = aDiag * mDownScale;
+    aGSD.mDirBiasXY = aDirModif;
+    aGSD.mMulBias = aMulBias;
+    aGSD.mAttenContr = aAttenContrast;
+    aGSD.mAttenMul   = aAttenMul;
+
+   // tAffMap aMapIm2T =  aMapT2Im.MapInverse();                             // need inverse for resample
+
+    cHomogr2D<tREAL8> aHomIm2T = aMapT2Im.MapInverse();
 
     // [4] -- Do the incrustation of target in  image
     cBox2di aBoxIm = ImageOfBox(aMapT2Im,aDImT.ToR()).Dilate(mSzKernel+2).ToI();
@@ -291,7 +346,7 @@ void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
         if ( aDImIn.Inside(aPix))
         {
             // compute a weighted coordinate in target coordinates,
-            cRessampleWeigth  aRW = cRessampleWeigth::GaussBiCub(ToR(aPix),aMapIm2T,mSzKernel);
+            cRessampleWeigth  aRW = cRessampleWeigth::GaussBiCub(ToR(aPix),aHomIm2T,mSzKernel);
             const std::vector<cPt2di>  & aVPts = aRW.mVPts;
             if (!aVPts.empty())
             {
@@ -315,10 +370,7 @@ void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
             }
         }
     }
-    // aGSD.mCornEl1 = aMapT2Im.Value(mPCT.mCornEl1/mDownScale);
-    // aGSD.mCornEl2 = aMapT2Im.Value(mPCT.mCornEl2/mDownScale);
-    aGSD.mCornEl1 = aMapT2Im.Value(mSpec->CornerlEl_BW()/mDownScale);
-    aGSD.mCornEl2 = aMapT2Im.Value(mSpec->CornerlEl_WB()/mDownScale);
+
 
     StdOut() << "NNN= " << aGSD.mEncod.Name() << " C0=" << aC0 <<  aBoxIm.Sz() <<  " " << aGSD.mR2/aGSD.mR1 << std::endl;
 }
@@ -342,6 +394,8 @@ bool orderAndAssertInterval01(cPt2dr & interval, const std::string & aIntervalNa
 int  cAppliSimulCodeTarget::Exe()
 {
    mPhProj.FinishInit();
+
+   mStrSeedR = ToStr(SeedRandom());
 
    if (RunMultiSet(0,0))
    {
@@ -369,7 +423,7 @@ int  cAppliSimulCodeTarget::Exe()
 
 
    // We want that random is different for each image, but deterministic for one given image
-   cRandGenerator::TheOne()->setSeed(HashValue(mNameIm,true));
+    cRandGenerator::TheOne()->setSeed(HashValue(mNameIm+mStrSeedR,true));
 
    mPrefixOut =  ThePrefixSimulTarget +  mSuplPref + LastPrefix(FileOfPath(mNameIm));
    mRS.mCom = CommandOfMain().Com();
@@ -384,7 +438,7 @@ int  cAppliSimulCodeTarget::Exe()
         if (MatchRegex(anEncod.Name(),mPatternNames))
         {
             // We want that random is different for each image, but deterministic for one given image
-            cRandGenerator::TheOne()->setSeed(HashValue(mNameIm+"/"+anEncod.Name(),true));
+            cRandGenerator::TheOne()->setSeed(HashValue(mNameIm+"/"+anEncod.Name()+mStrSeedR,true));
             AddPosTarget(anEncod);
             //StdOut() <<  "Target " << anEncod.Name() << " " << mRS.mVG.back().mC << std::endl;
         }

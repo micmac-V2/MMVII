@@ -273,12 +273,14 @@ class cMes3DDirInfo
 {
 public:
     static cMes3DDirInfo* addMes3DDirInfo(cBA_GCP &aBA_GCP, const std::string & aDirNameIn,
-                                            const std::string & aDirNameOut, tREAL8 aSGlob);
+                                          const std::string & aDirNameOut, tREAL8 aSGlob,
+                                          bool aDoExportSigmas);
     std::string mDirNameIn;
     std::string mDirNameOut;
     tREAL8 mSGlob; // factor, shurred or fixed
+    bool mDoExportSigmas;
 protected:
-    cMes3DDirInfo(const std::string &aDirNameIn, const std::string &aDirNameOut, tREAL8 aSGlob);
+    cMes3DDirInfo(const std::string &aDirNameIn, const std::string &aDirNameOut, tREAL8 aSGlob, bool aDoExportSigmas);
 };
 
 // class to record data specific to a measurement directory : In name, weighter
@@ -313,10 +315,13 @@ class cBA_GCP
           std::vector<cMes2DDirInfo*> mAllMes2DDirInfo;
           std::vector<cMes3DDirInfo*> mAllMes3DDirInfo;
           const std::vector<cPt3dr_UK*>  & getGCP_UK() const { return mGCP_UK; }
+          bool getDoComputeGCP_UC_UK() const { return mDoComputeGCP_UC_UK ;}
+
     protected:
           cSetMesGndPt             mMesGCP; //< initial
           cSetMesGndPt             mNewGCP; //< set of gcp after adjust
           std::vector<cPt3dr_UK*>  mGCP_UK; //< as many elements as mMesGCP, nullptr for shurred points
+          bool                     mDoComputeGCP_UC_UK=false; //< force UC_UK at least on GCPs
 
 };
 
@@ -381,6 +386,7 @@ protected :
 
     cPhotogrammetricProject *      mPhProj;         // Photogrammetric project
     cMMVII_BundleAdj&              mBA;             ///< The global bundle adj structure
+    std::vector<std::string>       mParamInterpol;  ///< the interpol parameters, to be able to modify it
     cDiffInterpolator1D *          mInterp;         ///< Interpolator, used to extract  Value & Grad of images
     cCalculator<double>  *         mEq;      ///< Calculator used for constrain the pose from image obs
     cWeightAv<tREAL8,tREAL8>       mLastResidual;   ///< Accumulate the radiometric residual
@@ -411,9 +417,14 @@ class cBA_LidarPhotogra: public cBA_LidarBase
     protected :
        /**  Add observation for 1 Patch of point */
        void InitEq(bool aScanPoseUk);
-        void Add1Patch(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
-                       const std::string & aScanName, const std::unordered_set<std::string> &aHiddenOnImage);
-       void Add1PatchMulScale(tREAL8 aWeight, const std::vector<cPt3dr> & aVPatchGr, int aNbS);
+       void Add1Patch(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+                       const std::string & aScanName, const std::unordered_set<std::string> &aHiddenOnImage, int aPatchNum);
+       
+        void Add1PatchMulScale(const cResidualWeighter<tREAL8> & aWeighter,
+                             const std::vector<cPt3dr> & aVPatchPtGnd, 
+                             int aNbS, 
+                             int aPatchNum);
+
        void EvaluatePlanarDisplacements(std::vector<std::string> & aVecOrthoNames,
                                         std::vector<tREAL8 *> & aVecTransforms,
                                         bool isStandalone);
@@ -425,16 +436,16 @@ class cBA_LidarPhotogra: public cBA_LidarBase
 
        tREAL8 EvalCorrel(const std::vector<cData1ImLidPhgr>& aVData);
        /// Method for adding observations with radiometric differences as similatity criterion
-       void AddPatchDifRad(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
-                           const std::vector<cData1ImLidPhgr> &aVData) ;
+       std::pair<int, tREAL8> AddPatchDifRad(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+                           const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        /// Method for adding observations with Census Coeff as similatity criterion
-       void AddPatchCensus(const cResidualWeighter<tREAL8> &aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
-                           const std::vector<cData1ImLidPhgr> &aVData) ;
+       std::pair<int, tREAL8>  AddPatchCensus(const cResidualWeighter<tREAL8> &aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+                           const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        /// Method for adding observations with Normalized Centred Coefficent Correlation as similatity criterion
-       void AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
-                           const std::vector<cData1ImLidPhgr> &aVData) ;
+       virtual std::pair<int, tREAL8>  AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
+                           const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        eImatchCrit                    mModeSim;        ///< type of similarity used
        cDiffInterpolator1D *          mInterp;         ///< Interpolator, used to extract  Value & Grad of images
@@ -523,7 +534,11 @@ public :
     /// add observation
     virtual void AddObs() override;
 
+    void UpdateInterpolatorScale(const cMMVII_BundleAdj& aBA);
     void UpdateWeightersMap(const cMMVII_BundleAdj &aBA, double aWFactor); // create or update map, on each iteration
+
+    std::pair<int, tREAL8>  AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
+                       const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) override;
 
 protected:
     virtual void SetVUkVObs
@@ -533,6 +548,7 @@ protected:
          const cData1ImLidPhgr & aData,
          int                     aKPt
          ) override;
+    tREAL8                            mScaleInit, mScaleFinal;   ///< scale interpolator scale, dependent on the iteration number
 
 };
 
@@ -588,7 +604,7 @@ class cBA_ArboTriplets
 {
     public:
         /// Sets up cameras, collinearity calculators, solver, local tie-points subset.
-        cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols);
+        cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols, int aTDepth);
         ~cBA_ArboTriplets();
 
         /// One BA iteration. Pre-computes u,v vectors on first call (aIter==0).
@@ -599,12 +615,16 @@ class cBA_ArboTriplets
 
         size_t NbCams() const { return mVCams.size(); }
 
+        /// Optional GT 3D points (keyed by tie-point ID) for diagnostic comparison at iter==0.
+        void SetGTPts3D(std::map<int,cPt3dr>* aGT) { mGTPts3D = aGT; }
+
     private:
-        cMakeArboTriplet*                                  mPMAT;
+        cMakeArboTriplet*                            mPMAT;
         int                                                mNbIter;
-        tREAL8                                             mSigAtt;
+        tREAL8                                             mSigAttFinal;
+        tREAL8                                             mThrFinal;
+        std::vector<tREAL8>                                mSigARange;  ///< [start, end] dynamic threshold
         std::vector<tREAL8>                                mThrRange;   ///< [start, end] dynamic threshold
-        tREAL8                                             mDeltaThr;
 
         cSetInterUK_MultipeObj<tREAL8>                     mSetIntervUK;
         std::vector<cSensorCamPC*>                         mVCams;
@@ -613,6 +633,9 @@ class cBA_ArboTriplets
         cResolSysNonLinear<tREAL8>*                        mSys;
         cComputeMergeMulTieP*                              mTPts;   ///< local tie-points subset
         std::vector<std::vector<std::pair<cPt3dr,cPt3dr>>> mVecConfUV; ///< precomputed u,v per config
+        std::map<int,cPt3dr>*                              mGTPts3D = nullptr; ///< optional GT pts for diagnosis
+
+        const int                                          mTreeDepth;
 };
 
 class cMMVII_BundleAdj
@@ -702,6 +725,7 @@ class cMMVII_BundleAdj
 
           void Set_UC_UK(const std::vector<std::string> & aParam);
           void ShowUKNames(const std::vector<std::string> & aParam, const std::string &aSuffix, cMMVII_Appli* =nullptr) ;
+          cPt3dr GetGCP_UC_UK(const std::string & aGCPName) const;
           // Save results of clino bundle adjustment
           void SaveClino();
           void  AddBenchSensor(cSensorCamPC *); // Add sensor, used in Bench Clino
@@ -716,6 +740,8 @@ class cMMVII_BundleAdj
 
           int NbMaxIter() const { return mNbMaxIter;}
           int Iter() const { return mIter;}
+
+          tREAL8 CurLVMParam() const;
 
      private :
 
@@ -811,6 +837,8 @@ class cMMVII_BundleAdj
           cResult_UC_SUR<tREAL8>*   mRUCSUR;
           std::vector<cUK_Line3D_4BA*>           mVecLineAdjust;
           std::vector<cBA_BlockInstr *>          mVecBlockInstrAdj;
+
+          tREAL8                                mCurLVMParam;
 };
 
 

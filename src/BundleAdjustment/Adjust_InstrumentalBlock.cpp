@@ -8,6 +8,24 @@ namespace MMVII
 
 //   Block[  [NameBloc,SigmaPairTr,SigmPairRot]  [?GaugeTr,?GaugeRot] ]
 
+std::pair<tREAL8,tREAL8> AddResidualPose(cCalculator<tREAL8>* anEq,cWeightAv<tREAL8,tREAL8> &anAvgTr,cWeightAv<tREAL8,tREAL8> &anAvgRot)
+{
+    // little check
+   MMVII_INTERNAL_ASSERT_strong(anEq->NbElem()==12,"AddResidualPose : bad size" );
+
+   tREAL8 aSumTr = 0.0;
+   tREAL8 aSumRot = 0.0;
+
+   for (size_t aKU=0 ; aKU<12 ;  aKU++)
+   {
+       ((aKU<3) ? aSumTr : aSumRot) += (Square(anEq->ValComp(0,aKU)));
+   }
+
+   anAvgTr.Add(1.0,aSumTr);
+   anAvgRot.Add(1.0,aSumRot);
+
+   return std::pair<tREAL8,tREAL8>(aSumTr,aSumRot);
+}
 
 /* ************************************************************************** */
 /*                                                                            */
@@ -51,7 +69,12 @@ class cBA_BlockInstr : public cMemCheck
        cIrbCal_Block &  CalBl();          //< Accessor
 
 
+
    private :
+       tREAL8 CamSigTr(const cIrb_SigmaInstr& aSig,tREAL8 aValue)  const {return (mValSigArMul?aSig.SigmaTr() :1.0)*aValue;}
+       tREAL8 CamSigRot(const cIrb_SigmaInstr& aSig,tREAL8 aValue) const {return (mValSigArMul?aSig.SigmaRot():1.0)*aValue;}
+
+
        cResolSysNonLinear<tREAL8> & Sys();
 
        ///  Make one iteration for a time stamp
@@ -96,19 +119,23 @@ class cBA_BlockInstr : public cMemCheck
        cP3dNormWithUK            mVertical;       //< store the possibly unknown vertical
        cPt3dr                    mVertInit;
 
-       tREAL8                               mMulSigmaTr;     //< Multiplier for sigma-trans
-       tREAL8                               mMulSigmaRot;    //< Multiplier for sigma-rot
+       tREAL8                               mValSigmaTr;   ///< Multiplier for sigma-trans
+       tREAL8                               mValSigRot;  ///< Multiplier for sigma-rot
        tINT4                                mModeSaveSigma;
+       bool                                 mValSigArMul;  ///< Are the sig for pair & cur, rel to sig saved ?
        tREAL8                               mGaujeTr;   //< If <=0  : "hard" freeze
        tREAL8                               mGaujeRot;  //< If <=0  : "hard" freeze
 
        std::map<tNamePair,cIrb_SigmaInstr>  mSigmaPair;      //< Sigma a posteriori for pair of images
-       cWeightAv<tREAL8,tREAL8>             mAvgTr;
-       cWeightAv<tREAL8,tREAL8>             mAvgRot;
+       cWeightAv<tREAL8,tREAL8>             mAvgTrPair;
+       cWeightAv<tREAL8,tREAL8>             mAvgRotPair;
+       cWeightAv<tREAL8,tREAL8>             mAvgTrCur;
+       cWeightAv<tREAL8,tREAL8>             mAvgRotCur;
+
        std::map<std::string,tPoseR>         mPoseInit;       //< Used in case of rattachment
        bool                                 mUseRat2CurrBR;  //< Is there rattachment to current
-       tREAL8                               mMulSigTrCurBR;     //<
-       tREAL8                               mMulSigRotCurBR;    //<
+       tREAL8                               mValSigTrCurBR;     //<
+       tREAL8                               mValSigRotCurBR;    //<
        int                                  mNbEqPair;
 
 };
@@ -147,9 +174,10 @@ cBA_BlockInstr::cBA_BlockInstr
     mEqClino       (EqBlocRig_Clino(true,1,true)),
     mEqOrthog      (EqBlocRig_Orthog(true,1,true)),
     mVertical      (cPt3dr(0,0,1),"Vertical","Vertical"),
-    mMulSigmaTr    (cStrIO<double>::FromStr(GetDef(aVParamsPair,1,std::string("1.0")))),
-    mMulSigmaRot   (cStrIO<double>::FromStr(GetDef(aVParamsPair,2,std::string("1.0")))),
+    mValSigmaTr    (cStrIO<double>::FromStr(GetDef(aVParamsPair,1,std::string("1.0")))),
+    mValSigRot   (cStrIO<double>::FromStr(GetDef(aVParamsPair,2,std::string("1.0")))),
     mModeSaveSigma (cStrIO<int>::FromStr(GetDef(aVParamsPair,3,std::string("1")))),
+    mValSigArMul     (cStrIO<bool>::FromStr(GetDef(aVParamsPair,4,std::string("true")))),
     mGaujeTr       (cStrIO<double>::FromStr(GetDef(aVParamGauje,0,std::string("0.0")))),
     mGaujeRot      (cStrIO<double>::FromStr(GetDef(aVParamGauje,1,std::string("0.0")))),
     mUseRat2CurrBR (! aVParamCur.empty())
@@ -179,8 +207,8 @@ cBA_BlockInstr::cBA_BlockInstr
     if (mUseRat2CurrBR)
     {
         MMVII_INTERNAL_ASSERT_always(aVParamCur.size()==2,"Bad size for Block-Rat to Cur Block Rigid");
-        mMulSigTrCurBR = cStrIO<double>::FromStr(aVParamCur.at(0));
-        mMulSigRotCurBR = cStrIO<double>::FromStr(aVParamCur.at(1));
+        mValSigTrCurBR = cStrIO<double>::FromStr(aVParamCur.at(0));
+        mValSigRotCurBR = cStrIO<double>::FromStr(aVParamCur.at(1));
     }
 }
 
@@ -273,7 +301,12 @@ void cBA_BlockInstr::OneIterOneClino(const cIrbComp_TimeS& aDataS,size_t aKC,tMa
     aMap[aCalClino.Name()].Add(1.0,std::abs(aResidual));
 }
 
-tREAL8 cBA_BlockInstr::AddConstrOrthogClino(const std::string& aName1,const std::string& aName2,const cIrb_CstrOrthog & aCstrOrthog)
+tREAL8 cBA_BlockInstr::AddConstrOrthogClino
+        (
+              const std::string& aName1,
+              const std::string& aName2,
+              const cIrb_CstrOrthog & aCstrOrthog
+        )
 {
 
     cIrbCal_Clino1 &  aCal1  = *mCalClino->ClinoFromName(aName1);
@@ -330,11 +363,13 @@ void cBA_BlockInstr::AddClino
          mMulSigmOrthogCl =  cStrIO<double>::FromStr(GetDef(aParamSigma,2,std::string("1.0")));
     }
 
-    bool OkNewTS = false;
+ //   bool OkNewTS = false;
     {
          std::vector<std::string> aParamFreeze = GetDef(aParamClino,1,std::vector<std::string>());
          mVertClinoFree = cStrIO<int>::FromStr(GetDef(aParamFreeze,0,std::string("0")));
-         OkNewTS =  cStrIO<int>::FromStr(GetDef(aParamFreeze,1,std::string("0")));
+
+       //  StdOut() << "GGGGGGGGGGGG " << aParamClino << " " << aParamFreeze << " " << mVertClinoFree << "\n";
+        // OkNewTS =  cStrIO<int>::FromStr(GetDef(aParamFreeze,1,std::string("0")));
     }
 
     {
@@ -347,7 +382,7 @@ void cBA_BlockInstr::AddClino
     // do we accept in clino measures data that do not correspond to any time stamp
 
     // Put the values (angles) of clino at each time stamp
-    mCompbBl->SetClinoValues(OkNewTS);
+    mCompbBl->SetClinoValues(eModeAddDataTimeS::eSkipIfNew);
 
     for (size_t aKC=0 ; aKC< mCalClino-> NbClino() ; aKC++)
     {
@@ -397,32 +432,44 @@ void cBA_BlockInstr::OneIter_Rattach1Cam(const cIrb_Desc1Intsr& aDesc)
 
     int aKCam = mCalCams->IndexCamFromNameCalib(aDesc.NameInstr());
 
+    bool deBug = false; // (aKCam==1);
+
     if (aKCam<0) return;
 
     cPoseWithUK &  aPUK =  mCalCams->KthCam(aKCam).PoseUKInBlock();
-    tPoseR aP0 = *MapGet(mPoseInit,aDesc.NameInstr());
+    const tPoseR *  aP0 = MapGet(mPoseInit,aDesc.NameInstr());
 
 
     // weight multiplier to compense number of equation Pair-Times / Cam
     tREAL8 aMulNb = mNbEqPair / tREAL8(mPoseInit.size());
     std::vector<double>  aWeight;
+
+
     for(int aK=0 ; aK<3 ; aK++)
-       aWeight.push_back(aMulNb/Square(mMulSigTrCurBR  * aDesc.Sigma().SigmaTr()));
+       aWeight.push_back(aMulNb/Square(CamSigTr( aDesc.Sigma(),mValSigTrCurBR)));
 
     for(int aK=0 ; aK<9 ; aK++)
-       aWeight.push_back(aMulNb/Square(mMulSigRotCurBR * aDesc.Sigma().SigmaRot()));
+       aWeight.push_back(aMulNb/Square(CamSigRot( aDesc.Sigma(),mValSigRotCurBR)));
 
     // [2.1]  the observation/context are  the coeef of rotation-matrix for linearization ;:
     std::vector<double> aVObs;
 
     aPUK.PushObs(aVObs,false);
-    AppendIn(aVObs,aP0.Tr().ToStdVector());
-    aP0.Rot().Mat().PushByLine(aVObs);
+
+
+    AppendIn(aVObs,aP0->Tr().ToStdVector());
+    aP0->Rot().Mat().PushByLine(aVObs);
 
     std::vector<int>  aVInd;
     aPUK.PushIndexes(aVInd);
 
-  //  StdOut() << " aPUK.PushIndexes " << aVInd << "\n";
+    if (deBug)
+    {
+     StdOut() << " aPUK.PushIndexes " << aVInd
+              << aPUK.Tr() << aP0->Tr() - aPUK.Tr()
+              << " ADR" << &aP0->Rot().Mat().DIm() << " " <<  &aPUK.Rot().Mat().DIm()
+              << "\n";
+    }
 
     Sys().R_CalcAndAddObs
     (
@@ -431,7 +478,13 @@ void cBA_BlockInstr::OneIter_Rattach1Cam(const cIrb_Desc1Intsr& aDesc)
        aVObs,
        cResidualWeighterExplicit<tREAL8>(false,aWeight)
     );
+
+    auto [aSumTr,aSumRot] =  AddResidualPose(mEqRatRC,mAvgTrCur,mAvgRotCur);
+
+    if (deBug)
+       StdOut() << " CurPoseRat NBRES=" << mEqRatRC->NbElem() << " " << aSumTr << " " << aSumRot<< "\n";
 }
+
 
 
 void cBA_BlockInstr::OneItere_1PairCam
@@ -455,6 +508,9 @@ void cBA_BlockInstr::OneItere_1PairCam
    cPoseWithUK &  aPBl1 =  mCalCams->KthCam(aK1).PoseUKInBlock();
    cPoseWithUK &  aPBl2 =  mCalCams->KthCam(aK2).PoseUKInBlock();
 
+   bool deBug = false ;// ( aDataTS.Ident()=="3101") && (aK1==0) && (aK2==1);
+
+
    // [0.2]  extract  camera-poses from time stamp
    cIrbComp_CamSet &  aCamSet = aDataTS.SetCams();
    cSensorCamPC * aCam1 = aCamSet.KthCam(aK1).CamPC();
@@ -469,10 +525,10 @@ void cBA_BlockInstr::OneItere_1PairCam
 
    std::vector<double>  aWeight;
    for(int aK=0 ; aK<3 ; aK++)
-      aWeight.push_back(1.0/Square(mMulSigmaTr  * aSigma.SigmaTr()));
+      aWeight.push_back(1.0/Square(CamSigTr(aSigma,mValSigmaTr)));
 
    for(int aK=0 ; aK<9 ; aK++)
-      aWeight.push_back(1.0/Square(mMulSigmaRot * aSigma.SigmaRot()));
+      aWeight.push_back(1.0/Square(CamSigRot(aSigma,mValSigRot)));
 
 
    //  [2] ============== create vectors of "obs" and indexes ========
@@ -503,6 +559,8 @@ void cBA_BlockInstr::OneItere_1PairCam
     );
 
     // [4] compute residual & accumulates
+    auto [aSumTr,aSumRot] = AddResidualPose(mEqRigCam,mAvgTrPair,mAvgRotPair);
+            /*
     tREAL8 aSumTr = 0.0;
     tREAL8 aSumRot = 0.0;
 
@@ -514,9 +572,19 @@ void cBA_BlockInstr::OneItere_1PairCam
 
     mAvgTr.Add(1.0,aSumTr);
     mAvgRot.Add(1.0,aSumRot);
-
+*/
     mSigmaPair[aPair].AddNewSigma(cIrb_SigmaInstr(1.0,1.0,std::sqrt(aSumTr),std::sqrt(aSumRot)));
     mNbEqPair++;
+
+
+    if (deBug)
+    {
+         StdOut() << "PAIIR "
+                     << aK1 << " " << aK2
+                     << aDataTS.Ident()
+                     << " VII= " << aVInd
+                     << "\n";
+    }
 
 }
 
@@ -574,8 +642,10 @@ void cBA_BlockInstr::OneItere_1TS(cIrbComp_TimeS& aDataS,tMapStrAv &aMap)
 void cBA_BlockInstr::OneItere()
 {
    mNbEqPair =0;
-   mAvgTr.Reset();
-   mAvgRot.Reset();
+   mAvgTrPair.Reset();
+   mAvgRotPair.Reset();
+   mAvgTrCur.Reset();
+   mAvgRotCur.Reset();
 
    mSigmaPair.clear();
 
@@ -626,14 +696,16 @@ void cBA_BlockInstr::OneItere()
              aAvgGlob.Add(1.0,aVAv);
               StdOut() << "[" << aName << " : "  << Rad2DMgon(aVAv) << "] " ;
          }
+         if (mVertClinoFree)
+         {
+              StdOut() << " DVert=" << Rad2DMgon(Norm2(mVertical.GetPNorm()-mVertInit)) ;
+         }
          StdOut() << " ---- Glob=" << Rad2DMgon(aAvgGlob.Average()) ;
       }
-      if (mVertClinoFree)
-      {
-           StdOut() << " DVert=" << Rad2DMgon(Norm2(mVertical.GetPNorm()-mVertInit)) ;
-      }
+
       StdOut() << "\n";
 
+    //  StdOut() << "==========================================VVVVVV " << mVertClinoFree << "\n";
       {
          StdOut() <<  "  * EvolClino ";
          cWeightAv<tREAL8,tREAL8> aAvgGlob;
@@ -655,9 +727,16 @@ void cBA_BlockInstr::OneItere()
    // Eventually had "soft" gauge
    AddGauge(true);
 
-   StdOut() << "  * Residual IntrBlocCam/Pair "
-            << " Tr=" << std::sqrt(mAvgTr.Average())
-            << " Rot=" << std::sqrt(mAvgRot.Average()) << "\n";
+   StdOut() << "  * Residual IntrBlocCam;  Pair: "
+            << " Tr=" << std::sqrt(mAvgTrPair.Average())
+            << " Rot=" << std::sqrt(mAvgRotPair.Average());
+   if (mUseRat2CurrBR)
+   {
+       StdOut() << "  Cur : "
+                << " Tr=" << std::sqrt(mAvgTrCur.Average())
+                << " Rot=" << std::sqrt(mAvgRotCur.Average());
+   }
+   StdOut() << "\n";
 }
 
 

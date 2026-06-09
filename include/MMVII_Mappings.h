@@ -293,21 +293,23 @@ template <class Type,const int DimIn,const int DimOut> class cDataMapping : publ
       typedef  cDenseMatrix<Type>          tJac;  ///< jacobian (DimIn DimOut); DimOut=1 =>line vector/linear form
       typedef  std::vector<tJac>         tVecJac;
       typedef std::pair<tPtOut ,tJac>                    tResJac;
-      typedef std::pair<const tVecOut *,const tVecJac*>  tCsteResVecJac;
-      typedef std::pair<tVecOut *,tVecJac*>  tResVecJac;
+      typedef std::pair<const tVecOut *,const tVecJac*>  tCsteResPtrVecJac;
+      typedef std::pair<tVecOut *,tVecJac*>  tResPtrVecJac;
+      typedef std::pair<tVecOut,tVecJac>     tResVecJac;
+
 
            // ========== Computation of values ==============
 
       ///  buffered method, call unbeferred one
-      virtual  const  tVecOut &  Values(tVecOut &,const tVecIn & ) const;  //V2
+       virtual  const  tVecOut  & Values(tVecOut &,const tVecIn & ) const;  //V2
       ///  unbuffered method, call unbeferred one ...
       virtual  tPtOut Value(const tPtIn &) const;
       /// buffered, calls V2 with  own buffer
-      const  tVecOut &  Values(const tVecIn & ) const;   //  V1
+      const  tVecOut   Values(const tVecIn & ) const;   //  V1
 
       /// PRE ALLOCATED VALUES ;  Pts is clear and must be pushed back, Jacob contain already the matrixes
-      virtual tCsteResVecJac  Jacobian(tResVecJac,const tVecIn &) const;  //J2
-      tCsteResVecJac  Jacobian(const tVecIn &) const;  //J1
+      virtual tCsteResPtrVecJac  Jacobian(tResPtrVecJac,const tVecIn &) const;  //J2
+      tResVecJac  Jacobian(const tVecIn &) const;  //J1
       virtual tResJac     Jacobian(const tPtIn &) const;
 
       /** compute the box that contain the image of corners of BoxIn, note that due to non linerity
@@ -354,27 +356,28 @@ template <class Type,const int DimIn,const int DimOut> class cDataMapping : publ
 #else  // !MAP_STATIC_BUF
     private :
        cDataMapping(const cDataMapping<Type,DimIn,DimOut> & ) = delete;
-       mutable tVecOut  mBufOut;
-       mutable tVecOut  mJBufOut;
-       mutable tVecIn   mBufIn;
-       mutable tVecIn   mJBufIn;
-       mutable tVecIn   mBufIn1Val;
-       mutable tVecJac  mJacReserve;
-       mutable tVecJac  mJacResult;
+      //  mutable tVecOut  mBufOut;
+    //   mutable tVecOut  mJBufOut;
+      // mutable tVecIn   mBufIn;
+     //  mutable tVecIn   mJBufIn;
+     //  mutable tVecIn   mBufIn1Val;
+    //   mutable tVecJac  mJacReserve;
+    //   mutable tVecJac  mJacResult;
 
     protected :
-       inline tVecOut&  BufOut()    const {return mBufOut;}
-       inline tVecOut&  BufOutCleared()    const {mBufOut.clear();return mBufOut;}
-       inline tVecOut&  JBufOut()   const {return mJBufOut;}
-       inline tVecOut&  JBufOutCleared()   const {mJBufOut.clear();return mJBufOut;}
-       inline tVecIn&   BufIn()     const {return mBufIn;}
-       inline tVecIn&   BufInCleared()  const {mBufIn.clear(); return mBufIn;}
-       inline tVecIn&   JBufIn()     const {return mJBufIn;}
-       inline tVecIn&   JBufInCleared()  const {mJBufIn.clear(); return mJBufIn;}
-       inline tVecIn &  BufIn1Val() const {if (mBufIn1Val.empty()) mBufIn1Val.push_back(tPtIn()); return mBufIn1Val;}
+      // inline tVecOut&  BufOut()    const {return mBufOut;}
+       //inline tVecOut&  BufOutCleared()    const {mBufOut.clear();return mBufOut;}
+     //  inline tVecOut&  JBufOut()   const {return mJBufOut;}
+      // inline tVecOut&  JBufOutCleared()   const {mJBufOut.clear();return mJBufOut;}
+       //inline tVecIn&   BufIn()     const {return mBufIn;}
+      // inline tVecIn&   BufInCleared()  const {mBufIn.clear(); return mBufIn;}
+   //    inline tVecIn&   JBufIn()     const {return mJBufIn;}
+      // inline tVecIn&   JBufInCleared()  const {mJBufIn.clear(); return mJBufIn;}
+     //  inline tVecIn &  BufIn1Val() const {if (mBufIn1Val.empty()) mBufIn1Val.push_back(tPtIn()); return mBufIn1Val;}
 
        /// return a "Buffer" of jacobian, on own ressources, const -> modify mutable var
-       tVecJac & BufJac(tU_INT4 aSz) const ;
+       // tVecJac & BufJac(tU_INT4 aSz) const ;
+        tVecJac  VecJac(tU_INT4 aSz) const ;
 #endif // MAP_STATIC_BUF
 };
 
@@ -487,7 +490,7 @@ template <class Type,const int Dim> class cDataIterInvertMapping :  public cData
 
       // typedef cMapping<Type,Dim,Dim>         tMap;
       typedef cDataMapping<Type,Dim,Dim>     tDataMap;
-      typedef typename  tDataMap::tResVecJac tResVecJac;
+      typedef typename  tDataMap::tResPtrVecJac tResPtrVecJac;
 
 
       const  tVecPt &  Inverses(tVecPt &,const tVecPt &) const override;
@@ -540,14 +543,14 @@ template <class Type,const int Dim> class cDataIIMFromMap : public cDataIterInve
 
       using typename tDataIIMap::tPt;
       using typename tDataIIMap::tVecPt;
-      using typename tDataIIMap::tCsteResVecJac;
-      using typename tDataIIMap::tResVecJac;
+      using typename tDataIIMap::tCsteResPtrVecJac;
+      using typename tDataIIMap::tResPtrVecJac;
 
       cDataIIMFromMap(tDataMap * aMap,const tPt &,tDataMap * aRoughInv,const Type& aDistTol,int aNbIterMax,bool AdoptMap,bool AdoptRIM);
       cDataIIMFromMap(tDataMap * aMap,tDataMap * aRoughInv,const Type& aDistTol,int aNbIterMax,bool AdoptMap,bool AdoptRIM);
 
       const  tVecPt &  Values(tVecPt &,const tVecPt & ) const override;  //V2
-      tCsteResVecJac  Jacobian(tResVecJac,const tVecPt &) const override;  //J2
+      tCsteResPtrVecJac  Jacobian(tResPtrVecJac,const tVecPt &) const override;  //J2
       ~cDataIIMFromMap();
     private :
       cDataIIMFromMap(const cDataIIMFromMap<Type,Dim> & ) = delete;
@@ -582,8 +585,8 @@ template <class Type,const int DimIn,const int DimOut>
 
       using typename tDataMap::tVecIn;
       using typename tDataMap::tVecOut;
-      using typename tDataMap::tCsteResVecJac;
-      using typename tDataMap::tResVecJac;
+      using typename tDataMap::tCsteResPtrVecJac;
+      using typename tDataMap::tResPtrVecJac;
       using typename tDataMap::tVecJac;
       using typename tDataMap::tPtIn;
       using typename tDataMap::tPtOut;
@@ -591,7 +594,7 @@ template <class Type,const int DimIn,const int DimOut>
       virtual ~cDataMapCalcSymbDer();
 
        const  tVecOut &  Values(tVecOut &,const tVecIn & ) const override;  ///< V2 : use mCalc to fill values
-       tCsteResVecJac  Jacobian(tResVecJac,const tVecIn &) const override;  ///< J2 : use mCalcDer to compute derivative
+       tCsteResPtrVecJac  Jacobian(tResPtrVecJac,const tVecIn &) const override;  ///< J2 : use mCalcDer to compute derivative
 
        cDataMapCalcSymbDer(tCalc  * aCalcVal,tCalc  * aCalcDer,const std::vector<Type> & aVObs,bool ToDelete);
        void SetObs(const std::vector<Type> &); ///< just modify mVObs
@@ -617,13 +620,13 @@ template <class Type,int Dim> class  cDataNxNMapCalcSymbDer  : public cDataNxNMa
 
       using typename tDataMap::tVecIn;
       using typename tDataMap::tVecOut;
-      using typename tDataMap::tCsteResVecJac;
-      using typename tDataMap::tResVecJac;
+      using typename tDataMap::tCsteResPtrVecJac;
+      using typename tDataMap::tResPtrVecJac;
       using typename tDataMap::tVecJac;
       using typename tDataMap::tPtIn;
       using typename tDataMap::tPtOut;
       const  tVecOut &  Values(tVecOut &,const tVecIn & ) const override;  //V2
-      tCsteResVecJac  Jacobian(tResVecJac,const tVecIn &) const override;  //J2
+      tCsteResPtrVecJac  Jacobian(tResPtrVecJac,const tVecIn &) const override;  //J2
 
       cDataNxNMapCalcSymbDer(tCalc  * aCalcVal,tCalc  * aCalcDer,const std::vector<Type> & aVObs,bool DeleteCalc);
       void SetObs(const std::vector<Type> &);
@@ -686,7 +689,8 @@ template <class Type,const int Dim> class  cComputeMapInverse : public cMemCheck
         typedef cPtxd<int,Dim>                    tPtI;
         typedef cTplBox<Type,Dim>                 tBoxR;
         typedef cPtsExtendCMI<Type,Dim>           tExtent;
-        typedef typename tMap::tCsteResVecJac     tCsteResVecJac;
+        typedef typename tMap::tCsteResPtrVecJac     tCsteResVecJac;
+        typedef typename tMap::tResVecJac     tResVecJac;
 
         /// Constructor, essentially memorize parameters
         cComputeMapInverse

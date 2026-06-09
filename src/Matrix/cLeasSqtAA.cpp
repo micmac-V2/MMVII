@@ -48,7 +48,7 @@ template <class Type> const cDenseVect<Type> & cBufSchurSubst<Type>::tARhsSubst(
 }
 
 template <class Type>
-    void cBufSchurSubst<Type>::CompileSubst(const tSetEq & aSetSetEq)
+    void cBufSchurSubst<Type>::CompileSubst(const tSetEq & aSetSetEq,const Type anEpsilonLVM)
 {
      aSetSetEq.AssertOk();
 
@@ -104,6 +104,17 @@ template <class Type>
 
               mSysRed.PublicAddObservation(aSetEq.WeightOfKthResisual(aKEq),mSV,-aSetEq.mVals.at(aKEq));
          }
+      }
+
+      for (size_t aK = 0 ; aK<mNbTmp ; aK++)
+      {
+          //mSysRed.AddEqFixVar(aK,0.0,anEpsilonLVM* aSetSetEq.LVMW()(aK));
+
+           mSV.Reset();
+           mSV.AddIV(aK,1.0);
+          // Dont forget that the linear system compute the difference with current solution ...
+           mSysRed.PublicAddObservation(anEpsilonLVM*aSetSetEq.LVMW()(aK),mSV,0.0);
+
       }
 
      //  extract normal matrix, vector, symetrise
@@ -208,11 +219,11 @@ template<class Type> void  cLeasSqtAA<Type>::SpecificReset()
    mtARhs.DIm().InitNull();
 }
 
-template<class Type> void  cLeasSqtAA<Type>::SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>& aSetSetEq)
+template<class Type> void  cLeasSqtAA<Type>::SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>& aSetSetEq,const Type aEpsLVM)
 {
     if (mBSC==nullptr)
          mBSC = new cBufSchurSubst<Type>(this->NbVar());
-    mBSC->CompileSubst(aSetSetEq);
+    mBSC->CompileSubst(aSetSetEq,aEpsLVM);
 
     const std::vector<size_t> &  aVI = mBSC->VIndexUsed();
     const cDenseMatrix<Type> & atAAS =  mBSC->tAASubst() ;
@@ -561,14 +572,15 @@ template<class Type> cLinearOverCstrSys<Type> * cLinearOverCstrSys<Type>::AllocS
      return nullptr;
 }
 
-template<class Type> void cLinearOverCstrSys<Type>::SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>&)
+template<class Type> void cLinearOverCstrSys<Type>::SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>&,const Type)
 {
         MMVII_INTERNAL_ERROR("Used AddObsWithTmpK unsupported");
 }
 
-template<class Type> void cLinearOverCstrSys<Type>::PublicAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>& aSetSetEq)
+template<class Type>
+    void cLinearOverCstrSys<Type>::PublicAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>& aSetSetEq,const Type aEpsLVM)
 {
-     SpecificAddObsWithTmpUK(aSetSetEq);
+     SpecificAddObsWithTmpUK(aSetSetEq,aEpsLVM);
      mSchurrWasUsed = true;
 
      for (const auto & aSetEq : aSetSetEq.AllEq())
@@ -586,7 +598,11 @@ template<class Type> void cLinearOverCstrSys<Type>::PublicAddObsWithTmpUK(const 
                  for (size_t aKGlob=0 ; aKGlob<aSetEq.mGlobVInd.size() ; aKGlob++)
                  {
                      int aInd = aSetEq.mGlobVInd[aKGlob];
-                     if (!cSetIORSNL_SameTmp<Type>::IsIndTmp(aInd))
+                     if (cSetIORSNL_SameTmp<Type>::IsIndTmp(aInd))
+                     {
+                        //  cSetIORSNL_SameTmp<Type>::ToIndTmp(aInd);
+                     }
+                     else
                      {
                          Type aDer = aVDer.at(aKGlob);
                          mLVMW(aInd) += aWeight * Square(aDer);

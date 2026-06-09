@@ -48,6 +48,7 @@ cAppliCheckBoardTargetExtract::cAppliCheckBoardTargetExtract(const std::vector<s
    mNbBlur1          (1),
    mStrShow          (""),
    mScales           {1.0},
+   mPatRejectCodes   (""),
    mDistMaxLocSad    (10.0),
    mDistRectInt      (20),
 
@@ -62,7 +63,7 @@ cAppliCheckBoardTargetExtract::cAppliCheckBoardTargetExtract(const std::vector<s
    mNumDebugMT       (-1),
    mNumDebugSaddle   (-1),
    mNbMinPtEllipse   (6),
-   mTryC             (true),
+   mTryC             (false),
    mStepHeuristikRefinePos    (-1),
    mStepGradRefinePos (1e-4),
    mZoomVisuDetec    (9),
@@ -80,7 +81,7 @@ cAppliCheckBoardTargetExtract::cAppliCheckBoardTargetExtract(const std::vector<s
    mDImLabel         (nullptr),
    mImTmp            (cPt2di(1,1)),
    mDImTmp           (nullptr),
-   mCurScale         (false),
+   mCurScale         (-1.0),
    mMainScale        (true),
    mInterpol         (nullptr)
 {
@@ -120,6 +121,7 @@ cCollecSpecArg2007 & cAppliCheckBoardTargetExtract::ArgOpt(cCollecSpecArg2007 & 
              <<  AOpt2007(mOptimSegByRadiom,"OSBR","Optimize segement by radiometry",{eTA2007::HDV})
              <<  AOpt2007(mNbMaxBlackCB,"NbMaxBlackCB","Number max of point in black part of check-board ",{eTA2007::HDV})
              <<  AOpt2007(mPropGrayDCD,"PropGrayDCD","Proportion of gray for find coding part",{eTA2007::HDV})
+             <<  AOpt2007(mPatRejectCodes,"PatRejectCodes","Pattern of codes to reject",{eTA2007::HDV})
              <<  AOpt2007(mNumDebugMT,"NumDebugMT","Num marq target for debug",{eTA2007::Tuning})
              <<  AOpt2007(mNumDebugSaddle,"NumDebugSaddle","Num Saddle point to debug",{eTA2007::Tuning})
 
@@ -306,7 +308,7 @@ void cAppliCheckBoardTargetExtract::GenerateVisuFinal() const
          {
              cPt3di aCoul =  aCdt.Code() ?  (aCdt.IsCircle() ? cRGBImage::Cyan : cRGBImage::Green)  : cRGBImage::Red;
              aIm.SetRGBrectWithAlpha(ToI(aCdt.mC0),50,aCoul, 0.5);
-             if (aCdt.mScale!= 1.0)
+             if (aCdt.mScaleDetec!= 1.0)
                 aIm.SetRGBBorderRectWithAlpha(ToI(aCdt.mC0),60,10,cRGBImage::Blue, 0.5);
 
              if (aCdt.Code())
@@ -489,7 +491,7 @@ void cAppliCheckBoardTargetExtract::SaddleCritFiler()
          if (mDImLabel->GetV(aPix)==eTopoMaxOfCC)
          {
              tREAL8 aCritS = aCalcSBlur.CalcSaddleCrit(*mDImBlur,aPix);
-             mVCdtSad.push_back(cCdSadle(ToR(aPix),aCritS,IsPtTest(ToR(aPix))) );
+             mVCdtSad.push_back(cCdSadle(mCurScale,ToR(aPix),aCritS,IsPtTest(ToR(aPix))) );
          }
     }
     mNbSads.push_back(mVCdtSad.size()); // memo size for info
@@ -543,7 +545,7 @@ void cAppliCheckBoardTargetExtract::SymetryFiler()
 
 void  cAppliCheckBoardTargetExtract::AddCdtE(const cCdEllipse & aCDE)
 {
-     cCdMerged aNewCdM(mDImIn0,aCDE,mCurScale);
+     cCdMerged aNewCdM(mDImIn0,aCDE);
 
      for (auto & aCdM : mVCdtMerged)
      {
@@ -573,9 +575,9 @@ void  cAppliCheckBoardTargetExtract::DoExport()
              aSetM.AddMeasure(aMesIm);
              Tpl_AddOneObjReportCSV(*this,mIdExportCSV,aMesIm);
 
-             cEllipse anEl = aCdtM.Ell().Scale(aCdtM.mScale);
+             cEllipse anEl = aCdtM.Ell().Scale(aCdtM.mScaleDetec);
              cSaveExtrEllipe aSEE(anEl,aCdtM.mBlack,aCdtM.mWhite,aCode);
-             aSEE.mAffIm2Ref = aCdtM.AffIm2Mod();
+             aSEE.mAffIm2Ref = aCdtM.AffImZ1ToMod();
              aVSavE.push_back(aSEE);
              //  cSaveExtrEllipe anESave(*anEE,aCode);
          }
@@ -707,6 +709,11 @@ void cAppliCheckBoardTargetExtract::DoOneImageAndScale(tREAL8 aScale,const  tIm 
                 if (aCDE.Code())
                   {
                      // StdOut() << "aCDE.mC,eFilterCodedTargetaCDE.mC,eFilterCodedTarget \n";
+                    if ((!mPatRejectCodes.empty()) && MatchRegex(aCDE.Code()->Name(),mPatRejectCodes))
+                     {
+                         StdOut() << "Found target "<<aCDE.Code()->Name()<<" but this code is forbidden\n";
+                         continue;
+                     }
                      SetLabel(aCDE.mC,eFilterCodedTarget);
                      aNbEllWCode++;
                      GotIt = true;

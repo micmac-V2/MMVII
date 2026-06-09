@@ -149,7 +149,7 @@ class cREAL8_RSNL
 
           virtual void  R_AddEq2Subst (tSetIO_ST & aSetIO,tCalc *,const tVectInd &,
                                        const tStdVect& aVObs,const tResidualW & = tResidualW()) = 0;
-          virtual void  R_AddObsWithTmpUK (const tSetIO_ST & aSetIO) =0;
+          virtual void  R_AddObsWithTmpUK (const tSetIO_ST & aSetIO,const tREAL8) =0;
 
            virtual void  R_SetFrozenVar(int aK,const  tREAL8 &) = 0;  ///< seti var var frozen /unfrozen
 
@@ -349,8 +349,8 @@ template <class Type> class cResolSysNonLinear : public cREAL8_RSNL
 
           /** Once "aSetIO" has been filled by multiple calls to  "AddEq2Subst",  do it using for exemple schur complement
            */
-          void  AddObsWithTmpUK (const tSetIO_ST & aSetIO);
-          void  R_AddObsWithTmpUK (const tR_Up::tSetIO_ST & aSetIO) override;
+          void  AddObsWithTmpUK (const tSetIO_ST & aSetIO,const Type);
+          void  R_AddObsWithTmpUK (const tR_Up::tSetIO_ST & aSetIO, const tREAL8 aEpsLVM) override;
 
                //    frozen  checking
 
@@ -515,6 +515,8 @@ template <class Type> class cSetIORSNL_SameTmp
             cSetIORSNL_SameTmp(bool Fake,const cSetIORSNL_SameTmp<tREAL8> &) ;
 
             int  NbRedundacy() const;
+
+            const cDenseVect<Type> &  LVMW() const;
         private :
             cSetIORSNL_SameTmp(const cSetIORSNL_SameTmp&) = delete;
 
@@ -528,6 +530,8 @@ template <class Type> class cSetIORSNL_SameTmp
             tStdVect           mValueFrozenVarTmp;    ///< value of frozen tmp
             size_t             mNbEq;
             cSetIntDyn         mSetIndTmpUk;
+
+            cDenseVect<Type>   mLVMW; /// sum of square diag use if levenberg markad is used
 };
 
 
@@ -567,7 +571,7 @@ template <class Type> class cLinearOverCstrSys  : public cMemCheck
              - treat temporary as unknowns and increase the size of their unknowns
              - refuse to process =>default is error ...
         */
-       void PublicAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>&);
+       void PublicAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>&,const Type aEpsLVM);
 
        /// Do the common stuff to "Reset", before calling SpecificReset
        void PublicReset();
@@ -660,7 +664,7 @@ template <class Type> class cLinearOverCstrSys  : public cMemCheck
        ///  May contain a specialization for sparse system, default use generik, (unused at the time being ...)
        virtual cDenseVect<Type>  SpecificSparseSolve() ;
 
-       virtual void SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>&);
+       virtual void SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>&,Type aLVMEps);
 };
 
 template <class Type>  cLinearOverCstrSys<Type> *  AllocL1_Barrodale(size_t aNbVar);
@@ -729,7 +733,7 @@ template <class Type> class  cLeasSqtAA  :  public cLeasSq<Type>
        /// Use  sparse cholesky , usefull for "sparse dense" system ...
        cDenseVect<Type>  SpecificSparseSolve() override ;
 
-       void SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>&) override;
+       void SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>&,const Type aLVMEps) override;
 
        //  ================  Accessor used in Schur elim ========  :
        
@@ -781,7 +785,7 @@ template <class Type> class  cBufSchurSubst
           /// constructor , just alloc the vector to compute subset of unknosn
           cBufSchurSubst(size_t aNbVar);
           /// Make the computation from the set of equations
-          void CompileSubst(const tSetEq &);
+          void CompileSubst(const tSetEq &,const Type aEpsilonLVM);
 
           //  ==== 3 accessors to the result
 

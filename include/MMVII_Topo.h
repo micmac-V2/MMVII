@@ -39,7 +39,7 @@ public :
 
     //  Do the kernel job : add topo constraints to the system
     void AddTopoEquations(cResolSysNonLinear<tREAL8> &);
-    void AddPointsFromDataToGCP(cBA_GCP &aBA_GCP); //< get creates points in gcp from points names in data from mAllTopoDataIn, clear mAllTopoDataIn
+    void AddPointsFromDataToGCP(cBA_GCP &aBA_GCP, cPhotogrammetricProject *aPhProj); //< get creates points in gcp from points names in data from mAllTopoDataIn, clear mAllTopoDataIn
     void FromData(const cBA_GCP &aBA_GCP, cPhotogrammetricProject *aPhProj); //< get data from mAllTopoDataIn
     void ToFile(const std::string & aName) const;
     void print();

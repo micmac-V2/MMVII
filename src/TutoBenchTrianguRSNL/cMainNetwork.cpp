@@ -423,7 +423,7 @@ template <class Type> Type cMainNetwork<Type>::DoOneIterationCompensation(double
                 if (mWeightSetSchur.at(3)>=0) aSetIO.AddFixCurVarTmp(-2, mWeightSetSchur.at(3)); // soft constraint-y  on current
                 // StdOut() << "GGGGGgg" << std::endl;getchar();
             }
-            mSys->AddObsWithTmpUK(aSetIO);
+            mSys->AddObsWithTmpUK(aSetIO,0.0);
          }
          else
          {

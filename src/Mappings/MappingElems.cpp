@@ -108,15 +108,24 @@ template <class tMapElem> class  cMapOfBox
          }
 };
 
-cBox2dr  ImageOfBox(const cAff2D_r & aAff,const cBox2dr & aBox)
+cBox2dr  ImageOfBox(const tAff2Dr & aAff,const cBox2dr & aBox)
 {
-   return cMapOfBox<cAff2D_r>::ImageOfBox(aAff,aBox);
+   return cMapOfBox<tAff2Dr>::ImageOfBox(aAff,aBox);
 }
+
+cBox2dr  ImageOfBox(const tHom2Dr & aAff,const cBox2dr & aBox)
+{
+   return cMapOfBox<tHom2Dr>::ImageOfBox(aAff,aBox);
+}
+
 
 
 template  class cInvertMappingFromElem<cAffin2D<tREAL8>>;
 template  class cInvertMappingFromElem<cSim2D<tREAL8>>;
 template  class cInvertMappingFromElem<cHomot2D<tREAL8>>;
+template  class cInvertMappingFromElem<cHomogr2D<tREAL8>>;
+
+
 template  class cInvertMappingFromElem<cBijAffMapElem<tREAL8,2>>;
 template  class cInvertMappingFromElem<cBijAffMapElem<tREAL8,3>>;
 // template  class cInvertMappingFromElem<cBijAffMapElem<tREAL8,4>>;

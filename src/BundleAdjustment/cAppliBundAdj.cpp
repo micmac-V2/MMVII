@@ -64,7 +64,7 @@ class cAppliBundlAdj : public cMMVII_Appli
         bool AcceptEmptySet(int aK) const override {return ((aK==0)&&(mSpecImIn==MMVII_NONE));}
         std::vector<tREAL8>  ConvParamStandard(const std::vector<std::string> &,size_t aSzMin,size_t aSzMax) ;
 
-        void  AddOneSetGCP3D(const std::string & aFolderIn, const std::string &aFolderOut, tREAL8 aWFactor); // aFolderOut="" if no out
+        void  AddOneSetGCP3D(const std::string & aFolderIn, const std::string &aFolderOut, tREAL8 aWFactor, bool aDoExportSigmas); // aFolderOut="" if no out
         void  AddOneSetGCP2D(const std::vector<std::string> & aVParStd);
         void  AddOneSetTieP(const std::vector<std::string> & aParam);
 
@@ -146,14 +146,14 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << mPhProj.DPClinoMeters().ArgDirInOpt("ClinoDirIn","Dir for Clino if != DataDir") //  CLINOBLOC
       << mPhProj.DPClinoMeters().ArgDirOutOpt("ClinoDirOut","Dir for Clino if != DataDir") //  CLINOBLOC
       << mPhProj.DPMeasuresClino().ArgDirInOpt()
-      << AOpt2007 ( mGCP3D, "GCP3D", "GCP ground coords and sigma factor, SG=0 fix, SG<0 schurr elim, SG>0 and optional output dir [[Folder,SigG,FOut?],...]]")
+      << AOpt2007 ( mGCP3D, "GCP3D", "GCP ground coords and sigma factor, SG=0 fix, SG<0 schurr elim, SG>0 and optional output dir with optional compensated sigma [[Folder,SigG,FOut?,ExportSigma?=0],...]]")
       << AOpt2007 ( mGCP2D, "GCP2D", "GCP image coords and sigma factor and optional attenuation, threshold and exponent [[Folder,SigI,SigAt?=-1,Thrs?=-1,Exp?=1]...]")
       << AOpt2007(mGCPFilter,"GCPFilter","Pattern to filter GCP by name")
       << AOpt2007(mGCPFilterAdd,"GCPFilterAdd","Pattern to filter GCP by additional info")
       << AOpt2007(mTiePWeight,"TiePWeight","Tie point weighting [Sig0,SigAtt?=-1,Thrs?=-1,Exp?=1]",{{eTA2007::ISizeV,"[1,4]"}})
       << AOpt2007(mAddTieP,"AddTieP","For additional TieP, [[Folder,SigG...],[Folder,...]] ")
       << AOpt2007(mParamLidarPhgr,"LidarPhotogra","Paramaters for Lidar/Phgr adj via triangulation [[Mode,Ply,Sigma,Interp?,Perturbate?,NbPtsPerPatch=32]*]")
-      << AOpt2007(mParamLidarPhoto,"LidarPhoto","Paramaters for Lidar/Phgr adj via rasterisation [[Mode,PatScan,Sigma,Interp?,Perturbate?,NbPtsPerPatch=49]*]")
+      << AOpt2007(mParamLidarPhoto,"LidarPhoto","Paramaters for Lidar/Phgr adj via rasterisation [[Mode,PatScan,Sigma,Interp?,ScaleInit?=1,ScaleFinal?=1,Thrs?=-1,NbPtsPerPatch?=49]*]")
       << AOpt2007(mParamLidarLidar,"LidarLidar","Paramaters for Lidar/Lidar adj via rasterisation [[PatScan,Sigma,ThrsInit?=1,ThrsFinal?=0.1,Interp?=[Linear]]]")
       << AOpt2007(mPatParamFrozCalib,"PPFzCal","Pattern for freezing internal calibration parameters")
       << AOpt2007(mVVParFreeCalib,"PPFreeCal","Pattern for free internal calibration parameters [[PatCal1,PatParam1],[PatCal2,PatParam2] ...] ")
@@ -172,13 +172,14 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mShow_Cond,"Cond","Compute and show system condition number")
       << AOpt2007(mParamShow_UK_UC,"UC_UK","Param for uncertainty & Show names of unknowns (tuning)")
       << AOpt2007(mPostFixReport,NameParamPostFixReport(),CommentParamPostFixReport())
-      << AOpt2007(mParamLine,"AdjLine3D","Parameter for line Adjustment [SigmaIm,NbPtsSampl]",{{eTA2007::ISizeV,"[2,2]"}})
+      << AOpt2007(mParamLine,"AdjLine3D","Parameter for line Adjustment [Folder,SigmaIm,NbPtsSampl]",{{eTA2007::ISizeV,"[3,3]"}})
 
       << AOpt2007
          (
              mParamBOI,
              "BOI",
-             "Bloc of Instr [[Bloc?,RelSigTrPair?=1.0,RelSigRotPair?=1.0,SaveSig?=1],[GjTr?,GjRot?],[RelSigTrCur,RelSigRotCur]?]",
+             "Bloc of Instr [[Bloc?,RelSigTrPair?=1.0,RelSigRotPair?=1.0,SaveSig?=1,RelSig?=true]"
+                            ",[GjTr?,GjRot?],[RelSigTrCur,RelSigRotCur]?]",
              {{eTA2007::ISizeV,"[2,3]"}}
           )
 
@@ -214,10 +215,10 @@ std::vector<tREAL8>  cAppliBundlAdj::ConvParamStandard(const std::vector<std::st
     return aRes;
 }
 
-void  cAppliBundlAdj::AddOneSetGCP3D(const std::string & aFolderIn, const std::string & aFolderOut, tREAL8 aWFactor)
+void  cAppliBundlAdj::AddOneSetGCP3D(const std::string & aFolderIn, const std::string & aFolderOut, tREAL8 aWFactor, bool aDoExportSigmas)
 {
     cSetMesGndPt  aFullMesGCP;
-    cMes3DDirInfo * aMesDirInfo = cMes3DDirInfo::addMes3DDirInfo(mBA.getGCP(), aFolderIn, aFolderOut, aWFactor);
+    cMes3DDirInfo * aMesDirInfo = cMes3DDirInfo::addMes3DDirInfo(mBA.getGCP(), aFolderIn, aFolderOut, aWFactor, aDoExportSigmas);
     mPhProj.LoadGCP3DFromFolder(aFolderIn, aFullMesGCP, aMesDirInfo, "", mGCPFilter, mGCPFilterAdd);
     auto aFullMes3D = aFullMesGCP.ExtractSetGCP("???");
     mBA.AddGCP3D(aMesDirInfo,aFullMes3D);
@@ -319,11 +320,14 @@ int cAppliBundlAdj::Exe()
     for (const auto& aVStrGCP : mGCP3D)
     {
         // expected: [Folder,SigG,FOut?]
-        if ((aVStrGCP.size() <2) || (aVStrGCP.size() >3))
+        if ((aVStrGCP.size() <2) || (aVStrGCP.size() >4))
         {
-            MMVII_UnclasseUsEr("Bad size of GCP3D, exp in [2,3] got : " + ToStr(aVStrGCP.size()));
+            MMVII_UnclasseUsEr("Bad size of GCP3D, exp in [2,4] got : " + ToStr(aVStrGCP.size()));
         }
-        AddOneSetGCP3D(aVStrGCP[0],aVStrGCP.size()>2?aVStrGCP[2]:"",cStrIO<double>::FromStr(aVStrGCP[1]));
+        AddOneSetGCP3D(aVStrGCP[0],
+                      aVStrGCP.size()>2?aVStrGCP[2]:"",
+                      cStrIO<double>::FromStr(aVStrGCP[1]),
+                      aVStrGCP.size()>3?cStrIO<bool>::FromStr(aVStrGCP[3]):false);
     }
 
     if (mPhProj.DPTopoMes().DirInIsInit())

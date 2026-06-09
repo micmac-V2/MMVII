@@ -179,7 +179,7 @@ void cTimerSegm::Show()
        StdOut() << " * "  << FixDigToStr(aPair.second,4,4) << " : " << aPair.first << std::endl;
    }
 
-   StdOut() << " *** SOM " << aSom  <<  " " << mAppli->SecFromT0() << std::endl;
+   StdOut() << " *** Total sum: " << aSom  <<  " Total ellapsed: " << mAppli->SecFromT0() << std::endl;
 }
 
 

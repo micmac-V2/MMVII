@@ -1,4 +1,5 @@
 #include "MMVII_Interpolators.h"
+#include "MMVII_Mappings.h"
 
 namespace MMVII
 {
@@ -549,26 +550,32 @@ tREAL8 CubAppGaussVal(const tREAL8& aV)
  *
  */
 
-cRessampleWeigth  cRessampleWeigth::GaussBiCub(const cPt2dr & aCenterOut,const cAff2D_r & aMapO2I, double aSzK)
+// cRessampleWeigth  cRessampleWeigth::GaussBiCub(const cPt2dr & aCenterOut,const cAff2D_r & aMapO2I, double aSzK)
+ cRessampleWeigth::cRessampleWeigth(const cPt2dr & aCenterOut, const cDataInvertibleMapping<tREAL8,2> &  aMapO2IGen, double aSzK)
 {
-     cRessampleWeigth aRes;
 
      // [1] compute the box in input image space
-     cPt2dr aSzW = cPt2dr::PCste(aSzK);
-     cBox2dr aBoxOut(aCenterOut-aSzW,aCenterOut+aSzW);
-     cBox2di aBoxIn =  ImageOfBox(aMapO2I,aBoxOut).Dilate(1).ToI();
+     cPt2dr aSzWOut = cPt2dr::PCste(aSzK);  // in target space the sz of weigthing func
+     cBox2dr aBoxOut(aCenterOut-aSzWOut,aCenterOut+aSzWOut); // box arround targt pixel
+     cBox2di aBoxIn =aMapO2IGen.BoxOfCorners(aBoxOut).Dilate(1).ToI();  // Box in Input space (where there is an image)
+   //  cBox2di aBoxIn =  ImageOfBox(aMapO2I,aBoxOut).Dilate(1).ToI();
 
-     cAff2D_r  aMapI2O = aMapO2I.MapInverse();
+   //  aMapO2IGen.BoxOfCorners(aBoxOut);
+   // StdOut() <<  ImageOfBox(aMapO2I,aBoxOut) << " " <<  aMapO2IGen.BoxOfCorners(aBoxOut) << "\n";
+
+   //  cAff2D_r  aMapI2O = aMapO2I.MapInverse();
 
      double aSomW = 0.0;
      for (const auto & aPixIn : cRect2(aBoxIn))
      {
-         cPt2dr aPixOut = aMapI2O.Value(ToR(aPixIn));
+        // cPt2dr aPixOut = aMapI2O.Value(ToR(aPixIn));
+         //StdOut() << " Iiii" << aPixOut - aMapO2IGen.Inverse(ToR(aPixIn)) << "\n";
+         cPt2dr  aPixOut =   aMapO2IGen.Inverse(ToR(aPixIn));
          double aW =  CubAppGaussVal(Norm2(aPixOut-aCenterOut)/aSzK);
          if (aW>0)
          {
-            aRes.mVPts.push_back(aPixIn);
-            aRes.mVWeight.push_back(aW);
+            mVPts.push_back(aPixIn);
+            mVWeight.push_back(aW);
             aSomW += aW;
          }
      }
@@ -576,16 +583,29 @@ cRessampleWeigth  cRessampleWeigth::GaussBiCub(const cPt2dr & aCenterOut,const c
      // if not empty  , som W = 1
      if (aSomW>0)
      {
-        for (auto & aW : aRes.mVWeight)
+        for (auto & aW : mVWeight)
         {
             aW /= aSomW;
         }
      }
-
-     return aRes;
 }
-#if (0)
-#endif
+
+cRessampleWeigth  cRessampleWeigth::GaussBiCub(const cPt2dr & aCenterOut,const tAff2Dr & aMapO2I, double aSzK)
+{
+    return  cRessampleWeigth(aCenterOut,cInvertMappingFromElem<tAff2Dr>(aMapO2I),aSzK);
+}
+cRessampleWeigth  cRessampleWeigth::GaussBiCub(const cPt2dr & aCenterOut,const tHom2Dr & aMapO2I, double aSzK)
+{
+    return  cRessampleWeigth(aCenterOut,cInvertMappingFromElem<tHom2Dr>(aMapO2I),aSzK);
+}
+
+/*
+cRessampleWeigth  cRessampleWeigth::GaussBiCub(const cPt2dr & aCenterOut,const tAff2Dr & aMapO2I, double aSzK)
+{
+    cInvertMappingFromElem<tAff2Dr>  aMapTplO2I(aMapO2I);
+    const cDataInvertibleMapping<tREAL8,2> &  aMapO2IGen =aMapTplO2I;
+   return  cRessampleWeigth(aCenterOut,aMapO2IGen,aSzK);
+}*/
 
 };
 

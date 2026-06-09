@@ -20,6 +20,22 @@
 namespace MMVII
 {
 
+
+cBaseTE::cBaseTE(const cPt2dr & aPt,tREAL4 aBlack,tREAL4 aWhite) :
+   mPt      (aPt),
+   mGT      (nullptr),
+   mVBlack  (aBlack),
+   mVWhite  (aWhite)
+{
+}
+
+cBaseTE::cBaseTE(const cPt2dr & aPt) :
+     cBaseTE(aPt,-1,-1)
+{
+}
+
+
+
 /**   Class for vehiculing all the threshold parameters relative to circ target extraction
  */
 struct cThresholdCircTarget
@@ -187,7 +203,7 @@ cSaveExtrEllipe::cSaveExtrEllipe(const cCircTargExtr & aCTE,const std::string & 
 
 
 cSaveExtrEllipe::cSaveExtrEllipe()  :
-    mAffIm2Ref (cAff2D_r::Translation(cPt2dr(0,0))),
+    mAffIm2Ref (tAff2Dr::Translation(cPt2dr(0,0))),
     mEllipse (cEllipse(cDenseVect<tREAL8>(std::vector<tREAL8>{1,0,1,0,0}) ,cPt2dr(0,0)))
 {
 }
@@ -848,12 +864,16 @@ cCollecSpecArg2007 & cAppliExtractCircTarget::ArgOpt(cCollecSpecArg2007 & anArgO
 
              << AOpt2007(mStepRefineGrad,"StepRefineGrad","Step Refine Sym Grad",{eTA2007::HDV})
              <<   mPhProj.DPGndPt2D().ArgDirOutOptWithDef("Std")
+             <<   mPhProj.DPMulTieP().ArgDirOutOpt("","For exporting also in multiple tiep format")
+
           );
 }
 
 void cAppliExtractCircTarget::DoExport()
 {
      int aCptUnCoded=0;
+
+     cVecTiePMul aVTPMul(mNameIm); FakeUseIt(aVTPMul);
 
      cSetMesPtOf1Im  aSetM(FileOfPath(mNameIm));
      std::vector<cSaveExtrEllipe>  mVSavE;
@@ -872,11 +892,22 @@ void cAppliExtractCircTarget::DoExport()
 
 
              if (! anEE->mWithCode) aCptUnCoded++;
+
+             if (anEE->mWithCode )
+             {
+                 cTiePMul aTiePM(anEE->mPt,anEE->mEncode.Num());
+                 aVTPMul.mVecTPM.push_back(aTiePM);
+             }
          }
      }
 
      aSetM.SortMes();
      mPhProj.SaveMeasureIm(aSetM);
+
+     if (mPhProj.DPMulTieP().DirOutIsInit())
+     {
+         mPhProj.SaveMultipleTieP(aVTPMul,mNameIm);
+     }
 
      //SaveInFile(mVSavE,mPhProj.DPPointsMeasures().FullDirOut()+ "Attribute-"+  aSetM.StdNameFile());
      SaveInFile(mVSavE,cSaveExtrEllipe::NameFile(mPhProj,aSetM,false));

@@ -16,8 +16,6 @@ struct cDH_MS {
     double unit,min,sec;
 };
 
-enum class eExtracType{Main,All};
-
 // String to String
 void ExifConvert(const std::string& aVal, std::optional<std::string>& aField)
 {
@@ -175,9 +173,12 @@ void ExifParse(const CPLStringList& aStrings, const char* aName, std::optional<T
 }
 
 // Fill struct aExif with all known tags (or only main known tags if requested)
-void FillExif(const CPLStringList& aStrings, cExifData& aExif, eExtracType aType)
+void FillExif(const CPLStringList& aStrings, cExifData& aExif)
 {
-    aExif.reset();
+    aExif.Reset();
+    if (aStrings.empty())
+        return;
+
 #define EXIF_PARSE(name) ExifParse(aStrings,#name, aExif.m##name)
 #define EXIF_UNIT_PARSE(name,unit) ExifParse(aStrings,#name, aExif.m##name##_##unit)
 
@@ -194,9 +195,6 @@ void FillExif(const CPLStringList& aStrings, cExifData& aExif, eExtracType aType
     EXIF_PARSE(Model);
     EXIF_PARSE(LensMake);
     EXIF_PARSE(LensModel);
-
-    if (aType == eExtracType::Main)
-        return;
 
     EXIF_PARSE(ExifVersion);
 
@@ -261,7 +259,7 @@ void FillExif(const CPLStringList& aStrings, cExifData& aExif, eExtracType aType
 
 
 // cExifData method
-void cExifData::reset()
+void cExifData::Reset()
 {
     *this = cExifData();
 }
@@ -269,18 +267,8 @@ void cExifData::reset()
 
 bool cExifData::FromFile(const std::string &aFileName, bool SVP)
 {
-    auto aMetadataList = cGdalApi::GetExifMetadata(aFileName,SVP ? cGdalApi::eOnError::ReturnNullptr : cGdalApi::eOnError::RaiseError);
-    FillExif(aMetadataList, *this, eExtracType::All);
-    return ! aMetadataList.empty();
+    return FromFile(aFileName, *this);
 }
-
-bool cExifData::FromFileMainOnly(const std::string &aFileName, bool SVP)
-{
-    auto aMetadataList = cGdalApi::GetExifMetadata(aFileName,SVP ? cGdalApi::eOnError::ReturnNullptr : cGdalApi::eOnError::RaiseError);
-    FillExif(aMetadataList, *this, eExtracType::Main);
-    return ! aMetadataList.empty();
-}
-
 
 
 // cExifData static methods
@@ -303,15 +291,8 @@ std::vector<std::string> cExifData::StringListFromFile(const std::string &aName,
 bool cExifData::FromFile(const std::string &aFileName, cExifData &anExif, bool SVP)
 {
     auto aMetadataList = cGdalApi::GetExifMetadata(aFileName,SVP ? cGdalApi::eOnError::ReturnNullptr : cGdalApi::eOnError::RaiseError);
-    FillExif(aMetadataList, anExif,eExtracType::All);
-    return ! aMetadataList.empty();
-}
-
-bool cExifData::FromFileMainOnly(const std::string &aFileName, cExifData &anExif, bool SVP)
-{
-    auto aMetadataList = cGdalApi::GetExifMetadata(aFileName,SVP ? cGdalApi::eOnError::ReturnNullptr : cGdalApi::eOnError::RaiseError);
-    FillExif(aMetadataList, anExif,eExtracType::Main);
-    return ! aMetadataList.empty();
+    FillExif(aMetadataList, anExif);
+    return aMetadataList.empty();
 }
 
 
@@ -319,15 +300,7 @@ cExifData cExifData::CreateFromFile(const std::string &aFileName, bool SVP)
 {
     cExifData anExif;
     auto aMetadataList = cGdalApi::GetExifMetadata(aFileName,SVP ? cGdalApi::eOnError::ReturnNullptr : cGdalApi::eOnError::RaiseError);
-    FillExif(aMetadataList, anExif, eExtracType::All);
-    return anExif;
-}
-
-cExifData cExifData::CreateFromFileMainOnly(const std::string &aFileName, bool SVP)
-{
-    cExifData anExif;
-    auto aMetadataList = cGdalApi::GetExifMetadata(aFileName,SVP ? cGdalApi::eOnError::ReturnNullptr : cGdalApi::eOnError::RaiseError);
-    FillExif(aMetadataList, anExif, eExtracType::Main);
+    FillExif(aMetadataList, anExif);
     return anExif;
 }
 

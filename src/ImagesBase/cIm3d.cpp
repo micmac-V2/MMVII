@@ -8,7 +8,7 @@ namespace MMVII
     object) domain defined by ZMin/ZMax.
 
     As it may be instandiated with any value, put it in header with all inline ....
-    
+
     As usuall  there is the cLayerData3D / cLayer3D
  */
 
@@ -41,21 +41,27 @@ template <class TObj,class TLayer>  class cLayer3D
 /*                                                        */
 /* ****************************************************** */
 
-template <class Type>  cDataIm3D<Type>::cDataIm3D(const cPt3di & aSz,Type * aRawDataLin,eModeInitImage aModeInit) :
-    cDataTypedIm<Type,3> (cPt3di(0,0,0),aSz,aRawDataLin,aModeInit),
+template <class Type>  cDataIm3D<Type>::cDataIm3D(const cPt3di & aSz,Type * aRawDataLin,eModeInitImage aModeInit)
+    : cDataIm3D<Type>::cDataIm3D(cPt3di(0,0,0),aSz,aRawDataLin,aModeInit)
+{
+}
+
+
+template <class Type>  cDataIm3D<Type>::cDataIm3D(const cPt3di & aP0,const cPt3di & aP1,Type * aRawDataLin,eModeInitImage aModeInit) :
+    cDataTypedIm<Type,3> (aP0,aP1,aRawDataLin,aModeInit),
     mRawData3D           (cMemManager::AllocMat<tPVal>(Sz().y(),Sz().z()))
 {
-
     Type *  aRDL =  tBI::mRawDataLin ;   // Pointer to raw data, will be increased in loop
     for (int aZ=0 ; aZ<Sz().z() ;aZ++)
     {
-        for (int aY=0 ; aY<aSz.y() ; aY++)
+        for (int aY=0 ; aY<Sz().y() ; aY++)
         {
             mRawData3D[aZ][aY]  = aRDL;
             aRDL += Sz().x();
         }
     }
 }
+
 
 template <class Type>  cDataIm3D<Type>::~cDataIm3D()
 {

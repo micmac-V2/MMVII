@@ -345,7 +345,7 @@ void   cAppliRadiom2ImageSameMod::OneIterationGen(int aDegFroze)
              aNbEq++;
          }
          // All equation for 1 albedo have been accumulated, we can make substitution
-         mCurSys->AddObsWithTmpUK(aSetTmp);
+         mCurSys->AddObsWithTmpUK(aSetTmp,0.0);
      }
 
      if (mWeightFixCste>0)

@@ -13,11 +13,506 @@
 #include "MMVII_Radiom.h"
 #include "MMVII_CloudRaster.h"
 #include "ogrsf_frmts.h"
+#include "MMVII_Tpl_GraphStruct.h"
+#include "MMVII_Tpl_Graph_SubGraph.h"
 #include "ranges"
 
 namespace MMVII
 {
+
 static std::string NameIndBoxRecal="INTERNAL_IndexBoxRecall";
+
+
+// classes of Vertex Attribute, OrientedEdge Attribute and non-Oriented Edge Attribute
+template <class Type> class cGG_AttrVert;
+template <class Type> class cGG_AttrEdgeOr;
+template <class Type> class cGG_AttrEdgeSym;
+template <class Type> class cAlgo_ChambollePockParams;
+template<class tGraph, class Type> class cAlgo_ChambollePock;
+
+/* Class Vertex Attributes */ 
+template <class Type> class cGG_AttrVert
+{
+    public:
+        cGG_AttrVert(cPt2di aPt, Type aZ):
+            mPt(aPt),
+            mAbsCurv(aZ),
+            mValOptInit(0.0),
+            mValToOpt(0.0),
+            mValDbar(0.0),
+            mWeightsVert({}),
+            mWeightPerNode(0.0)
+            {
+            }
+        cPt2di mPt;
+        Type mAbsCurv;
+        Type mValOptInit; // initial value of the vertex in the optimization variable, used for debug
+        Type mValToOpt; // value of the vertex in the optimization variable, used for debug
+        Type mValDbar; // value of the vertex in the over-relaxation step, used for debug
+        std::vector<Type> mWeightsVert;
+        Type mWeightPerNode;
+
+    private:
+};
+
+/* Class of Oriented Edge Attributes */
+template <class Type>  class cGG_AttrEdgeOr
+{
+    public:
+        cGG_AttrEdgeOr(Type aDeltaAc):
+            mDeltaAC(aDeltaAc)
+            {
+
+            }
+        Type mDeltaAC;
+    private:
+};
+
+/* Class of NON Oriented (SYMMETRIC) Edge Attributes */
+template <class Type> class cGG_AttrEdgeSym
+{
+    public:
+        cGG_AttrEdgeSym(Type aDist) :
+            mDist     (aDist) ,
+            mRanCost  (RandUnif_C()),
+            mIsOk     (true),
+            mCptPath0 (0),
+            mCptPath1 (0),
+            mHCode0   (0),
+            mHCode1   (0)
+           {}
+        Type mDist;      // euclidean distance, not really use 4 now
+        Type mRanCost;   // use to modify the weighting
+        bool   mIsOk;      // use to creat some specific subgraph
+        int    mCptPath0;  // count the number of path
+        int    mCptPath1;  // use to "back up" path counter for check
+        size_t mHCode0;    // h-code of pathes going throuh it
+        size_t mHCode1;    // h-code of pathes going throuh it
+    private:
+};
+
+
+
+// class for Grid Graph where vertexes coincide with pixels 
+/* this class will be used to merge multiple dems with confidence maps using 
+the Chambolle-Pock algorithm */
+template <class Type> class cAlgo_ChambollePockParams
+{
+    public:
+        cAlgo_ChambollePockParams(Type aLambda, 
+                                    Type aSigmaR, 
+                                    int aNbIter, 
+                                    Type aTolerance, 
+                                    Type aRho) :
+            mLambda(aLambda),
+            mSigmaR(aSigmaR),
+            mNbIter(aNbIter),
+            mTolerance(aTolerance),
+            mRho(aRho)          
+        {}
+        Type mLambda; // regularization parameter
+        Type mSigmaR; // sigmas for edge weight, for example in exp(-|D_i^0 - D_j^0|^2 / (2*sigmaR^2))
+        int mNbIter; // number of iterations for the optimization
+        Type mTolerance; // tolerance for the optimization        
+        Type mRho; // Step Size for the Chambolle-Pock algorithm, can be tuned for convergence speed
+
+    private:
+};  
+
+
+
+
+template <class tGraph, class Type> class cAlgo_ChambollePock
+{
+    /* The functional to optimize has the following form
+    
+    E(D) = sum_i [ w_i * (D_i - D_i^0)^2 ] + lambda * sum_{i,j} [ w_{i,j} * ||D_i - D_j||^2 ] for the moment use quadratic regularization, 
+    but it can be easily changed to other type of regularization (e.g. TV) by changing the second term 
+
+    where: 
+        - D is the variable to optimize
+        - D^0 is the initial value (data term)
+        - w_i is the confidence of the data term
+        - w_{i,j} is the weight of the regularization term
+        - lambda is the regularization parameter
+
+    For digital elevation model fusion, 
+        - D would be the fused DEM
+        - D^0 would be the input DEMs
+        - w_i would be the confidence maps
+        - w_{i,j} would be the weights for the regularization term (e.g exp(-|D_i^0 - D_j^0|) to preserve edges)
+    */
+    public:
+        //typedef typename cAlgo_ParamVG<tGraph> tParamA;
+        /*typedef typename tGraph::tVertex tVertex;
+        typedef typename tGraph::tEdge tEdge;
+        typedef typename std::vector<tVertex*> tVecVert;*/
+
+        void PrepareInitTerms(tGraph & aGraph,
+                            const std::vector<cIm2D<Type>> & aVMes, 
+                            const std::vector<cIm2D<Type>> & aVConf,
+                            const cAlgo_ChambollePockParams<Type> & aParams)
+
+        {
+            // 3-  precompute effective weights of the functional:
+            //  mWeightPerNode = sum_i w_i and mValToOpt = sum_i w_i * D_i^0 / sum_i w_i for each vertex
+            for(const auto & aVertex : aGraph.AllVertices())
+            {
+                cPt2di aPt = aVertex->Attr().mPt;
+                Type aSumConf = 0.0;
+                Type aValInitToOpt = 0.0;
+                for (size_t k=0; k<aVConf.size(); k++)                
+                {   
+                    Type conf = aVConf[k].DIm().GetV(aPt);
+                    if( conf >= 0.0)
+                    {
+                        Type mes = aVMes[k].DIm().GetV(aPt);
+                        MMVII_INTERNAL_ASSERT_tiny(mes>=0, "all heights must be positive, use a mask to ignore negative heights"+ToStr(mes));
+                        aValInitToOpt += conf * mes; // use confidence as weight for data term
+                        aSumConf += conf;
+                    }
+                }
+
+                aVertex->Attr().mWeightPerNode = aSumConf; //w_total per node
+                aVertex->Attr().mValToOpt = aValInitToOpt / (aSumConf+1e-6);  // D : value of the vertex in the optimization variable
+                aVertex->Attr().mValDbar = aVertex->Attr().mValToOpt; // D̄ : value of the vertex in the over-relaxation step, initialized to D
+                aVertex->Attr().mValOptInit = aValInitToOpt; // d_bar : initial value of the vertex in the optimization variable, used for debug
+            }
+
+            // 4- initialize edge weights for the regularization term, for example using the gradient of initialized Value for each Vertex of Node 
+            for (const auto & anE : aGraph.AllEdges())
+            {  
+                // for example, use the difference of initial values as weight to preserve edges
+                Type aDeltaVal = std::abs(anE->VertexInit().Attr().mValToOpt - anE->Succ().Attr().mValToOpt);
+                Type weight = std::exp(-aDeltaVal*aDeltaVal / (2 * aParams.mSigmaR * aParams.mSigmaR)); 
+                anE->AttrSym().mRanCost = weight; // use symmetric edge attribute to store weight
+            }
+        }
+
+        void SolveChambollePock(tGraph & aGraph, 
+                        Type & aHighestEigenVal,
+                        cAlgo_ChambollePockParams<Type> & aParamsAlgo,
+                        std::vector<cIm2D<Type>> & aVMes, 
+                        std::vector<cIm2D<Type>> & aVConf)
+        {
+            // 1- first initialize the terms of the functional
+            StdOut() << " PrepareInitTerms \n"; 
+            PrepareInitTerms(aGraph, aVMes, aVConf,aParamsAlgo);
+            StdOut() << " PrepareInitTerms done \n"; 
+            //2- Estimate Step Sizes for Primal and Dual Updates
+            //HighestEigenVal(aGraph, aHighestEigenVal);
+            StdOut() << " Highest Eigen Value = " << aHighestEigenVal << "\n";
+            // 3- Use ||K|| = sqrt(lambda_max(B^T W^2 B)) for Chambolle-Pock step sizes.
+            Type aNormK = std::sqrt(std::max<Type>(aHighestEigenVal,0.0));
+            Type tau = aParamsAlgo.mRho / (aNormK + 1e-6); // step size for primal update
+            Type sigma = aParamsAlgo.mRho / (aNormK + 1e-6); // step size for dual update
+
+            // 4 - Init Dual Var
+            for (const auto & anEdge : aGraph.AllEdges())
+            {
+                anEdge->AttrSym().mDist = 0.0 ; // use mDist for DualVar p_e = 0.0   
+            }
+            // 5- Iteration loop
+            StdOut() << " Start Iteration Loop \n";
+            for(int anIter =0 ; anIter< aParamsAlgo.mNbIter; anIter++)
+                {
+                    if (anIter % 10 == 0)
+                        StdOut() << " Iteration " << anIter << "\n";
+
+                    //1- Dual Update on all Edges using Incidence Matrix
+                    // (logging removed - was called every iteration)
+                    //#pragma omp parallel for
+                    for(const auto & anEdge : aGraph.AllEdges())
+                    {
+                        Type aVOptIn = anEdge->VertexInit().Attr().mValDbar; // D̄bar_u
+                        Type aVOptSucc = anEdge->Succ().Attr().mValDbar; // D̄bar_v
+                        Type aWghtEdg = anEdge->AttrSym().mRanCost;
+
+                        // p_e  +  σ · w_e · (D̄_u − D̄_v)
+                        Type anUpdate_P_E = anEdge->AttrSym().mDist + sigma * aWghtEdg * (aVOptIn - aVOptSucc);
+                        // clamp between −λ·w_e,  +λ·w_e
+                        anEdge->AttrSym().mDist = std::clamp(anUpdate_P_E, - aParamsAlgo.mLambda * aWghtEdg,aParamsAlgo.mLambda * aWghtEdg);
+                    }
+
+                    // 2-  Primal Update on all Vertices
+                    // for each node/vertex  
+                    // div_u  =  Σ_{e leaving u} p_e · w_e  −  Σ_{e entering u} p_e · w_e from mIncidenceMatrix
+                    // z_u    =  D_u  −  τ · div_u
+                    // D_new_u    =  (z_u  +  τ · (sum_k w_k·D_k^0)) / (1 + τ · w_u) where w_u is total confidence weight and D_k^0 are initial values
+
+                    Type aSqChange = 0.0;
+                    Type aSqD = 0.0;
+
+                    // Primal Update on all Vertices (logging removed)
+                    //#pragma omp parallel for reduction(+:aSqChange,aSqD)
+                    for(const auto & aVertex : aGraph.AllVertices())
+                    {
+                        Type w_u = aVertex->Attr().mWeightPerNode; // total confidence weight for the data term at vertex u
+                        // compute div_u using incidence matrix
+                        Type div_u = 0.0;
+                        // compute div_u using edge weights
+                        for (const auto & anEdge : aVertex->EdgesSucc()) // for each edge incident to u
+                        {
+                            Type w_e = anEdge->AttrSym().mRanCost;
+                            if( anEdge->VertexInit().Attr().mAbsCurv == aVertex->Attr().mAbsCurv) // edge leaving u
+                            {
+                                div_u -= anEdge->AttrSym().mDist * w_e; // p_e · w_e
+                            }
+                            else if (anEdge->Succ().Attr().mAbsCurv == aVertex->Attr().mAbsCurv) // edge entering u
+                            {
+                                div_u += anEdge->AttrSym().mDist * w_e; // - p_e · w_e
+                            } 
+                        }
+                        // compute z_u  
+                        Type z_u = aVertex->Attr().mValToOpt - tau * div_u; // z_u = D_u - τ · div_u
+                        // D_new_u = (z_u + τ · (sum_k w_k·D_k^0)) / (1 + τ · w_u)
+                        Type D_new_u = (z_u + tau * aVertex->Attr().mValOptInit) / (1 + tau * w_u); 
+
+                        // OVER-RELAXATION
+
+                        aVertex->Attr().mValDbar = 2 * D_new_u - aVertex->Attr().mValToOpt; 
+
+                        // CONVERGENCE CHECK
+                        aSqChange += (D_new_u - aVertex->Attr().mValToOpt) * (D_new_u - aVertex->Attr().mValToOpt);
+                        aSqD      += D_new_u * D_new_u;
+    
+                        aVertex->Attr().mValToOpt = D_new_u; // update primal variable
+                    }
+                    Type aRelChange = std::sqrt(aSqChange / (aSqD + 1e-6));
+
+                    StdOut() << " Iteration " << anIter << ", Squared Change = " << aSqChange << ", Relative Change = " << aRelChange << "\n";
+                    if (aRelChange < aParamsAlgo.mTolerance)
+                    {
+                        StdOut() << "Convergence reached at iteration " << anIter << " with relative change " << aRelChange << std::endl;
+                        break;
+                    }
+
+                }
+
+                // Save optimized variable back to vertex attributes for output
+               /*for(size_t aVId = 0 ; aVId < aGraph.AllVertices().size(); aVId++)
+                {
+                    tVertex * aVertex = aGraph.AllVertices()[aVId];
+                    aVertex->Attr().mValToOpt = aPrimalVar[aVId];
+                }*/
+        }
+
+        /*void HighestEigenVal(tGraph& aGraph,
+                            Type & aHighestEigenVal)
+        {
+            // Power iteration on L = B^T W^2 B (symmetric positive semi-definite).
+            const size_t aNbV = aGraph.AllVertices().size();
+            if (aNbV == 0)
+            {
+                aHighestEigenVal = 0.0;
+                return;
+            }
+
+            auto ApplyL = [&aGraph,aNbV](const std::vector<Type> & aX,std::vector<Type> & aY)
+            {
+                aY.assign(aNbV,0.0);
+                for (const auto & anEdge : aGraph.AllEdges())
+                {
+                    int j1 = (int)anEdge->VertexInit().Attr().mAbsCurv;
+                    int j2 = (int)anEdge->Succ().Attr().mAbsCurv;
+                    Type w_e = anEdge->AttrSym().mRanCost;
+                    Type coeff = (w_e*w_e) * (aX.at(j1) - aX.at(j2));
+                    aY.at(j1) += coeff;
+                    aY.at(j2) -= coeff;
+                }
+            };
+
+            std::vector<Type> aX(aNbV,1.0);
+            std::vector<Type> aY;
+
+            // Normalize the initial vector.
+            Type aNormX = std::sqrt((Type)aNbV);
+            for (auto & aVal : aX)
+                aVal /= (aNormX + 1e-6);
+
+            Type aPrevLambda = -1.0;
+            Type aLambda = 0.0;
+
+            for (int aK=0; aK<100; aK++)
+            {
+                ApplyL(aX,aY);
+
+                Type aNormY2 = 0.0;
+                for (const auto & aVal : aY)
+                    aNormY2 += aVal*aVal;
+                Type aNormY = std::sqrt(aNormY2);
+                if (aNormY < 1e-14)
+                {
+                    aHighestEigenVal = 0.0;
+                    return;
+                }
+
+                for (size_t aV=0; aV<aNbV; aV++)
+                    aX[aV] = aY[aV] / aNormY;
+
+                // Rayleigh quotient lambda = (x^T L x)/(x^T x).
+                ApplyL(aX,aY);
+                Type aNum = 0.0;
+                Type aDen = 0.0;
+                for (size_t aV=0; aV<aNbV; aV++)
+                {
+                    aNum += aX[aV]*aY[aV];
+                    aDen += aX[aV]*aX[aV];
+                }
+                aLambda = aNum / (aDen + 1e-12);
+
+                if ((aPrevLambda > 0.0) && (std::abs(aLambda-aPrevLambda) / (aPrevLambda+1e-12) < 1e-5))
+                    break;
+
+                aPrevLambda = aLambda;
+            }
+
+            aHighestEigenVal = std::max<Type>(aLambda,0.0);
+        }*/
+    private:
+};
+
+
+template <class Type>
+class cGG_Graph : public cVG_Graph<cGG_AttrVert<Type>,cGG_AttrEdgeOr<Type>,cGG_AttrEdgeSym<Type>>
+{
+    public:
+        /* Typedef part*/
+        typedef cVG_Graph<cGG_AttrVert<Type>,cGG_AttrEdgeOr<Type>,cGG_AttrEdgeSym<Type>> tGraph;
+        typedef typename tGraph::tVertex tVertex;
+        typedef typename tGraph::tEdge tEdge;
+        typedef typename std::vector<tVertex*> tVecVert;
+        typedef tVertex* tPtrVert;
+
+        // add other typdefs later
+
+        cGG_Graph(cPt2di aSzGrid, bool is8Connex=true);
+
+
+        tPtrVert & VertOfPt(const cPt2di & aPt)
+        {
+            return mGridVertices.at(aPt.y()).at(aPt.x());
+        }
+
+        tEdge&  EdgeOfPts(const cPt2di & aP1,const cPt2di & aP2)
+        {
+            tVertex & aV1 = *VertOfPt(aP1);
+            tVertex & aV2 = *VertOfPt(aP2);
+            return *aV1.EdgeOfSucc(aV2)->EdgeInitOr();
+        }
+
+        tPtrVert & VertOfAbsCurv(int aAbsCurv)
+        {
+            return FindIf(this->AllVertices(),[aAbsCurv](const auto & aV) {return aV->Attr().mAbsCurv==aAbsCurv;});
+        }
+
+        int NumQuad(const cPt2di & aPt,int aNb)
+        {
+            cPt2dr aSzR = ToR(mSzGrid) / tREAL8(aNb-0.5);
+            return   round_ni(aPt.x()/aSzR.x())  + round_ni((aPt.y()/aSzR.y())) * aNb;
+        }
+
+        /// use to compute a unique id up to a circular permutation
+        //size_t PathHashCode(const std::vector<tEdge *>&) const;
+
+        void AddEdge(const cPt2di & aP1,const cPt2di & aP2);
+
+         class cNeigh_4_Connex : public  cAlgo_ParamVG<cGG_Graph>
+         {
+            public :
+              // this formula validate the edge iff  |x1-x2|+|y1-y2| <= 1
+                   bool   InsideEdge(const    tEdge & anE) const override
+                   {
+                     return Norm1(anE.VertexInit().Attr().mPt-anE.Succ().Attr().mPt)<=1;
+                   }
+         };
+
+        class cNeigh_8_Connex : public  cAlgo_ParamVG<cGG_Graph>
+         {
+            public :
+              // this formula validate the edge iff  |x1-x2| <= 1 and |y1-y2| <= 1
+                   bool   InsideEdge(const tEdge & anE) const override
+                   {
+                     cPt2di aD = (anE.VertexInit().Attr().mPt-anE.Succ().Attr().mPt);
+                     return (abs(aD.x())<=1) && (abs(aD.y())<=1);
+                   }
+         };
+
+        bool Is8Connex() const { return mIs8Connex; }
+
+    private:
+        cPt2di mSzGrid;
+        cRect2  mBox;
+        bool mIs8Connex; // flag to indicate if the graph is 8 connexity or 4 connexity, used for edge creation and validation
+        std::vector<std::vector<tPtrVert>> mGridVertices; // 2D vector of pointers to vertex, for direct access to vertex from pixel coordinates
+
+    };
+
+
+template <class Type>
+cGG_Graph<Type>::cGG_Graph(cPt2di aSzGrid, bool is8Connex) :
+    cVG_Graph<cGG_AttrVert<Type>,cGG_AttrEdgeOr<Type>,cGG_AttrEdgeSym<Type>>(),
+    mSzGrid(aSzGrid),
+    mBox(mSzGrid),
+    mIs8Connex(is8Connex),
+
+    // Allocate the vector of vector
+    mGridVertices(mSzGrid.y(),std::vector<tPtrVert>(mSzGrid.x(),nullptr))
+{
+    // 1 - create vertexes
+
+    for (const auto & aP : mBox) // parse the box, for each pixel create a vertex
+    {
+         // Formula to create curvilinear absisca 
+        cPt2di aPix4Num
+                (
+                (aP.y()%2) ? (mSzGrid.x()-aP.x()-1) : aP.x(),
+                aP.y()
+                );
+
+        Type anAbsicsa = mBox.IndexeLinear(aPix4Num);
+        VertOfPt(aP) = this->NewVertex(cGG_AttrVert<Type>(aP,anAbsicsa));
+    }
+
+    // 2 - create edges
+    for (const auto & aP : mBox) // parse the box, for each pixel create edge with right and down neighbour
+    {
+        if (mIs8Connex)
+        {
+            AddEdge(aP,aP+cPt2di(1,0)); // right neighbour
+            AddEdge(aP,aP+cPt2di(0,1)); // down neighbour
+            AddEdge(aP,aP+cPt2di(1,1)); // right down neighbour
+            AddEdge(aP,aP+cPt2di(-1,1)); // left down neighbour
+        }
+        else
+        {
+            AddEdge(aP,aP+cPt2di(1,0)); // right neighbour
+            AddEdge(aP,aP+cPt2di(0,1)); // down neighbour
+        }
+    }
+}
+
+
+template <class Type>
+void cGG_Graph<Type>::AddEdge(const cPt2di & aP1,const cPt2di & aP2)
+{
+    if (! mBox.Inside(aP1) || ! mBox.Inside(aP2)) // if one of the point is outside the box, do not create the edge
+        return;
+
+    tVertex * aV1 = VertOfPt(aP1);
+    tVertex * aV2 = VertOfPt(aP2);
+
+    Type aDist = Norm2(aV1->Attr().mPt-aV2->Attr().mPt);
+    Type aDiffAbs12= aV2->Attr().mAbsCurv - aV1->Attr().mAbsCurv;
+
+    cGG_AttrEdgeOr<Type> aAttrOr12(aDiffAbs12);
+    cGG_AttrEdgeOr<Type> aAttrOr21(-aDiffAbs12);
+
+    cGG_AttrEdgeSym<Type> aAttrSym(aDist);
+
+    tGraph::AddEdge(*aV1,*aV2,aAttrOr12,aAttrOr21,aAttrSym);
+}
+
 
 class cAppliParsedBoxVirtualIm : public cAppliParseBoxIm<tREAL4>
 {
@@ -195,6 +690,11 @@ class cAppliCloudFuser : public cMMVII_Appli,
                                  cIm2D<tREAL4> & aMergedDem,
                                  cIm2D<tU_INT1> & aMergedMask,
                                  cIm2D<tU_INT1> & aMergedCorrel);
+        void FuseDemsByChP( std::vector<cIm2D<tREAL4>> & aVDems,
+                                 std::vector<cIm2D<tREAL4>> & aVWeighters,
+                                 cIm2D<tREAL4> & aMergedDem,
+                                 cIm2D<tU_INT1> & aMergedMask,
+                                 cIm2D<tU_INT1> & aMergedCorrel);
         void ExtractInterpDems(cCloudRaster & aDem,
                                 const cBox2dr & aBoxInDem, 
                                 const cBox2dr & aBoxInCurTileCalc,
@@ -368,6 +868,48 @@ void cAppliCloudFuser::FuseDemsByMedian( std::vector<cIm2D<tREAL4>> & aVDems,
 }
 
 
+void cAppliCloudFuser::FuseDemsByChP( std::vector<cIm2D<tREAL4>> & aVDems,
+                                 std::vector<cIm2D<tREAL4>> & aVWeighters,
+                                 cIm2D<tREAL4> & aMergedDem,
+                                 cIm2D<tU_INT1> & aMergedMask,
+                                 cIm2D<tU_INT1> & aMergedCorrel)
+
+{
+    // initialize the graph with 8 connexity
+    cGG_Graph<tREAL4> aGraph(aMergedDem.DIm().Sz(),false);
+    cAlgo_ChambollePockParams<tREAL4> aParamsAlgo(0.05,2.0,60,1e-5,0.99);
+    cAlgo_ChambollePock<cGG_Graph<tREAL4>,tREAL4> mOptimizer; 
+
+    tREAL4 aHighestEigenVal=2*std::sqrt(2.0); // for 8 connexity, the highest eigenvalue of the incidence matrix is 2*sqrt(2)
+
+    if (aGraph.Is8Connex())
+    {
+        aHighestEigenVal=4.0; // for 4 connexity, the highest eigenvalue of the incidence matrix is 4
+    }
+    // if connexity is 4, the highest eigenvalue of the incidence matrix is 2 sqrt(2)
+    // if connexity is 8, the highest eigenvalue of the incidence matrix is 4
+    mOptimizer.SolveChambollePock(aGraph,
+                            aHighestEigenVal,
+                            aParamsAlgo,
+                            aVDems,     
+                            aVWeighters);
+
+    // Save the optimized variable back to aMergedDem
+    for(const auto & aVert : aGraph.AllVertices())
+    {
+        aMergedDem.DIm().SetV(aVert->Attr().mPt,aVert->Attr().mValToOpt);
+        aMergedMask.DIm().SetV(aVert->Attr().mPt,(aVert->Attr().mWeightPerNode > 0.0) ? 1 : 0);
+            // set correl value based on the weight, for example, you can set it to
+        MMVII_INTERNAL_ASSERT_tiny(aVert->Attr().mWeightPerNode >= 0.0, "Weight per node should be non-negative");
+        aMergedCorrel.DIm().SetV(aVert->Attr().mPt, 
+                                    std::min(
+                                    round_ni(255.0*aVert->Attr().mWeightPerNode/aVDems.size())
+                                    ,255)
+                                    );    
+    }
+}
+
+
 void cAppliCloudFuser::FuseDemsByWAvg( std::vector<cIm2D<tREAL4>> & aVDems,
                                  std::vector<cIm2D<tREAL4>> & aVWeighters,
                                  cIm2D<tREAL4> & aMergedDem,
@@ -471,24 +1013,52 @@ void cAppliCloudFuser::ExtractInterpDems(cCloudRaster & aDem,
                                         aBoxIntInCurTileCalc.P1()))
     {
         aWeighter = -1.0;
+        aZ = mInfty;
         // perform Transforms to get loc in boxed dems
         cPt2dr aPWorld  = anAffCurBox.Value(ToR(aPix));
         cPt2dr aPInBoxDem  = aBoxedDemAffT.Inverse(aPWorld);
 
-        if(aBoxedMasq.DIm().Inside(ToI(aPInBoxDem)))
-        {
-            if( aBoxedMasq.DIm().GetV(ToI(aPInBoxDem)) )
-            {
-                if (aBoxedDem.DIm().InsideBL(aPInBoxDem))
-                {
-                    aWeighter = aBoxedCorrel.DIm().GetVBL(aPInBoxDem)/255.0;
-                    aZ = aBoxedDem.DIm().GetVBL(aPInBoxDem);
-                    // set 
-                    aDemToExtract.DIm().SetV(aPix,aZ);
-                    aWeightingIm.DIm().SetV(aPix,aWeighter);
-                }
+        cPt2di aPInBoxDemI = ToI(aPInBoxDem);
+        cPt2di aPInBoxDemUl = Pt_round_down(aPInBoxDem);
 
+        if(aBoxedMasq.DIm().InsideBL(aPInBoxDem))
+        {
+            if (aBoxedDem.DIm().InsideBL(aPInBoxDem))
+            {
+                // avoid weighting and computing z with nodata in the neighboouthood
+                auto & aBoxMasq = aBoxedMasq.DIm();
+                if(
+                    aBoxMasq.Inside(aPInBoxDemUl+cPt2di(1,0)) && 
+                    aBoxMasq.Inside(aPInBoxDemUl+cPt2di(0,1))
+                    )
+                {
+                    bool isAllNeighborDefined = aBoxMasq.GetV(aPInBoxDemUl) &&
+                                                aBoxMasq.GetV(aPInBoxDemUl+cPt2di(1,0)) &&
+                                                aBoxMasq.GetV(aPInBoxDemUl+cPt2di(0,1)) &&
+                                                aBoxMasq.GetV(aPInBoxDemUl+cPt2di(1,1));
+                    if (isAllNeighborDefined)
+                    {
+
+                        //bilinear interpolation
+                        aWeighter = aBoxedCorrel.DIm().GetVBL(aPInBoxDem)/255.0;
+                        aZ = aBoxedDem.DIm().GetVBL(aPInBoxDem);
+                        /*MMVII_INTERNAL_ASSERT_tiny(aZ>=0, "postive dem value should be expected"+ToStr(aZ)+" Weighter "+ToStr(aWeighter)
+                                + ToStr(aBoxedDem.DIm().GetV(aPInBoxDemUl))+" "+ToStr(aBoxedDem.DIm().GetV(aPInBoxDemUl+cPt2di(1,0)))+" "+
+                                ToStr(aBoxedDem.DIm().GetV(aPInBoxDemUl+cPt2di(0,1)))+" "+ToStr(aBoxedDem.DIm().GetV(aPInBoxDemUl+cPt2di(1,1)))
+                                );*/
+                    }
+                }
+                else
+                {
+                    // nearest neighbor
+                    aWeighter=aBoxedCorrel.DIm().GetV(aPInBoxDemI)/255.0;
+                    aZ=aBoxedDem.DIm().GetV(aPInBoxDemI);
+                }
+                // set 
+                aDemToExtract.DIm().SetV(aPix,aZ);
+                aWeightingIm.DIm().SetV(aPix,aWeighter);
             }
+
         }
     }
 }
@@ -578,10 +1148,11 @@ int cAppliCloudFuser::ExeOnParsedBox()
     cIm2D<tU_INT1> aFinalMask = cIm2D<tU_INT1>(CurBoxIn().Sz());
     cIm2D<tU_INT1> aFinalCorrel = cIm2D<tU_INT1>(CurBoxIn().Sz());
 
-    FuseDemsByMedian(mSetOfBoxedDems,mSetOfBoxedWeighters,
+    cAutoTimerSegm aTSChambolle(TimeSegm(),"TotalVariationFusion"); 
+    FuseDemsByChP(mSetOfBoxedDems,mSetOfBoxedWeighters,
               aFinalDem,aFinalMask, aFinalCorrel);
     // Save DEM, MASK and CORREL
-
+    cAutoTimerSegm aTSFinalWrite(TimeSegm(),"FinalWriting"); 
     if(IsOutputTiled)
     {
         std::string aNameMergedDem =DirOfPath(mNamePrefixOut,false)+"DEM_"+ 

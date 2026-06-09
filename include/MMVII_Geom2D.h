@@ -550,10 +550,11 @@ template <class Type>  class cAffin2D
           tPt   mVInvX;
           tPt   mVInvY;
 };
-typedef  cAffin2D<tREAL8>  cAff2D_r;
-cBox2dr  ImageOfBox(const cAff2D_r & aAff,const cBox2dr & aBox);
+typedef  cAffin2D<tREAL8>  tAff2Dr;
+cBox2dr  ImageOfBox(const tAff2Dr & aAff,const cBox2dr & aBox);
 
-void AddData(const  cAuxAr2007 & anAux,cAff2D_r&);
+
+void AddData(const  cAuxAr2007 & anAux,tAff2Dr&);
 
 template <class Type>  class cHomogr2D
 {
@@ -584,6 +585,11 @@ template <class Type>  class cHomogr2D
 //==================
           cHomogr2D(const tElemH & aHX,const tElemH & aHY,const tElemH & aHZ);
           cHomogr2D() ;
+          /// Perfect conversion from affinity to homography
+          cHomogr2D(const cAffin2D<Type> &) ;
+          void AddData(const  cAuxAr2007 & anAux);
+
+
 
           cDenseMatrix<Type>  Mat() const;
           static tTypeMap  FromMat(const cDenseMatrix<Type> &);
@@ -643,6 +649,11 @@ template <class Type>  class cHomogr2D
           tElemH  mIHY;
           tElemH  mIHZ;
 };
+
+
+typedef  cHomogr2D<tREAL8>  tHom2Dr;
+cBox2dr  ImageOfBox(const tHom2Dr & aAff,const cBox2dr & aBox);
+void AddData(const  cAuxAr2007 & anAux,tHom2Dr&);
 
 
 /** idem but result returned */
@@ -897,7 +908,7 @@ struct cSaveExtrEllipe
           cSaveExtrEllipe ();
           static std::string NameFile(const cPhotogrammetricProject & ,const cSetMesPtOf1Im &,bool Input);
 
-          cAff2D_r    mAffIm2Ref;
+          tAff2Dr    mAffIm2Ref;
           cEllipse    mEllipse;
           std::string mNameCode;
           tREAL4 mBlack;

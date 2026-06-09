@@ -3,6 +3,10 @@
 #include "MMVII_DeclareCste.h"
 #include "MMVII_2Include_Serial_Tpl.h"
 
+
+#include <thread>
+#include <mutex>
+
 namespace MMVII
 {
 
@@ -174,9 +178,14 @@ template <class Type> Type PrintArg(const Type & aVal,const std::string & aName)
 
 std::set<cObj2DelAtEnd *>       cMMVII_Appli::mVectObj2DelAtEnd;
 
+std::mutex AMutexAddObj2DelAtEnd;
 void cMMVII_Appli::AddObj2DelAtEnd(cObj2DelAtEnd * aPtrO)
 {
-     mVectObj2DelAtEnd.insert(aPtrO);
+    AMutexAddObj2DelAtEnd.lock();
+
+    mVectObj2DelAtEnd.insert(aPtrO);
+
+    AMutexAddObj2DelAtEnd.unlock();
 }
 
 void cMMVII_Appli::ToDoBeforeDestruction()
@@ -790,6 +799,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
          // Check range
          CheckRangeMainSet(aNum);
 
+         mPatOfMS[aNum] = aVValues[aK];
          // don't accept multiple initialisation
          if (!mVMainSets.at(aNum).IsInit())
          {

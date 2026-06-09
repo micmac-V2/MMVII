@@ -29,6 +29,8 @@ class cExternalSensor : public cSensorImage
 
          /// Used to set image after read
          void ResetRead();
+
+         void Show() const override;
       protected :
          // ====  Methods overiiding for being a cSensorImage =====
          tSeg3dr  Image2Bundle(const cPt2dr &) const override;
@@ -292,6 +294,17 @@ const cDataImportSensor &  cExternalSensor::Data() const {return mData;}
 void cExternalSensor::ResetRead()
 {
     SetNameImage(mData.mNameImage);
+}
+
+void cExternalSensor::Show() const
+{
+    cSensorImage::Show();
+    StdOut() << "   FileIni: " << mData.mNameFileInit << std::endl;
+    StdOut() << "   Image  : " << mData.mNameImage << std::endl;
+    StdOut() << "   Type   : " << ToS(mData.mType) << std::endl;
+    StdOut() << "   Format : " << ToS(mData.mFormat) << std::endl;
+    StdOut() << "* Origin sensor :" << std::endl;
+    mSensorInit->Show();
 }
 
      // =============   METHOD FOR BEING a cSensorImage =====================

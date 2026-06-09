@@ -85,14 +85,13 @@ static void Init_mm3d_In_MMVII()
 /*       cDataFileIm2D         */
 /* =========================== */
 
-cDataFileIm2D::cDataFileIm2D(const std::string & aName, eTyNums aType, const cPt2di & aSz, int aNbChannel, const tOptions& aOptions, eForceGray isFG, eCreationState aCreationState) :
+cDataFileIm2D::cDataFileIm2D(const std::string & aName, eTyNums aType, const cPt2di & aSz, int aNbChannel, const std::vector<std::string>& aOptions, eForceGray isFG, eCreationState aCreationState) :
     cPixBox<2> (cPt2di(0,0),aSz),
     mName       (aName),
     mType       (aType),
     mNbChannel  (aNbChannel),
     mForceGray  (isFG),
     mCreateOptions  (aOptions),
-    mExifState      (eExifState::NotRead),
     mCreationState  (aCreationState)
 {
 }
@@ -141,7 +140,7 @@ cDataFileIm2D cDataFileIm2D::Create(const std::string & aName,eForceGray isFG)
 #endif
 }
 
-cDataFileIm2D  cDataFileIm2D::Create(const std::string & aName,eTyNums aType,const cPt2di & aSz,const tOptions& aOptions, int aNbChan)
+cDataFileIm2D  cDataFileIm2D::Create(const std::string & aName,eTyNums aType,const cPt2di & aSz,const std::vector<std::string>& aOptions, int aNbChan)
 {
 #ifdef MMVII_KEEP_MMV1_IMAGE
     if (mmvii_use_mmv1_image) {
@@ -186,7 +185,7 @@ cDataFileIm2D  cDataFileIm2D::Create(const std::string & aName,eTyNums aType,con
     return Create(aName,aType,aSz,{},aNbChan);
 }
 
-cDataFileIm2D  cDataFileIm2D::CreateOnWrite(const std::string & aName,eTyNums aType,const cPt2di & aSz, const tOptions& aOptions, int aNbChan)
+cDataFileIm2D  cDataFileIm2D::CreateOnWrite(const std::string & aName,eTyNums aType,const cPt2di & aSz, const std::vector<std::string>& aOptions, int aNbChan)
 {
     if (aNbChan!=1 && aNbChan!=3)
     {
@@ -212,7 +211,7 @@ const int  & cDataFileIm2D::NbChannel ()  const { return mNbChannel; }
 const eTyNums &   cDataFileIm2D::Type ()  const {return mType;}
 bool  cDataFileIm2D::IsCreateAtFirstWrite() const  {return  mCreationState == eCreationState::AtFirstWrite;}
 bool  cDataFileIm2D::IsCreatedNoUpdate() const  {return  mCreationState == eCreationState::CreatedNoUpdate;}
-const cDataFileIm2D::tOptions& cDataFileIm2D::CreateOptions() const { return mCreateOptions; }
+const std::vector<std::string>& cDataFileIm2D::CreateOptions() const { return mCreateOptions; }
 
 void cDataFileIm2D::SetCreated() const
 {
@@ -224,26 +223,12 @@ void cDataFileIm2D::SetCreatedNoUpdate() const
     mCreationState = eCreationState::CreatedNoUpdate;
 }
 
-const cExifData& cDataFileIm2D::ExifDataAll(bool SVP) const
+const cExifData& cDataFileIm2D::ExifData(bool SVP) const
 {
-    if (mExifState != eExifState::AllTagsRead)
-    {
-        mExifData.FromFile(mName,SVP);
-        mExifState = eExifState::AllTagsRead;
-
-    }
+    mExifData.FromFile(mName,SVP);
     return mExifData;
 }
 
-const cExifData& cDataFileIm2D::ExifDataMain(bool SVP) const
-{
-    if (mExifState != eExifState::MainTagsRead && mExifState != eExifState::AllTagsRead)
-    {
-        mExifData.FromFileMainOnly(mName,SVP);
-        mExifState = eExifState::MainTagsRead;
-    }
-    return mExifData;
-}
 
 std::vector<std::string> cDataFileIm2D::ExifStrings(bool SVP) const
 {
@@ -501,10 +486,10 @@ double DifAbsInVal(const std::string & aN1,const std::string & aN2,double aDef)
     auto  aIm1 = cIm2D<tREAL8>::FromFile(aN1);
     auto  aIm2 = cIm2D<tREAL8>::FromFile(aN2);
     double aSom = 0;
-    
-    
+
+
 //    ELISE_COPY(aF1.all_pts(),Abs(aF1.in()-aF2.in()),sigma(aSom));
-    
+
     if (aIm1.DIm().Sz()!=aIm2.DIm().Sz())
     {
         MMVII_INTERNAL_ASSERT_always(aDef!=0.0,"Diff sz and bad def in DifAbsInVal");

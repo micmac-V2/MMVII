@@ -223,7 +223,7 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_OriCalibratedSpaceResection);
         TheVecAll.push_back(&TheSpec_OriCheckGCPDist);
         TheVecAll.push_back(&TheSpec_OriBundlAdj);
-        TheVecAll.push_back(&TheSpec_TopoAdj);
+        //TheVecAll.push_back(&TheSpec_TopoAdj);
 #if MMVII_USE_PDAL
         TheVecAll.push_back(&TheSpecSample3DpointsFromCloudIntoImage);
 #endif
@@ -306,14 +306,17 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_CERN_ImportClino);
         TheVecAll.push_back(&TheSpec_MMV2_MesIm_2_MMV1);
         TheVecAll.push_back(&TheSpec_MergeMesImGCP);
-        TheVecAll.push_back(&TheSpec_ExifData);
+        TheVecAll.push_back(&TheSpec_ImageMetadata);
         TheVecAll.push_back(&TheSpec_PerturbRandomOri);
-        TheVecAll.push_back(&TheSpec_ImportTriplet);
+//        TheVecAll.push_back(&TheSpec_ImportTriplet);
         TheVecAll.push_back(&TheSpec_ArboTriplet);
-        
+
         TheVecAll.push_back(&TheSpec_HierarchSfm);
         TheVecAll.push_back(&TheSpec_VisuPoseStr3D);
         TheVecAll.push_back(&TheSpec_TransformPoses);
+
+        TheVecAll.push_back(&TheSpec_EpipResampling);
+        TheVecAll.push_back(&TheSpec_EpipTest);
 
         TheVecAll.push_back(&TheSpecAppliBenchAPBI);
         TheVecAll.push_back(&TheSpecAppliTestElemBundle);
@@ -322,7 +325,7 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
 
         std::sort(TheVecAll.begin(),TheVecAll.end(),CmpCmd);
    }
-   
+
    return TheVecAll;
 }
 
@@ -335,7 +338,7 @@ const std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::VecAll()
 
 cSpecMMVII_Appli*  cSpecMMVII_Appli::SpecOfName(const std::string & aNameCom,bool SVP)
 {
-    
+
    for (const auto & aSpec : VecAll())
    {
       if (UCaseEqual(aSpec->Name(),aNameCom))

@@ -344,6 +344,31 @@ template <class Type> Type  cDenseVect<Type>::AvgElem() const
     return SumElem() / Type(Sz());
 }
 
+template <class Type> Type  cDenseVect<Type>::Min() const
+{
+    if (Sz()<0)
+        return std::numeric_limits<Type>::min();
+    Type aRes = (*this)(0);
+    for (int aK=1 ; aK<Sz() ; aK++)
+        if ((*this)(aK)<aRes)
+            aRes = (*this)(aK);
+
+    return aRes;
+}
+
+template <class Type> Type  cDenseVect<Type>::Max() const
+{
+    if (Sz()<0)
+        return std::numeric_limits<Type>::max();
+    Type aRes = (*this)(0);
+    for (int aK=1 ; aK<Sz() ; aK++)
+        if ((*this)(aK)>aRes)
+            aRes = (*this)(aK);
+
+    return aRes;
+}
+
+
 template <class Type> void  cDenseVect<Type>::SetAvg(const Type & aTargAvg)
 {
    Type  aMul = SafeDiv (aTargAvg,AvgElem());
@@ -459,11 +484,20 @@ cDenseVect<tREAL8> NormalizeMoyVar(const cDenseVect<tREAL8> & aV0,tREAL8 aEpsilo
         aStdDev.Add(1.0,aV0(aK));
     aStdDev.SelfNormalize(aEpsilon);
 
-    tREAL8 aSqrtNb = std::sqrt(aSz);
     cDenseVect<tREAL8> aRes(aSz);
     for (size_t aK=0 ; aK<aSz ; aK++)
-        aRes(aK) = aStdDev.NormalizedVal(aV0(aK)) / aSqrtNb ;
+        aRes(aK) = aStdDev.NormalizedVal(aV0(aK));
 
+    return aRes;
+}
+
+cDenseVect<tREAL8> NormalizeMoyNorm2(const cDenseVect<tREAL8> & aV0,tREAL8 aEpsilon)
+{
+    size_t aSz = aV0.Sz();
+    auto aRes = NormalizeMoyVar(aV0,aEpsilon);
+    tREAL8 aSqrtNb = std::sqrt(aSz);
+    for (size_t aK=0 ; aK<aSz ; aK++)
+        aRes(aK) /= aSqrtNb;
     return aRes;
 }
 

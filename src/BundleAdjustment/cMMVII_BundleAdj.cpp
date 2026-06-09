@@ -177,6 +177,41 @@ void cMMVII_BundleAdj::ShowUKNames(const std::vector<std::string> & aParam, cons
      // StdOut() << "=================== ShowUKNamesShowUKNames "<< aParam << " ===============\n";
 }
 
+cPt3dr cMMVII_BundleAdj::GetGCP_UC_UK(const std::string & aGCPName) const
+{
+    cPt3dr aSigma = cPt3dr::Dummy();
+    cDenseVect<tREAL8>   aVUk = mSetIntervUK.GetVUnKnowns() ;
+    for (const auto & aBBNV : mVBBNamedV)
+    {
+
+        if (aBBNV.mIdObj == aGCPName)
+        for (size_t aKV=0 ; aKV<aBBNV.mNamesVar.size() ; aKV++)
+        {
+                // StdOut() << "    ************ " <<  aBBNV.mType << " : " << aBBNV.mIdObj  << "\n";
+            if (aBBNV.mActivVar.at(aKV))
+            {
+                int aIndGlob = aBBNV.mIndVar0 + aKV;
+                //StdOut() << "      N=" << aBBNV.mNamesVar.at(aKV)  << " V=" << aVUk(aBBNV.mIndVar0 + aKV) << "\n";
+                if (mRUCSUR)
+                {
+                    // StdOut()  << " UC=" <<aUC;
+                    if (!mR8_Sys->VarIsFrozen(aIndGlob))
+                    {
+                        tREAL8 aUC = std::sqrt(mRUCSUR->UK_VarCovarEstimate(aIndGlob,aIndGlob));
+                        if (aBBNV.mNamesVar.at(aKV)=="x")
+                            aSigma.x() = aUC;
+                        if (aBBNV.mNamesVar.at(aKV)=="y")
+                            aSigma.y() = aUC;
+                        if (aBBNV.mNamesVar.at(aKV)=="z")
+                            aSigma.z() = aUC;
+                    }
+                }
+            }
+        }
+    }
+    return aSigma;
+}
+
 void cMMVII_BundleAdj::Set_UC_UK(const std::vector<std::string> & aParam)
 {
      mShow_UC_UK    = true;
@@ -212,6 +247,16 @@ void cMMVII_BundleAdj::InitIteration()
 
     mSys =  mR8_Sys;
     CompileSharedIntrinsicParams(false);
+
+    // check if we have to add GCP UC_UK to export
+    if (getGCP().getDoComputeGCP_UC_UK())
+    {
+        mShow_UC_UK = true;
+        if (mParam_UC_UK.empty())
+            mParam_UC_UK.push_back("GCP");
+        else
+            mParam_UC_UK.at(0)="("+mParam_UC_UK.at(0)+"|GCP)";
+    }
 
     if (mShow_UC_UK)
     {
@@ -265,9 +310,12 @@ void cMMVII_BundleAdj::Iterate(int aNbMaxIter, tREAL8 mLVM, bool aShow_Cond)
     }
 }
 
+tREAL8   cMMVII_BundleAdj::CurLVMParam() const {return mCurLVMParam;}
+
 
 void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCond)
 {
+    mCurLVMParam = aLVM;
     MMVII_INTERNAL_ASSERT_tiny (mNbMaxIter>0,"BA: mNbMaxIter is not initialized");
 
     bool isLastIter =  (mIter==(mNbMaxIter-1)) ;
@@ -412,17 +460,6 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
         }
     }
 
-
-    if (mTopo) // TOPO
-    {
-        mTopo->AddTopoEquations(*mR8_Sys);
-    #ifdef VERBOSE_TOPO
-        mTopo->print();
-    #endif
-        if (mVerbose)
-            mTopo->printObs(false);
-    }
-
     for (const auto & aLidarPh : mVBA_Lidar )
         aLidarPh->AddObs();
 
@@ -434,6 +471,16 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     //  Add observation for block of instrument
     IterOneBlockInstr();
 
+    // add topo last to compute sigma0 will all constraints
+    if (mTopo) // TOPO
+    {
+        mTopo->AddTopoEquations(*mR8_Sys);
+#ifdef VERBOSE_TOPO
+        mTopo->print();
+#endif
+        if (mVerbose)
+            mTopo->printObs(false);
+    }
 
     if (mCompute_Uncert && isLastIter)
     {
@@ -895,7 +942,7 @@ void cMMVII_BundleAdj::SaveTopo()
 void cMMVII_BundleAdj::AddTopo() // TOPO
 {
     mTopo = new cBA_Topo(mPhProj);
-    mTopo->AddPointsFromDataToGCP(mGCP);
+    mTopo->AddPointsFromDataToGCP(mGCP, mPhProj);
 }
 
 }; // MMVII
