@@ -99,7 +99,7 @@ class cRatioPolynXY
         void PushCoeffs(std::vector<tREAL8>&) const;
 
         //  Recompute a new RPC using correspondance
-        void  InitFromSamples(const std::vector<cPt3dr> & aVIn,const std::vector<cPt3dr> & aVOut);
+        void  InitFromSamples(const std::vector<cPt3dr> & aVIn, const std::vector<cPt3dr> & aVOut, double *aVarX = nullptr, double *aVarY = nullptr);
 
     private:
         cRPC_RatioPolyn mX;
@@ -136,7 +136,10 @@ class cRPCSens : public cSensorImage
 
          cRPCSens(const std::string& aNameImage);
          void InitFromFile(const cAnalyseTSOF &);
-         void InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &aVGr);
+         void InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &aVGr,
+                              double *aDirectVarX = nullptr, double *aDirectVarY = nullptr,
+                              double *aInvVarX = nullptr, double *aInvVarY = nullptr);
+         void InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &aVGr, bool aShowVariance = false);
 
          void Dimap_ReadXML_Glob(const cSerialTree&);
 
@@ -496,8 +499,8 @@ void cRPCSens::InitFromFile(const cAnalyseTSOF & anAnalyse)
 }
 
 
-// TODOCM:  aVIm : vector of cPt2dr ???
-void cRPCSens::InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &aVGr)
+void cRPCSens::InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &aVGr,
+                               double *aDirectVarX, double *aDirectVarY, double *aInvVarX, double *aInvVarY)
 {
     cBox3dr aBoxIn = cTplBoxOfPts<tREAL8,3>::FromVect(aVIm).CurBox();
     cBox3dr aBoxOut = cTplBoxOfPts<tREAL8,3>::FromVect(aVGr).CurBox();
@@ -516,6 +519,7 @@ void cRPCSens::InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &a
     {
         aPIm = IO_PtIm(DivCByC(aPIm - m3DImOffset, m3DImScale)); // Normalize to [-1,1]
     }
+
     for (auto &aPGr : aVGr)
     {
         aPGr = IO_PtGr(DivCByC(aPGr - mGroundOffset, mGroundScale)); // Normalize to [-1,1]
@@ -531,8 +535,8 @@ void cRPCSens::InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &a
 
     mDirectRPC = new cRatioPolynXY();
     mInverseRPC = new cRatioPolynXY();
-    mDirectRPC->InitFromSamples(aVIm,aVGr);
-    mInverseRPC->InitFromSamples(aVGr,aVIm);
+    mDirectRPC->InitFromSamples(aVIm,aVGr,aDirectVarX,aDirectVarY);
+    mInverseRPC->InitFromSamples(aVGr,aVIm,aInvVarX,aInvVarY);
     FinalizeInit();
 }
 
@@ -630,7 +634,7 @@ std::string  cRPCSens::V_PrefixName() const
 
 
 // Samples must be normalized [-1,1]
-void  cRatioPolynXY::InitFromSamples(const std::vector<cPt3dr> & aVIn,const std::vector<cPt3dr> & aVOut)
+void  cRatioPolynXY::InitFromSamples(const std::vector<cPt3dr> & aVIn,const std::vector<cPt3dr> & aVOut, double *aVarX, double *aVarY)
 {
     for (auto IsX : {true,false})
     {
@@ -659,14 +663,18 @@ void  cRatioPolynXY::InitFromSamples(const std::vector<cPt3dr> & aVIn,const std:
         }
         aSys.AddObsFixVar(std::sqrt(aSomC2),IndNumCste,1.0);
 
-        // TODOCM: check variance
         std::vector<tREAL8> aSol = aSys.PublicSolve().ToStdVect();
-        StdOut() << "RPC Var(" << (IsX ? "X" : "Y") << ") : " << aSys.VarCurSol() << "\n";
-
-        if (IsX)
+        // TODOCM: Scale of variance !
+        MMVII_INTERNAL_ASSERT_strong(aSys.VarCurSol() < 1e-6,"cRatioPolynXY::InitFromSamples : variance is too high (" + std::to_string(aSys.VarCurSol()));
+        if (IsX) {
+            if (aVarX)
+                *aVarX = aSys.VarCurSol();
            mX.SetCoeffs(aSol);
-        else
+        } else {
+            if (aVarY)
+                *aVarY = aSys.VarCurSol();
            mY.SetCoeffs(aSol);
+        }
     }
                    
 }
@@ -947,7 +955,13 @@ cSensorImage *  AllocRPCDimap(const cAnalyseTSOF & anAnalyse,const std::string &
 }
 
 
-cSensorImage * cSensorImage::GenerateSensorRPC(const std::string& aNameIm, const cDataInvertibleMapping<tREAL8,2>* aResampleMap, const cDataInvertibleMapping<tREAL8,3>* aChSysCoMap, bool SVP) const
+cSensorImage * cSensorImage::GenerateSensorRPC(const std::string& aNameIm,
+                                               const cDataInvertibleMapping<tREAL8,2>* aResampleMap,
+                                               const cDataInvertibleMapping<tREAL8,3>* aChSysCoMap,
+                                               bool SVP,
+                                               double *aDirectVarX, double *aDirectVarY,
+                                               double *aInvVarX, double *aInvVarY
+                                              ) const
 {
     if (! HasIntervalZ())
     {
@@ -973,8 +987,8 @@ cSensorImage * cSensorImage::GenerateSensorRPC(const std::string& aNameIm, const
     }
 
     cRPCSens * aRes = new cRPCSens(aNameIm);
-    aRes->InitFromSamples(aVIm, aVGr);
-
+    // TODOCM: Prendre 1 pt sur 2 pour calcul et les autres pour la verif
+    aRes->InitFromSamples(aVIm, aVGr, aDirectVarX, aDirectVarY, aInvVarX, aInvVarY);
     return aRes;
 }
 
