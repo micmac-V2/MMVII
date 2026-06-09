@@ -20,6 +20,7 @@ tREAL8 toMinusPiPlusPi(tREAL8 aAng, tREAL8 aOffset = 0.);
 class cStaticLidarImporter
 {
     friend class cAppli_ImportStaticScan;
+    friend class cAppli_ImportTSL;
 public:
     cStaticLidarImporter();
     void readPlyPoints(std::string aPlyFileName, bool aForceGreenAsIntensity);
@@ -53,7 +54,6 @@ public:
     void decimXY(const cPt2di & aDecim);
     const cRotation3D<tREAL8> & RotInput2TSL() const { return mRotInput2TSL; }
     const cRotation3D<tREAL8> & RotInput2Raster() const { return mRotInput2Raster; }
-    std::pair<tREAL8,tREAL8> AvgDistAndNbValid() const; //< return average dist for valid points, and number of valid points
 
     float ColToLocalThetaApprox(float aCol) const;
     float LineToLocalPhiApprox(float aLine) const;
@@ -64,12 +64,14 @@ public:
     float LocalThetaToColPrecise(float aTheta) const;
     cPt2dr Input3DtoRasterAngle(const cPt3dr & aPt3DInput) const;
 
+    void MakeIdImage(const std::string & aNameFile) const; // create miniature to select this scan along images
+
     // line and col for each point
     std::vector<int> mVectPtsLine;
     std::vector<int> mVectPtsCol;
     // points
     std::vector<cPt3dr> mVectPtsXYZ;
-    std::vector<tREAL8> mVectPtsIntens;
+    std::vector<tREAL8> mVectPtsIntens; // 0-1
     std::vector<cPt3dr> mVectPtsTPD;
 
     // agregated angles per col/line
@@ -110,6 +112,7 @@ struct cLidarRasterPatch
 class cStaticLidar: public cSensorCamPC
 {
     friend class cAppli_ImportStaticScan;
+    friend class cAppli_ImportTSL;
     friend class cStaticLidarImporter;
 public :
 
@@ -118,13 +121,14 @@ public :
                  cRotation3D<tREAL8> aRotInput2Raster, tREAL8 aSigma);
     ~cStaticLidar();
 
-    static cStaticLidar *FromFile(const std::string & aNameScanFile, const std::string & aNameRastersDir="");
+    static cStaticLidar *FromFile(const std::string & aNameScanId, const std::string & aDataDir, bool aReadRasters);
 
     bool AreRastersReady() const { return mAreRastersReady;}
     void ToPly(const std::string & aName, bool useMask=false) const;
     void AddData(const  cAuxAr2007 & anAux) ;
     virtual void ToFile(const std::string &) const override;
     void fillRasters(const cStaticLidarImporter & aSL_importer, const std::string &aPhProjDirOut, bool saveRasters);
+    static std::string OriNameFromId(const std::string &aIdName);
 
     //inline tREAL8 lToPhiApprox(int l, double aPhiStart, double aPhiStep) const { return aPhiStart + l * aPhiStep; }
     //inline tREAL8 cToThetaApprox(int c, double aThetaStart, double aThetaStep) const { return aThetaStart + c * aThetaStep; }
@@ -134,11 +138,12 @@ public :
     void FilterDistance(tREAL8 aDistMin, tREAL8 aDistMax);
     void MaskBuffer(const cStaticLidarImporter &aSL_importer, tREAL8 aAngBuffer, const std::string &aPhProjDirOut);
     void SelectPatchCenters1(int aNbPatches);
-    void SelectPatchCenters2(const cStaticLidarImporter &aSL_importer, int aNbPatches);
+    void SelectPatchCenters2(int aNbPatches);
     void MakeVisu(const cPhotogrammetricProject & aPhProj) const;     ///< show 8bit dist image with patch centers
     void MakePatches(std::list<cLidarRasterPatch> &aLPatches,
                      const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin,
                      const cDiffInterpolator1D &aInterp) const;
+    std::pair<tREAL8,tREAL8> AvgDistAndNbValid() const; //< return average dist for valid points, and number of valid points
 
     cPt3dr Image2InputXYZ(const cPt2di & aRasterPx) const; // in input frame
     cPt3dr Image2InputXYZ(const cPt2dr & aRasterPx) const;
@@ -169,6 +174,7 @@ public :
     const std::vector<cPt2di> & PatchCenters() const;
 
     void Show() const override;
+    static std::string GetIdSuffix();
 private :
     template <typename TYPE> void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
                     std::function<TYPE (int)> func, bool saveRaster); // do not keep image in memory
