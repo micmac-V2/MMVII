@@ -19,7 +19,6 @@ tREAL8 toMinusPiPlusPi(tREAL8 aAng, tREAL8 aOffset = 0.);
 
 class cStaticLidarImporter
 {
-    friend class cAppli_ImportStaticScan;
     friend class cAppli_ImportTSL;
 public:
     cStaticLidarImporter();
@@ -111,7 +110,6 @@ struct cLidarRasterPatch
 
 class cStaticLidar: public cSensorCamPC
 {
-    friend class cAppli_ImportStaticScan;
     friend class cAppli_ImportTSL;
     friend class cStaticLidarImporter;
 public :
