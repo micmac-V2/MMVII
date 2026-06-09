@@ -149,19 +149,29 @@ void cMMVII_BundleAdj::OneItere_GCP()
     //  Parse all GCP
     for (size_t aKp=0 ; aKp < aNbGCP ; aKp++)
     {
-        const tREAL8 & aSigmaGCP              = aVMesGCP.at(aKp).mMesDirInfo->mSGlob;
+        const cPt3dr & aPtSigmas = aVMesGCP.at(aKp).SigmasXYZ();
+        const tREAL8 & aSigmaGCPGlobalFactor              = aVMesGCP.at(aKp).mMesDirInfo->mSGlob;
         //   W>0  obs is an unknown "like others"
         //   W=0 , obs is fix , use schurr subst and fix the variables
         //   W<0 , obs is substitued
-        bool  aGcpUk = (aSigmaGCP>0);  // are GCP unknowns
-        bool  aGcpFix = (aSigmaGCP==0);  // is GCP just an obervation
+        bool  aGcpUk = (aSigmaGCPGlobalFactor>0);  // are GCP unknowns
+        bool  aAllGCPFix = (aSigmaGCPGlobalFactor==0);  // is GCP just an obervation
         //  Three temporary unknowns for x-y-z of the 3d point
-        std::vector<int> aVIndFix = (aGcpFix ? aVIndGround : std::vector<int>());
+        std::vector<int> aVIndFixSubst = (aAllGCPFix ? aVIndGround : std::vector<int>());
+
+        // add individual coordinates if their sigma is 0
+        if (!aAllGCPFix)
+        {
+            for (auto i = 0; i < 3; ++i)
+            {
+                if (aPtSigmas[i]==0.)
+                    aVIndFixSubst.push_back(-i-1);
+            }
+        }
 
         const cPt3dr & aPGr = aVMesGCP.at(aKp).mPt;
-        const cPt3dr & aPtSigmas = aVMesGCP.at(aKp).SigmasXYZ();
         cPt3dr_UK * aPtrGcpUk =  aGcpUk ? aGCP_UK[aKp] : nullptr;
-        cSetIORSNL_SameTmp<tREAL8>  aStrSubst(aPGr.ToStdVector(),aVIndFix);
+        cSetIORSNL_SameTmp<tREAL8>  aStrSubst(aPGr.ToStdVector(),aVIndFixSubst);
 
         const std::vector<cPt2dr> & aVPIm  = aVMesIm.at(aKp).VMeasures();
         const std::vector<int> &  aVIndIm  = aVMesIm.at(aKp).VImages();
@@ -226,30 +236,33 @@ void cMMVII_BundleAdj::OneItere_GCP()
         if (aVMesGCP.at(aKp).isFree())
             continue;
 
-        cPt3dr aWeightGroundXYZ(1., 1., 1.);
-        if (!aGcpFix)
-            aWeightGroundXYZ = DivCByC( {1., 1., 1.}, Square(aSigmaGCP)* MulCByC(aPtSigmas,aPtSigmas));
-
         if (! aGcpUk) // case  subst,  we now can make schurr commpl and subst aSigmaGCP<=0
         {
-            if (! aGcpFix)  // if GCP is not hard fix, we must add obs on ground
+            if (! aAllGCPFix)  // if GCP is not hard fix, we must add obs on ground
             {
                 for (auto i = 0; i < 3; ++i)
                 {
-                    aStrSubst.AddFixCurVarTmp(aVIndGround[i],aWeightGroundXYZ[i]);
+                    if (aPtSigmas[i]!=0)
+                    {
+                        aStrSubst.AddFixCurVarTmp(aVIndGround[i],1/Square(aPtSigmas[i]));
+                    }
                 }
             }
-            mSys->R_AddObsWithTmpUK(aStrSubst,mCurLVMParam);  // finnaly add obs accummulated
+            mSys->R_AddObsWithTmpUK(aStrSubst,mCurLVMParam);  // finally add obs accummulated
         }
-        else  // aSigmaGCP >0
+        else  // not shurred
         {
             //  Add observation fixing GCP  aPGr
             // mR8_Sys->AddEqFixCurVar(*aPtrGcpUk,aPtrGcpUk->Pt(),aWeightGround);
             // FIX TO GCP INIT NOT TO LAST ESTIMATION
             for (auto i = 0; i < 3; ++i)
             {
-
-                mR8_Sys->AddEqFixNewVal(*aPtrGcpUk,aPtrGcpUk->Pt()[i],aPGr[i],aWeightGroundXYZ[i]);
+                if (aPtSigmas[i]!=0)
+                {
+                    mR8_Sys->AddEqFixNewVal(*aPtrGcpUk,aPtrGcpUk->Pt()[i],aPGr[i],1/Square(aPtSigmas[i]));
+                } else {
+                    mR8_Sys->SetFrozenVarCurVal(aPtrGcpUk->IndUk0()+i);
+                }
             }
             //previously: mR8_Sys->AddEqFixNewVal(*aPtrGcpUk,aPtrGcpUk->Pt(),aPGr,1/1000);
         }
