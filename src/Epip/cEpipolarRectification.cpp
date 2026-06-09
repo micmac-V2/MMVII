@@ -412,9 +412,9 @@ void BenchEpipolar(cParamExeBench & aParam)
     auto aEpipName2 = "Epip-" + Name2;
     auto aEpipRPC1 = aTmpDir + aEpipName1 + ".xml";
     auto aEpipRPC2 = aTmpDir + aEpipName2 + ".xml";
-    auto aResampSI1 = std::unique_ptr<cSensorImage>(aSensor1->GenerateSensorRPC(aEpipName1, &aEpipModel.EpipMap1(), nullptr, false));
+    auto aResampSI1 = std::unique_ptr<cSensorImage>(aSensor1->GenerateSensorRPC(&aEpipModel.EpipMap1(), nullptr, aEpipName1));
     aResampSI1->ToFile(aEpipRPC1);
-    auto aResampSI2 = std::unique_ptr<cSensorImage>(aSensor2->GenerateSensorRPC(aEpipName2, &aEpipModel.EpipMap2(), nullptr, false));
+    auto aResampSI2 = std::unique_ptr<cSensorImage>(aSensor2->GenerateSensorRPC(&aEpipModel.EpipMap2(), nullptr, aEpipName2));
     aResampSI2->ToFile(aEpipRPC2);
 
     // Reread generated RPCs and check that they are consistent with the epipolar model

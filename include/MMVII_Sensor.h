@@ -108,14 +108,13 @@ class cSensorImage  :   public cObj2DelAtEnd,
           virtual cSensorImage * SensorChangSys(const std::string & aDir, cChangeSysCo &) const ;
           /// Create a RPC sensor with an optional resampling map and an optional change of coordinate system map.
           /// (Use nullptr to indicate that no map is provided).
-          /// Original Sensor needs to have a defined Z interval.
-          cSensorImage *GenerateSensorRPC(const std::string& aNameIm,
-                                          const cDataInvertibleMapping<tREAL8,2>* aResampleMap,
-                                          const cDataInvertibleMapping<tREAL8,3>* aChSysCoMap,
-                                          bool SVP,
-                                          double *aDirectVarX=nullptr, double *aDirectVarY=nullptr,
-                                          double *aInvVarX=nullptr, double *aInvVarY=nullptr
+          /// aZintv specifies the Z interval needed for RPC. If none (std::nullopt) is given, the sensor must have a defined Z interval
+          cSensorImage * GenerateSensorRPC(const cDataInvertibleMapping<tREAL8,2>* aResampleMap,
+                                           const cDataInvertibleMapping<tREAL8,3>* aChSysCoMap,
+                                          std::optional<std::string> aNameIm  = std::nullopt,
+                                           std::optional<cPt2dr> aZIntv = std::nullopt
                                           ) const;
+
 
           virtual const cPixelDomain & PixelDomain() const = 0;
           const cPt2di & Sz() const;

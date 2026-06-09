@@ -213,11 +213,11 @@ private:
     const cSensorImage& mCam1;
     const cSensorImage& mCam2;
     cParams             mParams;
-    int mNbPairs12; ///< number of H-compatible pairs from I1 to I2 (for info only)
-    int mNbPairs21; ///< number of H-compatible pairs from I2 to I1 (for info only)
-    double mV1V2Var;
-    double mW1Var;
-    double mW2Var;
+    int mNbPairs12 = 0; ///< number of H-compatible pairs from I1 to I2 (for info only)
+    int mNbPairs21 = 0; ///< number of H-compatible pairs from I2 to I1 (for info only)
+    double mV1V2Var = 0.0;
+    double mW1Var = 0.0;
+    double mW2Var = 0.0;
 };
 
 

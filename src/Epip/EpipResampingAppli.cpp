@@ -146,25 +146,14 @@ int cAppli_EpipResampling::Exe()
     StdOut() << "Image_1: " << anEpip1Name << std::endl;
     aIm1Rectif->ToFile(anEpip1Name);
     StdOut() << "RPC_1: " << aRPC1Name << std::endl;
-    double aDirectVarX1, aDirectVarY1;
-    double aInvVarX1, aInvVarY1;
-    auto aResampSI1 = aSI1->GenerateSensorRPC(anEpip1Name, &anEpipMap1, nullptr, true, &aDirectVarX1, &aDirectVarY1, &aInvVarX1, &aInvVarY1);
-    StdOut()<< "RPC_1" << std::endl;
-    StdOut()<< "  Direct, VarX: " << aDirectVarX1 << ", VarY: " << aDirectVarY1 << std::endl;
-    StdOut()<< "  Inver., VarX: " << aInvVarX1 << ", VarY: " << aInvVarY1 << std::endl;
-
-    aResampSI1->ToFile(anEpip1Name + ".xml");
+    auto aResampSI1 = aSI1->GenerateSensorRPC( &anEpipMap1, nullptr, anEpip1Name);
+    aResampSI1->ToFile(aRPC1Name);
 
     StdOut() << "Image2: " << anEpip2Name << std::endl;
     aIm2Rectif->ToFile(anEpip2Name);
     StdOut() << "RPC_2: " << aRPC2Name << std::endl;
-    double aDirectVarX2, aDirectVarY2;
-    double aInvVarX2, aInvVarY2;
-    auto aResampSI2 = aSI2->GenerateSensorRPC(anEpip2Name, &anEpipMap2, nullptr, true,  &aDirectVarX2, &aDirectVarY2, &aInvVarX2, &aInvVarY2);
-    StdOut() << "RPC_2" << std::endl;
-    StdOut() << "  Direct, VarX: " << aDirectVarX2 << ", VarY: " << aDirectVarY2 << std::endl;
-    StdOut() << "  Inver., VarX: " << aInvVarX2 << ", VarY: " << aInvVarY2 << std::endl;
-    aResampSI2->ToFile(anEpip2Name + ".xml");
+    auto aResampSI2 = aSI2->GenerateSensorRPC(&anEpipMap2, nullptr, anEpip2Name );
+    aResampSI2->ToFile(aRPC2Name);
 
 
     delete aResampSI1;
@@ -187,11 +176,9 @@ cCollecSpecArg2007 & cAppli_EpipResampling::ArgObl(cCollecSpecArg2007 & anArgObl
         ;
 }
 
-extern cSpecMMVII_Appli  TheSpec_EpipResampling;  // Forward declaration
 
 cCollecSpecArg2007 & cAppli_EpipResampling::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
-
     return anArgOpt
            << AOpt2007(mDegree,"Degree","Poly degree",{eTA2007::HDV})
            << AOpt2007(mDegreeInv,"DegreeInv","Inv Poly degree",{eTA2007::HDV})
@@ -199,7 +186,7 @@ cCollecSpecArg2007 & cAppli_EpipResampling::ArgOpt(cCollecSpecArg2007 & anArgOpt
            << AOpt2007(mNbByZ,"ZSteps","Nb Z steps",{eTA2007::HDV})
            << AOpt2007(mMargin,"Margin","Output image margin",{eTA2007::HDV})
            << AOpt2007(mFrame,"FrameAlgo","Output image height algo",{eTA2007::HDV,AC_ListVal<eEpipFrm>()})
-           << AOpt2007(mOutDir,"OutDir","Output directory (Default: VISU/" + TheSpec_EpipResampling.Name()+")")
+           << AOpt2007(mOutDir,"OutDir","Output directory (Default: VISU/" + Specs().Name()+")")
            << AOpt2007(mOutNamePat,"OutName","Output name pattern", {eTA2007::HDV})
            << AOpt2007(mInterpol,"Interpol","Interpolator", {eTA2007::HDV})
         ;
