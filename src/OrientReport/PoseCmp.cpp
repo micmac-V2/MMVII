@@ -33,7 +33,6 @@ private :
     std::string              mOri2;
     std::vector<std::string> mPatBand;
     bool                     mDoRel;
-    std::string              mPatTSL;  /// to test TSL poses too
     bool                     mVerbose; /// show each difference
 
     // std::string              mPrefixCSV;
@@ -71,7 +70,6 @@ cCollecSpecArg2007 & cAppli_PoseCmp::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            << AOpt2007(mPropStat,"Perc","Percentil for stat exp",{eTA2007::HDV})
            << AOpt2007(mPatBand,"PatBand","Pattern for band [Patter,Subts]")
            << AOpt2007(mDoRel,"DoRel","Do relative computaion between consecutive images")
-           << AOpt2007(mPatTSL, "PatTSL"  ,"Pattern of static lidar to be tested (without \"Ori-Scan-\")")
            << AOpt2007(mVerbose, "Verbose"  ,"Do show each difference",{eTA2007::HDV})
         ;
 }
@@ -81,8 +79,6 @@ cCollecSpecArg2007 & cAppli_PoseCmp::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 int cAppli_PoseCmp::Exe()
 {
     mPhProj.FinishInit();
-
-    mSetNames = VectMainSet(0);
 
     cDirsPhProj &  aDirOri2 = *mPhProj.NewDPIn(eTA2007::Orient,mOri2);
 
@@ -97,35 +93,23 @@ int cAppli_PoseCmp::Exe()
 
     std::string aLastBand = "Xy#@Z-4lj";
 
-    cPt3dr aLastWPK;
+    cPt3dr aLastWPK=cPt3dr::Dummy();
     cWeightAv<tREAL8>  aAvgDif_Ori;
     cWeightAv<tREAL8>  aAvgDif_Center;
     cWeightAv<tREAL8>  aAvgRelDif_Ori;
     cWeightAv<tREAL8>  aAvgBandRelDif;
 
-    size_t aNbCam = mSetNames.size();
-    if (IsInit(&mPatTSL))
+    for (const auto & aNameIm : VectMainSet(0))
     {
-        auto aVScanNames = mPhProj.GetStaticLidarNames(mPatTSL);
-        mSetNames.insert(mSetNames.end(), aVScanNames.begin(), aVScanNames.end());
-    }
+        cSensorCamPC * aCam1 = mPhProj.ReadCamPC(aNameIm,true,SVP::Yes);
+        cSensorCamPC * aCam2 = mPhProj.ReadCamPC(aDirOri2,aNameIm,true,SVP::Yes);
+        if (aCam1==nullptr)
+            aCam1 =  mPhProj.ReadStaticLidar(aNameIm,true,SVP::Yes,false);
+        if (aCam2==nullptr)
+            aCam2 =  mPhProj.ReadStaticLidar(aDirOri2,aNameIm,true,SVP::Yes,false);
+        if (!aCam1 || !aCam2)
+            continue;
 
-    for (size_t aK=0 ; aK<mSetNames.size() ; aK++)
-    {
-        std::string aName = mSetNames[aK];
-        cSensorCamPC * aCam1 = nullptr;
-        cSensorCamPC * aCam2 = nullptr;
-        if (aK<aNbCam)
-        {
-            aCam1 = mPhProj.ReadCamPC(aName,true,SVP::Yes);
-            aCam2 = mPhProj.ReadCamPC(aDirOri2,aName,true,SVP::Yes);
-            if (!aCam1 || !aCam2)
-                continue;
-        } else {
-            //TSL
-            //aCam1 = mPhProj.ReadStaticLidar(aName,true,false);
-            //aCam2 = mPhProj.ReadStaticLidar(aDirOri2,aName,true,false);
-        }
         aVCam1.push_back(aCam1);
         aVCam2.push_back(aCam2);
 
@@ -134,19 +118,19 @@ int cAppli_PoseCmp::Exe()
         aAvgDif_Ori.Add(1.0,Norm2(aWPK));
         aAvgDif_Center.Add(1.0,Norm2(aP2In1.Tr()));
         if (mVerbose)
-            StdOut()<<aName<<": dist="<<Norm2(aP2In1.Tr())<<", angle="<<Norm2(aWPK)<<"\n";
+            StdOut()<<aNameIm<<": dist="<<Norm2(aP2In1.Tr())<<", angle="<<Norm2(aWPK)<<"\n";
 
-        if (aK!=0)
+        if (aLastWPK.IsValid())
             aAvgRelDif_Ori.Add(1.0,Norm2(aWPK-aLastWPK));
 
         if (IsInit(&mPatBand))
         {
-            std::string aNameBand = ReplacePattern(mPatBand.at(0),mPatBand.at(1),aName);
+            std::string aNameBand = ReplacePattern(mPatBand.at(0),mPatBand.at(1),aNameIm);
             bool aNewBand = (aNameBand!=aLastBand);
             aLastBand = aNameBand;
 
             if (aNewBand)
-                StdOut() << "NB=" << aName << std::endl;
+                StdOut() << "NB=" << aNameIm << std::endl;
             else
                 aAvgBandRelDif.Add(1.0,Norm2(aWPK-aLastWPK));
         }

@@ -136,7 +136,7 @@ int cAppli_PerturbRandomOri::Exe()
 
     for (const auto & aNameIm : VectMainSet(0))
     {
-        cSensorImage* aSI = mPhProj.ReadSensor(aNameIm,true,false);
+        cSensorImage* aSI = mPhProj.ReadSensor(aNameIm,true,SVP::No);
         mVSI.push_back(aSI);
     }
 
