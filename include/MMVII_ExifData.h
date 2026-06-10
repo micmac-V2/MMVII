@@ -79,7 +79,6 @@ public:
 // Return a dict of all metadata strings stored by domain (contains exif if present but other metadata too)
     static std::map<std::string, std::vector<std::string>> AllMetadataFromFile(const std::string &aFileName, bool SVP=true);
 
-private:
     bool mValid;
 };
 
