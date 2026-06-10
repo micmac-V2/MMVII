@@ -127,6 +127,7 @@ public :
     virtual void ToFile(const std::string &) const override;
     void fillRasters(const cStaticLidarImporter & aSL_importer, const std::string &aPhProjDirOut, bool saveRasters);
     static std::string OriNameFromId(const std::string &aIdName);
+    static bool IsNameTSL(const std::string &aImageName);
 
     //inline tREAL8 lToPhiApprox(int l, double aPhiStart, double aPhiStep) const { return aPhiStart + l * aPhiStep; }
     //inline tREAL8 cToThetaApprox(int c, double aThetaStart, double aThetaStep) const { return aThetaStart + c * aThetaStep; }
@@ -173,6 +174,7 @@ public :
 
     void Show() const override;
     static std::string GetIdSuffix();
+    static std::string GetIdSuffixRegex();
 private :
     template <typename TYPE> void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
                     std::function<TYPE (int)> func, bool saveRaster); // do not keep image in memory

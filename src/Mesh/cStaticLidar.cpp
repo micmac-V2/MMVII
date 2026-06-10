@@ -698,6 +698,12 @@ std::string cStaticLidar::GetIdSuffix()
     return ".tsl.gif";
 }
 
+std::string cStaticLidar::GetIdSuffixRegex()
+{
+    return "\\.tsl\\.gif";
+}
+
+
 void cStaticLidar::Show() const
 {
     cSensorCamPC::Show();
@@ -708,7 +714,7 @@ void cStaticLidar::Show() const
 
 cStaticLidar * cStaticLidar::FromFile(const std::string & aNameScanFile, const std::string & aDataDir, bool aSVP, bool aReadRasters)
 {
-    if ( aSVP && (!ExistFile(aNameScanFile)) )
+    if ( aSVP && (!ExistFile(aNameScanFile) || IsDirectory(aNameScanFile)) )
     {
         return nullptr;
     }
@@ -1209,10 +1215,17 @@ void cStaticLidar::fillRasters(const cStaticLidarImporter & aSL_importer, const 
 
 std::string cStaticLidar::OriNameFromId(const std::string &aIdName)
 {
-    MMVII_INTERNAL_ASSERT_User(ends_with(aIdName,GetIdSuffix()),eTyUEr::eBadFileRelName,"Error, Scan Id image must end in "+GetIdSuffix());
+    if (!IsNameTSL(aIdName))
+        return MMVII_NONE;
+    //MMVII_INTERNAL_ASSERT_User(ends_with(aIdName,GetIdSuffix()),eTyUEr::eBadFileRelName,"Error, Scan Id image must end in "+GetIdSuffix());
     std::string aNameImage = aIdName;
     aNameImage.resize(aIdName.size()-GetIdSuffix().size());
     return NameOri_From_PrefixAndImage(PrefixName(),aNameImage);
+}
+
+bool cStaticLidar::IsNameTSL(const std::string &aImageName)
+{
+    return ends_with(aImageName,GetIdSuffix());
 }
 
 void cStaticLidar::FilterIntensity(const cStaticLidarImporter &aSL_importer, tREAL8 aLowest, tREAL8 aHighest)

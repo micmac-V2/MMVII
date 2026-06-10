@@ -1422,7 +1422,10 @@ cBlocOfCamera * cPhotogrammetricProject::ReadUnikBlocCam() const
 cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const
 {
     aDP.AssertDirInIsInit();
-    std::string aScanFileName  =  aDP.FullDirIn() + cStaticLidar::OriNameFromId(aScanName);
+    std::string aOriName = cStaticLidar::OriNameFromId(aScanName);
+    if (aOriName == MMVII_NONE)
+        return nullptr;
+    std::string aScanFileName  =  aDP.FullDirIn() + aOriName;
 
     cStaticLidar * aScan = nullptr;
     aScan = cStaticLidar::FromFile(aScanFileName, DirStaticLidarRasters(), SVP, LoadRasters);
@@ -1435,17 +1438,6 @@ cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const cDirsPhProj & aDP,
 cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const
 {
     return ReadStaticLidar(mDPOrient,aScanName,ToDeleteAutom,SVP,LoadRasters);
-}
-
-
-std::vector<std::string> cPhotogrammetricProject::GetStaticLidarNames(const std::string &aPatSelect) const
-{
-    DPOrient().AssertDirInIsInit();
-    std::string aPat2Sup = cStaticLidar::Pat2Sup(aPatSelect);
-    std::string aFullPat2Sup = DPOrient().FullDirIn() + aPat2Sup;
-    tNameSet aSet = SetNameFromPat(aFullPat2Sup);
-    std::vector<std::string> aVect = ToVect(aSet);
-    return aVect;
 }
 
 //  =============  Topo Mes  =================

@@ -187,6 +187,7 @@ cBA_LidarPhotogra::cBA_LidarPhotogra(cPhotogrammetricProject * aPhProj,
     init(aParam, 2, 3);
 
     // read images before 1st iteration // TODO: read only images that may correspond to scans?
+    StdOut() << "Read images...\n";
     for (const auto aPtrCam : aBA.VSCPC())
     {
         auto & aImage = aPtrCam->LoadImage();
@@ -290,13 +291,15 @@ cBA_LidarPhotograRaster::cBA_LidarPhotograRaster(cPhotogrammetricProject * aPhPr
     // TODO
     mThresholdFinal = mThresholdInit;
 
-    //read scans files from directory corresponding to pattern in aParam.at(1)
-    auto aVScanNames = mPhProj->GetStaticLidarNames(aParam.at(1));
-    for (const auto & aNameSens : aVScanNames)
+    tNameSelector aSel =   AllocRegex(aParam.at(1)+cStaticLidar::GetIdSuffixRegex());
+    for (const auto & aPtrCam : mBA.VSCPC())
     {
-        cStaticLidar * aScan = mBA.AddStaticLidar(aNameSens);
-        StdOut() << "Add Scan " << aNameSens << "\n";
-        mVScans.push_back({aScan , {}});
+        if ((aPtrCam != nullptr)  && aSel.Match(aPtrCam->NameImage()))
+        {
+            cStaticLidar * aScan = mBA.AddStaticLidar(aPtrCam->NameImage());
+            StdOut() << "Add Scan " << aPtrCam->NameImage() << "\n";
+            mVScans.push_back({aScan , {}});
+        }
     }
 
     // Creation of the patches, choose a neigborhood around patch centers. TODO: adapt to images ground pixels size?
@@ -1000,12 +1003,15 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
         mThresholdFinal = INFINITY;
 
     //read scans files from directory corresponding to pattern in aParam.at(1)
-    auto aVScanNames = mPhProj->GetStaticLidarNames(aParam.at(0));
-    for (const auto & aNameSens : aVScanNames)
+    tNameSelector aSel =   AllocRegex(aParam.at(1)+cStaticLidar::GetIdSuffixRegex());
+    for (const auto & aPtrCam : mBA.VSCPC())
     {
-        cStaticLidar * aScan = mBA.AddStaticLidar(aNameSens);
-        StdOut() << "Add Scan " << aNameSens << "\n";
-        mVScans.push_back({aScan, {}});
+        if ((aPtrCam != nullptr)  && aSel.Match(aPtrCam->NameImage()))
+        {
+            cStaticLidar * aScan = mBA.AddStaticLidar(aPtrCam->NameImage());
+            StdOut() << "Add Scan " << aPtrCam->NameImage() << "\n";
+            mVScans.push_back({aScan , {}});
+        }
     }
 
     // Creation of the patches, here just center point
