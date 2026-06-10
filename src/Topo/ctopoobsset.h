@@ -31,9 +31,10 @@ public:
     cTopoObs* getObs(size_t i) {return mObs.at(i);}
     std::vector<cTopoObs*> & getAllObs() {return mObs;}
     bool addObs(eTopoObsType type, cBA_Topo * aBA_Topo, const std::vector<std::string> &pts, const std::vector<tREAL8> & vals,  const std::vector<cTopoSigma> &aTopoSigmas);
-    virtual void makeConstraints(cResolSysNonLinear<tREAL8> & aSys) = 0; ///< add constraints for current set
+    virtual int makeConstraints(cResolSysNonLinear<tREAL8> & aSys) = 0; ///< add constraints for current set
     virtual bool initialize() = 0; ///< initialize set parameters, after all obs and points were added
     bool isInit() const {return mInit;}
+    size_t getNbParams() const { return mParams.size(); }
 protected:
     cTopoObsSet(cBA_Topo *aBA_Topo, eTopoObsSetType type);
     cTopoObsSet(cTopoObsSet const&) = delete;
@@ -70,7 +71,7 @@ public:
     virtual ~cTopoObsSetSimple() override {}
     void OnUpdate() override;    ///< "reaction" after linear update, eventually update inversion
     virtual std::string toString() const override;
-    void makeConstraints(cResolSysNonLinear<tREAL8> &aSys) override;
+    int makeConstraints(cResolSysNonLinear<tREAL8> &aSys) override;
     virtual bool initialize() override; ///< initialize rotation
     void FillGetAdrInfoParam(cGetAdrInfoParam<tREAL8> & aGAIP) override;
 protected:
@@ -92,7 +93,7 @@ public:
     virtual ~cTopoObsSetStation() override {}
     void OnUpdate() override;    ///< "reaction" after linear update, eventually update inversion
     virtual std::string toString() const override;
-    void makeConstraints(cResolSysNonLinear<tREAL8> &aSys) override;
+    int makeConstraints(cResolSysNonLinear<tREAL8> &aSys) override;
     virtual bool initialize() override; ///< initialize rotation
     void FillGetAdrInfoParam(cGetAdrInfoParam<tREAL8> & aGAIP) override;
 
