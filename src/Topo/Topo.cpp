@@ -188,8 +188,6 @@ void cBA_Topo::AddPointsFromDataToGCP(cPhotogrammetricProject *aPhProj)
         mNbTopoParams += 3; // TODO: count only GCPs with topo mes ?
         mNbGCPConstraints += mBA_GCP->getMesGCP().MesGCP()[i].Sigma2IsInit()?3:0;
     }
-
-
 }
 
 void cBA_Topo::FromData(cPhotogrammetricProject *aPhProj)
@@ -456,6 +454,10 @@ bool cBA_Topo::tryInit(cTopoPoint & aPtToInit, tStationsMap &stationsMap, tSimpl
     if (ok)
         StdOut() << "init coords: " << *aPtToInit.getPt() <<"\n";
 #endif
+    if (ok) // init coords for BA_GCP, not only uk
+        for (auto & aMesGCP : mBA_GCP->getMesGCP().MesGCP())
+            if (aMesGCP.mNamePt==aPtToInit.getName())
+                aMesGCP.mPt = *aPtToInit.getPt();
     return ok;
 }
 
