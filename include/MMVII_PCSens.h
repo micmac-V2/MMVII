@@ -740,6 +740,8 @@ class cSensorCamPC : public cSensorImage
 
          void Show() const override;
 
+         virtual bool DoAddCalibToUk() const;
+
      private :
         void Bench();
         cSensorCamPC(const cSensorCamPC&) = delete;

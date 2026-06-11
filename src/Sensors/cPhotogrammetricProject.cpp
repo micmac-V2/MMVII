@@ -698,13 +698,15 @@ void cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,cSensorImag
 
      // Try a stenope camera which has interesting properties
      aSPC = ReadCamPC(aNameIm,ToDeleteAutom,true);
+     // Try TSL
+     if (aSPC==nullptr) aSPC = ReadStaticLidar(aNameIm,ToDeleteAutom,true,aReadData);
+
      if (aSPC !=nullptr)
      {
         aSI = aSPC;
         return;
      }
-     // try TSL
-     if (aSI==nullptr) aSI =  ReadStaticLidar(aNameIm,ToDeleteAutom,true,aReadData);
+
 
      // Else try an external sensor
      if (aSI==nullptr) aSI =  SensorTryReadImported(*this,aNameIm);
@@ -1428,7 +1430,9 @@ cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const cDirsPhProj & aDP,
     std::string aScanFileName  =  aDP.FullDirIn() + aOriName;
 
     cStaticLidar * aScan = nullptr;
-    aScan = cStaticLidar::FromFile(aScanFileName, DirStaticLidarRasters(), SVP, LoadRasters);
+    aScan = cStaticLidar::FromFile(aScanFileName, SVP);
+    if (LoadRasters)
+        aScan->ReadRasters(DirStaticLidarRasters());
 
     if (ToDeleteAutom)
        cMMVII_Appli::AddObj2DelAtEnd(aScan);

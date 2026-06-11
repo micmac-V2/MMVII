@@ -291,14 +291,15 @@ cBA_LidarPhotograRaster::cBA_LidarPhotograRaster(cPhotogrammetricProject * aPhPr
     // TODO
     mThresholdFinal = mThresholdInit;
 
-    tNameSelector aSel =   AllocRegex(aParam.at(1)+cStaticLidar::GetIdSuffixRegex());
+    tNameSelector aSel =   AllocRegex(aParam.at(1));
     for (const auto & aPtrCam : mBA.VSCPC())
     {
-        if ((aPtrCam != nullptr)  && aSel.Match(aPtrCam->NameImage()))
+        cStaticLidar* aPtrScan = dynamic_cast<cStaticLidar*>(aPtrCam);
+        if (aPtrScan && aSel.Match(aPtrScan->NameImage()) )
         {
-            cStaticLidar * aScan = mBA.AddStaticLidar(aPtrCam->NameImage());
-            StdOut() << "Add Scan " << aPtrCam->NameImage() << "\n";
-            mVScans.push_back({aScan , {}});
+            mBA.AddStaticLidar(aPtrScan);
+            StdOut() << "Add Scan " << aPtrScan->NameImage() << "\n";
+            mVScans.push_back({aPtrScan , {}});
         }
     }
 
@@ -1002,17 +1003,21 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
     if (mThresholdFinal<0)
         mThresholdFinal = INFINITY;
 
-    //read scans files from directory corresponding to pattern in aParam.at(1)
-    tNameSelector aSel =   AllocRegex(aParam.at(1)+cStaticLidar::GetIdSuffixRegex());
+    //read scans files from directory corresponding to pattern in aParam.at(0)
+    tNameSelector aSel =   AllocRegex(aParam.at(0));
     for (const auto & aPtrCam : mBA.VSCPC())
     {
-        if ((aPtrCam != nullptr)  && aSel.Match(aPtrCam->NameImage()))
+        cStaticLidar* aPtrScan = dynamic_cast<cStaticLidar*>(aPtrCam);
+        if (aPtrScan && aSel.Match(aPtrScan->NameImage()) )
         {
-            cStaticLidar * aScan = mBA.AddStaticLidar(aPtrCam->NameImage());
-            StdOut() << "Add Scan " << aPtrCam->NameImage() << "\n";
-            mVScans.push_back({aScan , {}});
+            mBA.AddStaticLidar(aPtrScan);
+            StdOut() << "Add Scan " << aPtrScan->NameImage() << "\n";
+            mVScans.push_back({aPtrScan , {}});
         }
     }
+
+    MMVII_INTERNAL_ASSERT_User(!mVScans.empty(),
+                               eTyUEr::eBadFileSetName,"No TSL found!");
 
     // Creation of the patches, here just center point
     for (auto & aScanData: mVScans)
@@ -1110,8 +1115,13 @@ void cBA_LidarLidarRaster::AddObs()
 
     }
     if (mLastResidual.SW() != 0)
+    {
         StdOut() << "  * Lid/Lid Residual dist " << std::sqrt(mLastResidual.Average())
                  << "m ("<<mVScans.size()<<" scans, "<<mNbUsedObs<<" obs, "<<mNbUsedPoints<<" points)\n";
+        //for (auto & aScan:mVScans)
+        //    StdOut() << aScan.mLidarRaster->NameImage()<< " " << aScan.mLidarRaster->Center().x() <<
+        //         std::setprecision(10) << " " << aScan.mLidarRaster->Center().y()<< " " << aScan.mLidarRaster->Center().z() << "\n";
+    }
     else
         StdOut() << "  * Lid/Lid: no obs\n";
 }

@@ -703,6 +703,10 @@ std::string cStaticLidar::GetIdSuffixRegex()
     return "\\.tsl\\.gif";
 }
 
+bool cStaticLidar::DoAddCalibToUk() const
+{
+    return false; // F and PP fixed on lidar for now
+}
 
 void cStaticLidar::Show() const
 {
@@ -712,7 +716,7 @@ void cStaticLidar::Show() const
 }
 
 
-cStaticLidar * cStaticLidar::FromFile(const std::string & aNameScanFile, const std::string & aDataDir, bool aSVP, bool aReadRasters)
+cStaticLidar * cStaticLidar::FromFile(const std::string & aNameScanFile, bool aSVP)
 {
     if ( aSVP && (!ExistFile(aNameScanFile) || IsDirectory(aNameScanFile)) )
     {
@@ -726,18 +730,22 @@ cStaticLidar * cStaticLidar::FromFile(const std::string & aNameScanFile, const s
                                                               + aRes->mTmpNameCalib + "." + GlobTaggedNameDefSerial());
     aRes->mInternalCalib = aCalib;
 
-    if (aReadRasters)
-    {
-        StdOut() << "Read rasters " << aNameScanFile <<"..."<<std::endl;
-        aRes->mRasterDistance = std::make_unique<cIm2D<tREAL4>>(cIm2D<tREAL4>::FromFile(aDataDir+"/"+aRes->mRasterDistancePath));
-        aRes->mRasterIntensity = std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(aDataDir+"/"+aRes->mRasterIntensityPath));
-        aRes->mRasterMask = std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(aDataDir+"/"+aRes->mRasterMaskPath));
-        aRes->mRasterX = std::make_unique<cIm2D<tREAL4>>(cIm2D<tREAL4>::FromFile(aDataDir+"/"+aRes->mRasterXPath));
-        aRes->mRasterY = std::make_unique<cIm2D<tREAL4>>(cIm2D<tREAL4>::FromFile(aDataDir+"/"+aRes->mRasterYPath));
-        aRes->mRasterZ = std::make_unique<cIm2D<tREAL4>>(cIm2D<tREAL4>::FromFile(aDataDir+"/"+aRes->mRasterZPath));
-        aRes->mAreRastersReady = true;
-    }
     return aRes;
+}
+
+bool cStaticLidar::ReadRasters(const std::string & aDataDir)
+{
+    if (mAreRastersReady)
+        return true;
+    StdOut() << "Read rasters " << NameImage() <<"..."<<std::endl;
+    mRasterDistance = std::make_unique<cIm2D<tREAL4>>(cIm2D<tREAL4>::FromFile(aDataDir+"/"+mRasterDistancePath));
+    mRasterIntensity = std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(aDataDir+"/"+mRasterIntensityPath));
+    mRasterMask = std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(aDataDir+"/"+mRasterMaskPath));
+    mRasterX = std::make_unique<cIm2D<tREAL4>>(cIm2D<tREAL4>::FromFile(aDataDir+"/"+mRasterXPath));
+    mRasterY = std::make_unique<cIm2D<tREAL4>>(cIm2D<tREAL4>::FromFile(aDataDir+"/"+mRasterYPath));
+    mRasterZ = std::make_unique<cIm2D<tREAL4>>(cIm2D<tREAL4>::FromFile(aDataDir+"/"+mRasterZPath));
+    mAreRastersReady = true;
+    return true;
 }
 
 cPt3dr cStaticLidar::Image2InputXYZ(const cPt2di & aRasterPx) const
@@ -1669,7 +1677,8 @@ void TestRaster2Gnd2Raster(const std::vector<TYPE> &aVectPtsTest, cStaticLidar *
 /// tests the scans of a cube, where summit is {0,0,-8.66} in ground coords
 void TestPose(const std::string & aInPath, const std::string & aScanName, const cPt2dr& aSummitPx)
 {
-    cStaticLidar * aScan =  cStaticLidar::FromFile(aInPath + aScanName, aInPath, false, true);
+    cStaticLidar * aScan =  cStaticLidar::FromFile(aInPath + aScanName, false);
+    aScan->ReadRasters(aInPath);
     auto aRasterPx = aScan->Ground2ImagePrecise({0,0,-8.66});
     //std::cout<<"Result: "<<aRasterPx<<" - theoritical "<<aSummitPx<<" -> error "<<Norm2(aRasterPx-aSummitPx)<<"\n";
     MMVII_INTERNAL_ASSERT_bench(Norm2(aRasterPx-aSummitPx)<1e-3 ,"TestPose " + aScanName);
@@ -1683,7 +1692,8 @@ void BenchTSL(cParamExeBench & aParam)
     const std::string & aInPath = cMMVII_Appli::CurrentAppli().InputDirTestMMVII() + "/TSL/Scan1/";
 
     // test with scan pose = Id
-    cStaticLidar * aScan =  cStaticLidar::FromFile(aInPath + "Scan-St1-Sc1.xml", aInPath, false, true);
+    cStaticLidar * aScan =  cStaticLidar::FromFile(aInPath + "Scan-St1-Sc1.xml", false);
+    aScan->ReadRasters(aInPath);
 
     //aScan->ToPly(cMMVII_Appli::CurrentAppli().TmpDirTestMMVII() + "/TSL.ply");
 

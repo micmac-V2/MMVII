@@ -976,7 +976,8 @@ int cAppli_InitTSL::Exe()
     }
 
     auto aTSLFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::OriNameFromId(mNameFileTSLId);
-    cStaticLidar* aLidar = cStaticLidar::FromFile(aTSLFile, mPhProj.DirStaticLidarRasters(), false, true);
+    cStaticLidar* aLidar = cStaticLidar::FromFile(aTSLFile, false);
+    aLidar->ReadRasters(mPhProj.DirStaticLidarRasters());
 
     if (IsInit(&mPoseXYZFilename))
     {

@@ -544,7 +544,7 @@ protected :
          int                     aKPt
          ) override;
 
-    tREAL8 mNormalDiffMinCos = 0.98;
+    tREAL8 mNormalDiffMinCos = cos(15*M_PI/180);
 };
 
 
@@ -626,7 +626,7 @@ class cMMVII_BundleAdj
           cBA_GCP& getGCP() { return mGCP;}
 
           ///  ============  Add Lidar/Photogra ===============          void AddLineAdjust(const std::vector<std::string> &);
-          cStaticLidar *AddStaticLidar(const std::string &aScanFileName);
+          bool AddStaticLidar(cStaticLidar* aStaticLidar);
           void Add1AdjLidarPhotogra(const std::vector<std::string> &);
           void Add1AdjLidarPhoto(const std::vector<std::string> &);
           void Add1AdjLidarLidar(const std::vector<std::string> &);

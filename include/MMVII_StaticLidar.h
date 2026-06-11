@@ -119,7 +119,8 @@ public :
                  cRotation3D<tREAL8> aRotInput2Raster, tREAL8 aSigma);
     ~cStaticLidar();
 
-    static cStaticLidar *FromFile(const std::string & aNameScanFile, const std::string & aDataDir, bool aSVP, bool aReadRasters);
+    static cStaticLidar *FromFile(const std::string & aNameScanFile, bool aSVP);
+    bool ReadRasters(const std::string & aDataDir);
 
     bool AreRastersReady() const { return mAreRastersReady;}
     void ToPly(const std::string & aName, bool useMask=false) const;
@@ -175,6 +176,8 @@ public :
     void Show() const override;
     static std::string GetIdSuffix();
     static std::string GetIdSuffixRegex();
+
+    virtual bool DoAddCalibToUk() const override;
 private :
     template <typename TYPE> void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
                     std::function<TYPE (int)> func, bool saveRaster); // do not keep image in memory

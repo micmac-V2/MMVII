@@ -533,7 +533,8 @@ void cMMVII_BundleAdj::AddSensor(cSensorImage* aSI)
 
 void cMMVII_BundleAdj::AddCamPC(cSensorCamPC * aCamPC)
 {
-    AddCalib(aCamPC->InternalCalib());
+    if (aCamPC->DoAddCalibToUk())
+        AddCalib(aCamPC->InternalCalib());
 }
 
 void cMMVII_BundleAdj::AddReferencePoses(const std::vector<std::string> & aVec)
@@ -888,24 +889,17 @@ void cMMVII_BundleAdj::Add1AdjLidarPhoto(const std::vector<std::string> &aParam)
     mVBA_Lidar.push_back(new cBA_LidarPhotograRaster(mPhProj, *this,aParam));
 }
 
-cStaticLidar * cMMVII_BundleAdj::AddStaticLidar(const std::string &aScanFileName)
+bool cMMVII_BundleAdj::AddStaticLidar(cStaticLidar* aStaticLidar)
 {
     AssertPhpAndPhaseAdd();
-    // fisrt, read xml to get sensor name
-    cStaticLidar * aLidarTmp = mPhProj->ReadStaticLidar(aScanFileName, true, false, false);
 
-    if (mMapTSL.count(aLidarTmp->NameImage())==0)
+    if (mMapTSL.count(aStaticLidar->NameImage())==0)
     {
-        cStaticLidar * aLidarData = mPhProj->ReadStaticLidar(aScanFileName, true, false, true);
-        MMVII_INTERNAL_ASSERT_User(aLidarData,
-                                   eTyUEr::eUnClassedError,"Error opening static scans " + aScanFileName);
-        mMapTSL[aLidarData->NameImage()] = aLidarData;
-
-        MMVII_INTERNAL_ASSERT_tiny (!aLidarData->UkIsInit(),"Multiple add of TSL : " + aLidarData->NameImage());
-        mSetIntervUK.AddOneObj(aLidarData);
-        aLidarData->SetAndGetEqColinearity(true,10,true);  // WithDer, SzBuf, ReUse
+        aStaticLidar->ReadRasters(mPhProj->DirStaticLidarRasters());
+        MMVII_INTERNAL_ASSERT_tiny (mMapTSL.count(aStaticLidar->NameImage())==0,"Multiple add of TSL : " + aStaticLidar->NameImage());
+        mMapTSL[aStaticLidar->NameImage()] = aStaticLidar;
     }
-    return mMapTSL.at(aLidarTmp->NameImage());
+    return true;
 }
 
 const std::unordered_map<std::string, cStaticLidar *> &cMMVII_BundleAdj::MapTSL() const {return mMapTSL;}
