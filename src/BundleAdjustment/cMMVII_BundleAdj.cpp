@@ -268,6 +268,7 @@ void cMMVII_BundleAdj::InitIteration()
        std::string aPatVar =  GetDef(mParam_UC_UK,2,std::string(".*"));  // NameVar selection, def=all
        mCompute_Uncert = cStrIO<bool>::FromStr(GetDef(mParam_UC_UK,3,std::string("1")));  // Compute Uncert, def=true
 
+       StdOut() <<"All unknowns:\n";
        // Parse all "object"
        for (size_t aKObj=0 ; aKObj<  mSetIntervUK.NumberObject() ; aKObj++)
        {
@@ -279,6 +280,10 @@ void cMMVII_BundleAdj::InitIteration()
            aBBNV.mIdObj = aGIP.IdObj();
            aBBNV.mIndVar0 = aIndV0;
            aBBNV.mNamesVar =  aGIP.VNames();
+           StdOut() <<"    "<<aGIP.NameType()<<" "<<aGIP.IdObj()<<": ";
+           for (auto & aS:aGIP.VNames())
+               StdOut() << aS << " ";
+           StdOut() << "\n";
            
            if (MatchRegex(aBBNV.mType,aPatType) && MatchRegex(aBBNV.mIdObj,aPatName) ) // If type and ident match
            {
