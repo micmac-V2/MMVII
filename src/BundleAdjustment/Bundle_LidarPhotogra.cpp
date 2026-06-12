@@ -72,6 +72,8 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
         }
     }
 
+    std::string aVisuDir = aPhProj->DirVisuAppli()+aPhProj->DPOrient().DirIn() + "/";
+    CreateDirectories(aVisuDir, true);
     for (auto & aCam: aVImages)
     {
         int aMarginInsideImage = 1;
@@ -82,11 +84,25 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
         for (auto & aScanDataA: mVScans)
         {
             auto &aScanA = aScanDataA.mLidarRaster;
+            std::string aIndividualZbufFileName = "ZBuf-" + aScanA->NameImage()+"_on_"+aImName+".tif";
+
+            if (ExistFile(aVisuDir + aIndividualZbufFileName))
+            {
+                cIm2D<tREAL4> aIndividualZbuf = cIm2D<tREAL4>::FromFile(aVisuDir + aIndividualZbufFileName);
+                if (mMapZbuf.count(aImName)==0)
+                    mMapZbuf.emplace(aImName, aIndividualZbuf);
+                else {
+                    // merge zbuffers
+                    TransfoInPlace(mMapZbuf.at(aImName).DIm(), aIndividualZbuf.DIm(), [](auto &a, auto &b){ return std::max(a,b);} );
+                }
+                StdOut() << "Got zbuffer from: " << aVisuDir + aIndividualZbufFileName<<"\n";
+                continue;
+            }
             cMeshTri3DIterator aTriIt(aScanA->getTriangulation());
             if (aImName == aScanA->NameImage())
                 continue;
             //ScopedTimer aTimer("Zbuffer");
-            StdOut() << "Create zbuffer: " << aScanA->NameImage()+"_on_image_" << aImName<<"\n";
+            StdOut() << "Create zbuffer: " << aIndividualZbufFileName<<"\n";
 
             cSIMap_Ground2ImageAndProf aMapCamDepth(aCam);
 
@@ -103,13 +119,13 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
             cZBuffer aZBuf(aTriIt,aSetVis,aMapCamDepth,aSetCam,
                            1,aCam->PixelDomain().Sz());
             aZBuf.MakeZBuf(eZBufModeIter::ProjInit);
+            aZBuf.ZBufIm().DIm().ToFile(aVisuDir + aIndividualZbufFileName);
 
             if (!aZBuf.IsOk())
             {
                 StdOut() << "Warning! Zbuffer "<<aScanA->NameImage()<<" on image " << aImName <<" empty.\n";
                 continue;
             }
-            //MMVII_INTERNAL_ASSERT_tiny(aZBuf.IsOk(), "Error zbuffer");
 
             if (mMapZbuf.count(aImName)==0)
                 mMapZbuf.emplace(aImName, aZBuf.ZBufIm());
@@ -117,11 +133,6 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
                 // merge zbuffers
                 TransfoInPlace(mMapZbuf.at(aImName).DIm(), aZBuf.ZBufIm().DIm(), [](auto &a, auto &b){ return std::max(a,b);} );
             }
-
-            /*if (aDebug)
-                aZBuf.ZBufIm().DIm().ToFile(aPhProj->DirVisuAppli()
-                                            +"ZBuf-"+aScanA->NameImage()+"_on_image_"
-                                            +aImName+".tif");*/
         }
         if (mMapZbuf.count(aImName)==0)
             return; // nothing more to do, we have no zbuffer info
