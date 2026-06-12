@@ -367,7 +367,9 @@ class cMetaDataImage
           //  generate an identifier specific to data
           std::string InternalCalibGeomIdent() const;
 
-          cMetaDataImage(const std::string & aDir,const std::string & aNameIm,const cGlobCalculMetaDataProject * aCalc);
+          cMetaDataImage(const std::string & aDir,const std::string & aNameIm,
+                         const cGlobCalculMetaDataProject * aCalc,
+                         const cExifData &);
           cMetaDataImage();
       private :
 
