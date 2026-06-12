@@ -62,14 +62,14 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
     }
     bool aZbufWithDist = true; // zbuffer is in dist or dz?
     std::vector<cSensorCamPC*> aVImages;
-    if (aOnScans)
-        std::transform(mVScans.begin(),mVScans.end(),
-                       std::back_inserter(aVImages),
-                       [](auto &aScan){return aScan.mLidarRaster;} );
-    else
+
+    // work on normal images (+ TSL only if aOnScans)
+    for (const auto aPtrCam : aBA.VSCPC())
     {
-        aVImages= aBA.VSCPC();
-        aZbufWithDist = false;
+        if (aOnScans || (dynamic_cast<cStaticLidar*>(aPtrCam)==nullptr))
+        {
+            aVImages.push_back(aPtrCam);
+        }
     }
 
     for (auto & aCam: aVImages)
@@ -190,6 +190,9 @@ cBA_LidarPhotogra::cBA_LidarPhotogra(cPhotogrammetricProject * aPhProj,
     StdOut() << "Read images...\n";
     for (const auto aPtrCam : aBA.VSCPC())
     {
+        // do not read other TSLs
+        if (dynamic_cast<cStaticLidar*>(aPtrCam))
+            continue;
         auto & aImage = aPtrCam->LoadImage();
         if (mPertRad)
         {
@@ -706,7 +709,8 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
      for (size_t aKIm=0 ; aKIm<mBA.VSCPC().size() ; aKIm++)
      {
           cSensorCamPC * aCam = mBA.VSCPC()[aKIm]; // extract cam
-
+         if (dynamic_cast<cStaticLidar*>(aCam))
+             continue;
           // 1st test: zbuffer visibility
           //std::cout<<"Im "<<aScanBData.mScanName<<" patch "<<aPatch.mId<<" vis "<<aPatch.mImVisible.at(aScanBData.mScanName)<<"\n";
           if (aHiddenOnImage.count(aCam->NameImage())>0)
@@ -1059,7 +1063,7 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
 }
 
 
-#define SCANSCANDEBUG 10
+//#define SCANSCANDEBUG 10
 
 void cBA_LidarLidarRaster::AddObs()
 {
