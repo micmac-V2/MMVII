@@ -519,7 +519,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
              AddEqLink(aSys,aPtrSubst,aWeight,aKEq,aC0_in_W0,aC1_in_W0,aCTri0_In_W0,aCTri1_In_W0);
              aKEq += 4;
              if (withSchur)
-                aSys->PublicAddObsWithTmpUK(*aPtrSubst,mPMAT->LVM());
+                aSys->PublicAddObsWithTmpUK(*aPtrSubst,mPMAT->Cfg().mLVM);
         }
     }
 
@@ -579,7 +579,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
            }
            aKEq += 4;
            if (withSchur)
-              aSys->PublicAddObsWithTmpUK(*aPtrSubst,mPMAT->LVM());
+              aSys->PublicAddObsWithTmpUK(*aPtrSubst,mPMAT->Cfg().mLVM);
        }
     }
 
@@ -810,7 +810,7 @@ void cNodeArborTriplets::MergeChildrenSol()
 /* Refinement on bundles (any camera projection) */
 void cNodeArborTriplets::RefineCurSolution()
 {
-    int aNbIterEnd = mPMAT->NbIterBA() + (mDepth==0 ? mPMAT->NbExtraIterAtRoot() : 0);
+    int aNbIterEnd = mPMAT->Cfg().mNbIterBA + (mDepth==0 ? mPMAT->Cfg().mNbExtraIterAtRoot : 0);
 
     cBA_ArboTriplets* aBA = new cBA_ArboTriplets(mPMAT, mLocSols,mDepth,aNbIterEnd);
 
@@ -977,12 +977,13 @@ cMakeArboTriplet::cMakeArboTriplet(std::vector<cDataSolOriTriplet> & aSet3,bool 
    mNbEdgeTri   (0),
    mTPtsFolder  (""), //to be removed
    mTPtsStruct  (nullptr),
-   mViscPose    (aCfg.mViscPose),
-   mLVM         (aCfg.mLVM),
-   mSigmaTPt    (aCfg.mSigmaTPt),
-   mFacElim     (aCfg.mFacElim),
-   mNbIterBA    (aCfg.mNbIterBA),
-   mNbExtraIterAtRoot (aCfg.mNbExtraIterAtRoot)
+   //mViscPose    (aCfg.mViscPose),
+   mCfg         (aCfg)
+   //mLVM         (aCfg.mLVM),
+   //mSigmaAtt    (aCfg.mSigmaAtt),
+   //mThrs     (aCfg.mThrs),
+   //mNbIterBA    (aCfg.mNbIterBA),
+   //mNbExtraIterAtRoot (aCfg.mNbExtraIterAtRoot)
 {
 }
 
@@ -1001,7 +1002,7 @@ void cMakeArboTriplet::SetRand(const std::vector<tREAL8> & aLevelRand)
 
 void cMakeArboTriplet::ShowStat()
 {
-   StdOut() << "\n";
+   StdOut() << "\n ======== GRAPH STATS =========\n";
    StdOut() << " * INPUT : NbTriplet= " << mSet3.size() << " NbIm=" << mMapStrI.size() << "\n";
    StdOut() << " * POSE  : NbEgde= "  << mNbEdgeP <<  " NbHypP=" << mNbHypP << "\n";
    StdOut() << " * TRI  : NbEgde= "  << mNbEdgeTri << "\n";
@@ -1087,7 +1088,7 @@ void cMakeArboTriplet::InitTPtsStruct(cComputeMergeMulTieP* aTPts)
 {
     mTPtsStruct = aTPts;
     mTPtsStruct->SetImageIndexe();
-    StdOut() << "Nb tie points=" << mTPtsStruct->Pts().size() << std::endl;
+    if (mCfg.mVerbose) StdOut() << "Nb tie points=" << mTPtsStruct->Pts().size() << std::endl;
     ConvertTPtsToBundles();
 }
 
@@ -1318,7 +1319,7 @@ void cMakeArboTriplet::MakeCnxTriplet()
        }
    }
    auto  aListCC = cAlgoCC<t3G3_Graph>::All_ConnectedComponent(mGTriC,cAlgo_ParamVG<t3G3_Graph>());
-   StdOut() << "Number of connected compon Triplet-Graph= " << aListCC.size() << "\n";
+   StdOut() << "Number of connected components in Triplet-Graph= " << aListCC.size() << "\n";
    // to see later, we can probably analyse CC by CC, but it would be more complicated (already enough complexity ...)
    MMVII_INTERNAL_ASSERT_tiny(aListCC.size(),"non connected triplet-graph");
 }
@@ -1370,14 +1371,17 @@ void cMakeArboTriplet::MakeWeightingGraphTriplet()
             aAvgCost.Add(1.0,aVCost.at(aKT));
             anAttr.mCostIntr =  aVCost.at(aKT);
         }
-        StdOut() <<  "COST, Evol=" << aAvgDif.Average() << " Avg=" << aAvgCost.Average() << "\n";
+        if (mCfg.mVerbose) StdOut() <<  "COST, Evol=" << aAvgDif.Average() << " Avg=" << aAvgCost.Average() << "\n";
 
         aS666 = NC_KthVal(aVCost,0.6666);
-        if (aKIter == (aNbIter-1))
+        if (mCfg.mVerbose)
         {
-            for (const auto & aP : {0.1,0.5,0.75,0.9})
-                StdOut() << " [" << aP << ":" << NC_KthVal(aVCost,aP) << "]";
-            StdOut() << "\n";
+            if (aKIter == (aNbIter-1))
+            {
+                for (const auto & aP : {0.1,0.5,0.75,0.9})
+                    StdOut() << " [" << aP << ":" << NC_KthVal(aVCost,aP) << "]";
+                StdOut() << "\n";
+            }
         }
     }
 
@@ -1486,7 +1490,7 @@ void cMakeArboTriplet::ComputeArbor()
    t3G3_Tree  aTreeKernel(aSetEdgeKern);
    mCostMergeTree = 0.0;
    mArbor = new cNodeArborTriplets(*this,aTreeKernel,0);
-   StdOut() << "CostMerge " << mCostMergeTree << "\n";
+   if (mCfg.mVerbose) StdOut() << "CostMerge " << mCostMergeTree << "\n";
 
    //mArbor->ComputeResursiveSolution();
 

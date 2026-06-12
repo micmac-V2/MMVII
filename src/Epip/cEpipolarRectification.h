@@ -139,7 +139,6 @@ public:
         int      mPolyDegreeInv = 7;      ///< degree of inverse W polynomials
         int      mNbXYSteps     = 100;    ///< number of image grid sampling steps (X & Y)
         int      mNbZLevels     = 3;      ///< number of altitude sampling levels
-        double   mEpsMarginRel  = 0.05;   ///< Relative Margin for X,Y and Z sampling
         eEpipFrm mEpipFrm       = eEpipFrm::eIntersect; ///< Framing type for epipolar images (Resmampling)
         int      mMargin        = 2;      ///< Margin in pixels for epipolar image framing (Resampling)
     };
@@ -154,8 +153,13 @@ public:
     // --------------------------------------------------------
     //  Main entry point
     // --------------------------------------------------------
-    cEpipPolyModel Compute() const;
+    cEpipPolyModel Compute();
 
+    int NbPairs12() const { return mNbPairs12; }
+    int NbPairs21() const { return mNbPairs21; }
+    double V1V2Var() const { return mV1V2Var; }
+    double W1Var() const { return mW1Var; }
+    double W2Var() const { return mW2Var; }
 private:
     // --------------------------------------------------------
     //  Private helper : one H-compatible pair in rotated coords
@@ -189,7 +193,7 @@ private:
     void EstimateForwardPolynomials(
             const std::vector<cEpiPair>& aPairs,
             cPolyXY_Nd&           aV1,
-            cPolyXY_Nd&           aV2) const;
+            cPolyXY_Nd&           aV2);
 
     // ----------------------------------------------------------
     //  Estimate inverse polynomials W1, W2 (eq. 33-34).
@@ -201,7 +205,7 @@ private:
             const std::vector<cEpiPair>& aPairs,
             const cPolyXY_Nd&     aVk,
             cPolyXY_Nd&           aWk,
-            UseFromPair                  aUsePt) const;
+            UseFromPair                  aUsePt);
 
     // --------------------------------------------------------
     //  Members
@@ -209,6 +213,11 @@ private:
     const cSensorImage& mCam1;
     const cSensorImage& mCam2;
     cParams             mParams;
+    int mNbPairs12 = 0; ///< number of H-compatible pairs from I1 to I2 (for info only)
+    int mNbPairs21 = 0; ///< number of H-compatible pairs from I2 to I1 (for info only)
+    double mV1V2Var = 0.0;
+    double mW1Var = 0.0;
+    double mW2Var = 0.0;
 };
 
 

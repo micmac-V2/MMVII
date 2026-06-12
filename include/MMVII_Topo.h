@@ -26,11 +26,11 @@ class cBA_Topo : public cMemCheck
 {
     friend class cTopoData;
 public :
-    cBA_Topo(cPhotogrammetricProject *aPhProj);
+    cBA_Topo(cPhotogrammetricProject *aPhProj, cBA_GCP * aBA_GCP);
     ~cBA_Topo();
     void clear();
 
-    void findPtsUnknowns(const cBA_GCP &aBA_GCP, cPhotogrammetricProject *aPhProj); //< to be called after points creation and before AddToSys and ObsSetStation::SetOrigin...
+    void findPtsUnknowns(cPhotogrammetricProject *aPhProj); //< to be called after points creation and before AddToSys and ObsSetStation::SetOrigin...
 
     void  AddToSys(cSetInterUK_MultipeObj<tREAL8> &aSetInterUK); // The system must be aware of all the unknowns
 
@@ -39,8 +39,8 @@ public :
 
     //  Do the kernel job : add topo constraints to the system
     void AddTopoEquations(cResolSysNonLinear<tREAL8> &);
-    void AddPointsFromDataToGCP(cBA_GCP &aBA_GCP, cPhotogrammetricProject *aPhProj); //< get creates points in gcp from points names in data from mAllTopoDataIn, clear mAllTopoDataIn
-    void FromData(const cBA_GCP &aBA_GCP, cPhotogrammetricProject *aPhProj); //< get data from mAllTopoDataIn
+    void AddPointsFromDataToGCP(cPhotogrammetricProject *aPhProj); //< get creates points in gcp from points names in data from mAllTopoDataIn, clear mAllTopoDataIn
+    void FromData(cPhotogrammetricProject *aPhProj); //< get data from mAllTopoDataIn
     void ToFile(const std::string & aName) const;
     void print();
     void printObs(bool withDetails=false);
@@ -64,10 +64,17 @@ public :
 private :
     cTopoData mAllTopoDataIn;
     cPhotogrammetricProject * mPhProj;
+    cBA_GCP * mBA_GCP;
     std::map<eTopoObsType, cCalculator<double>*> mTopoObsType2equation;
     std::map<std::string, cTopoPoint> mAllPts;
     std::vector<cTopoObsSet*> mAllObsSets;
     double                       mSigma0;
+
+    int                    mNbTopoParams;
+    int                       mNbTopoObs;
+    int                mNbGCPConstraints;
+    int                 mNbSetContraints; // count obssets constraints
+
     bool                        mIsReady; //< if data has been read (via FromFile)
     tPtrSysCo                     mSysCo;
 

@@ -1435,6 +1435,8 @@ void cMMVII_Appli::GenerateHelp()
    bool TuningMet   = false;
    for (int aKTime=0 ; aKTime<2; aKTime++)
    {
+      size_t aArgNum = 0;
+      size_t aCommNum = 0;
       for (const auto & Arg : mArgFac.Vec())
       {
           const std::string & aNameA = Arg->Name();
@@ -1449,6 +1451,13 @@ void cMMVII_Appli::GenerateHelp()
                 bool DoIt = (aKTime==0) ^  (IsIinternal || IsTuning || IsGlobHelp);
                 if (DoIt && ((!IsGlobHelp) || mDoGlobHelp))
                 {
+                   while ((aCommNum<mArgFac.mVComm.size()) &&(mArgFac.mVComm.at(aCommNum).first==aArgNum) )
+                   {
+                      HelpOut() << " ------------------------\n" ;
+                      HelpOut() << "       "<< mArgFac.mVComm.at(aCommNum).second <<"\n" ;
+                      HelpOut() << " ------------------------\n" ;
+                      aCommNum++;
+                   }
                    if (IsTuning && (!TuningMet))
                    {
                       HelpOut() << "       ####### TUNING #######\n" ;
@@ -1465,14 +1474,14 @@ void cMMVII_Appli::GenerateHelp()
                       GlobalMet = true;
                    }
 
-                   HelpOut()  << "  * [Name=" <<  Arg->Name()   << "] " << Arg->NameType() << Arg->Name4Help() << " :: " ;
+                   HelpOut()  << "  * [" <<  Arg->Name()   << "] " << Arg->NameType() << Arg->Name4Help() << ": " ;
                    if (IsIinternal)
                        HelpOut()  << "(!!== INTERNAL DONT USE DIRECTLY ==!!)";
                    HelpOut()  << Arg->Com() ;
                    bool HasDefVal = Arg->HasType(eTA2007::HDV);
                    if (HasDefVal)
                    {
-                      HelpOut() << " ,[Default="  << Arg->NameValue() << "]";
+                      HelpOut() << ", [Default="  << Arg->NameValue() << "]";
                    }
 
                    HelpOut()  << "\n";
@@ -1493,6 +1502,7 @@ void cMMVII_Appli::GenerateHelp()
                     PrintAdditionnalComments(Arg);
              }
           }
+          aArgNum++;
       }
    }
    HelpOut() << "\n";

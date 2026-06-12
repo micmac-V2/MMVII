@@ -497,8 +497,9 @@ void cCamSimul::BenchHierchBA(cTimerSegm * aTS,
     cMakeArboTripletCfg aCfg;
     aCfg.mLVM      = 1e-7;
     aCfg.mNbIterBA = 5;
-    aCfg.mSigmaTPt = 1;
-    aCfg.mFacElim  = 10;
+    aCfg.mSigma    = 2;
+    aCfg.mSigmaAtt = 1;
+    aCfg.mThrs  = 10;
 
     //StdOut() << "Nb of cams=" << aNbCam << ", nb of triplets=" << aNbTri << std::endl;
 
@@ -545,8 +546,9 @@ void cCamSimul::BenchHierchBA_InitOnly(cTimerSegm* aTS, bool isSubVert)
     cMakeArboTripletCfg aCfg;
     aCfg.mLVM      = 1e-7;
     aCfg.mNbIterBA = 0;   // spanning tree only — no BA refinement
-    aCfg.mSigmaTPt = 1;
-    aCfg.mFacElim  = 10;
+    aCfg.mSigma    = 1;
+    aCfg.mSigmaAtt = 1;
+    aCfg.mThrs  = 10;
 
     cMMVII_Appli& anAp = cMMVII_Appli::CurrentAppli();
 
@@ -587,8 +589,9 @@ void cCamSimul::BenchHierchBA_BAOnly(cTimerSegm* aTS, bool isSubVert)
     cMakeArboTripletCfg aCfg;
     aCfg.mLVM      = 1e-7;
     aCfg.mNbIterBA = aNbIterBA;
-    aCfg.mSigmaTPt = 1;
-    aCfg.mFacElim  = 10;
+    aCfg.mSigma    = 1;
+    aCfg.mSigmaAtt = 1;
+    aCfg.mThrs  = 10;
     aCfg.mNbExtraIterAtRoot = 2;
     //aCfg.mViscPose = {0.1,0.1};
 
