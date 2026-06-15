@@ -63,7 +63,7 @@ class cAppli_ReportBlock : public cMMVII_Appli
 
      private :
         void ProcessOneBloc(const std::string& anIdSync,const cIrbComp_TimeS &);
-        void AddStatDistWirePt(const cPt3dr& aPt,const cPt3dr& aDirLoc,const std::string & anIdSync,const std::string & aNamePt);
+        void AddStatDistWirePt(const cPt3dr& aPt,const cPt3dr& aDirLoc,const std::string & anIdSync,const std::string& aNameIm,const std::string & aNamePt);
 
         void TestWire3D(const std::string& anIdSync,const std::vector<cSensorCamPC *> & aVCam);
         /// For a given Id of Sync and a bloc of cameras, compute the stat on accuracy of intersection
@@ -212,6 +212,7 @@ void cAppli_ReportBlock::AddStatDistWirePt
      (
             const cPt3dr& aPt,
             const cPt3dr& aVertLoc,
+            const std::string & aTimeStamp,
             const std::string & anIm0,
             const std::string & aNamePt
      )
@@ -261,7 +262,7 @@ void cAppli_ReportBlock::AddStatDistWirePt
      }
 
      // Add individual statistic for each point each image
-     AddOneReportCSV(mIdRepDWirePt,{anIm0,aNamePt,ToStr(aD3),ToStr(aDH),ToStr(aDV)});
+     AddOneReportCSV(mIdRepDWirePt,{aTimeStamp,aNamePt,ToStr(aD3),ToStr(aDH),ToStr(aDV)});
 }
 
 
@@ -517,7 +518,7 @@ void cAppli_ReportBlock::ProcessOneBloc(const std::string& anIdSync,const cIrbCo
                 cPt3dr aPtLoc = mSCFreeScale                 ?
                                    aSim.Value(aMes3d.mPt)    :
                                    aPose.Value(aMes3d.mPt)   ;
-                AddStatDistWirePt(aPtLoc,aWMin.IndexExtre(),aVCam[0]->NameImage(),aMes3d.mNamePt);
+                AddStatDistWirePt(aPtLoc,aWMin.IndexExtre(),anIdSync,aVCam[0]->NameImage(),aMes3d.mNamePt);
             }
         }
      }

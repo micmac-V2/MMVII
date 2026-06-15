@@ -350,7 +350,7 @@ cAppli_Rename::cAppli_Rename(const std::vector<std::string> & aVArgs,const cSpec
   cMMVII_Appli (aVArgs,aSpec),
   mModeRecurs  (isModeRec),
   mDoReplace   (false),
-  mByLink      (false)
+  mByLink      (true)
 
 {
 }

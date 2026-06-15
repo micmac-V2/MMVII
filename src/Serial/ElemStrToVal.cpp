@@ -902,6 +902,12 @@ cCollecSpecArg2007 & cCollecSpecArg2007::operator << (tPtrArg2007 aVal)
     return *this;
 }
 
+cCollecSpecArg2007 & cCollecSpecArg2007::operator << (const std::string & aComment)
+{
+    mVComm.push_back({mV.size(),aComment});
+    return *this;
+}
+
 cCollecSpecArg2007::cCollecSpecArg2007()
 {
 }

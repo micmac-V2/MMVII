@@ -279,10 +279,12 @@ class cCollecSpecArg2007
       tPtrArg2007 operator [] (int) const;
       void clear() ;
       cCollecSpecArg2007 & operator << (tPtrArg2007 aVal);
+      cCollecSpecArg2007 & operator << (const std::string & aComment);
    private :
       tVecArg2007 & Vec();
       cCollecSpecArg2007(const cCollecSpecArg2007&) = delete;
       tVecArg2007  mV;
+      std::vector<std::pair<size_t,std::string> > mVComm; ///< comments inserted at a given position in mV
       cCollecSpecArg2007();
 };
 
