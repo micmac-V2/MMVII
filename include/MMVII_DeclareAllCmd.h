@@ -33,6 +33,7 @@ extern cSpecMMVII_Appli  TheSpecScaleImage_Std;
 extern cSpecMMVII_Appli  TheSpec_StackIm;
 extern cSpecMMVII_Appli  TheSpec_StackDep;
 extern cSpecMMVII_Appli  TheSpecCalcDiscIm;
+extern cSpecMMVII_Appli  TheSpecFilterImDepth;
 extern cSpecMMVII_Appli  TheSpecCalcDescPCar;
 extern cSpecMMVII_Appli  TheSpecMatchTieP;
 extern cSpecMMVII_Appli  TheSpec_TiePConv;
@@ -121,6 +122,7 @@ extern cSpecMMVII_Appli  TheSpec_CernInitRep;
 
 extern cSpecMMVII_Appli  TheSpec_ClinoInit;
 extern cSpecMMVII_Appli  TheSpecRename;
+extern cSpecMMVII_Appli  TheSpecRenameSubFolder;
 extern cSpecMMVII_Appli  TheSpec_V2ImportCalib;
 extern cSpecMMVII_Appli  TheSpec_ImportOri;
 extern cSpecMMVII_Appli  TheSpecDicoRename;
@@ -155,6 +157,7 @@ extern cSpecMMVII_Appli  TheSpec_VisuPoseStr3D;
 extern cSpecMMVII_Appli  TheSpec_TransformPoses;
 
 extern cSpecMMVII_Appli  TheSpec_EpipResampling;
+extern cSpecMMVII_Appli  TheSpec_OriCreateRPC;
 extern cSpecMMVII_Appli  TheSpec_EpipTest;
 
 extern cSpecMMVII_Appli  TheSpecAppliBenchAPBI;

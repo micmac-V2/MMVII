@@ -249,6 +249,7 @@ void FillExif(const CPLStringList& aStrings, cExifData& aExif)
 
 // Convert GPS Date and Time to Unix Epoch (second and nanosec)
     ExifGPSDateTimeToEpoch(aExif.mGPSDateStamp, aExif.mGPSTimeStamp, aExif.mGPSTimeUTC_s, aExif.mGPSTimeUTC_ns);
+    aExif.mValid = true;
 }
 
 

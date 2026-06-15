@@ -544,6 +544,7 @@ protected :
          int                     aKPt
          ) override;
 
+    tREAL8 mNormalDiffMinCos = 0.98;
 };
 
 
@@ -582,8 +583,6 @@ class cBA_ArboTriplets
     private:
         cMakeArboTriplet*                            mPMAT;
         int                                                mNbIter;
-        tREAL8                                             mSigAttFinal;
-        tREAL8                                             mThrFinal;
         std::vector<tREAL8>                                mSigARange;  ///< [start, end] dynamic threshold
         std::vector<tREAL8>                                mThrRange;   ///< [start, end] dynamic threshold
 

@@ -42,10 +42,13 @@ class cAppli_HierarchSfm : public cMMVII_Appli
         tREAL8                    mWBalance;
         std::vector<tREAL8>       mViscPose;      ///< regularization on poses in BA
         tREAL8                    mLVM;           ///< levenberg-marquadt
-        tREAL8                    mSigmaTPt;
-        tREAL8                    mFacElim;
+        tREAL8                    mSigma;
+        tREAL8                    mSigmaAtt;
+        tREAL8                    mThrs;
         int                       mNbIterBA;
         int                       mNbExtraIterAtRoot;
+
+        bool                      mVerbose;
 
 };
 
@@ -56,18 +59,21 @@ cAppli_HierarchSfm::cAppli_HierarchSfm(const std::vector<std::string> & aVArgs,c
     mWBalance    (1.0),
     mViscPose    ({-1,-1}),
     mLVM         (1e-7),
-    mSigmaTPt    (1.0),
-    mFacElim     (10.0),
+    mSigma       (1.0),
+    mSigmaAtt    (1.0),
+    mThrs     (10.0),
     mNbIterBA    (5),
-    mNbExtraIterAtRoot (2)
+    mNbExtraIterAtRoot (2),
+    mVerbose    (false)
 {}
 
 cCollecSpecArg2007 & cAppli_HierarchSfm::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return anArgObl
            << Arg2007(mPatImIn,"Pattern/file for images",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
-           <<  mPhProj.DPOrient().ArgDirInMand("Input calibration folder")
            <<  mPhProj.DPOriRel().ArgDirInMand("Input relative orientations (triplets)")
+           <<  mPhProj.DPOrient().ArgDirInMand("Input calibration folder")
+           <<  mPhProj.DPOrient().ArgDirOutMand("Global orientation output directory")
         ;
 }
 
@@ -77,15 +83,15 @@ cCollecSpecArg2007 & cAppli_HierarchSfm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            <<  mPhProj.DPMulTieP().ArgDirInOpt("","Input features (multiple tie-points format)")
            <<  mPhProj.DPGndPt2D().ArgDirInOpt("","Input features (image measurements format)")
            <<  mPhProj.DPOrient().ArgDirInOpt("","Ground truth input orientation directory")
-           <<  mPhProj.DPOrient().ArgDirOutOpt("","Global orientation output directory")
-           //<<  mPhProj.DPOriTriplets().ArgDirOutOpt("","Directory for dmp-save of triplet (for faster read later)")
            <<  AOpt2007(mViscPose,"ViscPose","Regularization on poses for BA: [SigmaTr,SigmaRot]",{eTA2007::HDV})
            <<  AOpt2007(mLVM,"LVM","Levenberg-marquadt regularization",{eTA2007::HDV})
-           <<  AOpt2007(mSigmaTPt,"SigmaTPt","Sigma for tie-points",{eTA2007::Tuning})
-           <<  AOpt2007(mFacElim,"FacElim","Outlier threshold=(FacElim*SigmaTPt)",{eTA2007::Tuning})
+           <<  AOpt2007(mSigma,"Sigma","Sigma for tie-points (relative to other obs)",{eTA2007::Tuning,eTA2007::HDV})
+           <<  AOpt2007(mSigmaAtt,"SigmaAtt","Attentuation sigma for tie-points",{eTA2007::Tuning})
+           <<  AOpt2007(mThrs,"Thrs","Outlier threshold",{eTA2007::Tuning})
            <<  AOpt2007(mNbIterBA,"NbIterBA","Number of iteration in BA refinement",{eTA2007::HDV})
            <<  AOpt2007(mNbExtraIterAtRoot,"NbExtraIter",
-                       "Extra BA iterations at root node (all images)",{eTA2007::HDV})
+                       "Extra BA iterations at root node (all images)",{eTA2007::Tuning,eTA2007::HDV})
+           <<  AOpt2007(mVerbose,"Verbose","More messages prints",{eTA2007::Tuning,eTA2007::HDV})
         ;
 }
 
@@ -105,11 +111,13 @@ int cAppli_HierarchSfm::Exe()
 
     // set MakeArboTriplet config parameters
     cMakeArboTripletCfg aCfg;
+    aCfg.mVerbose = IsInit(&mVerbose) ? mVerbose : false;
     aCfg.mLVM      = mLVM;
     aCfg.mNbIterBA = mNbIterBA;
     aCfg.mNbExtraIterAtRoot = mNbExtraIterAtRoot;
-    aCfg.mSigmaTPt = IsInit(&mSigmaTPt) ? mSigmaTPt : aQScoreStats.ErrAtProp(0.75);
-    aCfg.mFacElim  = IsInit(&mFacElim)  ? mFacElim  : 4.0*aQScoreStats.ErrAtProp(0.75);
+    aCfg.mSigma = IsInit(&mSigma) ? mSigma : 1.0;
+    aCfg.mSigmaAtt = IsInit(&mSigmaAtt) ? mSigmaAtt : std::max(1.0,aQScoreStats.ErrAtProp(0.75));
+    aCfg.mThrs  = IsInit(&mThrs)  ? mThrs  : std::max(5.0,4.0*aQScoreStats.ErrAtProp(0.75));
     if (IsInit(&mViscPose))
         aCfg.mViscPose = mViscPose;
 
@@ -151,37 +159,26 @@ int cAppli_HierarchSfm::Exe()
 
     TimeSegm().SetIndex("MakeGraphPose");
     aMk3.MakeGraphPose();
-    //StdOut() << "MakeGraphPose DONE" << std::endl;
 
     TimeSegm().SetIndex("InitialiseCalibs");
     aMk3.InitialiseCalibs();
-    //StdOut() << "InitialiseCalibs DONE" << std::endl;
 
     TimeSegm().SetIndex("PoseRef");
     aMk3.DoPoseRef();
-    //StdOut() << "DoPoseRef DONE" << std::endl;
 
     TimeSegm().SetIndex("MakeCnxTriplet");
     aMk3.MakeCnxTriplet();
-    //StdOut() << "MakeCnxTriplet DONE" << std::endl;
 
     TimeSegm().SetIndex("TripletWeighting");
     aMk3.MakeWeightingGraphTriplet();
-    //StdOut() << "MakeWeightingGraphTriplet DONE" << std::endl;
 
     TimeSegm().SetIndex("ComputeArbor");
     aMk3.ComputeArbor();
-    //StdOut() << "ComputeArbor DONE" << std::endl;
 
-    if (mPhProj.DPOrient().DirOutIsInit())
-    {
-        StdOut() << " ========== Output Global Orientation  ========== " << std::endl;
-        aMk3.SaveGlobSol();
-    }
+    aMk3.SaveGlobSol();
 
-
-    aMk3.ShowStat();
-
+    if (mVerbose) aMk3.ShowStat();
+    if (mVerbose) aCfg.Show();
 
     return EXIT_SUCCESS;
 }
@@ -193,7 +190,7 @@ tMMVII_UnikPApli Alloc_HierarchSfm(const std::vector<std::string> & aVArgs,const
 
 cSpecMMVII_Appli  TheSpec_HierarchSfm
     (
-        "HierarchicalSfm",
+        "OriPoseEstimGlobHierarchical",
         Alloc_HierarchSfm,
         "Construct global orientation from a graph of relative motions",
         {eApF::Ori},

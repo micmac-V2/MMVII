@@ -482,6 +482,8 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
    {
         //==== Bench_0000 bench on very basic support functionnalities
 
+       BenchEpipolar(aParam);
+
         Bench_Random(aParam);  // Bench random generator, check they are acceptably unbiased
 
         // Test on split Dir/File, string op,

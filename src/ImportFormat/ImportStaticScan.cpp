@@ -1,6 +1,7 @@
 #include "MMVII_StaticLidar.h"
 #include "MMVII_Sensor.h"
 #include "MMVII_Geom3D.h"
+#include "MMVII_Interpolators.h"
 
 /**
    \file importStaticScan.cpp
@@ -57,6 +58,7 @@ private :
     std::string              mPoseXYZFilename;
     tREAL8                   mSigma;              ///< in m
     cPt2di                   mDecimXY;            ///< skip one point out of mDecimXY in x and y
+    tREAL8                   mDistNoiseSigma;
 
     // data
     tPoseR                   mForcedPose;
@@ -79,6 +81,7 @@ cAppli_ImportStaticScan::cAppli_ImportStaticScan(const std::vector<std::string> 
     mNbPatches      (1000),
     mSigma          (0.001),
     mDecimXY        (1,1),
+    mDistNoiseSigma  (0.),
     mForcedPose     (tPoseR::Identity()),
     mPhiStepApprox  (NAN)
 {
@@ -109,6 +112,7 @@ cCollecSpecArg2007 & cAppli_ImportStaticScan::ArgOpt(cCollecSpecArg2007 & anArgO
            << AOpt2007(mSigma,"Sigma","Initial sigma of measurements (in m)",{{eTA2007::HDV}})
            << AOpt2007(mPoseXYZFilename,"PoseXYZ","Set initial pose from a Comp3D .xyz file",{{eTA2007::HDV, eTA2007::FileAny}})
            << AOpt2007(mDecimXY,"DecimXY","Keep one point out of DecimXY, in line and col",{{eTA2007::HDV}})
+           << AOpt2007(mDistNoiseSigma,"DistNoiseSigma","Sigma of added noise on distance",{{eTA2007::HDV}})
         ;
 }
 
@@ -171,6 +175,10 @@ void cAppli_ImportStaticScan::estimatePhiStep()
             if ((aPtAng2.y()-aPtAng1.y())/mPhiStepApprox < angularPrecisionInSteps)
             {
                 mThetaStepApprox = aPtAng2.x()-aPtAng1.x();
+                if (mThetaStepApprox>M_PI)
+                    mThetaStepApprox-=2*M_PI;
+                if (mThetaStepApprox<-M_PI)
+                    mThetaStepApprox+=2*M_PI;
                 StdOut() << "ThetaStep " << mThetaStepApprox << "\n";
                 return;
             }
@@ -332,6 +340,11 @@ void cAppli_ImportStaticScan::computeAngStartStep()
                         auto & a1stPtAng = mSL_importer.mVectPtsTPD[a1stPti];
                         mSL_importer.mPhiStep = (aPtAng.y()-a1stPtAng.y())/(mSL_importer.mVectPtsLine[i]-mSL_importer.mVectPtsLine[a1stPti]);
                         mSL_importer.mThetaStep = (aPtAng.x()-a1stPtAng.x())/(mSL_importer.mVectPtsCol[i]-mSL_importer.mVectPtsCol[a1stPti]);
+                        if (mSL_importer.mThetaStep>M_PI)
+                            mSL_importer.mThetaStep-=2*M_PI;
+                        if (mSL_importer.mThetaStep<-M_PI)
+                            mSL_importer.mThetaStep+=2*M_PI;
+
                         mSL_importer.mPhiStart = a1stPtAng.y() - mSL_importer.mPhiStep * mSL_importer.mVectPtsLine[a1stPti];
                         mSL_importer.mThetaStart = a1stPtAng.x() - mSL_importer.mThetaStep * mSL_importer.mVectPtsCol[a1stPti];
                         StdOut() << "computeAngStartStep " << a1stPti << " " << i << " " << mSL_importer.mThetaStep << " " << mSL_importer.mPhiStep << " " << "\n";
@@ -670,6 +683,17 @@ int cAppli_ImportStaticScan::Exe()
 
     mSL_importer.read(mNameFile, false, mForceStructured, mStrInput2TSL, mForceGreenAsIntensity);
 
+    if (mDistNoiseSigma!=0.)
+    {
+        // add noise on distances
+        for (size_t i=0; i<mSL_importer.mVectPtsTPD.size(); ++i)
+        {
+            mSL_importer.mVectPtsTPD[i].z() = mSL_importer.mVectPtsTPD[i].z() + RandNormal(0.,mDistNoiseSigma);
+        }
+        mSL_importer.convertToXYZ();
+    }
+
+
     MMVII_INTERNAL_ASSERT_tiny(!mSL_importer.mVectPtsXYZ.empty(),"Error reading "+mNameFile);
     if (mSL_importer.HasIntensity())
     {
@@ -844,6 +868,22 @@ int cAppli_ImportStaticScan::Exe()
     aSL_data.MakeVisu(mPhProj);
 
     aSL_data.ToFile(mPhProj.DPOrient().FullDirOut() + aSL_data.NameOriStd());
+
+
+    // check scan normals
+    /*auto aInterp  = cDiffInterpolator1D::AllocFromNames({"Linear"});
+    int step=10;
+    for (int y=step/2; y<mSL_importer.NbLine()-step/2; y+=step)
+        for (int x=step/2; x<mSL_importer.NbCol()-step/2; x+=step)
+        {
+            cPt2dr aPt(x,y);
+            //aSL_data.Image2NormalInstr(aPt, *aInterp);
+        }
+    aSL_data.Image2NormalInstr(cPt2dr(mSL_importer.NbCol()/2, mSL_importer.NbLine()/2), *aInterp);
+    aSL_data.Image2NormalInstr(cPt2dr(mSL_importer.NbCol()/2+1, mSL_importer.NbLine()/2), *aInterp);
+    aSL_data.Image2NormalInstr(cPt2dr(mSL_importer.NbCol()/2, mSL_importer.NbLine()/2+1), *aInterp);
+    delete aInterp;
+    */
 
     //aSL_data.ToPly("Out_filtered.ply", true);
     delete aCalib;

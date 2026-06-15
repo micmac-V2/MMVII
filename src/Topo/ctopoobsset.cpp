@@ -32,7 +32,8 @@ void cTopoObsSet::PutUknowsInSetInterval()
         mSetInterv->AddOneInterv(mParams);
 }
 
-bool cTopoObsSet::addObs(eTopoObsType obsType, cBA_Topo *aBA_Topo, const std::vector<std::string> &pts, const std::vector<tREAL8> &vals, const cResidualWeighterExplicit<tREAL8> &aWeights)
+bool cTopoObsSet::addObs(eTopoObsType obsType, cBA_Topo *aBA_Topo, const std::vector<std::string> &pts,
+                         const std::vector<tREAL8> &vals, const std::vector<cTopoSigma> &aTopoSigmas)
 {
     if (std::find(mAllowedObsTypes.begin(), mAllowedObsTypes.end(), obsType) == mAllowedObsTypes.end())
     {
@@ -41,7 +42,7 @@ bool cTopoObsSet::addObs(eTopoObsType obsType, cBA_Topo *aBA_Topo, const std::ve
                  << E2Str(mType)<<" obs set!\n";
         return false;
     }
-    mObs.push_back(new cTopoObs(this, aBA_Topo, obsType, pts, vals, aWeights));
+    mObs.push_back(new cTopoObs(this, aBA_Topo, obsType, pts, vals, aTopoSigmas));
     return true;
 }
 
@@ -88,8 +89,9 @@ std::string cTopoObsSetSimple::toString() const
 }
 
 
-void cTopoObsSetSimple::makeConstraints(cResolSysNonLinear<tREAL8> & aSys)
+int cTopoObsSetSimple::makeConstraints(cResolSysNonLinear<tREAL8> & aSys)
 {
+    return 0;
 }
 
 
@@ -178,7 +180,7 @@ std::string cTopoObsSetStation::toString() const
 }
 
 
-void cTopoObsSetStation::makeConstraints(cResolSysNonLinear<tREAL8> & aSys)
+int cTopoObsSetStation::makeConstraints(cResolSysNonLinear<tREAL8> & aSys)
 {
     resetRotOmega();
     switch (mOriStatus)
@@ -193,6 +195,7 @@ void cTopoObsSetStation::makeConstraints(cResolSysNonLinear<tREAL8> & aSys)
         StdOut() << "  rotation indices "<<IndUk0()<<"-"<<IndUk1()-1<<std::endl;
 #endif
         aSys.SetFrozenVarCurVal(*this,mParams);
+        return 2;
         break;
     case(eTopoStOriStat::eTopoStOriVert):
 #ifdef VERBOSE_TOPO
@@ -200,13 +203,16 @@ void cTopoObsSetStation::makeConstraints(cResolSysNonLinear<tREAL8> & aSys)
         StdOut() << "  rotation indices "<<IndUk0()<<"-"<<IndUk1()-2<<std::endl;
 #endif
         aSys.SetFrozenVarCurVal(*this,mParams.data(), 2); // not z
+        return 2;
         break;
     case(eTopoStOriStat::eTopoStOriBasc):
         // free rotation: nothing to constrain
+        return 0;
         break;
     case(eTopoStOriStat::eNbVals):
         MMVII_INTERNAL_ASSERT_strong(false, "cTopoObsSetStation::makeConstraints: incorrect ori status")
     }
+    return 0;
 }
 
 

@@ -95,6 +95,9 @@ int main(int argc, char ** argv)
           if (cmd_match(aNameCom, &cSpecMMVII_Appli::Comment, "comment"))
               return EXIT_SUCCESS;
       }
+       StdOut() << "Command '" << aNameCom << "' not found.\n";
+       StdOut() << "Use 'MMVII' without any argument to get the list of available commands.\n";
+       return EXIT_FAILURE;
    }
 
    // Affiche toutes les commandes

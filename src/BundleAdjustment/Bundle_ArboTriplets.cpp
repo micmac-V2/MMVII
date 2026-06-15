@@ -1,8 +1,60 @@
 #include "BundleAdjustment.h"
 #include "../src/Graphs/ArboTriplets.h"
 
+#include <latch>
+#include <barrier>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+
+struct Barrier {
+    int n, count = 0, generation = 0;
+    std::mutex m;
+    std::condition_variable cv;
+
+    explicit Barrier(int n) : n(n) {}
+
+    void wait() {
+        std::unique_lock lock(m);
+        int gen = generation;
+        if (++count == n) {
+            ++generation;
+            count = 0;
+            cv.notify_all();
+        } else {
+            cv.wait(lock, [&]{ return generation != gen; });
+        }
+    }
+};
+
+
+
 namespace MMVII
 {
+
+/*
+class cThreadCreateSim
+{
+    public :
+     
+    private :
+};
+*/
+
+Barrier aBar(5);
+
+void MThreadForcConcurenceLock()
+{
+  if (!UserIsMPD()) return;
+ // static int aCpt=0;
+
+  aBar.wait();
+
+  std::cout << "LTTTT " << TreeThreadsBase::Id() << " MPD?=" << UserIsMPD() << "\n";
+}
+
+
+
 
 /* ********************************************************* */
 /*                                                           */
@@ -13,12 +65,8 @@ namespace MMVII
 cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols,int aTDepth,int aNbIterEnd):
     mPMAT      (aPMAT),
     mNbIter    (aNbIterEnd),
-    mSigAttFinal(1.0),
-    mThrFinal   (aPMAT->FacElim()),
-    //mSigARange  ({std::max(mSigAttFinal,std::min(5.0,aPMAT->SigmaTPt())),mSigAttFinal}), // {max,min} <=> {initial,final}
-    //mThrRange   ({std::max(mThrFinal,std::min(30.0,aPMAT->SigmaTPt()*aPMAT->FacElim())),mThrFinal}), // {max,min} <=> {initial,final}
-    mSigARange  ({std::max(mSigAttFinal,aPMAT->SigmaTPt()),mSigAttFinal}), // {max,min} <=> {initial,final}
-    mThrRange   ({mThrFinal,mThrFinal}),            // {max,min} <=> {initial,final}
+    mSigARange  ({2*aPMAT->Cfg().mSigmaAtt,aPMAT->Cfg().mSigmaAtt}), // {max,min} <=> {initial,final}
+    mThrRange   ({2*aPMAT->Cfg().mThrs,aPMAT->Cfg().mThrs}),            // {max,min} <=> {initial,final}
     mSys      (nullptr),
     mTPts     (nullptr),
     mTreeDepth(aTDepth)
@@ -55,13 +103,13 @@ void cBA_ArboTriplets::OneIteration(int aIter)
     // viscosity
     for (auto& aCam : mVCams)
     {
-        if ( mPMAT->ViscPose().at(0)>0)
+        if ( mPMAT->Cfg().mViscPose.at(0)>0)
         {
-            mSys->AddEqFixCurVar(*aCam,aCam->Center(),Square(1.0/mPMAT->ViscPose().at(0)));
+            mSys->AddEqFixCurVar(*aCam,aCam->Center(),Square(1.0/mPMAT->Cfg().mViscPose.at(0)));
         }
-        if (mPMAT->ViscPose().at(1)>0)
+        if (mPMAT->Cfg().mViscPose.at(1)>0)
         {
-            mSys->AddEqFixCurVar(*aCam,aCam->Omega(),Square(1.0/mPMAT->ViscPose().at(1)));
+            mSys->AddEqFixCurVar(*aCam,aCam->Omega(),Square(1.0/mPMAT->Cfg().mViscPose.at(1)));
         }
     }
 
@@ -157,6 +205,7 @@ void cBA_ArboTriplets::OneIteration(int aIter)
 
                 // handle visibility
                 //
+              //   MThreadForcConcurenceLock();
                 tREAL8 aDegVis = aCam->DegreeVisibility(aP3D);
                 if (aDegVis > 0.0)
                 {
@@ -222,7 +271,7 @@ void cBA_ArboTriplets::OneIteration(int aIter)
 
             if (aNbEqAdded>=2)
             {
-                mSys->R_AddObsWithTmpUK(aStrSubst,mPMAT->LVM());
+                mSys->R_AddObsWithTmpUK(aStrSubst,mPMAT->Cfg().mLVM);
             }
 
         }
@@ -245,7 +294,7 @@ void cBA_ArboTriplets::OneIteration(int aIter)
         StdOutLock::unlock();
     }
 
-    const auto& aVectSol = mSys->SolveUpdateReset({mPMAT->LVM()}, {}, {});
+    const auto& aVectSol = mSys->SolveUpdateReset({mPMAT->Cfg().mLVM}, {}, {});
     mSetIntervUK.SetVUnKnowns(aVectSol);
 }
 

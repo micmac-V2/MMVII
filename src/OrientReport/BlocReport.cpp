@@ -63,7 +63,7 @@ class cAppli_ReportBlock : public cMMVII_Appli
 
      private :
         void ProcessOneBloc(const std::string& anIdSync,const cIrbComp_TimeS &);
-        void AddStatDistWirePt(const cPt3dr& aPt,const cPt3dr& aDirLoc,const std::string & anIdSync,const std::string & aNamePt);
+        void AddStatDistWirePt(const cPt3dr& aPt,const cPt3dr& aDirLoc,const std::string & anIdSync,const std::string& aNameIm,const std::string & aNamePt);
 
         void TestWire3D(const std::string& anIdSync,const std::vector<cSensorCamPC *> & aVCam);
         /// For a given Id of Sync and a bloc of cameras, compute the stat on accuracy of intersection
@@ -149,7 +149,7 @@ cAppli_ReportBlock::cAppli_ReportBlock
 ) :
      cMMVII_Appli   (aVArgs,aSpec),
      mPhProj        (*this),
-     mShow          (false),
+     mShow          (true),
      mNameBloc      (cIrbCal_Block::theDefaultName),
      mCalBlocInstr  (nullptr),
      mCompBlocInstr (nullptr),
@@ -212,6 +212,7 @@ void cAppli_ReportBlock::AddStatDistWirePt
      (
             const cPt3dr& aPt,
             const cPt3dr& aVertLoc,
+            const std::string & aTimeStamp,
             const std::string & anIm0,
             const std::string & aNamePt
      )
@@ -261,7 +262,7 @@ void cAppli_ReportBlock::AddStatDistWirePt
      }
 
      // Add individual statistic for each point each image
-     AddOneReportCSV(mIdRepDWirePt,{anIm0,aNamePt,ToStr(aD3),ToStr(aDH),ToStr(aDV)});
+     AddOneReportCSV(mIdRepDWirePt,{aTimeStamp,aNamePt,ToStr(aD3),ToStr(aDH),ToStr(aDV)});
 }
 
 
@@ -307,7 +308,7 @@ void cAppli_ReportBlock::TestWire3D(const std::string & anIdSync,const std::vect
 
      int aNbPl = aVPlane.size();
 
-   //   StdOut() << "NBBBBB " << aNbPl << " " << mWireFolder << "\n";
+//StdOut() << "NBBBBB " << aNbPl << " " << mWireFolder << "\n";
      // if we can compute plane
      if (aNbPl>=2)
      {
@@ -347,6 +348,7 @@ void cAppli_ReportBlock::TestWire3D(const std::string & anIdSync,const std::vect
                 tREAL8 aDistPix =  aWPix.Average() * aRatio;
 
                 mStatGlobWire.Add(aDistPix);
+ //StdOut() << " DPIX=" << aDistPix  << " Id=" << mIdRepWire << "\n";
                 AddOneReportCSV(mIdRepWire,{anIdSync,ToStr(aNbPl),ToStr(aDist3D),ToStr(aDistPix)});
             }
         }
@@ -516,7 +518,7 @@ void cAppli_ReportBlock::ProcessOneBloc(const std::string& anIdSync,const cIrbCo
                 cPt3dr aPtLoc = mSCFreeScale                 ?
                                    aSim.Value(aMes3d.mPt)    :
                                    aPose.Value(aMes3d.mPt)   ;
-                AddStatDistWirePt(aPtLoc,aWMin.IndexExtre(),aVCam[0]->NameImage(),aMes3d.mNamePt);
+                AddStatDistWirePt(aPtLoc,aWMin.IndexExtre(),anIdSync,aVCam[0]->NameImage(),aMes3d.mNamePt);
             }
         }
      }
@@ -531,6 +533,8 @@ int cAppli_ReportBlock::Exe()
 
     mWithTargetPoint = contains(mStrM2T,'T');
     mWithWire = contains(mStrM2T,'W') || IsInit(&mWireFolder);
+
+   // StdOut() << "WITH WIRE=" << mWithWire << "\n";
 
     mWithClino = mPhProj.DPMeasuresClino().DirInIsInit() ;
     mWithCoordGround = mPhProj.DPGndPt3D().DirInIsInit();
@@ -596,7 +600,7 @@ int cAppli_ReportBlock::Exe()
 
    // Add the stat for all the points
     CSV_AddStat(mIdRepPtGlob,"GlobAVG ",mStatGlobPt);
-    StdOut() << mStatGlobPt.Show("Pt-Pix",{50,85}) << "\n";
+    // StdOut() << mStatGlobPt.Show("Pt-Pix",{50,85}) << "\n";
 
    if (IsInit(&mParamReportShared))
    {

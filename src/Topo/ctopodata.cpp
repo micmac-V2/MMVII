@@ -66,7 +66,7 @@ cTopoData::cTopoData(const cBA_Topo* aBA_topo)
         {
             cTopoObsData aObsData = {
                 aObs->mType, aObs->mPtsNames, aObs->mMeasures,
-                aObs->mWeights.getSigmas(), aObs->getResiduals()
+                aObs->mTopoSigmas, aObs->getResiduals()
             };
             aVectObsData.push_back(aObsData);
         }
@@ -237,6 +237,13 @@ bool cTopoData::InsertCompObsFile(const std::string & aFileName)
             continue;
         }
 
+        double sigma_rel = 0.;
+        if (!(iss >> sigma_rel))
+        {
+            sigma_rel = 0.;
+            iss.clear();
+        }
+
         switch (code_comp) {
         case eCompObsType::eCompError:
         case eCompObsType::eCompDist:
@@ -257,7 +264,7 @@ bool cTopoData::InsertCompObsFile(const std::string & aFileName)
         }
 
         if (!addObs(aCurrentVectObsSetStations, code_comp, nameFrom, nameTo,
-                    val, sigma, aCurrStationStatus))
+                    val, sigma, sigma_rel, aCurrStationStatus))
             MMVII_INTERNAL_ERROR("Error interpreting line "+std::to_string(line_num)+": \""+aFileName+"\"")
 
         ++aNbNewObs;
@@ -277,7 +284,7 @@ void cTopoData::clear()
 
 bool cTopoData::addObs(std::vector<cTopoObsSetStationData> &aCurrentVectObsSetStations, eCompObsType code,
                        const std::string & nameFrom, const std::string & nameTo, double val,
-                       double sigma, eTopoStOriStat aStationStatus)
+                       double sigma, double sigma_rel, eTopoStOriStat aStationStatus)
 {
     cTopoObsSetStationData * aSetDataStation = nullptr;
 
@@ -323,26 +330,26 @@ bool cTopoData::addObs(std::vector<cTopoObsSetStationData> &aCurrentVectObsSetSt
     // create obs
     switch (code) {
     case eCompObsType::eCompDist:
-        aObsData = {eTopoObsType::eDist, {nameFrom,nameTo}, {val}, {sigma}};
+        aObsData = {eTopoObsType::eDist, {nameFrom,nameTo}, {val}, {{sigma, sigma_rel}}};
         break;
     case eCompObsType::eCompHzOpen:
     case eCompObsType::eCompHz:
-        aObsData = {eTopoObsType::eHz, {nameFrom,nameTo}, {val}, {sigma}};
+        aObsData = {eTopoObsType::eHz, {nameFrom,nameTo}, {val}, {{sigma, sigma_rel}}};
         break;
     case eCompObsType::eCompZen:
-        aObsData = {eTopoObsType::eZen, {nameFrom,nameTo}, {val}, {sigma}};
+        aObsData = {eTopoObsType::eZen, {nameFrom,nameTo}, {val}, {{sigma, sigma_rel}}};
         break;
     case eCompObsType::eCompDX:
-        aObsData = {eTopoObsType::eDX, {nameFrom,nameTo}, {val}, {sigma}};
+        aObsData = {eTopoObsType::eDX, {nameFrom,nameTo}, {val}, {{sigma, sigma_rel}}};
         break;
     case eCompObsType::eCompDY:
-        aObsData = {eTopoObsType::eDY, {nameFrom,nameTo}, {val}, {sigma}};
+        aObsData = {eTopoObsType::eDY, {nameFrom,nameTo}, {val}, {{sigma, sigma_rel}}};
         break;
     case eCompObsType::eCompDZ:
-        aObsData = {eTopoObsType::eDZ, {nameFrom,nameTo}, {val}, {sigma}};
+        aObsData = {eTopoObsType::eDZ, {nameFrom,nameTo}, {val}, {{sigma, sigma_rel}}};
         break;
     case eCompObsType::eCompDH:
-        aObsData = {eTopoObsType::eDH, {nameFrom,nameTo}, {val}, {sigma}};
+        aObsData = {eTopoObsType::eDH, {nameFrom,nameTo}, {val}, {{sigma, sigma_rel}}};
         break;
     case eCompObsType::eCompError:
         return false;
@@ -390,10 +397,10 @@ std::pair<cTopoData, cSetMesGnd3D> cTopoData::createEx1()
 
 #define WW 0.01
     // distances to fixed points
-    cTopoObsData aObs1 = {eTopoObsType::eDist, {"ptD", "ptA"},  {10.}, {WW}};
-    cTopoObsData aObs2 = {eTopoObsType::eDist, {"ptD", "ptB"},  {10.}, {WW}};
-    cTopoObsData aObs3 = {eTopoObsType::eDist, {"ptD", "ptC"},  {10.}, {WW}};
-    cTopoObsData aObs4 = {eTopoObsType::eDist, {"ptD", "ptC"},  {10+WW}, {WW}};
+    cTopoObsData aObs1 = {eTopoObsType::eDist, {"ptD", "ptA"},  {10.}, {{WW, 0.}}};
+    cTopoObsData aObs2 = {eTopoObsType::eDist, {"ptD", "ptB"},  {10.}, {{WW, 0.}}};
+    cTopoObsData aObs3 = {eTopoObsType::eDist, {"ptD", "ptC"},  {10.}, {{WW, 0.}}};
+    cTopoObsData aObs4 = {eTopoObsType::eDist, {"ptD", "ptC"},  {10+WW}, {{WW, 0.}}};
 
     cTopoObsSetData aSet1;
     aSet1.mType = eTopoObsSetType::eSimple;
@@ -426,13 +433,13 @@ std::pair<cTopoData, cSetMesGnd3D>  cTopoData::createEx3()
     //aSetPts.AddMeasure( cMes1GCP(cPt3dr(105,115,105), "Tr1") ); // init not needed. Final: 107.072, 107.072, 100
 
     double g0 = 2.2;
-    cTopoObsData aObs1 = {eTopoObsType::eHz, {"St1", "Ori1"},  {0. - g0}, {0.0001}};
-    cTopoObsData aObs2 = {eTopoObsType::eHz, {"St1", "Tr1"},  {M_PI/4. - g0}, {0.0001}};
-    cTopoObsData aObs3 = {eTopoObsType::eZen, {"St1", "Tr1"},  {M_PI/2.}, {0.0001}};
+    cTopoObsData aObs1 = {eTopoObsType::eHz, {"St1", "Ori1"},  {0. - g0}, {{0.0001, 0.}}};
+    cTopoObsData aObs2 = {eTopoObsType::eHz, {"St1", "Tr1"},  {M_PI/4. - g0}, {{0.0001, 0.}}};
+    cTopoObsData aObs3 = {eTopoObsType::eZen, {"St1", "Tr1"},  {M_PI/2.}, {{0.0001, 0.}}};
 
-    cTopoObsData aObs4 = {eTopoObsType::eDist, {"St1", "Tr1"},  {10.}, {0.001}};
-    cTopoObsData aObs5 = {eTopoObsType::eDist, {"St1", "Tr1"},  {10.002}, {0.001}};
-    cTopoObsData aObs6 = {eTopoObsType::eDH, {"St1", "Tr1"},  {0.0002}, {0.0001}};
+    cTopoObsData aObs4 = {eTopoObsType::eDist, {"St1", "Tr1"},  {10.}, {{0.001, 0.}}};
+    cTopoObsData aObs5 = {eTopoObsType::eDist, {"St1", "Tr1"},  {10.002}, {{0.001, 0.}}};
+    cTopoObsData aObs6 = {eTopoObsType::eDH, {"St1", "Tr1"},  {0.0002}, {{0.0001, 0.}}};
 
     cTopoObsSetStationData aSet1;
     aSet1.mType = eTopoObsSetType::eStation;
@@ -486,17 +493,17 @@ std::pair<cTopoData, cSetMesGnd3D> cTopoData::createEx4()
                         {    eTopoObsType::eDX,
                              {"St", std::string("Pt")+(char)('1'+i)},
                              {aMesRot.x()},
-                             {0.001}         }     );
+                             {{0.001, 0.}}         }     );
         aSet1.mObs.push_back(
                         {    eTopoObsType::eDY,
                              {"St", std::string("Pt")+(char)('1'+i)},
                              {aMesRot.y()},
-                             {0.001}         }     );
+                             {{0.001, 0.}}         }     );
         aSet1.mObs.push_back(
                         {    eTopoObsType::eDZ,
                              {"St", std::string("Pt")+(char)('1'+i)},
                              {aMesRot.z()},
-                             {0.001}         }     );
+                             {{0.001, 0.}}         }     );
     }
 
     aTopoData.mAllObsSetStations = {aSet1};

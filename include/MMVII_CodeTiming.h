@@ -60,18 +60,21 @@ public:
     long long calls()    const { return calls_; }
 
     // Total time in milliseconds (double for sub-ms precision).
-    double    total_ms() const {
+    double    total_ms() const
+    {
         return std::chrono::duration<double, std::milli>(total_).count();
     }
 
     // Average time per call in microseconds.  Returns 0 if never called.
-    double    avg_us()   const {
+    double    avg_us()   const
+    {
         if (calls_ == 0) return 0.0;
         return std::chrono::duration<double, std::micro>(total_).count() / calls_;
     }
 
     // Print a one-line summary to stdout.
-    void report() const {
+    void report() const
+    {
         auto f = std::cout.setf(std::ios::fixed);
         auto p = std::cout.precision(3);
         std::cout << "[Timer] " << name_
@@ -83,7 +86,8 @@ public:
     }
 
     // Print a one-line summary to stdout with only totol time, useful for one-shot timers.
-    void oneshot_report() const {
+    void oneshot_report() const
+    {
         auto f = std::cout.setf(std::ios::fixed);
         auto p = std::cout.precision(3);
         std::cout << "[Timer] " << name_ << ": "  << std::setprecision(2) << total_ms()   << " ms\n";

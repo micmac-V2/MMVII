@@ -1,7 +1,10 @@
 #include "cEpipolarRectification.h"
 #include "MMVII_Error.h"
 #include "MMVII_Geom2D.h"
+#include "MMVII_Random.h"
 #include "MMVII_Sensor.h"
+#include "../Sensors/cExternalSensor.h"
+
 #include <cmath>
 #include <cassert>
 
@@ -51,7 +54,7 @@ cEpipolarRectification::cEpipolarRectification(const cSensorImage& aCam1,
 //  Compute  (Algorithm 1 of the paper)
 // ============================================================
 
-cEpipPolyModel cEpipolarRectification::Compute() const
+cEpipPolyModel cEpipolarRectification::Compute()
 {
     // ----------------------------------------------------------
     //  Step 1 – generate H-compatible pairs (both directions)
@@ -68,22 +71,21 @@ cEpipPolyModel cEpipolarRectification::Compute() const
 
     GenerateData(mCam1, mCam2, aPairsA, aCenter1, aDir2);
     GenerateData(mCam2, mCam1, aPairsB, aCenter2, aDir1);
+
+    // We must inverse aDir2 because it is computed in the direction from I2 to I1, but we want it in the direction from I1 to I2
     aDir2 = - aDir2;
 
-    // TODOCM: Check aDir1 ~= 0 0 && aDir2 ~= 0
-    // if ((dir2.x+dir1.x) <0)
-    // {
-    //     dir1 = -dir1;
-    //     dir2 = -dir2;
-    // }
+    if ((aDir2.x() + aDir1.x()) <0)
+    {
+        aDir1 = -aDir1;
+        aDir2 = -aDir2;
+    }
+
     // TODOCM: Check d1 and d2 /= 0 ?
     aDir1 = VUnit(aDir1);
     aDir2 = VUnit(aDir2);
-
-    StdOut() << "Nb Pairs 1->2 : " << aPairsA.size() << std::endl;
-    StdOut() << "Nb Pairs 2->1 : " << aPairsB.size() << std::endl;
-    StdOut() << "C1: " << aCenter1 << " Dir1:" << aDir1 << std::endl;
-    StdOut() << "C2: " << aCenter2 << " Dir2:" << aDir2 << std::endl;
+    mNbPairs12 = aPairsA.size();
+    mNbPairs21 = aPairsB.size();
 
     // ----------------------------------------------------------
     //  Step 2 – apply rotation Rₖ to all points (eq. 25)
@@ -133,6 +135,9 @@ cEpipPolyModel cEpipolarRectification::Compute() const
         std::make_unique<cEpipPolyMapping>(aV2,aW2,aCenter2,aDir2),
     };
     anEpipPolyModel.ComputeCommonFraming(mCam1.PixelDomain().Box(),mCam2.PixelDomain().Box(),mParams.mEpipFrm, mParams.mMargin);
+
+    // TODOCM: Prendre 1 pt sur 2 pour calcul et les autres pour la verif
+
     return anEpipPolyModel;
 }
 
@@ -160,7 +165,7 @@ cEpipPolyModel cEpipolarRectification::Compute() const
 void cEpipolarRectification::EstimateForwardPolynomials(
         const std::vector<cEpiPair>& aPairs,
         cPolyXY_Nd&           aV1,
-        cPolyXY_Nd&           aV2) const
+        cPolyXY_Nd&           aV2)
 {
     // To calcul V1 params, use an auxiliary Polynom class
     //   which implements the property V(0,y) = y
@@ -201,8 +206,8 @@ void cEpipolarRectification::EstimateForwardPolynomials(
     }
 
     const cDenseVect<double> aSol = aSolver.PublicSolve();
-    // TODOCM : error on too big variance
-    StdOut() << "V1,V2 var = " << aSolver.VarCurSol() << std::endl;
+    // TODOCM : error on too big variance. Scale of variance ?
+    mV1V2Var = aSolver.VarCurSol();
 
     // Restore V1 : locked coefficients are already set in the
     // constructor of cPolyXY_N_IdentityOnYAxis; just fill free ones.
@@ -226,7 +231,7 @@ void cEpipolarRectification::EstimateInversePolynomial(
         const std::vector<cEpiPair>& aPairs,
         const cPolyXY_Nd&     aVk,
         cPolyXY_Nd&           aWk,
-        UseFromPair                  aUsePt) const
+        UseFromPair                  aUsePt)
 {
     const int nCoeff = aWk.NbCoeffs();
     cLeasSqtAA<double> aSolver(nCoeff);
@@ -247,8 +252,12 @@ void cEpipolarRectification::EstimateInversePolynomial(
     }
 
     const cDenseVect<double> aSol = aSolver.PublicSolve();
-    StdOut() << "W" << (aUsePt == UseFromPair::PT1 ? '1' : '2') << " var = " <<  aSolver.VarCurSol() << std::endl;
-
+    if (aUsePt == UseFromPair::PT1)
+    {
+        mW1Var = aSolver.VarCurSol();
+    } else {
+        mW2Var = aSolver.VarCurSol();
+    }
     aWk.SetFromSolution(aSol);
 }
 
@@ -275,14 +284,13 @@ void cEpipolarRectification::GenerateData(const cSensorImage &aCamM,
     const int nZ = mParams.mNbZLevels;
 
     // Margin
-    const double aEpsMarginRel = mParams.mEpsMarginRel;
     // Lambda to convert Z steps to "world" Z
     auto Step2Z = [&](int aKZ) -> tREAL8 {
-        tREAL8 aW = (aKZ + aEpsMarginRel) / (nZ - 1 + 2 * aEpsMarginRel);
+        tREAL8 aW = (aKZ) / (nZ - 1);
         return (Zmin * (1 - aW)) + Zmax * aW;
     };
 
-    std::vector<cPt2dr> aVPts = aCamM.PtsSampledOnSensor(nXY, aEpsMarginRel);
+    std::vector<cPt2dr> aVPts = aCamM.PtsSampledOnSensor(nXY, 0);
 
     int nAccum = 0;
     for (const auto &pM : aVPts) {
@@ -377,6 +385,70 @@ void cEpipolarModel::ComputeCommonFraming(
 
     GetEpipMap1().SetEpipImFrame(cTplBox<double,2>(P1_0,P1_1).ToI());
     GetEpipMap2().SetEpipImFrame(cTplBox<double,2>(P2_0,P2_1).ToI());
+}
+
+
+void BenchEpipolar(cParamExeBench & aParam)
+{
+    if (! aParam.NewBench("Epipolar")) return;
+
+    const std::string & aInDir = cMMVII_Appli::CurrentAppli().InputDirTestMMVII() + "/Epipolar/";
+    const std::string & aTmpDir = cMMVII_Appli::CurrentAppli().TmpDirTestMMVII();
+
+    const auto Name1 = std::string("Sensor1");
+    const auto Name2 = std::string("Sensor2");
+
+    auto aSensor1 = std::unique_ptr<cSensorImage>(ReadExternalSensor(aInDir + "RPC-" + Name1 + ".xml", Name1,false));
+    auto aSensor2 = std::unique_ptr<cSensorImage>(ReadExternalSensor(aInDir + "RPC-" + Name2 + ".xml", Name2,false));
+
+    // Epipolar geometry computing test
+    // TODOCM : Randomize parameters (ou faire une loop sur degree)
+    auto aParams = cEpipolarRectification::cParams{5,9,100,3};
+    auto aRectifier = cEpipolarRectification(*aSensor1, *aSensor2, aParams);
+    auto aEpipModel = aRectifier.Compute();
+
+    // RPCs in epipolar geometry computing test
+    auto aEpipName1 = "Epip-" + Name1;
+    auto aEpipName2 = "Epip-" + Name2;
+    auto aEpipRPC1 = aTmpDir + aEpipName1 + ".xml";
+    auto aEpipRPC2 = aTmpDir + aEpipName2 + ".xml";
+    auto aResampSI1 = std::unique_ptr<cSensorImage>(aSensor1->GenerateSensorRPC(&aEpipModel.EpipMap1(), nullptr, aEpipName1));
+    aResampSI1->ToFile(aEpipRPC1);
+    auto aResampSI2 = std::unique_ptr<cSensorImage>(aSensor2->GenerateSensorRPC(&aEpipModel.EpipMap2(), nullptr, aEpipName2));
+    aResampSI2->ToFile(aEpipRPC2);
+
+    // Reread generated RPCs and check that they are consistent with the epipolar model
+    auto aEpipSensor1 = std::unique_ptr<cSensorImage>(ReadExternalSensor(aEpipRPC1, aEpipName1,false));
+    auto aEpipSensor2 = std::unique_ptr<cSensorImage>(ReadExternalSensor(aEpipRPC2, aEpipName2,false));
+    aEpipSensor1->GetIntervalZ();
+
+    // Test that epipolar image (mapping) of points is the same as the image of points by the epipolar RPC (direct then inverse)
+    for (const auto& [aS,aES,aMap] : {std::make_tuple(&aSensor1, &aEpipSensor1, &aEpipModel.EpipMap1()),std::make_tuple(&aSensor2, &aEpipSensor2, &aEpipModel.EpipMap2())})
+    {
+        for (const auto& aPt : (*aS)->PtsSampledOnSensor(RandUnif_M_N(5,10),0))
+        {
+            auto aZ = RandInInterval((*aS)->GetIntervalZ());
+            auto aPG = (*aS)->ImageAndZ2Ground(TP3z(ToR(aPt), aZ));
+            auto aEpipPt = (*aES)->Ground2Image(aPG);
+            auto aMapPt = aMap->Value(aPt);
+            MMVII_INTERNAL_ASSERT_bench(Norm2(aMapPt - aEpipPt) < 0.1, "Epipolar geometry test failed (" + ToS(aMapPt) + " != " + ToS(aEpipPt));
+        }
+    }
+
+    // Test that points with same y in master image have same y in slave image, for a random sampling of points on both sensors
+    for (const auto& [aES1,aES2] : {std::make_pair(&aEpipSensor1, &aEpipSensor2),std::make_pair(&aEpipSensor2, &aEpipSensor1)})
+    {
+        for (const auto& aPt1 : (*aES1)->PtsSampledOnSensor(RandUnif_M_N(5,10),0))
+        {
+            auto aZ = RandInInterval((*aES1)->GetIntervalZ());
+            auto aPG = (*aES1)->ImageAndZ2Ground(TP3z(ToR(aPt1), aZ));
+            auto aPt2 = (*aES2)->Ground2Image(aPG);
+            MMVII_INTERNAL_ASSERT_bench(std::abs(aPt2.y() - aPt1.y()) < 0.3, "Epipolar geometry test failed (y1:" + std::to_string(aPt1.y()) + " != y2:" + std::to_string(aPt2.y()));
+        }
+    }
+
+    aParam.EndBench();
+    return;
 }
 
 

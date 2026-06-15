@@ -112,6 +112,15 @@
                <NbPixels> 5616 3744</NbPixels>
             </V>
          </Pair>
+         <Pair>
+            <K>"Canon EOS 5D Mark III"</K>
+            <V>
+               <Name>"Canon EOS 5D Mark III"</Name>
+               <SzPix_micron> 6.0 6.0 </SzPix_micron>
+               <SzSensor_mm> 36 24 </SzSensor_mm>
+               <NbPixels> 5760 3840 </NbPixels>
+            </V>
+         </Pair> 
       </CamDataBase>
    </Data>
 </Root>

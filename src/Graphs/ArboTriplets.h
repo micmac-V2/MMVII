@@ -154,22 +154,23 @@ struct cMakeArboTripletCfg
 {
     std::vector<tREAL8>  mViscPose  = {-1,-1};   ///< Regularization on poses  [SigmaTr,SigmaRot]
     tREAL8               mLVM       = 0.0;       ///< Levenberg-Marquardt regularization
-    tREAL8               mSigmaTPt  = 2.0;       ///< Sigma on tie-points
-    tREAL8               mFacElim   = 10.0;      ///< Outlier threshold
+    tREAL8               mSigma     = 1.0;       ///< Tie-points sigma (relative to other observations)
+    tREAL8               mSigmaAtt  = 2.0;       ///< Sigma attenuation on tie-points
+    tREAL8               mThrs   = 10.0;      ///< Outlier threshold
     int                  mNbIterBA  = 5;         ///< Number of BA iterations
     int                  mNbExtraIterAtRoot = 2;  ///< Extra BA iterations at the tree root (all images)
+    bool                 mVerbose = false;
 
     void Show(std::ostream & aOS = std::cout) const
     {
-        aOS << " ===================== "
-            << "  BA settings :\n"
-            << "  ViscPose  = " << mViscPose.at(0) << "," << mViscPose.at(1) << "\n"
-            << "  LVM       = " << mLVM       << "\n"
-            << "  SigmaTPt  = " << mSigmaTPt  << "\n"
-            << "  FacElim   = " << mFacElim   << "\n"
-            << "  NbIterBA  = " << mNbIterBA  << "\n"
-            << "  NbExtraIterAtRoot = " << mNbExtraIterAtRoot << "\n"
-            << " ===================== " << "\n" ;
+        aOS << " ========= BA CONFIG ==========\n"
+            << " * ViscPose  = " << mViscPose.at(0) << "," << mViscPose.at(1) << "\n"
+            << " * LVM       = " << mLVM       << "\n"
+            << " * Sigma     = " << mSigma  << "\n"
+            << " * SigmaAtt  = " << mSigmaAtt  << "\n"
+            << " * Threshold = " << mThrs   << "\n"
+            << " * NbIterBA  = " << mNbIterBA  << "\n"
+            << " * NbExtraIterAtRoot = " << mNbExtraIterAtRoot << "\n\n";
     }
 };
 
@@ -236,18 +237,9 @@ public :
     std::string   TPFolder() const {return mTPtsFolder;}  ///< Accessor   // TO BE REMOVED
     cComputeMergeMulTieP*& TPtsStruct() {return mTPtsStruct;}
     cComputeMergeMulTieP* TPtsStruct() const {return mTPtsStruct;} ///< Accessor
-    std::vector<tREAL8> & ViscPose() {return mViscPose;}
-    std::vector<tREAL8>   ViscPose() const {return mViscPose;}  ///< Accessor
-    tREAL8              & LVM() {return mLVM;}
-    tREAL8                LVM() const {return mLVM;}  ///< Accessor
-    tREAL8              & SigmaTPt() {return mSigmaTPt;}
-    tREAL8                SigmaTPt() const {return mSigmaTPt;}   ///< Accessor
-    tREAL8              & FacElim()  {return mFacElim;}
-    tREAL8                FacElim() const {return mFacElim;} ///< Accessor
-    int                 & NbIterBA()  {return mNbIterBA;}
-    int                   NbIterBA() const {return mNbIterBA;} ///< Accessor
-    int                 & NbExtraIterAtRoot() { return mNbExtraIterAtRoot;}
-    int                   NbExtraIterAtRoot() const { return mNbExtraIterAtRoot;}
+    const cMakeArboTripletCfg & Cfg() const { return mCfg; }
+
+    cPerspCamIntrCalib *  InternalCalibFromNameImage(const std::string aNameIm) const;
 
 
 private :
@@ -281,12 +273,7 @@ private :
     int                     mNbTree2Split;   ///< Number of triplet after pruning
     std::string             mTPtsFolder;     ///< Tie-points folder  => to be removed !!!!!!!!
     cComputeMergeMulTieP*   mTPtsStruct;     ///< Tie-points structure (global)
-    std::vector<tREAL8>     mViscPose;       ///< Regularization on poses in BA
-    tREAL8                  mLVM;            ///< levenberg-marquadt
-    tREAL8                  mSigmaTPt;       ///< Sigma on tie-points
-    tREAL8                  mFacElim;        ///< Control outlier threshold, thres=mSigmaTPt*mFacElim
-    int                     mNbIterBA;       ///< Number of iteration in bundle adjustment (Refine)
-    int                     mNbExtraIterAtRoot;  ///< Extra BA iterations at tree root
+    cMakeArboTripletCfg     mCfg;            ///< BA configs (LVM,sigma,thresh, nb iter..)
 };
 
 

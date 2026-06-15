@@ -25,7 +25,7 @@ std::string ArithmReplace(const std::string & aStrIn0,const std::regex& aPat,con
     if ((aKExpr<0)||(aKExpr >= (int) aBoundMatch.size()))
     {
      //   StdOut() << " PAT=" << <<"\n";
-         MMVII_UnclasseUsEr("Num of expr incompatible with pattern : " );
+         MMVII_UnclasseUsEr("In ARITHMETIC replace : num of expr incompatible with pattern : " );
     }
 
     // auto aMatch  = aBoundMatch[aKExpr];
@@ -291,7 +291,7 @@ cSpecMMVII_Appli  TheSpecDicoRename
 class cAppli_Rename : public cMMVII_Appli
 {
      public :
-        cAppli_Rename(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli &);  ///< constructor
+        cAppli_Rename(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli &,bool isModeRec);  ///< constructor
         int Exe() override;                                             ///< execute action
 
         int OldExe();
@@ -300,7 +300,10 @@ class cAppli_Rename : public cMMVII_Appli
      protected :
      private :
 
+        int NewExe();
+
         std::string ComputeReplace(const std::string & aNameIn) const;
+        bool mModeRecurs;  // false => old  Dir + pat    , true : new for recursive with pattern in folder
 
         std::vector<std::string>  Samples() const override;
 
@@ -323,10 +326,12 @@ class cAppli_Rename : public cMMVII_Appli
 
 cCollecSpecArg2007 & cAppli_Rename::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
-   return anArgObl
-            << Arg2007(mPatternGlob,"Pattern of file to replace",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
-            << Arg2007(mSubst,"Pattern of substituion")
-;
+    if (mModeRecurs)
+       anArgObl << Arg2007(mPatternGlob,"Dir with pattern of file to replace");
+    else
+       anArgObl << Arg2007(mPatternGlob,"(Dir +) Pattern of file to replace",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}});
+
+    return  anArgObl       << Arg2007(mSubst,"Pattern of substituion");
 }
 
 cCollecSpecArg2007 & cAppli_Rename::ArgOpt(cCollecSpecArg2007 & anArgOpt)
@@ -341,10 +346,11 @@ cCollecSpecArg2007 & cAppli_Rename::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 }
 
 
-cAppli_Rename::cAppli_Rename(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
+cAppli_Rename::cAppli_Rename(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec,bool isModeRec) :
   cMMVII_Appli (aVArgs,aSpec),
+  mModeRecurs  (isModeRec),
   mDoReplace   (false),
-  mByLink      (false)
+  mByLink      (true)
 
 {
 }
@@ -386,19 +392,51 @@ std::string cAppli_Rename::ComputeReplace(const std::string & aStrIn0) const
 }
 
 
-int cAppli_Rename::Exe()
+int cAppli_Rename::NewExe()
 {
+    std::vector<std::string>  aVecFullName = RecGetFilesFromDir(".",AllocRegex(mPatternGlob),0,10);
+
+    for (const auto &aFullName : aVecFullName)
+    {
+        StdOut() << DirOfPath(aFullName)  << "+++" << FileOfPath(aFullName) << "\n";
+    }
+
+
+
+    return EXIT_SUCCESS;
+}
+
+
+int cAppli_Rename::Exe()
+{ 
+
     SetIfNotInit(mShow,!mDoReplace);
+    std::vector<std::string> aVecNamesIn;
+
+    if (mModeRecurs)
+    {
+        aVecNamesIn =  RecGetFilesFromDir(".",AllocRegex(mPatternGlob),0,10);
+    }
+    else
+    {
+         aVecNamesIn =  VectMainSet(0);
+    }
 
     // Not the defaut value is not Pattern glob but mPatOfMS, because with single file
     // the pattern has been replaced by the file (used for parallelization)
     if (!IsInit(&mPatternRepl))
-       mPatternRepl = FileOfPath(mPatOfMS[0],false);
+    {
+        if (mModeRecurs)
+            mPatternRepl = mPatternGlob; // FileOfPath(mPatternGlob,false);
+        else
+            mPatternRepl = FileOfPath(mPatOfMS[0],false);
+    }
+
 
     // Compute the map Replace <= [Init1,Init2...]
     bool gotAmbig = false;
     std::map<std::string,std::vector<std::string>> aMapTransfo;
-    for (const auto & aStrIn0 : VectMainSet(0))
+    for (const auto & aStrIn0 : aVecNamesIn)
     {
         std::string aReplace = ComputeReplace(aStrIn0);
         aMapTransfo[aReplace].push_back(aStrIn0);
@@ -407,6 +445,8 @@ int cAppli_Rename::Exe()
         if (mShow)
            StdOut()  << "STR IN=" << aStrIn0 << " => " << aReplace << "\n";
     }
+
+
 
     // is there was any replacement coming from multiple input => error
     if (gotAmbig)
@@ -587,7 +627,7 @@ int cAppli_Rename::OldExe()
 
 tMMVII_UnikPApli Alloc_Rename(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
 {
-   return tMMVII_UnikPApli(new cAppli_Rename(aVArgs,aSpec));
+   return tMMVII_UnikPApli(new cAppli_Rename(aVArgs,aSpec,false));
 }
 
 cSpecMMVII_Appli  TheSpecRename
@@ -602,4 +642,20 @@ cSpecMMVII_Appli  TheSpecRename
     __FILE__
 );
 
+tMMVII_UnikPApli Alloc_SubFoldRename(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
+{
+   return tMMVII_UnikPApli(new cAppli_Rename(aVArgs,aSpec,true));
+}
+
+cSpecMMVII_Appli  TheSpecRenameSubFolder
+(
+    "UtiRename_SubFold",
+    Alloc_SubFoldRename,
+    "This command renames files using regexpr and eventually arithmetic AND SUBFOLDER IN NAMES",
+    {eApF::Project},
+    //  {eApF::ManMMVII, eApF::Project},  JOE ?  j'ai enleve eApF::ManMMVI, je sais plus qui l'a mis
+    {eApDT::FileSys},
+    {eApDT::FileSys},
+    __FILE__
+);
 }

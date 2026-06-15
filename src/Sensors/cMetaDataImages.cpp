@@ -71,8 +71,8 @@ class cGlobCalculMetaDataProject
      public :
          std::string Translate(const std::string &,eMTDIm,bool ForTest = false ) const;
          void   AddDir(const std::string& aDir);
-         void   SetReal(tREAL8 & aVal,const std::string &,eMTDIm ) const;
-         void   SetName(std::string & aVal,const std::string &,eMTDIm ) const;
+         void   SetReal(tREAL8 & aVal,const std::string &,eMTDIm,const std::optional<double> *) const;
+         void   SetName(std::string & aVal,const std::string &,eMTDIm, const std::optional<std::string> *) const;
          void   SetPt2dr(cPt2dr & aVal,const std::string &,eMTDIm ) const;
          void   SetPt2di(cPt2di & aVal,const std::string &,eMTDIm ) const;
 
@@ -350,7 +350,13 @@ std::string cGlobCalculMetaDataProject::Translate(const std::string & aName,eMTD
     return MMVII_NONE;
 }
 
-void     cGlobCalculMetaDataProject::SetReal(tREAL8 & aVal,const std::string & aNameIm,eMTDIm aMode) const
+void     cGlobCalculMetaDataProject::SetReal
+         (
+             tREAL8 & aVal,
+             const std::string & aNameIm,
+             eMTDIm aMode,
+             const std::optional<tREAL8>* aXifVal
+         ) const
 {
     // already set by a more important rule
     if (aVal !=-1) return;
@@ -360,10 +366,25 @@ void     cGlobCalculMetaDataProject::SetReal(tREAL8 & aVal,const std::string & a
 
     if (aTr !=MMVII_NONE)
         aVal =  cStrIO<double>::FromStr(aTr);
+    else
+    {
+        if (aXifVal && aXifVal->has_value())
+        {
+            aVal = aXifVal->value();
+        //    StdOut()  << "  --XIFFFFFFFfffPp= " << aVal << "\n";
+        }
+    }
 }
 
-void  cGlobCalculMetaDataProject::SetName(std::string & aVal,const std::string & aNameIm,eMTDIm aMode) const
+void  cGlobCalculMetaDataProject::SetName
+      (
+            std::string & aVal,
+            const std::string & aNameIm,
+            eMTDIm aMode,
+            const std::optional<std::string> * aXifVal
+       ) const
 {
+
     // already set by a more important rule
     if (aVal !="") return;
 
@@ -373,6 +394,14 @@ void  cGlobCalculMetaDataProject::SetName(std::string & aVal,const std::string &
 
     if (aTr !=MMVII_NONE)
         aVal =  aTr;
+    else
+    {
+        // user rule have prior, if none apply, try xif
+        if (aXifVal && aXifVal->has_value())
+        {
+           aVal =  aXifVal->value() ;
+        }
+    }
 }
 
 void  cGlobCalculMetaDataProject::SetPt2dr(cPt2dr & aVal,const std::string & aNameIm,eMTDIm aMode) const
@@ -456,20 +485,28 @@ const std::string&  cMetaDataImage::CameraName(bool SVP) const
 
 
 
-cMetaDataImage::cMetaDataImage(const std::string & aDir,const std::string & aNameIm,const cGlobCalculMetaDataProject * aGlobCalc) :
+cMetaDataImage::cMetaDataImage
+  (
+        const std::string & aDir,
+        const std::string & aNameIm,
+        const cGlobCalculMetaDataProject * aGlobCalc,
+        const cExifData & anExifData
+   ) :
    cMetaDataImage()
 {
     mNameImage    = aNameIm;
 
+
+
     // StdOut() << "cMetaDataImagecMetaDataImage-IN: " << mCameraName << " IM=" << aNameIm << "\n";
 
     aGlobCalc->SetPt2dr(mPPPixel,aNameIm,eMTDIm::ePPPix);
-    aGlobCalc->SetReal(mFocalPixel,aNameIm,eMTDIm::eFocalPix);
+    aGlobCalc->SetReal(mFocalPixel,aNameIm,eMTDIm::eFocalPix,nullptr);
 
-    aGlobCalc->SetReal(mAperture,aNameIm,eMTDIm::eAperture);
-    aGlobCalc->SetReal(mFocalMM,aNameIm,eMTDIm::eFocalmm);
-    aGlobCalc->SetName(mCameraName,aNameIm,eMTDIm::eModelCam);
-    aGlobCalc->SetName(mAdditionalName,aNameIm,eMTDIm::eAdditionalName);
+    aGlobCalc->SetReal(mAperture,aNameIm,eMTDIm::eAperture,nullptr);
+    aGlobCalc->SetReal(mFocalMM,aNameIm,eMTDIm::eFocalmm,&anExifData.mFocalLength_mm);
+    aGlobCalc->SetName(mCameraName,aNameIm,eMTDIm::eModelCam,&anExifData.mModel);
+    aGlobCalc->SetName(mAdditionalName,aNameIm,eMTDIm::eAdditionalName,nullptr);
 
 
     // StdOut() << "cMetaDataImagecMetaDataImage-OUT: " << mCameraName << "\n";
@@ -527,6 +564,9 @@ cCalculMetaDataProject * cPhotogrammetricProject::CMDPOfName(const std::string &
 
 cMetaDataImage cPhotogrammetricProject::GetMetaData(const std::string & aFullNameIm) const
 {
+
+    //bool cExifData::FromFile(const std::string &aFileName, cExifData &anExif, bool SVP)
+
    std::string aDir,aNameIm;
    SplitDirAndFile(aDir,aNameIm,aFullNameIm,false);
    thread_local static std::map<std::string,cMetaDataImage> aMap;
@@ -535,7 +575,24 @@ cMetaDataImage cPhotogrammetricProject::GetMetaData(const std::string & aFullNam
    if (anIt== aMap.end())
    {
         InitGlobCalcMTD();
-        aMap[aNameIm] = cMetaDataImage(aDir,aNameIm,mGlobCalcMTD);
+        cExifData anExifData;
+        bool Ok = cExifData::FromFile(aFullNameIm,anExifData,true);
+        if ((!Ok) && anExifData.mFocalLength_mm.has_value())
+        {
+            MMVII_USER_WARNING("Xif not ok but seems ok for "+ aNameIm);
+        }
+        aMap[aNameIm] = cMetaDataImage(aDir,aNameIm,mGlobCalcMTD,anExifData);
+
+        /*
+        {
+
+
+           StdOut() << "OK EXIF DATA " <<  aFullNameIm
+                 << " OK:" <<  Ok
+                 << " Fmm:" <<  anExifData.mFocalLength_mm.has_value() << " " <<  anExifData.mFocalLength_mm
+                 << "  "  << aMap[aNameIm].FocalMM()
+                 << "\n";
+        }*/
    }
 
    return aMap[aNameIm];
