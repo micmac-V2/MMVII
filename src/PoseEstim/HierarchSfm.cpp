@@ -71,8 +71,8 @@ cCollecSpecArg2007 & cAppli_HierarchSfm::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return anArgObl
            << Arg2007(mPatImIn,"Pattern/file for images",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
-           <<  mPhProj.DPOrient().ArgDirInMand("Input calibration folder")
            <<  mPhProj.DPOriRel().ArgDirInMand("Input relative orientations (triplets)")
+           <<  mPhProj.DPOrient().ArgDirInMand("Input calibration folder")
            <<  mPhProj.DPOrient().ArgDirOutMand("Global orientation output directory")
         ;
 }
@@ -190,7 +190,7 @@ tMMVII_UnikPApli Alloc_HierarchSfm(const std::vector<std::string> & aVArgs,const
 
 cSpecMMVII_Appli  TheSpec_HierarchSfm
     (
-        "HierarchicalSfm",
+        "OriPoseEstimGlobHierarchical",
         Alloc_HierarchSfm,
         "Construct global orientation from a graph of relative motions",
         {eApF::Ori},

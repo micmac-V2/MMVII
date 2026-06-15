@@ -120,7 +120,7 @@
                <SzSensor_mm> 36 24 </SzSensor_mm>
                <NbPixels> 5760 3840 </NbPixels>
             </V>
-         </Pair>
+         </Pair> 
       </CamDataBase>
    </Data>
 </Root>
