@@ -504,7 +504,13 @@ cMetaDataImage::cMetaDataImage
     aGlobCalc->SetReal(mFocalPixel,aNameIm,eMTDIm::eFocalPix,nullptr);
 
     aGlobCalc->SetReal(mAperture,aNameIm,eMTDIm::eAperture,nullptr);
+
+   // tREAL8 aFocMMUser =
+
     aGlobCalc->SetReal(mFocalMM,aNameIm,eMTDIm::eFocalmm,&anExifData.mFocalLength_mm);
+
+    aGlobCalc->SetReal(mFocalMMEqui35,aNameIm,eMTDIm::eFocalEqui35,&anExifData.mFocalLengthIn35mmFilm_mm);
+
     aGlobCalc->SetName(mCameraName,aNameIm,eMTDIm::eModelCam,&anExifData.mModel);
     aGlobCalc->SetName(mAdditionalName,aNameIm,eMTDIm::eAdditionalName,nullptr);
 

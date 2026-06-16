@@ -491,6 +491,7 @@ bool ModResBund_IsModeGen(eModResBund aMode)
 template<> cE2Str<eMTDIm>::tMapE2Str cE2Str<eMTDIm>::mE2S
            {
                 {eMTDIm::eFocalmm,"Focalmm"},
+                {eMTDIm::eFocalEqui35,"FocalEqui35"},
                 {eMTDIm::eFocalPix,"FocalPix"},
                 {eMTDIm::ePPPix,"PPPix"},
                 {eMTDIm::eAperture,"Aperture"},

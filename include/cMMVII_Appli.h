@@ -377,6 +377,9 @@ typedef const char * tConstCharPtr;
 struct cParamProfile
 {
        public :
+           // initialize with default values
+           cParamProfile();
+
            std::string   mUserName;
            int           mNbProcMax;
            eTypeSerial   mTaggedDefSerial;  // xml or json

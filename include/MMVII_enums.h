@@ -663,6 +663,7 @@ enum class eEpipFrm
 enum class eMTDIm
            {
               eFocalmm,   //< if we fix the focal in mm
+              eFocalEqui35, //< if we fix the 35 equiv focale
               eFocalPix,  //< if we fix directly the focal in pixel
               ePPPix,     //< if we fix firectly the principal point in pixel
               eAperture,  //< aperture, used for radiometric model

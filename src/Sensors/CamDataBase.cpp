@@ -171,6 +171,8 @@ cPerspCamIntrCalib * cPhotogrammetricProject::GetCalibInit
     if (aFocPix<0)
     {
         tREAL8 aFoc35 = aMTD.FocalMMEqui35(true);
+
+      //  StdOut()  << "FOCEQUI3555555 " << aFoc35 << "\n";
         if (aFoc35>0)
         {
            // in fact I am not sure of foc equi 35, but I think it is suited for a 24x36 ..

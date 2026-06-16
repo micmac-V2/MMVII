@@ -1,0 +1,197 @@
+#include "cMMVII_Appli.h"
+#include "MMVII_Sys.h"
+#include "MMVII_DeclareCste.h"
+#include "MMVII_2Include_Serial_Tpl.h"
+
+
+#include <thread>
+#include <mutex>
+
+namespace MMVII
+{
+
+
+struct cSpecifProfileUserMMVII
+{
+     public :
+         std::string mNameProfile;
+};
+
+void AddData(const cAuxAr2007 & anAux,cSpecifProfileUserMMVII & aSpec)
+{
+     AddData(cAuxAr2007("NameProfile",anAux),aSpec.mNameProfile);
+}
+
+void AddData(const cAuxAr2007 & anAux,cParamProfile & aProfile)
+{
+     AddData(cAuxAr2007("UserName",anAux),aProfile.mUserName);
+     AddData(cAuxAr2007("NbProcMax",anAux),aProfile.mNbProcMax);
+     EnumAddData(anAux,aProfile.mTaggedDefSerial,"TaggedSerialMode");
+     EnumAddData(anAux,aProfile.mVectDefSerial,"VectSerialMode");
+}
+
+
+/* ==================================================== */
+/*                                                      */
+/*          cMMVII_Appli                                */
+/*                                                      */
+/* ==================================================== */
+
+cParamProfile cMMVII_Appli::mParamProfile;
+std::string cMMVII_Appli::mDirProfileUsage;
+std::string cMMVII_Appli::mProfileUsage;
+
+
+std::string TheNameFileCurentProfile =  "MMVII-CurentProfile.xml";
+
+cParamProfile::cParamProfile() :
+   mUserName        ("Unkown"),
+   mNbProcMax       (1000),
+   mTaggedDefSerial (eTypeSerial::exml),
+   mVectDefSerial   (eTypeSerial::ecsv)
+
+{
+}
+
+void cMMVII_Appli::InitProfile()
+{
+
+  // ========================================================================
+  // ========================  HANDLING PROFILE USER ETC ... ================
+  // ========================================================================
+
+
+  //  part of code that was used to initialize "at hand", soon will be obsolete...
+  if (0)
+  {
+      StdOut() << "NO USEERRRRRRRRRRRRRR " << std::endl; getchar();
+
+      mParamProfile.mUserName = "Unkown";
+      mParamProfile.mNbProcMax = 1000;
+      mParamProfile.mVectDefSerial = eTypeSerial::ecsv;
+      mParamProfile.mTaggedDefSerial = eTypeSerial::ejson;
+      mVectNameDefSerial = E2Str(mParamProfile.mVectDefSerial);
+      mTaggedNameDefSerial = E2Str(mParamProfile.mTaggedDefSerial);
+      return;
+  }
+
+  /*  Compute the name of file containing the profile of user;  this profile is
+   *
+   *     - "MMVII-CurentPofile.xml" if this file exists, to allow tuning by user
+   *     - "Default-MMVII-CurentPofile.xml" if it does not exist, this is the file shared on github
+   */
+  std::string DefaultNameFileCurentProfile =  "Default-" + TheNameFileCurentProfile;
+  std::string NameFileUseOfProfile =  "MMVII-UserOfProfile.xml";
+
+  // if the default file  does not exist, we are probably the first time, or in reinit step because
+  // directory has been purged, we create a file containing  the default profile
+  if (! ExistFile(mDirLocalParameters+DefaultNameFileCurentProfile))
+  {
+        cSpecifProfileUserMMVII  aSpec;
+        aSpec.mNameProfile = "Default";
+        SaveInFile(aSpec,mDirLocalParameters+DefaultNameFileCurentProfile);
+  }
+
+  // we set NameFileCurentProfile  to its default or not,
+  if (! ExistFile(mDirLocalParameters+TheNameFileCurentProfile))
+  {
+      TheNameFileCurentProfile = DefaultNameFileCurentProfile;
+  }
+
+  /**  Compute the "usage" store in the profile,
+   *   init the variable  "mProfileUsage"  and  "mDirProfileUsage"
+   */
+  {
+      cSpecifProfileUserMMVII aSpec;
+
+      ReadFromFile(aSpec,mDirLocalParameters+TheNameFileCurentProfile);
+      mProfileUsage = aSpec.mNameProfile;
+      mDirProfileUsage =  mDirLocalParameters + mProfileUsage + StringDirSeparator();
+  }
+
+  /**  if file containing users profile does not exist, we create some default one */
+  if (! ExistFile(mDirProfileUsage+NameFileUseOfProfile))
+  {
+      CreateDirectories(mDirProfileUsage,false);
+
+      mParamProfile.mUserName = "Unkown";
+      mParamProfile.mNbProcMax = 1000;
+      mParamProfile.mVectDefSerial = eTypeSerial::ecsv;
+      mParamProfile.mTaggedDefSerial = eTypeSerial::exml;
+      SaveInFile(mParamProfile,mDirProfileUsage+NameFileUseOfProfile);
+  }
+  ReadFromFile(mParamProfile,mDirProfileUsage+NameFileUseOfProfile);
+  mVectNameDefSerial = E2Str(mParamProfile.mVectDefSerial);
+  mTaggedNameDefSerial = E2Str(mParamProfile.mTaggedDefSerial);
+
+}
+
+const  std::string & cMMVII_Appli::UserName() {return mParamProfile.mUserName;}
+const  std::string & cMMVII_Appli::DirProfileUsage() {return mDirProfileUsage;}
+
+eTypeSerial cMMVII_Appli::VectDefSerial() const
+{
+    CurrentAppli(); // as member is static assure init was done
+    return mParamProfile.mVectDefSerial;
+}
+eTypeSerial cMMVII_Appli::TaggedDefSerial() const
+{
+    CurrentAppli(); // as member is static assure init was done
+    return mParamProfile.mTaggedDefSerial;
+}
+
+const std::string & cMMVII_Appli::VectNameDefSerial   () const
+{
+    CurrentAppli(); // as member is static assure init was done
+    return mVectNameDefSerial;
+}
+const std::string & cMMVII_Appli::TaggedNameDefSerial   () const
+{
+    CurrentAppli(); // as member is static assure init was done
+    return mTaggedNameDefSerial;
+}
+
+const std::string & GlobVectNameDefSerial() {return cMMVII_Appli::CurrentAppli().VectNameDefSerial();}
+const std::string & GlobTaggedNameDefSerial() {return cMMVII_Appli::CurrentAppli().TaggedNameDefSerial();}
+
+
+
+/* ==================================================== */
+/*                                                      */
+/*          cAppli_EditProfile                          */
+/*                                                      */
+/* ==================================================== */
+
+#if (0)
+class cAppli_EditProfile : public cMMVII_Appli
+{
+     public :
+        cAppli_EditProfile(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli &);
+        int Exe() override;
+        cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
+        cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
+
+     private :
+
+         std::string   mUserName;
+         cParamProfile mParamProfile;
+};
+
+cAppli_EditProfile::cAppli_EditProfile(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
+    cMMVII_Appli(aVArgs,aSpec)
+{
+
+}
+
+cCollecSpecArg2007 & cAppli_EditProfile::ArgObl(cCollecSpecArg2007 & anArgObl)
+{
+   return
+      anArgObl
+         << Arg2007(mUserName,"Name of user")
+      ;
+}
+
+#endif
+
+};
+
