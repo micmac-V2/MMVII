@@ -850,7 +850,7 @@ public :
 
     std::vector<std::string>  Samples() const override;
     void poseFromXYZ();
-
+    void poseFromXYZv4();
 
 private :
     cPhotogrammetricProject  mPhProj;
@@ -861,6 +861,7 @@ private :
     // Optional Arg
     int                      mNbPatches;
     std::string              mPoseXYZFilename;
+    std::string              mPoseXYZv4Filename;
 
     // data
     tPoseR                   mForcedPose;
@@ -887,9 +888,77 @@ cCollecSpecArg2007 & cAppli_InitTSL::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     return    anArgOpt
            << AOpt2007(mNbPatches,"NbPatches","Approx nb patches to make",{{eTA2007::HDV}})
            << AOpt2007(mPoseXYZFilename,"PoseXYZ","Set initial pose from a Comp3D .xyz file",{{eTA2007::HDV, eTA2007::FileAny}})
+           << AOpt2007(mPoseXYZv4Filename,"PoseXYZv4","Set initial pose from a Comp3D v4 .xyz file",{{eTA2007::HDV, eTA2007::FileAny}})
         ;
 }
 
+
+void cAppli_InitTSL::poseFromXYZv4()
+{
+    /*The rotation is given from ground to TSL frame. Has to be converted to MM camera frame
+     *
+     * Comp3D v4 .XYZ file format :
+
+CT195	-8.901	-24.577	2.187	0.005
+[...]
+CT197	3.580	-3.306	5.238	0.001
+*  Station    : L501
+*       161.372      105.956      103.162
+*     0.9212456    0.3874123    0.0349027
+*    -0.3125547    0.7906675   -0.5264547
+*    -0.2315515    0.4740851    0.8494865
+[...]
+
+     */
+
+    std::ifstream aXYZfile(mPoseXYZv4Filename);
+    MMVII_INTERNAL_ASSERT_tiny(aXYZfile.is_open(),"Error opening "+mPoseXYZv4Filename);
+    std::string aLine;
+    while (std::getline(aXYZfile, aLine)) {
+        if (aLine.find("  Station    : ") != std::string::npos) {
+            break;
+        }
+    }
+    tREAL8 x,y,z;
+    std::string tmp;
+    cPt3dr aT;
+    cPt3dr aR1, aR2, aR3;
+    {
+        std::getline(aXYZfile, aLine);
+        std::istringstream iss(aLine);
+        iss >> tmp >> x >> y >> z;
+        aT = {x, y, z};
+    }
+    {
+        std::getline(aXYZfile, aLine);
+        std::istringstream iss(aLine);
+        iss >> tmp >> x >> y >> z;
+        aR1 = {x, y, z};
+    }
+    {
+        std::getline(aXYZfile, aLine);
+        std::istringstream iss(aLine);
+        iss >> tmp >> x >> y >> z;
+        aR2 = {x, y, z};
+    }
+    {
+        std::getline(aXYZfile, aLine);
+        std::istringstream iss(aLine);
+        iss >> tmp >> x >> y >> z;
+        aR3 = {x, y, z};
+    }
+    MMVII_INTERNAL_ASSERT_tiny(aXYZfile.good(),"Error reading "+mPoseXYZv4Filename);
+
+    cRotation3D<tREAL8> aRotTSL2MM = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j");
+
+    mForcedPose.Tr() = aT;
+    mForcedPose.Rot() =
+        (aRotTSL2MM *
+         cRotation3D<tREAL8>({aR1.x(), aR2.x(), aR3.x()},
+                             {aR1.y(), aR2.y(), aR3.y()},
+                             {aR1.z(), aR2.z(), aR3.z()}, true)
+         ).MapInverse();
+}
 
 
 void cAppli_InitTSL::poseFromXYZ()
@@ -965,23 +1034,30 @@ CT197	3.580	-3.306	5.238	0.001
 int cAppli_InitTSL::Exe()
 {
     mPhProj.FinishInit();
-    MMVII_INTERNAL_ASSERT_tiny(IsInit(&mPoseXYZFilename),
-                               "Needs at least one Ori source");
 
     // read pose file to crash quickly if not present
     if (IsInit(&mPoseXYZFilename))
     {
+        MMVII_INTERNAL_ASSERT_tiny(!IsInit(&mPoseXYZv4Filename),"Please choose between XYZ and XYZv4!");
         StdOut() << "Read XYZ pose file: " << mPoseXYZFilename << std::endl;
         poseFromXYZ();
     }
+    if (IsInit(&mPoseXYZv4Filename))
+    {
+        StdOut() << "Read XYZ v4 pose file: " << mPoseXYZv4Filename << std::endl;
+        poseFromXYZv4();
+    }
+
 
     auto aTSLFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::OriNameFromId(mNameFileTSLId);
     cStaticLidar* aLidar = cStaticLidar::FromFile(aTSLFile, false);
     aLidar->ReadRasters(mPhProj.DirStaticLidarRasters());
 
-    if (IsInit(&mPoseXYZFilename))
+    if (IsInit(&mPoseXYZFilename) || IsInit(&mPoseXYZv4Filename))
     {
         aLidar->SetPose(mForcedPose);
+    } else {
+        MMVII_INTERNAL_ASSERT_tiny(false, "Needs at least one Ori source");
     }
 
     aLidar->SelectPatchCenters2(mNbPatches);

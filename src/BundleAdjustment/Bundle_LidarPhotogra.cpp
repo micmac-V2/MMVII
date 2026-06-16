@@ -468,7 +468,7 @@ void cBA_LidarPhotograRaster::AddObs()
     else
         StdOut() << "  * Lid/Phr: no obs\n";
 
-    if (mBA.Iter()==mBA.NbMaxIter()-1)
+    if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
         for (const auto& [aCpl, aNb] : mMapNbUsedPatches)
             StdOut() <<  aCpl << ": " << aNb << " patches\n";
 }
@@ -1157,7 +1157,7 @@ void cBA_LidarLidarRaster::AddObs()
     else
         StdOut() << "  * Lid/Lid: no obs\n";
 
-    if (mBA.Iter()==mBA.NbMaxIter()-1)
+    if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
         for (const auto& [aCpl, aNb] : mMapNbUsedPatches)
             StdOut() <<  aCpl << ": " << aNb << " patches\n";
 }
