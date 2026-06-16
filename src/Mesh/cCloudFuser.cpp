@@ -288,13 +288,6 @@ template <class tGraph, class Type> class cAlgo_ChambollePock
                     }
 
                 }
-
-                // Save optimized variable back to vertex attributes for output
-               /*for(size_t aVId = 0 ; aVId < aGraph.AllVertices().size(); aVId++)
-                {
-                    tVertex * aVertex = aGraph.AllVertices()[aVId];
-                    aVertex->Attr().mValToOpt = aPrimalVar[aVId];
-                }*/
         }
 
         /*void HighestEigenVal(tGraph& aGraph,
@@ -1149,6 +1142,7 @@ int cAppliCloudFuser::ExeOnParsedBox()
     cIm2D<tU_INT1> aFinalCorrel = cIm2D<tU_INT1>(CurBoxIn().Sz());
 
     cAutoTimerSegm aTSChambolle(TimeSegm(),"TotalVariationFusion"); 
+
     FuseDemsByChP(mSetOfBoxedDems,mSetOfBoxedWeighters,
               aFinalDem,aFinalMask, aFinalCorrel);
     // Save DEM, MASK and CORREL

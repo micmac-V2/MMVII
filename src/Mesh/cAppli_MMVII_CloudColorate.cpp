@@ -8,6 +8,7 @@
 #include "MMVII_Linear2DFiltering.h"
 #include "MMVII_Interpolators.h"
 #include "MMVII_PCSens.h"
+#include "../ImagesBase/cGdalApi.h"
 
 #include "cColorateCloud.h"
 
@@ -32,6 +33,7 @@ enum eModeCloudCol
 {
     eColShade,
     eColZ,
+    eColOrtho,
     eColXY
 };
 
@@ -59,6 +61,7 @@ class cAppli_MMVII_CloudColorate : public cMMVII_Appli
         bool     mExportIm;
         bool     mProfIsZ0;
         int           mIMCol;
+        std::string   mOrthoFile;
         eModeCloudCol mModeCol;
 };
 
@@ -94,13 +97,17 @@ cCollecSpecArg2007 & cAppli_MMVII_CloudColorate::ArgOpt(cCollecSpecArg2007 & anA
           << AOpt2007(mPropRayLeaf,"RayLeaves","Ray of leaves (/ avg dist)",{eTA2007::HDV})
           << AOpt2007(mSurResol,"SurResol","Sur resol in computation (/ avg dist)",{eTA2007::HDV})
           << AOpt2007(mNbSampS,"NbSampS","Number of sample/face for sphere discretization",{eTA2007::HDV})
+          << AOpt2007(mOrthoFile,"OrthoFile","Ortho image to colorate the cloud",{eTA2007::HDV})
           << AOpt2007(mSun,"Sun","Sun : Dir3D=(x,y,1)  ,  Z=WEIGHT !! ")
           << AOpt2007(mShowMsg,"ShowMsg","Print detailled message at each computation",{{eTA2007::HDV},{eTA2007::Tuning}})
           << AOpt2007(mExportIm,"ExportIm","Export all individual images",{{eTA2007::HDV},{eTA2007::Tuning}})
           << AOpt2007(mProfIsZ0,"ProfIsZ0","Prof is ZInit/\"Z in Dir proj\"",{{eTA2007::HDV},{eTA2007::Tuning}})
-          << AOpt2007(mIMCol,"ICol","Col mode 0-Shde 1-Z 2-XY")
+          << AOpt2007(mIMCol,"ICol","Col mode 0-Shde 1-Z 2-Ortho 3-XY")
   ;
 }
+
+
+
 
 
 int  cAppli_MMVII_CloudColorate::Exe()
@@ -163,6 +170,46 @@ int  cAppli_MMVII_CloudColorate::Exe()
             aPPC.ProcessOneProj(mSurResol,*aCam,aW0 * mSun.z(),false,"",false,false);
         }
         aPPC.ColorizePC();
+   }
+   else if(mModeCol == eModeCloudCol::eColOrtho)
+   {
+        // read ortho image and use it to colorate the cloud
+
+
+        StdOut() << "Colorate in Ortho mode, using file " << mOrthoFile << "\n";
+
+        cDataFileIm2D aFOrtho = cDataFileIm2D::Create(mOrthoFile,eForceGray::No);
+        cDataIm2D<tU_INT1> aIDmOrtho(cPt2di(0,0),        
+                                    aFOrtho.Sz());
+        tREAL8 aTransform[6];
+        std::vector<const cDataIm2D<tU_INT1>*> aVIms({&aIDmOrtho});
+
+        cGdalApi::ReadWrite(cGdalApi::IoMode::Read,
+                            aVIms,
+                            aFOrtho,
+                            cPt2di(0,0),
+                            1.0,
+                            cPixBox<2>(cPt2di(0,0),aFOrtho.Sz()),
+                            aTransform);
+
+        // fill cAffin2D
+        cAffin2D<tREAL8> aTF(cPt2dr(aTransform[0],aTransform[3]),
+                            cPt2dr(aTransform[1],0.0),
+                            cPt2dr(0.0,aTransform[5]));
+
+        //cBoundVals<tREAL8> aBounds;                    
+        for(size_t aKPt=0 ; aKPt<aPC_In.NbPts() ; aKPt++)
+        {
+            cPt3dr aPt = aPC_In.KthPt(aKPt);
+            cPt2dr aPIm = aTF.Inverse(Proj(aPt));
+
+            if (aIDmOrtho.InsideBL(aPIm))
+            {
+                tREAL8 aCol = aIDmOrtho.GetVBL(aPIm);
+                aPC_In.SetDegVis(aKPt,aCol/255.0);
+                //aBounds.Add(aPC_In.GetDegVis(aKPt) );
+            }
+        }
    }
    else
    {

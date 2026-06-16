@@ -138,7 +138,7 @@ public:
 
         if (aMode == IoMode::Read)
         {
-            Read(aVecImV2, aRectIm, aRectFile, aDyn);
+            Read(aVecImV2, aRectIm, aRectFile, aDyn, transform);
         }
         else
         {
@@ -148,7 +148,7 @@ public:
     }
 
 private:
-    void Read(const tvIm& aVecImV2, const cRect2& aRectIm, const cRect2& aRectFile, double aDyn)
+    void Read(const tvIm& aVecImV2, const cRect2& aRectIm, const cRect2& aRectFile, double aDyn,double * transform=nullptr)
     {
         auto aName = mDataFile->Name();
 
@@ -156,6 +156,9 @@ private:
             MMVII_INTERNAL_ERROR("GDAL read: image file created with CreateOnWrite() must be written before trying to read it (" + aName + ")");
 
         mGdalDataset = cGdalApi::OpenDataset(aName, GA_ReadOnly, cGdalApi::eOnError::RaiseError);
+
+        if(transform!=nullptr)
+            mGdalDataset->GetGeoTransform(transform);   
 
         if (mGdalNbChan == mNbImg && mNbImg != 0)
             GdalReadNtoN(aVecImV2, aRectIm, aRectFile, aDyn);   // file N -> N img channels

@@ -351,6 +351,8 @@ void  cOneLevel::MakeImPx()
 cParamCallSys cOneLevel::StrComReduce(bool ModeIm) const
 {
 
+
+   // replace with MMVII ImageScale_Basic to stay in full MMVII
    return cParamCallSys(
        cMMVII_Appli::MMV1Bin(),
        "ScaleIm",
