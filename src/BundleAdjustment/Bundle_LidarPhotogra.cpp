@@ -414,6 +414,8 @@ void cBA_LidarPhotograRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, do
 
 void cBA_LidarPhotograRaster::AddObs()
 {
+    mMapNbUsedPatches.clear();
+
     if (mBA.Iter()==0)
     {
         CreateZbuffers(mPhProj, mBA, false, true);
@@ -465,6 +467,10 @@ void cBA_LidarPhotograRaster::AddObs()
                  << " ("<<mVScans.size()<<" scans, "<<mNbUsedObs<<" obs, "<<mNbUsedPoints<<" points)\n";
     else
         StdOut() << "  * Lid/Phr: no obs\n";
+
+    if (mBA.Iter()==mBA.NbMaxIter()-1)
+        for (const auto& [aCpl, aNb] : mMapNbUsedPatches)
+            StdOut() <<  aCpl << ": " << aNb << " patches\n";
 }
 
 
@@ -933,6 +939,15 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
     if (aVIndexUsedImages.size()<2)
         return {0,0.}; // this patch does not have enought suitable images
 
+    for (auto & aData: aVData)
+    {
+        auto aCplId = aData.mScanAName+">"+mBA.VSCPC().at(aData.mKIm)->NameImage();
+        if (mMapNbUsedPatches.count(aCplId)==0)
+            mMapNbUsedPatches[aCplId] = 1;
+        else
+            mMapNbUsedPatches[aCplId]++;
+    }
+
     // use the same weight for each point eq
     auto aRes = sqrt(aMeanRes2/aVIndexUsedImages.size());
     auto aW = aWeighter.WeightOfResidual({aRes})[0];
@@ -1078,6 +1093,8 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
 
 void cBA_LidarLidarRaster::AddObs()
 {
+    mMapNbUsedPatches.clear();
+
     if (mBA.Iter()>=0)
     {
         //CreateZbuffers(mPhProj, mBA, true, true); // useless for lidarlidar
@@ -1115,7 +1132,7 @@ void cBA_LidarLidarRaster::AddObs()
                 auto aC = *aPatch.mLPatchesP.begin();
                 for (int y=aC.y()-aPtSize+1; y<aC.y()+aPtSize;++y)
                     for (int x=aC.x()-aPtSize+1; x<aC.x()+aPtSize;++x)
-                        aResImageData.SetVTruncIfInside({x,y}, aMinRes);
+                        aResImageData.SetVTruncIfInside({x,y}, std::isnan(aMinRes)?999:aMinRes);
             }
 #endif
         }
@@ -1139,6 +1156,10 @@ void cBA_LidarLidarRaster::AddObs()
     }
     else
         StdOut() << "  * Lid/Lid: no obs\n";
+
+    if (mBA.Iter()==mBA.NbMaxIter()-1)
+        for (const auto& [aCpl, aNb] : mMapNbUsedPatches)
+            StdOut() <<  aCpl << ": " << aNb << " patches\n";
 }
 
 
@@ -1245,7 +1266,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
     }
 
     // if less than 1 scan to: nothing valuable to do
-    if (aVData.size()<1) return 999;
+    if (aVData.size()<1) return NAN;
 
     mNbUsedPoints++;
     mNbUsedObs+=aVData.size();
@@ -1256,6 +1277,15 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
     mLastResidual.Add(aVData.size(),  Square(aAvgRes.Average() ) );
 
     AddPatchDist(aPGround,aVData);
+
+    for (auto & aData: aVData)
+    {
+        auto aCplId = aData.mScanAName+">"+aData.mScanBName;
+        if (mMapNbUsedPatches.count(aCplId)==0)
+            mMapNbUsedPatches[aCplId] = 1;
+        else
+            mMapNbUsedPatches[aCplId]++;
+    }
 
     return aMinResidual;
 }

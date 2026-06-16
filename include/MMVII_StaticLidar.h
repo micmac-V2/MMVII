@@ -101,7 +101,7 @@ protected:
 // record all data for each patch
 struct cLidarRasterPatch
 {
-    size_t                          mId;        //< Number in cStaticVector.mPatchCenters
+    size_t                          mId;        //< Number in cStaticLidar.mPatchCenters
     std::vector<cPt2di>             mLPatchesP; //< px in raster, consituted by points in a lidar scan, begin() is center
     std::unordered_set<std::string> mHiddenOnImage; //< for Im/scanB names, if hidden via zbuffers
     cPt3dr                          mNormalInstr; //< normal in instrument frame

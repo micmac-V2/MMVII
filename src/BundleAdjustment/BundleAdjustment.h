@@ -344,7 +344,7 @@ class cData1ImLidPhgr
 {
     public :
         std::string mScanAName;    //< origin scan id to get uk
-        std::string mScanBName;    //< secondary scan id to get uk (only for llidar/lidar adj)
+        std::string mScanBName;    //< secondary scan id to get uk (only for lidar/lidar adj)
         size_t mKIm;  ///< number of the image where the patch is seen (only for lidar/im adj)
         std::vector<std::pair<tREAL8,cPt2dr>> mVGr; ///< pair of radiometry/gradient, in image,  for each point of the patch
 };
@@ -477,6 +477,7 @@ protected:
     std::map<std::string,cIm2D<tREAL4>> mMapZbuf; ///< fusion of all zbuffers for one image/scan B name
     std::map<std::string,cStdWeighterResidual> mWeightersMap;   ///< map from "nameScanA-nameScanB" to the appropriate weighter
     tREAL8                            mThresholdInit, mThresholdFinal;   ///< distance where scan points are supposed to be hidden
+    std::map<std::string, int>        mMapNbUsedPatches; // indexed by "ScanA>ImB", number of patches used for this couple
 };
 
 /**
