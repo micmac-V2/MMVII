@@ -873,6 +873,7 @@ class cStdStatRes
         tREAL8  ErrAtProp(tREAL8 aProp) const;
         tREAL8  Min() const;
         tREAL8  Max() const;
+        tREAL8  Interv() const;
         int     NbMeasures() const;
         tREAL8  ErrAtKth(int aK) const;
         tREAL8  ErrAtKthLast(int aK) const;
