@@ -146,13 +146,13 @@ int cAppli_EpipResampling::Exe()
     StdOut() << "Image_1: " << anEpip1Name << std::endl;
     aIm1Rectif->ToFile(anEpip1Name);
     StdOut() << "RPC_1: " << aRPC1Name << std::endl;
-    auto aResampSI1 = aSI1->GenerateSensorRPC( &anEpipMap1, nullptr, anEpip1Name);
+    auto aResampSI1 = aSI1->GenerateSensorRPC( &anEpipMap1, nullptr, false, anEpip1Name);
     aResampSI1->ToFile(aRPC1Name);
 
     StdOut() << "Image2: " << anEpip2Name << std::endl;
     aIm2Rectif->ToFile(anEpip2Name);
     StdOut() << "RPC_2: " << aRPC2Name << std::endl;
-    auto aResampSI2 = aSI2->GenerateSensorRPC(&anEpipMap2, nullptr, anEpip2Name );
+    auto aResampSI2 = aSI2->GenerateSensorRPC(&anEpipMap2, nullptr, false, anEpip2Name );
     aResampSI2->ToFile(aRPC2Name);
 
 
@@ -231,7 +231,7 @@ public :
 private :
     cPhotogrammetricProject  mPhProj;
     std::string  mNameIm1;
-    cPt2dr mP;
+    cPt3dr mP;
 };
 
 cAppli_EpipTest::cAppli_EpipTest (
@@ -268,7 +268,11 @@ int cAppli_EpipTest::Exe()
 
 
     const cSensorImage *  aSI1 =  mPhProj.ReadSensor(FileOfPath(mNameIm1,false /* Ok Not Exist*/),true/*DelAuto*/,false /* Not SVP*/);
-    auto PG  = aSI1->ImageAndZ2Ground(cPt3dr(mP.x(), mP.y(), (aSI1->GetIntervalZ().x() + aSI1->GetIntervalZ().y()) / 2));
+    if (aSI1->HasIntervalZ()  && mP.z() == -1) {
+        mP = cPt3dr(mP.x(), mP.y(), (aSI1->GetIntervalZ().x() + aSI1->GetIntervalZ().y()) / 2);
+    }
+
+    auto PG  = aSI1->ImageAndZ2Ground(mP);
     StdOut() << std::setprecision(10) << "PI: " << mP << " -> PG: " << PG << " -> PI:" << aSI1->Ground2ImageAndZ(PG)  << std::endl;
     return 0;
 
