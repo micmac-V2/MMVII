@@ -416,6 +416,15 @@ template<> cE2Str<eTyClino>::tMapE2Str cE2Str<eTyClino>::mE2S
                 {eTyClino::eSpring,"Spring"}
            };
 
+template<> cE2Str<eTypeDBCam>::tMapE2Str cE2Str<eTypeDBCam>::mE2S
+           {
+                {eTypeDBCam::eLocalFolder,"LocalFolder"},
+                {eTypeDBCam::eLocalUser,"LocalUser"},
+                {eTypeDBCam::eLocalMVVI,"LocalMMVII"},
+                {eTypeDBCam::eGlobalMMVII,"GlobalMMVII"}
+           };
+
+
 template<> cE2Str<eModeFusionData>::tMapE2Str cE2Str<eModeFusionData>::mE2S
            {
                 {eModeFusionData::eMerge,"Merge"},
@@ -491,6 +500,7 @@ bool ModResBund_IsModeGen(eModResBund aMode)
 template<> cE2Str<eMTDIm>::tMapE2Str cE2Str<eMTDIm>::mE2S
            {
                 {eMTDIm::eFocalmm,"Focalmm"},
+                {eMTDIm::eFocalEqui35,"FocalEqui35"},
                 {eMTDIm::eFocalPix,"FocalPix"},
                 {eMTDIm::ePPPix,"PPPix"},
                 {eMTDIm::eAperture,"Aperture"},
@@ -715,6 +725,7 @@ void BenchEnum(cParamExeBench & aParam)
     TplBenchEnum<eModeSSR>();
     TplBenchEnum<eImatchCrit>();
     TplBenchEnum<eTyClino>();
+    TplBenchEnum<eTypeDBCam>();
     TplBenchEnum<eTyInstr>();
     TplBenchEnum<eTyCodeTarget>();
     TplBenchEnum<eEpipFrm>();
@@ -1331,6 +1342,7 @@ MACRO_INSTANTITATE_STRIO_ENUM(eTySC,"TySC")
 MACRO_INSTANTITATE_STRIO_ENUM(eTyUnitAngle,"AngleUnit")
 MACRO_INSTANTITATE_STRIO_ENUM(eModeFusionData,"ModeFusionData")
 MACRO_INSTANTITATE_STRIO_ENUM(eTyClino,"TypeClino")
+MACRO_INSTANTITATE_STRIO_ENUM(eTypeDBCam,"TypeCamDataBase")
 MACRO_INSTANTITATE_STRIO_ENUM(eTyInstr,"TypeInstr")
 MACRO_INSTANTITATE_STRIO_ENUM(eEpipFrm,"EpipFrame")
 

@@ -160,6 +160,9 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpecTestCpp11);
         TheVecAll.push_back(&TheSpecMPDTest);
         TheVecAll.push_back(&TheSpecEditSet);
+        TheVecAll.push_back(&TheSpecEditProfile);
+
+
         TheVecAll.push_back(&TheSpecEditRel);
         TheVecAll.push_back(&TheSpec_EditCalcMetaDataImage);
         TheVecAll.push_back(&TheSpec_EditBlockInstr);
@@ -276,6 +279,7 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_TestProj);
         TheVecAll.push_back(&TheSpec_ChSysCo);
         TheVecAll.push_back(&TheSpec_CreateCalib);
+        TheVecAll.push_back(&TheSpec_AddCamInDataBase);
         TheVecAll.push_back(&TheSpec_ImportTiePMul);
         TheVecAll.push_back(&TheSpec_ImportMesImGCP);
         TheVecAll.push_back(&TheSpec_ImportClino);

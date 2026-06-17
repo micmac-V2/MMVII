@@ -803,6 +803,10 @@ class cPhotogrammetricProject : public cIPhProj
           const cElemCamDataBase * GetCamFromNameCam(const std::string& aNameCam,bool SVP=false) const;
 
 
+          std::string DirCamDataBase(eTypeDBCam) ;
+          std::string FileCamDataBase(eTypeDBCam) ;
+
+
          //===================================================================
          //==================   HOMOLOGOUS Points  ===========================
          //===================================================================
@@ -942,7 +946,7 @@ class cPhotogrammetricProject : public cIPhProj
          //==================   Camera Data Base     =========================
 
          void MakeCamDataBase();
-         bool OneTestMakeCamDataBase(const std::string & aDir,cCamDataBase &,bool ForceNew);
+         bool OneTestMakeCamDataBase(const std::string & aDir,cCamDataBase &);
       private :
           cPhotogrammetricProject(const cPhotogrammetricProject &) = delete;
 

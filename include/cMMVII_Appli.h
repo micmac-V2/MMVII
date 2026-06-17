@@ -377,6 +377,9 @@ typedef const char * tConstCharPtr;
 struct cParamProfile
 {
        public :
+           // initialize with default values
+           cParamProfile();
+
            std::string   mUserName;
            int           mNbProcMax;
            eTypeSerial   mTaggedDefSerial;  // xml or json
@@ -537,7 +540,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         static void InitMMVIIDirs(const std::string& aMMVIIDir);
 
         static const std::string & DirRessourcesMMVII();       ///< Location of all ressources
-
+        static  const std::string & DirLocalParameters() ;
         static const std::string & UserName();
         static const std::string & DirProfileUsage();
 
@@ -730,6 +733,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         std::string                               mPrefix_TIM_GMA;    ///< Sting Id of Time of Global main appli
         std::string                               mDirProjGMA;        ///< Dir Project Main Appli
      
+  protected :
         static std::string                        mDirBinMMVII;   ///< where is the binary
         static std::string                        mTopDirMMVII;   ///< directory  mother of src/ bin/ ...
 

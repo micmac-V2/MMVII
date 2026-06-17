@@ -128,6 +128,7 @@ class cAppli_ReportBlock : public cMMVII_Appli
         cSetMesGndPt                            mMesGround;     ///< "Absolute" coordinate of the point
         std::string                             mPatDistWire;   ///< Pattern of point name for computing distance point <--> WIRE
         std::string                             mPatAgregateDist;  ///< Pattern for aggregatinf distance
+        std::string                             mCern_ReportSynthGlob;
 
         bool                                    mWithClino;  /// Where clino measure loade
         bool                                    mWithAgregateDist; ///< Do we agregate the measure
@@ -195,6 +196,7 @@ cCollecSpecArg2007 & cAppli_ReportBlock::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
              << AOpt2007(mPatDistWire,"Cern-PatDistWire","Pattern of points name to computing distance point<-->wire",{{eTA2007::HDV}})
              << AOpt2007(mPatAgregateDist,"Cern-AggregateDist","Pattern of points name to computing distance point<-->wire",{{eTA2007::HDV}})
+              << AOpt2007(mCern_ReportSynthGlob, "CernReportSynthGlob","File for s syntehic global report")
              << mPhProj.DPMeasuresClino().ArgDirInOpt("Cern-Clino")
 
              << AOpt2007(mSCFreeScale,"Cern-SphFreeScale","Do we have free scale for sphere",{{eTA2007::HDV}})
@@ -653,22 +655,17 @@ int cAppli_ReportBlock::Exe()
 
     }
 
-    if (mWithClino)
+    if (IsInit(&mCern_ReportSynthGlob))
     {
         SetReportSubDir("");
 
         for (auto & [aNamePt,aMap] : mStatWirePt ) // parse all points
         {
-             std::string aIdentCERN = "CERN-Glob-Report-" + aNamePt;
+             std::string aIdentCERN = mCern_ReportSynthGlob + "-" + aNamePt;
              const cStatDistPtWire & aStat =  aMap[StrGLOB];
              const auto & aS3d =  aStat.mStat3d;
              const auto & aSH =   aStat.mStatH;
              const auto & aSV =   aStat.mStatV;
-
-             StdOut()  << " 3D "
-                  << " , I=" << aStat.mStat3d.Interv() * 1e6
-                  << " , S=" << aStat.mStat3d.DevStd() * 1e6
-                  << "\n";
 
             std::vector<std::string>  aLineHeader{"Id","Mu-Dev3d","Mu-Interv3D","Mu-DevH","Mu-IntervH","Mu-DevV","Mu-InterV"};
             AppendIn(aLineHeader,{"Pix-Pt","Pix-Wire"});
