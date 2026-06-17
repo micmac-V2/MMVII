@@ -239,6 +239,19 @@ cGenGauss3D::cGenGauss3D(const cEllipse3D & aEl ) :
 
 }
 
+cGenGauss3D::cGenGauss3D(const cDenseMatrix<double> & aVecEig,
+                         const cDenseMatrix<double> & aValEig,
+                         const cDenseMatrix<double> & aCG) :
+    mCDG(cPt3dr(aCG.V_GetElem(0,0),
+                aCG.V_GetElem(1,0),
+                aCG.V_GetElem(2,0))),
+    mVP(cDenseVect<tREAL8>(3,eModeInitImage::eMIA_Null)),
+    mVecP(cDenseMatrix<tREAL8>(3,3,eModeInitImage::eMIA_Null))
+{
+    //mVP = aValEig;
+    //mVecP = aVecEig;
+}
+
 void cGenGauss3D::GetDistribGaus(std::vector<cPt3dr> & aVPts,int aN1,int aN2,int aN3)
 { //GetCol(mVGa,aRSEV.EigenVectors(),0);
     cPt3dr aVec0,aVec1,aVec2;

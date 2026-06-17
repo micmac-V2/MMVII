@@ -272,6 +272,7 @@ class cOriTriplets : public cMemCheck
             typedef std::vector<tPoseR>* tPtrVPoses;
 
             const cOneSolOriTriplet * BestSol() const;
+            const tREAL8 BestScore() const {return mBestScore;}
 
             const cComputeMergeMulTieP * TiepMFull() const;
             const cComputeMergeMulTieP * TiepMAvg() const;
@@ -669,6 +670,7 @@ class cAppli_OriRelTripletsOfIm : public cMMVII_Appli
         void DoAllTriplet();
 
         void Generate5Pts(const cOriTriplets*,cSaveNPoint&);
+        void Generate5PtsV2(const cOriTriplets*,cSaveNPoint&);
 
 
         int                       mModeCompute;
@@ -829,12 +831,46 @@ void cAppli_OriRelTripletsOfIm::DoAllTriplet()
     //StdOut() <<  mArgv << "\n";
 
 }
+void cAppli_OriRelTripletsOfIm::Generate5PtsV2(const cOriTriplets* aOri3,cSaveNPoint& aSaveNP)
+{
+    const cOneSolOriTriplet* aBSol = aOri3->BestSol();
+    const cElemBA & aEBA = aBSol->mEBA;
+    tREAL8 aBestScore = aOri3->BestScore();
+
+    // construct an elliposoid over the 3D points
+    cStrStat2<double> aCovMat(3);
+
+    for (auto &[aConf,aPts] : aOri3->TiepMFull()->Pts())
+    {
+        size_t aNbPts = aPts.mVPIm.size();
+        int aNbIm = aConf.size();
+
+        for (size_t aKPts=0; aKPts<aNbPts; aKPts+=aNbIm)
+        {
+            const cPt3dr* aPtrPts = aPts.mVPGround.data()+aKPts;
+            StdOut() << aPtrPts->x() << " " << aPtrPts->y() << aPtrPts->z() << std::endl;
+
+            auto [aRes1,aPGr] = aEBA.InterBundles(aConf,aPtrPts,1e-6);
+            tREAL8 aW = 1.0/(1.0 + Square(aRes1/(4.0*aBestScore)));
+
+            aCovMat.WeightedAdd(aPGr.ToVect(),aW);
+        }
+
+    }
+    aCovMat.Normalise(true);
+    cResulSymEigenValue<double>  aVp = aCovMat.DoEigen();
+
+
+}
+
 void cAppli_OriRelTripletsOfIm::Generate5Pts(const cOriTriplets* aOri3,cSaveNPoint& aSaveNP)
 {
+
     const cOneSolOriTriplet* aBSol = aOri3->BestSol();
 
     // construct an elliposoid over the 3D points
     cEllipse3D aEllipse;
+    //cStrStat2<double> aCovMat(3);
 
     for (auto & [aConf,aPts] : aOri3->TiepMFull()->Pts())
     {
@@ -876,9 +912,19 @@ void cAppli_OriRelTripletsOfIm::Generate5Pts(const cOriTriplets* aOri3,cSaveNPoi
 
             }
 
-            cPt3dr aPGr = BundleInters(aVBund,&aPds);
+            cPt3dr aPGr = BundleInters(aVBund,&aPds); //RobustBundleInters
 
-            aEllipse.AddData(aPGr,1.0);
+            // compute residuals
+            double aResidual=0;
+            for (auto aBundle : aVBund)
+            {
+                cSegmentCompiled aSegC(aBundle);
+                aResidual += aSegC.Dist(aPGr);
+            }
+
+            double aWeight = aResidual;
+            aEllipse.AddData(aPGr,aWeight);
+            //aCovMat.WeightedAdd(aPGr.ToVect(),aWeight);
 
             //ahhhStdOut() << "aPGr=" << aPGr << std::endl;
 
