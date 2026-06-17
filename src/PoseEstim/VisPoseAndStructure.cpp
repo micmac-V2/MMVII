@@ -1,4 +1,5 @@
 #include "VisPoseAndStructure.h"
+#include "MMVII_StaticLidar.h"
 
 /**
    \file VisPoseAndStructure.cpp
@@ -18,6 +19,7 @@ cAppli_VisuPoseStr3D::cAppli_VisuPoseStr3D(const std::vector<std::string> & aVAr
     mPhProj      (*this),
     mErrProjMax  (10.0),
     mCamScale    (0.1),
+    mTSLCloudDezoom(0),
     mOutfile     ("VisSFM_${ori}_${features}.ply"),
     mBinary      (true),
     mWithRGB     (true),
@@ -38,6 +40,7 @@ cCollecSpecArg2007 & cAppli_VisuPoseStr3D::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     return    anArgOpt
            << AOpt2007(mErrProjMax,"ErrMax","Outlier threshold",{eTA2007::HDV})
            << AOpt2007(mCamScale,"CamScale","Scale camera frustum",{eTA2007::HDV})
+           << AOpt2007(mTSLCloudDezoom,"TSLcloudDezoom","Add TSL point clouds with DeZoom (0 for no points)",{eTA2007::HDV})
            << AOpt2007(mOutfile,"Outfile","Output filename",{eTA2007::HDV})
            << AOpt2007(mBinary,"Bin","Output in binary format",{eTA2007::HDV})
            << AOpt2007(mWithRGB,"RGB","Output colored pointcloud",{eTA2007::HDV})
@@ -120,7 +123,20 @@ int cAppli_VisuPoseStr3D::Exe()
     std::string aPrintPtsRGBCam = aPrintPT3D + aPrintRGB + aPrintCAM;
     TimeSegm().SetIndex(aPrintPtsRGBCam);
     cPlyVertices aPlyverts;
+
     AddCameras(aPlyverts,aTPts,aVSens);
+
+    if (mTSLCloudDezoom>0)
+        for (auto &aSens : aVSens)
+        {
+            cStaticLidar* aScan = dynamic_cast<cStaticLidar*>(aSens);
+            if (aScan)
+            {
+                aScan->ReadRasters(mPhProj.DirStaticLidarRasters());
+                cPt3dr aColor(RandUnif_0_1(),RandUnif_0_1(), RandUnif_0_1());
+                AddPointCould(aPlyverts, aScan, mTSLCloudDezoom, aColor);
+            }
+        }
 
     aPlyverts.ToPly(mOutfile, mBinary);
 
@@ -128,6 +144,7 @@ int cAppli_VisuPoseStr3D::Exe()
 
     return EXIT_SUCCESS;
 }
+
 
 tMMVII_UnikPApli Alloc_VisuPoseStr3D(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
 {

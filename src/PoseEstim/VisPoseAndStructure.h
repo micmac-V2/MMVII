@@ -17,6 +17,7 @@ namespace MMVII
 /*                                                            */
 /* ********************************************************** */
 
+class cStaticLidar;
 
 class cAppli_VisuPoseStr3D : public cMMVII_Appli
 {
@@ -33,12 +34,14 @@ private:
     std::string               mPatImIn;
     double                    mErrProjMax;
     double                    mCamScale;
+    int                       mTSLCloudDezoom; //  0 for no point clouds
     std::string               mOutfile;
     bool                      mBinary;
     bool                      mWithRGB;
     bool                      mWithAvgRGB; //RGB values averaged over all images, slower? but less noisy
 
     void AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulTieP * &, const std::vector<cSensorImage *>& );
+    void AddPointCould(cPlyVertices& aPlyverts, cStaticLidar* aScan, int aTSLCloudDezoom, cPt3dr aScanColor, bool aOnlyEdges=false);
     double CalculateFDepth(const cPt2di&, const double&);
 };
 
