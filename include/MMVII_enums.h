@@ -660,6 +660,16 @@ enum class eEpipFrm
     eNbVals
 };
 
+/// Type of data base for camera
+enum class eTypeDBCam
+           {
+              eLocalFolder,   ///< Data base local to working folder
+              eLocalUser,     ///< if we fix the 35 equiv focale
+              eLocalMVVI,     ///< if we fix directly the focal in pixel
+              eGlobalMMVII,   ///< if we fix firectly the principal point in pixel
+              eNbVals
+           };
+
 enum class eMTDIm
            {
               eFocalmm,   //< if we fix the focal in mm
@@ -722,6 +732,8 @@ const std::string & E2Str(const eModeCaracMatch &);
 const std::string & E2Str(const eModeSSR &);
 const std::string & E2Str(const eModResBund &);
 const std::string & E2Str(const eEpipFrm &);
+const std::string & E2Str(const eTypeDBCam &);
+
 
 
 template <class Type> Type  Str2E(const std::string &,bool WithDef=false);

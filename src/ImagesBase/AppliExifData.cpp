@@ -1,6 +1,7 @@
 #include "MMVII_ExifData.h"
 #include "MMVII_Image2D.h"
 #include "cMMVII_Appli.h"
+#include "MMVII_Sensor.h"
 
 namespace MMVII
 {
@@ -14,6 +15,7 @@ public :
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
 private :
+    cPhotogrammetricProject  mPhgrProj;
     std::string mNameIn;  ///< Input image name
     int mDisp;
 };
@@ -46,6 +48,8 @@ std::ostream& operator<<(std::ostream& os, std::optional<T> const& opt)
 
 int cAppli_ImageMetada::Exe()
 {
+    mPhgrProj.FinishInit();
+
     const auto default_precision{std::cout.precision()};
     constexpr auto max_precision{std::numeric_limits<long double>::digits10};
 
@@ -79,6 +83,25 @@ int cAppli_ImageMetada::Exe()
             DISP_EXIF(Orientation);
             DISP_EXIF(Make);
             DISP_EXIF(Model);
+
+            {
+                std::optional<std::string> aModel = anExif.mModel;
+                if (aModel.has_value())
+                {
+                    const cElemCamDataBase * anElCDB = mPhgrProj.GetCamFromNameCam(aModel.value());
+                    if (anElCDB)
+                    {
+                         StdOut()  << " * Camera model in data base :"
+                                   << " SzSensor=" << anElCDB-> mSzSensor_Mm << " mm "
+                                   << " SzPixel="   << anElCDB->mSzPixel_Micron << " mu"
+                                   << "\n";
+                    }
+                    else
+                    {
+                         StdOut()  << " !!!  Camera model is NOT in data base\n";
+                    }
+                }
+            }
             DISP_EXIF(LensMake);
             DISP_EXIF(LensModel);
 
@@ -143,6 +166,12 @@ int cAppli_ImageMetada::Exe()
         }
         }
         StdOut() << std::endl;
+
+
+
+
+//   const cElemCamDataBase *  cPhotogrammetricProject::GetCamFromNameCam(const std::string& aNameCam,bool SVP) const
+
     }
     return EXIT_SUCCESS;
 }
@@ -150,6 +179,7 @@ int cAppli_ImageMetada::Exe()
 
 cAppli_ImageMetada:: cAppli_ImageMetada(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec,bool isBasic) :
     cMMVII_Appli (aVArgs,aSpec),
+    mPhgrProj(*this),
     mDisp(1)
 {
 }

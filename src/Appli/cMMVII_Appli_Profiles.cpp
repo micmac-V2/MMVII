@@ -43,9 +43,15 @@ std::string cMMVII_Appli::mProfileUsage;
 
 
 std::string TheNameFileCurentProfile =  "MMVII-CurentProfile.xml";
+std::string NameFileUseOfProfile =  "MMVII-UserOfProfile.xml";
+std::string DefaultNameFileCurentProfile()
+{
+    return  "Default-" + TheNameFileCurentProfile;
+}
+
 
 cParamProfile::cParamProfile() :
-   mUserName        ("Unkown"),
+   mUserName        ("Unknown"),
    mNbProcMax       (1000),
    mTaggedDefSerial (eTypeSerial::exml),
    mVectDefSerial   (eTypeSerial::ecsv)
@@ -66,7 +72,7 @@ void cMMVII_Appli::InitProfile()
   {
       StdOut() << "NO USEERRRRRRRRRRRRRR " << std::endl; getchar();
 
-      mParamProfile.mUserName = "Unkown";
+      mParamProfile.mUserName = "Unknown";
       mParamProfile.mNbProcMax = 1000;
       mParamProfile.mVectDefSerial = eTypeSerial::ecsv;
       mParamProfile.mTaggedDefSerial = eTypeSerial::ejson;
@@ -80,22 +86,22 @@ void cMMVII_Appli::InitProfile()
    *     - "MMVII-CurentPofile.xml" if this file exists, to allow tuning by user
    *     - "Default-MMVII-CurentPofile.xml" if it does not exist, this is the file shared on github
    */
-  std::string DefaultNameFileCurentProfile =  "Default-" + TheNameFileCurentProfile;
-  std::string NameFileUseOfProfile =  "MMVII-UserOfProfile.xml";
 
   // if the default file  does not exist, we are probably the first time, or in reinit step because
   // directory has been purged, we create a file containing  the default profile
-  if (! ExistFile(mDirLocalParameters+DefaultNameFileCurentProfile))
+  if (! ExistFile(mDirLocalParameters+DefaultNameFileCurentProfile()))
   {
         cSpecifProfileUserMMVII  aSpec;
         aSpec.mNameProfile = "Default";
-        SaveInFile(aSpec,mDirLocalParameters+DefaultNameFileCurentProfile);
+        SaveInFile(aSpec,mDirLocalParameters+DefaultNameFileCurentProfile());
   }
 
   // we set NameFileCurentProfile  to its default or not,
+  // StdOut() <<  "EXXXX " << ExistFile(mDirLocalParameters+TheNameFileCurentProfile)
+  //         << " " << mDirLocalParameters+TheNameFileCurentProfile << "\n";
   if (! ExistFile(mDirLocalParameters+TheNameFileCurentProfile))
   {
-      TheNameFileCurentProfile = DefaultNameFileCurentProfile;
+      TheNameFileCurentProfile = DefaultNameFileCurentProfile();
   }
 
   /**  Compute the "usage" store in the profile,
@@ -109,12 +115,13 @@ void cMMVII_Appli::InitProfile()
       mDirProfileUsage =  mDirLocalParameters + mProfileUsage + StringDirSeparator();
   }
 
+ // StdOut() << "IIiiiiiiiiiiiiiiiiiINiProfileEEEEEEEEE\n";
   /**  if file containing users profile does not exist, we create some default one */
   if (! ExistFile(mDirProfileUsage+NameFileUseOfProfile))
   {
       CreateDirectories(mDirProfileUsage,false);
 
-      mParamProfile.mUserName = "Unkown";
+      mParamProfile.mUserName = "Unknown";
       mParamProfile.mNbProcMax = 1000;
       mParamProfile.mVectDefSerial = eTypeSerial::ecsv;
       mParamProfile.mTaggedDefSerial = eTypeSerial::exml;
@@ -162,7 +169,7 @@ const std::string & GlobTaggedNameDefSerial() {return cMMVII_Appli::CurrentAppli
 /*                                                      */
 /* ==================================================== */
 
-#if (0)
+
 class cAppli_EditProfile : public cMMVII_Appli
 {
      public :
@@ -173,12 +180,13 @@ class cAppli_EditProfile : public cMMVII_Appli
 
      private :
 
-         std::string   mUserName;
-         cParamProfile mParamProfile;
+         bool            mSetUser;
+         cParamProfile   mModifParam;
 };
 
 cAppli_EditProfile::cAppli_EditProfile(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
-    cMMVII_Appli(aVArgs,aSpec)
+    cMMVII_Appli  (aVArgs,aSpec),
+    mSetUser      (false)
 {
 
 }
@@ -187,11 +195,80 @@ cCollecSpecArg2007 & cAppli_EditProfile::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
    return
       anArgObl
-         << Arg2007(mUserName,"Name of user")
+         << Arg2007(mModifParam.mUserName,"Name of user")
       ;
 }
 
-#endif
+cCollecSpecArg2007 & cAppli_EditProfile::ArgOpt(cCollecSpecArg2007 & anArgOpt)
+{
+   return
+      anArgOpt
+        << AOpt2007(mSetUser,"SetUser","Set this user as the current user of MMVII")
+        << AOpt2007(mModifParam.mNbProcMax,"DefNbProc","Default number of processor")
+        << AOpt2007(mModifParam.mTaggedDefSerial,"ModeSerial","Mode for serialization",{AC_ListVal<eTypeSerial>()})
+    ;
+}
+
+int cAppli_EditProfile::Exe()
+{
+    cParamProfile aParam;
+
+    std::string aDirParam = mDirLocalParameters + mModifParam.mUserName ;
+    std::string aFileParam = aDirParam + StringDirSeparator()+ NameFileUseOfProfile;
+
+    if (ExistFile(aFileParam))
+    {
+        ReadFromFile(aParam,aFileParam);
+    }
+    else
+    {
+        CreateDirectories(aDirParam,false);
+    }
+
+    aParam.mUserName = mModifParam.mUserName;
+    if (IsInit(&mModifParam.mNbProcMax))
+        aParam.mNbProcMax = mModifParam.mNbProcMax;
+    if (IsInit(&mModifParam.mTaggedDefSerial))
+        aParam.mTaggedDefSerial = mModifParam.mTaggedDefSerial;
+
+    SaveInFile(aParam,aFileParam);
+
+    if (mSetUser)
+    {
+        std::string aFileSpec = mDirLocalParameters + TheNameFileCurentProfile;
+       // StdOut() << "FSSS=" << aFileSpec << " UN=" << mUserName << "\n";
+        cSpecifProfileUserMMVII aSpec;
+        ReadFromFileWithDef(aSpec,aFileSpec);
+
+        aSpec.mNameProfile = mModifParam.mUserName;
+
+        SaveInFile(aSpec,aFileSpec);
+    }
+    else
+    {
+        StdOut() << " Curent user="  << UserName()   << ",not modified\n";
+    }
+
+    return EXIT_SUCCESS;
+}
+
+tMMVII_UnikPApli Alloc_EditProfile(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
+{
+   return tMMVII_UnikPApli(new cAppli_EditProfile(aVArgs,aSpec));
+}
+
+cSpecMMVII_Appli  TheSpecEditProfile
+(
+     "EditProfile",
+      Alloc_EditProfile,
+      "This command is used to edit a user's profile ",
+      {eApF::Project},
+      {eApDT::Console,eApDT::Xml},
+      {eApDT::Xml},
+      __FILE__
+);
+
+
 
 };
 

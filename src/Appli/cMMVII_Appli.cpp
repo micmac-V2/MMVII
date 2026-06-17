@@ -404,6 +404,7 @@ void cMMVII_Appli::SetNot4Exe()
 
 void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
 {
+
   mSeedRand = DefSeedRand();
   cCollecSpecArg2007 & anArgObl = ArgObl(mArgObl); // Call virtual method
   cCollecSpecArg2007 & anArgFac = ArgOpt(mArgFac); // Call virtual method
@@ -510,6 +511,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
          SplitStringArround(aName,mPatHelp,aArgK,'=',true,false);
       }
   }
+
   if (mModeHelp)
   {
       GenerateHelp();
@@ -521,6 +523,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
       GenerateArgsSpec(aArgsSpecs);
       return;
   }
+
 
   int aNbObl = mArgObl.size(); //  Number of mandatory argument expected
   int aNbArgGot = 0; // Number of  Arg received untill now
@@ -630,7 +633,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
      }
  //StdOut() << " DDPP " << __LINE__ << " DP=" << mDirProject << "\n";
 
-  
+
      {
          bool HasFileDirProj = false;
          for (size_t aK=0 ; aK<aNbArgTot; aK++)
@@ -875,6 +878,9 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
   // Don't fully initialize project if this appli is a special MMVII management applu
   const auto aFeatures = mSpecs.Features();
   if (std::find(aFeatures.cbegin(), aFeatures.cend(), eApF::ManMMVII) != aFeatures.cend()) {
+    // MPD : j'avais par erreur mis ce tag, et perdu bcp de temps a comprendre, a voir si ca pollue pas trop ??
+      // FINALEMENT SUPPRIME PK EMPECHE LES COMPLETION AUTO ...
+ //    StdOut() << " *************** MANAGEMENT APPLI EXIT BEFORE FULL INITi *******************\n";
      mForExe = false;   // Don't do special cleaning in cMMVII_Appli destructor
      return;
   }
@@ -889,7 +895,10 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
      LogCommandIn(NameFileLog(false),false);
 
   if (mMainAppliInsideP)
+  {
+   //  StdOut()  << "mMainAppliInsidePmMainAppliInsideP " << mMainAppliInsideP << "\n";
      InitProfile();
+  }
 
   MMVII_INTERNAL_ASSERT_strong(mVecAppliSpecParam.size()%2==0,"Odd size for AppSpecParam");
   for (size_t aKP=0 ; aKP<mVecAppliSpecParam.size() ; aKP+=2)
@@ -1598,6 +1607,8 @@ const std::string & cMMVII_Appli::MMV1Bin()           {return mMMV1Bin;}
 
 
 const std::string & cMMVII_Appli::DirRessourcesMMVII()      {return mDirRessourcesMMVII;}
+const std::string & cMMVII_Appli::DirLocalParameters()      {return mDirLocalParameters;}
+
               // Accessors
 const std::string & cMMVII_Appli::DirProject() const  {return mDirProject;}
 int cMMVII_Appli::NbProcAllowed () const {return mNbProcAllowed;}
