@@ -105,7 +105,10 @@ int cAppli_VisuPoseStr3D::Exe()
         for (auto & aPair : aTPts->Pts())
             MakePGround(aPair,aVSens);
 
-    WritePly(aTPts,aVSens);
+
+    cPlyVertices aPlyverts;
+    AddCameras(aPlyverts,aTPts,aVSens);
+    aPlyverts.ToPly(mOutfile, mBinary);
 
     delete aTPts;
 

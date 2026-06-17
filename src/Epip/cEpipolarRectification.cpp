@@ -1,7 +1,6 @@
 #include "cEpipolarRectification.h"
 #include "MMVII_Error.h"
 #include "MMVII_Geom2D.h"
-#include "MMVII_Random.h"
 #include "MMVII_Sensor.h"
 #include "../Sensors/cExternalSensor.h"
 
@@ -412,9 +411,9 @@ void BenchEpipolar(cParamExeBench & aParam)
     auto aEpipName2 = "Epip-" + Name2;
     auto aEpipRPC1 = aTmpDir + aEpipName1 + ".xml";
     auto aEpipRPC2 = aTmpDir + aEpipName2 + ".xml";
-    auto aResampSI1 = std::unique_ptr<cSensorImage>(aSensor1->GenerateSensorRPC(&aEpipModel.EpipMap1(), nullptr, aEpipName1));
+    auto aResampSI1 = std::unique_ptr<cSensorImage>(aSensor1->GenerateSensorRPC(&aEpipModel.EpipMap1(), nullptr, false, aEpipName1));
     aResampSI1->ToFile(aEpipRPC1);
-    auto aResampSI2 = std::unique_ptr<cSensorImage>(aSensor2->GenerateSensorRPC(&aEpipModel.EpipMap2(), nullptr, aEpipName2));
+    auto aResampSI2 = std::unique_ptr<cSensorImage>(aSensor2->GenerateSensorRPC(&aEpipModel.EpipMap2(), nullptr, false, aEpipName2));
     aResampSI2->ToFile(aEpipRPC2);
 
     // Reread generated RPCs and check that they are consistent with the epipolar model

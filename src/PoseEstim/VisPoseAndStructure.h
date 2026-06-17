@@ -35,7 +35,7 @@ private:
     std::string               mOutfile;
     bool                      mBinary;
 
-    void WritePly(cComputeMergeMulTieP * &, const std::vector<cSensorImage *>& );
+    void AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulTieP * &, const std::vector<cSensorImage *>& );
     double CalculateFDepth(const cPt2di&, const double&);
 };
 

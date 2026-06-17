@@ -948,6 +948,7 @@ cSensorImage *  AllocRPCDimap(const cAnalyseTSOF & anAnalyse,const std::string &
 
 cSensorImage * cSensorImage::GenerateSensorRPC(const cDataInvertibleMapping<tREAL8,2>* aResampleMap,
                                                const cDataInvertibleMapping<tREAL8,3>* aChSysCoMap,
+                                               bool XYisLonLat,
                                                std::optional<std::string> aNameIm,
                                                std::optional<cPt2dr> aZIntv
                                               ) const
@@ -972,7 +973,11 @@ cSensorImage * cSensorImage::GenerateSensorRPC(const cDataInvertibleMapping<tREA
         cPt3dr  aPGr = aChSysCoMap ? aChSysCoMap->Value(aPair.mP3) : aPair.mP3;
         cPt3dr  aPIm = TP3z(aResampleMap ? aResampleMap->Value(aPair.mP2) : aPair.mP2, aPGr.z());
         aVIm.push_back(aPIm);
-        aVGr.push_back(aPGr);
+        if (XYisLonLat) {
+            aVGr.push_back(cPt3dr(aPGr.y(),aPGr.x(),aPGr.z()));
+        } else {
+            aVGr.push_back(aPGr);
+        }
     }
     cRPCSens * aRPCSens = new cRPCSens(aNameIm ? *aNameIm : NameImage());
     aRPCSens->InitFromSamples(aVIm, aVGr);
@@ -1028,6 +1033,7 @@ private :
     std::string mNameSysOut;
     tREAL8      mEpsDer = 200.0 ;
     std::vector<std::string> mOutNamePat = {"(.*)\\.tif","RPC-$1.xml"};
+    bool mXYisLonLat = true;
 
 };
 
@@ -1068,7 +1074,7 @@ int cApp_OriCreateRPC::Exe()
 
         auto aRPCName = ReplacePattern(mOutNamePat[0],mOutNamePat[1],aNameIm);
         StdOut() << "\n* RPC: " << aRPCName << std::endl;
-        auto aRPCSensor = aSIin->GenerateSensorRPC(nullptr, aChSys, std::nullopt, mZIntv);
+        auto aRPCSensor = aSIin->GenerateSensorRPC(nullptr, aChSys, mXYisLonLat, std::nullopt, mZIntv);
         aRPCSensor->ToFile(aRPCName);
 
         delete aRPCSensor;
@@ -1093,6 +1099,7 @@ cCollecSpecArg2007 & cApp_OriCreateRPC::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            << AOpt2007(mZIntv,"ZIntv","Z interval")
            << AOpt2007(mNameSysOut,"SysCoOut","Output system coordinate")
            << AOpt2007(mOutNamePat,"RPCPat","Output RPC name pattern \"[Pattern,subst]\"", {eTA2007::HDV})
+           << AOpt2007(mXYisLonLat,"XYisLonLat","XY convention for final coord sys", {eTA2007::HDV})
         ;
 }
 

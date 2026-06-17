@@ -657,6 +657,8 @@ tREAL8  cStdStatRes::DevStd() const {return std::sqrt(std::max(0.0,mAvgDist2.Ave
 tREAL8  cStdStatRes::ErrAtProp(tREAL8 aProp) const {return NC_KthVal(mVRes,aProp);}
 tREAL8  cStdStatRes::Min() const {return mBounds.VMin();}
 tREAL8  cStdStatRes::Max() const {return mBounds.VMax();}
+tREAL8  cStdStatRes::Interv() const {return Max()-Min();}
+
 int     cStdStatRes::NbMeasures() const {return mVRes.size();}
 const std::vector<tREAL8>  & cStdStatRes::VRes() const {return mVRes;}
 

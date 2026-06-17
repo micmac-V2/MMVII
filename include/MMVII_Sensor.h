@@ -111,7 +111,8 @@ class cSensorImage  :   public cObj2DelAtEnd,
           /// aZintv specifies the Z interval needed for RPC. If none (std::nullopt) is given, the sensor must have a defined Z interval
           cSensorImage * GenerateSensorRPC(const cDataInvertibleMapping<tREAL8,2>* aResampleMap,
                                            const cDataInvertibleMapping<tREAL8,3>* aChSysCoMap,
-                                          std::optional<std::string> aNameIm  = std::nullopt,
+                                           bool XYisLonLat = true,
+                                           std::optional<std::string> aNameIm  = std::nullopt,
                                            std::optional<cPt2dr> aZIntv = std::nullopt
                                           ) const;
 

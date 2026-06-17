@@ -95,6 +95,7 @@ class cAppli_TiePConvert : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
+        std::vector<std::string>  Samples() const override;
      private :
         std::string              mSpecIm;
         eFormatExtern            mFormat;
@@ -141,6 +142,14 @@ cCollecSpecArg2007 & cAppli_TiePConvert::ArgOpt(cCollecSpecArg2007 & anArgObl)
              << AOpt2007(mPatNameDebug,"PND","Pattern names for debuging",{eTA2007::Tuning})
              << AOpt2007(mGenerateMTP,"GenMTP","Generate multiple tie point after conversion",{eTA2007::HDV})
            ;
+}
+
+std::vector<std::string>  cAppli_TiePConvert::Samples() const
+{
+    return {
+               "MMVII TiePConvert IMG_5.*JPG MMV1 V1 Post=dat"
+
+    };
 }
 
 
