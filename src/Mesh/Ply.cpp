@@ -64,7 +64,7 @@ template <class Type> void cTriangulation3D<Type>::PlyInit(const std::string & a
 {
  try
  {
-  PLYData  aPlyF(aNameFile,false);
+  PLYData aPlyF(aNameFile,false);
   auto aElementsNames = aPlyF.getElementNames();
   // Read points
   {
@@ -399,57 +399,73 @@ INSTANTIATE_TRI3D(tREAL16)
 
 /* ********************************************************** */
 /*                                                            */
+/*                       cPlyVertices                         */
+/*                                                            */
+/* ********************************************************** */
+
+cPlyVertices::cPlyVertices()
+    : mPlyOut(new happly::PLYData)
+{
+}
+cPlyVertices::~cPlyVertices()
+{
+    delete mPlyOut;
+}
+
+void cPlyVertices::AddVert(const std::array<double, 3> &aVert, const std::array<double, 3> &aColor)
+{
+    mPlyVerts.push_back(aVert);
+    mPlyColors.push_back(aColor);
+}
+
+void cPlyVertices::AddVert(const cPt3dr &aVert, const cPt3dr &aColor)
+{
+    mPlyVerts.push_back({aVert.x(),aVert.y(),aVert.z()});
+    mPlyColors.push_back({aColor.x(),aColor.y(),aColor.z()});
+}
+
+void cPlyVertices::ToPly(const std::string & aFileName, bool aIsBinary)
+{
+    mPlyOut->addVertexPositions(mPlyVerts); // can be done only once with happly?!
+    mPlyOut->addVertexColors(mPlyColors);
+    mPlyOut->write(aFileName,(aIsBinary?happly::DataFormat::Binary:happly::DataFormat::ASCII));
+    delete mPlyOut; // reset for new ply
+    mPlyOut =new happly::PLYData;
+}
+
+
+/* ********************************************************** */
+/*                                                            */
 /*                   cAppli_VisuPoseStr3D                     */
 /*                                                            */
 /* ********************************************************** */
 
-void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::vector<cSensorImage *>& aVSens)
+void cAppli_VisuPoseStr3D::AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulTieP * & aTPts, const std::vector<cSensorImage *>& aVSens)
 {
-    PLYData aPlyOut;
-
-    //  convert Pts to array
-    std::vector<std::array<double, 3>> aPlyPts;
-
     // add 3d points
-    size_t aNum3DPt=0;
     if (aTPts)
     {
         for (auto aAllConfigs : aTPts->Pts())
         {
             const auto & aConfig = aAllConfigs.first;
             auto & aVals = aAllConfigs.second;
-
             size_t aNbIm = aConfig.size();
             size_t aNbPts = aVals.mVIdPts.empty() ? NbPtsMul(aAllConfigs) : aVals.mVIdPts.size();
-
-
             for (size_t aKPts=0; aKPts<aNbPts; aKPts++)
             {
                 const cPt3dr & aP3D = aVals.mVPGround.at(aKPts);
-
-
                 for (size_t aKIm=0; aKIm<aNbIm; aKIm++)
                 {
                     size_t aKImSorted = aConfig.at(aKIm);
-
                     const cPt2dr aPIm = aVals.mVPIm.at(aKPts*aNbIm+aKIm);
                     cSensorImage* aCam = aVSens.at(aKImSorted);
-
                     if (aCam->IsVisibleOnImFrame(aPIm) && aCam->IsVisible(aP3D))
                     {
-
                         double aResidual = Norm2(aPIm - aCam->Ground2Image(aP3D));
-
                         if (aResidual<mErrProjMax)
                         {
-                            std::array<double,3> anArray;
-                            for (int aK=0 ; aK<3 ; aK++)
-                                anArray[aK] = aP3D[aK];
-                            aPlyPts.push_back(anArray);
-
-                            aNum3DPt++;
+                            aPlyverts.AddVert(aP3D); // no color for now
                         }
-
                     }
                 }
             }
@@ -457,7 +473,6 @@ void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::v
     }
 
     // add camera centers
-    size_t aNumImPlane=0;
     std::vector<cPt3dr> aVCenters;
     cPt3dr aCenter;
     for (auto aCam : aVSens)
@@ -474,12 +489,8 @@ void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::v
         } // perspective sensor
         else aCenter = aCam->PseudoCenterOfProj();
 
-        std::array<double,3> anArray;
-        for (int aK=0 ; aK<3 ; aK++)
-            anArray[aK] = aCenter[aK];
-        aPlyPts.push_back(anArray);
+        aPlyverts.AddVert(aCenter, {1.,0.,0.});
 
-        aNumImPlane++;
         aVCenters.push_back(aCenter);
     }
 
@@ -510,13 +521,7 @@ void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::v
                 aImVPts.push_back(BundMid(cPt2dr(aDX,     aSz[1])));
 
                 for (auto aP : aImVPts)
-                {
-                    std::array<double,3> anArray;
-                    for (int aK=0 ; aK<3 ; aK++)
-                        anArray[aK] = aP[aK];
-                    aPlyPts.push_back(anArray);
-                    aNumImPlane++;
-                }
+                    aPlyverts.AddVert(aP, {1.,0.,0.});
             }
 
             // Satellite trajectory: perspective centers sampled along the along-track direction
@@ -527,11 +532,7 @@ void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::v
                 tSeg3dr aBund1 = aSens->Image2Bundle(cPt2dr(aSz[0],  aDY));
                 cPt3dr aSatPos = BundleInters(aBund0, aBund1);
 
-                std::array<double,3> anArray;
-                for (int aK=0 ; aK<3 ; aK++)
-                    anArray[aK] = aSatPos[aK];
-                aPlyPts.push_back(anArray);
-                aNumImPlane++;
+                aPlyverts.AddVert(aSatPos, {1.,0.,0.});
             }
         }
         else
@@ -553,16 +554,8 @@ void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::v
                 aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aSz[0],aDY,aF) ));
                 aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aDX,aSz[1],aF) ));
 
-
                 for (auto aP : aImVPts)
-                {
-                    std::array<double,3> anArray;
-                    for (int aK=0 ; aK<3 ; aK++)
-                        anArray[aK] = aP[aK];
-                    aPlyPts.push_back(anArray);
-
-                    aNumImPlane++;
-                }
+                    aPlyverts.AddVert(aP, {1.,0.,0.});
             }
         }
     }
@@ -595,47 +588,11 @@ void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::v
 
                 for (auto aP : aImVPts)
                 {
-                    std::array<double,3> anArray;
-                    for (int aK=0 ; aK<3 ; aK++)
-                        anArray[aK] = aP[aK];
-                    aPlyPts.push_back(anArray);
+                    aPlyverts.AddVert(aP, {0.,1.,0.});
                 }
             }
         }
     }
-
-    aPlyOut.addVertexPositions(aPlyPts);
-
-    // assign colors
-    std::vector<std::array<double, 3>> colors;
-    for (size_t aK=0; aK<aPlyPts.size(); aK++)
-    {
-        std::array<double,3> anArray;
-        if (aK<aNum3DPt)
-        {
-            // todo: add colors from images
-            for (int aI=0 ; aI<3 ; aI++)
-                anArray[aI] = 1.0;
-        }
-        else if (aK<(aNum3DPt+aNumImPlane))
-        {
-            anArray[0] = 1.0;
-            anArray[1] = 0;
-            anArray[2] = 0;
-        }
-        else
-        {
-            anArray[0] = 0;
-            anArray[1] = 1.0;
-            anArray[2] = 0;
-        }
-        colors.push_back(anArray);
-
-    }
-    aPlyOut.addVertexColors(colors);
-
-    // write ply
-    aPlyOut.write(mOutfile,(mBinary?happly::DataFormat::Binary:happly::DataFormat::ASCII));
 }
 
 double cAppli_VisuPoseStr3D::CalculateFDepth(const cPt2di& aSz, const double& aF)

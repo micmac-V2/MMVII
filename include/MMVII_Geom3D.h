@@ -4,6 +4,11 @@
 #include "MMVII_Triangles.h"
 #include "MMVII_Matrix.h"
 
+namespace happly
+{
+class PLYData;
+}
+
 namespace MMVII
 {
 
@@ -748,6 +753,20 @@ class cGenGauss3D
 
 };
 
+
+class cPlyVertices
+{
+public:
+    cPlyVertices();
+    ~cPlyVertices();
+    void AddVert(const std::array<double, 3> &aVert, const std::array<double, 3> &aColor={1.,1.,1.});
+    void AddVert(const cPt3dr &aVert, const cPt3dr &aColor={1.,1.,1.});
+    void ToPly(const std::string & aFileName, bool aIsBinary);
+protected:
+    std::vector<std::array<double, 3>> mPlyVerts;
+    std::vector<std::array<double, 3>> mPlyColors;
+    happly::PLYData * mPlyOut;
+};
 
 
 };
