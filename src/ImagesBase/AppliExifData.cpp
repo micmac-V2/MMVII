@@ -2,9 +2,32 @@
 #include "MMVII_Image2D.h"
 #include "cMMVII_Appli.h"
 #include "MMVII_Sensor.h"
+#include "MMVII_Tpl_ElemStrToVal.h"
 
 namespace MMVII
 {
+
+enum class eDispExif
+{
+    eSizeType=0,
+    eMainExif,
+    eAllExif,
+    eRawExif,
+    eAllGDALInfo,
+    eNbVals
+};
+
+template<> cE2Str<eDispExif>::tMapE2Str cE2Str<eDispExif>::mE2S
+           {
+                {eDispExif::eSizeType,"SizeType"},
+                {eDispExif::eMainExif,"MainExif"},
+                {eDispExif::eAllExif,"AllExif"},
+                {eDispExif::eRawExif,"RawExif"},
+                {eDispExif::eAllGDALInfo,"AllGDALInfo"}
+           };
+
+MACRO_INSTANTITATE_STRIO_ENUM(eDispExif,"DispExif")
+
 
 class cAppli_ImageMetada : public cMMVII_Appli
 {
@@ -17,8 +40,16 @@ public :
 private :
     cPhotogrammetricProject  mPhgrProj;
     std::string mNameIn;  ///< Input image name
-    int mDisp;
+    eDispExif mDisp;
 };
+
+
+cAppli_ImageMetada:: cAppli_ImageMetada(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec,bool isBasic) :
+    cMMVII_Appli (aVArgs,aSpec),
+    mPhgrProj(*this),
+    mDisp(eDispExif::eMainExif)
+{
+}
 
 
 cCollecSpecArg2007 & cAppli_ImageMetada::ArgObl(cCollecSpecArg2007 & anArgObl)
@@ -33,7 +64,7 @@ cCollecSpecArg2007 & cAppli_ImageMetada::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return
         anArgOpt
-        <<   AOpt2007(mDisp,"Disp","0:Size & type, 1:Main Exif, 2:All Exif, 3:Raw Exif  4:all GDAL info ",{eTA2007::HDV,{eTA2007::Range,"[0,4]"}})
+        <<   AOpt2007(mDisp,"Disp","What to display: SizeType|MainExif|AllExif|RawExif|AllGDALInfo",{eTA2007::HDV})
         ;
 }
 
@@ -59,10 +90,11 @@ int cAppli_ImageMetada::Exe()
         StdOut() << "####### " << aDataFileIm.Name() <<": " << std::endl;
         StdOut() << "Size: " << aDataFileIm.Sz() << ", Type: "  << ToStr(aDataFileIm.Type()) << ", Channels: " << aDataFileIm.NbChannel() << std::endl;
         switch (mDisp) {
-        case 0:
+        case eDispExif::eSizeType:
+        case eDispExif::eNbVals:
             break;
-        case 1:
-        case 2:
+        case eDispExif::eMainExif:
+        case eDispExif::eAllExif:
         {
             cExifData anExif = aDataFileIm.ExifData();
             if (! anExif.Valid())
@@ -105,7 +137,7 @@ int cAppli_ImageMetada::Exe()
             DISP_EXIF(LensMake);
             DISP_EXIF(LensModel);
 
-            if (mDisp == 2) {
+            if (mDisp == eDispExif::eAllExif) {
                 DISP_EXIF(XResolution);
                 DISP_EXIF(YResolution);
                 DISP_EXIF(ResolutionUnit);
@@ -141,7 +173,7 @@ int cAppli_ImageMetada::Exe()
             StdOut() << std::setprecision(default_precision);
             break;
         }
-        case 3:
+        case eDispExif::eRawExif:
         {
             auto anExifList = aDataFileIm.ExifStrings();
             if (anExifList.empty())
@@ -153,7 +185,7 @@ int cAppli_ImageMetada::Exe()
             }
             break;
         }
-        case 4:
+        case eDispExif::eAllGDALInfo:
         {
             auto allMetadata = aDataFileIm.AllMetadata();
             for (const auto& aDomain : allMetadata ) {
@@ -176,13 +208,6 @@ int cAppli_ImageMetada::Exe()
     return EXIT_SUCCESS;
 }
 
-
-cAppli_ImageMetada:: cAppli_ImageMetada(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec,bool isBasic) :
-    cMMVII_Appli (aVArgs,aSpec),
-    mPhgrProj(*this),
-    mDisp(1)
-{
-}
 
 
 static tMMVII_UnikPApli Alloc_ImageMetadata(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec)
