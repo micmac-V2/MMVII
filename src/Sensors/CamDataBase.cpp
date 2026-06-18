@@ -399,14 +399,14 @@ int cAppli_AddCamInDataBase::Exe()
         const cElemCamDataBase *  anElem = mPhgrProj.GetCamFromNameCam(mNameCamera,true);
         if (anElem==nullptr)
         {
-            StdOut() << mNameCamera << " is not in any data base\n";
+            StdOut() << mNameCamera << " is NOT in any data base\n";
         }
         else
         {
-            StdOut() << mNameCamera << " is at least  in on of the data base\n";
-            StdOut()  << " PixSz="  << anElem->mSzPixel_Micron << " microns\n";
-            StdOut()  << " SensoSz="  << anElem->mSzSensor_Mm << " mm\n";
-            StdOut()  << " NbPixels="  << anElem->mNbPixels << " mm\n";
+            StdOut() << mNameCamera << " is at least  in one of the data base, with following information \n";
+            StdOut()  << "  * PixSz="  << anElem->mSzPixel_Micron << " microns\n";
+            StdOut()  << "  * SensoSz="  << anElem->mSzSensor_Mm << " mm\n";
+            StdOut()  << "  * NbPixels="  << anElem->mNbPixels << " pixels\n";
 
         }
     }
@@ -415,7 +415,7 @@ int cAppli_AddCamInDataBase::Exe()
     {
         if (!IsInit(&mParamCam))
         {
-             MMVII_UnclasseUsEr("ParamCam must be initialized ");
+             MMVII_UnclasseUsEr("ParamCam must be initialized in write modes");
         }
         aNewElem.mName = mNameCamera;
         aNewElem.mSzPixel_Micron = cPt2dr(mParamCam.at(0),mParamCam.at(1));
@@ -430,7 +430,7 @@ int cAppli_AddCamInDataBase::Exe()
     }
 
 
-    StdOut() <<  " DIR=  " << mPhgrProj.FileCamDataBase(mTypeDB) << "\n";
+    StdOut() <<  " FILE FOR DATA BASE =  " << mPhgrProj.FileCamDataBase(mTypeDB) << "\n";
 
     auto  anIter = aCamDB.Map().find(mNameCamera);
 
