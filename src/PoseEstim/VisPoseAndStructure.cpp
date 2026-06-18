@@ -52,7 +52,8 @@ int cAppli_VisuPoseStr3D::Exe()
     mPhProj.FinishInit();
 
     if (!IsInit(&mOutfile))
-        mOutfile = ("VisSFM_"+mPhProj.DPOrient().DirIn()+
+        mOutfile =  mPhProj.DirVisuAppli() +
+                     ("VisSFM_"+mPhProj.DPOrient().DirIn()+
                     (mPhProj.DPMulTieP().DirInIsInit() ? "_"+mPhProj.DPMulTieP().DirIn() :
                      mPhProj.DPGndPt2D().DirInIsInit() ? "_"+mPhProj.DPGndPt2D().DirIn() : "")  +".ply");
 
@@ -135,7 +136,7 @@ tMMVII_UnikPApli Alloc_VisuPoseStr3D(const std::vector<std::string> & aVArgs,con
 
 cSpecMMVII_Appli  TheSpec_VisuPoseStr3D
     (
-        "VisPose3D",
+        "VisuPose3D",
         Alloc_VisuPoseStr3D,
         "Create PLY with poses and 3D structure",
         {eApF::Ori},

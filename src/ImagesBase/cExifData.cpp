@@ -293,7 +293,8 @@ bool cExifData::FromFile(const std::string &aFileName, cExifData &anExif, bool S
 {
     auto aMetadataList = cGdalApi::GetExifMetadata(aFileName,SVP ? cGdalApi::eOnError::ReturnNullptr : cGdalApi::eOnError::RaiseError);
     FillExif(aMetadataList, anExif);
-    return aMetadataList.empty();
+//    return aMetadataList.empty();
+    return !aMetadataList.empty();   // MPD=> JO,  Ok ?
 }
 
 
