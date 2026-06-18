@@ -26,7 +26,7 @@ template<> cE2Str<eDispExif>::tMapE2Str cE2Str<eDispExif>::mE2S
                 {eDispExif::eAllGDALInfo,"AllGDALInfo"}
            };
 
-MACRO_INSTANTITATE_STRIO_ENUM(eDispExif,"DispExif")
+MACRO_INSTANTIATE_STRIO_ENUM(eDispExif,"DispExif")
 
 
 class cAppli_ImageMetada : public cMMVII_Appli

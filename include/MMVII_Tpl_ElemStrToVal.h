@@ -285,7 +285,7 @@ template tPtrArg2007 AOpt2007<Type>(Type &,const std::string & aName, const std:
 /* ==================================== */
 
 
-#define MACRO_INSTANTITATE_STRIO_ENUM(ETYPE,ENAME)\
+#define MACRO_INSTANTIATE_STRIO_ENUM(ETYPE,ENAME)\
 MACRO_INSTANTIATE_ARG2007(ETYPE)\
 TPL_ENUM_2_STRING(ETYPE)\
 template <>  std::string cStrIO<ETYPE>::ToStr(const ETYPE & anEnum) { return  E2Str(anEnum); }\
