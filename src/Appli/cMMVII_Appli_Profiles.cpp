@@ -205,7 +205,7 @@ cCollecSpecArg2007 & cAppli_EditProfile::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       anArgOpt
         << AOpt2007(mSetUser,"SetUser","Set this user as the current user of MMVII")
         << AOpt2007(mModifParam.mNbProcMax,"DefNbProc","Default number of processor")
-        << AOpt2007(mModifParam.mTaggedDefSerial,"ModeSerial","Mode for serialization",{AC_ListVal<eTypeSerial>()})
+        << AOpt2007(mModifParam.mTaggedDefSerial,"ModeSerial","Mode for serialization")
     ;
 }
 

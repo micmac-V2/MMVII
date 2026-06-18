@@ -704,7 +704,7 @@ cCollecSpecArg2007 & cAppliGenCode::ArgObl(cCollecSpecArg2007 & anArgObl)
    return
       anArgObl  ;
 /*
-         << Arg2007(mModeMatch,"Matching mode",{AC_ListVal<eModeEpipMatch>()})
+         << Arg2007(mModeMatch,"Matching mode")
          << Arg2007(mNameIm1,"Name Input Image1",{eTA2007::FileImage})
          << Arg2007(mNameIm2,"Name Input Image1",{eTA2007::FileImage})
    ;
@@ -715,7 +715,7 @@ cCollecSpecArg2007 & cAppliGenCode::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
    return
       anArgOpt
-         << AOpt2007(mTypeProj,"TypeProj","Type of projection for specific generation",{AC_ListVal<eProjPC>()})
+         << AOpt2007(mTypeProj,"TypeProj","Type of projection for specific generation")
       ;
 }
 

@@ -296,7 +296,7 @@ cCollecSpecArg2007 & cAppli_CreateCalib::ArgObl(cCollecSpecArg2007 & anArgObl)
 cCollecSpecArg2007 & cAppli_CreateCalib::ArgOpt(cCollecSpecArg2007 & anArgObl)
 {
   return      anArgObl
-            << AOpt2007(mProj,"Proj","Projection mode ",{{eTA2007::HDV},AC_ListVal<eProjPC>()})
+            << AOpt2007(mProj,"Proj","Projection mode ",{eTA2007::HDV})
             << AOpt2007(mDegree,"Degree","Degree for distorsion param",{{eTA2007::HDV}})
             << AOpt2007(mSystCyl,"SystCyl","Use SIA/SytCyl instead of Fraser Model",{{eTA2007::HDV}})
             // << AOpt2007(mNameBloc,"NameBloc","Set the name of the bloc ",{{eTA2007::HDV}})
@@ -371,7 +371,7 @@ cCollecSpecArg2007 & cAppli_AddCamInDataBase::ArgObl(cCollecSpecArg2007 & anArgO
 {
     return anArgObl
               <<  Arg2007(mNameCamera ,"Name of Input File")
-              <<  Arg2007(mTypeDB ,"Which  database (in enum value)",{AC_ListVal<eTypeDBCam>()})
+              <<  Arg2007(mTypeDB ,"Which  database (in enum value)")
              <<  Arg2007(mMode ,"0:Info , 1:AddIfNew ; 2:Overwrite ; -1:supress")
 
            ;

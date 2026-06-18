@@ -673,7 +673,7 @@ cAppliTestElemBundle::~cAppliTestElemBundle()
 cCollecSpecArg2007 & cAppliTestElemBundle::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
       return    anArgObl
-            <<  Arg2007(mMode,"Mode of bundle compens", {AC_ListVal<eModResBund>()})
+            <<  Arg2007(mMode,"Mode of bundle compens")
       ;
 }
 

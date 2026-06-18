@@ -445,7 +445,7 @@ cCollecSpecArg2007 & cAppli_ClinoInit::ArgOpt(cCollecSpecArg2007 & anArgOpt)
             <<  mPhProj.DPClinoMeters().ArgDirInOpt()  // Just for temporart test we can re-read, to supress later
             << AOpt2007(mPatFilter,"PatFilter","Pattern for filtering measure on ident",{eTA2007::HDV})
             << AOpt2007(mDmMGon,"DMGon","Do we print residual in decimilligon",{eTA2007::HDV})
-            << AOpt2007(mTypeClino,"Type","Type of clino",{eTA2007::HDV,AC_ListVal<eTyClino>()})
+            << AOpt2007(mTypeClino,"Type","Type of clino",{eTA2007::HDV})
             << AOpt2007(mMulAngle,"MulA","Multiplier of Angle to test ...",{eTA2007::Tuning})
             << AOpt2007(mDebug,"Debug","Debugging flag",{eTA2007::Tuning})
     ;

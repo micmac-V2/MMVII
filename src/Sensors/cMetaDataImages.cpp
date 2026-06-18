@@ -664,7 +664,7 @@ cCollecSpecArg2007 & cAppli_EditCalcMetaDataImage::ArgObl(cCollecSpecArg2007 & a
 {
    return     anArgObl
           <<  mPhProj.DPMetaData().ArgDirInMand()
-          <<  Arg2007(mTypeMTDIM ,"Type of meta-data",{AC_ListVal<eMTDIm>()})
+          <<  Arg2007(mTypeMTDIM ,"Type of meta-data")
    ;
 }
 

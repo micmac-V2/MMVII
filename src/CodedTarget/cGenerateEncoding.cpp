@@ -259,7 +259,7 @@ cAppliGenerateEncoding::cAppliGenerateEncoding
 cCollecSpecArg2007 & cAppliGenerateEncoding::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return anArgObl
-           <<   Arg2007(mSpec.mType  ,"Type among enumerated values",{AC_ListVal<eTyCodeTarget>()})
+           <<   Arg2007(mSpec.mType  ,"Type among enumerated values")
            <<   Arg2007(mSpec.mNbBits,"Number of bits for the code")
    ;
 }
