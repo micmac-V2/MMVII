@@ -504,7 +504,7 @@ void cAppli_VisuPoseStr3D::AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulT
         if (mWithRGB)
         {
             // RGB values averaged over all images
-            // neater results but much smaller since no // implemented
+            // neater results but slower?
             if (mWithAvgRGB)
             {
                 for (size_t aKCam=0; aKCam<aNbCam; aKCam++)
@@ -634,20 +634,46 @@ void cAppli_VisuPoseStr3D::AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulT
             double aF = CalculateFDepth(aSz,aFPix);
 
 
+            // add image border
+            std::vector<cPt3dr> aImVPts;
             for (int aS=0; aS<=aSteps; aS++)
             {
-                std::vector<cPt3dr> aImVPts;
+
                 double aDX = aImStepSz[0]*aS-1;
                 double aDY = aImStepSz[1]*aS-1;
 
+                // image plane border
                 aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(0,aDY,aF) ));
                 aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aDX,0,aF) ));
                 aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aSz[0],aDY,aF) ));
                 aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aDX,aSz[1],aF) ));
 
-                for (auto aP : aImVPts)
-                    aPlyverts.AddVert(aP, {1.,0.,0.});
             }
+            // add image plane grid for non-pinhole
+            if (aSens->IsSensorCamPC() )
+            {
+                if (aSens->GetSensorCamPC()->InternalCalib()->TypeProj()!=eProjPC::eStenope)
+                {
+                    int aSmallSteps = aSteps/2;
+                    cPt2dr aImSmallStepSz(aSz[0]/aSmallSteps,aSz[1]/aSmallSteps);
+
+                    for (int aSX=0; aSX<=aSmallSteps; aSX++)
+                    {
+                        double aDX = aImSmallStepSz[0]*aSX-1;
+
+                        for (int aSY=0; aSY<=aSmallSteps; aSY++)
+                        {
+                            double aDY = aImSmallStepSz[1]*aSY-1;
+
+                            aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aDX,aDY,aF) ));
+                            StdOut() << cPt2dr(aDX,aDY) << std::endl;
+                        }
+                    }
+                }
+            }
+
+            for (auto aP : aImVPts)
+                aPlyverts.AddVert(aP, {1.,0.,0.});
         }
     }
 

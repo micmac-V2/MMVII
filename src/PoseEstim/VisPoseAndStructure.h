@@ -36,7 +36,7 @@ private:
     std::string               mOutfile;
     bool                      mBinary;
     bool                      mWithRGB;
-    bool                      mWithAvgRGB; //RGB values averaged over all images, slower but less noisy
+    bool                      mWithAvgRGB; //RGB values averaged over all images, slower? but less noisy
 
     void AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulTieP * &, const std::vector<cSensorImage *>& );
     double CalculateFDepth(const cPt2di&, const double&);
