@@ -19,7 +19,9 @@ cAppli_VisuPoseStr3D::cAppli_VisuPoseStr3D(const std::vector<std::string> & aVAr
     mErrProjMax  (10.0),
     mCamScale    (0.1),
     mOutfile     ("VisSFM_${ori}_${features}.ply"),
-    mBinary      (true)
+    mBinary      (true),
+    mWithRGB     (true),
+    mWithAvgRGB  (false)
 {
 }
 
@@ -38,6 +40,8 @@ cCollecSpecArg2007 & cAppli_VisuPoseStr3D::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            << AOpt2007(mCamScale,"CamScale","Scale camera frustum",{eTA2007::HDV})
            << AOpt2007(mOutfile,"Outfile","Output filename",{eTA2007::HDV})
            << AOpt2007(mBinary,"Bin","Output in binary format",{eTA2007::HDV})
+           << AOpt2007(mWithRGB,"RGB","Output colored pointcloud",{eTA2007::HDV})
+           << AOpt2007(mWithAvgRGB,"AvgRGB","RGB values averaged over all images",{eTA2007::Tuning,eTA2007::HDV})
            << mPhProj.DPMulTieP().ArgDirInOpt("","Input features (multiple tie-points format)")
            << mPhProj.DPGndPt2D().ArgDirInOpt("","Input features (image measurements format)")
         ;
@@ -59,6 +63,7 @@ int cAppli_VisuPoseStr3D::Exe()
     std::vector<cSensorImage *> aVSens ;
 
     // read names and cameras; skip images without an orientation
+    cAutoTimerSegm  aATS(TimeSegm(),"READ CAMERAS");
     for (const auto & aIm : VectMainSet(0))
     {
         cSensorImage* aSens = mPhProj.ReadSensor(aIm,true,true);
@@ -73,6 +78,7 @@ int cAppli_VisuPoseStr3D::Exe()
     Sort2VectFirstOne(aVNames,aVSens);
 
     // read the tie points
+    TimeSegm().SetIndex("READ TIE-POINTS");
     cComputeMergeMulTieP * aTPts = nullptr;
     if (mPhProj.DPMulTieP().DirInIsInit())
     {
@@ -101,13 +107,20 @@ int cAppli_VisuPoseStr3D::Exe()
     }
 
     // intersect in 3d
+    TimeSegm().SetIndex("INTERSECT 3D TIE-POINTS");
     if (aTPts)
         for (auto & aPair : aTPts->Pts())
             MakePGround(aPair,aVSens);
 
 
+    std::string aPrintRGB = (mWithRGB) ? "+RGB": "";
+    std::string aPrintPT3D = "ADD 3D PTS";
+    std::string aPrintCAM = "+CAMERAS";
+    std::string aPrintPtsRGBCam = aPrintPT3D + aPrintRGB + aPrintCAM;
+    TimeSegm().SetIndex(aPrintPtsRGBCam);
     cPlyVertices aPlyverts;
     AddCameras(aPlyverts,aTPts,aVSens);
+
     aPlyverts.ToPly(mOutfile, mBinary);
 
     delete aTPts;
