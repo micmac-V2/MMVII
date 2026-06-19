@@ -284,6 +284,8 @@ template tPtrArg2007 AOpt2007<Type>(Type &,const std::string & aName, const std:
 /*                                      */
 /* ==================================== */
 
+#define MACRO_DECLARE_STRIO_ENUM(ETYPE) template<> const std::string cStrIO<ETYPE>::msNameType;
+
 
 #define MACRO_INSTANTIATE_STRIO_ENUM(ETYPE,ENAME)\
 MACRO_INSTANTIATE_ARG2007(ETYPE)\
