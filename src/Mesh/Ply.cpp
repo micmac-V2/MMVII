@@ -688,7 +688,7 @@ void cAppli_VisuPoseStr3D::AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulT
                             double aDY = aImSmallStepSz[1]*aSY-1;
 
                             aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aDX,aDY,aF) ));
-                            StdOut() << cPt2dr(aDX,aDY) << std::endl;
+                            //StdOut() << cPt2dr(aDX,aDY) << std::endl;
                         }
                     }
                 }

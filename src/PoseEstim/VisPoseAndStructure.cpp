@@ -76,7 +76,7 @@ int cAppli_VisuPoseStr3D::Exe()
             aVNames.push_back(aIm);
             aVSens.push_back(aSens);
         }
-        else StdOut() << "Image " << aIm << " has no orientatoin" << std::endl;
+        else StdOut() << "Image " << aIm << " has no orientation" << std::endl;
     }
     // sort images alphbetically (and aVSens accordingly) for AllocStdFromMTPFromFolder
     Sort2VectFirstOne(aVNames,aVSens);
