@@ -4,6 +4,7 @@
 #include "MMVII_Mappings.h"
 #include "MMVII_2Include_Tiling.h"
 #include "MMVII_PCSens.h"
+#include "MMVII_StaticLidar.h"
 #include "../PoseEstim/VisPoseAndStructure.h"
 
 #include "happly.h"
@@ -439,6 +440,27 @@ void cPlyVertices::ToPly(const std::string & aFileName, bool aIsBinary)
 /*                   cAppli_VisuPoseStr3D                     */
 /*                                                            */
 /* ********************************************************** */
+
+void cAppli_VisuPoseStr3D::AddPointCould(cPlyVertices& aPlyverts, cStaticLidar* aScan, int aTSLCloudDezoom, cPt3dr aScanColor, bool aOnlyEdges)
+{
+    if (aTSLCloudDezoom<=0)
+        return;
+
+    cImGrad<tREAL4> aMask({1,1});
+    if (aOnlyEdges)
+        aMask = Deriche(aScan->getRasterDistance(),0.1);
+
+    int aStep = 1;
+    for (int i=1;i<aTSLCloudDezoom;++i)
+        aStep *= 2;
+    for (int l = 0 ; l < aScan->PixelDomain().Sz().y(); l+=aStep)
+        for (int c = 0 ; c < aScan->PixelDomain().Sz().x(); c+=aStep)
+        {
+            if ((!aOnlyEdges) || (Norm2(aMask.Grad(cPt2di(c,l)))>0.01))
+                aPlyverts.AddVert(aScan->Image2Ground(cPt2di(c,l)), aScanColor);
+        }
+}
+
 void cAppli_VisuPoseStr3D::AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulTieP * & aTPts, const std::vector<cSensorImage *>& aVSens)
 {
     size_t aNbCam=aVSens.size();
@@ -666,7 +688,7 @@ void cAppli_VisuPoseStr3D::AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulT
                             double aDY = aImSmallStepSz[1]*aSY-1;
 
                             aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aDX,aDY,aF) ));
-                            StdOut() << cPt2dr(aDX,aDY) << std::endl;
+                            //StdOut() << cPt2dr(aDX,aDY) << std::endl;
                         }
                     }
                 }

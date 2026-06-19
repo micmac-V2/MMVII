@@ -255,8 +255,10 @@ class  cSpecOneArg2007 : public cMemCheck
          std::string     mValue;  ///< memorize Value used in init (command parameter)
          std::string     mName; ///< Name for optionnal
          std::string     mCom;  ///< Comment for all
-         tSemA2007PL     mSemPL;    ///< Vector of semantic
          int             mNbMatch;  ///< Number of match, to generate error on multiple names
+
+     protected:
+         tSemA2007PL     mSemPL;    ///< Vector of semantic
 };
 
 typedef std::shared_ptr<cSpecOneArg2007>  tPtrArg2007;

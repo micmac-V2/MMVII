@@ -32,8 +32,6 @@ class cAppli_PerturbRandomOri : public cMMVII_Appli
 
         void TestPly();
      private :
-        bool AcceptEmptySet(int aK) const override {return ((aK==0)&&(mSpecIm==MMVII_NONE));}
-
         cPhotogrammetricProject    mPhProj;
         std::string                mSpecIm;
         tREAL8                     mRandOri;
@@ -43,8 +41,6 @@ class cAppli_PerturbRandomOri : public cMMVII_Appli
         cTriangulation3D<tREAL4> * mTri;
         std::vector<cSensorImage *> mVSI;
         std::vector<tIm>            mVIm;
-        std::string                 mPatTSL; // perturb ori for static lidar too
-
 };
 
 cAppli_PerturbRandomOri::cAppli_PerturbRandomOri(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
@@ -72,7 +68,6 @@ cCollecSpecArg2007 & cAppli_PerturbRandomOri::ArgOpt(cCollecSpecArg2007 & anArgO
             << AOpt2007(mRandC  ,"RandC"  ,"Random perturbation on center")
             << AOpt2007(mTransl  ,"Transl"  ,"Global translation")
             << AOpt2007(mPlyTest  ,"PlyTest"  ,"Test ply (temporary)")
-            << AOpt2007(mPatTSL  ,"PatTSL"  ,"Pattern of static lidar to be perturbated (without \"Ori-Scan-\")")
     ;
 }
 
@@ -141,20 +136,9 @@ int cAppli_PerturbRandomOri::Exe()
 
     for (const auto & aNameIm : VectMainSet(0))
     {
-        cSensorImage* aSI = mPhProj.ReadSensor(aNameIm,true,false);
+        cSensorImage* aSI = mPhProj.ReadSensor(aNameIm,true,SVP::No);
         mVSI.push_back(aSI);
     }
-
-    if (IsInit(&mPatTSL))
-    {
-        auto aVScanNames = mPhProj.GetStaticLidarNames(mPatTSL);
-        for (const auto & aNameScan : aVScanNames)
-        {
-            cSensorImage* aSI = mPhProj.ReadStaticLidar(aNameScan,true,false);
-            mVSI.push_back(aSI);
-        }
-    }
-
 
     TestPly();
 

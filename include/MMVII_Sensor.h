@@ -626,7 +626,8 @@ class cPhotogrammetricProject : public cIPhProj
 
 
           /// Load a sensor, try different type (will add RPC , and others ?) use autom delete (dont need to delete it)
-          void ReadSensor(const std::string &NameIm,cSensorImage* &,cSensorCamPC * &,bool ToDeleteAutom,bool SVP=false) const;
+          /// aReadData if heavy data reading is needed
+          void ReadSensor(const std::string &NameIm,cSensorImage* &,cSensorCamPC * &,bool ToDeleteAutom,bool SVP=false, bool aReadData=false) const;
 
           /// return the generic sensor, use autom delete (dont need to delete it)
           cSensorImage* ReadSensor(const std::string  &aNameIm,bool ToDeleteAutom,bool SVP=false) const override;
@@ -940,9 +941,8 @@ class cPhotogrammetricProject : public cIPhProj
      //===================================================================
 
 
-     cStaticLidar * ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const; ///< Create Static Lidar
-     cStaticLidar * ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const; ///< Create Static Lidar
-     std::vector<std::string> GetStaticLidarNames(const std::string &aPatSelect) const; ///< pattern without "Ori-Scan-"
+     cStaticLidar * ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const; ///< Create Static Lidar
+     cStaticLidar * ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const; ///< Create Static Lidar
          //==================   Camera Data Base     =========================
 
          void MakeCamDataBase();

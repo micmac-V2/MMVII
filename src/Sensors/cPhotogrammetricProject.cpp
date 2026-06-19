@@ -691,18 +691,22 @@ cSensorImage* cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,bo
      return aSI;
 }
 
-void cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,cSensorImage* & aSI,cSensorCamPC * & aSPC,bool ToDeleteAutom,bool SVP) const
+void cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,cSensorImage* & aSI,cSensorCamPC * & aSPC,bool ToDeleteAutom,bool SVP,bool aReadData) const
 {
      aSI = nullptr;
      aSPC =nullptr;
 
      // Try a stenope camera which has interesting properties
      aSPC = ReadCamPC(aNameIm,ToDeleteAutom,true);
+     // Try TSL
+     if (aSPC==nullptr) aSPC = ReadStaticLidar(aNameIm,ToDeleteAutom,true,aReadData);
+
      if (aSPC !=nullptr)
      {
         aSI = aSPC;
         return;
      }
+
 
      // Else try an external sensor
      if (aSI==nullptr) aSI =  SensorTryReadImported(*this,aNameIm);
@@ -1417,35 +1421,27 @@ cBlocOfCamera * cPhotogrammetricProject::ReadUnikBlocCam() const
 
 //  =============  Static Lidar  =================
 
-cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const
+cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const
 {
     aDP.AssertDirInIsInit();
-    std::string aScanFileName  =  aDP.FullDirIn() + aScanName;
+    std::string aOriName = cStaticLidar::OriNameFromId(aScanName);
+    if (aOriName == MMVII_NONE)
+        return nullptr;
+    std::string aScanFileName  =  aDP.FullDirIn() + aOriName;
+
     cStaticLidar * aScan = nullptr;
+    aScan = cStaticLidar::FromFile(aScanFileName, SVP);
     if (LoadRasters)
-        aScan = cStaticLidar::FromFile(aScanFileName, DirStaticLidarRasters());
-    else
-        aScan = cStaticLidar::FromFile(aScanFileName);
+        aScan->ReadRasters(DirStaticLidarRasters());
 
     if (ToDeleteAutom)
        cMMVII_Appli::AddObj2DelAtEnd(aScan);
     return aScan;
 }
 
-cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const
+cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const
 {
-    return ReadStaticLidar(mDPOrient,aScanName,ToDeleteAutom,LoadRasters);
-}
-
-
-std::vector<std::string> cPhotogrammetricProject::GetStaticLidarNames(const std::string &aPatSelect) const
-{
-    DPOrient().AssertDirInIsInit();
-    std::string aPat2Sup = cStaticLidar::Pat2Sup(aPatSelect);
-    std::string aFullPat2Sup = DPOrient().FullDirIn() + aPat2Sup;
-    tNameSet aSet = SetNameFromPat(aFullPat2Sup);
-    std::vector<std::string> aVect = ToVect(aSet);
-    return aVect;
+    return ReadStaticLidar(mDPOrient,aScanName,ToDeleteAutom,SVP,LoadRasters);
 }
 
 //  =============  Topo Mes  =================

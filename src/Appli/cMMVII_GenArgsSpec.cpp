@@ -1,7 +1,7 @@
 #include "cMMVII_Appli.h"
 #include "MMVII_DeclareCste.h"
 #include "MMVII_GenArgsSpec.h"
-
+#include "MMVII_StaticLidar.h"
 
 namespace MMVII
 {
@@ -42,7 +42,8 @@ static const std::map<eTA2007,std::vector<std::string>> fileList()
     static const std::map<eTA2007,std::vector<std::string>> fileList =
     {
         {eTA2007::FileImage,{".tif",".tiff",".jpg",".jpeg",".png",".jp2",".bmp",".cr2",".crw",".nef"}},
-        {eTA2007::FileCloud,{".ply",".e57"}},
+        {eTA2007::FileTSL,{cStaticLidar::GetIdSuffix()}},
+        {eTA2007::FileCloud,{".ply",".e57",".ptx"}},
         {eTA2007::FileDmp,{"."+PostF_DumpFiles}},
         {eTA2007::File3DRegion,{""}},
         {eTA2007::XmlOfTopTag,{".xml",".json"}},

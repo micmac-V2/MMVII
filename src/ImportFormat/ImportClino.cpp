@@ -266,7 +266,7 @@ cCollecSpecArg2007 & cAppli_ImportClino::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     return      anArgOpt
               << AOpt2007(mOffsetIdent,"OffsetId","Offset to add to the ide")
               << AOpt2007(mNbDig,"NbDig","Fix the number of digit for identifier")
-              << AOpt2007(mModeFusionData,"MF","Mode of Fusion if already exist",{AC_ListVal<eModeFusionData>()})
+              << AOpt2007(mModeFusionData,"MF","Mode of Fusion if already exist")
               << AOpt2007(mChgId,"ChgId","Change Id [Pat,Name], for ex \"[0(.*),1\\$1]\"  0017->1017",{{eTA2007::ISizeV,"[2,2]"}})
     ;
 }

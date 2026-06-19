@@ -915,6 +915,10 @@ void cSensorCamPC::Show() const
     StdOut() << "   Calib  : " << (mInternalCalib ? mInternalCalib->Name() : "none") << std::endl;
 }
 
+bool cSensorCamPC::DoAddCalibToUk() const
+{
+    return true;
+}
 
      // =================  becnh ===================
 
