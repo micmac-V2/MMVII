@@ -740,7 +740,7 @@ cCollecSpecArg2007 & cAppli_OriRelTripletsOfIm::ArgOpt(cCollecSpecArg2007 & anAr
             <<  AOpt2007(mShow,"Show","Show details of result",{eTA2007::HDV})
             <<  AOpt2007(mUseOri4GT,"UseOriGT","Set if orientation contains also exterior as a ground truth",{eTA2007::HDV})
             <<  AOpt2007(mFolderOriGT,"OriGT","If ground truth ori != calib")
-             << mPhProj.DPMulTieP().ArgDirOutOpt("VirTP","Destination for virtual tie points");
+             << mPhProj.DPMulTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points");
    ;
 }
 

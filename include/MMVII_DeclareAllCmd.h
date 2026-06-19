@@ -77,6 +77,7 @@ extern cSpecMMVII_Appli  TheSpec_SelectPairOriRel;
 extern cSpecMMVII_Appli  TheSpec_OriRel3Im;
 extern cSpecMMVII_Appli  TheSpec_OriRelTripletsOf1m;
 extern cSpecMMVII_Appli  TheSpec_OriRelAllTriplets;
+extern cSpecMMVII_Appli  TheSpec_OriPoseEstimRel;
 
 
 

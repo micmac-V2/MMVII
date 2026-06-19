@@ -845,7 +845,7 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt
             <<  mPhProj.DPGndPt2D().ArgDirInOpt()
             <<  mPhProj.DPMulTieP().ArgDirInOpt()
 
-            <<  mPhProj.DPTieP().ArgDirOutOpt("VirTP","Output for virtual tie points")
+            <<  mPhProj.DPTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
 
             <<  AOpt2007(mNbMinHom,"NbMinHom","Number minimal of homologous point required",{eTA2007::HDV})
             <<  AOpt2007(mDensitySol,"CompForce","How much computation do we pay?",{eTA2007::HDV})
