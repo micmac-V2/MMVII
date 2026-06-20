@@ -72,7 +72,7 @@ jobs:
 
   build_win:
     if: true
-    runs-on: windows-2025
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v6
@@ -105,7 +105,7 @@ jobs:
         version: 5.15
 
     - name: Configure CMake for MMVII
-      run: cmake -S . -B build -DCMAKE_PREFIX_PATH=C:/Miniconda/envs/test/Library -DvMMVII_BUILD=ON -DMMVII_KEEP_LIBRARY_MMV1=ON -DMMV1_PATH=libelise-win-dev
+      run: cmake -S . -B build -G "Visual Studio 18 2026" -A x64 -T v143 -DCMAKE_PREFIX_PATH=C:/Miniconda/envs/test/Library -DvMMVII_BUILD=ON -DMMVII_KEEP_LIBRARY_MMV1=ON -DMMV1_PATH=libelise-win-dev
 
     - name: Build MMVII
       run: cmake --build build --config Release -j 4 --target full
