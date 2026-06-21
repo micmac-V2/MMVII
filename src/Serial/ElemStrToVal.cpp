@@ -82,7 +82,7 @@ template<> cE2Str<eTopoStOriStat>::tMapE2Str cE2Str<eTopoStOriStat>::mE2S
 
 template<> cE2Str<eTySC>::tMapE2Str cE2Str<eTySC>::mE2S
            {
-                           {eTySC::NonInit,MMVII_NONE},
+                           {eTySC::NonInit,"NONE"},
                            {eTySC::US,"unordered"},
            };
 
