@@ -235,6 +235,8 @@ enum class eTyW
 enum class eTyUEr
            {
               eCreateDir,
+              eDirInDoesntExist,
+              eUnExpectedEmptyData,
               eRemoveFile,
               eEmptyPattern,
               eBadPattern,

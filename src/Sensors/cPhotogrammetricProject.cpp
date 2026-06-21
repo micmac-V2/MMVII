@@ -111,6 +111,16 @@ void cDirsPhProj::Finish()
 
     mFullDirIn  = mAppli.DirProject() + mDirLocOfMode + mDirIn + StringDirSeparator();
 
+    //  MPD, new check, seems correct, hope it will not create new bug ...
+    if (mAppli.IsInSpec(&mDirIn) && IsInit(&mDirIn))
+    {
+        if (! IsDirectory(mFullDirIn) )
+        {
+            MMVII_UserError(eTyUEr::eDirInDoesntExist,"for dir in : "+mDirIn + " Type=" + E2Str(mMode));
+//            StdOut()  << " mFullDirIn "  << mFullDirIn  << " " << IsDirectory(mFullDirIn) << "\n";
+        }
+    }
+
     // To see if this rule applies always, 4 now dont see inconvenient
     if (mAppli.IsInSpec(&mDirOut) &&  (! mAppli.IsInit(&mDirOut)))
     {
@@ -1462,7 +1472,7 @@ std::vector<std::string> cPhotogrammetricProject::ReadTopoMes() const
 
 //  see cMetaDataImages.cpp
 
-std::vector<cDataSolOriTriplet> cPhotogrammetricProject::ReadAllTriplets(const std::vector<std::string>& aVImages)
+std::vector<cDataSolOriTriplet> cPhotogrammetricProject::ReadAllTriplets(const std::vector<std::string>& aVImages,bool OkEmpty)
     const
 {
     std::vector<cDataSolOriTriplet> aRes;
@@ -1475,6 +1485,10 @@ std::vector<cDataSolOriTriplet> cPhotogrammetricProject::ReadAllTriplets(const s
         std::vector<cDataSolOriTriplet> aVData;
         ReadFromFile(aVData,aFileName);
         aRes.insert(aRes.end(),aVData.begin(),aVData.end());
+    }
+    if (aRes.empty() && (!OkEmpty))
+    {
+        MMVII_UserError(eTyUEr::eUnExpectedEmptyData,"Empty set of triplet");
     }
     return aRes;
 }

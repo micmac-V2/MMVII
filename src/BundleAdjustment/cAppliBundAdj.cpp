@@ -70,7 +70,7 @@ class cAppliBundlAdj : public cMMVII_Appli
 
         std::string               mSpecImIn;
 
-        std::string               mDataDir;  /// Default Data dir for all
+       // std::string               mDataDir;  /// Default Data dir for all
 
         cPhotogrammetricProject   mPhProj;
         cMMVII_BundleAdj          mBA;
@@ -110,7 +110,7 @@ class cAppliBundlAdj : public cMMVII_Appli
 };
 cAppliBundlAdj::cAppliBundlAdj(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
    cMMVII_Appli    (aVArgs,aSpec),
-   mDataDir        ("Std"),
+  // mDataDir        ("Std"),
    mPhProj         (*this),
    mBA             (&mPhProj),
    mGCPFilter      (""),
@@ -136,7 +136,7 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     
     return
           anArgOpt
-      << AOpt2007(mDataDir,"DataDir","Default data directories ",{eTA2007::HDV})
+     // << AOpt2007(mDataDir,"DataDir","Default data directories ",{eTA2007::HDV})
       << AOpt2007(mParamRefOri,"RefOri","Reference orientation [Ori,SimgaTr,SigmaRot?,PatApply?]",{{eTA2007::ISizeV,"[2,4]"}})
       << AOpt2007(mVSharedIP,"SharedIP","Shared intrinc parmaters [Pat1Cam,Pat1Par,Pat2Cam...] ",{{eTA2007::ISizeV,"[2,20]"}})
       << AOpt2007(mPostFixReport,NameParamPostFixReport(),CommentParamPostFixReport())
@@ -268,8 +268,8 @@ int cAppliBundlAdj::Exe()
 */
 
     //   ========== [0]   initialisation of def values  =============================
-    mPhProj.DPMulTieP().SetDirInIfNoInit(mDataDir);
-    mPhProj.DPRigBloc().SetDirInIfNoInit(mDataDir); //  RIGIDBLOC
+ //  mPhProj.DPMulTieP().SetDirInIfNoInit(mDataDir);
+  //  mPhProj.DPRigBloc().SetDirInIfNoInit(mDataDir); //  RIGIDBLOC
 
     mPhProj.FinishInit();
 

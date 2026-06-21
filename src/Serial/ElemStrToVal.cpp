@@ -211,6 +211,8 @@ template<> cE2Str<eTyNums>::tMapE2Str cE2Str<eTyNums>::mE2S
 template<> cE2Str<eTyUEr>::tMapE2Str cE2Str<eTyUEr>::mE2S
            {
                 {eTyUEr::eCreateDir,"MkDir"},
+                {eTyUEr::eDirInDoesntExist,"DirInDoesntExist"},
+                {eTyUEr::eUnExpectedEmptyData,"UnexpetedEmptyData"},
                 {eTyUEr::eRemoveFile,"RmFile"},
                 {eTyUEr::eEmptyPattern,"EmptyPattern"},
                 {eTyUEr::eBadPattern,"BadPattern"},

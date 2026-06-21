@@ -792,7 +792,7 @@ int cAppli_EditCalcMetaDataImage::Exe()
     }
     else
     {
-        if (isModifInit)
+        if (isModifInit && (!IsInit(&mSave)) && (mSave==false))
         {
             MMVII_WARNING("Modification not save, use Save=true if want to save");
         }
