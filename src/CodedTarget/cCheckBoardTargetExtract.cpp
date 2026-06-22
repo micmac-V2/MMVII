@@ -13,7 +13,7 @@
 */
 
 #include "cCheckBoardTargetExtract.h"
-
+#include "MMVII_StaticLidar.h"
 
 namespace MMVII
 {
@@ -597,7 +597,10 @@ void cAppliCheckBoardTargetExtract::DoOneImage()
    // Redirect the reports on folder of result
    SetReportRedir(mIdExportCSV,mPhProj.DPGndPt2D().FullDirOut());
 
-
+   // if TSL name, use intensity raster
+   std::string aOriginalNameIm = mNameIm;
+   if (cStaticLidar::IsNameTSL(mNameIm))
+       mNameIm = cStaticLidar::RasterIntensityPath(mPhProj.DirStaticLidarRasters()+cStaticLidar::NameFromId(mNameIm, false));
 
     mInterpol = new   cTabulatedDiffInterpolator(cSinCApodInterpolator(5.0,5.0));
 
@@ -644,6 +647,8 @@ void cAppliCheckBoardTargetExtract::DoOneImage()
 
     cAutoTimerSegm aTSMakeIm(mTimeSegm,"OTHERS");
 
+    // restore original name
+    mNameIm = aOriginalNameIm;
     GenerateVisuFinal();
     DoExport();
     delete mSpecif;

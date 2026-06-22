@@ -1434,7 +1434,7 @@ cBlocOfCamera * cPhotogrammetricProject::ReadUnikBlocCam() const
 cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const
 {
     aDP.AssertDirInIsInit();
-    std::string aOriName = cStaticLidar::OriNameFromId(aScanName);
+    std::string aOriName = cStaticLidar::NameFromId(aScanName, true);
     if (aOriName == MMVII_NONE)
         return nullptr;
     std::string aScanFileName  =  aDP.FullDirIn() + aOriName;

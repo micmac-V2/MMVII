@@ -715,17 +715,17 @@ void cStaticLidar::Show() const
 }
 
 
-cStaticLidar * cStaticLidar::FromFile(const std::string & aNameScanFile, bool aSVP)
+cStaticLidar * cStaticLidar::FromFile(const std::string & aNameScanOriFile, bool aSVP)
 {
-    if ( aSVP && (!ExistFile(aNameScanFile) || IsDirectory(aNameScanFile)) )
+    if ( aSVP && (!ExistFile(aNameScanOriFile) || IsDirectory(aNameScanOriFile)) )
     {
         return nullptr;
     }
 
     cStaticLidar * aRes = new cStaticLidar("NONE","?","?",tPoseR::Identity(),nullptr,tRotR::Identity(),NAN);
-    ReadFromFile(*aRes, aNameScanFile);
+    ReadFromFile(*aRes, aNameScanOriFile);
 
-    cPerspCamIntrCalib* aCalib = cPerspCamIntrCalib::FromFile(DirOfPath(aNameScanFile)
+    cPerspCamIntrCalib* aCalib = cPerspCamIntrCalib::FromFile(DirOfPath(aNameScanOriFile)
                                                               + aRes->mTmpNameCalib + "." + GlobTaggedNameDefSerial());
     aRes->mInternalCalib = aCalib;
 
@@ -1176,19 +1176,29 @@ template void cStaticLidar::fillRaster<tU_INT1>(const cStaticLidarImporter & aSL
                               const std::string& aPhProjDirOut, const std::string& aFileName,
                               std::function<tU_INT1 (int)> func);
 
+std::string cStaticLidar::RasterIntensityPath(const std::string & aBaseName)
+{
+    if (IsNameTSL(aBaseName))
+        return aBaseName + "_intensity.tif";
+    else
+        return aBaseName + "_intensity.tif";
+}
+
+
+
 void cStaticLidar::FillRasters(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, bool saveRasters)
 {
-    mRasterDistancePath = mStationName + "_" + mScanName + "_distance.tif";
-    mRasterIntensityPath = mStationName + "_" + mScanName + "_intensity.tif";
-    mRasterMaskPath = mStationName + "_" + mScanName + "_mask.tif";
-    mRasterXPath = mStationName + "_" + mScanName + "_X.tif";
-    mRasterYPath = mStationName + "_" + mScanName + "_Y.tif";
-    mRasterZPath = mStationName + "_" + mScanName + "_Z.tif";
+    mRasterDistancePath = mStationName + "-" + mScanName + "_distance.tif";
+    mRasterIntensityPath = RasterIntensityPath(mStationName + "-" + mScanName);
+    mRasterMaskPath = mStationName + "-" + mScanName + "_mask.tif";
+    mRasterXPath = mStationName + "-" + mScanName + "_X.tif";
+    mRasterYPath = mStationName + "-" + mScanName + "_Y.tif";
+    mRasterZPath = mStationName + "-" + mScanName + "_Z.tif";
 
-    //mRasterThetaPath = mStationName + "_" + mScanName + "_Theta.tif";
-    //mRasterPhiPath = mStationName + "_" + mScanName + "_Phi.tif";
-    //mRasterThetaErrPath = mStationName + "_" + mScanName + "_ThetaErr.tif";
-    //mRasterPhiErrPath = mStationName + "_" + mScanName + "_PhiErr.tif";
+    //mRasterThetaPath = mStationName + "-" + mScanName + "_Theta.tif";
+    //mRasterPhiPath = mStationName + "-" + mScanName + "_Phi.tif";
+    //mRasterThetaErrPath = mStationName + "-" + mScanName + "_ThetaErr.tif";
+    //mRasterPhiErrPath = mStationName + "-" + mScanName + "_PhiErr.tif";
 
     fillRaster<tU_INT1>(aSL_importer,aPhProjDirOut, mRasterMaskPath, [&aSL_importer](int i)
                         {
@@ -1227,14 +1237,17 @@ void cStaticLidar::FillRasters(const cStaticLidarImporter & aSL_importer, const 
     mAreRastersReady = true;
 }
 
-std::string cStaticLidar::OriNameFromId(const std::string &aIdName)
+std::string cStaticLidar::NameFromId(const std::string &aIdName, bool getOriName)
 {
     if (!IsNameTSL(aIdName))
         return MMVII_NONE;
     //MMVII_INTERNAL_ASSERT_User(ends_with(aIdName,GetIdSuffix()),eTyUEr::eBadFileRelName,"Error, Scan Id image must end in "+GetIdSuffix());
     std::string aNameImage = aIdName;
     aNameImage.resize(aIdName.size()-GetIdSuffix().size());
-    return NameOri_From_PrefixAndImage(PrefixName(),aNameImage);
+    if (getOriName)
+        return NameOri_From_PrefixAndImage(PrefixName(),aNameImage);
+    else
+        return aNameImage;
 }
 
 bool cStaticLidar::IsNameTSL(const std::string &aImageName)

@@ -647,7 +647,7 @@ int cAppli_ImportTSL::Exe()
     fixLineColRasterDirections();
 
     // export intensity image before decimation
-    std::string aRasterIntensityPath = mStationName + "_" + mScanName + "_intensity.tif";
+    std::string aRasterIntensityPath = cStaticLidar::RasterIntensityPath(mStationName + "-" + mScanName);
     cStaticLidar::fillRaster<tU_INT1>(mSL_importer, mPhProj.DirStaticLidarRasters(), aRasterIntensityPath,
                                       [this](int i){return this->mSL_importer.mVectPtsIntens[i]*255;} );
 
@@ -1055,8 +1055,8 @@ int cAppli_InitTSL::Exe()
     }
 
 
-    auto aTSLFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::OriNameFromId(mNameFileTSLId);
-    cStaticLidar* aLidar = cStaticLidar::FromFile(aTSLFile, false);
+    auto aTSLOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mNameFileTSLId,true);
+    cStaticLidar* aLidar = cStaticLidar::FromFile(aTSLOriFile, false);
     aLidar->ReadRasters(mPhProj.DirStaticLidarRasters());
 
     if (IsInit(&mPoseXYZFilename) || IsInit(&mPoseXYZv4Filename))
