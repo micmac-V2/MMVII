@@ -603,6 +603,14 @@ void cAppliCheckBoardTargetExtract::DoOneImage()
 
     mSpecif = cFullSpecifTarget::CreateFromFile(mNameSpecif);
 
+    MMVII_INTERNAL_ASSERT_User(
+        (mSpecif->Type()==eTyCodeTarget::eIGNIndoor)
+        ||(mSpecif->Type()==eTyCodeTarget::eIGNDroneSym)
+        ||(mSpecif->Type()==eTyCodeTarget::eIGNDroneTop),
+        eTyUEr::eBadEnum,
+        "This command does not support targets type "+ToStr(mSpecif->Type()))
+
+
     mImIn0 =  tIm::FromFile(mNameIm);
     mDImIn0 = &mImIn0.DIm() ;
     mSzIm0 = mDImIn0->Sz();

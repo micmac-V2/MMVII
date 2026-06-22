@@ -1315,6 +1315,12 @@ int  cAppliExtractCircTarget::Exe()
 
    mSpec = cFullSpecifTarget::CreateFromFile(mNameSpec);
 
+   MMVII_INTERNAL_ASSERT_User(
+       mSpec->Type()==eTyCodeTarget::eCERN,
+       eTyUEr::eBadEnum,
+       "This command does not support targets type "+ToStr(mSpec->Type()))
+
+
    // mPhProj.FinishInit();
 
    mHasMask =  mPhProj.ImageHasMask(APBI_NameIm()) ;
