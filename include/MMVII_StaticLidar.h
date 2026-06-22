@@ -126,7 +126,7 @@ public :
     void ToPly(const std::string & aName, bool useMask=false) const;
     void AddData(const  cAuxAr2007 & anAux) ;
     virtual void ToFile(const std::string &) const override;
-    void fillRasters(const cStaticLidarImporter & aSL_importer, const std::string &aPhProjDirOut, bool saveRasters);
+    void FillRasters(const cStaticLidarImporter & aSL_importer, const std::string &aPhProjDirOut, bool saveRasters);
     static std::string OriNameFromId(const std::string &aIdName);
     static bool IsNameTSL(const std::string &aImageName);
 
@@ -179,10 +179,10 @@ public :
 
     virtual bool DoAddCalibToUk() const override;
 private :
-    template <typename TYPE> void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
-                    std::function<TYPE (int)> func, bool saveRaster); // do not keep image in memory
+    template <typename TYPE> static void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
+                    std::function<TYPE (int)> func); // do not keep image in memory
 
-    template <typename TYPE> void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
+    template <typename TYPE> static void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
                     std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE>> & aIm, bool saveRaster); // keep image in memory
 
     std::string mStationName;
@@ -199,10 +199,10 @@ private :
     std::unique_ptr<cIm2D<tREAL4>> mRasterY;
     std::string mRasterZPath;
     std::unique_ptr<cIm2D<tREAL4>> mRasterZ;
-    std::string mRasterThetaPath;
-    std::string mRasterPhiPath;
-    std::string mRasterThetaErrPath;
-    std::string mRasterPhiErrPath;
+    //std::string mRasterThetaPath;
+    //std::string mRasterPhiPath;
+    //std::string mRasterThetaErrPath;
+    //std::string mRasterPhiErrPath;
 
     bool mAreRastersReady;
 

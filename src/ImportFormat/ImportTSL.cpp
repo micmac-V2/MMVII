@@ -641,6 +641,16 @@ int cAppli_ImportTSL::Exe()
         estimatePhiStep();
         computeLineCol();
     }
+
+    testLineColError();
+
+    fixLineColRasterDirections();
+
+    // export intensity image before decimation
+    std::string aRasterIntensityPath = mStationName + "_" + mScanName + "_intensity.tif";
+    cStaticLidar::fillRaster<tU_INT1>(mSL_importer, mPhProj.DirStaticLidarRasters(), aRasterIntensityPath,
+                                      [this](int i){return this->mSL_importer.mVectPtsIntens[i]*255;} );
+
     mSL_importer.decimXY(mDecimXY);
     mThetaStepApprox *= mDecimXY.x();
     mPhiStepApprox *= mDecimXY.y();
@@ -722,10 +732,6 @@ int cAppli_ImportTSL::Exe()
     file1.close();
 */
 
-    testLineColError();
-
-    fixLineColRasterDirections();
-
     // compute transfo from scan instrument frame to sensor frame
     mSL_importer.ComputeRotInput2Raster(mStrInput2TSL);
     mSL_importer.ComputeAgregatedAngles();
@@ -768,7 +774,7 @@ int cAppli_ImportTSL::Exe()
 
     aSL_data.SetPose(mSL_importer.ReadPose());
 
-    aSL_data.fillRasters(mSL_importer, mPhProj.DirStaticLidarRasters(), true);
+    aSL_data.FillRasters(mSL_importer, mPhProj.DirStaticLidarRasters(), true);
 
     aSL_data.FilterIntensity(mSL_importer, mIntensityMinMax[0], mIntensityMinMax[1]);
     aSL_data.FilterDistance(mDistanceMinMax[0], mDistanceMinMax[1]);
