@@ -647,7 +647,7 @@ int cAppli_ImportTSL::Exe()
     fixLineColRasterDirections();
 
     // export intensity image before decimation
-    std::string aRasterIntensityPath = cStaticLidar::RasterIntensityPath(mStationName + "-" + mScanName);
+    std::string aRasterIntensityPath = cStaticLidar::RasterIntensityPath(mStationName + "-" + mScanName + cStaticLidar::GetIdSuffix());
     cStaticLidar::fillRaster<tU_INT1>(mSL_importer, mPhProj.DirStaticLidarRasters(), aRasterIntensityPath,
                                       [this](int i){return this->mSL_importer.mVectPtsIntens[i]*255;} );
 
@@ -737,7 +737,7 @@ int cAppli_ImportTSL::Exe()
     mSL_importer.ComputeAgregatedAngles();
 
     // create sensor from imported data
-    std::string aScanName = mStationName + "-" + mScanName;
+    std::string aScanName = mStationName + "-" + mScanName + cStaticLidar::GetIdSuffix();
     // find PP: image of the (Oz) axis
     cPt3dr aOxAxisInput = mSL_importer.RotInput2TSL().Inverse({1.,0.,0.});  // axis 1,0,0 in TSL frame, to get PP
     cPt2dr aOxAxisAngles = mSL_importer.Input3DtoRasterAngle(aOxAxisInput);
