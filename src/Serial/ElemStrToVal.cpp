@@ -212,6 +212,10 @@ template<> cE2Str<eTyUEr>::tMapE2Str cE2Str<eTyUEr>::mE2S
            {
                 {eTyUEr::eCreateDir,"MkDir"},
                 {eTyUEr::eDirInDoesntExist,"DirInDoesntExist"},
+                {eTyUEr::eDirInDoesntExist,"DirInDoesntExist"},
+                {eTyUEr::eLVM_NoConstraint,"LVM_NoConstraint"},
+                {eTyUEr::eLVM_SchurrNoConstraint,"LVM_SchurrNoConstraint"},
+                {eTyUEr::eForceGauje,"FoceGauje"},
                 {eTyUEr::eUnExpectedEmptyData,"UnexpetedEmptyData"},
                 {eTyUEr::eRemoveFile,"RmFile"},
                 {eTyUEr::eEmptyPattern,"EmptyPattern"},

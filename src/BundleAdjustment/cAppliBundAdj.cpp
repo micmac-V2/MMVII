@@ -108,17 +108,20 @@ class cAppliBundlAdj : public cMMVII_Appli
         std::vector<std::string>  mParamLine;
         std::vector<std::vector<std::string>> mParamBOI;  //< Param for bloc of instrum
          std::vector<std::vector<std::string>> mParamBOIClino;
+         /// For tuning other options, like LVM, we may want to omit the check on measure
+         bool                     mCheckMeasureAdded;
 };
 cAppliBundlAdj::cAppliBundlAdj(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
    cMMVII_Appli    (aVArgs,aSpec),
   // mDataDir        ("Std"),
-   mPhProj         (*this),
-   mBA             (&mPhProj),
-   mGCPFilter      (""),
-   mGCPFilterAdd   (""),
-   mNbIter         (10),
-   mLVM            (0.0),
-   mMeasureAdded   (false)
+   mPhProj            (*this),
+   mBA                (&mPhProj),
+   mGCPFilter         (""),
+   mGCPFilterAdd      (""),
+   mNbIter            (10),
+   mLVM               (0.0),
+   mMeasureAdded      (false),
+   mCheckMeasureAdded (true)
 {
 }
 
@@ -182,6 +185,10 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mViscPose,"PoseVisc","Sigma viscosity on pose [SigmaCenter,SigmaRot]",{{eTA2007::ISizeV,"[2,2]"}})
       << AOpt2007(mShow_Cond,"Cond","Compute and show system condition number")
       << AOpt2007(mParamShow_UK_UC,"UC_UK","Param for uncertainty & Show names of unknowns (tuning)")
+
+      << AOpt2007(mCheckMeasureAdded,"CheckMeasureAdded","Do we check the adding of measures)",{eTA2007::Tuning})
+
+
            << "Blocks"
       << AOpt2007(mBRSigma,"BRW","Bloc Rigid Weighting [SigmaCenter,SigmaRot]",{{eTA2007::ISizeV,"[2,2]"}})  // RIGIDBLOC
       << AOpt2007(mBRSigma_Rat,"BRW_Rat","Rattachment fo Bloc Rigid Weighting [SigmaCenter,SigmaRot]",{{eTA2007::ISizeV,"[2,2]"}})  // RIGIDBLOC
@@ -259,6 +266,9 @@ void  cAppliBundlAdj::AddOneSetTieP(const std::vector<std::string> & aVParStd)
 
 int cAppliBundlAdj::Exe()
 {
+
+   // bool hasOrientPC     = false;
+    bool hasConstrOriPC  = mLVM > 0;
 /*
 {
     StdOut() << "TESTT  mAddGCPWmAddGCPW\n";
@@ -287,7 +297,10 @@ int cAppliBundlAdj::Exe()
 
 
     if (IsInit(&mParamRefOri))
-         mBA.AddReferencePoses(mParamRefOri);
+    {
+        hasConstrOriPC = true;
+        mBA.AddReferencePoses(mParamRefOri);
+    }
 
     //   ========== [1]   Read unkowns of bundle  =============================
     for (const auto &  aNameIm : VectMainSet(0))
@@ -308,16 +321,19 @@ int cAppliBundlAdj::Exe()
 
     if (IsInit(&mPatFrosenCenters))
     {
+        hasConstrOriPC = true;
         mBA.SetFrozenCenters(mPatFrosenCenters);
     }
 
     if (IsInit(&mPatFrosenOrient))
     {
+        hasConstrOriPC = true;
         mBA.SetFrozenOrients(mPatFrosenOrient);
     }
 
     if (IsInit(&mViscPose))
     {
+        hasConstrOriPC = true;
         mBA.SetViscosity(mViscPose.at(0),mViscPose.at(1));
     }
 
@@ -328,6 +344,8 @@ int cAppliBundlAdj::Exe()
 
     for (const auto& aVStrGCP : mGCP3D)
     {
+        hasConstrOriPC = true;
+
         // expected: [Folder,SigG,FOut?]
         if ((aVStrGCP.size() <2) || (aVStrGCP.size() >4))
         {
@@ -370,8 +388,20 @@ int cAppliBundlAdj::Exe()
     for (const auto& aTieP : mAddTieP)
         AddOneSetTieP(aTieP);
 
+    bool hasGauje = IsInit(&mParamGaujeRel);
+    if ((!hasConstrOriPC) && (!hasGauje) && (mBA.NbCamPC()!=0))
+    {
+        if ( (!mParamGaujeRel.empty()) && (mParamGaujeRel.at(0)==MMVII_NONE))
+        {
+        }
+        else
+        {
+            MMVII_USER_TYPED_WARNING(eTyUEr::eForceGauje,"Gauje in relative pause not specified, added by system");
+           hasGauje = true;
+        }
+    }
 
-    if (IsInit(&mParamGaujeRel))
+    if (hasGauje)
     {
         mBA.SetGaujeRelPause(mParamGaujeRel);
     }
@@ -434,7 +464,10 @@ int cAppliBundlAdj::Exe()
         mBA.SetFrozenTSL(mPatFrozenTSL);
     }
 
-    MMVII_INTERNAL_ASSERT_User(mMeasureAdded,eTyUEr::eUnClassedError,"Not any measure added");
+    if (mCheckMeasureAdded)
+    {
+        MMVII_INTERNAL_ASSERT_User(mMeasureAdded,eTyUEr::eUnClassedError,"Not any measure added");
+    }
 
     if (IsInit(&mParamShow_UK_UC))
        mBA.Set_UC_UK(mParamShow_UK_UC);
