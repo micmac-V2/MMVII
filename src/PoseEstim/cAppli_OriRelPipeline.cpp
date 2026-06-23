@@ -139,10 +139,10 @@ int cAppli_OriRelPipeline::Exe()
 
     for (size_t aKP=3; aKP<mArgv.size() ; aKP++)
     {
-        // use virtual points
-        if (mPhProj.DPMulTieP().DirOutIsInit())
+        if (starts_with(mArgv[aKP], "InMulTieP"))
         {
-            if (starts_with(mArgv[aKP], "InMulTieP"))
+            // use virtual points
+            if (mPhProj.DPMulTieP().DirOutIsInit())
             {
                 aComHSfM.AddArgs("InMulTieP="+mPhProj.DPMulTieP().DirOut());
                 continue;

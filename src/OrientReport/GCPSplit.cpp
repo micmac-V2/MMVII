@@ -78,7 +78,7 @@ int cAppli_GCPSplit::Exe()
     // iterate until you reach the expected num of points
     while (aSetMesGCP.Measures().size() < aNbPtsGCP)
     {
-        // update distances to the current point
+        // update min distances to the current point
         int    aMaxDistId=1e5;
         double aMaxDist =0;
         cPt3dr aCurPt = aSetMesVec.at(aCur).mPt;
@@ -105,7 +105,7 @@ int cAppli_GCPSplit::Exe()
 
     }
 
-    // collect check points (non-gcp point)
+    // collect check points (non-gcp points)
     int aK=0;
     for (auto aDist : aMinDistVec)
     {
