@@ -702,6 +702,8 @@ class cMMVII_BundleAdj
           int Iter() const { return mIter;}
 
           tREAL8 CurLVMParam() const;
+          int   NbCamPC() const;
+
 
      private :
 
@@ -809,6 +811,7 @@ class cMMVII_BundleAdj
           std::vector<cBA_BlockInstr *>          mVecBlockInstrAdj;
 
           tREAL8                                mCurLVMParam;
+          int                                   mNbCamPC;
 
 };
 

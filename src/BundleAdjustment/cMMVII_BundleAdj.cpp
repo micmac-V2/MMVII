@@ -12,6 +12,8 @@
 namespace MMVII
 {
 
+//#define  TOTO(A,B) {StdOut() << A << B;}
+//#define TOTO(A) {TOTO(A,"B")}
 
 /* ************************************************************************ */
 /*                                                                          */
@@ -112,9 +114,11 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     mVerbose          (true),
     mShow_UC_UK       (false),
     mRUCSUR           (nullptr),
-    mVecLineAdjust    ()
+    mVecLineAdjust    (),
+    mNbCamPC          (0)
 {
 }
+
 
 cMMVII_BundleAdj::~cMMVII_BundleAdj()
 {
@@ -556,6 +560,7 @@ void cMMVII_BundleAdj::AddSensor(cSensorImage* aSI)
 
 void cMMVII_BundleAdj::AddCamPC(cSensorCamPC * aCamPC)
 {
+    mNbCamPC++;
     if (aCamPC->DoAddCalibToUk())
         AddCalib(aCamPC->InternalCalib());
 }
@@ -614,7 +619,7 @@ cPhotogrammetricProject  & cMMVII_BundleAdj::PhProj() {return *mPhProj;}
 
 
 cSetInterUK_MultipeObj<tREAL8> &   cMMVII_BundleAdj::SetIntervUK() {return mSetIntervUK;}
-
+int cMMVII_BundleAdj::NbCamPC() const {return mNbCamPC;}
 
     /* ---------------------------------------- */
     /*            Frozen/Shared                 */
@@ -763,6 +768,7 @@ int cMMVII_BundleAdj::IndexOfPCPose(const std::string &aNameIm,bool SVP ) const
 
 void cMMVII_BundleAdj::SetGaujeRelPause(const std::vector<std::string> & aVNames)
 {
+
     cWhichMax<cPt3di,tREAL8> aWMaxInd;
 
     bool aN1Fix =    aVNames.size()>=1;
