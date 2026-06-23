@@ -100,6 +100,11 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     mSigmaRotRefCam   (-1.0),
     mPatternRef       (".*"),
     mDirRefCam        (nullptr),
+
+    mUseGauje         (false),
+    mKPoseMainGauje   (-1),
+    mKPoseSecondGauje (-1),
+    mKCoordSecondGauje (-1),
     mSigmaViscAngles  (-1.0),
     mSigmaViscCenter  (-1.0),
     mNbMaxIter        (-1),
@@ -356,6 +361,19 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
                mR8_Sys->SetFrozenFromPat(*aPtrCal,aVPat.at(1),false,aWeight);
             }
         }
+    }
+
+    if (mUseGauje)
+    {
+        cSensorCamPC * aMainCamGauje   = mVSCPC.at(mKPoseMainGauje);
+        cSensorCamPC * aSecondCamGauje = mVSCPC.at(mKPoseSecondGauje);
+
+        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauje,aMainCamGauje->Center());
+        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauje,aMainCamGauje->Omega());
+
+        tREAL8 & aCoord = aSecondCamGauje->Center()[mKCoordSecondGauje];
+        mR8_Sys->SetFrozenVarCurVal(*aSecondCamGauje,aCoord);
+
     }
 
     // if necessary, fix frozen centers of external calibration
@@ -731,6 +749,91 @@ void cMMVII_BundleAdj::CompileSharedIntrinsicParams(bool ForAvg)
 */
     }
 }
+
+int cMMVII_BundleAdj::IndexOfPCPose(const std::string &aNameIm,bool SVP ) const
+{
+    for (size_t aKP=0 ; aKP<mVSCPC.size() ; aKP++)
+    {
+        if (mVSCPC.at(aKP) && (mVSCPC.at(aKP)->NameImage()==aNameIm))
+            return aKP;
+    }
+    MMVII_INTERNAL_ASSERT_always(SVP,"IndexOfPCPose, cannot get name :"+aNameIm);
+    return -1;
+}
+
+void cMMVII_BundleAdj::SetGaujeRelPause(const std::vector<std::string> & aVNames)
+{
+    cWhichMax<cPt3di,tREAL8> aWMaxInd;
+
+    bool aN1Fix =    aVNames.size()>=1;
+    bool aN2Fix =    aVNames.size()>=2;
+    bool aCoordFix = aVNames.size()>=3;
+
+    std::string aN1 = aN1Fix ? aVNames.at(0) : "";
+    std::string aN2 = aN2Fix ? aVNames.at(1) : "";
+
+    std::vector<std::string> aVCoord{"x","y","z"};
+    int aKCoord = -1;
+    if (aCoordFix)
+    {
+        auto anIter = std::find(aVCoord.begin(),aVCoord.end(),aVNames.at(2));
+        MMVII_INTERNAL_ASSERT_always(anIter!=aVCoord.end(),"SetGaujeRelPause bad coord");
+        aKCoord = anIter - aVCoord.begin();
+    }
+
+    int aKCoordBegin = aCoordFix      ?  aKCoord    : 0 ;
+    int aKCoordEnd   = aCoordFix      ? (aKCoord+1) : 3 ;
+
+
+
+    for (size_t aKP1=0 ; aKP1<mVSCPC.size() ; aKP1++)
+    {
+        cSensorCamPC * aCam1 = mVSCPC.at(aKP1);
+        if (aCam1 && ((!aN1Fix) || (aCam1->NameImage()==aN1))  )
+        {
+           cPt3dr aC1 = aCam1->Center();
+           int aBeginKP2 = aN1Fix ? 0 : (aKP1+1);
+           for (size_t aKP2=aBeginKP2 ; aKP2<mVSCPC.size() ; aKP2++)
+           {
+                cSensorCamPC * aCam2 = mVSCPC.at(aKP2);
+                if (aCam2 && ((!aN2Fix) || (aCam2->NameImage()==aN2)) )
+                {
+                    cPt3dr aV12 = aCam2->Center() - aC1;
+                    for (int aKCoord=aKCoordBegin; aKCoord<aKCoordEnd ; aKCoord++)
+                    {
+                        aWMaxInd.Add(cPt3di(aKP1,aKP2,aKCoord),std::abs(aV12[aKCoord]));
+                    }
+                }
+           }
+        }
+    }
+
+    MMVII_INTERNAL_ASSERT_always(aWMaxInd.IsInit(),"Cannot compute relative gauje");
+
+    cPt3di aIndMax = aWMaxInd.IndexExtre();
+
+    if (1)
+    {
+        StdOut() << "GAUJE SET "
+                 << " Im1=" << mVSCPC.at(aIndMax.x())->NameImage()
+                 << " Im2=" << mVSCPC.at(aIndMax.y())->NameImage()
+                 << " Coord=" << aVCoord.at(aIndMax.z())
+                 << " Dist=" << aWMaxInd.ValExtre()
+                 << "\n";
+
+
+    }
+    mUseGauje = true;
+    mKPoseMainGauje = aIndMax.x();
+    mKPoseSecondGauje = aIndMax.y();
+    mKCoordSecondGauje = aIndMax.z();
+
+
+//    aMaxInd
+}
+
+
+//void SetGaujeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
 
 
 bool cMMVII_BundleAdj::CheckGCPConstraints() const
