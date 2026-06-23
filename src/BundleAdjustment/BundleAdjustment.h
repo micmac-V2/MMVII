@@ -654,6 +654,8 @@ class cMMVII_BundleAdj
           void SetFrozenTSL(const std::string & aPattern);
           void SetSharedIntrinsicParams(const std::vector<std::string> &);
            
+          void SetGaujeRelPause(const std::vector<std::string> &);
+         // void SetGaujeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
 
           void AddPoseViscosity();
           void AddConstrainteRefPose();
@@ -686,8 +688,8 @@ class cMMVII_BundleAdj
           cPt3dr GetGCP_UC_UK(const std::string & aGCPName) const;
           // Save results of clino bundle adjustment
           void SaveClino();
-          void  AddBenchSensor(cSensorCamPC *); // Add sensor, used in Bench Clino
-
+          /// Add sensor, used in Bench Clino, deprecated probably
+          void  AddBenchSensor(cSensorCamPC *);
           void setVerbose(bool aVerbose){mVerbose=aVerbose;}; // Print or not residuals
           
           cResolSysNonLinear<tREAL8> *  Sys();  /// Real object, will disapear when fully interfaced for mSys
@@ -722,6 +724,8 @@ class cMMVII_BundleAdj
 
           /// One iteration : add all measure + constraint + Least Square Solve/Udpate/Init
           void OneIteration(bool isFirstIter=false, tREAL8 aLVM=0.0, bool doShowCond=false);
+
+          int IndexOfPCPose(const std::string &,bool SVP =false) const;
 
           //============== Data =============================
           cPhotogrammetricProject * mPhProj;
@@ -776,6 +780,15 @@ class cMMVII_BundleAdj
           std::string                        mPatternRef;
           bool                               mDoRefCam;
           cDirsPhProj*                       mDirRefCam;
+
+          // ===================  "Gauje for pure relative pause"  ==================
+
+
+          bool   mUseGauje;
+          int    mKPoseMainGauje;
+          int    mKPoseSecondGauje;
+          int    mKCoordSecondGauje;
+
           // ===================  "Viscosity"  ==================
 
           tREAL8   mSigmaViscAngles;  ///< "viscosity"  for angles
@@ -796,6 +809,7 @@ class cMMVII_BundleAdj
           std::vector<cBA_BlockInstr *>          mVecBlockInstrAdj;
 
           tREAL8                                mCurLVMParam;
+
 };
 
 
