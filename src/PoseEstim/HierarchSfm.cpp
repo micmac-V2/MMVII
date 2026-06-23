@@ -47,6 +47,7 @@ class cAppli_HierarchSfm : public cMMVII_Appli
         tREAL8                    mThrs;
         int                       mNbIterBA;
         int                       mNbExtraIterAtRoot;
+        std::string               mOriGlobOut;
 
         bool                      mVerbose;
 
@@ -64,6 +65,7 @@ cAppli_HierarchSfm::cAppli_HierarchSfm(const std::vector<std::string> & aVArgs,c
     mThrs     (10.0),
     mNbIterBA    (5),
     mNbExtraIterAtRoot (2),
+    mOriGlobOut ("OriGlobalHierarch"),
     mVerbose    (false)
 {}
 
@@ -73,13 +75,14 @@ cCollecSpecArg2007 & cAppli_HierarchSfm::ArgObl(cCollecSpecArg2007 & anArgObl)
            << Arg2007(mPatImIn,"Pattern/file for images",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
            <<  mPhProj.DPOriRel().ArgDirInMand("Input relative orientations (triplets)")
            <<  mPhProj.DPOrient().ArgDirInMand("Input calibration folder")
-           <<  mPhProj.DPOrient().ArgDirOutMand("Global orientation output directory")
+        //   <<  mPhProj.DPOrient().ArgDirOutMand("Global orientation output directory")
         ;
 }
 
 cCollecSpecArg2007 & cAppli_HierarchSfm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return    anArgOpt
+           <<  mPhProj.DPOrient().ArgDirOutOpt("","Output global orientation")
            <<  mPhProj.DPMulTieP().ArgDirInOpt("","Input features (multiple tie-points format)")
            <<  mPhProj.DPGndPt2D().ArgDirInOpt("","Input features (image measurements format)")
            <<  mPhProj.DPOrient().ArgDirInOpt("","Ground truth input orientation directory")
@@ -99,6 +102,9 @@ int cAppli_HierarchSfm::Exe()
 {
 
     mPhProj.FinishInit();
+    if (! mPhProj.DPOrient().DirOutIsInit())
+        mPhProj.DPOrient().SetDirOut(mOriGlobOut);
+
     cAutoTimerSegm  aATS(TimeSegm(),"Read motions");
     std::vector<std::string> aSetIm = VectMainSet(0);
     std::vector<cDataSolOriTriplet> a3Set = mPhProj.ReadAllTriplets(aSetIm);
