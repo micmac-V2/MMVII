@@ -502,7 +502,11 @@ cCalculator<double> * EqEqLidarLidar(bool WithDerive,int aSzBuf,bool ReUse)
     return StdAllocCalc(NameFormula(cEqLidarLidar(),WithDerive),aSzBuf,false,ReUse);
 }
 
+cCalculator<double> * EqTSL_GCP(bool WithDerive,int aSzBuf,bool ReUse)
+{
+    return StdAllocCalc(NameFormula(cEqTSL_GCP(),WithDerive),aSzBuf,false,ReUse);
 }
+
 
 
 /* **************************** */
@@ -932,6 +936,8 @@ int cAppliGenCode::Exe()
        GenCodesFormula((tREAL8*)nullptr,cEqLidarImCorrel(true),WithDer);
 
        GenCodesFormula((tREAL8*)nullptr,cEqLidarLidar(),WithDer); // lidar/lidar
+
+       GenCodesFormula((tREAL8*)nullptr,cEqTSL_GCP(),WithDer); // TSL/GCP
 
        GenCodesFormula((tREAL8*)nullptr,cFormulaSumSquares(8),WithDer); // example for contraint
 

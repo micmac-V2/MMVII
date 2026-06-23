@@ -481,10 +481,12 @@ void cStaticLidarImporter::decimXY(const cPt2di & aDecimXY)
     std::vector<cPt3dr> aNewVectPtsTPD;
     aNewVectPtsTPD.reserve(aNewNbPts);
     size_t j = 0;
+    cPt2di aDecimMid(aDecimXY.x() / 2,aDecimXY.y() / 2);
+
     for (size_t i=0; i<mVectPtsTPD.size(); ++i)
     {
-        if (((mVectPtsLine[i] % aDecimXY.y()) == 0)
-            && ((mVectPtsCol[i] % aDecimXY.x()) == 0))
+        if (((mVectPtsLine[i] % aDecimXY.y()) == aDecimMid.y())
+            && ((mVectPtsCol[i] % aDecimXY.x()) == aDecimMid.x()))
         {
             aNewVectPtsLine.push_back(mVectPtsLine[i] / aDecimXY.y());
             aNewVectPtsCol.push_back(mVectPtsCol[i] / aDecimXY.x());
@@ -666,7 +668,7 @@ void cStaticLidarImporter::MakeIdImage(const std::string & aNameFile) const
         }
     }
 
-    aIdImData.ToFile(aNameFile + cStaticLidar::GetIdSuffix() );
+    aIdImData.ToFile(aNameFile);
 }
 
 
@@ -783,6 +785,11 @@ cPt3dr cStaticLidar::Image2Ground(const cPt2dr & aRasterPx) const
 {
     cPt3dr aCam3DPt = Image2Camera3D(aRasterPx);
     return Pose().Value(aCam3DPt);
+}
+
+tREAL4 cStaticLidar::Image2Distance(const cPt2dr & aRasterPx) const
+{
+    return getRasterDistance().GetVBL(aRasterPx);
 }
 
 std::pair<tREAL8,tREAL8> cStaticLidar::AvgDistAndNbValid() const
@@ -1022,6 +1029,7 @@ std::string  cStaticLidar::Pat2Sup(const std::string & aPatSelect)
 
 cDataIm2D<tREAL4> & cStaticLidar::getRasterDistance() const
 {
+    MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
     return mRasterDistance.get()->DIm();
 }
 
@@ -1181,7 +1189,10 @@ std::string cStaticLidar::RasterIntensityPath(const std::string & aImName)
     return aImName + "_intensity.tif";
 }
 
-
+std::string cStaticLidar::RasterIntensityPath(const cPhotogrammetricProject & aPhProj, const std::string & aImIDName)
+{
+    return RasterIntensityPath(aPhProj.DirStaticLidarRasters()+cStaticLidar::NameFromId(aImIDName, false));
+}
 
 void cStaticLidar::FillRasters(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, bool saveRasters)
 {
@@ -1249,6 +1260,25 @@ std::string cStaticLidar::NameFromId(const std::string &aIdName, bool getOriName
 bool cStaticLidar::IsNameTSL(const std::string &aImageName)
 {
     return ends_with(aImageName,GetIdSuffix());
+}
+
+cCalculator<double> * cStaticLidar::CreateEqColinearity(bool WithDerives, int aSzBuf, bool ReUse)
+{
+    return EqTSL_GCP(WithDerives,aSzBuf,ReUse);
+}
+
+void cStaticLidar::PushOwnObsColinearity(std::vector<double> & aVObs,const cPt3dr &)
+{
+    MMVII_INTERNAL_ASSERT_tiny(false, "Error: use PushOwnObsColinearityDistance() instead of PushOwnObsColinearity() for TLS");
+}
+
+void cStaticLidar::cStaticLidar::PushOwnObsColinearityDistance(std::vector<double> & aVObs, tREAL4 aMesDistance)
+{
+    aVObs.push_back(aMesDistance);
+    aVObs.push_back(InternalCalib()->F());
+    aVObs.push_back(InternalCalib()->PP().x());
+    aVObs.push_back(InternalCalib()->PP().y());
+    mPose_WU.PushObs(aVObs,true);
 }
 
 void cStaticLidar::FilterIntensity(const cStaticLidarImporter &aSL_importer, tREAL8 aLowest, tREAL8 aHighest)

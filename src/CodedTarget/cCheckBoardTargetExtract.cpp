@@ -302,7 +302,10 @@ void cAppliCheckBoardTargetExtract::GenerateVisuFinal() const
       //  "G" => G-lobal image with rectangles : "green" : target with code OK, "red" : target shape but no code
       if ( contains(mStrShow,'J') || contains(mStrShow,'T')  )
       {
-         cRGBImage  aIm = cRGBImage::FromFile(mNameIm);
+         std::string aImFileName = mNameIm;
+         if (cStaticLidar::IsNameTSL(mNameIm))
+             aImFileName = cStaticLidar::RasterIntensityPath(mPhProj,mNameIm);
+         cRGBImage  aIm = cRGBImage::FromFile(aImFileName);
          aIm.ResetGray();
          for (auto & aCdt :  mVCdtMerged)
          {
@@ -566,12 +569,24 @@ void  cAppliCheckBoardTargetExtract::DoExport()
 {
      std::vector<cSaveExtrEllipe>  aVSavE;
      cSetMesPtOf1Im  aSetM(FileOfPath(mNameIm));
+
+     // return to reduced size if TSL
+     cPt2dr aImFactor(1.,1.);
+     if (cStaticLidar::IsNameTSL(mNameIm))
+     {
+         auto aTSLOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mNameIm,true);
+         cStaticLidar* aLidar = cStaticLidar::FromFile(aTSLOriFile, false);
+         aImFactor =  RDivCByC(aLidar->PixelDomain().Sz(), mSzIm0);
+         delete aLidar;
+     }
+
      for (const auto & aCdtM : mVCdtMerged)
      {
          if (aCdtM.Code())
          {
              std::string aCode = aCdtM.Code()->Name() ;
              cMesIm1Pt aMesIm(aCdtM.mC0,aCode,1.0);
+             aMesIm.mPt = MulCByC(aMesIm.mPt, aImFactor);
              aSetM.AddMeasure(aMesIm);
              Tpl_AddOneObjReportCSV(*this,mIdExportCSV,aMesIm);
 
@@ -600,7 +615,7 @@ void cAppliCheckBoardTargetExtract::DoOneImage()
    // if TSL name, use intensity raster
    std::string aOriginalNameIm = mNameIm;
    if (cStaticLidar::IsNameTSL(mNameIm))
-       mNameIm = cStaticLidar::RasterIntensityPath(mPhProj.DirStaticLidarRasters()+cStaticLidar::NameFromId(mNameIm, false));
+       mNameIm = cStaticLidar::RasterIntensityPath(mPhProj,mNameIm);
 
     mInterpol = new   cTabulatedDiffInterpolator(cSinCApodInterpolator(5.0,5.0));
 

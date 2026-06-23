@@ -127,9 +127,15 @@ public :
     void AddData(const  cAuxAr2007 & anAux) ;
     virtual void ToFile(const std::string &) const override;
     static std::string RasterIntensityPath(const std::string & aImName); ///< base name should be Station-scan
+    static std::string RasterIntensityPath(const cPhotogrammetricProject & aPhProj, const std::string & aImIDName); ///< base name should be Station-scan
     void FillRasters(const cStaticLidarImporter & aSL_importer, const std::string &aPhProjDirOut, bool saveRasters);
     static std::string NameFromId(const std::string &aIdName, bool getOriName);
     static bool IsNameTSL(const std::string &aImageName);
+
+    cCalculator<double> * CreateEqColinearity(bool WithDerives, int aSzBuf, bool ReUse) override;
+    void PushOwnObsColinearity(std::vector<double> & aVObs,const cPt3dr &) override; // just fail
+    void PushOwnObsColinearityDistance(std::vector<double> & aVObs, tREAL4 aMesDistance); // use this for GCP obs
+
 
     //inline tREAL8 lToPhiApprox(int l, double aPhiStart, double aPhiStep) const { return aPhiStart + l * aPhiStep; }
     //inline tREAL8 cToThetaApprox(int c, double aThetaStart, double aThetaStep) const { return aThetaStart + c * aThetaStep; }
@@ -158,6 +164,7 @@ public :
 
     cPt3dr Image2Ground(const cPt2di & aRasterPx) const;
     cPt3dr Image2Ground(const cPt2dr & aRasterPx) const;
+    tREAL4 Image2Distance(const cPt2dr & aRasterPx) const;
 
     cPt2dr Ground2ImagePrecise(const cPt3dr & aGroundPt) const;
 

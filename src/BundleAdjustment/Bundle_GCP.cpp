@@ -216,6 +216,9 @@ void cMMVII_BundleAdj::OneItere_GCP()
             {
                 cPt2dr aResidual = aPIm - aSens->Ground2Image(aPGr);
                 tREAL8 aWeightImage =   aGCPIm_Weighter.SingleWOfResidual(aResidual);
+
+                cResidualWeighterExplicit<tREAL8> aWeighter(true, {aWeightImage, aWeightImage});
+                // faire weighter x y + d si lidar
                 if (aWeightImage==0)
                     continue; // eliminated
                 aNbImVis++;
@@ -225,7 +228,15 @@ void cMMVII_BundleAdj::OneItere_GCP()
                 // the "obs" are made of 2 point and, possibily, current rotation (for PC cams)
                 std::vector<double> aVObs = aPIm.ToStdVector();
 
-                aSens->PushOwnObsColinearity(aVObs,aPGr);
+                cStaticLidar * aStaticLidar = dynamic_cast<cStaticLidar*>(aSens);
+                if (!aStaticLidar)
+                    aSens->PushOwnObsColinearity(aVObs,aPGr);
+                else
+                {
+                    aStaticLidar->ReadRasters(mPhProj->DirStaticLidarRasters());
+                    tREAL4 aMesDistance = aStaticLidar->Image2Distance(aPIm);
+                    aStaticLidar->PushOwnObsColinearityDistance(aVObs,aMesDistance);
+                }
 
                 if (aGcpUk)  // Case Uknown, we just add the equation
                 {

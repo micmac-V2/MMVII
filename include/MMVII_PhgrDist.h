@@ -237,6 +237,7 @@ NS_SymbolicDerivative::cCalculator<double> * EqEqLidarImPonct(bool WithDerive,in
 NS_SymbolicDerivative::cCalculator<double> * EqEqLidarImCensus(bool WithDerive,int aSzBuf,bool aScanPoseUk,bool ReUse);
 NS_SymbolicDerivative::cCalculator<double> * EqEqLidarImCorrel(bool WithDerive,int aSzBuf,bool aScanPoseUk,bool ReUse);
 NS_SymbolicDerivative::cCalculator<double> * EqEqLidarLidar(bool WithDerive,int aSzBuf,bool ReUse);
+NS_SymbolicDerivative::cCalculator<double> * EqTSL_GCP(bool WithDerive,int aSzBuf,bool ReUse);
 
 
 };

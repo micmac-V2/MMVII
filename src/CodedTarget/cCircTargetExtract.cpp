@@ -877,6 +877,16 @@ void cAppliExtractCircTarget::DoExport()
      mNameIm = mOriginalNameImage;
      cVecTiePMul aVTPMul(mNameIm); FakeUseIt(aVTPMul);
 
+     cPt2dr aImFactor(1.,1.);
+     if (cStaticLidar::IsNameTSL(mNameIm))
+     {
+         auto aTSLOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mNameIm,true);
+         cStaticLidar* aLidar = cStaticLidar::FromFile(aTSLOriFile, false);
+         auto aDImIn = cDataFileIm2D::Create(mNameIm, eForceGray::No);
+         aImFactor =  RDivCByC(aLidar->PixelDomain().Sz(), aDImIn.Sz());
+         delete aLidar;
+     }
+
      cSetMesPtOf1Im  aSetM(FileOfPath(mNameIm));
      std::vector<cSaveExtrEllipe>  mVSavE;
      for (const auto & anEE : mVCTE)
@@ -885,6 +895,7 @@ void cAppliExtractCircTarget::DoExport()
          {
              std::string aCode = anEE->mWithCode ?  anEE->mEncode.Name() : (MMVII_NONE +"_" + ToStr(aCptUnCoded,mSpec->NbBits()));
              cMesIm1Pt aMesIm(anEE->mPt,aCode,1.0);
+             aMesIm.mPt = MulCByC(aMesIm.mPt, aImFactor);
              aSetM.AddMeasure(aMesIm);
              Tpl_AddOneObjReportCSV(*this,mIdExportCSV,aMesIm);
 
