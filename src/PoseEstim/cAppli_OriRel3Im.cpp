@@ -277,6 +277,8 @@ class cOriTriplets : public cMemCheck
             const cComputeMergeMulTieP * TiepMAvg() const;
 
             const cPerspCamIntrCalib* Calib(int) const;
+             cPerspCamIntrCalib* Calib(int) ;
+
 
 
    private :
@@ -463,6 +465,12 @@ const cComputeMergeMulTieP * cOriTriplets::TiepMAvg() const
 }
 
 const cPerspCamIntrCalib* cOriTriplets::Calib(int aK) const
+{
+    return mVCalibs[aK];
+}
+
+
+ cPerspCamIntrCalib* cOriTriplets::Calib(int aK)
 {
     return mVCalibs[aK];
 }
@@ -726,6 +734,10 @@ cCollecSpecArg2007 & cAppli_OriRelTripletsOfIm::ArgObl(cCollecSpecArg2007 & anAr
                <<  mPhProj.DPOrient().ArgDirInMand("Input orientation for calibration")  ;
 
 
+     if (mModeCompute==0)
+     {
+         anArgObl  <<  mPhProj.DPOrient().ArgDirOutMand("Output orientation for save result")  ;
+     }
 
      return anArgObl;
 }
@@ -764,6 +776,23 @@ cOriTriplets * cAppli_OriRelTripletsOfIm::Do1Triplet(const std::vector<std::stri
     }
 
     cOriTriplets * anOri3 = new cOriTriplets(a3Names,mPhProj,mRanTrR,aVPoseRef,mShow,mTimeSegm);
+
+
+    if (mPhProj.DPOrient().DirOutIsInit())
+    {
+        const cOneSolOriTriplet* aBSol = anOri3->BestSol();
+
+        StdOut() << "OUT=" << mPhProj.DPOrient().DirOut() << "\n";
+
+        cSensorCamPC aCam1(a3Names.at(0),aBSol->mP0,anOri3->Calib(0));
+        mPhProj.SaveCamPC(aCam1);
+
+        cSensorCamPC aCam2(a3Names.at(1),aBSol->mP01,anOri3->Calib(1));
+        mPhProj.SaveCamPC(aCam2);
+
+        cSensorCamPC aCam3(a3Names.at(2),aBSol->mP02,anOri3->Calib(2));
+        mPhProj.SaveCamPC(aCam3);
+    }
 
     return anOri3;
 }

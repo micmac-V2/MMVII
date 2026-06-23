@@ -20,6 +20,9 @@ enum class eEpipFrm
     eNbVals
 };
 
+MACRO_DECLARE_STRIO_ENUM(eEpipFrm)
+
+
 class cEpipolarMapping : public cDataInvertibleMapping<tREAL8,2>
 {
 public:

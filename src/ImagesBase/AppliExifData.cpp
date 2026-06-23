@@ -77,15 +77,20 @@ std::ostream& operator<<(std::ostream& os, std::optional<T> const& opt)
 }
 
 
+
 int cAppli_ImageMetada::Exe()
 {
     mPhgrProj.FinishInit();
+
+
 
     const auto default_precision{std::cout.precision()};
     constexpr auto max_precision{std::numeric_limits<long double>::digits10};
 
     for (const auto & aName : VectMainSet(0))
     {
+        cMetaDataImage aMDI = mPhgrProj.GetMetaData(aName);
+
         auto aDataFileIm=cDataFileIm2D::Create(aName,eForceGray::No);
         StdOut() << "####### " << aDataFileIm.Name() <<": " << std::endl;
         StdOut() << "Size: " << aDataFileIm.Sz() << ", Type: "  << ToStr(aDataFileIm.Type()) << ", Channels: " << aDataFileIm.NbChannel() << std::endl;
@@ -104,18 +109,31 @@ int cAppli_ImageMetada::Exe()
             }
 
 #define DISP_EXIF(key) StdOut() << #key << ": " << anExif.m##key << std::endl;
+// this macro disp standard xif, and user's changed value if apply
+#define DISP_XIF_MMVII(key,val,def) DISP_EXIF(key); \
+    if ((val != def) && (anExif.m##key.value_or(def)!=val)  )  StdOut() << "  *** SetByUserRule " << val << "\n";
+
 
             DISP_EXIF(PixelXDimension);
             DISP_EXIF(PixelYDimension);
 
-            DISP_EXIF(FocalLength_mm);
-            DISP_EXIF(FocalLengthIn35mmFilm_mm);
+           // DISP_EXIF(FocalLength_mm);
+            DISP_XIF_MMVII(FocalLength_mm,aMDI.FocalMM(true),-1);
+
+            //DISP_EXIF(FocalLengthIn35mmFilm_mm);
+            DISP_XIF_MMVII(FocalLengthIn35mmFilm_mm,aMDI.FocalMMEqui35(true),-1);
+
             DISP_EXIF(FNumber);
             DISP_EXIF(ExposureTime_s);
             DISP_EXIF(Orientation);
             DISP_EXIF(Make);
-            DISP_EXIF(Model);
 
+            //DISP_EXIF(Model);
+            DISP_XIF_MMVII(Model,aMDI.CameraName(true),"");
+
+
+            /// the information on size of sensor are generally not provided by xif, so user
+            /// has to indicate it in the data-base, we indicate
             {
                 std::optional<std::string> aModel = anExif.mModel;
                 if (aModel.has_value())
@@ -123,7 +141,7 @@ int cAppli_ImageMetada::Exe()
                     const cElemCamDataBase * anElCDB = mPhgrProj.GetCamFromNameCam(aModel.value());
                     if (anElCDB)
                     {
-                         StdOut()  << " * Camera model in data base :"
+                         StdOut()  << "  *** Camera model is in data base :"
                                    << " SzSensor=" << anElCDB-> mSzSensor_Mm << " mm "
                                    << " SzPixel="   << anElCDB->mSzPixel_Micron << " mu"
                                    << "\n";

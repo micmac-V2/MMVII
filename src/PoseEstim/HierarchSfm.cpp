@@ -99,7 +99,6 @@ int cAppli_HierarchSfm::Exe()
 {
 
     mPhProj.FinishInit();
-
     cAutoTimerSegm  aATS(TimeSegm(),"Read motions");
     std::vector<std::string> aSetIm = VectMainSet(0);
     std::vector<cDataSolOriTriplet> a3Set = mPhProj.ReadAllTriplets(aSetIm);
@@ -108,6 +107,7 @@ int cAppli_HierarchSfm::Exe()
     cStdStatRes aQScoreStats;
     for (auto & aT : a3Set)
         aQScoreStats.Add(aT.mScore);
+   // StdOut() << "LLLcAppli_HierarchSfm " << __LINE__  << " NB=" << aQScoreStats.NbMeasures() << " 3S=" << a3Set.size() << "\n";
 
     // set MakeArboTriplet config parameters
     cMakeArboTripletCfg aCfg;

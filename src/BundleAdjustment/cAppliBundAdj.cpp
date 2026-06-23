@@ -70,7 +70,7 @@ class cAppliBundlAdj : public cMMVII_Appli
 
         std::string               mSpecImIn;
 
-        std::string               mDataDir;  /// Default Data dir for all
+       // std::string               mDataDir;  /// Default Data dir for all
 
         cPhotogrammetricProject   mPhProj;
         cMMVII_BundleAdj          mBA;
@@ -93,6 +93,7 @@ class cAppliBundlAdj : public cMMVII_Appli
 
         std::string               mPatParamFrozCalib;
         std::vector<std::vector<std::string>>  mVVParFreeCalib;
+        std::vector<std::string>  mParamGaujeRel;
         std::string               mPatFrosenCenters;
         std::string               mPatFrosenOrient;
        std::string               mPatFrosenClino;
@@ -110,7 +111,7 @@ class cAppliBundlAdj : public cMMVII_Appli
 };
 cAppliBundlAdj::cAppliBundlAdj(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
    cMMVII_Appli    (aVArgs,aSpec),
-   mDataDir        ("Std"),
+  // mDataDir        ("Std"),
    mPhProj         (*this),
    mBA             (&mPhProj),
    mGCPFilter      (""),
@@ -136,7 +137,7 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     
     return
           anArgOpt
-      << AOpt2007(mDataDir,"DataDir","Default data directories ",{eTA2007::HDV})
+     // << AOpt2007(mDataDir,"DataDir","Default data directories ",{eTA2007::HDV})
       << AOpt2007(mParamRefOri,"RefOri","Reference orientation [Ori,SimgaTr,SigmaRot?,PatApply?]",{{eTA2007::ISizeV,"[2,4]"}})
       << AOpt2007(mVSharedIP,"SharedIP","Shared intrinc parmaters [Pat1Cam,Pat1Par,Pat2Cam...] ",{{eTA2007::ISizeV,"[2,20]"}})
       << AOpt2007(mPostFixReport,NameParamPostFixReport(),CommentParamPostFixReport())
@@ -171,6 +172,10 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mPatFrosenOrient,"PatFzOrient","Pattern of images for freezing orientation of poses")
       << AOpt2007(mPatFrosenClino,"PatFzClino","Pattern of clinometers for freezing boresight")
       << AOpt2007(mPatFrozenTSL,"PatFzTSL","Pattern of static lidar for freezing pose")
+      << AOpt2007(mParamGaujeRel,"GaujeRel","Param for gauje in pure relative [MainIm?,SecIm?,Coord in x,y,z?]",{{eTA2007::ISizeV,"[0,3]"}})
+
+
+
            << "Computation"
       << AOpt2007(mNbIter,"NbIter","Number of iterations",{eTA2007::HDV})
       << AOpt2007(mLVM,"LVM","Levenberg–Marquardt parameter (to have better conditioning of least squares)",{eTA2007::HDV})
@@ -268,8 +273,8 @@ int cAppliBundlAdj::Exe()
 */
 
     //   ========== [0]   initialisation of def values  =============================
-    mPhProj.DPMulTieP().SetDirInIfNoInit(mDataDir);
-    mPhProj.DPRigBloc().SetDirInIfNoInit(mDataDir); //  RIGIDBLOC
+ //  mPhProj.DPMulTieP().SetDirInIfNoInit(mDataDir);
+  //  mPhProj.DPRigBloc().SetDirInIfNoInit(mDataDir); //  RIGIDBLOC
 
     mPhProj.FinishInit();
 
@@ -365,6 +370,11 @@ int cAppliBundlAdj::Exe()
     for (const auto& aTieP : mAddTieP)
         AddOneSetTieP(aTieP);
 
+
+    if (IsInit(&mParamGaujeRel))
+    {
+        mBA.SetGaujeRelPause(mParamGaujeRel);
+    }
 
     if (IsInit(&mBRSigma)) // RIGIDBLOC
     {

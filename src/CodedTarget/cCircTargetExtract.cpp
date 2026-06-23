@@ -8,6 +8,7 @@
 #include "CodedTarget_Tpl.h"
 #include "MMVII_2Include_Serial_Tpl.h"
 #include "MMVII_Interpolators.h"
+#include "MMVII_StaticLidar.h"
 
 #include <cmath>
 
@@ -803,6 +804,7 @@ class cAppliExtractCircTarget : public cMMVII_Appli,
         tREAL8                              mStepRefineGrad;
         cDiffInterpolator1D *               mInterpol;
         std::string                         mIdExportCSV;
+        std::string                         mOriginalNameImage;
 };
 
 
@@ -1108,7 +1110,7 @@ void cAppliExtractCircTarget::TestOnSimul()
 
 int cAppliExtractCircTarget::ExeOnParsedBox()
 {
-   mIdExportCSV     = "CircCodedTarget" + mNameIm;
+   mIdExportCSV     = "CircCodedTarget" + mOriginalNameImage;
    //  Create a report with header computed from type
    Tpl_AddHeaderReportCSV<cMesIm1Pt>(*this,mIdExportCSV,false);
    // Redirect the reports on folder of result
@@ -1315,6 +1317,12 @@ int  cAppliExtractCircTarget::Exe()
 
    mSpec = cFullSpecifTarget::CreateFromFile(mNameSpec);
 
+   MMVII_INTERNAL_ASSERT_User(
+       mSpec->Type()==eTyCodeTarget::eCERN,
+       eTyUEr::eBadEnum,
+       "This command does not support targets type "+ToStr(mSpec->Type()))
+
+
    // mPhProj.FinishInit();
 
    mHasMask =  mPhProj.ImageHasMask(APBI_NameIm()) ;
@@ -1325,7 +1333,14 @@ int  cAppliExtractCircTarget::Exe()
    }
 
 
+   // if TSL name, use intensity raster
+   //std::string aOriginalNameIm = mNameIm;
+   mOriginalNameImage = mNameIm;
+   if (cStaticLidar::IsNameTSL(mNameIm))
+       mNameIm = cStaticLidar::RasterIntensityPath(mPhProj.DirStaticLidarRasters()+cStaticLidar::NameFromId(mNameIm, false));
+
    APBI_ExecAll();  // run the parse file  SIMPL
+
 
 
    delete mSpec;

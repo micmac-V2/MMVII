@@ -64,21 +64,6 @@ bool  cPhotogrammetricProject::OneTestMakeCamDataBase(const std::string & aDir,c
   if (! ExistFile(aName))
   {
       return false;
-      /*
-     if (! ForceNew)
-        return false;
-
-     // If force new, create a entry just to have a template for editing
-     cElemCamDataBase anElem;
-     anElem.mName = "UltraCam Eagle Mark 3";
-     anElem.mSzPixel_Micron = cPt2dr(4,4);
-     anElem.mSzSensor_Mm = cPt2dr(105.840,68.016);
-     anElem.mNbPixels = cPt2di(26460,17004);
-
-     cCamDataBase aDataB;
-     aDataB.Map()[anElem.mName] = anElem;
-     SaveInFile(aDataB,aName);
-     */
   }
 
   cCamDataBase aDBNew;
@@ -129,8 +114,8 @@ std::string cPhotogrammetricProject::DirCamDataBase(eTypeDBCam aType)
     //std::string aNameLoc = "CameraDataBase.xml";
 
      mDPMetaData.SetDirInIfNoInit("Std");
-     cMMVII_Appli::DirRessourcesMMVII();
-     std::string aDirLoc = mDPMetaData.DirIn();
+    //  cMMVII_Appli::DirRessourcesMMVII();
+     // std::string aDirLoc = mDPMetaData.DirIn();
 
      switch (aType)
      {

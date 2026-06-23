@@ -655,7 +655,7 @@ class cPhotogrammetricProject : public cIPhProj
     //===================================================================
     //void SaveTriplets(const cTripletSet&,bool useXmlraterThanDmp=true) const;
     //cTripletSet * ReadTriplets() const;
-      std::vector<cDataSolOriTriplet> ReadAllTriplets(const std::vector<std::string>& aVImages) const;
+      std::vector<cDataSolOriTriplet> ReadAllTriplets(const std::vector<std::string>& aVImages,bool OkEmpty=false) const;
     //===================================================================
     //==================   RELATIVE ORIENTATION    ======================
     //===================================================================
