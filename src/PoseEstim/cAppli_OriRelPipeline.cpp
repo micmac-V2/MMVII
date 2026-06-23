@@ -135,7 +135,7 @@ cSpecMMVII_Appli  TheSpec_OriPoseEstimRel
         {eApDT::TieP},
         {eApDT::Orient},
         __FILE__
-        );
+    );
 
 }
 
