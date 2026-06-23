@@ -62,9 +62,9 @@ void cBA_GCP::AddGCP3D(cMes3DDirInfo * aMesDirInfo, cSetMesGnd3D &aSetMesGnd3D, 
 }
 
 
-void cBA_GCP::AddMes2D(cSetMesPtOf1Im &aSetMesIm, cMes2DDirInfo *aMesDirInfo, cSensorImage* cSensorImage, eLevelCheck OnNonExistP)
+void cBA_GCP::AddMes2D(cSetMesPtOf1Im &aSetMesIm, cMes2DDirInfo *aMesDirInfo, cSensorImage* aSensorImage, eLevelCheck OnNonExistP)
 {
-    mMesGCP.AddMes2D(aSetMesIm, aMesDirInfo, cSensorImage, OnNonExistP);
+    mMesGCP.AddMes2D(aSetMesIm, aMesDirInfo, aSensorImage, OnNonExistP);
 }
 
 /* -------------------------------------------------------------- */

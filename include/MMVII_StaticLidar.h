@@ -126,7 +126,7 @@ public :
     void ToPly(const std::string & aName, bool useMask=false) const;
     void AddData(const  cAuxAr2007 & anAux) ;
     virtual void ToFile(const std::string &) const override;
-    static std::string RasterIntensityPath(const std::string &aBaseName); ///< base name should be Station-scan
+    static std::string RasterIntensityPath(const std::string & aImName); ///< base name should be Station-scan
     void FillRasters(const cStaticLidarImporter & aSL_importer, const std::string &aPhProjDirOut, bool saveRasters);
     static std::string NameFromId(const std::string &aIdName, bool getOriName);
     static bool IsNameTSL(const std::string &aImageName);

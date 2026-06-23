@@ -309,7 +309,7 @@ class cBA_GCP
           cBA_GCP& operator=(cBA_GCP const&) = delete;
 
           void AddGCP3D(cMes3DDirInfo * aMesDirInfo, cSetMesGnd3D &aSetMesGnd3D, bool verbose);
-          void AddMes2D(cSetMesPtOf1Im &, cMes2DDirInfo * aMesDirInfo, cSensorImage*, eLevelCheck OnNonExistP=eLevelCheck::Warning);
+          void AddMes2D(cSetMesPtOf1Im &, cMes2DDirInfo * aMesDirInfo, cSensorImage* aSensorImage, eLevelCheck OnNonExistP=eLevelCheck::Warning);
           const cSetMesGndPt & getMesGCP() const {return mMesGCP;}
           cSetMesGndPt & getMesGCP() {return mMesGCP;}
           std::vector<cMes2DDirInfo*> mAllMes2DDirInfo;
@@ -702,6 +702,8 @@ class cMMVII_BundleAdj
           int Iter() const { return mIter;}
 
           tREAL8 CurLVMParam() const;
+          int   NbCamPC() const;
+
 
      private :
 
@@ -809,6 +811,7 @@ class cMMVII_BundleAdj
           std::vector<cBA_BlockInstr *>          mVecBlockInstrAdj;
 
           tREAL8                                mCurLVMParam;
+          int                                   mNbCamPC;
 
 };
 

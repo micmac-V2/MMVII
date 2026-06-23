@@ -874,7 +874,7 @@ cCollecSpecArg2007 & cAppliExtractCircTarget::ArgOpt(cCollecSpecArg2007 & anArgO
 void cAppliExtractCircTarget::DoExport()
 {
      int aCptUnCoded=0;
-
+     mNameIm = mOriginalNameImage;
      cVecTiePMul aVTPMul(mNameIm); FakeUseIt(aVTPMul);
 
      cSetMesPtOf1Im  aSetM(FileOfPath(mNameIm));
