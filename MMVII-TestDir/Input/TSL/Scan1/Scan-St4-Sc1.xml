@@ -24,10 +24,6 @@
       <RasterX>"St4_Sc1_X.tif"</RasterX>
       <RasterY>"St4_Sc1_Y.tif"</RasterY>
       <RasterZ>"St4_Sc1_Z.tif"</RasterZ>
-      <RasterTheta>"St4_Sc1_Theta.tif"</RasterTheta>
-      <RasterPhi>"St4_Sc1_Phi.tif"</RasterPhi>
-      <RasterThetaErr>"St4_Sc1_ThetaErr.tif"</RasterThetaErr>
-      <RasterPhiErr>"St4_Sc1_PhiErr.tif"</RasterPhiErr>
       <Sigma>0.001</Sigma>
       <RotInput2Raster>
          <RotMatrix>
