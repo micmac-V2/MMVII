@@ -272,7 +272,6 @@ void cAppli_MMVII_CloudImProj::ProcessConikModeWithOri(cPointCloud  & aPC_In,cPr
 
         StdOut() << "Doneee=" << aNameIm << "\n";
 
-        delete aCam;
     }
 
 

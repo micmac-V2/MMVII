@@ -24,16 +24,16 @@ class cAppli_OriRelPipeline : public cMMVII_Appli
 
         cPhotogrammetricProject   mPhProj;
         std::string               mPatIm;
-        std::string               mOriRelOut;
-        std::string               mOriGlobOut;
+     //   std::string               mOriRelOut;
+     //   std::string               mOriGlobOut;
         bool                      mExe;
 };
 
 cAppli_OriRelPipeline::cAppli_OriRelPipeline(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
     cMMVII_Appli  (aVArgs,aSpec),
     mPhProj (*this),
-    mOriRelOut("Relative"),
-    mOriGlobOut("Global"),
+//    mOriRelOut("Relative"),
+//    mOriGlobOut("Global"),
     mExe(true)
 {
 }
@@ -42,7 +42,7 @@ cCollecSpecArg2007 & cAppli_OriRelPipeline::ArgObl(cCollecSpecArg2007 & anArgObl
 {
     return anArgObl
            << Arg2007(mPatIm,"Pattern of images",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
-           //<< mPhProj.DPOriRel().ArgDirOutMand()
+           << mPhProj.DPOriRel().ArgDirOutMand()
            << mPhProj.DPOrient().ArgDirInMand("Input calibration");
 
 }
@@ -50,7 +50,6 @@ cCollecSpecArg2007 & cAppli_OriRelPipeline::ArgObl(cCollecSpecArg2007 & anArgObl
 cCollecSpecArg2007 & cAppli_OriRelPipeline::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return anArgOpt
-           <<  mPhProj.DPOriRel().ArgDirOutOpt()
            <<  mPhProj.DPOrient().ArgDirOutOpt()
            <<  mPhProj.DPTieP().ArgDirInOpt()
            <<  mPhProj.DPGndPt2D().ArgDirInOpt()
@@ -67,9 +66,6 @@ int cAppli_OriRelPipeline::Exe()
                                   mPhProj.DPMulTieP().DirInIsInit() ||
                                   mPhProj.DPGndPt2D().DirInIsInit()),"Input tie-points not provided");
 
-
-    if ( !mPhProj.DPOriRel().DirOutIsInit() )
-        mPhProj.DPOriRel().SetDirOut(mOriRelOut);
 
 
     std::list<cParamCallSys>  aLPCS;
@@ -91,8 +87,7 @@ int cAppli_OriRelPipeline::Exe()
     // ===============================================
     // compute relative orientations between pairs
     cParamCallSys aComEstimRelPair(cMMVII_Appli::FullBin(),
-                                   "OriPoseEstimRelAllPairs",
-                                   mPhProj.DPOriRel().DirOut());
+                                   "OriPoseEstimRelAllPairs");
 
     for (size_t aKP=3; aKP<mArgv.size() ; aKP++)
     {
@@ -100,7 +95,7 @@ int cAppli_OriRelPipeline::Exe()
             continue;
         if (starts_with(mArgv[aKP], "VirTP")) //omit virtual points
             continue;
-        if (starts_with(mArgv[aKP], "OutOri")) //omit output global ori
+        if (starts_with(mArgv[aKP], "OutOri")) // omit output ori
             continue;
 
         aComEstimRelPair.AddArgs(mArgv[aKP]);
@@ -112,17 +107,14 @@ int cAppli_OriRelPipeline::Exe()
     // ===============================================
     // compute relative orientations within triplets
     cParamCallSys aComEstimRelTri(cMMVII_Appli::FullBin(),
-                                  "OriPoseEstimRelAllTriplets",
-                                  mPhProj.DPOriRel().DirOut());
+                                  "OriPoseEstimRelAllTriplets");
 
 
     for (size_t aKP=3; aKP<mArgv.size() ; aKP++)
     {
         if (starts_with(mArgv[aKP], "Exe"))
             continue;
-        if (starts_with(mArgv[aKP], "OutOriRel")) //omit output relative ori (added above)
-            continue;
-        if (starts_with(mArgv[aKP], "OutOri")) //omit output global ori
+        if (starts_with(mArgv[aKP], "OutOri")) // omit output ori
             continue;
 
         aComEstimRelTri.AddArgs(mArgv[aKP]);
@@ -132,34 +124,45 @@ int cAppli_OriRelPipeline::Exe()
 
     // ===============================================
     // global hierarchical SFM
-    cParamCallSys aComHSfM (cMMVII_Appli::FullBin(),
-                           "OriPoseEstimGlobHierarchical",
-                           mPatIm,
-                           mPhProj.DPOriRel().DirOut());
-
-    for (size_t aKP=3; aKP<mArgv.size() ; aKP++)
+    if (mPhProj.DPOrient().DirOutIsInit())
     {
-        if (starts_with(mArgv[aKP], "InMulTieP"))
+        cParamCallSys aComHSfM (cMMVII_Appli::FullBin(),
+                               "OriPoseEstimGlobHierarchical",
+                               mPatIm);
+
+        // add relative and calibration
+        for (size_t aKP=3; aKP<5 ; aKP++)
         {
-            // use virtual points
-            if (mPhProj.DPMulTieP().DirOutIsInit())
-            {
-                aComHSfM.AddArgs("InMulTieP="+mPhProj.DPMulTieP().DirOut());
-                continue;
-            }
-
+            aComHSfM.AddArgs(mArgv[aKP]);
         }
-        if (starts_with(mArgv[aKP], "VirTP"))
-            continue;
-        if (starts_with(mArgv[aKP], "Exe"))
-            continue;
-        if (starts_with(mArgv[aKP], "OutOriRel"))
-            continue;
+
+        // add output global ori
+        aComHSfM.AddArgs(mPhProj.DPOrient().DirOut());
+
+        for (size_t aKP=5; aKP<mArgv.size() ; aKP++)
+        {
+            if (starts_with(mArgv[aKP], "InMulTieP"))
+            {
+                // use virtual points
+                if (mPhProj.DPMulTieP().DirOutIsInit())
+                {
+                    aComHSfM.AddArgs("InMulTieP="+mPhProj.DPMulTieP().DirOut());
+                    continue;
+                }
+
+            }
+            if (starts_with(mArgv[aKP], "OutOri")) // already added
+                continue;
+            if (starts_with(mArgv[aKP], "VirTP")) // already added
+                continue;
+            if (starts_with(mArgv[aKP], "Exe"))
+                continue;
 
 
-        aComHSfM.AddArgs(mArgv[aKP]);
+            aComHSfM.AddArgs(mArgv[aKP]);
+        }
+        aLPCS.push_back(aComHSfM);
     }
-    aLPCS.push_back(aComHSfM);
 
 
     if (mExe)

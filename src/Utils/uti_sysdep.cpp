@@ -53,8 +53,8 @@ cMMVII_Warning::~cMMVII_Warning()
     static bool First=true;
     if (First)
     {
-        StdOut() << "\n";
-        StdOut() << " -------------- THERE WERE WARNINGS -----------  : \n\n";
+        std::cout << "\n";
+        std::cout << " -------------- THERE WERE WARNINGS -----------  : \n\n";
         First=false;
     }
     // At this step StdOut() may have be destroyed
