@@ -138,7 +138,7 @@ int cAppli_ImageMetada::Exe()
                 std::optional<std::string> aModel = anExif.mModel;
                 if (aModel.has_value())
                 {
-                    const cElemCamDataBase * anElCDB = mPhgrProj.GetCamFromNameCam(aModel.value());
+                    const cElemCamDataBase * anElCDB = mPhgrProj.GetCamFromNameCam(aModel.value(),true);
                     if (anElCDB)
                     {
                          StdOut()  << "  *** Camera model is in data base :"

@@ -464,7 +464,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
   mArgFac
       <<  AOpt2007(mNumOutPut,GOP_NumVO,"Num version for output format (1 or 2)",{eTA2007::Global,{eTA2007::Range,"[1,2]"}})
       <<  AOpt2007(mSeedRand,GOP_SeedRand,"Seed for random,if <=0 init from time",aGlobHDV)
-      <<  AOpt2007(mVecAppliSpecParam,"AppSpecParam","Parameters for specific Appli Behaviour")
+      <<  AOpt2007(mVecAppliSpecParam,"AppSpecParam","Parameters for specific Appli Behaviour",{eTA2007::Global})
       <<  AOpt2007(mExtandPattern,"ExtPatFile","Do we extang patterns for files (or interpret them literally)",aGlobHDV)
 
       <<  AOpt2007(msWithWarning,GOP_WW,"Do we print warnings",aGlobHDV)

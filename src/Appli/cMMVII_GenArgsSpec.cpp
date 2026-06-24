@@ -37,11 +37,18 @@ static const std::vector<eTA2007> prjSubDirList()
     return prjSubDirList;
 }
 
-static const std::map<eTA2007,std::vector<std::string>> fileList()
+/// MPD => JO  : OK ?  const map = const map &
+static const std::vector<std::string> & VecImageExtensions()
+{
+    static  std::vector<std::string> aVec{".tif",".tiff",".jpg",".jpeg",".png",".jp2",".bmp",".cr2",".crw",".nef"};
+    return aVec;
+}
+static const std::map<eTA2007,std::vector<std::string>> & fileList()
 {
     static const std::map<eTA2007,std::vector<std::string>> fileList =
     {
-        {eTA2007::FileImage,{".tif",".tiff",".jpg",".jpeg",".png",".jp2",".bmp",".cr2",".crw",".nef"}},
+     //   {eTA2007::FileImage,{".tif",".tiff",".jpg",".jpeg",".png",".jp2",".bmp",".cr2",".crw",".nef"}},
+        {eTA2007::FileImage,VecImageExtensions()},
         {eTA2007::FileTSL,{cStaticLidar::GetIdSuffix()}},
         {eTA2007::FileCloud,{".ply",".e57",".ptx"}},
         {eTA2007::FileDmp,{"."+PostF_DumpFiles}},
@@ -54,7 +61,35 @@ static const std::map<eTA2007,std::vector<std::string>> fileList()
     return fileList;
 }
 
+/*
+static const std::vector<std::string> & ImageExtension()
+{
+    const auto & anIter = fileList().find(eTA2007::FileImage);
+
+
+   return fileList()[eTA2007::FileImage] ;
+}
+*/
+
+
 } // namespace GenArgsInternal
+
+
+
+bool IsNameFileImage(const std::string & aNameFile)
+{
+
+   if (!IsPrefixed(aNameFile))
+       return false;
+
+   std::string aPost = std::string(".") +ToLower(LastPostfix(aNameFile));
+    return BoolFind(GenArgsInternal::VecImageExtensions(),aPost);
+}
+
+bool IsFileImage(const std::string & aNameFile)
+{
+    return ExistFile(aNameFile) && IsNameFileImage(aNameFile);
+}
 
 /* ==================================================== */
 /*                                                      */

@@ -105,6 +105,10 @@ std::string DirCur(); // as "./" on Unix
 std::string DirOfPath(const std::string & aPath,bool ErroNonExist=true);
 std::string FileOfPath(const std::string & aPath,bool ErroNonExist=true);
 std::string UpDir(const std::string & aDir);
+bool IsNameFileImage(const std::string & aNameFile); ///< Has it the postfix known as image extention
+bool IsFileImage(const std::string & aNameFile); ///< File existe, and its name is file image extension
+
+
 
 // std::string AbsoluteName(const std::string &); ///< Get absolute name of path; rather pwd than unalias, no good
 std::string ToLower(const std::string &  aStr);  ///< return lower case version

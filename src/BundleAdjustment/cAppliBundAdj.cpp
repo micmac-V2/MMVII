@@ -175,7 +175,7 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mPatFrosenOrient,"PatFzOrient","Pattern of images for freezing orientation of poses")
       << AOpt2007(mPatFrosenClino,"PatFzClino","Pattern of clinometers for freezing boresight")
       << AOpt2007(mPatFrozenTSL,"PatFzTSL","Pattern of static lidar for freezing pose")
-      << AOpt2007(mParamGaujeRel,"GaujeRel","Param for gauje in pure relative [MainIm?,SecIm?,Coord in x,y,z?]",{{eTA2007::ISizeV,"[0,3]"}})
+      << AOpt2007(mParamGaujeRel,"FixGauge","Param for gauje in pure relative [MainIm?,SecIm?,Coord in x,y,z?]",{{eTA2007::ISizeV,"[0,3]"}})
 
 
 
@@ -389,19 +389,14 @@ int cAppliBundlAdj::Exe()
         AddOneSetTieP(aTieP);
 
     bool hasGauje = IsInit(&mParamGaujeRel);
-    if ((!hasConstrOriPC) && (!hasGauje) && (mBA.NbCamPC()!=0))
+    bool forceNoGauje =   (!mParamGaujeRel.empty()) && (mParamGaujeRel.at(0)==MMVII_NONE);
+    if ((!hasConstrOriPC) && (!hasGauje) && (mBA.NbCamPC()!=0) && (!forceNoGauje))
     {
-        if ( (!mParamGaujeRel.empty()) && (mParamGaujeRel.at(0)==MMVII_NONE))
-        {
-        }
-        else
-        {
-            MMVII_USER_TYPED_WARNING(eTyUEr::eForceGauje,"Gauje in relative pause not specified, added by system");
+            MMVII_USER_TYPED_WARNING(eTyUEr::eForceGauje,"Gauje in pure relative pause not specified, added by system");
            hasGauje = true;
-        }
     }
 
-    if (hasGauje)
+    if (hasGauje && (!forceNoGauje))
     {
         mBA.SetGaujeRelPause(mParamGaujeRel);
     }

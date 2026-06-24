@@ -355,9 +355,9 @@ cAppli_AddCamInDataBase::cAppli_AddCamInDataBase(const std::vector<std::string> 
 cCollecSpecArg2007 & cAppli_AddCamInDataBase::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return anArgObl
-              <<  Arg2007(mNameCamera ,"Name of Input File")
+              <<  Arg2007(mNameCamera ,"Name of Camera Model, or name image containg metadata")
               <<  Arg2007(mTypeDB ,"Which  database (in enum value)")
-             <<  Arg2007(mMode ,"0:Info , 1:AddIfNew ; 2:Overwrite ; -1:supress")
+              <<  Arg2007(mMode ,"0:Info , 1:AddIfNew ; 2:Overwrite ; -1:supress")
 
            ;
 }
@@ -374,6 +374,47 @@ int cAppli_AddCamInDataBase::Exe()
 {
 
     mPhgrProj.FinishInit();
+
+    if (IsNameFileImage(mNameCamera))
+    {
+       cExifData anExif =   cExifData::CreateFromFile(mNameCamera);
+       auto aModCam = anExif.mModel;
+       if (aModCam.has_value())
+       {
+           mNameCamera = aModCam.value();
+           StdOut() << "\n";
+           StdOut() << "  *  Found  Exif Name Camera, use it " << mNameCamera << "\n";
+
+           auto aF35 = anExif.mFocalLengthIn35mmFilm_mm;
+           auto aFoc = anExif.mFocalLength_mm;
+           auto aNbPix_X = anExif.mPixelXDimension;
+           auto aNbPix_Y = anExif.mPixelYDimension;
+
+           if (aF35.has_value() && aFoc.has_value() && aNbPix_X.has_value() && aNbPix_Y.has_value())
+           {
+               cPt2di aNbPix(aNbPix_X.value(),aNbPix_Y.value());
+               tREAL8 aRatio = aFoc.value() / aF35.value();
+               cPt2dr aSzSensor = cPt2dr(36,24) * aRatio;
+
+               tREAL8 aSzPix = std::sqrt(MulCoord(aSzSensor) / MulCoord(aNbPix)  );
+
+               aSzSensor  = ToR(aNbPix) * aSzPix;
+               if (!IsInit(&mParamCam))
+               {
+                  std::vector<tREAL8> aVCalc
+                                   {
+                                       aSzPix*1e3,aSzPix*1e3,
+                                       aSzSensor.x(),aSzSensor.y(),
+                                       tREAL8(aNbPix.x()),tREAL8(aNbPix.y())
+                                   };
+                  SetIfNotInit(mParamCam,aVCalc);
+
+                   StdOut() << "  *  Found exif senssor size "<<  aVCalc << "\n\n";
+               }
+           }
+       }
+      //  cMetaDataImage aMDI =  mPhgrProj.GetMetaData(mNameCamera);
+    }
 
     std::string  aNameFile = mPhgrProj.FileCamDataBase(mTypeDB) ;
     cCamDataBase aCamDB;
