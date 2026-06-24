@@ -402,7 +402,7 @@ void cProjPointCloud::ProcessOneProj
 
      mDImIndex  = & (mImIndex.DIm());
      mDImIndex->Resize(mSzIm);
-   //   StdOut() << "xxxSZ_IM=" << mSzIm << "\n";
+     // StdOut() << "xxxSZ_IM=" << mSzIm << "\n";
      mDImIndex->InitCste(NoIndex);
 
 

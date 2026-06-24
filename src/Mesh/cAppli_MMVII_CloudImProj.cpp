@@ -49,6 +49,10 @@ class cAppli_MMVII_CloudImProj : public cMMVII_Appli
 
         void ProcessOrthoMode(cPointCloud  &,cProjPointCloud&);
         void ProcessConikMode(cPointCloud  &,cProjPointCloud&);
+        void ProcessConikModeWithOri(cPointCloud  &,cProjPointCloud&);
+
+        void GenerateSynthImage(cProjPointCloud&,const cSensorImage &,const cDemiConeVert*);
+
 
         int                     mMode;
         cPhotogrammetricProject mPhProj;
@@ -60,6 +64,7 @@ class cAppli_MMVII_CloudImProj : public cMMVII_Appli
         bool mMakeImRectified;
         bool mSaveImDepth;
         std::string mPrefixImGen ;
+        std::string mPatIm;
 
 
         tREAL8        mResolOrthoC;
@@ -96,6 +101,7 @@ cAppli_MMVII_CloudImProj::cAppli_MMVII_CloudImProj
      mMakeImRectified  (false),
      mSaveImDepth      (false),
      mPrefixImGen      ("C_"),
+     mPatIm            (""),
      mResolOrthoC      (0.2),
      mOverLap          (0.8,0.6),
      mRInsideMin      (0.5),
@@ -139,6 +145,7 @@ cCollecSpecArg2007 & cAppli_MMVII_CloudImProj::ArgObl(cCollecSpecArg2007 & anArg
 cCollecSpecArg2007 & cAppli_MMVII_CloudImProj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
    anArgOpt
+          << mPhProj.DPOrient().ArgDirInOpt("","Input orientations")
           << AOpt2007(mPrefixOut,CurOP_Out,"Preifix for out images, def= Ima+Input")
           << AOpt2007(mSun,"Sun","Sun : Dir3D=(x,y,1)  ,  Z=WEIGHT !! ")
           << AOpt2007(mNameSavePCSun,"CloudSun","Name of cloud with sun, if sun was added")
@@ -160,6 +167,7 @@ cCollecSpecArg2007 & cAppli_MMVII_CloudImProj::ArgOpt(cCollecSpecArg2007 & anArg
            << AOpt2007(mRInsideMin,"MinInside","Minimal insideness ratio ",{eTA2007::HDV})
            << AOpt2007(mFOV,"FOV","Field of view, in radian",{eTA2007::HDV})
            << AOpt2007(mPrefixImGen,"PrefixIm","Prefix for generating names",{eTA2007::HDV})
+           << AOpt2007(mPatIm,"PatIm","Pattern of images for generation from known orientations")
        ;
    }
 
@@ -203,14 +211,72 @@ int  cAppli_MMVII_CloudImProj::Exe()
    }
    else
    {
-       ProcessConikMode(aPC_In,aPPC);
+        if (mPhProj.DPOrient().DirInIsInit())
+            ProcessConikModeWithOri(aPC_In,aPPC);
+       else
+            ProcessConikMode(aPC_In,aPPC);
    }
 
    return EXIT_SUCCESS;
 }
 
+void cAppli_MMVII_CloudImProj::GenerateSynthImage(cProjPointCloud& aPPC,const cSensorImage &aSensor,const cDemiConeVert* aDCV)
+{
+    std::string aDirIm = mPhProj.DPOrient().FullDirOut();
+    std::string aNameIm = aSensor.NameImage();
+
+    aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,aSensor,0.0,true,"",false,false,aDCV);
+
+    cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud*mSensDownSample,aSensor);
+
+    aResIm.mImRadiom.DIm().ToFile(aDirIm+aNameIm);
+    aResIm.mImWeight.DIm().ToFile(aDirIm+aNameIm+"Weight-"+".tif");
+    aResIm.mImDepth.DIm().ToFile (aDirIm+aNameIm+"Depth-" +".tif");
+}
+
+void cAppli_MMVII_CloudImProj::ProcessConikModeWithOri(cPointCloud  & aPC_In,cProjPointCloud& aPPC)
+{
+
+    std::string aDirIn = mPhProj.DPOrient().FullDirIn();
+    std::string aOriPrefix = cSensorImage::PrefixName() + "-" + cSensorCamPC::PrefixName() + "-";
+    std::string aOriSuffix = "." + GlobTaggedNameDefSerial();
+
+    // Get all CamPC orientation files from the input dir
+    auto aVOriFiles = GetFilesFromDir(aDirIn, AllocRegex(aOriPrefix + ".*"));
+
+    // Extract image names and filter by mPatIm
+    tNameSelector aSel = AllocRegex(mPatIm);
+    std::vector<std::string> aSetNames;
+    for (const auto & aF : aVOriFiles)
+    {
+        std::string aImName = aF.substr(aOriPrefix.size(),
+                                        aF.size() - aOriPrefix.size() - aOriSuffix.size());
+        if (aSel.Match(aImName))
+            aSetNames.push_back(aImName);
+    }
+
+    for (const auto & aNameIm : aSetNames)
+    {
+        StdOut() << aNameIm << std::endl;
+        cSensorCamPC * aCam = mPhProj.ReadCamPC(aNameIm,true,false);
+
+        tREAL8 aTgt2 = SqN2(aCam->InternalCalib()->PP()) / Square(aCam->InternalCalib()->F());
+
+        std::string aDirIm =  mPhProj.DPOrient().FullDirOut();
+
+        cDemiConeVert aDCV(aCam->Center(),aTgt2);
+
+        GenerateSynthImage(aPPC,*aCam,&aDCV);
+
+        //mPhProj.SaveCamPC(*aCam);
+
+        StdOut() << "Doneee=" << aNameIm << "\n";
+
+        delete aCam;
+    }
 
 
+}
 
 
 void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud  & aPC_In,cProjPointCloud& aPPC)
@@ -266,12 +332,7 @@ void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud  & aPC_In,cProjPoint
 
              cDemiConeVert aDCV(aC3,aTgt2);
 
-            aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,aCam,0.0,true,"",false,false,&aDCV); // HERE
-            cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud*mSensDownSample,aCam);
-
-            aResIm.mImRadiom.DIm().ToFile(aDirIm+aNameImage);
-            aResIm.mImWeight.DIm().ToFile(aDirIm+aPrefix+"Weight-"+".tif");
-            aResIm.mImDepth.DIm().ToFile (aDirIm+aPrefix+"Depth-" +".tif");
+            GenerateSynthImage(aPPC,aCam,&aDCV);
 
             mPhProj.SaveCamPC(aCam);
 
