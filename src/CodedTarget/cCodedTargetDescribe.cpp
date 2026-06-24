@@ -26,6 +26,7 @@ namespace MMVII
         mName (aName),
         mOKAug(false),
         mOKInter (false),
+        mCenter (aFSpec->Center()),
         mFSpec (aFSpec)
     {
     }
@@ -53,7 +54,7 @@ namespace MMVII
     std::vector<cPt2dr> cAugCdT::Corners() const
     {
         std::vector<cPt2dr> aRes = {};
-        const cPt2dr& aC = mFSpec->Center();
+        const cPt2dr& aC = mCenter;
         for (const auto& aP : SqCorners) aRes.push_back(aC + cPt2dr(aC.x()*aP.x(), aC.y()*aP.y()));
         return aRes;
     }
@@ -101,13 +102,29 @@ namespace MMVII
         tREAL8 aRes;
         mRef2Gnd = mRef2Gnd.StdGlobEstimate(aVMarks, aVGndPts, &aRes, nullptr, cParamCtrlOpt::Default());
         //----- similarity validation -> smthg with aRes ??
-        mOKAug = true;
+        if (mOKInter) mOKAug = true;
+    }
+
+    cCdTDiscr cAugCdT::Discretize(cSensorCamPC* aCam, bool& isIn) const
+    {
+        //----- discretization = computing map between CdT theoretical image & glob image
+        std::vector<cPt2dr> aVOut;
+        for (const auto& aP : Corners())
+        {
+            aVOut.push_back(aCam->Ground2Image(mRef2Gnd.Value(cPt3dr(aP.x(), aP.y(), 0))));
+        }
+        tREAL8      aRes;
+        cAff2D_r    aAff;
+        aAff = aAff.StdGlobEstimate(Corners(), aVOut, &aRes, nullptr, cParamCtrlOpt::Default());
+        isIn = aCam->IsVisibleOnImFrame(aAff.Value(mCenter));
+        return cCdTDiscr(mName, aCam->NameImage(), aAff);
     }
 
     void cAugCdT::AddData(const cAuxAr2007& anAux)
     {
         MMVII::AddData(cAuxAr2007("Name", anAux), mName);
         MMVII::AddData(cAuxAr2007("Ref2Gnd", anAux), mRef2Gnd);
+        MMVII::AddData(cAuxAr2007("Center", anAux), mCenter);
     }
 
     void AddData(const cAuxAr2007 &anAux, cAugCdT &anEx)
@@ -128,6 +145,7 @@ namespace MMVII
         return "CdT: " + mName + "\t | "
                + "Mul: " + std::to_string(NbExtracts()) + "\t | "
                + "Inter: " + (mOKInter ? "yes" : "no") + "\t | "
+               + "Saved: " + (mOKAug ? "yes" : "no") + "\t | "
                + "3DPrec: " + (m3DPrec > 1e-6 ? std::to_string(m3DPrec) : "***") + '\n';
     }
 
@@ -207,15 +225,16 @@ namespace MMVII
                 auto aImP = aCam->Ground2Image(aP);
                 if (aDIm->InsideBL(aImP))
                 {
-                    aDIm->DrawFiducial(aImP, cPt2dr(8,8), 5, aCol, .1);
+                    aDIm->DrawCross(aImP, cPt2dr(1,1), aCol, .5);
+                    //aDIm->DrawFiducial(aImP, cPt2dr(1,1), -1, aCol, .5);
                     //aDIm->DrawString(std::to_string(ix), cRGBImage::Green, aImP, cPt2dr(1,0));
                 }
                 //aVImP.push_back(aImP);
             }
-            auto& aC = mFSpec->Center();
-            auto aImC = aCam->Ground2Image(aAug.mRef2Gnd.Value(cPt3dr(aC.x(), aC.y(), 0)));
-            if (aDIm->InsideBL(aImC)) aDIm->DrawString(aAug.mName, aCol, aImC, cPt2dr(0.5,0.05));
-            //aDIm->DrawPolygon(aVImP, cRGBImage::White, .5);
+            //auto& aC = mFSpec->Center();
+            //auto aImC = aCam->Ground2Image(aAug.mRef2Gnd.Value(cPt3dr(aC.x(), aC.y(), 0)));
+            //if (aDIm->InsideBL(aImC)) aDIm->DrawString(aAug.mName, aCol, aImC, cPt2dr(0.5,0.05));//-> name
+            //aDIm->DrawPolygon(aVImP, cRGBImage::White, .5);//-> border
         }
         std::string aNameV = NameVisu(aCam->NameImage(), "Marks", "");
         StrV == "J" ? aIm.ToJpgFileDeZoom(aNameV, 1, {"QUALITY=90"}) : aIm.ToFile(aNameV);

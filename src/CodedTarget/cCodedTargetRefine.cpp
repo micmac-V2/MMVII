@@ -3,6 +3,7 @@
 namespace MMVII
 {
 
+const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is out of the mask area
 
     /**************************************************************************/
     /*
@@ -10,7 +11,7 @@ namespace MMVII
     */
     /**************************************************************************/
 
-    cCdTDiscr::cCdTDiscr(const std::string& aName, const std::string& aImName):
+    cCdTDiscr::cCdTDiscr(const std::string& aName, const std::string& aImName, MMVII::cAff2D_r aAff):
         mName       (aName),
         mImName     (aImName),
         mExtent     (cPt2di(1,1)),
@@ -20,7 +21,8 @@ namespace MMVII
         mRef        (cPt2di(1,1)),
         mSamp       (cPt2di(1,1)),
         mMask       (cPt2di(1,1)),
-        mInlMask    (cPt2di(1,1))
+        mInlMask    (cPt2di(1,1)),
+        mRef2Glob   (aAff)
         {
         }
 
@@ -30,12 +32,12 @@ namespace MMVII
         tDIm* aDSamp = &mSamp.DIm();
         aDSamp->InitCste(0);
 
-        for (const auto& aPix : *aDSamp)
+        for (const auto& aPix : cRect2(aDSamp->Dilate(0)))
         {
             if (mMask.DIm().GetV(aPix) == MaskOutV)
             {
                 //-> to avoid aliasing
-                cRessampleWeigth aRW = cRessampleWeigth::GaussBiCub(ToR(aPix + mExtent.P0()), mRef2Im.MapInverse(), 2);
+                cRessampleWeigth aRW = cRessampleWeigth::GaussBiCub(ToR(aPix + mExtent.P0()), mRef2Glob.MapInverse(), 2);
                 const std::vector<cPt2di>& aVPts = aRW.mVPts;
                 if (!aVPts.empty())
                 {
@@ -221,7 +223,7 @@ namespace MMVII
      * transformation methods
      */
 
-    cPt2dr cCdTDiscr::Ref2Im(cPt2dr aPt, bool inv) {return (inv ? mRef2Im.Inverse(aPt) : mRef2Im.Value(aPt));}
+    cPt2dr cCdTDiscr::Ref2Im(cPt2dr aPt, bool inv) {return (inv ? mRef2Glob.Inverse(aPt) : mRef2Glob.Value(aPt));}
 
     std::vector<cPt2dr> cCdTDiscr::VRef2Im(std::vector<cPt2dr> aVPts, bool inv)
     {
@@ -305,7 +307,7 @@ namespace MMVII
         return aRes;
     }
 
-    void cCdTDiscr::SetRef2Im(cAff2D_r aRef2Im){mRef2Im = aRef2Im;}
+    void cCdTDiscr::SetRef2Im(cAff2D_r aRef2Im){mRef2Glob = aRef2Im;}
     void cCdTDiscr::SetExtent(cRect2 aExt){mExtent = aExt;}
     void cCdTDiscr::SetRef(tIm aRef){mRef = aRef;}
     void cCdTDiscr::SetMask(tIm aMask){mMask = aMask;}
@@ -330,12 +332,39 @@ namespace MMVII
         mRefCB = cCBParams(aC, Norm2(aC - aMBW), Norm2(aC - aLWB), Norm2(aC - aBC));
     }
 
+    /**************************************************************************/
+    /*
+     * cSetOfCdTDiscr
+     */
+    /**************************************************************************/
+
+    cSetOfCdTDiscr::cSetOfCdTDiscr(std::string aImName):
+        mImName (aImName)
+    {
+    }
+
+    void cSetOfCdTDiscr::Add(cCdTDiscr aDis)
+    {
+        mVDiscr.push_back(aDis);
+    }
+
+    bool cSetOfCdTDiscr::HasCdTName(std::string aCdTName)
+    {
+        for (const auto& aDis : mVDiscr)
+        {
+            if (aDis.mName == aCdTName) return true;
+        }
+        return false;
+    }
+
+    std::vector<cCdTDiscr>cSetOfCdTDiscr::CdTDiscretizations() const {return mVDiscr;}
 
     /**************************************************************************/
     /*
-     * cAppli_CodedTargetRefine methods
+     * cAppli_CodedTargetRefine
      */
     /**************************************************************************/
+
 
     cCollecSpecArg2007& cAppli_CodedTargetRefine::ArgObl(cCollecSpecArg2007& anArgObl)
     {
@@ -349,8 +378,9 @@ namespace MMVII
     cCollecSpecArg2007 & cAppli_CodedTargetRefine::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     {
         return anArgOpt
-               << mPhProj.DPGndPt2D().ArgDirOutOptWithDef("ref", "Output", "CdT 2D refined measurements")
-               << mPhProj.DPGndPt3D().ArgDirInOpt("Descr","CdT 3D Descriptions")
+               << mPhProj.DPGndPt2D().ArgDirOutOptWithDef("Refine", "OutMes", "CdT 2D refined measurements")
+               << mPhProj.DPGndPt3D().ArgDirInOpt("NetAug","CdT network augmentation")
+               << mPhProj.DPOrient().ArgDirInOpt("OriAug","Absolute orientation -> mandatory if using network augmentation")
                << AOpt2007(mShow,"Show","Show useful details", {eTA2007::HDV})
                << AOpt2007(mVisu,"Visu","Save visualisation of results", {eTA2007::HDV})
             ;
@@ -360,7 +390,7 @@ namespace MMVII
                                                            const cSpecMMVII_Appli& aSpec):
         cMMVII_Appli    (aVArgs, aSpec),
         mPhProj         (*this),
-        //mVDescr         ({}),
+        mVAugCdT         ({}),
         mIm             (cPt2di(1,1)),
         mDIm            (nullptr),
         mL1Lim          (20)
@@ -368,38 +398,79 @@ namespace MMVII
         //
     }
 
+    void cAppli_CodedTargetRefine::Visu(cSetMesPtOf1Im& aSet)
+    {
+        StdOut() << "generation of: " << mGlobImN << " visualization image\n";
+        cRGBImage aIm = cRGBImage::FromFile(mGlobImN);
+        auto aDIm = &aIm;
+        aDIm->ResetGray();
+        for (const auto& aMes : aSet.Measures())
+        {
+            auto& aCol = cRGBImage::Red;
+            aDIm->DrawCross(aMes.mPt, cPt2dr(1,1), aCol, .5);
+            aDIm->DrawString(aMes.mNamePt, cRGBImage::White, aMes.mPt, cPt2dr(1,0));
+        }
+        std::string aNameV = NameVisu(mGlobImN, "RefMes", "");
+        std::string aStrV = "T";
+        aStrV == "J" ? aIm.ToJpgFileDeZoom(aNameV, 1, {"QUALITY=90"}) : aIm.ToFile(aNameV);
+    }
+
+
     int cAppli_CodedTargetRefine::Exe()
     {
         //----- PhProj primitives
         mPhProj.FinishInit();
         std::vector<std::string> aVIm = VectMainSet(0);
         mFSpec.reset(cFullSpecifTarget::CreateFromFile(mFSpecName));
-
-
-        //----- independent process for each image
+        //----- if supplied, load coded targets augmentation
+        if (!mPhProj.DPGndPt3D().DirInIsNONE() && mPhProj.DPOrient().DirInIsInit())
+        {
+            ReadFromFile(mVAugCdT, cAugCdT::NameFile(mPhProj, true));
+        }
+        //----- single image process
 
         for (const auto& aIm : aVIm)
         {
-            mIm         = tIm::FromFile(aIm);
-            mSetImMes   = mPhProj.LoadMeasureIm(aIm);
-            std::vector<cCdTDiscr>          aVDiscr;
-            std::vector<cSaveExtrEllipe>    aVEll;
+            mGlobImN = aIm;
+            mIm = tIm::FromFile(mGlobImN);
+            cSetOfCdTDiscr aSetOfDiscr(mGlobImN);//-> collection of image CdT discretizations
+            cSetMesPtOf1Im aSet(mGlobImN);//-> to save final image measurements
 
-            cSetMesPtOf1Im aSet(aIm);//-> to save refined image measurements
+            if (mShow) StdOut() << "(Im):" << mGlobImN <<'\n';
 
+            //----- load image measurements obtained from standard image processing
+            mSetImMes   = mPhProj.LoadMeasureIm(mGlobImN);
+            std::vector<cSaveExtrEllipe> aVEll;
             ReadFromFile(aVEll, cSaveExtrEllipe::NameFile(mPhProj, mSetImMes, true));
 
-            if (mShow) StdOut() << "(Im):" << aIm <<'\n';
-
-            //----- refinement for CdT that have been extracted
             for (const auto& aEll : aVEll)
             {
-                if (!starts_with(aEll.mNameCode, MMVII_NONE))
+                if (starts_with(aEll.mNameCode, MMVII_NONE)) continue;//-> reject undecoded targets
+                aSetOfDiscr.Add(cCdTDiscr(aEll.mNameCode, aIm, aEll.mAffIm2Ref.MapInverse()));
+            }
+            //----- complete with augmentations if provided
+            if (!mVAugCdT.empty() && !mPhProj.DPOrient().DirInIsNONE())//mPhProj.DPOrient().DirInIsNONE()
+            {
+                    cSensorCamPC* aCam = mPhProj.ReadCamPCFromFolder(mPhProj.DPOrient().DirIn(), aIm, true, true);
+                if (aCam != nullptr)
                 {
+                    for (const auto& aAug : mVAugCdT)
+                    {
+                        if (aSetOfDiscr.HasCdTName(aAug.mName)) continue;//-> if already provided by ellipse extraction
+                        bool isIn = false;//-> is CdT center visible on image
+                        cCdTDiscr aDis = aAug.Discretize(aCam, isIn);
+                        StdOut() << "ADD: CdT" << aDis.mName << '\n';
+                        if (isIn) aSetOfDiscr.Add(aDis);
+                    }
+                }
+            }
+
+            //----- refinement for CdT which have been extracted
+            for (auto& aDis : aSetOfDiscr.CdTDiscretizations())
+            {
                     //-> set prerequisites to use cCdTDiscr
                     bool isOk = true;
-                    cCdTDiscr aDis = cCdTDiscr(aEll.mNameCode, aIm);
-                    BuildDiscr(aDis, aEll.mAffIm2Ref.MapInverse(), isOk);
+                    BuildDiscr(aDis, isOk);
                     if (isOk)
                     {
                         //-> creation of sampled CdT
@@ -428,38 +499,14 @@ namespace MMVII
                         aSet.AddMeasure(aMes);
                     }
                 }
-            }
-
+            if (mVisu) Visu(aSet);
             mPhProj.SaveMeasureIm(aSet);
-
-            //-> if CdT descriptions are provided -> fill mVDescr (useful for CdT that have not been extracted)
-            //if(!mPhProj.DPGndPt3D().DirInIsNONE())
-            //{
-            //    ReadFromFile(mVDescr, cCdTDescr::NameFile(mPhProj, true));
-            //}
-            //----- do something close with some extra steps for unextracted CdT
-            /*
-            if (!mVDescr.empty())
-            {
-                for (const auto& aDes : mVDescr)
-                {
-                    if (!aSetImMes.NameHasMeasure(aDes.mName))//-> avoid duplicate cCdTDiscr
-                    {
-                        cAff2D_r aCdT2Im = Descr2Aff(aDes, aCam);
-                        aVDiscr.push_back(cCdTDiscr(aDes.mName, aImName, aCdT2Im, aIm, mFSpec));
-                    }
-                }
             }
-            */
-        }
-
         return EXIT_SUCCESS;
     }
 
-    void cAppli_CodedTargetRefine::BuildDiscr(cCdTDiscr& aDis, cAff2D_r aRef2Im, bool &isOk)
+    void cAppli_CodedTargetRefine::BuildDiscr(cCdTDiscr& aDis, bool &isOk)
     {
-        aDis.SetRef2Im(aRef2Im);//-> set Ref to image mapping
-
         aDis.SetCB(mFSpec);
 
         tIm aRef = mFSpec->OneImTarget(*mFSpec->EncodingFromName(aDis.mName));
@@ -522,11 +569,11 @@ namespace MMVII
         //aDis.SetInlMask(aDis.TFSm2Cr().mInlMask);
 
         //----- samp CB insidness to filter outliers
-        tIm aInCBMask = aDis.MaskInCB(true);
-        aDis.SetInlMask(aInCBMask);
+        //tIm aInCBMask = aDis.MaskInCB(true);
+        //aDis.SetInlMask(aInCBMask);
 
-        //tIm aInCtMask = aDis.MaskInCt(2);
-        //aDis.SetInlMask(aInCtMask);
+        tIm aInCtMask = aDis.MaskInCt(2);
+        aDis.SetInlMask(aInCtMask);
 
         //----- least square computation of Samp to Crop 10-params mapping
         mVisu ? aDis.VisuLS10ParamSm2Cr(mPhProj.DirVisuAppli()) : aDis.LS10ParamSm2Cr();
@@ -734,28 +781,17 @@ namespace MMVII
     {
     }
 
-    /*cAff2D_r Descr2Aff(const cCdTDescr& aDes, cSensorCamPC* aCam)
-    {
-        const tREAL8& aR = aDes.mRes;
-        std::vector<cPt2di> aVCorners = {cPt2di(0,0), cPt2di(aR,0), cPt2di(aR,aR), cPt2di(0,aR)};
-        std::vector<cPt2dr> aVIn = {}, aVOut = {};
-
-        for (const auto& aPt : aVCorners)
-        {
-            aVIn.push_back(ToR(aPt));
-            aVOut.push_back(aCam->Ground2Image(aDes.mCdT2Gnd.Value(cPt3dr(aPt.x(), aPt.y(), 0))));
-        }
-
-        tREAL8      aRes;
-        cAff2D_r    aAff;
-        aAff = aAff.StdGlobEstimate(aVIn, aVOut, &aRes, nullptr, cParamCtrlOpt::Default());
-
-        return aAff;
-    }*/
 
     std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1)
     {
         return {aP0, cPt2dr(aP1.x(), aP0.y()), aP1, cPt2dr(aP0.x(), aP1.y())};
+    }
+
+    std::string cAppli_CodedTargetRefine::NameVisu(const std::string & aIm, const std::string & aPref, const std::string aPost)
+    {
+        std::string aRes = mPhProj.DirVisuAppli() +  aPref +"-" + LastPrefix(FileOfPath(aIm));
+        if (aPost!="") aRes = aRes + "-"+aPost;
+        return aRes + ".tif";
     }
 
 }

@@ -411,11 +411,13 @@ void cRGBImage::DrawLine(const cPt2dr & aP1,const cPt2dr & aP2,const cPt3di & aC
 void cRGBImage::DrawFiducial(const cPt2dr& aP1, const cPt2dr& aP2, tREAL8 aRay, const cPt3di& aCoul, tREAL8 aWidth)
 {
     DrawCircle(aCoul, aP1, aRay);
+    DrawCross(aP1, aP2, aCoul, aWidth);
+}
+
+void cRGBImage::DrawCross(const cPt2dr& aP1, const cPt2dr& aP2, const cPt3di& aCoul, tREAL8 aWidth)
+{
     DrawLine(cPt2dr(aP1.x() - aP2.x(), aP1.y()), cPt2dr(aP1.x() + aP2.x(), aP1.y()), aCoul, aWidth);//-> horizontal
     DrawLine(cPt2dr(aP1.x(), aP1.y() - aP2.y()), cPt2dr(aP1.x(),  aP1.y() + aP2.y()), aCoul, aWidth);//-> vertical
-    DrawLine(cPt2dr(aP1.x() - 1, aP1.y()), cPt2dr(aP1.x() + 1, aP1.y()), cRGBImage::Black, aWidth);//-> horizontal
-    DrawLine(cPt2dr(aP1.x(), aP1.y() - 1), cPt2dr(aP1.x(), aP1.y() + 1), cRGBImage::Black, aWidth);//-> vertical
-
 }
 
 void cRGBImage::DrawPolygon(const std::vector<cPt2dr>& aVPts, const cPt3di& aCoul, tREAL8 aWidth, bool IsClosed)
