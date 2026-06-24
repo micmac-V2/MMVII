@@ -15,6 +15,7 @@ extern cSpecMMVII_Appli  TheSpecBench;
 extern cSpecMMVII_Appli  TheSpecTestCpp11;
 extern cSpecMMVII_Appli  TheSpecMPDTest;
 extern cSpecMMVII_Appli  TheSpecEditSet;
+extern cSpecMMVII_Appli  TheSpecEditProfile;
 extern cSpecMMVII_Appli  TheSpecEditRel;
 extern cSpecMMVII_Appli  TheSpec_EditCalcMetaDataImage;
 extern cSpecMMVII_Appli  TheSpec_EditBlockInstr;
@@ -33,6 +34,7 @@ extern cSpecMMVII_Appli  TheSpecScaleImage_Std;
 extern cSpecMMVII_Appli  TheSpec_StackIm;
 extern cSpecMMVII_Appli  TheSpec_StackDep;
 extern cSpecMMVII_Appli  TheSpecCalcDiscIm;
+extern cSpecMMVII_Appli  TheSpecFilterImDepth;
 extern cSpecMMVII_Appli  TheSpecCalcDescPCar;
 extern cSpecMMVII_Appli  TheSpecMatchTieP;
 extern cSpecMMVII_Appli  TheSpec_TiePConv;
@@ -68,6 +70,7 @@ extern cSpecMMVII_Appli  TheSpec_OriConvV1V2;
 extern cSpecMMVII_Appli  TheSpec_OriUncalibSpaceResection;
 extern cSpecMMVII_Appli  TheSpec_OriCalibratedSpaceResection;
 extern cSpecMMVII_Appli  TheSpec_OriCheckGCPDist;
+extern cSpecMMVII_Appli  TheSpec_GCPSplit;
 extern cSpecMMVII_Appli  TheSpec_OriRel2Im;
 extern cSpecMMVII_Appli  TheSpec_OriRelPairsOf1m;
 extern cSpecMMVII_Appli  TheSpec_OriRelAllPairs;
@@ -75,6 +78,7 @@ extern cSpecMMVII_Appli  TheSpec_SelectPairOriRel;
 extern cSpecMMVII_Appli  TheSpec_OriRel3Im;
 extern cSpecMMVII_Appli  TheSpec_OriRelTripletsOf1m;
 extern cSpecMMVII_Appli  TheSpec_OriRelAllTriplets;
+extern cSpecMMVII_Appli  TheSpec_OriPoseEstimRel;
 
 
 
@@ -87,7 +91,6 @@ extern cSpecMMVII_Appli  TheSpecTopoComp;
 extern cSpecMMVII_Appli  TheSpecGenerateEncoding;
 extern cSpecMMVII_Appli  TheSpecTestGraphPart;
 extern cSpecMMVII_Appli  TheSpec_OriBundlAdj;
-extern cSpecMMVII_Appli  TheSpec_TopoAdj;
 extern cSpecMMVII_Appli  TheSpecDistCorrectCirgTarget;
 extern cSpecMMVII_Appli  TheSpecGenArgsSpec;
 extern cSpecMMVII_Appli  TheSpec_ImportClino;
@@ -96,7 +99,8 @@ extern cSpecMMVII_Appli  TheSpec_ImportGCP;
 extern cSpecMMVII_Appli  TheSpec_ImportOBS;
 extern cSpecMMVII_Appli  TheSpec_ImportORGI;
 extern cSpecMMVII_Appli  TheSpec_ImportAiconCamera;
-extern cSpecMMVII_Appli  TheSpec_ImportStaticScan;
+extern cSpecMMVII_Appli  TheSpec_ImportTSL;
+extern cSpecMMVII_Appli  TheSpec_InitTSL;
 extern cSpecMMVII_Appli  TheSpec_ImportTxtCloud;
 extern cSpecMMVII_Appli  TheSpec_MMVII_CloudClip;
 extern cSpecMMVII_Appli  TheSpec_MMVII_Cloud2Ply;
@@ -119,9 +123,10 @@ extern cSpecMMVII_Appli  TheSpec_BlockCamInit;   // RIGIDBLOC
 extern cSpecMMVII_Appli  TheSpec_BlocReport;
 extern cSpecMMVII_Appli  TheSpec_ClinoReport;
 extern cSpecMMVII_Appli  TheSpec_CernInitRep;
-                                                
+
 extern cSpecMMVII_Appli  TheSpec_ClinoInit;
 extern cSpecMMVII_Appli  TheSpecRename;
+extern cSpecMMVII_Appli  TheSpecRenameSubFolder;
 extern cSpecMMVII_Appli  TheSpec_V2ImportCalib;
 extern cSpecMMVII_Appli  TheSpec_ImportOri;
 extern cSpecMMVII_Appli  TheSpecDicoRename;
@@ -132,6 +137,7 @@ extern cSpecMMVII_Appli  TheSpec_TestProj;
 extern cSpecMMVII_Appli  TheSpec_ChSysCo;
 extern cSpecMMVII_Appli  TheSpec_ChSysCoGCP;
 extern cSpecMMVII_Appli  TheSpec_CreateCalib;
+extern cSpecMMVII_Appli  TheSpec_AddCamInDataBase;
 extern cSpecMMVII_Appli  TheSpecImportExtSens;
 extern cSpecMMVII_Appli  TheSpecTestSensor;
 extern cSpecMMVII_Appli  TheSpecParametrizeSensor;
@@ -144,10 +150,10 @@ extern cSpecMMVII_Appli  TheSpecAppliFranges;
 
 extern cSpecMMVII_Appli  TheSpec_CERN_ImportClino;
 extern cSpecMMVII_Appli  TheSpec_MMV2_MesIm_2_MMV1;
-extern cSpecMMVII_Appli TheSpec_MergeMesImGCP;
-extern cSpecMMVII_Appli  TheSpec_ExifData;
+extern cSpecMMVII_Appli  TheSpec_MergeMesImGCP;
+extern cSpecMMVII_Appli  TheSpec_ImageMetadata;
 extern cSpecMMVII_Appli  TheSpec_PerturbRandomOri;
-extern cSpecMMVII_Appli  TheSpec_ImportTriplet;
+//extern cSpecMMVII_Appli  TheSpec_ImportTriplet;
 extern cSpecMMVII_Appli  TheSpec_ArboTriplet;
 extern cSpecMMVII_Appli  TheSpec_GCPBascule;
 extern cSpecMMVII_Appli  TheSpec_CheckBoardTargetRefine;
@@ -159,6 +165,10 @@ extern cSpecMMVII_Appli  TheSpec_GCPAbsOri;
 extern cSpecMMVII_Appli  TheSpec_HierarchSfm;
 extern cSpecMMVII_Appli  TheSpec_VisuPoseStr3D;
 extern cSpecMMVII_Appli  TheSpec_TransformPoses;
+
+extern cSpecMMVII_Appli  TheSpec_EpipResampling;
+extern cSpecMMVII_Appli  TheSpec_OriCreateRPC;
+extern cSpecMMVII_Appli  TheSpec_EpipTest;
 
 extern cSpecMMVII_Appli  TheSpecAppliBenchAPBI;
 extern cSpecMMVII_Appli  TheSpecAppliTestElemBundle;

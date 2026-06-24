@@ -59,11 +59,34 @@ cDataPerspCamIntrCalib:: cDataPerspCamIntrCalib
     mSzBuf           (aSzBuf)
 {
     // correct vect param, when first use, parameter can be empty meaning all 0
+   /* if (mVTmpCopyParams.size() != mDir_VDesc.size())
+    {
+       MMVII_INTERNAL_ASSERT_strong(mVTmpCopyParams.empty(),"cPerspCamIntrCalib Bad size for params");
+       mVTmpCopyParams.resize(mDir_VDesc.size(),0.0);
+    }*/
+    ResizeVTmpCopyParams();
+}
+
+void cDataPerspCamIntrCalib::ResizeVTmpCopyParams()
+{
     if (mVTmpCopyParams.size() != mDir_VDesc.size())
     {
        MMVII_INTERNAL_ASSERT_strong(mVTmpCopyParams.empty(),"cPerspCamIntrCalib Bad size for params");
        mVTmpCopyParams.resize(mDir_VDesc.size(),0.0);
+
+     //  StdOut() << "ResizeVTmpCopyParamsResizeVTmpCopyParams" << mVTmpCopyParams << "\n";
     }
+}
+
+
+const std::vector<double>& cDataPerspCamIntrCalib::VTmpCopyParams() const
+{
+    return mVTmpCopyParams;
+}
+
+void cDataPerspCamIntrCalib::SetVTmpCopyParams(const std::vector<double>& aVParam)
+{
+    mVTmpCopyParams = aVParam;
 }
 
 cDataPerspCamIntrCalib::cDataPerspCamIntrCalib
@@ -183,7 +206,9 @@ cPerspCamIntrCalib::cPerspCamIntrCalib(const cDataPerspCamIntrCalib & aData) :
     cDataPerspCamIntrCalib (aData),
     mVoidDist           (mDir_Degr==cPt3di(0,0,0)),
     mDefProj            (cDefProjPerspC::ProjOfType(mTypeProj)),
-    mPixDomain          (&mDataPixDomain),
+  //  mPixDomain          (&mDataPixDomain,cTagByPtrPixDom()),
+    mPixDomain           (mDataPixDomain),
+
         // ------------ direct -------------
     mDir_Proj           ( new  cDataMapCalcSymbDer<tREAL8,3,2>
                                (
@@ -228,6 +253,17 @@ cPerspCamIntrCalib * cPerspCamIntrCalib::Alloc(const cDataPerspCamIntrCalib & aD
      cPerspCamIntrCalib * aRes =  new cPerspCamIntrCalib(aData);
 
      return aRes;
+}
+
+
+cPerspCamIntrCalib * cPerspCamIntrCalib::Duplicate() const
+{
+    cDataPerspCamIntrCalib aData = *this;
+
+    aData.SetVTmpCopyParams(VParamDist());
+    //StdOut()  << "DUUUp:" << VTmpCopyParams() << aData.VTmpCopyParams() << "\n"; getchar();
+   // aData.ResizeVTmpCopyParams();
+    return Alloc(aData);
 }
 
         //  ==================  read/write 2 files  ====================
@@ -416,7 +452,7 @@ const  std::vector<cPt2dr> &  cPerspCamIntrCalib::Values(tVecOut & aV3 ,const tV
      mDir_Proj->Values(aV1,aV0);
      mDir_Dist->Values(aV2,aV1);
      mMapPProj2Im.Values(aV3,aV2);
-     
+     FixLoop(aV3);
      return aV3;
 }
 
@@ -466,6 +502,7 @@ double cPerspCamIntrCalib::DegreeVisibility(const cPt3dr & aP) const
 
      //  For domain where dist is inversible this should be sufficient
      cPt2dr aPIm   = mMapPProj2Im.Value(aPDist);
+     FixLoop(aPIm);
      double aRes1 = mPixDomain.InsidenessWithBox(aPIm);
      // dont want to do inversion too far it may overflow ...
      if (aRes1<-MaxCalc)
@@ -528,7 +565,9 @@ cPt2dr  cPerspCamIntrCalib::Undist(const tPtOut & aP0) const
     cPt3dr aPt = DirBundle(aP0);
     cPt2dr aP1 = Proj(aPt) / aPt.z();
 
-    return mMapPProj2Im.Value(aP1);
+    cPt2dr aPout = mMapPProj2Im.Value(aP1);
+    FixLoop(aPout);
+    return aPout;
 }
 
 cPt2dr  cPerspCamIntrCalib::Redist(const tPtOut & aP0) const
@@ -550,8 +589,30 @@ cPt2dr cPerspCamIntrCalib::InterpolOnUDLine(const tSeg2dr& aSeg,tREAL8 aWeightP1
      return Redist(Centroid(aWeightP1,aPU1,1.0-aWeightP1,aPU2));
 }
 
+void cPerspCamIntrCalib::FixLoop(tPtOut &aPtInOut) const
+{
+    if (mTypeProj==eProjPC::eEquiRect)
+    {
+        tREAL8 aW2piInPixels = mMapPProj2Im.F()*2*M_PI;
+        if (aPtInOut.x() >= aW2piInPixels) aPtInOut.x() -= aW2piInPixels;
+        if (aPtInOut.x() < 0.) aPtInOut.x() += aW2piInPixels;
+    } else {
+        // noting to do
+    }
+}
 
-
+void cPerspCamIntrCalib::FixLoop(tVecOut &aVPtInOut) const
+{
+    if (mTypeProj==eProjPC::eEquiRect)
+    {
+        for (auto & aPtInOut: aVPtInOut)
+        {
+            FixLoop(aPtInOut);
+        }
+    } else {
+        // noting to do
+    }
+}
 
 
 tREAL8  cPerspCamIntrCalib::InvProjIsDef(const tPtOut & aPix ) const
@@ -803,11 +864,10 @@ void cPerspCamIntrCalib::TestInvInit(double aTolApprox,double aTolAccurate)
          for (size_t aKPt=0 ; aKPt<aVPt1.size() ; aKPt++)
          {
                  //  add all that, use square dist for efficiency
-              aSD12 +=  SqN2(aVPt1.at(aKPt)-aVPt2.at(aKPt));
-              aSD23 +=  SqN2(aVPt2.at(aKPt)-aVPt3.at(aKPt));
-              aSD13 +=  SqN2(aVPt1.at(aKPt)-aVPt3.at(aKPt));
-              aSD15 +=  SqN2(aVPt1.at(aKPt)-aVPt5.at(aKPt));
-
+            aSD12 +=  SqN2(mDefProj->DiffPx(aVPt1.at(aKPt),aVPt2.at(aKPt),mMapPProj2Im.F()));
+            aSD23 +=  SqN2(mDefProj->DiffPx(aVPt2.at(aKPt),aVPt3.at(aKPt),mMapPProj2Im.F()));
+            aSD13 +=  SqN2(mDefProj->DiffPx(aVPt1.at(aKPt),aVPt3.at(aKPt),mMapPProj2Im.F()));
+            aSD15 +=  SqN2(mDefProj->DiffPx(aVPt1.at(aKPt),aVPt5.at(aKPt),mMapPProj2Im.F()));
          }
              // transform sum of square dist  an averager of distance
          aSD12 = std::sqrt(aSD12/aVPt1.size());
@@ -838,7 +898,16 @@ void cPerspCamIntrCalib::TestInvInit(double aTolApprox,double aTolAccurate)
          double aSD13=0;
          for (size_t aKPt=0 ; aKPt<aVPt1.size() ; aKPt++)
          {
-              double aD =  SqN2(aVPt1.at(aKPt)-aVPt3.at(aKPt));
+              //double aD =  SqN2(aVPt1.at(aKPt)-aVPt3.at(aKPt));
+             double aD = SqN2(mDefProj->DiffPx(aVPt1.at(aKPt),aVPt3.at(aKPt),mMapPProj2Im.F()));
+             if (aD>0.001)
+             {
+                 std::cout<<aVPt1.at(aKPt)<<" "<<aVPt3.at(aKPt)<< " => "<<aVPt1.at(aKPt)-aVPt3.at(aKPt)
+                           <<" "<<mDefProj->DiffPx(aVPt1.at(aKPt),aVPt3.at(aKPt),mMapPProj2Im.F()) <<"\n";
+                 std::vector<cPt3dr> aTmp = {aVPt2.at(aKPt)};
+                  std::vector<cPt2dr> aTmp2;
+                  Values(aTmp2,aTmp);
+             }
               MMVII_INTERNAL_ASSERT_tiny(ValidFloatValue(aD),"Bad value in TestInvInit");
               aSD13 += aD;
          }
@@ -900,10 +969,22 @@ cPerspCamIntrCalib * cPerspCamIntrCalib::RandomCalib(eProjPC aTypeProj,int aKDeg
     cPt2di aSz (aS1,aS2);
 
     cPt2dr aMidle = ToR(aSz)/2.0;
-    tREAL8 v1 = aSz.x()*(0.5+0.1*RandUnif_C());
-    tREAL8 v2 = aSz.y()*(0.5+0.1*RandUnif_C());
+
+    auto genPPcoord = [](tREAL8 aCoord) -> tREAL8 {
+        return aCoord * (0.5 + 0.1 * RandUnif_C());
+    };
+
+    tREAL8 v1 = genPPcoord(aSz.x());
+    tREAL8 v2 = genPPcoord(aSz.y());
     cPt2dr aPP(v1,v2);
     tREAL8  aFoc =  aDiag * (0.2 + 3.0*RandUnif_0_1());
+    if (aTypeProj==eProjPC::eEquiRect)
+    {
+        aSz.x() = round(2 * M_PI * aFoc);
+
+        // the principal point should be updated accordingly
+        aPP.x() = genPPcoord(aSz.x());
+    }
 
     UpdateMax(aFoc,2* Norm2(aPP-aMidle));
 
@@ -920,7 +1001,7 @@ cPerspCamIntrCalib * cPerspCamIntrCalib::RandomCalib(eProjPC aTypeProj,int aKDeg
                                                 std::vector<double>(),
                                                 cMapPProj2Im(aFoc,aPP),
                                                 cDataPixelDomain(aSz),
-                                            aDegInv.at(aKDeg),
+                                                 aDegInv.at(aKDeg),
                                                 100
                                          )
                                 );

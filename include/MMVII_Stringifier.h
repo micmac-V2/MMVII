@@ -42,6 +42,8 @@ template <class Type> class  cStrIO
 /// Facilities when the type is well defined
 template <class Type> std::string ToStr(const Type & aV) {return cStrIO<Type>::ToStr(aV);}
 std::string ToStr(int aVal,int aSzMin);
+bool IsStrInt(const std::string & aStr);
+
 
 std::string FixDigToStr(double aSignedVal,int aNbDig); // Nb Dig after .
 std::string FixDigToStr(double aSignedVal,int aNbDigBefore,int aNbDigAfter); // Nb Dig before and  after .
@@ -253,8 +255,10 @@ class  cSpecOneArg2007 : public cMemCheck
          std::string     mValue;  ///< memorize Value used in init (command parameter)
          std::string     mName; ///< Name for optionnal
          std::string     mCom;  ///< Comment for all
-         tSemA2007PL     mSemPL;    ///< Vector of semantic
          int             mNbMatch;  ///< Number of match, to generate error on multiple names
+
+     protected:
+         tSemA2007PL     mSemPL;    ///< Vector of semantic
 };
 
 typedef std::shared_ptr<cSpecOneArg2007>  tPtrArg2007;
@@ -277,10 +281,12 @@ class cCollecSpecArg2007
       tPtrArg2007 operator [] (int) const;
       void clear() ;
       cCollecSpecArg2007 & operator << (tPtrArg2007 aVal);
+      cCollecSpecArg2007 & operator << (const std::string & aComment);
    private :
       tVecArg2007 & Vec();
       cCollecSpecArg2007(const cCollecSpecArg2007&) = delete;
       tVecArg2007  mV;
+      std::vector<std::pair<size_t,std::string> > mVComm; ///< comments inserted at a given position in mV
       cCollecSpecArg2007();
 };
 

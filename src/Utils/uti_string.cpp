@@ -583,6 +583,69 @@ void  MakeBckUp(const std::string & aDir,const std::string & aNameFile,int aNbDi
 }
 
 
+        /* =========================================== */
+        /*                                             */
+        /*           CreateLink                        */
+        /*                                             */
+        /* =========================================== */
+
+/*void CreateLink(const std::string & aFileTarget,const std::string & aLink2Create,bool fileMustExist)
+
+read_symlink
+std::filesystem::path
+*/
+
+static std::string ToS(const std::filesystem::path& aLink2Create)
+{
+    return std::string(aLink2Create.generic_string());
+}
+
+void CreateLink(const std::filesystem::path & aFileTarget,const std::filesystem::path& aLink2Create,bool fileMustExist)
+{
+
+    if (std::filesystem::is_symlink(aLink2Create))
+    {
+        std::filesystem::path aPrevTarget  = std::filesystem::read_symlink(aLink2Create);
+        if (aPrevTarget == aFileTarget)
+        {
+            MMVII_USER_WARNING
+            (
+                 std::string("Link already exist pointing to same file :") + ToS(aLink2Create)
+               + std::string("->") + ToS(aFileTarget)
+            );
+        }
+        else
+        {
+             MMVII_USER_WARNING
+             (
+                std::string( "Link already exist pointing to diff file, do noting remove before :")
+                + ToS(aLink2Create) + std::string("->") +  ToS(aPrevTarget) + std::string("/") + ToS(aFileTarget)
+             );
+        }
+        return;
+    }
+    if (fileMustExist)
+    {
+        MMVII_INTERNAL_ASSERT_always
+        (
+            ExistFile(ToS(aFileTarget)),
+            std::string("File ")+ToS(aFileTarget) + std::string(" dont exist in CreateLink")
+        );
+    }
+
+    std::error_code anErrorCode ;
+    std::filesystem::create_symlink(aFileTarget,aLink2Create,anErrorCode);
+
+    // StdOut() << "EROORCODE " << anErrorCode.value() << " " << EXIT_SUCCESS << "\n";
+    if ( anErrorCode.value() != EXIT_SUCCESS)
+    {
+         if (TheSYS==eSYS::Windows)
+         {
+             StdOut() << "\n\n   ****** FOR WINDOW SYMBLOLIC LINK REQUIRE ADMIN or DEVELOPPER PRIVILEGE; ask BILL WHY !!!\n\n";
+         }
+         MMVII_UnclasseUsEr("Cannot create required symbolic link");
+    }
+}
 
     /* =========================================== */
     /*                                             */

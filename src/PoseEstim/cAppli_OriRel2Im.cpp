@@ -830,6 +830,13 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgObl(cCollecSpecArg2007 & anArgObl
 
      anArgObl <<  mPhProj.DPOrient().ArgDirInMand("Input orientation for calibration")  ;
 
+
+     if (mModeCompute==0)
+     {
+            anArgObl
+                   <<  mPhProj.DPOrient().ArgDirOutMand("Output to save relative orientation of 2 images")  ;
+     }
+
   /*   if (mModeCompute!=0)
      {
          anArgObl << mPhProj.DPOriRel().ArgDirOutMand();
@@ -845,12 +852,11 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt
             <<  mPhProj.DPGndPt2D().ArgDirInOpt()
             <<  mPhProj.DPMulTieP().ArgDirInOpt()
 
-            <<  mPhProj.DPTieP().ArgDirOutOpt()
+            <<  mPhProj.DPTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
 
             <<  AOpt2007(mNbMinHom,"NbMinHom","Number minimal of homologous point required",{eTA2007::HDV})
             <<  AOpt2007(mDensitySol,"CompForce","How much computation do we pay?",{eTA2007::HDV})
             <<  AOpt2007(mNbIterBA,"NbIterBA","Number of iteration in Bundle/Adj",{eTA2007::HDV})
-            <<  AOpt2007(mDo5Pts,"Do5Pts","Generate 5 virtual tie points")
 
             <<  AOpt2007(mUseOri4GT,"UseOriGT","Set if orientation contains also exterior as a ground truth",{eTA2007::HDV})
             <<  AOpt2007(mFolderOriGT,"OriGT","If ground truth ori != calib")
@@ -861,7 +867,7 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt
 
     if (mModeCompute==0)
     {
-        anArgOpt << mPhProj.DPOrient().ArgDirOutOpt("OriOut","For saving relative or as orientations")
+        anArgOpt  //<< mPhProj.DPOrient().ArgDirOutOpt("OriOut","For saving relative or as orientations")
                  << AOpt2007(mKSaveOri,"KSaveOri","Num of sol to save",{eTA2007::HDV})  ;
     }
 
@@ -899,7 +905,7 @@ int cAppli_OriRelPairOfIm::Exe()
 
     mTimeSegm = mShow ? new cTimerSegm(this) : nullptr ;
     mPhProj.FinishInit();
-
+    mDo5Pts = mPhProj.DPTieP().DirOutIsInit();
 
 
 
@@ -1139,7 +1145,7 @@ void cAppli_OriRelPairOfIm::Generate5Pts(const tPoseR& aPoseR)
     int aNbMaxTry = 3;
 
     cGenGauss3D aG3D(aEllipse);
-    aG3D.GetDistrib5Pts(aV5pts,1.0);
+    //aG3D.GetDistrib5Pts(aV5pts,1.0);
 
     // find the optimal scale to fit all virtual tie points in image domain
     for (int aTry=0; aTry<aNbMaxTry; aTry++)

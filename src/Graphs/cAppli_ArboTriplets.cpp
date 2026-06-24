@@ -69,7 +69,7 @@ void cNodeArborTriplets::ComputeResursiveSolution()
 {
    MMVII_INTERNAL_ASSERT_tiny((mChildren.at(0) == nullptr) == (mChildren.at(1) == nullptr),"ComputeResursiveSolution, assert on desc");
 
-    ShowPose("TRM");
+    //ShowPose("TRM");
 
     if (mChildren.at(0) == nullptr) // Terminal node just put the riplet
     {
@@ -98,9 +98,15 @@ void cNodeArborTriplets::ComputeResursiveSolution()
     CmpWithGT();
 }
 
+std::string GetThreadId() {
+    std::ostringstream oss;
+    oss << std::this_thread::get_id();
+    return oss.str();
+}
+
+
 void cNodeArborTriplets::finalize()
 {
-
     if (mChildren.at(0) == nullptr)
     {}
     else
@@ -116,7 +122,7 @@ void cNodeArborTriplets::DoTerminalNode()
 {
     MMVII_INTERNAL_ASSERT_tiny((mChildren.at(0) == nullptr) == (mChildren.at(1) == nullptr),"DoTerminalNode, assert on desc");
 
-    ShowPose("TRM");
+    //ShowPose("TRM");
 
     if (mChildren.at(0) == nullptr) // Terminal node just put the riplet
     {
@@ -513,7 +519,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
              AddEqLink(aSys,aPtrSubst,aWeight,aKEq,aC0_in_W0,aC1_in_W0,aCTri0_In_W0,aCTri1_In_W0);
              aKEq += 4;
              if (withSchur)
-                aSys->PublicAddObsWithTmpUK(*aPtrSubst);
+                aSys->PublicAddObsWithTmpUK(*aPtrSubst,mPMAT->Cfg().mLVM);
         }
     }
 
@@ -573,7 +579,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
            }
            aKEq += 4;
            if (withSchur)
-              aSys->PublicAddObsWithTmpUK(*aPtrSubst);
+              aSys->PublicAddObsWithTmpUK(*aPtrSubst,mPMAT->Cfg().mLVM);
        }
     }
 
@@ -626,7 +632,8 @@ void cNodeArborTriplets::SaveGlobSol(const std::string & aPrefix) const
 
         //StdOut() << "== " << aSol.mPose.Tr() << std::endl;
 
-        cPerspCamIntrCalib *  aCalib = mPMAT->PhProj().InternalCalibFromImage(mPMAT->MapI2Str(aSol.mNumPose));// mPMAT->PhProj().InternalCalibFromStdName(mPMAT->MapI2Str(aSol.mNumPose));
+        cPerspCamIntrCalib *  aCalib = mPMAT->InternalCalibFromNameImage(mPMAT->MapI2Str(aSol.mNumPose));
+
         cSensorCamPC aCam(aCurImName,aSol.mPose,aCalib); //mmv2 convention
         mPMAT->PhProj().SaveCamPC(aCam);
 
@@ -803,18 +810,11 @@ void cNodeArborTriplets::MergeChildrenSol()
 /* Refinement on bundles (any camera projection) */
 void cNodeArborTriplets::RefineCurSolution()
 {
-    //cBA_ArboTriplets aBA(mPMAT, mLocSols);
-    cBA_ArboTriplets* aBA;
-    {
-        aBA = new cBA_ArboTriplets(mPMAT, mLocSols);
-    }
+    int aNbIterEnd = mPMAT->Cfg().mNbIterBA + (mDepth==0 ? mPMAT->Cfg().mNbExtraIterAtRoot : 0);
 
+    cBA_ArboTriplets* aBA = new cBA_ArboTriplets(mPMAT, mLocSols,mDepth,aNbIterEnd);
 
-    StdOut() << " ============\t"
-             << "   #Images " << aBA->NbCams() << "/" << mPMAT->GOP().AllVertices().size()
-             << " ============" << std::endl;
-
-    for (int aIter = 0; aIter < mPMAT->NbIterBA(); aIter++)
+    for (int aIter = 0; aIter < aNbIterEnd; aIter++)
         aBA->OneIteration(aIter);
 
     aBA->UpdateLocSols(mLocSols);
@@ -956,7 +956,8 @@ tREAL8 c3G3_AttrV::CostVertexCommon(const c3G3_AttrV & anAttr2,tREAL8 aWTr) cons
 /* ********************************************************* */
 
 
-cMakeArboTriplet::cMakeArboTriplet(std::vector<cDataSolOriTriplet> & aSet3,bool doCheck,tREAL8 aWBalance, cIPhProj & aPhProj, cMMVII_Appli & anAppli) :
+cMakeArboTriplet::cMakeArboTriplet(std::vector<cDataSolOriTriplet> & aSet3,bool doCheck,tREAL8 aWBalance,
+                                   cIPhProj & aPhProj, cMMVII_Appli & anAppli,const cMakeArboTripletCfg & aCfg) :
    mAppli       (anAppli),
    mPhProj      (aPhProj),
    mTimeSegm    (mAppli.TimeSegm()),
@@ -976,11 +977,13 @@ cMakeArboTriplet::cMakeArboTriplet(std::vector<cDataSolOriTriplet> & aSet3,bool 
    mNbEdgeTri   (0),
    mTPtsFolder  (""), //to be removed
    mTPtsStruct  (nullptr),
-   mViscPose    ({-1,-1}),
-   mLVM         (0),
-   mSigmaTPt    (1.0),
-   mFacElim     (10.0),
-   mNbIterBA    (2)
+   //mViscPose    (aCfg.mViscPose),
+   mCfg         (aCfg)
+   //mLVM         (aCfg.mLVM),
+   //mSigmaAtt    (aCfg.mSigmaAtt),
+   //mThrs     (aCfg.mThrs),
+   //mNbIterBA    (aCfg.mNbIterBA),
+   //mNbExtraIterAtRoot (aCfg.mNbExtraIterAtRoot)
 {
 }
 
@@ -999,7 +1002,7 @@ void cMakeArboTriplet::SetRand(const std::vector<tREAL8> & aLevelRand)
 
 void cMakeArboTriplet::ShowStat()
 {
-   StdOut() << "\n";
+   StdOut() << "\n ======== GRAPH STATS =========\n";
    StdOut() << " * INPUT : NbTriplet= " << mSet3.size() << " NbIm=" << mMapStrI.size() << "\n";
    StdOut() << " * POSE  : NbEgde= "  << mNbEdgeP <<  " NbHypP=" << mNbHypP << "\n";
    StdOut() << " * TRI  : NbEgde= "  << mNbEdgeTri << "\n";
@@ -1007,6 +1010,14 @@ void cMakeArboTriplet::ShowStat()
 
    StdOut() << "\n";
 }
+
+cPerspCamIntrCalib *  cMakeArboTriplet::InternalCalibFromNameImage(const std::string aNameIm) const
+{
+   if (true)
+       return mPhProj.InternalCalibFromImage(aNameIm);
+    return mPhProj.InternalCalibFromStdName(aNameIm);// mPhPr
+}
+
 
 void cMakeArboTriplet::SaveGlobSol() const
 {
@@ -1018,20 +1029,15 @@ void cMakeArboTriplet::InitialiseCalibs()
 {
     for (size_t aKIm=0 ; aKIm<mMapStrI.size() ; aKIm++)
     {
-        //StdOut() << *mMapStrI.I2Obj(aKIm) << std::endl; InternalCalibFromImage
-        cPerspCamIntrCalib *   aCal = mPhProj.InternalCalibFromImage(*mMapStrI.I2Obj(aKIm));// mPhProj.InternalCalibFromStdName(*mMapStrI.I2Obj(aKIm));
+        cPerspCamIntrCalib *   aCal =InternalCalibFromNameImage(*mMapStrI.I2Obj(aKIm));
         FakeUseIt(aCal);
     }
 }
 
-void cMakeArboTriplet::InitTPtsStruct(const std::string& aFolder, std::vector<std::string>& aVNames)
+void cMakeArboTriplet::ConvertTPtsToBundles()
 {
-    // read tie points
-    mTPtsStruct = AllocStdFromMTPFromFolder(aFolder,aVNames,mPhProj,true,false,true);
+    const std::vector<std::string>& aVNames = mTPtsStruct->VNames();
 
-    StdOut() << "Nb tie points=" << mTPtsStruct->Pts().size() << std::endl;
-
-    //convert tie points to bundles (i.e., normalise)
     for (auto & [aConf,aVals] : mTPtsStruct->Pts())
     {
         int NbIm = aConf.size();
@@ -1039,23 +1045,21 @@ void cMakeArboTriplet::InitTPtsStruct(const std::string& aFolder, std::vector<st
 
         // check that input points are not bundles
         MMVII_INTERNAL_ASSERT_medium(aVals.mVPZ.size()==0,"Observations are already bundles");
-        aVals.mVPZ.resize(NbIm*NbPts); //aVals.mVPBun.resize(NbIm*NbPts);
+        aVals.mVPZ.resize(NbIm*NbPts);
 
         // for every image
         for (int aKIm=0; aKIm<NbIm; aKIm++)
         {
-            cPerspCamIntrCalib *   aCal = mPhProj.InternalCalibFromImage(aVNames[aConf[aKIm]]);;// mPhProj.InternalCalibFromStdName(aVNames[aConf[aKIm]],true);
+          //  cPerspCamIntrCalib * aCal = mPhProj.InternalCalibFromImage(aVNames[aConf[aKIm]]); MPD
+            cPerspCamIntrCalib * aCal = InternalCalibFromNameImage(aVNames[aConf[aKIm]]);
+
 
             std::vector<cPt3dr> aOutBundles;
             std::vector<cPt2dr> aInObs;
 
-
             // for every image observation
             for (int aKObs=0; aKObs<NbPts; aKObs++)
-            {
-                aInObs.push_back(aVals.mVPIm[aKObs*NbIm+aKIm]);//aVals.mVPIm[aKIm*NbPts+aKObs]);
-                //StdOut() << aVals.mVPIm[aKObs*NbIm+aKIm] << std::endl;
-            }
+                aInObs.push_back(aVals.mVPIm[aKObs*NbIm+aKIm]);
 
             // transform point to bundle
             aCal->DirBundles(aOutBundles,aInObs);
@@ -1063,14 +1067,29 @@ void cMakeArboTriplet::InitTPtsStruct(const std::string& aFolder, std::vector<st
             // update vector of observation in tie-point structure
             for (int aKObs=0; aKObs<NbPts; aKObs++)
             {
-                aVals.mVPIm.at(aKObs*NbIm+aKIm) = cPt2dr(aOutBundles[aKObs].x()/aOutBundles[aKObs].z(),
-                                                         aOutBundles[aKObs].y()/aOutBundles[aKObs].z()),
-                aVals.mVPZ.at(aKObs*NbIm+aKIm) = 1.0;
+                // Store full unit direction (x,y,z); dividing by z is undefined when z=0
+                // (e.g. eEquiRect observations at azimuth ±π/2)
+                aVals.mVPIm.at(aKObs*NbIm+aKIm) = cPt2dr(aOutBundles[aKObs].x(),
+                                                          aOutBundles[aKObs].y());
+                aVals.mVPZ.at(aKObs*NbIm+aKIm) = aOutBundles[aKObs].z();
             }
         }
-
     }
+}
 
+void cMakeArboTriplet::InitTPtsStruct(const std::string& aFolder, std::vector<std::string>& aVNames)
+{
+    mTPtsStruct = AllocStdFromMTPFromFolder(aFolder,aVNames,mPhProj,true,false,true);
+    StdOut() << "Nb tie points=" << mTPtsStruct->Pts().size() << std::endl;
+    ConvertTPtsToBundles();
+}
+
+void cMakeArboTriplet::InitTPtsStruct(cComputeMergeMulTieP* aTPts)
+{
+    mTPtsStruct = aTPts;
+    mTPtsStruct->SetImageIndexe();
+    if (mCfg.mVerbose) StdOut() << "Nb tie points=" << mTPtsStruct->Pts().size() << std::endl;
+    ConvertTPtsToBundles();
 }
 
 void cMakeArboTriplet::MakeGraphPose()
@@ -1300,7 +1319,7 @@ void cMakeArboTriplet::MakeCnxTriplet()
        }
    }
    auto  aListCC = cAlgoCC<t3G3_Graph>::All_ConnectedComponent(mGTriC,cAlgo_ParamVG<t3G3_Graph>());
-   StdOut() << "Number of connected compon Triplet-Graph= " << aListCC.size() << "\n";
+   StdOut() << "Number of connected components in Triplet-Graph= " << aListCC.size() << "\n";
    // to see later, we can probably analyse CC by CC, but it would be more complicated (already enough complexity ...)
    MMVII_INTERNAL_ASSERT_tiny(aListCC.size(),"non connected triplet-graph");
 }
@@ -1352,14 +1371,17 @@ void cMakeArboTriplet::MakeWeightingGraphTriplet()
             aAvgCost.Add(1.0,aVCost.at(aKT));
             anAttr.mCostIntr =  aVCost.at(aKT);
         }
-        StdOut() <<  "COST, Evol=" << aAvgDif.Average() << " Avg=" << aAvgCost.Average() << "\n";
+        if (mCfg.mVerbose) StdOut() <<  "COST, Evol=" << aAvgDif.Average() << " Avg=" << aAvgCost.Average() << "\n";
 
         aS666 = NC_KthVal(aVCost,0.6666);
-        if (aKIter == (aNbIter-1))
+        if (mCfg.mVerbose)
         {
-            for (const auto & aP : {0.1,0.5,0.75,0.9})
-                StdOut() << " [" << aP << ":" << NC_KthVal(aVCost,aP) << "]";
-            StdOut() << "\n";
+            if (aKIter == (aNbIter-1))
+            {
+                for (const auto & aP : {0.1,0.5,0.75,0.9})
+                    StdOut() << " [" << aP << ":" << NC_KthVal(aVCost,aP) << "]";
+                StdOut() << "\n";
+            }
         }
     }
 
@@ -1468,13 +1490,13 @@ void cMakeArboTriplet::ComputeArbor()
    t3G3_Tree  aTreeKernel(aSetEdgeKern);
    mCostMergeTree = 0.0;
    mArbor = new cNodeArborTriplets(*this,aTreeKernel,0);
-   StdOut() << "CostMerge " << mCostMergeTree << "\n";
+   if (mCfg.mVerbose) StdOut() << "CostMerge " << mCostMergeTree << "\n";
 
    //mArbor->ComputeResursiveSolution();
 
    mArbor->DoTerminalNode();
 
-   StdOut() << "END DoTerminalNode" << std::endl;
+   //StdOut() << "END DoTerminalNode" << std::endl;
    //
    cMemManager::SetActiveMemoryCount(false);
    mAppli.SetMultiThread(true);
@@ -1483,7 +1505,7 @@ void cMakeArboTriplet::ComputeArbor()
    mAppli.SetMultiThread(false);
    cMemManager::SetActiveMemoryCount(true);
 
-   StdOut() << "END Exec" << std::endl;
+   //StdOut() << "END Exec" << std::endl;
 
 
 }
@@ -1502,8 +1524,7 @@ cAppli_ArboTriplets::cAppli_ArboTriplets(const std::vector<std::string> & aVArgs
     mDistClust   (0.02),
     mDoCheck     (true),
     mWBalance    (1.0),
-    mPerfectData (false),
-    mViscPose    ({-1,-1})
+    mPerfectData (false)
 {
 }
 
@@ -1525,7 +1546,6 @@ cCollecSpecArg2007 & cAppli_ArboTriplets::ArgOpt(cCollecSpecArg2007 & anArgOpt)
           << AOpt2007(mDoCheck,"DoCheck","do some checking on result",{eTA2007::HDV,eTA2007::Tuning})
           << AOpt2007(mWBalance,"WBalance","Weight for balancing trees, 0 NONE, 1 Max",{eTA2007::HDV})
           << AOpt2007(mPerfectData,"PerfectData","Evaluate coherency of triplets with simulated poses",{eTA2007::HDV})
-          << AOpt2007(mViscPose,"ViscPose","Regularization on poses for BA: [SigmaTr,SigmaRot]",{eTA2007::HDV})
           <<  mPhProj.DPOrient().ArgDirInOpt("","Ground truth input orientation directory | Use internal calibration for saving")
           <<  mPhProj.DPOrient().ArgDirOutOpt("","Global orientation output directory")
           //<<  mPhProj.DPOriTriplets().ArgDirOutOpt("","Directory for dmp-save of triplet (for faster read later)")
@@ -1552,18 +1572,18 @@ int cAppli_ArboTriplets::Exe()
         aMk3.PerfectData() = true;
      if (IsInit(&mPerfectData))
         aMk3.PerfectOri() = mPerfectData;
-     if (IsInit(&mViscPose))
-     {
+     //if (IsInit(&mViscPose))
+     //{
          // tie-points must be provided for BA
-         std::string aFolderTpts;
-         if (mPhProj.DPMulTieP().DirInIsInit())
-             aFolderTpts = mPhProj.DPMulTieP().DirIn().at(0);
-         else
-             MMVII_INTERNAL_ASSERT_always(mPhProj.DPMulTieP().DirInIsInit(),"Features not initialised");
+    //     std::string aFolderTpts;
+    //     if (mPhProj.DPMulTieP().DirInIsInit())
+    //         aFolderTpts = mPhProj.DPMulTieP().DirIn().at(0);
+    //     else
+    //         MMVII_INTERNAL_ASSERT_always(mPhProj.DPMulTieP().DirInIsInit(),"Features not initialised");
 
-         aMk3.TPFolder() = aFolderTpts;
-         aMk3.ViscPose() = mViscPose;
-     }
+    //     aMk3.TPFolder() = aFolderTpts;
+    //     aMk3.ViscPose() = mViscPose;
+    // }
 
      // cAutoTimerSegm aTSRead(mTimeSegm,"cMakeArboTriplet");
      TimeSegm().SetIndex("MakeGraphPose");

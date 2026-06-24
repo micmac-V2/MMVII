@@ -47,8 +47,6 @@ namespace MMVII
   /****************************************************/
 
 
-extern const std::vector<cPt3di>  TheVectDegree;
-
 std::vector<cDescOneFuncDist>   DescDist(const cPt3di & aDeg,bool isFraserMode)
 {
    cMMVIIUnivDist  aDist(aDeg.x(),aDeg.y(),aDeg.z(),false,isFraserMode);
@@ -141,19 +139,7 @@ cCalculator<double> *  StdAllocCalc(const std::string & aName,int aSzBuf,bool SV
 
 
      //=============   Photogrammetry ============
-
-void TestResDegree(cCalculator<double> * aCalc,const cPt3di & aDeg,const std::string & aFonc)
-{
-     if (aCalc==nullptr)
-     {
-         StdOut() << " *  Generated Degree Are " <<   TheVectDegree << std::endl;
-         MMVII_UserError
-         (
-              eTyUEr::eBadDegreeDist,
-              "Required degree " + ToStr(aDeg) + " for distorsion  in "+aFonc+" has not been generated"
-         );
-     }
-}
+void TestResDegree(cCalculator<double> * aCalc,const cPt3di & aDeg,const std::string & aFonc);
 
      //   PUSHB
 NS_SymbolicDerivative::cCalculator<double> * EqColinearityCamGen(int  aDeg,bool WithDerive,int aSzBuf,bool ReUse)
@@ -718,7 +704,7 @@ cCollecSpecArg2007 & cAppliGenCode::ArgObl(cCollecSpecArg2007 & anArgObl)
    return
       anArgObl  ;
 /*
-         << Arg2007(mModeMatch,"Matching mode",{AC_ListVal<eModeEpipMatch>()})
+         << Arg2007(mModeMatch,"Matching mode")
          << Arg2007(mNameIm1,"Name Input Image1",{eTA2007::FileImage})
          << Arg2007(mNameIm2,"Name Input Image1",{eTA2007::FileImage})
    ;
@@ -729,7 +715,7 @@ cCollecSpecArg2007 & cAppliGenCode::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
    return
       anArgOpt
-         << AOpt2007(mTypeProj,"TypeProj","Type of projection for specific generation",{AC_ListVal<eProjPC>()})
+         << AOpt2007(mTypeProj,"TypeProj","Type of projection for specific generation")
       ;
 }
 
@@ -813,8 +799,10 @@ const std::vector<cPt3di>
                            {3,0,0},
                            {3,1,0},
                            {3,1,1},
+                           {3,1,5},
                            {5,1,1},
                            {5,1,2},
+                           {5,1,5},
                            {5,2,2},
                            {7,2,5}
       };
@@ -833,6 +821,36 @@ const std::vector<cPt3di>
     {
         {0,0,0},
     };
+
+const std::vector<cPt3di>
+    TheVectDegreeEquiDist
+    {
+            {3,1,1},
+            {3,1,5},
+            {5,1,1},
+            {5,1,5},
+            {5,2,2},
+            {7,2,5}
+    };
+
+
+void TestResDegree(cCalculator<double> * aCalc,const cPt3di & aDeg,const std::string & aFonc)
+{
+    if (aCalc==nullptr)
+    {
+        StdOut() << "Generated degrees are:\n"
+                 << " - ProjStenope Fraser: " << TheVectDegree << "\n"
+                 << " - ProjStenope not Fraser: " << TheVectDegreeNoFraser << "\n"
+                 << " - EquiRect: " << TheVectDegreeEquiRect << "\n"
+                 << " - EquiDist: " << TheVectDegreeEquiDist << "\n";
+        MMVII_UserError
+            (
+                eTyUEr::eBadDegreeDist,
+                "Required degree " + ToStr(aDeg) + " for distorsion  in "+aFonc+" has not been generated"
+                );
+    }
+}
+
 
 int cAppliGenCode::Exe()
 {
@@ -876,8 +894,10 @@ int cAppliGenCode::Exe()
        GenerateCodeCamPerpCentrale<cProj_EquiRect>(aDeg,true,eTypeEqCol::ePt);
    }
 
-
-   GenerateCodeCamPerpCentrale<cProjFE_EquiDist>(cPt3di(3,1,1),true,eTypeEqCol::ePt);
+   for (const auto & aDeg :  TheVectDegreeEquiDist)
+   {
+       GenerateCodeCamPerpCentrale<cProjFE_EquiDist>(aDeg,true,eTypeEqCol::ePt);
+   }
 
    for (const auto WithDer : {true,false})
    {

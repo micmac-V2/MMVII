@@ -276,9 +276,11 @@ void cParamCodedTarget::FinishInitOfSpec(const cSpecBitEncoding & aSpec,bool cre
           //  anAppli.SetIfNotInit(mNbBit,20);
            // anAppli.SetIfNotInit(mWithParity,false);
 
+           anAppli.SetIfNotInit(mCernR123,(mNbBit!=20));
+
            anAppli.SetIfNotInit(mNbRedond,1);
-           anAppli.SetIfNotInit(mThickN_WInt,(mNbBit==20) ? 1.5 : 1.0);
-           anAppli.SetIfNotInit(mThickN_Code,(mNbBit==20) ? 1.5 : 1.0);
+           anAppli.SetIfNotInit(mThickN_WInt,mCernR123 ? 1.0 : 1.5);
+           anAppli.SetIfNotInit(mThickN_Code,mCernR123 ? 1.0 : 1.5);
            anAppli.SetIfNotInit(mThickN_WExt,0.9);
            anAppli.SetIfNotInit(mThickN_BorderExt,0.10);
 
@@ -1138,11 +1140,11 @@ class cAppliGenCodedTarget : public cMMVII_Appli
         std::string        mPatternDoImage;
         std::string        mPrefixVisu;
         int                mNbPixBin;
-    std::string        mNameOut;
-    bool               mIm4Test;   ///< Do we generate image for inspection (and not for printing)
-    std::string        mNameImaAdd;
-    int                mSzMarginImaAdd;
-    cPt3di             mColMarginImaAdd;
+        std::string        mNameOut;
+        bool               mIm4Test;   ///< Do we generate image for inspection (and not for printing)
+        std::string        mNameImaAdd;
+        int                mSzMarginImaAdd;
+        cPt3di             mColMarginImaAdd;
 };
 
 eTyCodeTarget cAppliGenCodedTarget::Type() {return mBE.Specs().mType ;}
@@ -1197,6 +1199,9 @@ cCollecSpecArg2007 & cAppliGenCodedTarget::ArgOpt(cCollecSpecArg2007 & anArgOpt)
           << AOpt2007(mZoomShow,"ZoomShow","Zoom to generate a high resolution check images",{eTA2007::Tuning})
           << AOpt2007(mNbPixBin,"NbPixBin","Size of binary image when printing",{eTA2007::HDV})
           << AOpt2007(mNameOut,"Out","Name for out file")
+          << AOpt2007(mPCT.mCernR123,"RayCern123","Ray 1-2-3 or 1.5-3-4, def true if NbB!=20")
+
+
    ;
 }
 

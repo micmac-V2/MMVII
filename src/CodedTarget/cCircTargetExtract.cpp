@@ -8,6 +8,7 @@
 #include "CodedTarget_Tpl.h"
 #include "MMVII_2Include_Serial_Tpl.h"
 #include "MMVII_Interpolators.h"
+#include "MMVII_StaticLidar.h"
 
 #include <cmath>
 
@@ -19,6 +20,22 @@
 
 namespace MMVII
 {
+
+
+cBaseTE::cBaseTE(const cPt2dr & aPt,tREAL4 aBlack,tREAL4 aWhite) :
+   mPt      (aPt),
+   mGT      (nullptr),
+   mVBlack  (aBlack),
+   mVWhite  (aWhite)
+{
+}
+
+cBaseTE::cBaseTE(const cPt2dr & aPt) :
+     cBaseTE(aPt,-1,-1)
+{
+}
+
+
 
 /**   Class for vehiculing all the threshold parameters relative to circ target extraction
  */
@@ -187,7 +204,7 @@ cSaveExtrEllipe::cSaveExtrEllipe(const cCircTargExtr & aCTE,const std::string & 
 
 
 cSaveExtrEllipe::cSaveExtrEllipe()  :
-    mAffIm2Ref (cAff2D_r::Translation(cPt2dr(0,0))),
+    mAffIm2Ref (tAff2Dr::Translation(cPt2dr(0,0))),
     mEllipse (cEllipse(cDenseVect<tREAL8>(std::vector<tREAL8>{1,0,1,0,0}) ,cPt2dr(0,0)))
 {
 }
@@ -787,6 +804,7 @@ class cAppliExtractCircTarget : public cMMVII_Appli,
         tREAL8                              mStepRefineGrad;
         cDiffInterpolator1D *               mInterpol;
         std::string                         mIdExportCSV;
+        std::string                         mOriginalNameImage;
 };
 
 
@@ -848,12 +866,16 @@ cCollecSpecArg2007 & cAppliExtractCircTarget::ArgOpt(cCollecSpecArg2007 & anArgO
 
              << AOpt2007(mStepRefineGrad,"StepRefineGrad","Step Refine Sym Grad",{eTA2007::HDV})
              <<   mPhProj.DPGndPt2D().ArgDirOutOptWithDef("Std")
+             <<   mPhProj.DPMulTieP().ArgDirOutOpt("","For exporting also in multiple tiep format")
+
           );
 }
 
 void cAppliExtractCircTarget::DoExport()
 {
      int aCptUnCoded=0;
+     mNameIm = mOriginalNameImage;
+     cVecTiePMul aVTPMul(mNameIm); FakeUseIt(aVTPMul);
 
      cSetMesPtOf1Im  aSetM(FileOfPath(mNameIm));
      std::vector<cSaveExtrEllipe>  mVSavE;
@@ -872,11 +894,22 @@ void cAppliExtractCircTarget::DoExport()
 
 
              if (! anEE->mWithCode) aCptUnCoded++;
+
+             if (anEE->mWithCode )
+             {
+                 cTiePMul aTiePM(anEE->mPt,anEE->mEncode.Num());
+                 aVTPMul.mVecTPM.push_back(aTiePM);
+             }
          }
      }
 
      aSetM.SortMes();
      mPhProj.SaveMeasureIm(aSetM);
+
+     if (mPhProj.DPMulTieP().DirOutIsInit())
+     {
+         mPhProj.SaveMultipleTieP(aVTPMul,mNameIm);
+     }
 
      //SaveInFile(mVSavE,mPhProj.DPPointsMeasures().FullDirOut()+ "Attribute-"+  aSetM.StdNameFile());
      SaveInFile(mVSavE,cSaveExtrEllipe::NameFile(mPhProj,aSetM,false));
@@ -1077,7 +1110,7 @@ void cAppliExtractCircTarget::TestOnSimul()
 
 int cAppliExtractCircTarget::ExeOnParsedBox()
 {
-   mIdExportCSV     = "CircCodedTarget" + mNameIm;
+   mIdExportCSV     = "CircCodedTarget" + mOriginalNameImage;
    //  Create a report with header computed from type
    Tpl_AddHeaderReportCSV<cMesIm1Pt>(*this,mIdExportCSV,false);
    // Redirect the reports on folder of result
@@ -1284,6 +1317,12 @@ int  cAppliExtractCircTarget::Exe()
 
    mSpec = cFullSpecifTarget::CreateFromFile(mNameSpec);
 
+   MMVII_INTERNAL_ASSERT_User(
+       mSpec->Type()==eTyCodeTarget::eCERN,
+       eTyUEr::eBadEnum,
+       "This command does not support targets type "+ToStr(mSpec->Type()))
+
+
    // mPhProj.FinishInit();
 
    mHasMask =  mPhProj.ImageHasMask(APBI_NameIm()) ;
@@ -1294,7 +1333,14 @@ int  cAppliExtractCircTarget::Exe()
    }
 
 
+   // if TSL name, use intensity raster
+   //std::string aOriginalNameIm = mNameIm;
+   mOriginalNameImage = mNameIm;
+   if (cStaticLidar::IsNameTSL(mNameIm))
+       mNameIm = cStaticLidar::RasterIntensityPath(mPhProj.DirStaticLidarRasters()+cStaticLidar::NameFromId(mNameIm, false));
+
    APBI_ExecAll();  // run the parse file  SIMPL
+
 
 
    delete mSpec;

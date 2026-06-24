@@ -29,7 +29,16 @@ namespace MMVII
 bool NeverHappens() {return false;}
 
 
-cMMVII_Warning::cMMVII_Warning(const std::string & aMes,int aLine,const std::string &  aFile) :
+cMMVII_Warning::cMMVII_Warning
+(
+        const eTyUEr & aType,
+        bool isUser,
+        const std::string & aMes,
+        int aLine,
+        const std::string &  aFile
+) :
+   mType    (aType),
+   mUser    (isUser),
    mCpt     (0),
    mMes     (aMes),
    mLine    (aLine),
@@ -43,7 +52,18 @@ cMMVII_Warning::~cMMVII_Warning()
 
     // At this step StdOut() may have be destroyed
     if (cMMVII_Appli::WithWarnings())
-       std::cout << "##   - Nb Warning "<< mCpt << ", for :[" << mMes<<"]\n";
+    {
+       if (mUser)
+       {
+           std::cout <<  " ### USER ##";
+       }
+       else
+       {
+           std::cout <<  " - INTERNAL -";
+       }
+       std::cout << "  Type=" << E2Str(mType);
+       std::cout << "   Nb Warning "<< mCpt << ", for :[" << mMes<<"]\n";
+    }
 }
 
 void cMMVII_Warning::Activate()

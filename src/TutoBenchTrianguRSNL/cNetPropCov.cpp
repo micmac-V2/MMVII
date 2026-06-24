@@ -891,7 +891,7 @@ template <class Type>  void cElemNetwork<Type>::PropagCov(double aWCheatMT)
             // compute all the observations
             this->mMainNW->Sys()->AddEq2Subst(aSetIO,mCalcPtsSimVar,aVIndUk,aVObs);
             // add it to system with schur substitution
-            this->mMainNW->Sys()->AddObsWithTmpUK(aSetIO);
+            this->mMainNW->Sys()->AddObsWithTmpUK(aSetIO,0.0);
         }
         else // just add observation if rotation is fix
         {
@@ -912,7 +912,7 @@ template <class Type>  void cElemNetwork<Type>::PropagCov(double aWCheatMT)
        }
        // Once all equation have been bufferd in aSetIO, add it to the system
        //  the unknown rotation will be eliminated
-       this->mMainNW->Sys()->AddObsWithTmpUK(aSetIO);
+       this->mMainNW->Sys()->AddObsWithTmpUK(aSetIO,0.0);
     }
     else
     {
@@ -1073,7 +1073,7 @@ cAppli_TestPropCov::cAppli_TestPropCov(const std::vector<std::string> & aVArgs,c
 cCollecSpecArg2007 & cAppli_TestPropCov::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return    anArgObl
-           << Arg2007(mModeTPC,"Mode for Test Propag Covariance ",{AC_ListVal<eModeTestPropCov>()})
+           << Arg2007(mModeTPC,"Mode for Test Propag Covariance ")
     ;
 }
 

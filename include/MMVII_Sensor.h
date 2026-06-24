@@ -40,6 +40,7 @@ class  cBA_Topo;
 class  cBA_GCP;
 class  cDataSolOriTriplet;
 class  cStaticLidar;
+class  cMMVII_BundleAdj;
 
 /**  helper for cPixelDomain, as the cPixelDomain must be serialisable we must separate the
  * minimal data for description, with def contructor from the more "sophisticated" object  */
@@ -54,17 +55,31 @@ class cDataPixelDomain
            cPt2di     mSz;
 };
 
+/*
+class cTagByPtrPixDom
+{
+   public :
+      cTagByPtrPixDom() {}
+};
 
+*/
 /**  base-class  4 definition of validity domaine in image space  */
 class cPixelDomain :  public cDataBoundedSet<tREAL8,2>
 {
         public :
-                cPixelDomain(cDataPixelDomain *);
+              //  cPixelDomain(cDataPixelDomain *);
+               ///(const cNewDataPixelDomain *,cTagByPtrPixDom);
+               cPixelDomain(const cDataPixelDomain &);
+               cPixelDomain(const cPt2di  & aSz);
+
+
                 const cPt2di & Sz() const;
                 // probably to virtualize later
                 tREAL8 DegreeVisibility(const cPt2dr & aP) const;
         private :
-                cDataPixelDomain * mDPD;
+               // cDataPixelDomain * mDPD;
+                cDataPixelDomain   mDPD;
+
 };
 
 
@@ -91,6 +106,16 @@ class cSensorImage  :   public cObj2DelAtEnd,
 
           /// create a sensor in a new coordinate system, default error
           virtual cSensorImage * SensorChangSys(const std::string & aDir, cChangeSysCo &) const ;
+          /// Create a RPC sensor with an optional resampling map and an optional change of coordinate system map.
+          /// (Use nullptr to indicate that no map is provided).
+          /// aZintv specifies the Z interval needed for RPC. If none (std::nullopt) is given, the sensor must have a defined Z interval
+          cSensorImage * GenerateSensorRPC(const cDataInvertibleMapping<tREAL8,2>* aResampleMap,
+                                           const cDataInvertibleMapping<tREAL8,3>* aChSysCoMap,
+                                           bool XYisLonLat = true,
+                                           std::optional<std::string> aNameIm  = std::nullopt,
+                                           std::optional<cPt2dr> aZIntv = std::nullopt
+                                          ) const;
+
 
           virtual const cPixelDomain & PixelDomain() const = 0;
           const cPt2di & Sz() const;
@@ -276,6 +301,8 @@ class cSensorImage  :   public cObj2DelAtEnd,
                             tREAL8 * aMaxPaxTrsv = nullptr
                        ) const;
 
+         /// Show (debug) information to StdOut
+         virtual void Show() const;
      private :
           cSensorImage(const cSensorImage &) = delete;
 
@@ -346,7 +373,9 @@ class cMetaDataImage
           //  generate an identifier specific to data
           std::string InternalCalibGeomIdent() const;
 
-          cMetaDataImage(const std::string & aDir,const std::string & aNameIm,const cGlobCalculMetaDataProject * aCalc);
+          cMetaDataImage(const std::string & aDir,const std::string & aNameIm,
+                         const cGlobCalculMetaDataProject * aCalc,
+                         const cExifData &);
           cMetaDataImage();
       private :
 
@@ -597,7 +626,8 @@ class cPhotogrammetricProject : public cIPhProj
 
 
           /// Load a sensor, try different type (will add RPC , and others ?) use autom delete (dont need to delete it)
-          void ReadSensor(const std::string &NameIm,cSensorImage* &,cSensorCamPC * &,bool ToDeleteAutom,bool SVP=false) const;
+          /// aReadData if heavy data reading is needed
+          void ReadSensor(const std::string &NameIm,cSensorImage* &,cSensorCamPC * &,bool ToDeleteAutom,bool SVP=false, bool aReadData=false) const;
 
           /// return the generic sensor, use autom delete (dont need to delete it)
           cSensorImage* ReadSensor(const std::string  &aNameIm,bool ToDeleteAutom,bool SVP=false) const override;
@@ -625,7 +655,7 @@ class cPhotogrammetricProject : public cIPhProj
     //===================================================================
     //void SaveTriplets(const cTripletSet&,bool useXmlraterThanDmp=true) const;
     //cTripletSet * ReadTriplets() const;
-      std::vector<cDataSolOriTriplet> ReadAllTriplets(const std::vector<std::string>& aVImages) const;
+      std::vector<cDataSolOriTriplet> ReadAllTriplets(const std::vector<std::string>& aVImages,bool OkEmpty=false) const;
     //===================================================================
     //==================   RELATIVE ORIENTATION    ======================
     //===================================================================
@@ -720,9 +750,9 @@ class cPhotogrammetricProject : public cIPhProj
           ///  When dont read from the standard input
           void LoadImFromFolder(const std::string & aFolder, cSetMesGndPt&, cMes2DDirInfo *aMesDirInfo, const std::string & aNameIm,
                                 cSensorImage * =nullptr, bool SVP=false) const;
-          void LoadIm(cSetMesGndPt&, cMes2DDirInfo *aMesDirInfo, cSensorImage & ) const;
 
-          void SaveGCP3D(const cSetMesGnd3D&aMGCP3D, const std::string &aDefaultOutName="", bool aDoAddCurSysCo=false) const; // default out name for measures without cMes3DDirInfo
+          void SaveGCP3D(const cSetMesGnd3D&aMGCP3D, const std::string &aDefaultOutName="",
+                         bool aDoAddCurSysCo=false, cMMVII_BundleAdj * aBA = nullptr) const; // default out name for measures without cMes3DDirInfo
           cSetMesGnd3D LoadGCP3DFromFolder(const std::string &) const;
           cSetMesGnd3D LoadGCP3D() const;
 
@@ -772,6 +802,10 @@ class cPhotogrammetricProject : public cIPhProj
 
           ///  Extract Camera specif from data base, given name of camera
           const cElemCamDataBase * GetCamFromNameCam(const std::string& aNameCam,bool SVP=false) const;
+
+
+          std::string DirCamDataBase(eTypeDBCam) ;
+          std::string FileCamDataBase(eTypeDBCam) ;
 
 
          //===================================================================
@@ -831,7 +865,7 @@ class cPhotogrammetricProject : public cIPhProj
          cChangeSysCo ChangSysCo(const std::string aS1,const std::string aS2) const;
 
                   //  ======== [1]  Sysco saved in "MMVII-PhgrProj/Ori/"  or "MMVII-PhgrProj/PointsMeasure//"
-         std::string  NameCurSysCo(const cDirsPhProj &,bool IsIn) const;
+         std::string NameCurSysCo(const cDirsPhProj &, bool SVP=false, bool IsIn=true) const;
          tPtrSysCo  CurSysCo(const cDirsPhProj &,bool SVP=false, bool IsIn=true) const;
          tPtrSysCo  CurSysCoOri(bool SVP=false, bool IsIn=true) const;
          tPtrSysCo  CurSysCoGCP(bool SVP=false, bool IsIn=true) const;
@@ -907,13 +941,12 @@ class cPhotogrammetricProject : public cIPhProj
      //===================================================================
 
 
-     cStaticLidar * ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const; ///< Create Static Lidar
-     cStaticLidar * ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const; ///< Create Static Lidar
-     std::vector<std::string> GetStaticLidarNames(const std::string &aPatSelect) const; ///< pattern without "Ori-Scan-"
+     cStaticLidar * ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const; ///< Create Static Lidar
+     cStaticLidar * ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const; ///< Create Static Lidar
          //==================   Camera Data Base     =========================
 
          void MakeCamDataBase();
-         bool OneTestMakeCamDataBase(const std::string & aDir,cCamDataBase &,bool ForceNew);
+         bool OneTestMakeCamDataBase(const std::string & aDir,cCamDataBase &);
       private :
           cPhotogrammetricProject(const cPhotogrammetricProject &) = delete;
 
@@ -964,6 +997,8 @@ class cPhotogrammetricProject : public cIPhProj
 };
 void SaveAndFilterAttrEll(const cPhotogrammetricProject & aPhp,const cSetMesPtOf1Im &  aSetM,const std::set<std::string> & ToRem);
 
+
+#if (0)
 
 /**  In-memory implementation of cIPhProj.
  *   Calibrations, orientations and homologous points are stored
@@ -1030,6 +1065,7 @@ class cPhotogrammetricProjectMemory : public cIPhProj
         std::map<std::pair<std::string,std::string>, cSetHomogCpleIm>  mHomolMap;
         std::map<std::string, cVecTiePMul>                             mMulTiePMap;
 };
+#endif
 
 
 };

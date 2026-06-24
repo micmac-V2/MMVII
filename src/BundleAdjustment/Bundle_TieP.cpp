@@ -41,6 +41,7 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
    aMTP->SetPGround();
 
    cWeightAv<tREAL8> aWeigthedRes;
+   cWeightAv<tREAL8> aUnWeightedRed; ///< MPD : a conserver, ils ont mysterieusement disparus; mais il sont pourtant tres utiles
    for (const auto & aPair : aMTP->Pts())
    {
        const auto & aConfig  = aPair.first;
@@ -93,23 +94,27 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
                       anObj->PushIndexes(aVIndGlob);
                    }
 
+                   tREAL8 aN2Res = Norm2(aResidual);
                    if (aWeightImage>0)
                    {
-                       aWeigthedRes.Add(aWeightImage,Norm2(aResidual));
+                       aWeigthedRes.Add(aWeightImage,aN2Res);
                        mSys->R_AddEq2Subst(aStrSubst,anEqColin,aVIndGlob,aVObs,aWeightImage);
                        aNbEqAdded++;
                    }
-           }
+                   aUnWeightedRed.Add(1.0,aN2Res);
+               }
            }
 
            // if at least 2 tie-point, we can add equation with schurr-complement
            if (aNbEqAdded>=2)
-              mSys->R_AddObsWithTmpUK(aStrSubst);  // finnaly add obs accummulated
+              mSys->R_AddObsWithTmpUK(aStrSubst,mCurLVMParam);  // finnaly add obs accummulated
        }
 
    }
    StdOut() <<  "  # " << aBA_TieP.mName << ": Weighted Residual=" << aWeigthedRes.Average()
-            << " (" << aWeigthedRes.Nb() << " obs)" << std::endl;
+            << " (" << aWeigthedRes.Nb() << " obs)" 
+            << " UnWeitghRes=" << aUnWeightedRed.Average()
+            << std::endl;
 }
 
 void cMMVII_BundleAdj::OneItere_TieP()

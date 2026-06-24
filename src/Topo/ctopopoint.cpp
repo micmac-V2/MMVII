@@ -30,10 +30,10 @@ void cTopoPoint::findUK(const cBA_GCP & aBA_GCP, cPhotogrammetricProject *aPhPro
     // search among GCP
     for (unsigned int i=0; i<aBA_GCP.getMesGCP().MesGCP().size(); ++i )
     {
-        if (mName ==aBA_GCP.getMesGCP().MesGCP()[i].mNamePt)
+        if (mName == aBA_GCP.getMesGCP().MesGCP()[i].mNamePt)
         {
             mUK = aBA_GCP.getGCP_UK().at(i);
-            MMVII_INTERNAL_ASSERT_strong(mUK, "cTopoPoint::findOrMakeUK with shurred GCP not accepted for now");
+            MMVII_INTERNAL_ASSERT_strong(mUK, "cTopoPoint::findOrMakeUK with shurred GCP or removed unknowns not accepted for now");
             mPt = &aBA_GCP.getGCP_UK().at(i)->Pt(); //< use existing unknown if available
             mInitCoord = *mPt;
     #ifdef VERBOSE_TOPO

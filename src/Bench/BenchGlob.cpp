@@ -73,27 +73,30 @@ cAppliBenchAnswer::cAppliBenchAnswer(bool HasBench,double aTime) :
 
 cParamExeBench::cParamExeBench
 (
-      const std::string & aPattern,
-      const std::string & aPatRefut,
-      const std::string &aBugKey,
-      int aLevInit,
-      bool Show
+    const std::string & aPattern,
+    const std::string & aPatRefut,
+    const std::string &aBugKey,
+    int aLevInit,
+    bool Show,
+    bool Verbose
 ) :
-   mInsideFunc   (false),
-   mLevInit      (aLevInit),
-   mCurLev       (mLevInit),
-   mShow         (Show),
-   mDemoTest     (false),
-   mNbExe        (0),
-   mName         (aPattern),
-   mPattern      (AllocRegex(aPattern)),
-   mPatternRefut (AllocRegex(aPatRefut)),
-   mBugKey       (aBugKey)
+    mInsideFunc   (false),
+    mLevInit      (aLevInit),
+    mCurLev       (mLevInit),
+    mShow         (Show),
+    mDemoTest     (false),
+    mVerbose      (Verbose),
+    mNbExe        (0),
+    mName         (aPattern),
+    mPattern      (AllocRegex(aPattern)),
+    mPatternRefut (AllocRegex(aPatRefut)),
+    mBugKey       (aBugKey)
 {
 }
 
 bool  cParamExeBench::NewBench(const std::string & aName,bool ExactMatch)
 {
+    StdOut().SetSilent(false);
    if (mCurLev==mLevInit)
    {
       mVallBench.push_back(aName);
@@ -109,6 +112,7 @@ bool  cParamExeBench::NewBench(const std::string & aName,bool ExactMatch)
        mInsideFunc = true;
        StdOut() << "  Bench : " << aName << std::endl;
        cRandGenerator::TheOne()->setSeed(mCurLev);
+       StdOut().SetSilent(! mVerbose);
    }
    return  mInsideFunc;
 }
@@ -142,8 +146,9 @@ void cParamExeBench::ShowIdBench() const
 
 void  cParamExeBench::EndBench()
 {
-   MMVII_INTERNAL_ASSERT_always(mInsideFunc,"Bad NewBench/EndBench handling");
-   mInsideFunc = false;
+    StdOut().SetSilent(false);
+    MMVII_INTERNAL_ASSERT_always(mInsideFunc,"Bad NewBench/EndBench handling");
+    mInsideFunc = false;
 }
 
 void  cParamExeBench::IncrLevel()
@@ -152,6 +157,7 @@ void  cParamExeBench::IncrLevel()
 }
 
 bool  cParamExeBench::Show() const  { return mShow; }
+bool  cParamExeBench::Verbose() const { return mVerbose; }
 int   cParamExeBench::Level() const { return mCurLev; }
 int   cParamExeBench::NbExe() const { return mNbExe; }
 bool  cParamExeBench::DemoTest() const  { return mDemoTest; }
@@ -352,6 +358,7 @@ class cAppli_MMVII_Bench : public cMMVII_Appli
         int         mNumBugRecall; ///< Used if we want to force bug generation in recall process
         bool        mDoBUSD;       ///< Do we do  BenchUnbiasedStdDev
         bool        mDemoTest;
+        bool        mVerbose;     // Verbose bench, if false StdOut() is disabled during bench
 };
 
 cCollecSpecArg2007 & cAppli_MMVII_Bench::ArgObl(cCollecSpecArg2007 & anArgObl)
@@ -373,6 +380,7 @@ cCollecSpecArg2007 & cAppli_MMVII_Bench::ArgOpt(cCollecSpecArg2007 & anArgOpt)
          << AOpt2007(mNumBugRecall,"NBR","Num to Generate a Bug in Recall,(4 manuel inspection of log file)")
          << AOpt2007(mDoBUSD,"DoBUSD","Do BenchUnbiasedStdDev (which currently dont work) ? ",{{eTA2007::HDV}})
          << AOpt2007(mDemoTest,"DemoTest","If true, print many msg, eventually has stop point (aka as \"getchar\") ",{{eTA2007::HDV}})
+         << AOpt2007(mVerbose,"Verbose","Enable it to see intermediate ouput from benches",{{eTA2007::HDV}})
   ;
 }
 
@@ -384,7 +392,8 @@ cAppli_MMVII_Bench::cAppli_MMVII_Bench (const std::vector<std::string> & aVArgs,
   mPatRefut       ("@@@"),
   mNumBugRecall   (-1),
   mDoBUSD         (false),
-  mDemoTest       (false)
+  mDemoTest       (false),
+  mVerbose        (false)
 {
 }
 
@@ -418,12 +427,12 @@ int  cAppli_MMVII_Bench::Exe()
     if (!IsInit(&mShow))
         mShow =  IsInit(&mPat); // Becoz, if mPat init, few bench => we can display msg
 
-   cParamExeBench aParam(mPat,mPatRefut,mKeyBug,mLevMin,mShow);
+   cParamExeBench aParam(mPat,mPatRefut,mKeyBug,mLevMin,mShow,mVerbose);
    aParam.SetDemoTest(mDemoTest);
 
    for (int aLev=mLevMin ; aLev<mLevelMax ; aLev++)
    {
-        StdOut() << "=====  RUN BENCH AT LEVEL " << aLev << "========" << std::endl;
+        StdOut() << "=====  RUN BENCH AT LEVEL " << aLev << " ========" << std::endl;
         ExecuteBench(aParam);
 
         // No bench where executed
@@ -435,6 +444,9 @@ int  cAppli_MMVII_Bench::Exe()
 
         aParam.IncrLevel();
    }
+   StdOut().SetSilent(false);
+   StdOut() << "=====  END BENCH, " << aParam.NbExe() << " bench executed ========" << std::endl;
+   StdOut() << "Bench is successfull !" << std::endl << std::endl;
    return EXIT_SUCCESS;
 }
 
@@ -469,6 +481,8 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
 
    {
         //==== Bench_0000 bench on very basic support functionnalities
+
+       BenchEpipolar(aParam);
 
         Bench_Random(aParam);  // Bench random generator, check they are acceptably unbiased
 
@@ -600,7 +614,7 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
         Bench_SpatialIndex(aParam);
         Bench_ToHomMult(aParam);
     BenchLinearConstr(aParam);
-    //Bench_HBA(aParam);
+    Bench_HBA(aParam);
     }
 
     // Now call the bench of all application that define their own bench

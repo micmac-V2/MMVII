@@ -31,20 +31,21 @@ namespace MMVII
 class  cStatDistPtWire
 {
     public :
+    /*
+        cStatDistPtWire():
+            mIsGlob (false),
+            mDist   (-1)
+        {
+        }
+
+        bool         mIsGlob;
+        tREAL8       mDist;
+*/
+
         cStdStatRes  mStat3d;  // stat on 3D dist
         cStdStatRes  mStatH;  // stat on horiz dist
         cStdStatRes  mStatV;  // stat on vert dist
 };
-
-
-///  Class to represent points located in rigid frame
-class cCern_PtRF
-{
-    public :
-        cPt3dr        mCoordRF;  //  coord local to rigid frame
-        std::string   mName;     // name of point
-};
-
 
 
 
@@ -62,25 +63,25 @@ class cAppli_ReportBlock : public cMMVII_Appli
 
      private :
         void ProcessOneBloc(const std::string& anIdSync,const cIrbComp_TimeS &);
-        void AddStatDistWirePt(const cPt3dr& aPt,const cPt3dr& aDirLoc,const std::string & anIdSync,const std::string & aNamePt);
-
-        cPt3dr ExtractVertLoc(const std::string& anIdSync,const std::vector<cSensorCamPC *> & aVCam);
+        void AddStatDistWirePt(const cPt3dr& aPt,const cPt3dr& aDirLoc,const std::string & anIdSync,const std::string& aNameIm,const std::string & aNamePt);
 
         void TestWire3D(const std::string& anIdSync,const std::vector<cSensorCamPC *> & aVCam);
         /// For a given Id of Sync and a bloc of cameras, compute the stat on accuracy of intersection
-        void TestPoint3D(const std::string& anIdSync,const std::vector<cSensorCamPC *> & aVCam);
+        void TestPoint3D(const std::string& anIdSync,const std::vector<cSensorCamPC *> & aVCam,bool DoStat);
+
+        std::string StrDev(const cStdStatRes & aStat) const
+        {
+            return (aStat.NbMeasures() >= 2) ? (ToStr(1e6*aStat.UBDevStd(-1))) : "???";
+        }
+
+        std::string StrDiff(const cStdStatRes & aS1,const cStdStatRes & aRef) const
+        {
+            return (aS1.NbMeasures() >= 1) ? (ToStr(1e6*(aS1.Avg()-aRef.Avg()))) : "???";
+        }
 
         cPhotogrammetricProject     mPhProj;
         bool                        mShow;  // do we print residual on terminal
-
-
-        int                         mLevelCentCorr;     //< do we correct residual
-        tREAL8                      mWeightSeg;
-       // bool                        mStepCompCCorr;   //< Are we at a step where we compute center correction
-       // bool                        mStepUseCCorr;    //< Are we at a step where we compute correction
-        bool                        mStepCompStat;    //< Are we at a step of stat (last step)
         std::string                 mSpecImIn;
-        cBlocOfCamera *             mTheBloc;
 
         std::string                  mNameBloc;
         cIrbCal_Block*               mCalBlocInstr;
@@ -91,6 +92,8 @@ class cAppli_ReportBlock : public cMMVII_Appli
         std::string                  mIdRepDWirePt;
         std::string                  mIdRepPtGlob;
         std::string                  mPatNameGCP;
+        std::vector<std::string>     mParamReportShared;  ///< Report shared between diff test
+
 
         std::string                  mStrM2T;  /// String of measure to test
         std::string                  mAddExReport;
@@ -102,28 +105,39 @@ class cAppli_ReportBlock : public cMMVII_Appli
         std::map<std::string,cStdStatRes>    mMapStatPair;
         std::map<std::string,cStdStatRes>    mMap1Image;
       
+        bool                         mWithTargetPoint; ///< is there targeted points
+        bool                         mWithCoordGround; ///< do we have the 3D coordinat of these points
+
+        //  Pair of 3d coordinate to compute transfo  Local in bloc of cam <-> "absolute" like sphere coord
+        std::vector<cPt3dr>          mCoordGround;  ///<  3D coordinate "absolute"
+        std::vector<cPt3dr>          mCoordLoc;     ///< 3D coordinate in bloc of cameras repai
+
         //  Add a statistic results in csv-file
         void CSV_AddStat(const std::string& anId,const std::string& aMes,const cStdStatRes &) ;
-        cSegmentCompiled<tREAL8,3> *  mCurWire ;
-        bool                          mWithWire;
-        std::string                   mWireFolder;
 
-        std::map<std::string,cStatDistPtWire>   mStatWirePt;
+        /// 3d position of the wire that may be computed (if required and enough image)
+        cSegmentCompiled<tREAL8,3> *  mCurWire ;
+        bool                          mWithWire;  ///< Do we require Wire computation
+        std::string                   mWireFolder; ///< Wire folder, that may differ from point folder
+
+        /// mStatWirePt[NamePt][Loc]
+        std::map<std::string, std::map<std::string,cStatDistPtWire>>   mStatWirePt;
+
         //  Stuff  for  CERN-Sphere-Center like manip
-        std::string                             mExtCernStat;
-        bool                                    mDoCernStat;
-        bool                                    mCernAllPoint;
-        cPt3dr                                  mSphereCenter; //< center of the sphere
-        bool                                    mSCFreeScale;  //< do we have a free scale
-        cSetMesGnd3D                            mGCP3d;        //< "Absolute" coordinate of the point
-        bool                                    mWithClino;
-        cSetMeasureClino                        mMesClino;
-        std::vector<cCern_PtRF>                 mVCernPR;  //< Coord in frame + names for CERN export
+        bool                                    mSCFreeScale;  ///< do we have a free scale
+        cSetMesGndPt                            mMesGround;     ///< "Absolute" coordinate of the point
+        std::string                             mPatDistWire;   ///< Pattern of point name for computing distance point <--> WIRE
+        std::string                             mPatAgregateDist;  ///< Pattern for aggregatinf distance
+        std::string                             mCern_ReportSynthGlob;
+
+        bool                                    mWithClino;  /// Where clino measure loade
+        bool                                    mWithAgregateDist; ///< Do we agregate the measure
+        cSetMeasureClino                        mMesClino; ///< store clinometers measures
 
         /// For a given name of point memorize the set of pair "Cam+Im Measure"
         std::map<std::string,std::vector<tPairCamPt>> mMapMatch;
 
-       // std::map<cSensorCamPC *,cBR_SystCorr>  mMapCorrSyst;
+
 };
 
 
@@ -136,9 +150,7 @@ cAppli_ReportBlock::cAppli_ReportBlock
 ) :
      cMMVII_Appli   (aVArgs,aSpec),
      mPhProj        (*this),
-     mShow          (false),
-     mLevelCentCorr (0),
-     mWeightSeg     (1.0),
+     mShow          (true),
      mNameBloc      (cIrbCal_Block::theDefaultName),
      mCalBlocInstr  (nullptr),
      mCompBlocInstr (nullptr),
@@ -149,10 +161,9 @@ cAppli_ReportBlock::cAppli_ReportBlock
      mPatNameGCP    (".*"),
      mStrM2T        ("T"),
      mPercStat      {15,25,50,75,85},
-     mDoCernStat    (false),
-     mCernAllPoint  (false),
-     mSphereCenter  (0,0,0),
-     mWithClino     (false)
+     mSCFreeScale   (false),
+     mPatDistWire   ("CENTRE")
+
 {
     FakeUseIt(mSCFreeScale);
 }
@@ -165,7 +176,6 @@ cCollecSpecArg2007 & cAppli_ReportBlock::ArgObl(cCollecSpecArg2007 & anArgObl)
              <<  mPhProj.DPOrient().ArgDirInMand()
              <<  mPhProj.DPGndPt2D().ArgDirInMand()
              <<   mPhProj.DPBlockInstr().ArgDirInMand()
-         //  <<  mPhProj.DPRigBloc().ArgDirInMand()
            ;
 }
 
@@ -176,56 +186,87 @@ cCollecSpecArg2007 & cAppli_ReportBlock::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     return      anArgOpt
 
              << AOpt2007(mWireFolder,"WireFolder","Folder for wire if != folder points")
-
              << AOpt2007(mPatNameGCP,"PatFiltGCP","Pattern to filter name of GCP",{{eTA2007::HDV}})
              << AOpt2007(mStrM2T,"M2T","Measure to test : T-arget W-ire",{{eTA2007::HDV}})
              << AOpt2007(mAddExReport,"AddExRep","Addditional Extension in Report Name")
              << AOpt2007(mDirExReport,"DirExRep","Fix globally Directory of Report Name")
              << AOpt2007(mPercStat,"PercStat","Percentils for stat in global report",{{eTA2007::HDV}})
 
-             << AOpt2007(mExtCernStat,"ExtCernStat","If set : do statistic specific to Cerns Wire distance and fix CSV file")
-             << AOpt2007(mCernAllPoint,"DoCernAllPt","For cern, compute Wire distance for all points",{{eTA2007::HDV}})
              << mPhProj.DPGndPt3D().ArgDirInOpt("","GCP 3D coordinate for computing centre")
-             << AOpt2007(mSphereCenter,"SphereC","Additionnal GPC to export",{{eTA2007::HDV}})
+
+             << AOpt2007(mPatDistWire,"Cern-PatDistWire","Pattern of points name to computing distance point<-->wire",{{eTA2007::HDV}})
+             << AOpt2007(mPatAgregateDist,"Cern-AggregateDist","Pattern of points name to computing distance point<-->wire",{{eTA2007::HDV}})
+              << AOpt2007(mCern_ReportSynthGlob, "CernReportSynthGlob","File for s syntehic global report")
+             << mPhProj.DPMeasuresClino().ArgDirInOpt("Cern-Clino")
+
+             << AOpt2007(mSCFreeScale,"Cern-SphFreeScale","Do we have free scale for sphere",{{eTA2007::HDV}})
+
              << AOpt2007(mShow,"Show","Show details on results",{{eTA2007::HDV}})
-             << AOpt2007(mLevelCentCorr,"LevCC","Level of Image-Correction (0-None,1-Tr,2-Homot,3-Simul)",{{eTA2007::HDV}})
-             << AOpt2007(mWeightSeg,"WSeg","Weight of seg relativ to pt, in case image correction",{{eTA2007::HDV}})
-             << mPhProj.DPMeasuresClino().ArgDirInOpt()
-             << mPhProj.DPClinoMeters().ArgDirInOpt()
+             << AOpt2007(mParamReportShared,"SaveRem","Remanent save [File,Id in Csv,Do we Reset?]",{{eTA2007::ISizeV,"[3,3]"}})
+
     ;
 }
 
+
+static const std::string StrGLOB = "GLOB";
 
 void cAppli_ReportBlock::AddStatDistWirePt
      (
             const cPt3dr& aPt,
             const cPt3dr& aVertLoc,
-            const std::string & anIdSync,
+            const std::string & aTimeStamp,
+            const std::string & anIm0,
             const std::string & aNamePt
      )
 {
     if (!mCurWire)
        return;
 
+    std::map<std::string,cStatDistPtWire> & aMapPt = mStatWirePt[aNamePt];
+
      cPt3dr  aProj = mCurWire->Proj(aPt);
      cPt3dr  anEc = aProj-aPt;
      tREAL8 aD3 = Norm2(anEc);
      tREAL8 aDH = -1;
      tREAL8 aDV = -1;
+
+     std::string anIdGlob = StrGLOB;
+     std::string anIdAgreg;
+
+     if (mWithAgregateDist)
+     {
+         std::string aName = ReplacePattern(mPatAgregateDist,"$1",anIm0);
+         int aL = cStrIO<int>::FromStr(aName);
+         aName = ToStr(aL,3);
+         anIdAgreg =  "LOC-"+aName;
+     }
+
      if (mWithClino)
      {
         cPt3dr  aCompV = aVertLoc * Scal(aVertLoc,anEc);
         cPt3dr  aCompH = anEc-aCompV;
         aDH = Norm2(aCompH);
         aDV = Norm2(aCompV);
-        mStatWirePt[aNamePt].mStatH.Add(Norm2(aCompH));
-        mStatWirePt[aNamePt].mStatV.Add(Norm2(aCompV));
+        aMapPt[anIdGlob].mStatH.Add(aDH);
+        aMapPt[anIdGlob].mStatV.Add(aDV);
+        if (mWithAgregateDist)
+        {
+            aMapPt[anIdAgreg].mStatH.Add(aDH);
+            aMapPt[anIdAgreg].mStatV.Add(aDV);
+        }
      }
 
-     mStatWirePt[aNamePt].mStat3d.Add(Norm2(anEc));
 
-    // InitReportCSV(mIdRepDWirePt,"csv",false,{"TimeStamp","NamePt","D3","DH","DV"});
-     AddOneReportCSV(mIdRepDWirePt,{anIdSync,aNamePt,ToStr(aD3),ToStr(aDH),ToStr(aDV)});
+     aMapPt[anIdGlob].mStat3d.Add(Norm2(anEc));
+     if (mWithAgregateDist)
+     {
+         aMapPt[anIdAgreg].mStat3d.Add(Norm2(anEc));
+     }
+
+     // Add individual statistic for each point each image
+     AddOneReportCSV(mIdRepDWirePt,{aTimeStamp,aNamePt,ToStr(aD3),ToStr(aDH),ToStr(aDV)});
+
+
 }
 
 
@@ -271,6 +312,7 @@ void cAppli_ReportBlock::TestWire3D(const std::string & anIdSync,const std::vect
 
      int aNbPl = aVPlane.size();
 
+//StdOut() << "NBBBBB " << aNbPl << " " << mWireFolder << "\n";
      // if we can compute plane
      if (aNbPl>=2)
      {
@@ -303,13 +345,14 @@ void cAppli_ReportBlock::TestWire3D(const std::string & anIdSync,const std::vect
                 }
             }
             //  if we are the step where we compute
-            if (mStepCompStat)
+
             {
                 tREAL8 aRatio = aNbPl /(aNbPl-2.0); // ratio contraints, degre of freedom
                 tREAL8 aDist3D =  aWGr.Average() * aRatio;
                 tREAL8 aDistPix =  aWPix.Average() * aRatio;
 
                 mStatGlobWire.Add(aDistPix);
+ //StdOut() << " DPIX=" << aDistPix  << " Id=" << mIdRepWire << "\n";
                 AddOneReportCSV(mIdRepWire,{anIdSync,ToStr(aNbPl),ToStr(aDist3D),ToStr(aDistPix)});
             }
         }
@@ -327,7 +370,12 @@ std::string ToCernStr(const cPt3dr & aPt)
    return ToStr(aPt.x()) + " " + ToStr(aPt.y()) + " " + ToStr(aPt.z());
 }
 
-void cAppli_ReportBlock::TestPoint3D(const std::string & anIdSync,const std::vector<cSensorCamPC *> & aVCam)
+void cAppli_ReportBlock::TestPoint3D
+     (
+         const std::string & anIdSync,
+         const std::vector<cSensorCamPC *> & aVCam,
+        bool doStat
+     )
 {
      // for a given name of point, store  Mes+Cam , that will allow to compute bundles
      mMapMatch.clear();
@@ -360,8 +408,7 @@ void cAppli_ReportBlock::TestPoint3D(const std::string & anIdSync,const std::vec
              StdOut() << "NO Measure file  for " << aCam->NameImage() << "\n";
      }
 
-     // memrize the 3D points
-     mVCernPR.clear();
+
 
      // [2]  Parse the measure grouped by points
      for (const auto & [aNamePt,aVect] : mMapMatch )
@@ -369,36 +416,37 @@ void cAppli_ReportBlock::TestPoint3D(const std::string & anIdSync,const std::vec
          int aNbPt = aVect.size();
          if (aNbPt >  2)
          {
+
              // [2.1]  compute the vector of bundles and their intersection
              std::vector<tSeg3dr> aVSeg;
              for (const auto & [aCam,aMes] : aVect)
              {
                  aVSeg.push_back(aCam->Image2Bundle(aMes.mPt));
              }
-             cPt3dr aPG =   BundleInters(aVSeg);
+             cPt3dr aPLoc =   BundleInters(aVSeg);
+             const cPt3dr * aPGround = nullptr;
 
+             if (mWithCoordGround &&  mMesGround.NameIsGCP(aNamePt))
+             {
+                 const cMes1Gnd3D &   aMes =      mMesGround.MesGCPOfName(aNamePt) ;
+                 aPGround = & aMes.mPt;
+                 mCoordGround.push_back(*aPGround);
+                 mCoordLoc.push_back(aPLoc);
+
+             }
              // [2.2] compute residual and eventually memo data for correction
              cWeightAv<tREAL8> aWPix;
 
              for (const auto & [aCam,aMes] : aVect)
              {
-                 cPt2dr aPProj = aCam->Ground2Image(aPG);
+                 cPt2dr aPProj = aCam->Ground2Image(aPLoc);
                  cPt2dr aResidual = aMes.mPt-aPProj;
                  aWPix.Add(1.0,Norm2(aResidual));
-                 /*
-                if (mStepCompCCorr)
-                {
-                    mMapCorrSyst[aCam].SetCam(mLevelCentCorr,mWeightSeg,aCam);
-                    mMapCorrSyst[aCam].AddPairPt(aPProj,aMes.mPt);
-                }*/
              }
              
              // [2.3] export residual in csv file
-             if (mStepCompStat)
+             if (doStat)
              {
-                 mVCernPR.push_back(cCern_PtRF());
-                 mVCernPR.back().mCoordRF = aPG;
-                 mVCernPR.back().mName = aNamePt;
 
                  tREAL8 aDistPix = aWPix.Average() * (aNbPt*2.0) / (aNbPt*2.0 -3.0);
                  AddOneReportCSV(mIdRepPtIndiv,{anIdSync,aNamePt,ToStr(aNbPt),ToStr(aDistPix)});
@@ -413,6 +461,7 @@ void cAppli_ReportBlock::TestPoint3D(const std::string & anIdSync,const std::vec
                      {
                          const auto & [aCam2,aMes2] = aVect.at(aK2);
                          cHomogCpleIm aCple(aMes1.mPt,aMes2.mPt);
+                         // The weighting is not exaclt the same for pair of cam  ??
                          tREAL8 aRes12 = aCam1->PixResInterBundle(aCple,*aCam2) * 4.0;  // 4.0 = DOF = 4 / (4-3)
                          std::string anId1 = "Cam:"+aCam1->InternalCalib()->Name();
                          std::string anId2 = "Cam:"+aCam2->InternalCalib()->Name();
@@ -426,51 +475,58 @@ void cAppli_ReportBlock::TestPoint3D(const std::string & anIdSync,const std::vec
          }
      }
      //  [3]  export global resiudal
-     if (mStepCompStat)
+     if (doStat)
         CSV_AddStat(mIdRepPtGlob,"AVG "+anIdSync,aStatRes);
-}
-
-cPt3dr cAppli_ReportBlock::ExtractVertLoc(const std::string& anIdSync,const std::vector<cSensorCamPC *> & aVCam)
-{
-    //  TO REFACTOR !!!!!
-    if (! mWithClino)
-       return cPt3dr(0,0,0);
-
-    cSensorCamPC * aCamMaster = nullptr;
-    for (const auto & aCam : aVCam)
-    {
-        if (mTheBloc->IdBloc(aCam->NameImage()) == mTheBloc->NameMaster())
-        {
-            aCamMaster = aCam;
-        }
-    }
-    MMVII_INTERNAL_ASSERT_tiny(aCamMaster!=nullptr,"Cannot find master");
-    cPerspCamIntrCalib * aCalibM = aCamMaster->InternalCalib();
-    const  cOneMesureClino & aMes = *  mMesClino.MeasureOfId(anIdSync);
-
-    cCalibSetClino aSetC = mPhProj.ReadSetClino(*aCalibM,mMesClino.NamesClino());
-    cGetVerticalFromClino aGetVert(aSetC,aMes.Angles());
-    auto[aScoreVert, aVertLocCamDown]  = aGetVert.OptimGlob(50,1e-9);
-        
-    return aVertLocCamDown;
 }
 
 
 void cAppli_ReportBlock::ProcessOneBloc(const std::string& anIdSync,const cIrbComp_TimeS & aDataTS)
 {
      mCurWire = nullptr ;
+     mCoordGround.clear();
+     mCoordLoc.clear();
 
      std::vector<cSensorCamPC *>  aVCam;
      for (const cIrbComp_Cam1 & aCompCam : aDataTS.SetCams().VCompPoses())
          aVCam.push_back(aCompCam.CamPC());
 
 
-     mStepCompStat = true;
-     if (contains(mStrM2T,'T'))
-        TestPoint3D(anIdSync,aVCam);
+
+
+     if (mWithTargetPoint)
+     {
+        TestPoint3D(anIdSync,aVCam,true);
+     }
 
      if (mWithWire)
+     {
          TestWire3D(anIdSync,aVCam);
+     }
+
+     // compute the stat specific to CERN
+     if (mWithClino && (mCoordGround.size() >=3) && mCurWire)
+     {
+        auto  aWMin =  MMVII::ExtractVerticalLoc(aDataTS,false);
+        tPoseR aPose = tPoseR::RansacL1Estimate(mCoordGround,mCoordLoc,1000);
+        tSim3dR aSim = tSim3dR::RansacL1Estimate(mCoordGround,mCoordLoc,1000);
+
+        aPose = aPose.LeastSquareRefine(mCoordGround,mCoordLoc);
+        aSim = aSim.LeastSquareRefine(mCoordGround,mCoordLoc);
+
+
+        for (const auto &  aMes3d : mMesGround.MesGCP())
+        {
+
+            if (MatchRegex(aMes3d.mNamePt,mPatDistWire))
+            {
+                cPt3dr aPtLoc = mSCFreeScale                 ?
+                                   aSim.Value(aMes3d.mPt)    :
+                                   aPose.Value(aMes3d.mPt)   ;
+                AddStatDistWirePt(aPtLoc,aWMin.IndexExtre(),anIdSync,aVCam[0]->NameImage(),aMes3d.mNamePt);
+            }
+        }
+     }
+
 
      delete mCurWire;
 }
@@ -479,11 +535,23 @@ int cAppli_ReportBlock::Exe()
 {
     mPhProj.FinishInit();  // the final construction of  photogrammetric project manager can only be done now
 
+    mWithTargetPoint = contains(mStrM2T,'T');
     mWithWire = contains(mStrM2T,'W') || IsInit(&mWireFolder);
+
+   // StdOut() << "WITH WIRE=" << mWithWire << "\n";
+
+    mWithClino = mPhProj.DPMeasuresClino().DirInIsInit() ;
+    mWithCoordGround = mPhProj.DPGndPt3D().DirInIsInit();
+    mWithAgregateDist = mWithClino && mWithClino && IsInit(&mPatAgregateDist);
+
     if (mWithWire && !IsInit(&mWireFolder))
         mWireFolder = mPhProj.DPGndPt2D().DirIn();
 
-    mDoCernStat = IsInit(&mExtCernStat);
+    if (mWithCoordGround)
+    {
+        mPhProj.LoadGCP3D(mMesGround);
+    }
+
 
     std::string aDirRep =          mPhProj.DPOrient().DirIn()
                            + "-" + mPhProj.DPGndPt2D().DirIn()
@@ -494,6 +562,13 @@ int cAppli_ReportBlock::Exe()
        aDirRep = mDirExReport;
     SetReportSubDir(aDirRep);
 
+    if (IsInit(&mParamReportShared))
+    {
+        bool NewFile = cStrIO<bool>::FromStr(mParamReportShared.at(2));
+        InitReportCSV(mParamReportShared.at(0),"csv",false,{},NewFile);
+        if (NewFile)
+           AddStdHeaderStatCSV(mParamReportShared.at(0),"Ident",mPercStat);
+    }
 
     InitReportCSV(mIdRepWire,"csv",false,{"TimeBloc","NbPlane","Dist Ground","Dist Pix"});
     // AddOneReportCSV(mIdRepWire,{"TimeBloc","NbPlane","Dist Ground","Dist Pix"});
@@ -509,35 +584,16 @@ int cAppli_ReportBlock::Exe()
     mCalBlocInstr =  & mCompBlocInstr->CalBlock();
     mCompBlocInstr->AddImagesPoses(VectMainSet(0),false,true);
 
+    if (mWithClino )
+    {
+        mCompBlocInstr->SetClinoValues(eModeAddDataTimeS::eSkipIfNew);
+    }
 
     for (const auto & [aTimeS,aDataTS] : mCompBlocInstr->DataTS() )
     {
         ProcessOneBloc(aTimeS,aDataTS);
     }
 
-
-
-
-
-    /*
-    mTheBloc = mPhProj.ReadUnikBlocCam();
-    std::vector<std::vector<cSensorCamPC *>>  aVVC = mTheBloc->GenerateOrientLoc(mPhProj,VectMainSet(0));
-
-    if (mDoCernStat)
-    {
-       mGCP3d = mPhProj.LoadGCP3D();
-       mWithClino =  mPhProj.DPMeasuresClino().DirInIsInit() && mPhProj.DPClinoMeters().DirInIsInit();
-       if (mWithClino)
-          mMesClino =  mPhProj.ReadMeasureClino();
-    }
-
-    for (auto & aVC : aVVC)
-    {
-        ProcessOneBloc(aVC);
-
-        DeleteAllAndClear(aVC);
-    }
-*/
    // Add the stat for all pairs
    for (const auto & [aNameImage,aStatImage] : mMap1Image )
        CSV_AddStat(mIdRepPtGlob,aNameImage,aStatImage);
@@ -548,7 +604,13 @@ int cAppli_ReportBlock::Exe()
 
    // Add the stat for all the points
     CSV_AddStat(mIdRepPtGlob,"GlobAVG ",mStatGlobPt);
-    StdOut() << mStatGlobPt.Show("Pt-Pix",{50,85}) << "\n";
+    // StdOut() << mStatGlobPt.Show("Pt-Pix",{50,85}) << "\n";
+
+   if (IsInit(&mParamReportShared))
+   {
+       CSV_AddStat(mParamReportShared.at(0),mParamReportShared.at(1),mStatGlobPt);
+   }
+   // AddStdHeaderStatCSV(mIdRepPtGlob,"Ident",mPercStat);La confidentialité des échanges entre avocats couvre les correspondances et les discussions échangées entre les avocats eux-mêmes, notamment dans le cadre de négociations ou de discussions précontentieuses. Contrairement au secret professionnel, qui est une obligation légale absolue, la confidentialité des échanges entre avocats repose principalement sur des règles déontologiques.
 
     if (mShow)
     {
@@ -557,43 +619,75 @@ int cAppli_ReportBlock::Exe()
             StdOut() << mStatGlobWire.Show("Wire-Pix",{50,85}) << "\n";
     }
 
+    //  ----------------- Make the export specific to CERN : distance to wire ------------
 
-    if (mDoCernStat)
+    for ( auto & [aNamePt,aMap] : mStatWirePt ) // parse all points
     {
-      std::vector<std::string>  aVHeader{"NamePt","Files","3D-Avg","3D-Med","3D-Dev"};
-      if (mWithClino)
-         aVHeader = Append(aVHeader,{"H-Avg","H-Med","H-Dev","V-Avg","V-Med","V-Dev"});
+
+        std::string anIdStatWire ="StatDistWire-"+aNamePt;
+
+        std::vector<std::string> aVHeader{"Name","Nb","3D-Avg","3D-Delta micr","3D-Dev micr"};
+        if (mWithClino)
+            AppendIn(aVHeader,{"H-Avg","H-Delta micr","H-Dev","V-Avg","V-Delta micr","V-Dev"});
+
+        InitReportCSV(anIdStatWire,"csv",false,aVHeader);
+        const auto& aRef = aMap[StrGLOB];
+
+        for (const auto & [aName,aStat] : aMap ) // parse all stats
+        {
+           // size_t aNb = aStat.mStat3d.NbMeasures();
+            std::vector<std::string> aHVStat
+                                     {
+                                          aName,
+                                          ToStr(aStat.mStat3d.NbMeasures()),
+                                          aStat.mStat3d.StrAvg(),
+                                          StrDiff(aStat.mStat3d,aRef.mStat3d),
+                                          StrDev(aStat.mStat3d)
+                                     };
+            if (mWithClino)
+            {
+                  AppendIn(aHVStat,{aStat.mStatH.StrAvg(),StrDiff(aStat.mStatH,aRef.mStatH),StrDev(aStat.mStatH)});
+                  AppendIn(aHVStat,{aStat.mStatV.StrAvg(),StrDiff(aStat.mStatV,aRef.mStatV),StrDev(aStat.mStatV)});
+            }
+            AddOneReportCSV(anIdStatWire,aHVStat);
+        }
 
 
-      InitReportCSV(mExtCernStat,"csv",false,aVHeader,false);
-      //  export stat on dist Wire/pt
-      for (const auto & [aName,aStat] : mStatWirePt)
-      {
-          std::vector<std::string>  aValue3D{aName,mSpecImIn,ToStr(aStat.mStat3d.Avg()),ToStr(aStat.mStat3d.ErrAtProp(0.5)),ToStr(aStat.mStat3d.UBDevStd(-1))};
-
-          StdOut() <<  " * " << aName  << " : "
-               << "3d-Av-Med-Dev=" << aValue3D;
-
-          std::vector<std::string> aValueH,aValueV;
-          if (mWithClino)
-          {
-              aValueH = {ToStr(aStat.mStatH.Avg()),ToStr(aStat.mStatH.ErrAtProp(0.5)),ToStr(aStat.mStatH.UBDevStd(-1))};
-              aValueV = {ToStr(aStat.mStatV.Avg()),ToStr(aStat.mStatV.ErrAtProp(0.5)),ToStr(aStat.mStatV.UBDevStd(-1))};
-              StdOut()
-               << "H-AMD=" << aValueH
-               << "V-AMD" << aValueV;
-          }
-
-          StdOut() << "\n";
-          AddOneReportCSV(mExtCernStat,Append(aValue3D,aValueH,aValueV));
-       }
     }
+
+    if (IsInit(&mCern_ReportSynthGlob))
+    {
+        SetReportSubDir("");
+
+        for (auto & [aNamePt,aMap] : mStatWirePt ) // parse all points
+        {
+             std::string aIdentCERN = mCern_ReportSynthGlob + "-" + aNamePt;
+             const cStatDistPtWire & aStat =  aMap[StrGLOB];
+             const auto & aS3d =  aStat.mStat3d;
+             const auto & aSH =   aStat.mStatH;
+             const auto & aSV =   aStat.mStatV;
+
+            std::vector<std::string>  aLineHeader{"Id","Mu-Dev3d","Mu-Interv3D","Mu-DevH","Mu-IntervH","Mu-DevV","Mu-InterV"};
+            AppendIn(aLineHeader,{"Pix-Pt","Pix-Wire"});
+            InitReportCSV(aIdentCERN,"csv",false,aLineHeader,false);
+
+            std::vector<std::string> aNewL{aDirRep};
+
+            AppendIn(aNewL,{ToStr(aS3d.DevStd()*1e6),ToStr(aS3d.Interv()*1e6)});
+            AppendIn(aNewL,{ToStr(aSH.DevStd()*1e6),ToStr(aSH.Interv()*1e6)});
+            AppendIn(aNewL,{ToStr(aSV.DevStd()*1e6),ToStr(aSV.Interv()*1e6)});
+            AppendIn(aNewL,{ToStr(mStatGlobPt.Avg()),ToStr( mStatGlobWire.Avg())});
+
+            AddOneReportCSV(aIdentCERN,aNewL);
+
+          //  StdOut() << " Pt="  << mStatGlobPt.Avg() << " W=" <<  mStatGlobWire.Avg() << "\n";
+        }
+    }
+
+
 
     delete mCompBlocInstr;
     // StdOut() << "cIrbCal_BlockcIrbCal_Block\n";
-    return EXIT_SUCCESS;
-
-    delete mTheBloc;
     return EXIT_SUCCESS;
 }
 

@@ -16,6 +16,39 @@
 namespace MMVII
 {
 
+class cExtracVerticalLoc : public cOptDiscScorer<cPt3dr>
+{
+     public :
+         cExtracVerticalLoc(const cIrbComp_TimeS & aTimeS,bool aWeightSigma) :
+             mTimeS (aTimeS),
+             mWeightSigma (aWeightSigma)
+         {
+         }
+
+     private :
+         tREAL8 Score(const cPt3dr& aVert) const override
+         {
+             return  mTimeS.ScoreVerticalLoc(aVert,mWeightSigma);
+         }
+         const cIrbComp_TimeS &  mTimeS;
+         bool                    mWeightSigma;
+};
+
+
+cWhichMin<cPt3dr,tREAL8> ExtractVerticalLoc(const cIrbComp_TimeS & aTimeS,bool aWeightSigma)
+{
+    cExtracVerticalLoc anEV(aTimeS,aWeightSigma);
+
+    cTplOptDisc_OnManifold<cSph3_OptimDisc> anOptim(cSph3_OptimDisc(30,false),anEV);
+    anOptim.ComputeSol(0.5,1e-8,10);
+    return anOptim.GetSol();
+}
+
+
+//(const cIrbComp_TimeS &);
+
+
+
 static const std::string N_Indep     = "D2_Indep";
 static const std::string N_2Orthog   = "D3_2Orthog";
 static const std::string N_VertI     = "D4_VertIndep";
@@ -246,8 +279,8 @@ cCollecSpecArg2007 & cAppli_BlockInstrInitClino::ArgOpt(cCollecSpecArg2007 & anA
             << AOpt2007(mNbSamp1Cl,"NbSS","Number of sample on the sphere ",{{eTA2007::HDV}})
             << AOpt2007(mNumPoseInstr,"NPI","Num of cams used  for estimate pose of intsrument")
             << AOpt2007(mPairOrthog,"PairOrthog","Pair of orthogonal camera (if reset)")
-            << AOpt2007(mUnitShow,"USA","Unity Show Angles",{AC_ListVal<eTyUnitAngle>(),{eTA2007::HDV}})
-            << AOpt2007(mReSetSigma,"ResetSigma","Do we use sigma",{{eTA2007::HDV}})
+            << AOpt2007(mUnitShow,"USA","Unity Show Angles",{eTA2007::HDV})
+            << AOpt2007(mReSetSigma,"ResetSigma","Do we use sigma",{eTA2007::HDV})
             << AOpt2007(mVertApriori,"Vert0","A priori vertical => we compte both clino & vert")
             << AOpt2007(mNbSVert,"NbSV","Number of sample, when both Orthog & Vert, x=>quat, y=>Spher",{eTA2007::HDV})
     ;
@@ -459,7 +492,7 @@ int cAppli_BlockInstrInitClino::Exe()
 
 
     mBlock->ComputePoseInstrument();
-    mBlock->SetClinoValues();
+    mBlock->SetClinoValues(eModeAddDataTimeS::eSkipIfNew);
 
     if (!IsInit(&mPairOrthog))
     {

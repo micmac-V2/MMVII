@@ -12,6 +12,15 @@
 
 namespace MMVII
 {
+
+enum class eModeAddDataTimeS
+           {
+              eMustExist,  ///< Error if time stamp not presen
+              eCreate,     ///< Create TimeStamp if  new
+              eSkipIfNew   ///< avoid create time stamp if dont exist
+           };
+
+
 /** \file  MMVII_InstrumentalBlock.h
     \brief Declaration of all classes for block rigid
 */
@@ -196,7 +205,10 @@ class cIrbCal_Clino1   : public cMemCheck
         void SetPNorm(const cPt3dr & aTr); ///< Modify value, eventually allocate
 
         cP3dNormWithUK&  CurPNorm();  ///< Accessor to  unknown 1-Norm point
-        cVectorUK &      PolCorr();   ///< Accessor to polynom of correction
+        const cP3dNormWithUK&  CurPNorm() const;  ///< Accessor to  unknown 1-Norm point
+
+        cVectorUK &        PolCorr();   ///< Accessor to polynom of correction
+        const cVectorUK &  PolCorr() const;   ///< Accessor to polynom of correction
         bool          IsInit() const;  ///< Was it initiated ?
 //        void UnInit();
     private :
@@ -220,6 +232,8 @@ class cIrbCal_ClinoSet  : public cMemCheck
          size_t NbClino() const;
          /// Accesor to clino inside vector
          cIrbCal_Clino1 &  KthClino(int aK);
+         /// Accesor to clino inside vector
+         const cIrbCal_Clino1 &  KthClino(int aK) const;
          /// Acces to pointer of an existing clinometers from its name, 0 if none and OkNone
          cIrbCal_Clino1 * ClinoFromName(const std::string& aName,bool OkNone=false);
          /// Acces to index of a clinometer from its name
@@ -323,6 +337,8 @@ class cIrbCal_Block  : public cMemCheck
         cIrbCal_CamSet &         SetCams() ;            //< Accessors
         const cIrbCal_CamSet &   SetCams() const ;      //< Accessors
         cIrbCal_ClinoSet &       SetClinos() ;          //< Accessors
+        const cIrbCal_ClinoSet & SetClinos() const;          //< Accessors
+
         const std::string &       NameBloc() const;     //< Accessor
 
         void AddSigma(std::string aN1,eTyInstr aType1,std::string aN2, eTyInstr aType2, const cIrb_SigmaInstr &);
@@ -471,13 +487,24 @@ class   cIrbComp_TimeS : public cMemCheck
 
          const cIrbComp_Block & CompBlock() const; //< Accessor
          const cIrbCal_Block & CalBlock() const; //< Accessor or Accessor
+         const std::string &Ident() const; //< Accesor
+
          // cIrbComp_Block & CompBlock() ; //< Accessor
 
          // if not SVP and cannot compute : error
          void ComputePoseInstrument(const std::vector<int> & aVNumCam,bool SVP = false);
          void SetClinoValues(const cOneMesureClino&);
 
+         /// Use for computing the calibration direction, the vertical being knwon (extracted from sysco)
          tREAL8 ScoreDirClino(const cPt3dr& aDir,size_t aKClino) const;
+
+         ///
+         tREAL8 ScoreDirClinoAndVert(const cPt3dr& aDir,const cPt3dr& aVert,size_t aKClino) const;
+
+         ///  Used for computing the score of unkwon vertical, for
+         tREAL8 ScoreVerticalLoc1Clino(const cPt3dr& aDir,size_t aKClino) const;
+         tREAL8 ScoreVerticalLoc(const cPt3dr& aDir,bool SigmaW) const;
+
 
     private :
          //cIrbComp_TimeS(const cIrbComp_TimeS&) = delete;
@@ -490,6 +517,9 @@ class   cIrbComp_TimeS : public cMemCheck
          tPoseR                            mPoseInstr;
          std::string                       mIdent;
 };
+
+cWhichMin<cPt3dr,tREAL8> ExtractVerticalLoc(const cIrbComp_TimeS&,bool aWeightSigma) ;
+
 
 ///  class for using a rigid bloc in computation (calibration/compensation)
 //   cIrbComp_Block
@@ -535,9 +565,9 @@ class   cIrbComp_Block : public cMemCheck
        tResCompCal ComputeCalibCamsInit(int aK1,int aK2) const;
 
        //
-       void SetClinoValues(const cSetMeasureClino&,bool OkNewTimeS=false );
+       void SetClinoValues(const cSetMeasureClino&,eModeAddDataTimeS );
        /// call previous by using std measure on phproj
-       void SetClinoValues(bool OkNewTimeS=false);
+       void SetClinoValues(eModeAddDataTimeS);
 
        /// return the average of score of all clinos loaded
        tREAL8 ScoreDirClino(const cPt3dr& aDir,size_t aKClino) const;

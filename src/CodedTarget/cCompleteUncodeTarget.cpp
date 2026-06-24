@@ -206,7 +206,7 @@ int  cAppliCompletUncodedTarget::Exe()
 
    //   load CGP
    mPhProj.LoadGCP3D(mMesImGCP);
-   mPhProj.LoadIm(mMesImGCP,nullptr,*mSensor);
+   mPhProj.LoadIm(mMesImGCP,mNameIm,nullptr,mSensor);
    mImageM = mPhProj.LoadMeasureIm(mNameIm);
 
 

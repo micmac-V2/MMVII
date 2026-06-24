@@ -150,7 +150,7 @@ void cGdalApi::GdalErrorHandler(CPLErr aErrorCat, CPLErrorNum aErrorNum, const c
 }
 
 
-CPLStringList cGdalApi::GetCreateOptions(GDALDriver* aGdalDriver, const cDataFileIm2D::tOptions& aOptions)
+CPLStringList cGdalApi::GetCreateOptions(GDALDriver* aGdalDriver, const std::vector<std::string>& aOptions)
 {
     CPLStringList aGdalOptions;
     for (const auto& anOpt : aOptions)

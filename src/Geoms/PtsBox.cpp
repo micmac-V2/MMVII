@@ -990,7 +990,7 @@ template <const int Dim>  cPtxd<int,Dim>  cParseBoxInOut<Dim>::Index2Glob(const 
       return  CByC1P(mBoxGlob.FromNormaliseCoord(mBoxIndex.ToNormaliseCoord(anIndex)),round_ni);
 }
 
-template <const int Dim>  cPixBox<Dim> cParseBoxInOut<Dim>::BoxOut(const tPt & anIndex) const
+template <const int Dim>  cPixBox<Dim> cParseBoxInOut<Dim>::BoxOutput(const tPt & anIndex) const
 {
       return  cPixBox<Dim>
               (
@@ -999,23 +999,23 @@ template <const int Dim>  cPixBox<Dim> cParseBoxInOut<Dim>::BoxOut(const tPt & a
               );
 }
 
-template <const int Dim>  cPixBox<Dim> cParseBoxInOut<Dim>::BoxIn(const tPt & anIndex,const tPt& aDil) const
+template <const int Dim>  cPixBox<Dim> cParseBoxInOut<Dim>::BoxInput(const tPt & anIndex,const tPt& aDil) const
 {
-   return mBoxGlob.Inter(BoxOut(anIndex).Dilate(aDil));
+   return mBoxGlob.Inter(BoxOutput(anIndex).Dilate(aDil));
 }
 
 
-template <const int Dim>  cPixBox<Dim> cParseBoxInOut<Dim>::BoxOutLoc(const tPt & anIndex,const tPt& aDil) const
+template <const int Dim>  cPixBox<Dim> cParseBoxInOut<Dim>::BoxOutputLoc(const tPt & anIndex,const tPt& aDil) const
 {
-   tBox aBoxIn  =  BoxIn(anIndex,aDil);
-   tBox aBoxOut =  BoxOut(anIndex);
+   tBox aBoxIn  =  BoxInput(anIndex,aDil);
+   tBox aBoxOut =  BoxOutput(anIndex);
    return tBox(aBoxOut.P0() -  aBoxIn.P0(), aBoxOut.P1() -  aBoxIn.P0());
 }
 
 
-template <const int Dim>  cPixBox<Dim> cParseBoxInOut<Dim>::BoxIn(const tPt & anIndex,int aDil) const
+template <const int Dim>  cPixBox<Dim> cParseBoxInOut<Dim>::BoxInput(const tPt & anIndex,int aDil) const
 {
-   return mBoxGlob.Inter(BoxOut(anIndex).Dilate(tPt::PCste(aDil)));
+   return mBoxGlob.Inter(BoxOutput(anIndex).Dilate(tPt::PCste(aDil)));
 }
 
 /* ========================== */

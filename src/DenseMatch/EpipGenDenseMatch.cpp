@@ -639,7 +639,7 @@ cCollecSpecArg2007 & cAppli::ArgObl(cCollecSpecArg2007 & anArgObl)
    
    return
       anArgObl
-         << Arg2007(mModeMatchFinal,"Matching mode at high resol",{AC_ListVal<eModeEpipMatch>()})
+         << Arg2007(mModeMatchFinal,"Matching mode at high resol")
          << Arg2007(mNameIm1,"Name Input Image1",{eTA2007::FileImage})
          << Arg2007(mNameIm2,"Name Input Image1",{eTA2007::FileImage})
    ;
@@ -651,10 +651,10 @@ cCollecSpecArg2007 & cAppli::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       anArgOpt
          << AOpt2007(mSzTile,"SzTile","Size of tiling used to split computation",{eTA2007::HDV})
          << AOpt2007(mSzOverL,"SzOverL","Size of overlap between tiles",{eTA2007::HDV})
-         << AOpt2007(mModeMatchInit,"MMInit","Matching mode at low resol resol, def=mode high resol",{AC_ListVal<eModeEpipMatch>()})
+         << AOpt2007(mModeMatchInit,"MMInit","Matching mode at low resol resol, def=mode high resol")
          << AOpt2007(mSzBasculeMM,"SzBascMM","Sz in MegaPix of transition Init/Final for match mode",{eTA2007::HDV})
          << AOpt2007(mOutPx,CurOP_Out,"Name of Out file, def=Px_+$Im1")
-         << AOpt2007(mModePad,"ModePad","Type of padding, default depend of match mode",{AC_ListVal<eModePaddingEpip>()})
+         << AOpt2007(mModePad,"ModePad","Type of padding, default depend of match mode")
          << AOpt2007(mRandPaded,"RandPaded","Generate random value for added pixel")
          // -- Tuning
          << AOpt2007(mDoPyram,"DoPyram","Compute the pyramid",{eTA2007::HDV,eTA2007::Tuning})
@@ -829,8 +829,8 @@ void  cAppli::MatchOneLevel(int aLevel)
         // Create the parameters of match, incomplete at this step
         cParam1Match aParam
                      (
-                        aBoxParser.BoxIn(anIndex,mSzOverL),
-                        aBoxParser.BoxOut(anIndex),
+                        aBoxParser.BoxInput(anIndex,mSzOverL),
+                        aBoxParser.BoxOutput(anIndex),
                         anIndex,aILev1,aILev2
                      );
 

@@ -51,6 +51,7 @@ void Bench_Heap(cParamExeBench & aParam)
      // a test on emplace behaviour
      {
          std::map<std::string,cTestEmpl> aMap;
+         cTestEmpl::TheGlobMsg = "";
          aMap.emplace("0","A0");
          aMap.emplace("1","B1");
          aMap.emplace("2","C2");

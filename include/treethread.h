@@ -8,31 +8,15 @@
 #include <mutex>
 #include <atomic>
 #include <memory>
-
-namespace MMVII
-{
-
-/**  Add MPD :  the class cBaseTreeThreads is added
-
-class cBaseTreeThreads
-{
-    public :
-         static int  NbTreadsActive() {return InternalCpt();}
-    protected :
-         cBaseTreeThreads () { InternalCpt()++; }
-         ~cBaseTreeThreads() { InternalCpt()--; }
-    private :
-         static int & InternalCpt()
-         {
-             static int mCpt=0;
-             return mCpt;
-         }
-};
-*/
-
+#include <condition_variable>
 
 /*
  * TreeThreads: a class to execute tasks in parallel (multi threading), based on a tree dependancy order.
+ *
+ * Principle:
+ *     We allocate a pool of fixed NbThread threads and each thread execute a loop that takes the next task in dependancy order
+ *   until there are no remaining task to execute.
+ *     Hence there is no overhead in allocating/destroying multiple threads after the initial allocation.
  *
  * Usage:
  *
@@ -88,13 +72,83 @@ class cBaseTreeThreads
  */
 
 
+namespace MMVII
+{
+
+
+/*
+ * Base class:
+ *  - Maintains a count of number of active threads (minimum is 1 for the main thread) : TreeThreadsBase::NbActive()
+ *  - Offers a per thread unique number (0 for main thread) : TreeThreadsBase::Id()
+ *  - Offers the possibility to wait until all threads arrives at specific point of execution (i.e. all threads are waiting at the barrier) : TreeThreadsBase::WaitAll()
+ *
+ *
+ * These values are updated by a TreeThreads instance
+ *
+ * WARNING: those values are meaningful only if there is no more than one instance of a TreeThreads alive at the same time
+ *
+*/
+
+
+
+class TreeThreadsBase
+{
+public:
+    static int Id() { return VarThreadId(); }
+    static int NbActive() { return VarNbActive(); }
+    static void WaitAll()  { Barrier().WaitAll(); }
+    static void SetBarrierCount(int count)  { Barrier().setNbThreads(count); }
+
+protected:
+    static void SetThreadId(int n) { VarThreadId() = n ;}
+    static void ResetNbActive() { VarNbActive() = 1 ; }
+    static void IncNbActive() { ++VarNbActive() ; }
+    static void DecNbActive() { --VarNbActive() ; }
+
+private:
+    class ThreadBarrier {
+    public:
+        explicit ThreadBarrier(std::size_t nbThread=0)
+            : mNbThread(nbThread), mNbWaiting(0), mGeneration(0) {}
+
+        void setNbThreads(std::size_t nbThread=0) { mNbThread = nbThread, mNbWaiting = 0; mGeneration = 0; }
+
+        void WaitAll() {
+            std::unique_lock<std::mutex> lock(mMutex);
+            std::size_t gen = mGeneration;
+
+            if (++mNbWaiting == mNbThread) {
+                // Last arrived thread resets the barrier for the next use and wakes up all waiting threads (change generation and notify this change)
+                mNbWaiting = 0;
+                mGeneration++;
+                mCondition.notify_all();
+            } else {
+                // Not last thread to arrive : we wait until the generation changes, which means the last thread has arrived
+                mCondition.wait(lock, [this, gen] { return mGeneration != gen; });
+            }
+        }
+
+    private:
+        std::mutex              mMutex;
+        std::condition_variable mCondition;
+        std::size_t             mNbThread;       // Nb threads to wait for
+        std::size_t             mNbWaiting;      // Current number of threads that have arrived at the barrier
+        std::size_t             mGeneration;     // two puposes: 1) to know how many times the barrier has been used, 2) to know when the last thread has arrived and wake up waiting threads
+    };
+
+    static int& VarThreadId() { static thread_local int ThreadId = 0; return ThreadId;}
+    static std::atomic_int& VarNbActive() { static std::atomic_int nbActive = 1; return nbActive;}
+    static ThreadBarrier &Barrier() { static ThreadBarrier barrier; return barrier; }
+};
+
+
 // T must be a pointer-like type to user Node (i.e. "MyNode *", "std::shared_ptr<MyNode>", ...)
 template<class T>
-class TreeThreads
+class TreeThreads : public TreeThreadsBase
 {
 public:
 
-    TreeThreads() {}
+    TreeThreads() { ResetNbActive(); }
 
     // Will execute finalize() method of all nodes which root depends on (directly or not) in dependancy order and then the root finalize() method
     // Exec() runs in the main thread and will return only when all nodes heve executed their finalize() method
@@ -104,7 +158,7 @@ private:
     class Node {
     public:
         typedef std::shared_ptr<Node> PNode;						//  share_ptr to Node class: memory managment for our nodes will be automatic
-        Node(T userNodePtr, PNode parent) : mUserNodePtr(userNodePtr),mParent(parent),mChildrenToWait(0) {}
+        Node(T userNodePtr, PNode parent) : mUserNodePtr(userNodePtr),mParent(parent),mChildrenToWait(0){}
 
 
         // Atomically decrement parent not-terminated-child count and return true if this was the last one
@@ -145,7 +199,7 @@ private:
         std::atomic<int> mChildrenToWait;                   // Atomic because it can be decremented at the same time by N threads
     };
 
-    void ExecLoop();                                        // This will be executed by each of the NbThread threads
+    void ExecLoop(int num);                                 // This will be executed once by each of the NbThread threads
 
     std::deque<typename Node::PNode> mReadyQueue;           // List of pointer to nodes ready to be executed. Running nodes are removed from this list before being executed
     std::mutex mMutex_ReadyQueue;                           // Mutex to protect push in and pop from the readyQueue from multiple threads.
@@ -157,20 +211,26 @@ private:
 template <class T>
 void TreeThreads<T>::Exec(T root, int nbThread)
 {
+    ResetNbActive();
+    TreeThreadsBase::SetBarrierCount(nbThread);
     mReadyQueue.clear();
     auto rootNode = std::make_shared<Node>(root,std::shared_ptr<Node>(nullptr));		// Create our root node
     rootNode->descend(this,rootNode);													//  and resurvelu build our depandancy tree
     std::vector<std::thread> threadList;
     for (int i = 0; i < nbThread; ++i) 													// We start nbThread and each will execute ExecLoop
-        threadList.emplace_back(std::thread(&TreeThreads::ExecLoop, this));
+        threadList.emplace_back(std::thread(&TreeThreads::ExecLoop, this, i));
     for (auto& t : threadList)
         t.join();                       												// We wait that all threads are finished
+    ResetNbActive();
 }
 
 template <class T>
-void TreeThreads<T>::ExecLoop()
+void TreeThreads<T>::ExecLoop(int num)
 {
-    // Loop while there are nodes to execute in the readyQueue.
+    SetThreadId(num);
+    IncNbActive();
+    // Each thread (of nbThread) will execute this method once and
+    // loop while there are nodes to execute in the readyQueue.
     // We pop the first element in the readyQueue, execute it,
     //  and if it was the last child of its parent, push the parent node in the readyQueue
     while (true) {
@@ -178,8 +238,10 @@ void TreeThreads<T>::ExecLoop()
         {
             // This lock protect mReadyQueue  access/modifying from different threads. The lock is removed at the end of this code bloc (destructor called)
             std::lock_guard<std::mutex> lock(mMutex_ReadyQueue);
-            if (mReadyQueue.empty())
+            if (mReadyQueue.empty()) {
+                DecNbActive();
                 return;             // No more node to execute: end of this thread, it will be really ended in the 't.join()' above from the main thread
+            }
             node = mReadyQueue.front();
             mReadyQueue.pop_front();
         }
@@ -202,6 +264,43 @@ void TreeThreads<T>::ExecLoop()
  * Hence, the number of remaining nodes can't be greater than the number of threads, so we always garantee
  *   a maximal usage of the threads.
  */
+
+
+
+/*
+ * Helper class to serialize output to screen
+ * In fact not specific to stdout, it's just a conventionnal name
+ *
+ * Use:
+ *  StdOutLock::lock();
+ *  std::cout << "My Thread Number: ";
+ *  std::cout << TreeThreadsBase::Id() << " / ";
+ *  std::cout << "TreeThreadsBase::NbActive() " << std::endl;
+ *  StdOutLock::unlock();
+ *
+ *  Or (RAII) :
+ *  {
+ *      StdOutLock  aLock;                    // get lock
+ *      std::cout << "My Thread Number: ";
+ *      std::cout << TreeThreadsBase::Id() << " / ";
+ *      std::cout << "TreeThreadsBase::NbActive() " << std::endl;
+ *  }                                         // aLock destructor frees the lock
+ *
+*/
+
+class StdOutLock
+{
+public:
+    StdOutLock() { lock();}
+    ~StdOutLock() { unlock();}
+    static void lock() { mutex().lock(); }
+    static void unlock() { mutex().unlock();}
+private:
+    static std::mutex& mutex() {
+        static std::mutex theMutex;
+        return theMutex;
+    }
+};
 
 
 /*
@@ -299,13 +398,30 @@ void CalculusNode::descend(PNode me)
 }
 
 void CalculusNode::finalize() {
-    val=0;
+    static thread_local int count = 0;
+    count ++;
+     val=0;
     // Test: mTestCount will be the total number of nodes under it plus one (itself)
     // The count will be correct only if nodes are executed in the correct order (i.e. children before parent)
     mTestCount = 0;
     for (const PNode& child: mChildren)
         mTestCount += child->mTestCount;
     mTestCount++;
+
+    {
+        StdOutLock aLock;
+        std::cout << " I'm " << TreeThreadsBase::Id() << "/" << TreeThreadsBase::NbActive() <<  " My Nodes count : " << count << std::endl;
+        aLock.unlock();
+        if (count == 4 || count == 8) {
+            aLock.lock();
+            std::cout << TreeThreadsBase::Id() << " Wait All ..." << std::endl;
+            aLock.unlock();
+            TreeThreadsBase::WaitAll();
+            aLock.lock();
+            std::cout << TreeThreadsBase::Id() << " Continue ..." << std::endl;
+            aLock.unlock();
+        }
+     }
 
     start = std::chrono::system_clock::now();
     // do something stupid to consume CPU cycles ...

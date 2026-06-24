@@ -19,13 +19,16 @@ tREAL8 toMinusPiPlusPi(tREAL8 aAng, tREAL8 aOffset = 0.);
 
 class cStaticLidarImporter
 {
-    friend class cAppli_ImportStaticScan;
+    friend class cAppli_ImportTSL;
 public:
     cStaticLidarImporter();
-    void readPlyPoints(std::string aPlyFileName);
-    void readE57Points(std::string aE57FileName);
-    void readPtxPoints(std::string aPtxFileName);
-    bool read(const std::string & aName, bool OkNone=false, bool aForceStructured=false, std::string aStrInput2TSL="ijk"); //< Adapt to adequate function from postfix, return if some read suceeded
+    void readPlyPoints(std::string aPlyFileName, bool aForceGreenAsIntensity);
+    void readE57Points(std::string aE57FileName, bool aForceGreenAsIntensity);
+    void readPtxPoints(std::string aPtxFileName, bool aForceGreenAsIntensity);
+
+    /// Adapts to adequate function from postfix, return if some read suceeded
+    bool read(const std::string & aName, bool OkNone=false, bool aForceStructured=false,
+              std::string aStrInput2TSL="ijk", bool aForceGreenAsIntensity=false);
 
     void convertToThetaPhiDist();
     void convertToXYZ();
@@ -50,7 +53,6 @@ public:
     void decimXY(const cPt2di & aDecim);
     const cRotation3D<tREAL8> & RotInput2TSL() const { return mRotInput2TSL; }
     const cRotation3D<tREAL8> & RotInput2Raster() const { return mRotInput2Raster; }
-    std::pair<tREAL8,tREAL8> AvgDistAndNbValid() const; //< return average dist for valid points, and number of valid points
 
     float ColToLocalThetaApprox(float aCol) const;
     float LineToLocalPhiApprox(float aLine) const;
@@ -61,12 +63,14 @@ public:
     float LocalThetaToColPrecise(float aTheta) const;
     cPt2dr Input3DtoRasterAngle(const cPt3dr & aPt3DInput) const;
 
+    void MakeIdImage(const std::string & aNameFile) const; // create miniature to select this scan along images
+
     // line and col for each point
     std::vector<int> mVectPtsLine;
     std::vector<int> mVectPtsCol;
     // points
     std::vector<cPt3dr> mVectPtsXYZ;
-    std::vector<tREAL8> mVectPtsIntens;
+    std::vector<tREAL8> mVectPtsIntens; // 0-1
     std::vector<cPt3dr> mVectPtsTPD;
 
     // agregated angles per col/line
@@ -94,23 +98,38 @@ protected:
     cRotation3D<tREAL8> mRotInput2Raster; //< to go from z vertical to z view direction of PP, and make PPx in center
 };
 
+// record all data for each patch
+struct cLidarRasterPatch
+{
+    size_t                          mId;        //< Number in cStaticLidar.mPatchCenters
+    std::vector<cPt2di>             mLPatchesP; //< px in raster, consituted by points in a lidar scan, begin() is center
+    std::unordered_set<std::string> mHiddenOnImage; //< for Im/scanB names, if hidden via zbuffers
+    cPt3dr                          mNormalInstr; //< normal in instrument frame
+};
+
+
 class cStaticLidar: public cSensorCamPC
 {
-    friend class cAppli_ImportStaticScan;
+    friend class cAppli_ImportTSL;
     friend class cStaticLidarImporter;
 public :
 
     cStaticLidar(const std::string &aNameFile, const std::string & aStationName,
                  const std::string & aScanName, const tPose &aPose, cPerspCamIntrCalib *aCalib,
                  cRotation3D<tREAL8> aRotInput2Raster, tREAL8 aSigma);
+    ~cStaticLidar();
 
-    static cStaticLidar *FromFile(const std::string & aNameScanFile, const std::string & aNameRastersDir="");
+    static cStaticLidar *FromFile(const std::string & aNameScanFile, bool aSVP);
+    bool ReadRasters(const std::string & aDataDir);
 
     bool AreRastersReady() const { return mAreRastersReady;}
     void ToPly(const std::string & aName, bool useMask=false) const;
     void AddData(const  cAuxAr2007 & anAux) ;
     virtual void ToFile(const std::string &) const override;
-    void fillRasters(const cStaticLidarImporter & aSL_importer, const std::string &aPhProjDirOut, bool saveRasters);
+    static std::string RasterIntensityPath(const std::string & aImName); ///< base name should be Station-scan
+    void FillRasters(const cStaticLidarImporter & aSL_importer, const std::string &aPhProjDirOut, bool saveRasters);
+    static std::string NameFromId(const std::string &aIdName, bool getOriName);
+    static bool IsNameTSL(const std::string &aImageName);
 
     //inline tREAL8 lToPhiApprox(int l, double aPhiStart, double aPhiStep) const { return aPhiStart + l * aPhiStep; }
     //inline tREAL8 cToThetaApprox(int c, double aThetaStart, double aThetaStep) const { return aThetaStart + c * aThetaStep; }
@@ -120,16 +139,19 @@ public :
     void FilterDistance(tREAL8 aDistMin, tREAL8 aDistMax);
     void MaskBuffer(const cStaticLidarImporter &aSL_importer, tREAL8 aAngBuffer, const std::string &aPhProjDirOut);
     void SelectPatchCenters1(int aNbPatches);
-    void SelectPatchCenters2(const cStaticLidarImporter &aSL_importer, int aNbPatches);
+    void SelectPatchCenters2(int aNbPatches);
     void MakeVisu(const cPhotogrammetricProject & aPhProj) const;     ///< show 8bit dist image with patch centers
-    void MakePatches(std::list<std::set<cPt2di> > &aLPatches,
-                     const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin) const;
+    void MakePatches(std::list<cLidarRasterPatch> &aLPatches,
+                     const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin,
+                     const cDiffInterpolator1D &aInterp) const;
+    std::pair<tREAL8,tREAL8> AvgDistAndNbValid() const; //< return average dist for valid points, and number of valid points
 
     cPt3dr Image2InputXYZ(const cPt2di & aRasterPx) const; // in input frame
     cPt3dr Image2InputXYZ(const cPt2dr & aRasterPx) const;
 
     template <typename TYPE>
     cPt3dr Image2Camera3D(const TYPE & aRasterPx) const; // in sensor frame (Z forward)
+    cPt3dr Image2NormalInstr(const cPt2dr &aRasterPx, const cDiffInterpolator1D &aInterp) const; //< normal in sensor frame
 
     template <typename TYPE>
         cPt3dr Image2ThetaPhiDist(const TYPE & aRasterPx) const;
@@ -139,20 +161,29 @@ public :
 
     cPt2dr Ground2ImagePrecise(const cPt3dr & aGroundPt) const;
 
+    void TriangulateRegular(const std::string &aVisuPath, int aFactor=16);
+    void Triangulate(const std::string &aVisuPath, int aFactor=16);
+    cTriangulation3D<tREAL8> * getTriangulation() const;
+
     static std::string  PrefixName() ;
     std::string  V_PrefixName() const override;
     static std::string Pat2Sup(const std::string & aPatSelect);
 
     cDataIm2D<tREAL4> &getRasterDistance() const;
     bool IsValidPoint(const cPt2dr &aRasterPx) const;
-    tREAL8 Sigma() const { return mSigma; }
+    tREAL8 Sigma() const;
+    const std::vector<cPt2di> & PatchCenters() const;
 
+    void Show() const override;
+    static std::string GetIdSuffix();
+    static std::string GetIdSuffixRegex();
 
+    virtual bool DoAddCalibToUk() const override;
 private :
-    template <typename TYPE> void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
-                    std::function<TYPE (int)> func, bool saveRaster); // do not keep image in memory
+    template <typename TYPE> static void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
+                    std::function<TYPE (int)> func); // do not keep image in memory
 
-    template <typename TYPE> void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
+    template <typename TYPE> static void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
                     std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE>> & aIm, bool saveRaster); // keep image in memory
 
     std::string mStationName;
@@ -169,10 +200,10 @@ private :
     std::unique_ptr<cIm2D<tREAL4>> mRasterY;
     std::string mRasterZPath;
     std::unique_ptr<cIm2D<tREAL4>> mRasterZ;
-    std::string mRasterThetaPath;
-    std::string mRasterPhiPath;
-    std::string mRasterThetaErrPath;
-    std::string mRasterPhiErrPath;
+    //std::string mRasterThetaPath;
+    //std::string mRasterPhiPath;
+    //std::string mRasterThetaErrPath;
+    //std::string mRasterPhiErrPath;
 
     bool mAreRastersReady;
 
@@ -184,6 +215,8 @@ private :
     std::unique_ptr<cIm2D<tREAL4>> mRasterScore; // updated on each filter, used to find patch centers. High=bad
 
     cRotation3D<tREAL8> mRotInput2Raster; //< to go from z vertical to z view direction of PP, and make PPx in center
+    // triangulation for patches selection
+    cTriangulation3D<tREAL8> * mTriangulation; ///< triangulation of the raster, for zbuffer
 };
 
 template <typename TYPE>
@@ -202,8 +235,15 @@ template <typename TYPE>
     tREAL8 aDist = Norm2(aPtCam3D);
     cPt2dr aPx = InternalCalib()->Value(aPtCam3D);
     cPt2dr aDir = (aPx - InternalCalib()->PP()) / InternalCalib()->F();
+    if (aDir.x()<-M_PI)
+        aDir.x()+=2*M_PI;
+    if (aDir.x()>M_PI)
+        aDir.x()-=2*M_PI;
+    //std::cout<<"Image2ThetaPhiDist "<<aRasterPx<<" "<<aPtCam3D
+    //          <<" "<<aPx<<" "<<InternalCalib()->PP()<<" "<<aDir<<"\n";
     return {aDir.x(), aDir.y(), aDist};
 }
+
 void AddData(const  cAuxAr2007 & anAux,cStaticLidar & aSL);
 
 }

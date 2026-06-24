@@ -176,8 +176,8 @@ cCollecSpecArg2007 & cAppliSimulSphere::ArgOpt(cCollecSpecArg2007 & anArgOpt)
              <<   mPhProj.DPOrient().ArgDirInOpt()
              <<   AOpt2007(mBlurSz,"BlurSz","Size of blurring at frontier",{eTA2007::HDV})
              <<   AOpt2007(mNbSphere,"NbSph","Number of spheres",{eTA2007::HDV})
-             <<   AOpt2007(mTypeProj,"TProj","Type of projection",{{eTA2007::HDV},{AC_ListVal<eProjPC>()}})
-             <<   AOpt2007(mFocPDiag,"FDiag","Focal as a prop of diag",{{eTA2007::HDV},{AC_ListVal<eProjPC>()}})
+             <<   AOpt2007(mTypeProj,"TProj","Type of projection",{eTA2007::HDV})
+             <<   AOpt2007(mFocPDiag,"FDiag","Focal as a prop of diag",{eTA2007::HDV})
    ;
 }
 

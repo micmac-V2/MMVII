@@ -12,6 +12,8 @@
 namespace MMVII
 {
 
+//#define  TOTO(A,B) {StdOut() << A << B;}
+//#define TOTO(A) {TOTO(A,"B")}
 
 /* ************************************************************************ */
 /*                                                                          */
@@ -100,6 +102,11 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     mSigmaRotRefCam   (-1.0),
     mPatternRef       (".*"),
     mDirRefCam        (nullptr),
+
+    mUseGauje         (false),
+    mKPoseMainGauje   (-1),
+    mKPoseSecondGauje (-1),
+    mKCoordSecondGauje (-1),
     mSigmaViscAngles  (-1.0),
     mSigmaViscCenter  (-1.0),
     mNbMaxIter        (-1),
@@ -107,9 +114,11 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     mVerbose          (true),
     mShow_UC_UK       (false),
     mRUCSUR           (nullptr),
-    mVecLineAdjust    ()
+    mVecLineAdjust    (),
+    mNbCamPC          (0)
 {
 }
+
 
 cMMVII_BundleAdj::~cMMVII_BundleAdj()
 {
@@ -177,6 +186,41 @@ void cMMVII_BundleAdj::ShowUKNames(const std::vector<std::string> & aParam, cons
      // StdOut() << "=================== ShowUKNamesShowUKNames "<< aParam << " ===============\n";
 }
 
+cPt3dr cMMVII_BundleAdj::GetGCP_UC_UK(const std::string & aGCPName) const
+{
+    cPt3dr aSigma = cPt3dr::Dummy();
+    cDenseVect<tREAL8>   aVUk = mSetIntervUK.GetVUnKnowns() ;
+    for (const auto & aBBNV : mVBBNamedV)
+    {
+
+        if (aBBNV.mIdObj == aGCPName)
+        for (size_t aKV=0 ; aKV<aBBNV.mNamesVar.size() ; aKV++)
+        {
+                // StdOut() << "    ************ " <<  aBBNV.mType << " : " << aBBNV.mIdObj  << "\n";
+            if (aBBNV.mActivVar.at(aKV))
+            {
+                int aIndGlob = aBBNV.mIndVar0 + aKV;
+                //StdOut() << "      N=" << aBBNV.mNamesVar.at(aKV)  << " V=" << aVUk(aBBNV.mIndVar0 + aKV) << "\n";
+                if (mRUCSUR)
+                {
+                    // StdOut()  << " UC=" <<aUC;
+                    if (!mR8_Sys->VarIsFrozen(aIndGlob))
+                    {
+                        tREAL8 aUC = std::sqrt(mRUCSUR->UK_VarCovarEstimate(aIndGlob,aIndGlob));
+                        if (aBBNV.mNamesVar.at(aKV)=="x")
+                            aSigma.x() = aUC;
+                        if (aBBNV.mNamesVar.at(aKV)=="y")
+                            aSigma.y() = aUC;
+                        if (aBBNV.mNamesVar.at(aKV)=="z")
+                            aSigma.z() = aUC;
+                    }
+                }
+            }
+        }
+    }
+    return aSigma;
+}
+
 void cMMVII_BundleAdj::Set_UC_UK(const std::vector<std::string> & aParam)
 {
      mShow_UC_UK    = true;
@@ -213,6 +257,16 @@ void cMMVII_BundleAdj::InitIteration()
     mSys =  mR8_Sys;
     CompileSharedIntrinsicParams(false);
 
+    // check if we have to add GCP UC_UK to export
+    if (getGCP().getDoComputeGCP_UC_UK())
+    {
+        mShow_UC_UK = true;
+        if (mParam_UC_UK.empty())
+            mParam_UC_UK.push_back("GCP");
+        else
+            mParam_UC_UK.at(0)="("+mParam_UC_UK.at(0)+"|GCP)";
+    }
+
     if (mShow_UC_UK)
     {
        size_t aIndV0 = 0;
@@ -223,6 +277,7 @@ void cMMVII_BundleAdj::InitIteration()
        std::string aPatVar =  GetDef(mParam_UC_UK,2,std::string(".*"));  // NameVar selection, def=all
        mCompute_Uncert = cStrIO<bool>::FromStr(GetDef(mParam_UC_UK,3,std::string("1")));  // Compute Uncert, def=true
 
+       StdOut() <<"All unknowns:\n";
        // Parse all "object"
        for (size_t aKObj=0 ; aKObj<  mSetIntervUK.NumberObject() ; aKObj++)
        {
@@ -234,6 +289,10 @@ void cMMVII_BundleAdj::InitIteration()
            aBBNV.mIdObj = aGIP.IdObj();
            aBBNV.mIndVar0 = aIndV0;
            aBBNV.mNamesVar =  aGIP.VNames();
+           StdOut() <<"    "<<aGIP.NameType()<<" "<<aGIP.IdObj()<<": ";
+           for (auto & aS:aGIP.VNames())
+               StdOut() << aS << " ";
+           StdOut() << "\n";
            
            if (MatchRegex(aBBNV.mType,aPatType) && MatchRegex(aBBNV.mIdObj,aPatName) ) // If type and ident match
            {
@@ -265,9 +324,12 @@ void cMMVII_BundleAdj::Iterate(int aNbMaxIter, tREAL8 mLVM, bool aShow_Cond)
     }
 }
 
+tREAL8   cMMVII_BundleAdj::CurLVMParam() const {return mCurLVMParam;}
+
 
 void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCond)
 {
+    mCurLVMParam = aLVM;
     MMVII_INTERNAL_ASSERT_tiny (mNbMaxIter>0,"BA: mNbMaxIter is not initialized");
 
     bool isLastIter =  (mIter==(mNbMaxIter-1)) ;
@@ -303,6 +365,19 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
                mR8_Sys->SetFrozenFromPat(*aPtrCal,aVPat.at(1),false,aWeight);
             }
         }
+    }
+
+    if (mUseGauje)
+    {
+        cSensorCamPC * aMainCamGauje   = mVSCPC.at(mKPoseMainGauje);
+        cSensorCamPC * aSecondCamGauje = mVSCPC.at(mKPoseSecondGauje);
+
+        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauje,aMainCamGauje->Center());
+        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauje,aMainCamGauje->Omega());
+
+        tREAL8 & aCoord = aSecondCamGauje->Center()[mKCoordSecondGauje];
+        mR8_Sys->SetFrozenVarCurVal(*aSecondCamGauje,aCoord);
+
     }
 
     // if necessary, fix frozen centers of external calibration
@@ -350,7 +425,7 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     if (mPatFrozenTSL !="")
     {
         // Freeze full pose (TODO: be able to to fix only verticalization)
-        tNameSelector aSel = AllocRegex(cStaticLidar::Pat2Sup(mPatFrozenTSL));
+        tNameSelector aSel = AllocRegex(mPatFrozenTSL);
         int nbMatches = 0;
         for (auto & [aScanName, aLidar] : mMapTSL)
         {
@@ -410,17 +485,6 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
         }
     }
 
-
-    if (mTopo) // TOPO
-    {
-        mTopo->AddTopoEquations(*mR8_Sys);
-    #ifdef VERBOSE_TOPO
-        mTopo->print();
-    #endif
-        if (mVerbose)
-            mTopo->printObs(false);
-    }
-
     for (const auto & aLidarPh : mVBA_Lidar )
         aLidarPh->AddObs();
 
@@ -432,6 +496,16 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     //  Add observation for block of instrument
     IterOneBlockInstr();
 
+    // add topo last to compute sigma0 will all constraints
+    if (mTopo) // TOPO
+    {
+        mTopo->AddTopoEquations(*mR8_Sys);
+#ifdef VERBOSE_TOPO
+        mTopo->print();
+#endif
+        if (mVerbose)
+            mTopo->printObs(false);
+    }
 
     if (mCompute_Uncert && isLastIter)
     {
@@ -486,7 +560,9 @@ void cMMVII_BundleAdj::AddSensor(cSensorImage* aSI)
 
 void cMMVII_BundleAdj::AddCamPC(cSensorCamPC * aCamPC)
 {
-    AddCalib(aCamPC->InternalCalib());
+    mNbCamPC++;
+    if (aCamPC->DoAddCalibToUk())
+        AddCalib(aCamPC->InternalCalib());
 }
 
 void cMMVII_BundleAdj::AddReferencePoses(const std::vector<std::string> & aVec)
@@ -543,7 +619,7 @@ cPhotogrammetricProject  & cMMVII_BundleAdj::PhProj() {return *mPhProj;}
 
 
 cSetInterUK_MultipeObj<tREAL8> &   cMMVII_BundleAdj::SetIntervUK() {return mSetIntervUK;}
-
+int cMMVII_BundleAdj::NbCamPC() const {return mNbCamPC;}
 
     /* ---------------------------------------- */
     /*            Frozen/Shared                 */
@@ -678,6 +754,92 @@ void cMMVII_BundleAdj::CompileSharedIntrinsicParams(bool ForAvg)
 */
     }
 }
+
+int cMMVII_BundleAdj::IndexOfPCPose(const std::string &aNameIm,bool SVP ) const
+{
+    for (size_t aKP=0 ; aKP<mVSCPC.size() ; aKP++)
+    {
+        if (mVSCPC.at(aKP) && (mVSCPC.at(aKP)->NameImage()==aNameIm))
+            return aKP;
+    }
+    MMVII_INTERNAL_ASSERT_always(SVP,"IndexOfPCPose, cannot get name :"+aNameIm);
+    return -1;
+}
+
+void cMMVII_BundleAdj::SetGaujeRelPause(const std::vector<std::string> & aVNames)
+{
+
+    cWhichMax<cPt3di,tREAL8> aWMaxInd;
+
+    bool aN1Fix =    aVNames.size()>=1;
+    bool aN2Fix =    aVNames.size()>=2;
+    bool aCoordFix = aVNames.size()>=3;
+
+    std::string aN1 = aN1Fix ? aVNames.at(0) : "";
+    std::string aN2 = aN2Fix ? aVNames.at(1) : "";
+
+    std::vector<std::string> aVCoord{"x","y","z"};
+    int aKCoord = -1;
+    if (aCoordFix)
+    {
+        auto anIter = std::find(aVCoord.begin(),aVCoord.end(),aVNames.at(2));
+        MMVII_INTERNAL_ASSERT_always(anIter!=aVCoord.end(),"SetGaujeRelPause bad coord");
+        aKCoord = anIter - aVCoord.begin();
+    }
+
+    int aKCoordBegin = aCoordFix      ?  aKCoord    : 0 ;
+    int aKCoordEnd   = aCoordFix      ? (aKCoord+1) : 3 ;
+
+
+
+    for (size_t aKP1=0 ; aKP1<mVSCPC.size() ; aKP1++)
+    {
+        cSensorCamPC * aCam1 = mVSCPC.at(aKP1);
+        if (aCam1 && ((!aN1Fix) || (aCam1->NameImage()==aN1))  )
+        {
+           cPt3dr aC1 = aCam1->Center();
+           int aBeginKP2 = aN1Fix ? 0 : (aKP1+1);
+           for (size_t aKP2=aBeginKP2 ; aKP2<mVSCPC.size() ; aKP2++)
+           {
+                cSensorCamPC * aCam2 = mVSCPC.at(aKP2);
+                if (aCam2 && ((!aN2Fix) || (aCam2->NameImage()==aN2)) )
+                {
+                    cPt3dr aV12 = aCam2->Center() - aC1;
+                    for (int aKCoord=aKCoordBegin; aKCoord<aKCoordEnd ; aKCoord++)
+                    {
+                        aWMaxInd.Add(cPt3di(aKP1,aKP2,aKCoord),std::abs(aV12[aKCoord]));
+                    }
+                }
+           }
+        }
+    }
+
+    MMVII_INTERNAL_ASSERT_always(aWMaxInd.IsInit(),"Cannot compute relative gauje");
+
+    cPt3di aIndMax = aWMaxInd.IndexExtre();
+
+    if (1)
+    {
+        StdOut() << "GAUJE SET "
+                 << " Im1=" << mVSCPC.at(aIndMax.x())->NameImage()
+                 << " Im2=" << mVSCPC.at(aIndMax.y())->NameImage()
+                 << " Coord=" << aVCoord.at(aIndMax.z())
+                 << " Dist=" << aWMaxInd.ValExtre()
+                 << "\n";
+
+
+    }
+    mUseGauje = true;
+    mKPoseMainGauje = aIndMax.x();
+    mKPoseSecondGauje = aIndMax.y();
+    mKCoordSecondGauje = aIndMax.z();
+
+
+//    aMaxInd
+}
+
+
+//void SetGaujeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
 
 
 bool cMMVII_BundleAdj::CheckGCPConstraints() const
@@ -841,22 +1003,17 @@ void cMMVII_BundleAdj::Add1AdjLidarPhoto(const std::vector<std::string> &aParam)
     mVBA_Lidar.push_back(new cBA_LidarPhotograRaster(mPhProj, *this,aParam));
 }
 
-cStaticLidar * cMMVII_BundleAdj::AddStaticLidar(const std::string &aScanName)
+bool cMMVII_BundleAdj::AddStaticLidar(cStaticLidar* aStaticLidar)
 {
     AssertPhpAndPhaseAdd();
-    if (mMapTSL.count(aScanName)==0)
+
+    if (mMapTSL.count(aStaticLidar->NameImage())==0)
     {
-        cStaticLidar * aLidarData = mPhProj->ReadStaticLidar(aScanName, true, true);
-        MMVII_INTERNAL_ASSERT_User(aLidarData,
-                                   eTyUEr::eUnClassedError,"Error opening static scans " + aScanName);
-
-        mMapTSL[aScanName] = aLidarData;
-
-        MMVII_INTERNAL_ASSERT_tiny (!aLidarData->UkIsInit(),"Multiple add of TSL : " + aLidarData->NameImage());
-        mSetIntervUK.AddOneObj(aLidarData);
-        aLidarData->SetAndGetEqColinearity(true,10,true);  // WithDer, SzBuf, ReUse
+        aStaticLidar->ReadRasters(mPhProj->DirStaticLidarRasters());
+        MMVII_INTERNAL_ASSERT_tiny (mMapTSL.count(aStaticLidar->NameImage())==0,"Multiple add of TSL : " + aStaticLidar->NameImage());
+        mMapTSL[aStaticLidar->NameImage()] = aStaticLidar;
     }
-    return mMapTSL.at(aScanName);
+    return true;
 }
 
 const std::unordered_map<std::string, cStaticLidar *> &cMMVII_BundleAdj::MapTSL() const {return mMapTSL;}
@@ -870,7 +1027,7 @@ void cMMVII_BundleAdj::Add1AdjLidarLidar(const std::vector<std::string> &aParam)
 void cMMVII_BundleAdj::SaveTSL()
 {
     for (auto & [aScanName, aLidar] : mMapTSL)
-        aLidar->ToFile(mPhProj->DPOrient().FullDirOut() + aScanName);
+        aLidar->ToFile(mPhProj->DPOrient().FullDirOut() + aLidar->NameOriStd());
 }
 
 /* ---------------------------------------- */
@@ -888,8 +1045,8 @@ void cMMVII_BundleAdj::SaveTopo()
 
 void cMMVII_BundleAdj::AddTopo() // TOPO
 {
-    mTopo = new cBA_Topo(mPhProj);
-    mTopo->AddPointsFromDataToGCP(mGCP);
+    mTopo = new cBA_Topo(mPhProj, &mGCP);
+    mTopo->AddPointsFromDataToGCP( mPhProj);
 }
 
 }; // MMVII

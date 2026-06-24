@@ -152,6 +152,8 @@ const cIrbComp_Block & cIrbComp_TimeS::CompBlock() const {return *mCompBlock;}
 
 const cIrbCal_Block & cIrbComp_TimeS::CalBlock() const{return  mCompBlock->CalBlock();}
 
+const std::string & cIrbComp_TimeS::Ident() const {return mIdent;}
+
 void cIrbComp_TimeS::SetClinoValues(const cOneMesureClino& aMeasure)
 {
     mSetClino.SetClinoValues(aMeasure);
@@ -220,9 +222,45 @@ tREAL8 cIrbComp_TimeS::ScoreDirClino(const cPt3dr& aDirClino,size_t aKClino) con
        }
     }
 
-    return std::abs(Scal(aDirLoc,aVertical) - std::sin(mSetClino.KthMeasure(aKClino).Angle()) );
+    return ScoreDirClinoAndVert(aDirLoc,aVertical,aKClino);
+//    return std::abs(Scal(aDirLoc,aVertical) - std::sin(mSetClino.KthMeasure(aKClino).Angle()) );
 }
 
+tREAL8 cIrbComp_TimeS::ScoreDirClinoAndVert(const cPt3dr& aDirClino,const cPt3dr& aVertical,size_t aKClino) const
+{
+   tREAL8 anA = mSetClino.KthMeasure(aKClino).Angle();
+   const cVectorUK &  aVCor = CalBlock().SetClinos().KthClino(aKClino).PolCorr();
+
+   tREAL8 anACor = 0.0;
+   tREAL8 aPowA  = 1.0;
+   for (const auto & aCoeff :  aVCor.Vect())
+   {
+       anACor += aCoeff * aPowA;
+       aPowA *= anA;
+   }
+
+   return std::abs(Scal(aDirClino,aVertical) - std::sin(anACor) );
+}
+
+
+tREAL8 cIrbComp_TimeS::ScoreVerticalLoc1Clino(const cPt3dr& aVertical,size_t aKClino) const
+{
+   cPt3dr aDirClino =    CalBlock().SetClinos().KthClino(aKClino).CurPNorm().GetPNorm();
+   return ScoreDirClinoAndVert(aDirClino,aVertical,aKClino);
+}
+
+
+tREAL8 cIrbComp_TimeS::ScoreVerticalLoc(const cPt3dr& aDirV,bool SigmaW) const
+{
+    cWeightAv<tREAL8,tREAL8> aWAvg;
+    for (size_t aKC=0 ; aKC<mSetClino.NbMeasure() ; aKC++)
+    {
+        tREAL8 aWeight = 1.0;
+        tREAL8 aSc1 = ScoreVerticalLoc1Clino(aDirV,aKC);
+        aWAvg.Add(aWeight,aSc1);
+    }
+    return aWAvg.Average();
+}
 
 
 
@@ -362,25 +400,31 @@ void cIrbComp_Block::AddImagesPoses(const std::vector<std::string> & aVecName,bo
 }
 
 
-void cIrbComp_Block::SetClinoValues(const cSetMeasureClino& aSetM,bool OkNewTimeS)
+void cIrbComp_Block::SetClinoValues(const cSetMeasureClino& aSetM,eModeAddDataTimeS aMode)
 {
     MMVII_INTERNAL_ASSERT_tiny(aSetM.NamesClino() == mCalBlock->SetClinos().VNames(),"Names differs in SetClinoValues");
    for (const auto & aMeasure : aSetM.SetMeasures())
    {
-       // we test before, because in case does not exist, it will
-       if (!OkNewTimeS)
+       bool Exist = MapBoolFind(mDataTS,aMeasure.Ident());
+       // we test before, because in case does not exist, it will       
+       MMVII_INTERNAL_ASSERT_tiny
+       (
+            (!Exist)|| aMode!=eModeAddDataTimeS::eMustExist,
+            "SetClinoValues new clino ident refuted for "+aMeasure.Ident()
+       );
+
+       if (Exist || (aMode!=eModeAddDataTimeS::eSkipIfNew) )
        {
-           MMVII_INTERNAL_ASSERT_tiny(MapBoolFind(mDataTS,aMeasure.Ident()),"SetClinoValues new clino ident refuted for "+aMeasure.Ident());
+          cIrbComp_TimeS &     aTS =  DataOfTimeS(aMeasure.Ident());
+          aTS.SetClinoValues(aMeasure);
        }
-       cIrbComp_TimeS &     aTS =  DataOfTimeS(aMeasure.Ident());
-       aTS.SetClinoValues(aMeasure);
    }
 }
 
-void cIrbComp_Block::SetClinoValues(bool OkNewTimeS)
+void cIrbComp_Block::SetClinoValues(eModeAddDataTimeS aMode)
 {
     cSetMeasureClino aSetMeasures = mPhProj->ReadMeasureClino();
-    SetClinoValues(aSetMeasures,OkNewTimeS);
+    SetClinoValues(aSetMeasures,aMode);
 }
 
 
@@ -698,6 +742,7 @@ const std::string &      cIrbCal_Block::NameBloc() const {return mNameBloc;}
 cIrbCal_CamSet &        cIrbCal_Block::SetCams() {return mSetCams;}
 const cIrbCal_CamSet &  cIrbCal_Block::SetCams() const {return mSetCams;}
 cIrbCal_ClinoSet &      cIrbCal_Block::SetClinos() {return mSetClinos;}
+const cIrbCal_ClinoSet & cIrbCal_Block::SetClinos() const {return mSetClinos;}
 
 
 const  std::map<tNamePair,cIrb_SigmaInstr> &  cIrbCal_Block::SigmaPair() const {return mSigmaPair; }

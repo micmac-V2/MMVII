@@ -80,6 +80,7 @@ class cDefProjPerspC : public cDataBoundedSet<tREAL8,2>
 
       virtual tREAL8 Insideness(const tPt &) const override;
 
+      virtual tPt DiffPx(const tPt &aPtA, const tPt &aPtB, tREAL8 aF) const;
 
           /// Radial symetry, true for physcicall based model, false for ex with equirect
           virtual bool  HasRadialSym() const ;
@@ -132,6 +133,9 @@ class cDataPerspCamIntrCalib
    public :
       void AddData(const cAuxAr2007 & anAux);
 
+      void ResizeVTmpCopyParams();
+
+
       cDataPerspCamIntrCalib();
       cDataPerspCamIntrCalib
       (
@@ -155,6 +159,10 @@ class cDataPerspCamIntrCalib
       cMapPProj2Im& MapPProj2Im() { return mMapPProj2Im;}
       const std::string & Name() const; ///< Accessor
 
+       const std::vector<double>& VTmpCopyParams() const;
+       void SetVTmpCopyParams(const std::vector<double>&) ;
+
+
    protected :
       std::string                    mName;
       bool                           mIsFraserMode;  ///< Separation between standard Fraser  Mode and special SIA case
@@ -163,7 +171,7 @@ class cDataPerspCamIntrCalib
       std::vector<cDescOneFuncDist>  mDir_VDesc;
       mutable std::vector<double>    mVTmpCopyParams;     ///< tempo copy of param, used 4 serialization
       cMapPProj2Im                   mMapPProj2Im;                ///< Calib w/o dist
-      cDataPixelDomain               mDataPixDomain;              ///< sz, domaine of validity in pixel
+      cDataPixelDomain            mDataPixDomain;              ///< sz, domaine of validity in pixel
       cPt3di                         mInv_Degr;       ///< degree of inverse approx by least square
       int                            mSzBuf;                         ///< sz of buffers in computation
       std::vector<std::string>       mVectInfo;  ///< vector of potential commentarys
@@ -207,6 +215,8 @@ class cPerspCamIntrCalib : public cObj2DelAtEnd,
 
     // ================== construction of object ===============
             static cPerspCamIntrCalib * Alloc(const cDataPerspCamIntrCalib &);
+
+             cPerspCamIntrCalib * Duplicate() const;
 
         /**  Generate random calib, with assurance that distorsion will be inverible,
            the KDeg (in 0,1,2,3)  pick one of the pre-defined degree */
@@ -277,7 +287,9 @@ class cPerspCamIntrCalib : public cObj2DelAtEnd,
         /// Interpolate on the curve of un-distorted line
             cPt2dr InterpolOnUDLine(const tSeg2dr&,tREAL8 WeightP1) const;
 
-
+        /// in case of a equirect projection, image coordinates may have to be fixed with modulo 2pi
+            void FixLoop(tVecOut &aVPtInOut) const;
+            void FixLoop(tPtOut &aVPtInOut) const;
     // ==================   Accessors & Modifiers ===================
             const double & F() const;   ///< access to focal
             const cPt2dr & PP() const;  ///< acess to principal point
@@ -726,6 +738,10 @@ class cSensorCamPC : public cSensorImage
          const cSensorCamPC * GetSensorCamPC() const override;
          cSensorCamPC * GetSensorCamPC()  override;
 
+         void Show() const override;
+
+         virtual bool DoAddCalibToUk() const;
+
      private :
         void Bench();
         cSensorCamPC(const cSensorCamPC&) = delete;
@@ -754,6 +770,8 @@ class cCamSimul : public cMemCheck
       ~cCamSimul();
       static void BenchPoseRel2Cam(cTimerSegm * aTS,bool PerfInter,bool SubVert,bool Planar);
       static void BenchHierchBA(cTimerSegm * aTS,bool PerfInter,bool isSubVert);
+      static void BenchHierchBA_InitOnly(cTimerSegm * aTS,bool isSubVert);
+      static void BenchHierchBA_BAOnly(cTimerSegm * aTS,bool isSubVert);
       void TestCam(cSensorCamPC * aCam) const;
 
       const std::vector<cSensorCamPC *> & ListCam() const;

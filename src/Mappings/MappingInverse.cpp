@@ -58,8 +58,10 @@ template <class Type,const int Dim>
     typename cDataInvertibleMapping<Type,Dim>::tPt
           cDataInvertibleMapping<Type,Dim>::Inverse(const tPt & aPImage) const
 {
-   this->BufIn1Val()[0] = aPImage;
-   const tVecPt & aRes = Inverses(this->BufIn1Val());
+   // this->BufIn1Val()[0] = aPImage;
+   // const tVecPt & aRes = Inverses(this->BufIn1Val());
+
+   const tVecPt & aRes = Inverses(tVecPt{aPImage});
    return aRes[0];
 }
 
@@ -222,7 +224,9 @@ template <class Type,const int Dim> class cInvertDIMByIter : public cMemCheck
       typedef typename  tDIM::tPt        tPt;
       typedef typename  tDIM::tVecPt     tVecPt;
       // typedef typename  tDIM::tResVecJac tResVecJac;
-      typedef typename  tDIM::tCsteResVecJac tCsteResVecJac;
+      typedef typename  tDIM::tCsteResPtrVecJac tCsteResVecJac;
+      typedef typename tDIM::tResVecJac     tResVecJac;
+
 
 
       cInvertDIMByIter(const tDIM & aDIM);
@@ -251,7 +255,8 @@ template <class Type,const int Dim>
 {
 
    // Push in aVSampleInv  the indermediar values (interpol inverse) between mInvDic0 and mInvDic1
-   tVecPt & aVSampleInv =  mDIM.BufInCleared();
+   //tVecPt & aVSampleInv =  mDIM.BufInCleared();
+   tVecPt  aVSampleInv;
    int aNbInterm = 3;
    for (tU_INT4 aKInd = 0 ; aKInd<mVSubDicot.size() ; aKInd++)
    {
@@ -321,21 +326,22 @@ template <class Type,const int Dim>
    void cInvertDIMByIter<Type,Dim>::OneIterInversion()
 {
    // Put in aVCurInv the curent estimation of inverses
-   tVecPt & aVCurInv =  mDIM.BufInCleared();
+   //tVecPt & aVCurInv =  mDIM.BufInCleared();
+   tVecPt  aVCurInv;
    for (tU_INT4 aKInd=0 ; aKInd<mVSubSet.size();  aKInd++)
    {
       aVCurInv.push_back(InvOfKSubS(aKInd).mBestInv);
    }
 
    //  Compute vals ans jacobian at current inverse
-   tCsteResVecJac  aVJ = mDIM.Jacobian(aVCurInv);
+   tResVecJac  aVJ = mDIM.Jacobian(aVCurInv);
 
 
    tU_INT4 aNewInd=0;
    for (tU_INT4 aKInd=0 ; aKInd<mVSubSet.size();  aKInd++)
    {
        tSPIDIM & aSInv = InvOfKSubS(aKInd);
-       aSInv.mBestVal =  aVJ.first->at(aKInd);
+       aSInv.mBestVal =  aVJ.first.at(aKInd);
        aSInv.mBestErr = aSInv.Score(aSInv.mBestVal);
        aSInv.mThreshNextEr =  aSInv.mBestErr / mRatioGainDicot ;
        if (Converged(aSInv))
@@ -346,7 +352,7 @@ template <class Type,const int Dim>
        {
             tPt  aEr = aSInv.mPTarget-aSInv.mBestVal;
             // Use Jacobian to compute the correction giving the error
-            tPt aCor =  SolveCol(aVJ.second->at(aKInd),aEr);
+            tPt aCor =  SolveCol(aVJ.second.at(aKInd),aEr);
 
             // aCor =  SolveLine(aEr,aVJ.second->at(aKInd)); it was to check that it does not work
 
@@ -567,8 +573,8 @@ template <class Type,const int Dim>
 }
 
 template <class Type,const int Dim>
-      typename cDataIIMFromMap<Type,Dim>::tCsteResVecJac
-            cDataIIMFromMap<Type,Dim>::Jacobian(tResVecJac aResJac,const tVecPt & aVecIn) const
+      typename cDataIIMFromMap<Type,Dim>::tCsteResPtrVecJac
+            cDataIIMFromMap<Type,Dim>::Jacobian(tResPtrVecJac aResJac,const tVecPt & aVecIn) const
 {
     return mMap->Jacobian(aResJac,aVecIn);
 }
@@ -661,15 +667,16 @@ template <class Type,const int Dim>
            aVPt.push_back(anExt.mCurP + anExt.mDir*aStepFront);
         }
         // compute their coordinates and jacobians
-        tCsteResVecJac  aVecPJ = mMap.Jacobian(aVPt);
+        tResVecJac  aVecPJ = mMap.Jacobian(aVPt);
+        tCsteResVecJac aVecPtrPJ(&aVecPJ.first,&aVecPJ.second);
 
         // small check as PtIn as been added recently in ValidateK
-        MMVII_INTERNAL_ASSERT_tiny(aVecPJ.first->size()== aVPt.size(),"Size pb in OneStepFront");
+        MMVII_INTERNAL_ASSERT_tiny(aVecPJ.first.size()== aVPt.size(),"Size pb in OneStepFront");
         // select those who are valid
         std::vector<int> aNextVSel; // prepare for next iter
         for (int aKSel=0 ; aKSel<int(aVSel.size()) ; aKSel++)
         {
-            if (ValidateK(aVPt.at(aKSel),aVecPJ,aKSel))  // inside and jacobian still ok
+            if (ValidateK(aVPt.at(aKSel),aVecPtrPJ,aKSel))  // inside and jacobian still ok
             {
                 int aIndGlob = aVSel[aKSel];   // Ind in full point of frontier
                 tExtent & anExt = mVExt[aIndGlob];
@@ -789,19 +796,20 @@ template <class Type,const int Dim> void  cComputeMapInverse<Type,Dim>::FilterAn
 
     // Compute values and jacobian for these pixel using buffered mode
     // typename tMap::tCsteResVecJac  aVecPJ = mMap.Jacobian(aNextGenReal);
-    tCsteResVecJac  aVecPJ = mMap.Jacobian(aNextGenReal);
+    tResVecJac  aVecPJ = mMap.Jacobian(aNextGenReal);
+    tCsteResVecJac aVecPtrPJ(&aVecPJ.first,&aVecPJ.second);
     std::vector<tPtI>   aNexGenFiltered;  // Will contain geometrically filtered
     
     // small check as PtIn as been added recently in ValidateK
-    MMVII_INTERNAL_ASSERT_tiny(aVecPJ.first->size()== aNextGenReal.size(),"Size pb in OneStepFront");
+    MMVII_INTERNAL_ASSERT_tiny(aVecPJ.first.size()== aNextGenReal.size(),"Size pb in OneStepFront");
     for (size_t aKp=0 ; aKp<mNextGen.size() ; aKp++)
     {
-        if (ValidateK(aNextGenReal.at(aKp),aVecPJ,aKp))
+        if (ValidateK(aNextGenReal.at(aKp),aVecPtrPJ,aKp))
         {
              aNexGenFiltered.push_back(mNextGen[aKp]);  // select it for next
              //   AddObsMapDirect(aNextGenReal[aKp],(*aVecPJ.first)[aKp],false);
              mIn_VPtsInt.push_back(aNextGenReal[aKp]);
-             mOut_VPtsInt.push_back((*aVecPJ.first)[aKp]);
+             mOut_VPtsInt.push_back((aVecPJ.first)[aKp]);
         }
         else
         {

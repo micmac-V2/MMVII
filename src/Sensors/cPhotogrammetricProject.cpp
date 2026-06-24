@@ -111,6 +111,16 @@ void cDirsPhProj::Finish()
 
     mFullDirIn  = mAppli.DirProject() + mDirLocOfMode + mDirIn + StringDirSeparator();
 
+    //  MPD, new check, seems correct, hope it will not create new bug ...
+    if (mAppli.IsInSpec(&mDirIn) && IsInit(&mDirIn))
+    {
+        if (! IsDirectory(mFullDirIn) )
+        {
+            MMVII_UserError(eTyUEr::eDirInDoesntExist,"for dir in : "+mDirIn + " Type=" + E2Str(mMode));
+//            StdOut()  << " mFullDirIn "  << mFullDirIn  << " " << IsDirectory(mFullDirIn) << "\n";
+        }
+    }
+
     // To see if this rule applies always, 4 now dont see inconvenient
     if (mAppli.IsInSpec(&mDirOut) &&  (! mAppli.IsInit(&mDirOut)))
     {
@@ -691,18 +701,22 @@ cSensorImage* cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,bo
      return aSI;
 }
 
-void cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,cSensorImage* & aSI,cSensorCamPC * & aSPC,bool ToDeleteAutom,bool SVP) const
+void cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,cSensorImage* & aSI,cSensorCamPC * & aSPC,bool ToDeleteAutom,bool SVP,bool aReadData) const
 {
      aSI = nullptr;
      aSPC =nullptr;
 
      // Try a stenope camera which has interesting properties
      aSPC = ReadCamPC(aNameIm,ToDeleteAutom,true);
+     // Try TSL
+     if (aSPC==nullptr) aSPC = ReadStaticLidar(aNameIm,ToDeleteAutom,true,aReadData);
+
      if (aSPC !=nullptr)
      {
         aSI = aSPC;
         return;
      }
+
 
      // Else try an external sensor
      if (aSI==nullptr) aSI =  SensorTryReadImported(*this,aNameIm);
@@ -881,13 +895,25 @@ cSetMesPtOf1Im* cPhotogrammetricProject::RemanentLoadMeasureIm(const std::string
     return SimpleRemanentNewObjectFromFile<cSetMesPtOf1Im>(NameMeasureGCPIm(aNameIm,true));
 }
 
-void cPhotogrammetricProject::SaveGCP3D(const cSetMesGnd3D & aMGCP3D, const std::string &aDefaultOutName, bool aDoAddCurSysCo) const
+void cPhotogrammetricProject::SaveGCP3D(const cSetMesGnd3D & aMGCP3D, const std::string &aDefaultOutName, bool aDoAddCurSysCo, cMMVII_BundleAdj *aBA) const
 {
     std::map<std::string, MMVII::cSetMesGnd3D> aSplittedGCP3D = aMGCP3D.SplitPerOutDir(aDefaultOutName);
-    for (const auto& [aDirName, aSetMesGnd3D] : aSplittedGCP3D)
+    for (auto& [aDirName, aSetMesGnd3D] : aSplittedGCP3D)
     {
         if (!aDirName.empty()) // outname="" means do not export
         {
+            bool aDoExportSigmas = false;
+            if ((aSetMesGnd3D.Measures().size()>0)
+                &&(aSetMesGnd3D.Measures()[0].mMesDirInfo))
+                    aDoExportSigmas = aSetMesGnd3D.Measures()[0].mMesDirInfo->mDoExportSigmas;
+
+            if (aDoExportSigmas) // update all points sigmas
+            {
+                MMVII_INTERNAL_ASSERT_User(aBA, eTyUEr::eUnClassedError, "SaveGCP3D tries to exports sigmas but no BA given");
+                for (auto & aMesGnd : aSetMesGnd3D.Measures())
+                    aMesGnd.SetSigma2(aBA->GetGCP_UC_UK(aMesGnd.mNamePt));
+            }
+
             cAutoChgRestoreDefFolder  aCRDF(aDirName,DPGndPt3D(),false); // Chg output Folder and restore at destruction
             aSetMesGnd3D.ToFile(mDPGndPt3D.FullDirOut() + aMGCP3D.StdNameFile());
             if (aDoAddCurSysCo)
@@ -918,6 +944,9 @@ std::vector<std::string>  cPhotogrammetricProject::ListFileGCP(const std::string
 void cPhotogrammetricProject::LoadGCP3D(cSetMesGndPt& aSetMes,cMes3DDirInfo * aMesDirInfo, const std::string & aArgPatFiltr,const std::string & aFiltrNameGCP,
                                       const std::string & aFiltrAdditionalInfoGCP) const
 {
+    if (mDPGndPt3D.DirIn()==MMVII_NONE) // allow no input
+        return;
+
    std::vector<std::string> aListFileGCP = ListFileGCP(aArgPatFiltr);
    MMVII_INTERNAL_ASSERT_User(!aListFileGCP.empty(),eTyUEr::eUnClassedError,"No file found in LoadGCP");
 
@@ -1016,7 +1045,7 @@ void cPhotogrammetricProject::LoadIm(cSetMesGndPt& aSetMes, const std::string & 
       return;
    }
       //  StdOut() << "LoadImLoadIm " << aNameIm << "\n";
-   cSetMesPtOf1Im  aSetIm = LoadMeasureIm(aNameIm);
+   cSetMesPtOf1Im  aSetIm = LoadMeasureIm(aNameIm, true, SVP);
    aSetMes.AddMes2D(aSetIm,aMesDirInfo,aSIm);
 }
 
@@ -1032,11 +1061,6 @@ void cPhotogrammetricProject::LoadImFromFolder
     cAutoChgRestoreDefFolder  aCRDF(aFolder,DPGndPt2D(), true); // Chg Folder and restore at destruction
     DPGndPt2D().CheckDirExists(true, true);
     LoadIm(aSetMes,aNameIm,aMesDirInfo,aSIm,SVP);
-}
-
-void cPhotogrammetricProject::LoadIm(cSetMesGndPt& aSetMes,MMVII::cMes2DDirInfo *aMesDirInfo, cSensorImage & aSIm) const
-{
-     LoadIm(aSetMes,aSIm.NameImage(),aMesDirInfo,&aSIm);
 }
 
 cSet2D3D  cPhotogrammetricProject::LoadSet32(const std::string & aNameIm) const
@@ -1289,9 +1313,9 @@ void cPhotogrammetricProject::SaveClino(const cCalibSetClino & aCalib) const
 {
     std::vector<cOneCalibClino> aOneCalibClinoVector = aCalib.ClinosCal();
     std::string aCameraName = aCalib.NameCam();
-    for (auto aOneCalibClino : aOneCalibClinoVector)
+    for (const auto& aOneCalibClino : aOneCalibClinoVector)
     {
-        std::string aClinoName = aOneCalibClino.NameClino();
+        const std::string& aClinoName = aOneCalibClino.NameClino();
         SaveInFile(aOneCalibClino,NameFileClino(aCameraName,false, aClinoName));
     }
 }
@@ -1407,35 +1431,27 @@ cBlocOfCamera * cPhotogrammetricProject::ReadUnikBlocCam() const
 
 //  =============  Static Lidar  =================
 
-cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const
+cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const
 {
     aDP.AssertDirInIsInit();
-    std::string aScanFileName  =  aDP.FullDirIn() + aScanName;
+    std::string aOriName = cStaticLidar::NameFromId(aScanName, true);
+    if (aOriName == MMVII_NONE)
+        return nullptr;
+    std::string aScanFileName  =  aDP.FullDirIn() + aOriName;
+
     cStaticLidar * aScan = nullptr;
+    aScan = cStaticLidar::FromFile(aScanFileName, SVP);
     if (LoadRasters)
-        aScan = cStaticLidar::FromFile(aScanFileName, DirStaticLidarRasters());
-    else
-        aScan = cStaticLidar::FromFile(aScanFileName);
+        aScan->ReadRasters(DirStaticLidarRasters());
 
     if (ToDeleteAutom)
        cMMVII_Appli::AddObj2DelAtEnd(aScan);
     return aScan;
 }
 
-cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const
+cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const
 {
-    return ReadStaticLidar(mDPOrient,aScanName,ToDeleteAutom,LoadRasters);
-}
-
-
-std::vector<std::string> cPhotogrammetricProject::GetStaticLidarNames(const std::string &aPatSelect) const
-{
-    DPOrient().AssertDirInIsInit();
-    std::string aPat2Sup = cStaticLidar::Pat2Sup(aPatSelect);
-    std::string aFullPat2Sup = DPOrient().FullDirIn() + aPat2Sup;
-    tNameSet aSet = SetNameFromPat(aFullPat2Sup);
-    std::vector<std::string> aVect = ToVect(aSet);
-    return aVect;
+    return ReadStaticLidar(mDPOrient,aScanName,ToDeleteAutom,SVP,LoadRasters);
 }
 
 //  =============  Topo Mes  =================
@@ -1456,7 +1472,7 @@ std::vector<std::string> cPhotogrammetricProject::ReadTopoMes() const
 
 //  see cMetaDataImages.cpp
 
-std::vector<cDataSolOriTriplet> cPhotogrammetricProject::ReadAllTriplets(const std::vector<std::string>& aVImages)
+std::vector<cDataSolOriTriplet> cPhotogrammetricProject::ReadAllTriplets(const std::vector<std::string>& aVImages,bool OkEmpty)
     const
 {
     std::vector<cDataSolOriTriplet> aRes;
@@ -1469,6 +1485,10 @@ std::vector<cDataSolOriTriplet> cPhotogrammetricProject::ReadAllTriplets(const s
         std::vector<cDataSolOriTriplet> aVData;
         ReadFromFile(aVData,aFileName);
         aRes.insert(aRes.end(),aVData.begin(),aVData.end());
+    }
+    if (aRes.empty() && (!OkEmpty))
+    {
+        MMVII_UserError(eTyUEr::eUnExpectedEmptyData,"Empty set of triplet");
     }
     return aRes;
 }

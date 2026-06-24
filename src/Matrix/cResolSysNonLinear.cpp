@@ -199,7 +199,7 @@ template <class Type> cResolSysNonLinear<Type>::~cResolSysNonLinear()
 }
 
       // =============  miscelaneous accessors    ================
-     
+
 template <class Type> cLinearOverCstrSys<Type> * cResolSysNonLinear<Type>::SysLinear()
 {
     SetPhaseEq(); // cautious, if user requires this access he may modify
@@ -473,7 +473,7 @@ template <class Type> void  cResolSysNonLinear<Type>::AddObservationLinear
      mSysLinear->PublicAddObservation(aWeight,aNewCoeff,aNewRHS);
 }
 
-     
+
 template <class Type> void  cResolSysNonLinear<Type>::AddObservationLinear
                             (
                                  const Type& aWeight,
@@ -557,7 +557,7 @@ template <class Type> void cResolSysNonLinear<Type>::R_SetCurSol(int aNumV,const
 }
 
      /*     =========================    adding equations ==================================
- 
+
        # Global :
               CalcVal  -> *  fondamental methods,
                           *  generate the computation of formal derivative and put the result
@@ -567,7 +567,7 @@ template <class Type> void cResolSysNonLinear<Type>::R_SetCurSol(int aNumV,const
 
        # Case Non Schur :
               CalcAndAddObs ->   * calc CalcVal to compute derivative then AddObs
-                                
+
               AddObs  ->         *  send cInputOutputRSNL this in linear system
 
        # Case Schur :
@@ -596,7 +596,7 @@ template <class Type> void   cResolSysNonLinear<Type>::CalcVal
       // This test is always true 4 now, which I(MPD)  was not sure
       //  The possibility of having several comes from potential paralellization
       //  MMVII_INTERNAL_ASSERT_tiny(aVIO.size()==1,"CalcValCalcVal");
-     
+
       if (!ForConstraint)
           SetPhaseEq();
       MMVII_INTERNAL_ASSERT_tiny(aCalcVal->NbInBuf()==0,"Buff not empty");
@@ -785,7 +785,7 @@ template <class Type> void   cResolSysNonLinear<Type>::R_AddEq2Subst
                                   const tR_Up::tStdVect& aR_VObs,const tR_Up::tResidualW & aWeighter
                              )
 {
-    
+
     std::vector<tIO_RSNL> aVIO(1,tIO_RSNL(aVInd,VecConvert<Type,tREAL8>(aR_VObs)));
     CalcVal(aCalc,aVIO,VecConvert<Type,tREAL8>(aSetIO.ValTmpUk()),true,cREAL8_RWAdapt<Type>(&aWeighter),false);
 
@@ -804,23 +804,23 @@ template <> void   cResolSysNonLinear<tREAL8>::R_AddEq2Subst
 }
 
 
-                             
-template <class Type> void cResolSysNonLinear<Type>::AddObsWithTmpUK (const tSetIO_ST & aSetIO)
+
+template <class Type> void cResolSysNonLinear<Type>::AddObsWithTmpUK (const tSetIO_ST & aSetIO,const Type aEpsLVM)
 {
     currNbObs += aSetIO.NbRedundacy();
-    mSysLinear->PublicAddObsWithTmpUK(aSetIO);
+    mSysLinear->PublicAddObsWithTmpUK(aSetIO,aEpsLVM);
 }
 
-template <class Type> void cResolSysNonLinear<Type>::R_AddObsWithTmpUK (const tR_Up::tSetIO_ST & aR_SetIO)
+template <class Type> void cResolSysNonLinear<Type>::R_AddObsWithTmpUK (const tR_Up::tSetIO_ST & aR_SetIO,const tREAL8 aEpsLVM)
 {
     cSetIORSNL_SameTmp<Type> aSetIO(false,aR_SetIO);
-    AddObsWithTmpUK(aSetIO);
+    AddObsWithTmpUK(aSetIO,(Type)aEpsLVM);
     // mSysLinear->AddObsWithTmpUK(aSetIO);
 }
 
-template <> void cResolSysNonLinear<tREAL8>::R_AddObsWithTmpUK (const tR_Up::tSetIO_ST & aSetIO)
+template <> void cResolSysNonLinear<tREAL8>::R_AddObsWithTmpUK (const tR_Up::tSetIO_ST & aSetIO,const tREAL8 aEpsLVM)
 {
-    AddObsWithTmpUK(aSetIO);
+    AddObsWithTmpUK(aSetIO,aEpsLVM);
 }
 
 
@@ -831,7 +831,7 @@ template <> void cResolSysNonLinear<tREAL8>::R_AddObsWithTmpUK (const tR_Up::tSe
 
 template <class Type>
    const cDenseVect<Type> &
-          cResolSysNonLinear<Type>::SolveUpdateReset(const Type & aLVM,tVPtr_SUR AfterCstr ,tVPtr_SUR AfterLVM, bool calcCond)
+          cResolSysNonLinear<Type>::SolveUpdateReset(const Type & aWeighLVM,tVPtr_SUR AfterCstr ,tVPtr_SUR AfterLVM, bool calcCond)
 {
     if (mUseWarningNotEnoughObs && (mNbVar-GetNbLinearConstraints()>currNbObs) )
     {
@@ -856,11 +856,17 @@ template <class Type>
        if (aPtrSur)
           aPtrSur->Compile(this);
 
-    for (int aK=0 ; aK<mNbVar ; aK++)
+    if (aWeighLVM>0)
     {
-        if (aLVM>0)
+        for (int aK=0 ; aK<mNbVar ; aK++)
         {
-           AddEqFixVar(aK,CurSol(aK),mSysLinear->LVMW(aK)*aLVM);
+            tREAL8 aLVMCoeff =  mSysLinear->LVMW(aK);
+            if (aLVMCoeff==0)
+            {
+               MMVII_USER_TYPED_WARNING(eTyUEr::eLVM_NoConstraint,"LVM : freezing an unsused unknown");
+               aLVMCoeff = 1.0;
+            }
+            AddEqFixVar(aK,CurSol(aK),aLVMCoeff*aWeighLVM);
         }
     }
 
@@ -876,7 +882,7 @@ if (0)
     std::cout<<"\nEigenValues Full: "<<aEigFull.EigenValues()<<"\n";
 }
     mCurGlobSol += mSysLinear->PublicSolve();     //  mCurGlobSol += mSysLinear->SparseSolve();
-                                                 
+
 
     if (calcCond)
         StdOut() << "Reduced system condition number: " << GetCond() << "\n";

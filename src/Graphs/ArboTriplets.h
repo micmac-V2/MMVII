@@ -87,7 +87,6 @@ public :
     const std::vector<tNodePtr>& depends() const { return mChildren; }
     bool isTerminalNode() const { return mChildren.at(0) == nullptr && mChildren.at(1) == nullptr ;}
 
-
 private :
     void AddEqLink(cLinearOverCstrSys<tREAL8> *,cSetIORSNL_SameTmp<tREAL8> * aSubst,tREAL8 aWeight, int aKEq,
                    const cPt3dr &aC0_In_W0, const cPt3dr &aC1_In_W0,
@@ -151,13 +150,40 @@ private :
 };
 
 
+struct cMakeArboTripletCfg
+{
+    std::vector<tREAL8>  mViscPose  = {-1,-1};   ///< Regularization on poses  [SigmaTr,SigmaRot]
+    tREAL8               mLVM       = 0.0;       ///< Levenberg-Marquardt regularization
+    tREAL8               mSigma     = 1.0;       ///< Tie-points sigma (relative to other observations)
+    tREAL8               mSigmaAtt  = 2.0;       ///< Sigma attenuation on tie-points
+    tREAL8               mThrs   = 10.0;      ///< Outlier threshold
+    int                  mNbIterBA  = 5;         ///< Number of BA iterations
+    int                  mNbExtraIterAtRoot = 2;  ///< Extra BA iterations at the tree root (all images)
+    bool                 mVerbose = false;
 
+    void Show(std::ostream & aOS = std::cout) const
+    {
+        aOS << " ========= BA CONFIG ==========\n"
+            << " * ViscPose  = " << mViscPose.at(0) << "," << mViscPose.at(1) << "\n"
+            << " * LVM       = " << mLVM       << "\n"
+            << " * Sigma     = " << mSigma  << "\n"
+            << " * SigmaAtt  = " << mSigmaAtt  << "\n"
+            << " * Threshold = " << mThrs   << "\n"
+            << " * NbIterBA  = " << mNbIterBA  << "\n"
+            << " * NbExtraIterAtRoot = " << mNbExtraIterAtRoot << "\n\n";
+    }
+};
 
 class cMakeArboTriplet
 {
 public :
 
-    cMakeArboTriplet(std::vector<cDataSolOriTriplet> & aSet3,bool doCheck,tREAL8 aWBalance, cIPhProj &,cMMVII_Appli &);
+    cMakeArboTriplet(std::vector<cDataSolOriTriplet> & aSet3,
+                     bool doCheck,
+                     tREAL8 aWBalance,
+                     cIPhProj &,
+                     cMMVII_Appli &,
+                     const cMakeArboTripletCfg & = {});
     ~cMakeArboTriplet();
 
     /// Print some info on dimensions of data
@@ -185,8 +211,10 @@ public :
     /// Ugly trick to avoid problem with accessing the same calib more than once
     void InitialiseCalibs();
 
-    /// Read tie points structure
+    /// Read tie points structure from a MulTieP folder
     void InitTPtsStruct(const std::string&, std::vector<std::string>&);
+    /// Init tie points structure from a pre-built cComputeMergeMulTieP (e.g. from cSetMesPtOf1Im)
+    void InitTPtsStruct(cComputeMergeMulTieP*);
 
     cIPhProj & PhProj() { return mPhProj; }
     cIPhProj const& PhProj() const { return mPhProj; }
@@ -209,19 +237,15 @@ public :
     std::string   TPFolder() const {return mTPtsFolder;}  ///< Accessor   // TO BE REMOVED
     cComputeMergeMulTieP*& TPtsStruct() {return mTPtsStruct;}
     cComputeMergeMulTieP* TPtsStruct() const {return mTPtsStruct;} ///< Accessor
-    std::vector<tREAL8> & ViscPose() {return mViscPose;}
-    std::vector<tREAL8>   ViscPose() const {return mViscPose;}  ///< Accessor
-    tREAL8              & LVM() {return mLVM;}
-    tREAL8                LVM() const {return mLVM;}  ///< Accessor
-    tREAL8              & SigmaTPt() {return mSigmaTPt;}
-    tREAL8                SigmaTPt() const {return mSigmaTPt;}   ///< Accessor
-    tREAL8              & FacElim()  {return mFacElim;}
-    tREAL8                FacElim() const {return mFacElim;} ///< Accessor
-    int                 & NbIterBA()  {return mNbIterBA;}
-    int                   NbIterBA() const {return mNbIterBA;} ///< Accessor
+    const cMakeArboTripletCfg & Cfg() const { return mCfg; }
+
+    cPerspCamIntrCalib *  InternalCalibFromNameImage(const std::string aNameIm) const;
 
 
 private :
+
+    /// Convert image observations in mTPtsStruct to normalized bundles (called by both InitTPtsStruct variants)
+    void ConvertTPtsToBundles();
 
     cMMVII_Appli &          mAppli;
     cIPhProj &              mPhProj;
@@ -249,11 +273,7 @@ private :
     int                     mNbTree2Split;   ///< Number of triplet after pruning
     std::string             mTPtsFolder;     ///< Tie-points folder  => to be removed !!!!!!!!
     cComputeMergeMulTieP*   mTPtsStruct;     ///< Tie-points structure (global)
-    std::vector<tREAL8>     mViscPose;       ///< Regularization on poses in BA
-    tREAL8                  mLVM;            ///< levenberg-marquadt
-    tREAL8                  mSigmaTPt;       ///< Sigma on tie-points
-    tREAL8                  mFacElim;        ///< Control outlier threshold, thres=mSigmaTPt*mFacElim
-    int                     mNbIterBA;       ///< Number of iteration in bundle adjustment (Refine)
+    cMakeArboTripletCfg     mCfg;            ///< BA configs (LVM,sigma,thresh, nb iter..)
 };
 
 
@@ -275,7 +295,6 @@ private :
     bool                      mDoCheck;
     tREAL8                    mWBalance;
     bool                      mPerfectData;
-    std::vector<tREAL8>       mViscPose;      ///< regularization on poses in BA
 };
 
 

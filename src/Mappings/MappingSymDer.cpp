@@ -7,6 +7,7 @@ using namespace NS_SymbolicDerivative ;
 
 namespace MMVII
 {
+extern bool BUG_DUP_CAM;
 
 /* ============================================= */
 /*      cDataMapCalcSymbDer<Type>                */
@@ -43,6 +44,7 @@ template <class Type,const int DimIn,const int DimOut>
      mVObs       (aVObs),
      mDeleteCalc (ToDelete)
 {
+  //  StdOut() <<  "VOOOOOOObbs " << aVObs << "\n";
     CheckDim(mCalcVal,false);
     CheckDim(mCalcDer,true);
     // mCalcVal.NbUk()
@@ -86,9 +88,11 @@ template <class Type,const int DimIn,const int DimOut>
 }
 
 template <class Type,const int DimIn,const int DimOut>
-  typename cDataMapCalcSymbDer<Type,DimIn,DimOut>::tCsteResVecJac
-      cDataMapCalcSymbDer<Type,DimIn,DimOut>::Jacobian(tResVecJac aRes,const tVecIn & aVecIn) const
+  typename cDataMapCalcSymbDer<Type,DimIn,DimOut>::tCsteResPtrVecJac
+      cDataMapCalcSymbDer<Type,DimIn,DimOut>::Jacobian(tResPtrVecJac aRes,const tVecIn & aVecIn) const
 {
+//static int aCpt=0; aCpt++; bool Bug= BUG_DUP_CAM;
+//if (Bug) StdOut() << "cDataMapCalcSymbDer::JJJ " << __LINE__ << " C=" << aCpt << "\n";
    tVecOut * aVecOut=aRes.first;
    tVecJac * aVecJac=aRes.second;
 
@@ -104,6 +108,8 @@ template <class Type,const int DimIn,const int DimOut>
        {
            for (int aD=0 ; aD<DimIn ; aD++)
                aVUk[aD] = aVecIn[aK][aD];
+//if (Bug) StdOut() << " SsszZZZZ " << aVUk.size() << " " << mVObs.size() << "\n";
+
            mCalcDer->PushNewEvals(aVUk,mVObs);
        }
 
@@ -128,7 +134,9 @@ template <class Type,const int DimIn,const int DimOut>
            aVecOut->push_back(aPRes);
        }
    }
-   return tCsteResVecJac(aVecOut,aVecJac);
+//if (Bug) StdOut() << "cDataMapCalcSymbDer::JJJ" << __LINE__ << "\n";
+
+   return tCsteResPtrVecJac(aVecOut,aVecJac);
 }
 
 template <class Type,const int DimIn,const int DimOut>
@@ -174,8 +182,8 @@ template <class Type,int Dim>
 }
 
 template <class Type,int Dim>
-     typename cDataNxNMapCalcSymbDer<Type,Dim>::tCsteResVecJac
-           cDataNxNMapCalcSymbDer<Type,Dim>::Jacobian(tResVecJac aRVJ,const tVecIn &  aVecIn) const
+     typename cDataNxNMapCalcSymbDer<Type,Dim>::tCsteResPtrVecJac
+           cDataNxNMapCalcSymbDer<Type,Dim>::Jacobian(tResPtrVecJac aRVJ,const tVecIn &  aVecIn) const
 {
     return mDMS.Jacobian(aRVJ,aVecIn);
 }

@@ -48,7 +48,7 @@ template <class Type> const cDenseVect<Type> & cBufSchurSubst<Type>::tARhsSubst(
 }
 
 template <class Type>
-    void cBufSchurSubst<Type>::CompileSubst(const tSetEq & aSetSetEq)
+    void cBufSchurSubst<Type>::CompileSubst(const tSetEq & aSetSetEq,const Type anEpsilonLVM)
 {
      aSetSetEq.AssertOk();
 
@@ -104,6 +104,31 @@ template <class Type>
 
               mSysRed.PublicAddObservation(aSetEq.WeightOfKthResisual(aKEq),mSV,-aSetEq.mVals.at(aKEq));
          }
+      }
+
+      if (anEpsilonLVM!=0)
+      {
+          for (size_t aK = 0 ; aK<mNbTmp ; aK++)
+          {
+              //mSysRed.AddEqFixVar(aK,0.0,anEpsilonLVM* aSetSetEq.LVMW()(aK));
+
+               mSV.Reset();
+               mSV.AddIV(aK,1.0);
+               Type aLVMCoeff = aSetSetEq.LVMW()(aK);
+
+               if (aLVMCoeff==0)
+               {
+                  MMVII_USER_TYPED_WARNING
+                  (
+                      eTyUEr::eLVM_SchurrNoConstraint,
+                      "In schurr, LVM : freezing an unsused unknown"
+                  );
+                  aLVMCoeff = 1.0;
+               }
+
+              // Dont forget that the linear system compute the difference with current solution ...
+               mSysRed.PublicAddObservation(anEpsilonLVM*aLVMCoeff,mSV,0.0);
+          }
       }
 
      //  extract normal matrix, vector, symetrise
@@ -208,11 +233,11 @@ template<class Type> void  cLeasSqtAA<Type>::SpecificReset()
    mtARhs.DIm().InitNull();
 }
 
-template<class Type> void  cLeasSqtAA<Type>::SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>& aSetSetEq)
+template<class Type> void  cLeasSqtAA<Type>::SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>& aSetSetEq,const Type aEpsLVM)
 {
     if (mBSC==nullptr)
          mBSC = new cBufSchurSubst<Type>(this->NbVar());
-    mBSC->CompileSubst(aSetSetEq);
+    mBSC->CompileSubst(aSetSetEq,aEpsLVM);
 
     const std::vector<size_t> &  aVI = mBSC->VIndexUsed();
     const cDenseMatrix<Type> & atAAS =  mBSC->tAASubst() ;
@@ -415,15 +440,32 @@ template<class Type> Type cLinearOverCstrSys<Type>::VarLastSol() const
     return mLastSumWRHS2 / mLastSumW;
 }
 
+
 template<class Type> void cLinearOverCstrSys<Type>::AddLVMCstr(tREAL8 aW)
 {
    if (aW<=0) return;
+
    for (int aK=0 ; aK<mNbVar ; aK++)
    {
        cSparseVect<Type> aSV;
        aSV.AddIV(aK,1.0);
+       tREAL8 aWTot = aW*LVMW(aK);
+
+
+       if (aWTot==0)
+       {
+           MMVII_USER_TYPED_WARNING(eTyUEr::eLVM_NoConstraint,"LVM : freezing an unsused unknown");
+           aWTot = 1.0;
+       }
+
        // Dont forget that the linear system compute the difference with current solution ...
-       PublicAddObservation(aW*LVMW(aK),aSV,0.0);
+       if (aWTot !=0 )
+       {
+          PublicAddObservation(aWTot,aSV,0.0);
+       }
+       else
+       {
+       }
    }
 }
 
@@ -561,14 +603,15 @@ template<class Type> cLinearOverCstrSys<Type> * cLinearOverCstrSys<Type>::AllocS
      return nullptr;
 }
 
-template<class Type> void cLinearOverCstrSys<Type>::SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>&)
+template<class Type> void cLinearOverCstrSys<Type>::SpecificAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>&,const Type)
 {
         MMVII_INTERNAL_ERROR("Used AddObsWithTmpK unsupported");
 }
 
-template<class Type> void cLinearOverCstrSys<Type>::PublicAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>& aSetSetEq)
+template<class Type>
+    void cLinearOverCstrSys<Type>::PublicAddObsWithTmpUK(const cSetIORSNL_SameTmp<Type>& aSetSetEq,const Type aEpsLVM)
 {
-     SpecificAddObsWithTmpUK(aSetSetEq);
+     SpecificAddObsWithTmpUK(aSetSetEq,aEpsLVM);
      mSchurrWasUsed = true;
 
      for (const auto & aSetEq : aSetSetEq.AllEq())
@@ -586,7 +629,11 @@ template<class Type> void cLinearOverCstrSys<Type>::PublicAddObsWithTmpUK(const 
                  for (size_t aKGlob=0 ; aKGlob<aSetEq.mGlobVInd.size() ; aKGlob++)
                  {
                      int aInd = aSetEq.mGlobVInd[aKGlob];
-                     if (!cSetIORSNL_SameTmp<Type>::IsIndTmp(aInd))
+                     if (cSetIORSNL_SameTmp<Type>::IsIndTmp(aInd))
+                     {
+                        //  cSetIORSNL_SameTmp<Type>::ToIndTmp(aInd);
+                     }
+                     else
                      {
                          Type aDer = aVDer.at(aKGlob);
                          mLVMW(aInd) += aWeight * Square(aDer);

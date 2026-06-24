@@ -29,6 +29,7 @@ enum class eTA2007
                 DirProject,    ///< Exact Dir of Proj
                 FileDirProj,   ///< File that define the  Dir Proj
                 FileImage,     ///< File containing an image
+                FileTSL,       ///< File containing a TSL identifiant
                 FileDmp,       ///< File ending by ".dmp"
                 FileCloud,     ///< File containing a cloud file (ply ?)
                 File3DRegion,  ///< File containing a 3D region
@@ -234,6 +235,11 @@ enum class eTyW
 enum class eTyUEr
            {
               eCreateDir,
+              eDirInDoesntExist,
+              eUnExpectedEmptyData,
+              eLVM_NoConstraint,       ///<  => warning if an unknown has no obs and LVM is active
+              eLVM_SchurrNoConstraint, ///<  => idem eLVM_NoConstraint bit in Schurr case
+              eForceGauje,             ///<  =>  warnig if gauje is added and was not required
               eRemoveFile,
               eEmptyPattern,
               eBadPattern,
@@ -649,9 +655,22 @@ enum class eTyCodeTarget
 };
 bool IsCircularTarge(eTyCodeTarget);
 
+
+
+/// Type of data base for camera
+enum class eTypeDBCam
+           {
+              eLocalFolder,   ///< Data base local to working folder
+              eLocalUser,     ///< if we fix the 35 equiv focale
+              eLocalMVVI,     ///< if we fix directly the focal in pixel
+              eGlobalMMVII,   ///< if we fix firectly the principal point in pixel
+              eNbVals
+           };
+
 enum class eMTDIm
            {
               eFocalmm,   //< if we fix the focal in mm
+              eFocalEqui35, //< if we fix the 35 equiv focale
               eFocalPix,  //< if we fix directly the focal in pixel
               ePPPix,     //< if we fix firectly the principal point in pixel
               eAperture,  //< aperture, used for radiometric model
@@ -709,6 +728,8 @@ const std::string & E2Str(const eModePaddingEpip &);
 const std::string & E2Str(const eModeCaracMatch &);
 const std::string & E2Str(const eModeSSR &);
 const std::string & E2Str(const eModResBund &);
+const std::string & E2Str(const eTypeDBCam &);
+
 
 
 template <class Type> Type  Str2E(const std::string &,bool WithDef=false);

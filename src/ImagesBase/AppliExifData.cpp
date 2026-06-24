@@ -1,24 +1,58 @@
 #include "MMVII_ExifData.h"
 #include "MMVII_Image2D.h"
 #include "cMMVII_Appli.h"
+#include "MMVII_Sensor.h"
+#include "MMVII_Tpl_ElemStrToVal.h"
 
 namespace MMVII
 {
 
-class cAppli_ExifData : public cMMVII_Appli
+enum class eDispExif
+{
+    eSizeType=0,
+    eMainExif,
+    eAllExif,
+    eRawExif,
+    eAllGDALInfo,
+    eNbVals
+};
+
+template<> cE2Str<eDispExif>::tMapE2Str cE2Str<eDispExif>::mE2S
+           {
+                {eDispExif::eSizeType,"SizeType"},
+                {eDispExif::eMainExif,"MainExif"},
+                {eDispExif::eAllExif,"AllExif"},
+                {eDispExif::eRawExif,"RawExif"},
+                {eDispExif::eAllGDALInfo,"AllGDALInfo"}
+           };
+
+MACRO_INSTANTIATE_STRIO_ENUM(eDispExif,"DispExif")
+
+
+class cAppli_ImageMetada : public cMMVII_Appli
 {
 public :
-    cAppli_ExifData(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec,bool isBasic);
+    cAppli_ImageMetada(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec,bool isBasic);
     int Exe() override;
     cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
 private :
+    cPhotogrammetricProject  mPhgrProj;
     std::string mNameIn;  ///< Input image name
-    int mDisp;
+    eDispExif mDisp;
 };
 
-cCollecSpecArg2007 & cAppli_ExifData::ArgObl(cCollecSpecArg2007 & anArgObl)
+
+cAppli_ImageMetada:: cAppli_ImageMetada(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec,bool isBasic) :
+    cMMVII_Appli (aVArgs,aSpec),
+    mPhgrProj(*this),
+    mDisp(eDispExif::eMainExif)
+{
+}
+
+
+cCollecSpecArg2007 & cAppli_ImageMetada::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return
         anArgObl
@@ -26,11 +60,11 @@ cCollecSpecArg2007 & cAppli_ExifData::ArgObl(cCollecSpecArg2007 & anArgObl)
         ;
 }
 
-cCollecSpecArg2007 & cAppli_ExifData::ArgOpt(cCollecSpecArg2007 & anArgOpt)
+cCollecSpecArg2007 & cAppli_ImageMetada::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return
         anArgOpt
-        <<   AOpt2007(mDisp,"Disp","0:All known tags, 1:Main tags, 2:exif strings, 3:all metadata",{eTA2007::HDV,{eTA2007::Range,"[0,3]"}})
+        <<   AOpt2007(mDisp,"Disp","What to display: SizeType|MainExif|AllExif|RawExif|AllGDALInfo",{eTA2007::HDV})
         ;
 }
 
@@ -43,46 +77,85 @@ std::ostream& operator<<(std::ostream& os, std::optional<T> const& opt)
 }
 
 
-int cAppli_ExifData::Exe()
+
+int cAppli_ImageMetada::Exe()
 {
+    mPhgrProj.FinishInit();
+
+
+
     const auto default_precision{std::cout.precision()};
     constexpr auto max_precision{std::numeric_limits<long double>::digits10};
 
     for (const auto & aName : VectMainSet(0))
     {
-        auto aDataFileIm=cDataFileIm2D::Create(aName,eForceGray::No);
-        std::cout << "####### " << aDataFileIm.Name() <<":" << std::endl;
-        if (mDisp == 3) {
-            auto allMetadata = aDataFileIm.AllMetadata();
-            for (const auto& aDomain : allMetadata ) {
-                std::cout << "- Domain : " << (aDomain.first.empty() ? "<NULL>" : "\"" + aDomain.first + "\"") << "\n";
-                for (const auto& aMetadata : aDomain.second) {
-                    std::cout << "  . \"" << aMetadata << "\"\n";
-                }
-            }
-        } else if (mDisp == 2) {
-            auto anExifList = aDataFileIm.ExifStrings();
-            for (const auto &s : anExifList)
-                std::cout << s << std::endl;
-        } else {
-            cExifData anExif = mDisp == 0 ? aDataFileIm.ExifDataAll() : aDataFileIm.ExifDataMain();
+        cMetaDataImage aMDI = mPhgrProj.GetMetaData(aName);
 
-#define DISP_EXIF(key) std::cout << #key << ": " << anExif.m##key << std::endl;
+        auto aDataFileIm=cDataFileIm2D::Create(aName,eForceGray::No);
+        StdOut() << "####### " << aDataFileIm.Name() <<": " << std::endl;
+        StdOut() << "Size: " << aDataFileIm.Sz() << ", Type: "  << ToStr(aDataFileIm.Type()) << ", Channels: " << aDataFileIm.NbChannel() << std::endl;
+        switch (mDisp) {
+        case eDispExif::eSizeType:
+        case eDispExif::eNbVals:
+            break;
+        case eDispExif::eMainExif:
+        case eDispExif::eAllExif:
+        {
+            cExifData anExif = aDataFileIm.ExifData();
+            if (! anExif.Valid())
+            {
+                StdOut() << "No Exif metadata" << std::endl;
+                break;
+            }
+
+#define DISP_EXIF(key) StdOut() << #key << ": " << anExif.m##key << std::endl;
+// this macro disp standard xif, and user's changed value if apply
+#define DISP_XIF_MMVII(key,val,def) DISP_EXIF(key); \
+    if ((val != def) && (anExif.m##key.value_or(def)!=val)  )  StdOut() << "  *** SetByUserRule " << val << "\n";
+
 
             DISP_EXIF(PixelXDimension);
             DISP_EXIF(PixelYDimension);
 
-            DISP_EXIF(FocalLength_mm);
-            DISP_EXIF(FocalLengthIn35mmFilm_mm);
+           // DISP_EXIF(FocalLength_mm);
+            DISP_XIF_MMVII(FocalLength_mm,aMDI.FocalMM(true),-1);
+
+            //DISP_EXIF(FocalLengthIn35mmFilm_mm);
+            DISP_XIF_MMVII(FocalLengthIn35mmFilm_mm,aMDI.FocalMMEqui35(true),-1);
+
             DISP_EXIF(FNumber);
             DISP_EXIF(ExposureTime_s);
             DISP_EXIF(Orientation);
             DISP_EXIF(Make);
-            DISP_EXIF(Model);
+
+            //DISP_EXIF(Model);
+            DISP_XIF_MMVII(Model,aMDI.CameraName(true),"");
+
+
+            /// the information on size of sensor are generally not provided by xif, so user
+            /// has to indicate it in the data-base, we indicate
+            {
+                std::optional<std::string> aModel = anExif.mModel;
+                if (aModel.has_value())
+                {
+                    const cElemCamDataBase * anElCDB = mPhgrProj.GetCamFromNameCam(aModel.value());
+                    if (anElCDB)
+                    {
+                         StdOut()  << "  *** Camera model is in data base :"
+                                   << " SzSensor=" << anElCDB-> mSzSensor_Mm << " mm "
+                                   << " SzPixel="   << anElCDB->mSzPixel_Micron << " mu"
+                                   << "\n";
+                    }
+                    else
+                    {
+                         StdOut()  << " !!!  Camera model is NOT in data base\n";
+                    }
+                }
+            }
             DISP_EXIF(LensMake);
             DISP_EXIF(LensModel);
 
-            if (mDisp == 0) {
+            if (mDisp == eDispExif::eAllExif) {
                 DISP_EXIF(XResolution);
                 DISP_EXIF(YResolution);
                 DISP_EXIF(ResolutionUnit);
@@ -97,7 +170,7 @@ int cAppli_ExifData::Exe()
                 DISP_EXIF(DateTimeDigitized);
                 DISP_EXIF(SubSecTimeDigitized);
 
-                std::cout << std::setprecision(max_precision);
+                StdOut() << std::setprecision(max_precision);
                 DISP_EXIF(DateTimeNumber_s);
                 DISP_EXIF(DateTimeOriginalNumber_s);
                 DISP_EXIF(DateTimeDigitizedNumber_s);
@@ -105,7 +178,7 @@ int cAppli_ExifData::Exe()
                 DISP_EXIF(GPSLongitude_deg);
                 DISP_EXIF(GPSLatitude_deg);
                 DISP_EXIF(GPSAltitude_m);
-                std::cout << std::setprecision(default_precision);
+                StdOut() << std::setprecision(default_precision);
 
                 DISP_EXIF(GPSDateStamp);
                 DISP_EXIF(GPSTimeStamp);
@@ -114,32 +187,57 @@ int cAppli_ExifData::Exe()
 
                 DISP_EXIF(ExifVersion);
             }
-            std::cout << std::setprecision(default_precision);
 #undef DISP_EXIF
-       }
-        std::cout << std::endl;
+            StdOut() << std::setprecision(default_precision);
+            break;
+        }
+        case eDispExif::eRawExif:
+        {
+            auto anExifList = aDataFileIm.ExifStrings();
+            if (anExifList.empty())
+            {
+                StdOut() << "No Exif metadata" << std::endl;
+            } else {
+                for (const auto &s : anExifList)
+                    StdOut() << s << std::endl;
+            }
+            break;
+        }
+        case eDispExif::eAllGDALInfo:
+        {
+            auto allMetadata = aDataFileIm.AllMetadata();
+            for (const auto& aDomain : allMetadata ) {
+                StdOut() << "- Domain : " << (aDomain.first.empty() ? "<NULL>" : "\"" + aDomain.first + "\"") << "\n";
+                for (const auto& aMetadata : aDomain.second) {
+                    StdOut() << "  . \"" << aMetadata << "\"\n";
+                }
+            }
+            break;
+        }
+        }
+        StdOut() << std::endl;
+
+
+
+
+//   const cElemCamDataBase *  cPhotogrammetricProject::GetCamFromNameCam(const std::string& aNameCam,bool SVP) const
+
     }
     return EXIT_SUCCESS;
 }
 
 
-cAppli_ExifData:: cAppli_ExifData(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec,bool isBasic) :
-    cMMVII_Appli (aVArgs,aSpec),
-    mDisp(0)
+
+static tMMVII_UnikPApli Alloc_ImageMetadata(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec)
 {
+    return tMMVII_UnikPApli(new cAppli_ImageMetada(aVArgs,aSpec,true));
 }
 
-
-tMMVII_UnikPApli Alloc_ExifData(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec)
-{
-    return tMMVII_UnikPApli(new cAppli_ExifData(aVArgs,aSpec,true));
-}
-
-cSpecMMVII_Appli  TheSpec_ExifData
+cSpecMMVII_Appli  TheSpec_ImageMetadata
     (
-        "ExifData",
-        Alloc_ExifData,
-        "Display Exif metadata from image file",
+        "ImageMetadata",
+        Alloc_ImageMetadata,
+        "Display Exif and Metadata from image file",
         {eApF::ImProc},
         {eApDT::Image},
         {eApDT::Console},

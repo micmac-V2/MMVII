@@ -145,6 +145,8 @@ template <class Type> class  cDenseVect
         Type ProdElem() const; ///< Mul of all element, usefull for det computation
         Type SumElem() const; ///< Som of all element
         Type AvgElem() const; ///< Avereage of all elements
+        Type Min() const; ///< minimum of all elements
+        Type Max() const; ///< maximum of all elements
         void SetAvg(const Type & anAvg); ///< multiply by a cste to fix the average
 
 
@@ -200,8 +202,11 @@ template <class Type> class  cDenseVect
         tIM mIm;
 };
 
-/// return a vectot with avg=0 and som sq = 1
+/// return a vector with avg=0 and stddev=1
 cDenseVect<tREAL8> NormalizeMoyVar(const cDenseVect<tREAL8> & aV0,tREAL8 aEpsilon = 1e-5);
+
+/// return a vector with avg=0 and som sq = 1
+cDenseVect<tREAL8> NormalizeMoyNorm2(const cDenseVect<tREAL8> & aV0,tREAL8 aEpsilon = 1e-5);
 
 ///  fit the equation B +A Vx  = Y, return  [A,B]
 std::pair<tREAL8,tREAL8> LstSq_Fit_AxPBEqY(const cDenseVect<tREAL8> & aVX,const cDenseVect<tREAL8> & aVY);
@@ -856,6 +861,11 @@ class cStdStatRes
 
         void Add(tREAL8 aVal);
 
+        /// retunr the average if defined, and aDefIfUndef
+        std::string StrAvg(const std::string & aDefIfUndef="???") const;
+        /// retunr the unbiased estimation of stantdard dev if defined, and aDefIfUndef
+        std::string StrUBDevStd(const std::string & aDefIfUndef="???") const;
+
         tREAL8  Avg() const;
         tREAL8  QuadAvg() const;
         tREAL8  DevStd() const;
@@ -863,6 +873,7 @@ class cStdStatRes
         tREAL8  ErrAtProp(tREAL8 aProp) const;
         tREAL8  Min() const;
         tREAL8  Max() const;
+        tREAL8  Interv() const;
         int     NbMeasures() const;
         tREAL8  ErrAtKth(int aK) const;
         tREAL8  ErrAtKthLast(int aK) const;

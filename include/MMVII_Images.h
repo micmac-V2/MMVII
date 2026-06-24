@@ -30,16 +30,16 @@ template <const int Dim>  class cPixBoxIterator
         bool operator == (const tIter& aIt2) const {return  mPCur==aIt2.mPCur;}  ///< Equal iff current point are =
         bool operator != (const tIter& aIt2) const {return  mPCur!=aIt2.mPCur;}  ///< !Equal iif not equal ...
         tPt & operator * () {return mPCur;}         ///< classic operator dereference
-        tPt & operator * () const {return mPCur;}   ///< classic operator dereference
+        const tPt & operator * () const {return mPCur;}   ///< classic operator dereference
         tPt * operator ->() {return &mPCur;}        ///< classic operator dereference
-        tPt * operator ->() const {return &mPCur;}  ///< classic operator dereference
+        const tPt * operator ->() const {return &mPCur;}  ///< classic operator dereference
 
         /// standard prefix incrementation
         tIter &  operator ++();
         /// Just a "facility" to allow post-fix
-        tIter &  operator ++(int) {return ++(*this);}
+        tIter operator ++(int) { tIter Old(*this); ++(*this); return Old; }
      protected :
-        
+
         cPixBoxIterator(tPB & aRO,const  tPt & aP0) : mRO (&aRO),mPCur (aP0) {}
 
         tPB * mRO;  ///< The rectangular object
@@ -246,10 +246,10 @@ template <const int Dim>  class cParseBoxInOut
 
         /** Box of indexes : "small" number of tiles , (0,0)=> top left box ..., to be used in for(auto..) */
         const tBox & BoxIndex() const;
-        tBox  BoxOut(const tPt & anIndex) const; ///< return OutBox from an index created by BoxIndex
-        tBox  BoxIn(const tPt & anIndex,const tPt& anOverlap) const;  ///< Idem but add an overlap
-        tBox  BoxIn(const tPt & anIndex,const int anOverlap) const;   ///< Add a constant overlap in all direction
-        tBox  BoxOutLoc(const tPt & anIndex,const tPt& anOverlap) const; ///< return Box out relatively to box in
+        tBox  BoxOutput(const tPt & anIndex) const; ///< return OutBox from an index created by BoxIndex
+        tBox  BoxInput(const tPt & anIndex,const tPt& anOverlap) const;  ///< Idem but add an overlap
+        tBox  BoxInput(const tPt & anIndex,const int anOverlap) const;   ///< Add a constant overlap in all direction
+        tBox  BoxOutputLoc(const tPt & anIndex,const tPt& anOverlap) const; ///< return Box out relatively to box in
 
      private :
         cParseBoxInOut(const tBox & aBoxGlob,const tBox & aBoxIndexe); ///< Create from given indexe box
@@ -331,13 +331,14 @@ template <const int Dim> class cDataGenUnTypedIm : public cPixBox<Dim>,
 
         typedef cPtxd<int,Dim>             tPixI;
         typedef cPtxd<tREAL8,Dim>          tPixR;
-;
+
         cDataGenUnTypedIm(const cPtxd<int,Dim> & aP0,const cPtxd<int,Dim> & aP1);
 
         virtual ~cDataGenUnTypedIm();
 
+        virtual eTyNums TypeVal() const { return eTyNums::eTN_UnKnown; }    ///< Return pixel type
 
-         
+
            // Get Value, integer coordinates
                 /// Pixel -> Integrer Value
         virtual int VI_GetV(const tPixI & aP)  const =0;
@@ -355,14 +356,35 @@ template <const int Dim> class cDataGenUnTypedIm : public cPixBox<Dim>,
 
         virtual double GetVBL(const  tPixR & aP) const  = 0;
 
+
+        cDataGenUnTypedIm<Dim>* AllocReSampleGen(
+            const cInterpolator1D &anInterpol,
+            const cDataInvertibleMapping<tREAL8, Dim> &aMap,
+            const cPixBox<Dim> aBox,
+            double aDefValOut=0) const;
+        std::pair<cPtxd<int,Dim>,cDataGenUnTypedIm<Dim>*> AllocReSampleGen(
+            const cInterpolator1D &anInterpol,
+            const cDataInvertibleMapping<tREAL8, Dim> &aMap,
+            double aDefVal = 0) const;
+        /// Interpolated value, using a generic interpolator
+        virtual double ClipedGetValueInterpol(const cInterpolator1D &,const cPtxd<double,Dim> & aP,double  aDefVal=0,bool * Ok=nullptr) const;
         /// Interpolated value+derivative, using a generic diffentiable interpolator
-        virtual std::pair<tREAL8,cPt2dr> GetValueAndGradInterpol(const cDiffInterpolator1D &,const cPt2dr & aP) const;
+        virtual std::pair<tREAL8,cPtxd<double,Dim>> GetValueAndGradInterpol(const cDiffInterpolator1D &,const cPtxd<double,Dim> & aP) const;
+
+        virtual void ToFile(const std::string& aName, const std::vector<std::string>& aOptions={}) const = 0;
 };
 
+/// Allocate
+template<int Dim>
+cDataGenUnTypedIm<Dim> * AllocImGen(const cPtxd<int,Dim>& aSz, eTyNums aType);
+
+template<int Dim>
+cDataGenUnTypedIm<Dim> * AllocImGen(const cPtxd<int,Dim>& aP0, const cPtxd<int,Dim>& aP1, eTyNums aType);
+
 /// Specfy the box, if EmptyBox full file
-cDataGenUnTypedIm<2> * ReadIm2DGen(const std::string &aName, cBox2di );
-/// Read full file
-cDataGenUnTypedIm<2> * ReadIm2DGen(const std::string &aName);
+cDataGenUnTypedIm<2> * ReadIm2DGen(const std::string &aName, const cBox2di& aBox = cBox2di::Empty());
+/// Dynamically force type od image. Specfy the box, if EmptyBox full file
+cDataGenUnTypedIm<2> * ReadIm2DGen(const std::string &aName, eTyNums aType, const cBox2di& aBox = cBox2di::Empty());
 
 
 ///  Classes for   ram-image containg a given type of pixel
@@ -378,7 +400,7 @@ template <class Type,const int Dim> class cDataTypedIm : public cDataGenUnTypedI
     public :
         // tINT8     IndexeLinear(const tPt &) const; ///< Num of pixel when we iterate
         //    tPB::AssertInside(aP);
-        
+
 
      // ======================================
 
@@ -387,6 +409,8 @@ template <class Type,const int Dim> class cDataTypedIm : public cDataGenUnTypedI
         typedef typename tTraits::tBase  tBase;
         typedef cPixBox<Dim>            tPB;
         typedef cPtxd<int,Dim>          tPix;
+
+        eTyNums TypeVal() const override { return tElemNumTrait<Type>::TyNum(); }    ///< Return pixel type
 
         const tINT8 & NbElem() const {return tPB::NbElem();} ///< Number total of pixel
         const tPix & P0() const {return tPB::P0();}  ///< facility
@@ -459,6 +483,9 @@ template <class Type,const int Dim> class cDataTypedIm : public cDataGenUnTypedI
             MMVII_INTERNAL_ERROR("No Im3D::GetVBL");
             return 0.0;
         }
+
+        void ToFile(const std::string& aName, const std::vector<std::string>& aOptions={}) const override;
+
     protected :
 
         ///< Test 4 writing
@@ -548,7 +575,7 @@ template <class Type>  class cDataIm1D  : public cDataTypedIm<Type,1>
             tBI::AssertValueOk(aVP+aV2Add);
             aVP += aV2Add;
         }
-        
+
         void  AddVBL(const tREAL8 & aX,const double & aVal)
         {
            tPB::AssertInsideBL(cPt1dr(aX));
@@ -612,7 +639,7 @@ template <class Type>  class cDataIm1D  : public cDataTypedIm<Type,1>
         cDataIm1D(const cDataIm1D<Type> &) = delete;  ///< No copy constructor for big obj, will add a dup()
         void operator = (const cDataIm1D<Type> &) = delete;  ///< No copy constructor for big obj, will add a dup()
 
-        
+
         Type & Value(const int & aX)   {return mRawData1D[aX];} ///< Data Access
         const Type & Value(const int & aX) const   {return mRawData1D[aX];} /// Cont Data Access
 
@@ -662,7 +689,7 @@ template <class Type>  class cIm1D
        tDIM & DIm() {return *(mPIm);}
        const tDIM & DIm() const {return *(mPIm);}
        cIm1D<Type>  Dup() const;
-      
+
        // void Read(const cDataFileIm2D &,const cPt2di & aP0,double aDyn=1,const cRect2& =cRect2::Empty00);  // 1 to 1
        // void Write(const cDataFileIm2D &,const cPt2di & aP0,double aDyn=1,const cRect2& =cRect2::Empty00);  // 1 to 1
        // static cIm2D<Type> FromFile(const std::string& aName);
@@ -707,6 +734,8 @@ template <class Type>  class cDataIm3D  : public cDataTypedIm<Type,3>
         virtual ~cDataIm3D();
 
         cDataIm3D(const cPt3di & aSz,Type * aRawDataLin=nullptr,eModeInitImage aModeInit=eModeInitImage::eMIA_NoInit) ;
+        cDataIm3D(const cPt3di & aP0,const cPt3di & aP1,Type * aRawDataLin=nullptr,eModeInitImage aModeInit=eModeInitImage::eMIA_NoInit);
+
 
     private :
         cDataIm3D(const cDataIm3D &) = delete;
@@ -747,7 +776,7 @@ template <class TypeH,class TypeCumul>  class cHistoCumul
          tREAL8  PropCumul(const tREAL8 & aP) const;
          const cDataIm1D<TypeH>&   H() const;
          void AddData(const cAuxAr2007 & anAux);
-         
+
           //  Different stats on the distribution of errors
           double  PercBads(double aThr) const;     // Classical % of  bads value over a threshold
           double  AvergBounded(double aThr,bool Apod=false) const; // Average of value bounded by a threshold  Min(T,X)
@@ -766,7 +795,7 @@ template <class TypeH,class TypeCumul>  class cHistoCumul
          cDataIm1D<TypeCumul>* mDHC;
          bool                mHCOk;
          tREAL8              mPopTot;
-    
+
 };
 
 class cTabulFonc1D : public cFctrRR

@@ -223,14 +223,13 @@ template <class Type> class cComputeExtrem1Im
          int  NbIn() const {return mNbIn;}
          const std::vector<cPt2di>& SortedNeigh() const {return mSortedNeigh;}
      protected :
-        void TestIsExtre1();
-
-        inline bool IsImCSupCurP(const cPt2di & aDP) const
+         void TestIsExtre1(const cPt2di& aPt);
+         inline bool IsImCSupCurP(const cPt2di& aCurP, const Type &aCurV, const cPt2di & aDP) const
         {
-             Type aV = mDIM.GetV(mPCur+aDP);
+             Type aV = mDIM.GetV(aCurP+aDP);
              // Compare values
-             if (aV>mVCur) return true;
-             if (aV<mVCur) return false;
+             if (aV > aCurV) return true;
+             if (aV < aCurV) return false;
              // if equals compare x
              if (aDP.x()>0) return true;
              if (aDP.x()<0) return false;
@@ -242,8 +241,6 @@ template <class Type> class cComputeExtrem1Im
         cResultExtremum &    mRes;      ///< Storing of results
         double               mRadius;   ///< Size of neighboorhood
         std::vector<cPt2di>  mSortedNeigh;  ///< Neighooring point sorted by growing distance
-        cPt2di               mPCur;      ///< Current point explored
-        Type                 mVCur;      ///< Value of current point
         int                  mNbIn;
 };
 
@@ -273,20 +270,20 @@ template <class Type> class cComputeExtrem3Im : public cComputeExtrem1Im<Type>
         void ComputeRes();
      protected :
         typedef cComputeExtrem1Im<Type> t1Im;
-        void TestIsExtre3();
+        void TestIsExtre3(const cPt2di& aPt);
 
         // Test for 2 dif scaled images, as lexico is "V z x y", if V are equals
         // we  know the solution because z are not
 
          ///  test >=  with "up" image (if == then Z+1 > Z)
-         inline bool IsImUpSupCurP(const cPt2di & aDP) const
+         inline bool IsImUpSupCurP(const cPt2di& aCurP, const Type& aCurV, const cPt2di & aDP) const
          {
-             return  (mDIMUp.GetV(t1Im::mPCur+aDP)>=t1Im::mVCur) ;
+             return  (mDIMUp.GetV(aCurP+aDP) >= aCurV) ;
          }
          ///  test >=  with "Bottom" image (if == then Z-1 < Z)
-         inline bool IsImBotSupCurP(const cPt2di & aDP) const
+         inline bool IsImBotSupCurP(const cPt2di& aCurP, const Type& aCurV, const cPt2di & aDP) const
          {
-             return  (mDIMBot.GetV(t1Im::mPCur+aDP)>t1Im::mVCur) ;
+             return  (mDIMBot.GetV(aCurP+aDP) > aCurV) ;
          }
          
          const cDataIm2D<Type>  & mDIMUp; ///< "Up" Image in the pyramid
@@ -314,11 +311,11 @@ cResultExtremum::cResultExtremum(bool DoMin,bool DoMax) :
 /*         cComputeExtrem1Im           */
 /*   ================================= */
 
-template <class Type> void cComputeExtrem1Im<Type>::TestIsExtre1()
+template <class Type> void cComputeExtrem1Im<Type>::TestIsExtre1(const cPt2di& aPt)
 {
-     mVCur = mDIM.GetV(mPCur);
+     auto aCurV = mDIM.GetV(aPt);
      // Compare with left neighboor ,  after we know if it has to be a min or a max
-     bool IsMin = IsImCSupCurP(cPt2di(-1,0));
+     bool IsMin = IsImCSupCurP(aPt, aCurV, cPt2di(-1,0));
      if (IsMin)
      {
         if (!mRes.mDoMin)
@@ -333,17 +330,17 @@ template <class Type> void cComputeExtrem1Im<Type>::TestIsExtre1()
      //   Now we know that if any comparison with a neighboor is not coherent with
      // the first one, it cannot be an extremum
 
-     if (IsImCSupCurP(cPt2di(1,0)) != IsMin) return;
-     if (IsImCSupCurP(cPt2di(0,1)) != IsMin) return;
-     if (IsImCSupCurP(cPt2di(0,-1)) != IsMin) return;
+     if (IsImCSupCurP(aPt, aCurV, cPt2di(1,0)) != IsMin) return;
+     if (IsImCSupCurP(aPt, aCurV, cPt2di(0,1)) != IsMin) return;
+     if (IsImCSupCurP(aPt, aCurV, cPt2di(0,-1)) != IsMin) return;
  
      for (const auto & aDP : mSortedNeigh)
-         if (IsImCSupCurP(aDP) != IsMin)
+         if (IsImCSupCurP(aPt, aCurV, aDP) != IsMin)
             return;
     if (IsMin)
-       mRes.mPtsMin.push_back(mPCur);
+       mRes.mPtsMin.push_back(aPt);
     else
-       mRes.mPtsMax.push_back(mPCur);
+       mRes.mPtsMax.push_back(aPt);
 }
 
 
@@ -363,12 +360,10 @@ template <class Type> void cComputeExtrem1Im<Type>::ComputeRes()
     cPt2di aSzW = cPt2di::PCste(round_down(mRadius));
     cRect2 aRectInt (mDIM.Dilate(-aSzW));
     mNbIn = 0;
-    
     for (const auto & aPCur : aRectInt)
     {
-         mPCur = aPCur;
-         TestIsExtre1();
-         mNbIn ++;
+        TestIsExtre1(aPCur);
+        mNbIn ++;
     }
 }
 
@@ -383,49 +378,49 @@ template <class Type> void ExtractExtremum1(const cDataIm2D<Type>  &anIm,cResult
 /*         cComputeExtrem3Im           */
 /*   ================================= */
 
-template <class Type> void cComputeExtrem3Im<Type>::TestIsExtre3()
+template <class Type> void cComputeExtrem3Im<Type>::TestIsExtre3(const cPt2di& aPt)
 {
-     t1Im::mVCur = t1Im::mDIM.GetV(t1Im::mPCur);
+     auto aCurV = t1Im::mDIM.GetV(aPt);
      // Compare with left neighboor ,  after we know if it has to be a min or a max
-     bool IsMin = t1Im::IsImCSupCurP(cPt2di(-1,0));
+     bool IsMin = t1Im::IsImCSupCurP(aPt, aCurV, cPt2di(-1,0));
 
      //   Now we know that if any comparison with a neighboor is not coherent with
      // the first one, it cannot be an extremum
 
-     if (t1Im::IsImCSupCurP(cPt2di(1,0)) != IsMin) return;
-     if (t1Im::IsImCSupCurP(cPt2di(0,1)) != IsMin) return;
-     if (t1Im::IsImCSupCurP(cPt2di(0,-1)) != IsMin) return;
+     if (t1Im::IsImCSupCurP(aPt, aCurV, cPt2di(1,0)) != IsMin) return;
+     if (t1Im::IsImCSupCurP(aPt, aCurV, cPt2di(0,1)) != IsMin) return;
+     if (t1Im::IsImCSupCurP(aPt, aCurV, cPt2di(0,-1)) != IsMin) return;
    
      // Test vertical
-     if (IsImUpSupCurP (cPt2di(0,0)) != IsMin) return;
-     if (IsImBotSupCurP(cPt2di(0,0)) != IsMin) return;
+     if (IsImUpSupCurP (aPt, aCurV, cPt2di(0,0)) != IsMin) return;
+     if (IsImBotSupCurP(aPt, aCurV, cPt2di(0,0)) != IsMin) return;
 
      // Test first neighboor
-     if (IsImUpSupCurP (cPt2di(-1,0)) != IsMin) return;
-     if (IsImBotSupCurP(cPt2di(-1,0)) != IsMin) return;
+     if (IsImUpSupCurP (aPt, aCurV, cPt2di(-1,0)) != IsMin) return;
+     if (IsImBotSupCurP(aPt, aCurV, cPt2di(-1,0)) != IsMin) return;
 
      // Test 3 neigh => !! this is necessary to do it
      // explicitely as mSorteNeigh "DO NOT" contain 4-Neighboors
-     if (IsImUpSupCurP (cPt2di( 1, 0)) != IsMin) return;
-     if (IsImBotSupCurP(cPt2di( 1, 0)) != IsMin) return;
-     if (IsImUpSupCurP (cPt2di( 0, 1)) != IsMin) return;
-     if (IsImBotSupCurP(cPt2di( 0, 1)) != IsMin) return;
-     if (IsImUpSupCurP (cPt2di( 0,-1)) != IsMin) return;
-     if (IsImBotSupCurP(cPt2di( 0,-1)) != IsMin) return;
+     if (IsImUpSupCurP (aPt, aCurV, cPt2di( 1, 0)) != IsMin) return;
+     if (IsImBotSupCurP(aPt, aCurV, cPt2di( 1, 0)) != IsMin) return;
+     if (IsImUpSupCurP (aPt, aCurV, cPt2di( 0, 1)) != IsMin) return;
+     if (IsImBotSupCurP(aPt, aCurV, cPt2di( 0, 1)) != IsMin) return;
+     if (IsImUpSupCurP (aPt, aCurV, cPt2di( 0,-1)) != IsMin) return;
+     if (IsImBotSupCurP(aPt, aCurV, cPt2di( 0,-1)) != IsMin) return;
 
  
      // Now classicaly test all neighboors
      for (const auto & aDP : t1Im::mSortedNeigh)
      {
-         if (t1Im::IsImCSupCurP  (aDP) != IsMin) return;
-         if (IsImUpSupCurP (aDP) != IsMin) return;
-         if (IsImBotSupCurP(aDP) != IsMin) return;
+         if (t1Im::IsImCSupCurP  (aPt, aCurV, aDP) != IsMin) return;
+         if (IsImUpSupCurP (aPt, aCurV, aDP) != IsMin) return;
+         if (IsImBotSupCurP(aPt, aCurV, aDP) != IsMin) return;
      }
      // Now if all test are passed it is an extrema
      if (IsMin)
-        t1Im::mRes.mPtsMin.push_back(t1Im::mPCur);
+        t1Im::mRes.mPtsMin.push_back(aPt);
      else
-        t1Im::mRes.mPtsMax.push_back(t1Im::mPCur);
+        t1Im::mRes.mPtsMax.push_back(aPt);
 }
 
 template <class Type>
@@ -454,8 +449,7 @@ template <class Type> void cComputeExtrem3Im<Type>::ComputeRes()
     
     for (const auto & aPCur : aRectInt)
     {
-         t1Im::mPCur = aPCur;
-         TestIsExtre3();
+         TestIsExtre3(aPCur);
     }
 }
 
@@ -553,7 +547,7 @@ void OneTestEqual_RE
 void TestEqual_RE(cResultExtremum & aR1,cResultExtremum & aR2)
 {
     OneTestEqual_RE(aR1.mPtsMin,aR2.mPtsMin,"Min");
-    OneTestEqual_RE(aR1.mPtsMax,aR2.mPtsMax,"Min");
+    OneTestEqual_RE(aR1.mPtsMax,aR2.mPtsMax,"Max");
 }
 
 /**  Test extremum with different parameters simulation

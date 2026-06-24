@@ -273,12 +273,14 @@ class cMes3DDirInfo
 {
 public:
     static cMes3DDirInfo* addMes3DDirInfo(cBA_GCP &aBA_GCP, const std::string & aDirNameIn,
-                                            const std::string & aDirNameOut, tREAL8 aSGlob);
+                                          const std::string & aDirNameOut, tREAL8 aSGlob,
+                                          bool aDoExportSigmas);
     std::string mDirNameIn;
     std::string mDirNameOut;
     tREAL8 mSGlob; // factor, shurred or fixed
+    bool mDoExportSigmas;
 protected:
-    cMes3DDirInfo(const std::string &aDirNameIn, const std::string &aDirNameOut, tREAL8 aSGlob);
+    cMes3DDirInfo(const std::string &aDirNameIn, const std::string &aDirNameOut, tREAL8 aSGlob, bool aDoExportSigmas);
 };
 
 // class to record data specific to a measurement directory : In name, weighter
@@ -307,16 +309,19 @@ class cBA_GCP
           cBA_GCP& operator=(cBA_GCP const&) = delete;
 
           void AddGCP3D(cMes3DDirInfo * aMesDirInfo, cSetMesGnd3D &aSetMesGnd3D, bool verbose);
-          void AddMes2D(cSetMesPtOf1Im &, cMes2DDirInfo * aMesDirInfo, cSensorImage*, eLevelCheck OnNonExistP=eLevelCheck::Warning);
+          void AddMes2D(cSetMesPtOf1Im &, cMes2DDirInfo * aMesDirInfo, cSensorImage* aSensorImage, eLevelCheck OnNonExistP=eLevelCheck::Warning);
           const cSetMesGndPt & getMesGCP() const {return mMesGCP;}
           cSetMesGndPt & getMesGCP() {return mMesGCP;}
           std::vector<cMes2DDirInfo*> mAllMes2DDirInfo;
           std::vector<cMes3DDirInfo*> mAllMes3DDirInfo;
           const std::vector<cPt3dr_UK*>  & getGCP_UK() const { return mGCP_UK; }
+          bool getDoComputeGCP_UC_UK() const { return mDoComputeGCP_UC_UK ;}
+
     protected:
           cSetMesGndPt             mMesGCP; //< initial
           cSetMesGndPt             mNewGCP; //< set of gcp after adjust
           std::vector<cPt3dr_UK*>  mGCP_UK; //< as many elements as mMesGCP, nullptr for shurred points
+          bool                     mDoComputeGCP_UC_UK=false; //< force UC_UK at least on GCPs
 
 };
 
@@ -333,14 +338,22 @@ class cBA_TieP
 
 //---------------------------------------------------------
 
+
 /** "Helper" class for cBA_LidarPhotogra : for a given patch in one image, will store all the data on the points*/
 class cData1ImLidPhgr
 {
     public :
         std::string mScanAName;    //< origin scan id to get uk
-        std::string mScanBName;    //< secondary scan id to get uk (only for llidar/lidar adj)
-        size_t mKIm;  ///< num of images where the patch is seen (only for lidar/im adj)
+        std::string mScanBName;    //< secondary scan id to get uk (only for lidar/lidar adj)
+        size_t mKIm;  ///< number of the image where the patch is seen (only for lidar/im adj)
         std::vector<std::pair<tREAL8,cPt2dr>> mVGr; ///< pair of radiometry/gradient, in image,  for each point of the patch
+};
+
+// record all data for each scan raster
+struct cStaticLidarBAData
+{
+    cStaticLidar *                 mLidarRaster;   //< raster representations of lidar
+    std::list<cLidarRasterPatch>   mLPatches;      //< all the patches data after size estimation and visibility
 };
 
 
@@ -373,12 +386,14 @@ protected :
 
     cPhotogrammetricProject *      mPhProj;         // Photogrammetric project
     cMMVII_BundleAdj&              mBA;             ///< The global bundle adj structure
+    std::vector<std::string>       mParamInterpol;  ///< the interpol parameters, to be able to modify it
     cDiffInterpolator1D *          mInterp;         ///< Interpolator, used to extract  Value & Grad of images
     cCalculator<double>  *         mEq;      ///< Calculator used for constrain the pose from image obs
     cWeightAv<tREAL8,tREAL8>       mLastResidual;   ///< Accumulate the radiometric residual
     double                         mWFactor;          ///< weight for observations
     size_t                         mNbUsedPoints;   ///< number of lidar used points
     size_t                         mNbUsedObs;      ///< number of lidar obs used
+
 };
 
 
@@ -397,16 +412,22 @@ class cBA_LidarPhotogra: public cBA_LidarBase
     protected :
        void InitEq(bool aScanPoseUk);
 
-       void Add1Patch(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchGr, const std::string & aScanName);
+        void Add1Patch(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+                       const std::string & aScanName, const std::unordered_set<std::string> &aHiddenOnImage,
+                       int aPatchNum);
 
+       // AddPatch* returns (number of images used, squared mean residual)
        /// Method for adding observations with radiometric differences as similatity criterion
-       void AddPatchDifRad(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchGr,const std::vector<cData1ImLidPhgr> &aVData) ;
+       std::pair<int, tREAL8> AddPatchDifRad(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+                           const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        /// Method for adding observations with Census Coeff as similatity criterion
-       void AddPatchCensus(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchGr,const std::vector<cData1ImLidPhgr> &aVData) ;
+       std::pair<int, tREAL8>  AddPatchCensus(const cResidualWeighter<tREAL8> &aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+                           const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        /// Method for adding observations with Normalized Centred Coefficent Correlation as similatity criterion
-       void AddPatchCorrel(tREAL8 aWeight,const std::vector<cPt3dr> & aVPatchGr,const std::vector<cData1ImLidPhgr> &aVData) ;
+       virtual std::pair<int, tREAL8>  AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
+                           const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        eImatchCrit                    mModeSim;        ///< type of similarity used
        bool                           mPertRad;        ///< do we pertubate the radiometry (simulation & test)
@@ -442,20 +463,28 @@ protected:
     std::list<std::vector<int>>    mLPatchesI;      ///< set of patches as index in Tri, consituted by 3D points in a lidar scan
 };
 
+/**
+ * common part for all raster-based lidar adj
+*/
 
-// record all data for each scan raster
-struct cStaticLidarBAData
+class cBA_LidarRaster
 {
-    std::string                    mScanName;      //< scan id
-    cStaticLidar *                 mLidarRaster;   //< raster representations of lidar
-    std::list<std::set<cPt2di>>    mLPatchesP;     //< set of patches as px in raster, consituted by 3D points in a lidar scan
+public:
+    void CreateZbuffers(cPhotogrammetricProject *aPhProj, const cMMVII_BundleAdj &aBA, bool aOnScans, bool aDebug); ///< on images or on scans
+
+protected:
+    std::vector<cStaticLidarBAData>   mVScans;      ///< vector of raster representations of lidar
+    std::map<std::string,cIm2D<tREAL4>> mMapZbuf; ///< fusion of all zbuffers for one image/scan B name
+    std::map<std::string,cStdWeighterResidual> mWeightersMap;   ///< map from "nameScanA-nameScanB" to the appropriate weighter
+    tREAL8                            mThresholdInit, mThresholdFinal;   ///< distance where scan points are supposed to be hidden
+    std::map<std::string, int>        mMapNbUsedPatches; // indexed by "ScanA>ImB", number of patches used for this couple
 };
 
 /**
- * use lidar raster geometry, with unknown pose
+ * uses lidar raster geometry, with unknown pose
 */
 
-class cBA_LidarPhotograRaster : public cBA_LidarPhotogra
+class cBA_LidarPhotograRaster : public cBA_LidarPhotogra, public cBA_LidarRaster
 {
 public :
     /// constructor, take the global bundle struct + one vector of param
@@ -466,6 +495,12 @@ public :
     /// add observation
     virtual void AddObs() override;
 
+    void UpdateInterpolatorScale(const cMMVII_BundleAdj& aBA);
+    void UpdateWeightersMap(const cMMVII_BundleAdj &aBA, double aWFactor); // create or update map, on each iteration
+
+    std::pair<int, tREAL8>  AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
+                       const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) override;
+
 protected:
     virtual void SetVUkVObs
         (const cPt3dr&           aPGround,
@@ -474,8 +509,8 @@ protected:
          const cData1ImLidPhgr & aData,
          int                     aKPt
          ) override;
+    tREAL8                            mScaleInit, mScaleFinal;   ///< scale interpolator scale, dependent on the iteration number
 
-    std::vector<cStaticLidarBAData> mVScans;      ///< vector of raster representations of lidar
 };
 
 
@@ -483,7 +518,7 @@ protected:
  * Class for adjustment between two lidar scans
  */
 
-class cBA_LidarLidarRaster: public cBA_LidarBase
+class cBA_LidarLidarRaster: public cBA_LidarBase, public cBA_LidarRaster
 {
 public :
     /// constructor, take the global bundle struct + one vector of param
@@ -494,11 +529,11 @@ public :
     /// add observation
     void AddObs() override;
 
-    void UpdateWeightersMap(); // create or update map, on each iteration
+    void UpdateWeightersMap(const cMMVII_BundleAdj &aBA, double aWFactor); // create or update map, on each iteration
 
 protected :
     /**  Add observation for 1 Patch of point */
-    tREAL8 Add1Patch(const cPt3dr &aPGround, const std::string & aScanName); // returns min residual for this point
+    tREAL8 Add1Patch(const cLidarRasterPatch &aPatch, const cStaticLidarBAData & aScanData); // returns min residual for this point
 
     void AddPatchDist(const cPt3dr &aPGround, const std::vector<cData1ImLidPhgr> &aVData) ;
 
@@ -510,9 +545,7 @@ protected :
          int                     aKPt
          ) override;
 
-    std::vector<cStaticLidarBAData>   mVScans;      ///< vector of raster representations of lidar
-    std::map<std::string,cStdWeighterResidual> mWeightersMap;   ///< map from "nameScanA-nameScanB" to the appropriate weighter
-    tREAL8                            mThresholdInit, mThresholdFinal;   ///< distance where scan points are supposed to be hidden
+    tREAL8 mNormalDiffMinCos = cos(15*M_PI/180);
 };
 
 
@@ -533,7 +566,7 @@ class cBA_ArboTriplets
 {
     public:
         /// Sets up cameras, collinearity calculators, solver, local tie-points subset.
-        cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols);
+        cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols, int aTDepth, int aNbIterEnd);
         ~cBA_ArboTriplets();
 
         /// One BA iteration. Pre-computes u,v vectors on first call (aIter==0).
@@ -543,13 +576,16 @@ class cBA_ArboTriplets
         void UpdateLocSols(std::vector<cSolLocNode>& aLocSols);
 
         size_t NbCams() const { return mVCams.size(); }
+        int    NbIter() const { return mNbIter; }
+
+        /// Optional GT 3D points (keyed by tie-point ID) for diagnostic comparison at iter==0.
+        void SetGTPts3D(std::map<int,cPt3dr>* aGT) { mGTPts3D = aGT; }
 
     private:
-        cMakeArboTriplet*                                  mPMAT;
+        cMakeArboTriplet*                            mPMAT;
         int                                                mNbIter;
-        tREAL8                                             mSigAtt;
+        std::vector<tREAL8>                                mSigARange;  ///< [start, end] dynamic threshold
         std::vector<tREAL8>                                mThrRange;   ///< [start, end] dynamic threshold
-        tREAL8                                             mDeltaThr;
 
         cSetInterUK_MultipeObj<tREAL8>                     mSetIntervUK;
         std::vector<cSensorCamPC*>                         mVCams;
@@ -558,6 +594,9 @@ class cBA_ArboTriplets
         cResolSysNonLinear<tREAL8>*                        mSys;
         cComputeMergeMulTieP*                              mTPts;   ///< local tie-points subset
         std::vector<std::vector<std::pair<cPt3dr,cPt3dr>>> mVecConfUV; ///< precomputed u,v per config
+        std::map<int,cPt3dr>*                              mGTPts3D = nullptr; ///< optional GT pts for diagnosis
+
+        const int                                          mTreeDepth;
 };
 
 class cMMVII_BundleAdj
@@ -588,7 +627,7 @@ class cMMVII_BundleAdj
           cBA_GCP& getGCP() { return mGCP;}
 
           ///  ============  Add Lidar/Photogra ===============          void AddLineAdjust(const std::vector<std::string> &);
-          cStaticLidar *AddStaticLidar(const std::string &aScanName);
+          bool AddStaticLidar(cStaticLidar* aStaticLidar);
           void Add1AdjLidarPhotogra(const std::vector<std::string> &);
           void Add1AdjLidarPhoto(const std::vector<std::string> &);
           void Add1AdjLidarLidar(const std::vector<std::string> &);
@@ -615,6 +654,8 @@ class cMMVII_BundleAdj
           void SetFrozenTSL(const std::string & aPattern);
           void SetSharedIntrinsicParams(const std::vector<std::string> &);
            
+          void SetGaujeRelPause(const std::vector<std::string> &);
+         // void SetGaujeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
 
           void AddPoseViscosity();
           void AddConstrainteRefPose();
@@ -644,10 +685,11 @@ class cMMVII_BundleAdj
 
           void Set_UC_UK(const std::vector<std::string> & aParam);
           void ShowUKNames(const std::vector<std::string> & aParam, const std::string &aSuffix, cMMVII_Appli* =nullptr) ;
+          cPt3dr GetGCP_UC_UK(const std::string & aGCPName) const;
           // Save results of clino bundle adjustment
           void SaveClino();
-          void  AddBenchSensor(cSensorCamPC *); // Add sensor, used in Bench Clino
-
+          /// Add sensor, used in Bench Clino, deprecated probably
+          void  AddBenchSensor(cSensorCamPC *);
           void setVerbose(bool aVerbose){mVerbose=aVerbose;}; // Print or not residuals
           
           cResolSysNonLinear<tREAL8> *  Sys();  /// Real object, will disapear when fully interfaced for mSys
@@ -658,6 +700,10 @@ class cMMVII_BundleAdj
 
           int NbMaxIter() const { return mNbMaxIter;}
           int Iter() const { return mIter;}
+
+          tREAL8 CurLVMParam() const;
+          int   NbCamPC() const;
+
 
      private :
 
@@ -680,6 +726,8 @@ class cMMVII_BundleAdj
 
           /// One iteration : add all measure + constraint + Least Square Solve/Udpate/Init
           void OneIteration(bool isFirstIter=false, tREAL8 aLVM=0.0, bool doShowCond=false);
+
+          int IndexOfPCPose(const std::string &,bool SVP =false) const;
 
           //============== Data =============================
           cPhotogrammetricProject * mPhProj;
@@ -734,6 +782,15 @@ class cMMVII_BundleAdj
           std::string                        mPatternRef;
           bool                               mDoRefCam;
           cDirsPhProj*                       mDirRefCam;
+
+          // ===================  "Gauje for pure relative pause"  ==================
+
+
+          bool   mUseGauje;
+          int    mKPoseMainGauje;
+          int    mKPoseSecondGauje;
+          int    mKCoordSecondGauje;
+
           // ===================  "Viscosity"  ==================
 
           tREAL8   mSigmaViscAngles;  ///< "viscosity"  for angles
@@ -752,6 +809,10 @@ class cMMVII_BundleAdj
           cResult_UC_SUR<tREAL8>*   mRUCSUR;
           std::vector<cUK_Line3D_4BA*>           mVecLineAdjust;
           std::vector<cBA_BlockInstr *>          mVecBlockInstrAdj;
+
+          tREAL8                                mCurLVMParam;
+          int                                   mNbCamPC;
+
 };
 
 

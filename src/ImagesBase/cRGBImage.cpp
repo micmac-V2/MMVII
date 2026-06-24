@@ -207,14 +207,14 @@ template <class Type> cRGBImage  RGBImFromGray(const cDataIm2D<Type> & aGrayIm,c
 
    for (const auto & aPix : cRect2(aBoxC))
        aRes.SetGrayPix(aPix-aBoxC.P0(),round_ni(aMul*aGrayIm.GetV(aPix)));
-       
+
    return aRes;
 }
 
 
 
     // ==================   FILE  EXPORT/EXPORT ====================
-    
+
                //  Creation/Read from file
 
 cRGBImage cRGBImage::FromFile(const std::string& aName,const cBox2di & aBox,int aZoom)
@@ -301,12 +301,12 @@ void cRGBImage::Read(const std::string & aName,const cPt2di & aP0,double aDyn,co
 
                //  file  create/write
 
-void cRGBImage::ToFile(const std::string & aName, const tFileOptions& aOptions)
+void cRGBImage::ToFile(const std::string & aName, const std::vector<std::string>& aOptions)
 {
     mImR.DIm().ToFile(aName,mImG.DIm(),mImB.DIm(),aOptions);
 }
 
-void cRGBImage::ToFileDeZoom(const std::string & aName,int aDeZoom, const tFileOptions& aOptions)
+void cRGBImage::ToFileDeZoom(const std::string & aName,int aDeZoom, const std::vector<std::string>& aOptions)
 {
   if (aDeZoom==1)
   {
@@ -320,7 +320,7 @@ void cRGBImage::ToFileDeZoom(const std::string & aName,int aDeZoom, const tFileO
   aImR.DIm().ToFile(aName,aImG.DIm(),aImB.DIm(),aOptions);
 }
 
-void cRGBImage::ToJpgFileDeZoom(const std::string & aName,int aDeZoom, const tFileOptions& aOptions)
+void cRGBImage::ToJpgFileDeZoom(const std::string & aName,int aDeZoom, const std::vector<std::string>& aOptions)
 {
     auto aNameJPG = LastPrefix(aName) + ".jpg";
     auto options = aOptions;
