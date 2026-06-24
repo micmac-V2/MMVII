@@ -20,7 +20,7 @@ cPt3dr cart2spher(const cPt3dr & aPtCart)
 {
     tREAL8 dist = Norm2(aPtCart);
     tREAL8 theta =  atan2(aPtCart.y(),aPtCart.x());
-    tREAL8 distxy = sqrt(aPtCart.BigX2()+aPtCart.BigY2());
+    tREAL8 distxy = Norm2(Proj(aPtCart));
     tREAL8 phi =  atan2(aPtCart.z(),distxy);
     return {theta, phi, dist};
 }
