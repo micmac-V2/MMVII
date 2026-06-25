@@ -75,7 +75,7 @@ struct cLS10PSol
     cLS10PSol();
     cLS10PSol(cDenseVect<tREAL8> aVParams);
     std::vector<tREAL8> mVP;
-    cAff2D_r            mAff;
+    tAff2Dr            mAff;
 };
 
 /*!
@@ -152,7 +152,7 @@ class cCdTDiscr
 {
 public:
 
-    cCdTDiscr(const std::string& aName, const std::string& aImName, cAff2D_r aAff);
+    cCdTDiscr(const std::string& aName, const std::string& aImName, tAff2Dr aAff);
     cCdTDiscr();
     //----- members
     const std::string             mName;//-> CdT name
@@ -173,7 +173,7 @@ public:
     std::vector<cPt2dr>         VRef2Im(std::vector<cPt2dr> aVPts, bool inv=false);//-> Ref2Im for a point vector
     cPt2dr                      Ref2Samp(cPt2dr aP, bool inv=false);//-> convert aP w.r.t ref CdT coordinates to samp CdT coordinates
 
-    void                        SetRef2Im(cAff2D_r aRef2Im);//-> set reference CdT image to input image mapping
+    void                        SetRef2Im(tAff2Dr aRef2Im);//-> set reference CdT image to input image mapping
     void                        SetExtent(cRect2 aExt);//-> set rectangular extent w.r.t input image coordinates
     void                        SetMask(tIm aMask);//-> set binary i/o CdT mask
     void                        SetInlMask(tIm aInlMask);//-> set binary i/o CdT inliers mask
@@ -210,7 +210,7 @@ private:
     tIm                     mSamp;  //-> CdT sampled from CdT2Im mapping
     tIm                     mMask;  //-> bbox of CdT formed by predicted corners (local coordinates, MaskIn/MaskOut)
     tIm                     mInlMask; //-> mask for inliers used for mapping LS adjustment
-    cAff2D_r                mRef2Glob;//-> reference (MMVII generated) CdT image to input image mapping
+    tAff2Dr                mRef2Glob;//-> reference (MMVII generated) CdT image to input image mapping
     std::vector<cPt2dr>     mVBCenters;//-> white bit centers w.r.t Ref image coordinates
     std::vector<cPt2dr>     mVWCenters;//-> black bit centers w.r.t Ref image coordinates
     cRansacSol              mTFSm2Cr;//-> radiometric transfert function from sampled image to cropped image computed by RansacATF

@@ -11,7 +11,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
     */
     /**************************************************************************/
 
-    cCdTDiscr::cCdTDiscr(const std::string& aName, const std::string& aImName, MMVII::cAff2D_r aAff):
+    cCdTDiscr::cCdTDiscr(const std::string& aName, const std::string& aImName, MMVII::tAff2Dr aAff):
         mName       (aName),
         mImName     (aImName),
         mExtent     (cPt2di(1,1)),
@@ -307,7 +307,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         return aRes;
     }
 
-    void cCdTDiscr::SetRef2Im(cAff2D_r aRef2Im){mRef2Glob = aRef2Im;}
+    void cCdTDiscr::SetRef2Im(tAff2Dr aRef2Im){mRef2Glob = aRef2Im;}
     void cCdTDiscr::SetExtent(cRect2 aExt){mExtent = aExt;}
     void cCdTDiscr::SetRef(tIm aRef){mRef = aRef;}
     void cCdTDiscr::SetMask(tIm aMask){mMask = aMask;}
@@ -772,7 +772,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
     cLS10PSol::cLS10PSol(cDenseVect<tREAL8> aVParams):
         mVP (aVParams.ToStdVect())
     {
-        mAff = cAff2D_r(cPt2dr(mVP[6], mVP[9]),//-> Tr
+        mAff = tAff2Dr(cPt2dr(mVP[6], mVP[9]),//-> Tr
                         cPt2dr(mVP[4], mVP[7]),//-> Vx
                         cPt2dr(mVP[5], mVP[8]));//-> Vy
     }

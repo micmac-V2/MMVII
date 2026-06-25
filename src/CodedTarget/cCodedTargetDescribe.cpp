@@ -114,7 +114,7 @@ namespace MMVII
             aVOut.push_back(aCam->Ground2Image(mRef2Gnd.Value(cPt3dr(aP.x(), aP.y(), 0))));
         }
         tREAL8      aRes;
-        cAff2D_r    aAff;
+        tAff2Dr    aAff;
         aAff = aAff.StdGlobEstimate(Corners(), aVOut, &aRes, nullptr, cParamCtrlOpt::Default());
         isIn = aCam->IsVisibleOnImFrame(aAff.Value(mCenter));
         return cCdTDiscr(mName, aCam->NameImage(), aAff);

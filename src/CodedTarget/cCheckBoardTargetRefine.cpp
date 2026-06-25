@@ -829,7 +829,7 @@ const std::vector<std::string> TargetLoc = {"ul","ur","ll","lr"};
         cPt2dr aVy = (aTgtY1 - aTgtPix)/aDelta;
         cPt2dr aTr = aTgtPix - aRPix.x() * aVx - aRPix.y() * aVy;
 
-        return cAff2D_r(aTr, aVx, aVy);
+        return tAff2Dr(aTr, aVx, aVy);
     }
 
     void cAppli_CheckBoardTargetRefine::RansacTransFunc(cPt2dr& theSol, std::vector<cPt2di> aVBitCenters)
