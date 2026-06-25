@@ -81,6 +81,7 @@ cCollecSpecArg2007 & cAppli_HierarchSfm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return    anArgOpt
            <<  mPhProj.DPMulTieP().ArgDirInOpt("","Input features (multiple tie-points format)")
+           <<  mPhProj.DPTieP().ArgDirInOpt("","Input features (per-pair format)")
            <<  mPhProj.DPGndPt2D().ArgDirInOpt("","Input features (image measurements format)")
            <<  mPhProj.DPOrient().ArgDirInOpt("","Ground truth input orientation directory")
            <<  AOpt2007(mViscPose,"ViscPose","Regularization on poses for BA: [SigmaTr,SigmaRot]",{eTA2007::HDV})
@@ -134,6 +135,11 @@ int cAppli_HierarchSfm::Exe()
     {
         aMk3.TPFolder() = mPhProj.DPMulTieP().DirIn();
         aMk3.InitTPtsStruct(mPhProj.DPMulTieP().DirIn(),aSetIm);
+    }
+    else if (mPhProj.DPTieP().DirInIsInit())
+    {
+        aMk3.TPFolder() = mPhProj.DPTieP().DirIn();
+        aMk3.InitTPtsStruct(mPhProj.DPTieP().DirIn(),aSetIm);
     }
     else if (mPhProj.DPGndPt2D().DirInIsInit())
     {

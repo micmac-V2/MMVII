@@ -51,9 +51,9 @@ cCollecSpecArg2007 & cAppli_OriRelPipeline::ArgOpt(cCollecSpecArg2007 & anArgOpt
 {
     return anArgOpt
            <<  mPhProj.DPOrient().ArgDirOutOpt()
+           <<  mPhProj.DPMulTieP().ArgDirInOpt()
            <<  mPhProj.DPTieP().ArgDirInOpt()
            <<  mPhProj.DPGndPt2D().ArgDirInOpt()
-           <<  mPhProj.DPMulTieP().ArgDirInOpt()
            <<  mPhProj.DPMulTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
            <<  AOpt2007(mExe,"Exe","Execute pipeline",{eTA2007::HDV});
 }
