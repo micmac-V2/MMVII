@@ -24,7 +24,6 @@ cBA_LidarBase::cBA_LidarBase(cPhotogrammetricProject * aPhProj,
 
 cBA_LidarBase::~cBA_LidarBase()
 {
-    delete mEq;
     delete mInterp;
 }
 
@@ -220,11 +219,11 @@ cBA_LidarPhotogra::cBA_LidarPhotogra(cPhotogrammetricProject * aPhProj,
 void cBA_LidarPhotogra::InitEq(bool aScanPoseUk)
 {
     if (mModeSim==eImatchCrit::eDifRad)
-        mEq = EqEqLidarImPonct (true,1,aScanPoseUk);
+        mEq = EqEqLidarImPonct (true,1,aScanPoseUk,true);
     else if (mModeSim==eImatchCrit::eCensus)
-        mEq = EqEqLidarImCensus(true,1, aScanPoseUk);
+        mEq = EqEqLidarImCensus(true,1, aScanPoseUk,true);
     else if (mModeSim==eImatchCrit::eCorrel)
-        mEq = EqEqLidarImCorrel(true,1, aScanPoseUk);
+        mEq = EqEqLidarImCorrel(true,1, aScanPoseUk,true);
     else
     {
         MMVII_UnclasseUsEr("Bad enum for cBA_LidarPhotogra");
@@ -339,7 +338,6 @@ cBA_LidarPhotograTri::~cBA_LidarPhotograTri()
 
 cBA_LidarPhotograRaster::~cBA_LidarPhotograRaster()
 {
-    //if (mLidarData) delete mLidarData; // automatically deleted at the end
 }
 
 void cBA_LidarPhotograTri::AddObs()
@@ -1007,7 +1005,7 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
                                            cMMVII_BundleAdj& aBA, const std::vector<std::string>& aParam) :
     cBA_LidarBase(aPhProj, aBA, aParam)
 {
-    mEq = EqEqLidarLidar (true,1);
+    mEq = EqEqLidarLidar (true,1,true);
     std::vector<std::string> aParamBis = aParam;
     // if interpolator is empty, force linear
     if (aParamBis.size() < 5)
