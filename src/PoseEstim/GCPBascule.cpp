@@ -105,7 +105,7 @@ namespace MMVII
                                 //read sensor
                                 cSensorCamPC* aCam = mPhProj.ReadCamPC(aNameIm, true);//PC = Pose Calibration
                                 //load 2d measure
-                                mPhProj.LoadIm(aSet, nullptr, *aCam);//LoadIm to load 2d measure
+                                mPhProj.LoadIm(aSet, aCam->NameImage(), nullptr);//LoadIm to load 2d measure
                                 
                         }
                         

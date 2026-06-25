@@ -7,7 +7,6 @@
 #include "MMVII_PCSens.h"
 #include "cMMVII_Appli.h"
 #include "cCodedTargetDescribe.h"
-#include "MMVII_Interpolators.h"
 
 namespace MMVII
 {
