@@ -1,4 +1,5 @@
 #include "cCodedTargetRefine.h"
+#include "MMVII_Interpolators.h"
 
 namespace MMVII
 {
@@ -11,7 +12,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
     */
     /**************************************************************************/
 
-    cCdTDiscr::cCdTDiscr(const std::string& aName, const std::string& aImName, MMVII::cAff2D_r aAff):
+    cCdTDiscr::cCdTDiscr(const std::string& aName, const std::string& aImName, MMVII::tAff2Dr aAff):
         mName       (aName),
         mImName     (aImName),
         mExtent     (cPt2di(1,1)),
@@ -166,11 +167,13 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         tIm aInCtMask(mSamp.DIm().Sz());
         tDIm& aDInCtMask = aInCtMask.DIm();
         aDInCtMask.InitCste(MaskInV);
-        tDIm& aDMask = mMask.DIm();
 
-        for (const auto& aP : cRect2(aDInCtMask.Dilate(-aD)))
+        auto aR = cRect2(mRef.DIm().Dilate(-aD));//-> mask rect in ref image
+
+        for (const auto& aP : aDInCtMask)
+
         {
-            if (aDMask.GetV(aP)==MaskOutV)
+            if (aR.InsideBL(mRef2Glob.Inverse(ToR(aP + mExtent.P0()))))//-> if inside dilated rectangle (ie outside mask)
             {
                 aDInCtMask.SetV(aP, MaskOutV);
             }
@@ -307,7 +310,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         return aRes;
     }
 
-    void cCdTDiscr::SetRef2Im(cAff2D_r aRef2Im){mRef2Glob = aRef2Im;}
+    void cCdTDiscr::SetRef2Im(tAff2Dr aRef2Im){mRef2Glob = aRef2Im;}
     void cCdTDiscr::SetExtent(cRect2 aExt){mExtent = aExt;}
     void cCdTDiscr::SetRef(tIm aRef){mRef = aRef;}
     void cCdTDiscr::SetMask(tIm aMask){mMask = aMask;}
@@ -572,7 +575,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         //tIm aInCBMask = aDis.MaskInCB(true);
         //aDis.SetInlMask(aInCBMask);
 
-        tIm aInCtMask = aDis.MaskInCt(2);
+        tIm aInCtMask = aDis.MaskInCt(50);
         aDis.SetInlMask(aInCtMask);
 
         //----- least square computation of Samp to Crop 10-params mapping
@@ -772,7 +775,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
     cLS10PSol::cLS10PSol(cDenseVect<tREAL8> aVParams):
         mVP (aVParams.ToStdVect())
     {
-        mAff = cAff2D_r(cPt2dr(mVP[6], mVP[9]),//-> Tr
+        mAff = tAff2Dr(cPt2dr(mVP[6], mVP[9]),//-> Tr
                         cPt2dr(mVP[4], mVP[7]),//-> Vx
                         cPt2dr(mVP[5], mVP[8]));//-> Vy
     }
