@@ -51,12 +51,18 @@ void MMVII_SetErrorHandler(PtrMMVII_Error_Handler);
 /** Restore default error handler */
 void MMVII_RestoreDefaultHandle();
 
+// Avoid erroneous analysis diagnostics
+[[noreturn]]
+inline void MMVII_Error_noreturn(const std::string & aType,const std::string &  aMes,const char * aFile,int aLine)
+{
+    MMVVI_Error(aType,aMes,aFile,aLine);
+    std::abort();           // last ressort ...
+}
 
 #define MMVII_INTERNAL_ERROR(aMes)\
-{ MMVVI_Error("Internal Error",aMes,__FILE__,__LINE__);}
+{ MMVII_Error_noreturn("Internal Error",aMes,__FILE__,__LINE__);}
 
 
-// void MMVVI_Error(const std::string & aType,const std::string &  aMes,const char * aFile,int aLine);
 
 #define MMVII_INTERNAL_ASSERT_Unresolved(aTest,aMes)\
  if ((The_MMVII_DebugLevel>=The_MMVII_DebugLevel_Unresoved ) && (!(aTest)))\
