@@ -198,6 +198,8 @@ void cMMVII_Appli::ToDoBeforeDestruction()
 
 cMMVII_Appli::~cMMVII_Appli()
 {
+  ///  std::cout<<  "KILLLLLAPPLY " << mSpecs.Name() << "\n"; getchar();
+
    // Maybe part, or all, the remaining can/should be done in ToDoBeforeDestruction ...
    if (mMainAppliInsideP)
    {

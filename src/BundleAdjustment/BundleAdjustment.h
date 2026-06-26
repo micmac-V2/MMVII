@@ -729,6 +729,9 @@ class cMMVII_BundleAdj
 
           int IndexOfPCPose(const std::string &,bool SVP =false) const;
 
+          /// Show the variable, with their names, which have been frozen because no obs
+          void ShowLVMFrozenVar();
+
           //============== Data =============================
           cPhotogrammetricProject * mPhProj;
 

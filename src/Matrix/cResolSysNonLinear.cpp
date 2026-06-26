@@ -17,12 +17,15 @@ namespace MMVII
 
 cREAL8_RSNL::~cREAL8_RSNL()
 {
+
 }
 
 cREAL8_RSNL::cREAL8_RSNL(int aNbVar) :
     mNbVar          (aNbVar),
     mInPhaseAddEq   (false),
     mVarIsFrozen    (mNbVar,false),
+    mNbLVMFrozenUSed (0),
+    mLVMFrozenUsed   (mNbVar,false),
     mNbIter         (0),
     mCurMaxEquiv    (0),
     mEquivNum       (aNbVar,TheLabelNoEquiv),
@@ -45,6 +48,15 @@ void cREAL8_RSNL::UnfrozeAll()
 bool cREAL8_RSNL::VarIsFrozen(int aK) const
 {
      return mVarIsFrozen.at(aK);
+}
+
+int  cREAL8_RSNL::NbVar() const {return mNbVar;}
+
+int  cREAL8_RSNL::NbLVMFrozen() const {return mNbLVMFrozenUSed;}
+
+bool  cREAL8_RSNL::LVMFrozenUsed(int aK) const
+{
+    return mLVMFrozenUsed.at(aK);
 }
 
 void cREAL8_RSNL::AssertNotInEquation() const
@@ -865,6 +877,8 @@ template <class Type>
             {
                MMVII_USER_TYPED_WARNING(eTyUEr::eLVM_NoConstraint,"LVM : freezing an unsused unknown");
                aLVMCoeff = 1.0;
+               mNbLVMFrozenUSed ++;
+               mLVMFrozenUsed.at(aK) = true;
             }
             AddEqFixVar(aK,CurSol(aK),aLVMCoeff*aWeighLVM);
         }
