@@ -111,8 +111,8 @@ int cAppli_EpipResampling::Exe()
     StdOut() << "NbByXY: " << mNbByXY << ", NbByZ: " << mNbByZ << std::endl;
     StdOut() << "Frame: " << ToStr(mFrame) << ", Margin: " << mMargin << std::endl;
 
-    auto aParams = cEpipolarRectification::cParams{mDegree,mDegreeInv,mNbByXY,mNbByZ,mFrame,mMargin};
-    auto aRectifier = cEpipolarRectification(*aSI1, *aSI2, aParams);
+    auto aParams = cEpipolarRectificationPoly::cParams{mDegree,mDegreeInv,mNbByXY,mNbByZ,mFrame,mMargin};
+    auto aRectifier = cEpipolarRectificationPoly(*aSI1, *aSI2, aParams);
     auto aEpipModel = aRectifier.Compute();
 
     StdOut() << "Nb Pairs 1->2 : " << aRectifier.NbPairs12() << std::endl;

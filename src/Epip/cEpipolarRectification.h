@@ -22,6 +22,11 @@ enum class eEpipFrm
 
 
 
+
+// ============================================================
+//  virtual epipolar mapping and model
+// ============================================================
+
 class cEpipolarMapping : public cDataInvertibleMapping<tREAL8,2>
 {
 public:
@@ -47,7 +52,7 @@ public:
         const cTplBox<tREAL8,2> aBox2,
         eEpipFrm aFrmType=eEpipFrm::eIntersect,
         int aMargin=0
-    );
+        );
 protected:
     virtual cEpipolarMapping& GetEpipMap1() = 0;
     virtual cEpipolarMapping& GetEpipMap2() = 0;
@@ -76,11 +81,45 @@ private:
 };
 
 
+// ============================================================
+//  Epipolar rectification for a central perspective stereo camera pair.
+// ============================================================
 
-class cEpipPolyMapping: public cEpipolarMapping
+class cEpipMappingPC : public cEpipolarMapping
 {
 public:
-    cEpipPolyMapping(const cPolyXY_Nd& aV,
+    cEpipMappingPC (const cSensorCamPC& aCam, const cSensorCamPC& aEpipCam, tREAL8 aDepthForBundle)
+        : mCam(aCam)
+        , mEpipCam(aEpipCam)
+        , mDepthForBundle(aDepthForBundle)
+    {}
+
+    cPt2dr Value(const cPt2dr& aPt) const override;
+    cPt2dr Inverse(const cPt2dr& aPt) const override;
+
+private:
+    const cSensorCamPC& mCam;       ///< Original camera.
+    const cSensorCamPC& mEpipCam;   ///< Virtual epipolar camera.
+    tREAL8              mDepthForBundle; ///< Positive depth used to sample a ray.
+};
+
+
+class cEpipModelPC : public cEpipolarModelTpl<cEpipMappingPC>
+{
+public:
+    using cEpipolarModelTpl<cEpipMappingPC>::cEpipolarModelTpl;
+};
+
+
+// ============================================================
+//  Epipolar rectification for a generic stereo camera pair.
+//  Polynoms based
+// ============================================================
+
+class cEpipMappingGen: public cEpipolarMapping
+{
+public:
+    cEpipMappingGen(const cPolyXY_Nd& aV,
                      const cPolyXY_Nd& aW,
                      cPt2dr aCenter,
                      cPt2dr aDir)
@@ -109,12 +148,52 @@ private:
 };
 
 
-class cEpipPolyModel : public cEpipolarModelTpl<cEpipPolyMapping>
+class cEpipModelGen : public cEpipolarModelTpl<cEpipMappingGen>
 {
 public:
-    using cEpipolarModelTpl<cEpipPolyMapping>::cEpipolarModelTpl;
+    using cEpipolarModelTpl<cEpipMappingGen>::cEpipolarModelTpl;
 };
 
+
+
+// ============================================================
+//  Epipolar rectification for a center perspective stereo camera pair.
+// ============================================================
+
+
+// TODOCM: COMMENTS !
+
+
+class cEpipolarRectificationPC
+{
+
+public:
+    // --------------------------------------------------------
+    //  User parameters
+    // --------------------------------------------------------
+    struct cParams
+    {
+        eEpipFrm mEpipFrm       = eEpipFrm::eIntersect; ///< Framing type for epipolar images (Resmampling)
+        int      mMargin        = 2;      ///< Margin in pixels for epipolar image framing (Resampling)
+    };
+
+    // --------------------------------------------------------
+    //  Constructor
+    // --------------------------------------------------------
+    cEpipolarRectificationPC(const cSensorImage& aCam1,
+                              const cSensorImage& aCam2,
+                              const cParams&      aParams);
+
+    // --------------------------------------------------------
+    //  Main entry point
+    // --------------------------------------------------------
+    cEpipModelPC Compute();
+
+private:
+    const cSensorImage& mCam1;
+    const cSensorImage& mCam2;
+    cParams             mParams;
+};
 
 // ============================================================
 //  Epipolar rectification for a generic stereo camera pair.
@@ -139,7 +218,7 @@ public:
 //    Gk(e) = Dk * (e.x, Wk(e)) + Ck
 // ============================================================
 
-class cEpipolarRectification
+class cEpipolarRectificationGen
 {
 
 public:
@@ -159,14 +238,14 @@ public:
     // --------------------------------------------------------
     //  Constructor
     // --------------------------------------------------------
-    cEpipolarRectification(const cSensorImage& aCam1,
+    cEpipolarRectificationGen(const cSensorImage& aCam1,
                            const cSensorImage& aCam2,
                            const cParams&      aParams);
 
     // --------------------------------------------------------
     //  Main entry point
     // --------------------------------------------------------
-    cEpipPolyModel Compute();
+    cEpipModelGen Compute();
 
     int NbPairs12() const { return mNbPairs12; }
     int NbPairs21() const { return mNbPairs21; }
@@ -204,9 +283,9 @@ private:
     //  System (eq. 24) :  V1(q1) = V2(q2)
     // ----------------------------------------------------------
     void EstimateForwardPolynomials(
-            const std::vector<cEpiPair>& aPairs,
-            cPolyXY_Nd&           aV1,
-            cPolyXY_Nd&           aV2);
+        const std::vector<cEpiPair>& aPairs,
+        cPolyXY_Nd&           aV1,
+        cPolyXY_Nd&           aV2);
 
     // ----------------------------------------------------------
     //  Estimate inverse polynomials W1, W2 (eq. 33-34).
@@ -215,10 +294,10 @@ private:
     // ----------------------------------------------------------
     enum class UseFromPair{PT1,PT2};
     void EstimateInversePolynomial(
-            const std::vector<cEpiPair>& aPairs,
-            const cPolyXY_Nd&     aVk,
-            cPolyXY_Nd&           aWk,
-            UseFromPair                  aUsePt);
+        const std::vector<cEpiPair>& aPairs,
+        const cPolyXY_Nd&     aVk,
+        cPolyXY_Nd&           aWk,
+        UseFromPair                  aUsePt);
 
     // --------------------------------------------------------
     //  Members

@@ -2,6 +2,7 @@
 #include "MMVII_Error.h"
 #include "MMVII_Geom2D.h"
 #include "MMVII_Sensor.h"
+#include "MMVII_PCSens.h"
 #include "../Sensors/cExternalSensor.h"
 
 #include <cmath>
@@ -20,25 +21,25 @@ template<> cE2Str<eEpipFrm>::tMapE2Str cE2Str<eEpipFrm>::mE2S
 MACRO_INSTANTIATE_STRIO_ENUM(eEpipFrm,"EpipFrame")
 
 
-cPt2dr cEpipPolyMapping::ToRotatedFrame(const cPt2dr &p) const
+cPt2dr cEpipMappingGen::ToRotatedFrame(const cPt2dr &p) const
 {
     return (p - mCenter) / mDir;
 }
 
-cPt2dr cEpipPolyMapping::FromRotatedFrame(const cPt2dr& q) const
+cPt2dr cEpipMappingGen::FromRotatedFrame(const cPt2dr& q) const
 {
     return q * mDir + mCenter;
 }
 
 
 
-cPt2dr cEpipPolyMapping::Value(const cPt2dr& aPt) const
+cPt2dr cEpipMappingGen::Value(const cPt2dr& aPt) const
 {
     const cPt2dr q = ToRotatedFrame(aPt);
     return cPt2dr(q.x(), mV.Eval(q)) - ToR(mEpipImFrame.P0());
 }
 
-cPt2dr cEpipPolyMapping::Inverse(const cPt2dr& aPt) const
+cPt2dr cEpipMappingGen::Inverse(const cPt2dr& aPt) const
 {
     auto aPtEpip = aPt + ToR(mEpipImFrame.P0());
     return FromRotatedFrame(cPt2dr(aPtEpip.x(), mW.Eval(aPtEpip)));
@@ -46,12 +47,75 @@ cPt2dr cEpipPolyMapping::Inverse(const cPt2dr& aPt) const
 
 
 
+// ============================================================
+//  cEpipolarRectificationPC
+// ============================================================
+
+
+cEpipModelPC cEpipolarRectificationPC::Compute()
+{
+    const cSensorCamPC* aPC1 = mCam1.GetSensorCamPC();
+    const cSensorCamPC* aPC2 = mCam2.GetSensorCamPC();
+
+    MMVII_INTERNAL_ASSERT_User
+        (
+            (aPC1 != nullptr) && (aPC2 != nullptr),
+            eTyUEr::eUnClassedError,
+            "ComputePC requires two central perspective cameras"
+            );
+
+    const cPt3dr aC1 = aPC1->Center();
+    const cPt3dr aC2 = aPC2->Center();
+
+    // X axis : baseline.
+    auto aEpipAxisX = VUnit(aC2 - aC1);
+
+    // Z axis : average viewing direction.
+    cPt3dr aZ = VUnit(aPC1->AxeK() + aPC2->AxeK());
+    aZ = aZ - aEpipAxisX * Scal(aZ,aEpipAxisX);  // projected onto the plane orthogonal to the baseline
+
+    // Degenerate case: fall back to camera #1 optical axis.
+    if (SqN2(aZ) < 1e-12)
+        aZ = aPC1->AxeK() - aEpipAxisX * Scal(aPC1->AxeK(),aEpipAxisX);
+    MMVII_INTERNAL_ASSERT_User(SqN2(aZ)>1e-12,eTyUEr::eUnClassedError,"Cannot define epipolar virtual frame.");
+
+    auto aEpipAxisZ = VUnit(aZ);
+
+    // Y axis : the virtual frame must be orthonormal and right-handed.
+    auto aEpipAxisY = VUnit(aEpipAxisZ ^ aEpipAxisX);
+
+    // Virtual internal calibration.
+    // focal : average focal of both cameras.
+    // image size : large enough to contain both original images.
+    // PP : automatically placed at the image center by SimpleCalib().
+    auto aFocal = 0.5 * (aPC1->InternalCalib()->F() + aPC2->InternalCalib()->F());
+    auto aSz = cPt2di(std::max(aPC1->SzPix().x(),aPC2->SzPix().x()), std::max(aPC1->SzPix().y(),aPC2->SzPix().y()));
+
+    auto aRot = tRotR(aEpipAxisX, aEpipAxisY, aEpipAxisZ, false);  // false: already orthogonal
+    cPerspCamIntrCalib* aCalib = cPerspCamIntrCalib::SimpleCalib("Epip" + aPC1->NameImage() + "_" + aPC2->NameImage() + "-Calib", aSz, aFocal);
+
+    const tPoseR aPose1(aPC1->Center(), aRot);
+    auto aEpipCam1 = std::make_unique<cSensorCamPC>("Epip-" + aPC1->NameImage(), aPose1, aCalib);
+
+    const tPoseR aPose2(aPC2->Center(), aRot);
+    auto aEpipCam2 = std::make_unique<cSensorCamPC>("Epip-" + aPC2->NameImage(), aPose2, aCalib);
+
+    auto anEpipModelPC = cEpipModelPC {
+        std::make_unique<cEpipMappingPC>(*aPC1, *aEpipCam1, aFocal),
+        std::make_unique<cEpipMappingPC>(*aPC2, *aEpipCam2, aFocal)
+    };
+
+
+    anEpipModelPC.ComputeCommonFraming(aPC1->PixelDomain().Box(),aPC2->PixelDomain().Box(),mParams.mEpipFrm,mParams.mMargin);
+
+    return anEpipModelPC;
+}
 
 // ============================================================
-//  cEpipolarRectification
+//  cEpipolarRectificationGen
 // ============================================================
 
-cEpipolarRectification::cEpipolarRectification(const cSensorImage& aCam1,
+cEpipolarRectificationGen::cEpipolarRectificationGen(const cSensorImage& aCam1,
                                                const cSensorImage& aCam2,
                                                const cParams&      aParams)
     : mCam1  (aCam1)
@@ -63,7 +127,7 @@ cEpipolarRectification::cEpipolarRectification(const cSensorImage& aCam1,
 //  Compute  (Algorithm 1 of the paper)
 // ============================================================
 
-cEpipPolyModel cEpipolarRectification::Compute()
+cEpipModelGen cEpipolarRectificationGen::Compute()
 {
     // ----------------------------------------------------------
     //  Step 1 – generate H-compatible pairs (both directions)
@@ -139,15 +203,15 @@ cEpipPolyModel cEpipolarRectification::Compute()
     EstimateInversePolynomial(aRotPairs, aV1, aW1, UseFromPair::PT1);
     EstimateInversePolynomial(aRotPairs, aV2, aW2, UseFromPair::PT2);
 
-    auto anEpipPolyModel = cEpipPolyModel {
-        std::make_unique<cEpipPolyMapping>(aV1,aW1,aCenter1,aDir1),
-        std::make_unique<cEpipPolyMapping>(aV2,aW2,aCenter2,aDir2),
+    auto anEpipModelGen = cEpipModelGen {
+        std::make_unique<cEpipMappingGen>(aV1,aW1,aCenter1,aDir1),
+        std::make_unique<cEpipMappingGen>(aV2,aW2,aCenter2,aDir2),
     };
-    anEpipPolyModel.ComputeCommonFraming(mCam1.PixelDomain().Box(),mCam2.PixelDomain().Box(),mParams.mEpipFrm, mParams.mMargin);
+    anEpipModelGen.ComputeCommonFraming(mCam1.PixelDomain().Box(),mCam2.PixelDomain().Box(),mParams.mEpipFrm, mParams.mMargin);
 
     // TODOCM: Prendre 1 pt sur 2 pour calcul et les autres pour la verif
 
-    return anEpipPolyModel;
+    return anEpipModelGen;
 }
 
 // ============================================================
@@ -171,7 +235,7 @@ cEpipPolyModel cEpipolarRectification::Compute()
 //  because C[0,1]=1 and all other C[0,b]=0.
 // ============================================================
 
-void cEpipolarRectification::EstimateForwardPolynomials(
+void cEpipolarRectificationGen::EstimateForwardPolynomials(
         const std::vector<cEpiPair>& aPairs,
         cPolyXY_Nd&           aV1,
         cPolyXY_Nd&           aV2)
@@ -236,7 +300,7 @@ void cEpipolarRectification::EstimateForwardPolynomials(
 //  Observation (eq. 34) :  Wk( qk.x ,  Vk(qk) ) = qk.y
 // ------------------------------------------------------------
 
-void cEpipolarRectification::EstimateInversePolynomial(
+void cEpipolarRectificationGen::EstimateInversePolynomial(
         const std::vector<cEpiPair>& aPairs,
         const cPolyXY_Nd&     aVk,
         cPolyXY_Nd&           aWk,
@@ -272,7 +336,7 @@ void cEpipolarRectification::EstimateInversePolynomial(
 
 
 
-void cEpipolarRectification::GenerateData(const cSensorImage &aCamM,
+void cEpipolarRectificationGen::GenerateData(const cSensorImage &aCamM,
                                           const cSensorImage &aCamS,
                                           std::vector<cEpiPair> &aOutPairs,
                                           cPt2dr &aOutCenterM,
@@ -412,8 +476,8 @@ void BenchEpipolar(cParamExeBench & aParam)
 
     // Epipolar geometry computing test
     // TODOCM : Randomize parameters (ou faire une loop sur degree)
-    auto aParams = cEpipolarRectification::cParams{5,9,100,3};
-    auto aRectifier = cEpipolarRectification(*aSensor1, *aSensor2, aParams);
+    auto aParams = cEpipolarRectificationGen::cParams{5,9,100,3};
+    auto aRectifier = cEpipolarRectificationGen(*aSensor1, *aSensor2, aParams);
     auto aEpipModel = aRectifier.Compute();
 
     // RPCs in epipolar geometry computing test
