@@ -670,7 +670,7 @@ cCollecSpecArg2007 & cAppli_EditCalcMetaDataImage::ArgObl(cCollecSpecArg2007 & a
 cCollecSpecArg2007 & cAppli_EditCalcMetaDataImage::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return    anArgOpt
-          <<  mPhProj.DPMetaData().ArgDirOutOpt()
+         // <<  mPhProj.DPMetaData().ArgDirOutOpt()
           << AOpt2007(mValue,"Value","Value associated to meta data")
           << AOpt2007(mPattern,"PatternApply","Pattern for wich this change woul occur",{eTA2007::HDV})
           << AOpt2007(mSave,"Save","Do we save result in a new file",{eTA2007::HDV})
@@ -680,7 +680,7 @@ cCollecSpecArg2007 & cAppli_EditCalcMetaDataImage::ArgOpt(cCollecSpecArg2007 & a
                           {{eTA2007::ISizeV,"[3,3]"}})
 
 
-          <<  mPhProj.DPMetaData().ArgDirInputOptWithDef("Std","","If you really want to change (not recommanded)")
+          <<  mPhProj.DPMetaData().ArgDirInputOptWithDef("Std","","If you really want to change (not recommanded)",{eTA2007::Tuning})
 
             /*
            << AOpt2007(mNbTriplets,"NbTriplets","Number max of triplet tested in Ransac",{eTA2007::HDV})

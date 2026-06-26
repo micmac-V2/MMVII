@@ -122,7 +122,7 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
    if (aStatResidual.NbMeasures()!=0)
    {
        StdOut() << " ;; ResAt[x%%]=YY, {";
-       for (const auto & aPerMil : {500,800,950,990,999})
+       for (const auto & aPerMil : {500,800,950,970,980,990,999})
        {
             tREAL8 aR = aStatResidual.ErrAtProp(aPerMil/1000.0) ;
             std::string aStr = FixDigToStr(aR,1,3);

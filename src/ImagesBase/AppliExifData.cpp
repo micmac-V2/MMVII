@@ -102,56 +102,76 @@ int cAppli_ImageMetada::Exe()
         case eDispExif::eAllExif:
         {
             cExifData anExif = aDataFileIm.ExifData();
+
+            // MPD pas mal de remaniement pour :
+            //  - conserver le No Exif Data ajoute par Jo quand il n'y a pas de xif
+            //  - conserver quand meme dans ce cas les xif du a des modif utilisateur
+            //  - je pense qu'a terme il faudrait "de-macroiser" ce code avec des template
+
+#define DISP_EXIF(key) {StdOut() << #key << ": " << anExif.m##key << std::endl;}
+// this macro disp standard xif, and user's changed value if apply
+#define DISP_XIF_MMVII(key,val,def) if (anExif.Valid()) {DISP_EXIF(key);} \
+    if ((val != def) && (anExif.m##key.value_or(def)!=val)  ) { \
+        if (!anExif.Valid())  {StdOut() << #key << std::endl;}\
+        StdOut() << "  *** SetByUserRule " << val << "\n";}
+
+
+            // DISP_EXIF(FocalLength_mm);
+             DISP_XIF_MMVII(FocalLength_mm,aMDI.FocalMM(true),-1);
+
+             //DISP_EXIF(FocalLengthIn35mmFilm_mm);
+             DISP_XIF_MMVII(FocalLengthIn35mmFilm_mm,aMDI.FocalMMEqui35(true),-1);
+
+             //DISP_EXIF(Model);
+             DISP_XIF_MMVII(Model,aMDI.CameraName(true),"");
+             /// the information on size of sensor are generally not provided by xif, so user
+             /// has to indicate it in the data-base, we indicate
+             {
+                /* std::optional<std::string> aModel = anExif.mModel;
+                 std::string aNameMMVII = aMDI.CameraName(true);
+                 if (aNameMMVII != "" )
+                 {
+                     aModel = aNameMMVII;
+                 }*/
+                 std::string aNameMMVII = aMDI.CameraName(true);
+
+                 if (aNameMMVII!="")
+                 {
+                     const cElemCamDataBase * anElCDB = mPhgrProj.GetCamFromNameCam(aNameMMVII,true);
+                     if (anElCDB)
+                     {
+                          StdOut()  << "  *** Camera model is in data base :"
+                                    << " SzSensor=" << anElCDB-> mSzSensor_Mm << " mm "
+                                    << " SzPixel="   << anElCDB->mSzPixel_Micron << " mu"
+                                    << "\n";
+                     }
+                     else
+                     {
+                          StdOut()  << " !!!  Camera model is NOT in data base\n";
+                     }
+                 }
+             }
+
+
             if (! anExif.Valid())
             {
                 StdOut() << "No Exif metadata" << std::endl;
                 break;
             }
 
-#define DISP_EXIF(key) StdOut() << #key << ": " << anExif.m##key << std::endl;
-// this macro disp standard xif, and user's changed value if apply
-#define DISP_XIF_MMVII(key,val,def) DISP_EXIF(key); \
-    if ((val != def) && (anExif.m##key.value_or(def)!=val)  )  StdOut() << "  *** SetByUserRule " << val << "\n";
-
 
             DISP_EXIF(PixelXDimension);
             DISP_EXIF(PixelYDimension);
 
-           // DISP_EXIF(FocalLength_mm);
-            DISP_XIF_MMVII(FocalLength_mm,aMDI.FocalMM(true),-1);
-
-            //DISP_EXIF(FocalLengthIn35mmFilm_mm);
-            DISP_XIF_MMVII(FocalLengthIn35mmFilm_mm,aMDI.FocalMMEqui35(true),-1);
 
             DISP_EXIF(FNumber);
             DISP_EXIF(ExposureTime_s);
             DISP_EXIF(Orientation);
             DISP_EXIF(Make);
 
-            //DISP_EXIF(Model);
-            DISP_XIF_MMVII(Model,aMDI.CameraName(true),"");
 
 
-            /// the information on size of sensor are generally not provided by xif, so user
-            /// has to indicate it in the data-base, we indicate
-            {
-                std::optional<std::string> aModel = anExif.mModel;
-                if (aModel.has_value())
-                {
-                    const cElemCamDataBase * anElCDB = mPhgrProj.GetCamFromNameCam(aModel.value(),true);
-                    if (anElCDB)
-                    {
-                         StdOut()  << "  *** Camera model is in data base :"
-                                   << " SzSensor=" << anElCDB-> mSzSensor_Mm << " mm "
-                                   << " SzPixel="   << anElCDB->mSzPixel_Micron << " mu"
-                                   << "\n";
-                    }
-                    else
-                    {
-                         StdOut()  << " !!!  Camera model is NOT in data base\n";
-                    }
-                }
-            }
+
             DISP_EXIF(LensMake);
             DISP_EXIF(LensModel);
 
