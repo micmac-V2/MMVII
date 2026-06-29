@@ -441,8 +441,10 @@ void cSetMesGndPt::AddMes2D(const cSetMesPtOf1Im & aSetMesIm, MMVII::cMes2DDirIn
         MMVII_INTERNAL_ASSERT_tiny(mVSens.at(aNumIm) == aSens,"Variable sensor in cSetMesImGCP::AddMes2D");
     }
 
-    for (auto & aMes : aSetMesIm.Measures())
+    for (auto & aMesIni : aSetMesIm.Measures())
     {
+        auto aMes = aMesIni;
+        aSens->FixPtPxLoopAroundPP(aMes.mPt);
         int aNumPt = m2MapPtInt.Obj2I(aMes.mNamePt,true);
         if (aNumPt>=0)
         {

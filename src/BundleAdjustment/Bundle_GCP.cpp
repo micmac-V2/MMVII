@@ -214,7 +214,10 @@ void cMMVII_BundleAdj::OneItere_GCP()
             // Do something only if GCP is visible
             if (aSens->IsVisibleOnImFrame(aPIm) && (aSens->IsVisible(aPGr)))
             {
+                //cPt2dr aPtGrProjected = aSens->Ground2Image(aPGr);  ///TODO : l'un ou l'autre
+                //aSens->FixPtPxLoopAroundPP(aPtGrProjected); // be in the same case as aPIm
                 cPt2dr aResidual = aPIm - aSens->Ground2Image(aPGr);
+                aSens-> FixLoopPixelsResiduals(aResidual);
                 tREAL8 aWeightImage =   aGCPIm_Weighter.SingleWOfResidual(aResidual);
 
                 cResidualWeighterExplicit<tREAL8> aWeighter(true, {aWeightImage, aWeightImage});

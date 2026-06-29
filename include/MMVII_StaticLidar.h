@@ -152,8 +152,8 @@ public :
                      const cDiffInterpolator1D &aInterp) const;
     std::pair<tREAL8,tREAL8> AvgDistAndNbValid() const; //< return average dist for valid points, and number of valid points
 
-    cPt3dr Image2InputXYZ(const cPt2di & aRasterPx) const; // in input frame
-    cPt3dr Image2InputXYZ(const cPt2dr & aRasterPx) const;
+    cPt3dr Image2InputXYZ(cPt2di aRasterPxI) const; // in input frame
+    cPt3dr Image2InputXYZ(cPt2dr aRasterPx) const;
 
     template <typename TYPE>
     cPt3dr Image2Camera3D(const TYPE & aRasterPx) const; // in sensor frame (Z forward)
@@ -162,11 +162,13 @@ public :
     template <typename TYPE>
         cPt3dr Image2ThetaPhiDist(const TYPE & aRasterPx) const;
 
-    cPt3dr Image2Ground(const cPt2di & aRasterPx) const;
-    cPt3dr Image2Ground(const cPt2dr & aRasterPx) const;
-    tREAL4 Image2Distance(const cPt2dr & aRasterPx) const;
+    cPt3dr Image2Ground(const cPt2di &aRasterPxI) const;
+    cPt3dr Image2Ground(cPt2dr aRasterPx) const;
+    tREAL4 Image2Distance(cPt2dr aRasterPx) const;
 
     cPt2dr Ground2ImagePrecise(const cPt3dr & aGroundPt) const;
+
+    void FixPtPxLoopAroundPP(cPt2dr &aPtPx) const override;
 
     void TriangulateRegular(const std::string &aVisuPath, int aFactor=16);
     void Triangulate(const std::string &aVisuPath, int aFactor=16);

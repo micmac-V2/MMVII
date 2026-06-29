@@ -749,22 +749,26 @@ bool cStaticLidar::ReadRasters(const std::string & aDataDir)
     return true;
 }
 
-cPt3dr cStaticLidar::Image2InputXYZ(const cPt2di & aRasterPx) const
+cPt3dr cStaticLidar::Image2InputXYZ(cPt2di aRasterPxI) const
 {
     MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
+    cPt2dr aRasterPx = ToR(aRasterPxI);
+    InternalCalib()->FixLoopPixelsInImage(aRasterPx);
+    aRasterPxI = ToI(aRasterPx);
     auto & aRasterXData = mRasterX->DIm();
     auto & aRasterYData = mRasterY->DIm();
     auto & aRasterZData = mRasterZ->DIm();
     return cPt3dr{
-        aRasterXData.GetV(aRasterPx),
-        aRasterYData.GetV(aRasterPx),
-        aRasterZData.GetV(aRasterPx),
+        aRasterXData.GetV(aRasterPxI),
+        aRasterYData.GetV(aRasterPxI),
+        aRasterZData.GetV(aRasterPxI),
     };
 }
 
-cPt3dr cStaticLidar::Image2InputXYZ(const cPt2dr & aRasterPx) const
+cPt3dr cStaticLidar::Image2InputXYZ(cPt2dr aRasterPx) const
 {
     MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
+    InternalCalib()->FixLoopPixelsInImage(aRasterPx);
     auto & aRasterXData = mRasterX->DIm();
     auto & aRasterYData = mRasterY->DIm();
     auto & aRasterZData = mRasterZ->DIm();
@@ -775,20 +779,24 @@ cPt3dr cStaticLidar::Image2InputXYZ(const cPt2dr & aRasterPx) const
     };
 }
 
-cPt3dr cStaticLidar::Image2Ground(const cPt2di & aRasterPx) const
+cPt3dr cStaticLidar::Image2Ground(const cPt2di & aRasterPxI) const
 {
+    cPt2dr aRasterPx = ToR(aRasterPxI);
+    InternalCalib()->FixLoopPixelsInImage(aRasterPx);
     cPt3dr aCam3DPt = Image2Camera3D(aRasterPx);
     return Pose().Value(aCam3DPt);
 }
 
-cPt3dr cStaticLidar::Image2Ground(const cPt2dr & aRasterPx) const
+cPt3dr cStaticLidar::Image2Ground(cPt2dr aRasterPx) const
 {
+    InternalCalib()->FixLoopPixelsInImage(aRasterPx);
     cPt3dr aCam3DPt = Image2Camera3D(aRasterPx);
     return Pose().Value(aCam3DPt);
 }
 
-tREAL4 cStaticLidar::Image2Distance(const cPt2dr & aRasterPx) const
+tREAL4 cStaticLidar::Image2Distance(cPt2dr aRasterPx) const
 {
+    InternalCalib()->FixLoopPixelsInImage(aRasterPx);
     return getRasterDistance().GetVBL(aRasterPx);
 }
 
@@ -1049,6 +1057,16 @@ tREAL8 cStaticLidar::Sigma() const
 const std::vector<cPt2di> & cStaticLidar::PatchCenters() const
 {
     return mPatchCenters;
+}
+
+void cStaticLidar::FixPtPxLoopAroundPP(cPt2dr &aPtPx) const
+{
+    tREAL8 aW2piInPixels = InternalCalib()->MapPProj2Im().F()*2*M_PI;
+    auto aDX = aPtPx.x() - InternalCalib()->MapPProj2Im().PP().x();
+    if (aDX>aW2piInPixels/2)
+        aPtPx.x() -=  aW2piInPixels;
+    if (aDX<-aW2piInPixels/2)
+        aPtPx.x() +=  aW2piInPixels;
 }
 
 cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const

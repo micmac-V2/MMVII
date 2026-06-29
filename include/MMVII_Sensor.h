@@ -116,6 +116,7 @@ class cSensorImage  :   public cObj2DelAtEnd,
                                            std::optional<cPt2dr> aZIntv = std::nullopt
                                           ) const;
 
+          virtual void FixPtPxLoopAroundPP(cPt2dr &aPtPx) const; ///< fix ambiguity for 360 deg sensors
 
           virtual const cPixelDomain & PixelDomain() const = 0;
           const cPt2di & Sz() const;
@@ -199,6 +200,11 @@ class cSensorImage  :   public cObj2DelAtEnd,
          bool IsVisibleOnImFrame(const cPt2dr &) const  ;
          /// 2d & 3d are visible
          bool PairIsVisible(const cPair2D3D &) const  ;
+
+         virtual void FixLoopPixelsInImage(std::vector<cPt2dr> &aVPtInOut) const;
+         virtual void FixLoopPixelsInImage(cPt2dr &aPtInOut) const;  ///< when having a point in a looping image
+         virtual void FixLoopPixelsResiduals(cPt2dr &aResPx) const;  ///< when searching for a residual (difference between two points) in a looping image
+         virtual void FixLoopBundle(cPt2dr &aPtBundle) const;
 
          // =================   Generation of points & correspondance   ===========================
 
