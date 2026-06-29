@@ -1303,6 +1303,24 @@ std::string FixDigToStr(double aSignedVal,int aNbBef,int aNbAfter)
    return aBuf;
 }
 
+std::string ResidualToStr(tREAL8 aRes)
+{
+    // can certainly do better using all optio, of sprintf
+    std::string aStr = FixDigToStr(aRes,1,3);
+    if (aRes<1)
+    {
+    }
+    else if (aRes<10)
+        aStr =  FixDigToStr(aRes,1,2);
+    else if (aRes<100)
+        aStr =  FixDigToStr(aRes,1,1);
+    else
+        aStr =  FixDigToStr(aRes,1,0);
+
+    return aStr;
+}
+
+
    // ================  double ==============================================
 
 template <>  std::string cStrIO<tREAL16>::ToStr(const tREAL16 & aD)

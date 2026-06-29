@@ -640,7 +640,9 @@ class cMMVII_BundleAdj
           const std::vector<cSensorImage *> &  VSIm() const ;  ///< Accessor
           const std::vector<cSensorCamPC *> &  VSCPC() const;   ///< Accessor
           const std::unordered_map<std::string, cStaticLidar*> & MapTSL() const; ///< Accessor
-                                                                //
+
+          /// Fix the %% for printing stat on tie-p residual
+          void SetTiePShowPerMil(const std::vector<int> &);
 
           bool CheckGCPConstraints() const; //< test if free points have enough observations
           //  =========  control object free/frozen ===================
@@ -760,6 +762,8 @@ class cMMVII_BundleAdj
           std::string  mPatFrozenTSL;         /// Pattern for name of static lidars with frozen poses
 
           std::vector<std::string>  mVPatShared;
+
+          std::vector<int>          mTiePShowPerMil;
 
           // ===================  Information to use ==================
              

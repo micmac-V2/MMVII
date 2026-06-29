@@ -149,6 +149,7 @@ void cMMVII_BundleAdj::ShowLVMFrozenVar()
 
     if (mSys->NbLVMFrozen() ==0) return;
 
+    StdOut() << " ------------  VAR W/O OBSERVATION FROZEN IN LVM -------------\n";
     size_t aIndV0 = 0;
 
     // Process parameters
@@ -168,7 +169,7 @@ void cMMVII_BundleAdj::ShowLVMFrozenVar()
             size_t aKSys =  aKLoc +aIndV0;
             if (mSys->LVMFrozenUsed(aKSys))
             {
-                 StdOut()  << " ***** LMKU="
+                 StdOut()  << "   * "
                            <<  " K="<< aKSys
                             <<  " Type=" << aGIP.NameType()
                              << " IdO="  << aGIP.IdObj()

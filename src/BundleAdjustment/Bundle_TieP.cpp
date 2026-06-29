@@ -30,6 +30,12 @@ void cMMVII_BundleAdj::AddMTieP(const std::string & aName,cComputeMergeMulTieP  
     mVTieP.push_back(new cBA_TieP(aName,aMTP,aWIm));
 }
 
+void cMMVII_BundleAdj::SetTiePShowPerMil(const std::vector<int> & aTiePShowPerMil)
+{
+     mTiePShowPerMil = aTiePShowPerMil;
+}
+
+
 
 void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
 {
@@ -42,6 +48,7 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
 
    cWeightAv<tREAL8> aWeigthedRes;
    cStdStatRes aStatResidual;
+   bool doStatRes = ! mTiePShowPerMil.empty();
 
    cWeightAv<tREAL8> aUnWeightedRed; ///< MPD : a conserver, ils ont mysterieusement disparus; mais il sont pourtant tres utiles
    for (const auto & aPair : aMTP->Pts())
@@ -104,7 +111,8 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
                        aNbEqAdded++;
                    }
                    aUnWeightedRed.Add(1.0,aN2Res);
-                   aStatResidual.Add(aN2Res);
+                   if (doStatRes)
+                      aStatResidual.Add(aN2Res);
                }
            }
 
@@ -122,21 +130,11 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
    if (aStatResidual.NbMeasures()!=0)
    {
        StdOut() << " ;; ResAt[x%%]=YY, {";
-       for (const auto & aPerMil : {500,800,950,970,980,990,999})
+       for (const auto & aPerMil : mTiePShowPerMil)
        {
             tREAL8 aR = aStatResidual.ErrAtProp(aPerMil/1000.0) ;
-            std::string aStr = FixDigToStr(aR,1,3);
-            if (aR<1)
-            {
-            }
-            else if (aR<10)
-                aStr =  FixDigToStr(aR,1,2);
-            else if (aR<100)
-                aStr =  FixDigToStr(aR,1,1);
-            else
-                aStr =  FixDigToStr(aR,1,0);
 
-            StdOut() <<  aPerMil << ":" << aStr  << "  ";
+            StdOut() <<  aPerMil << ":" << ResidualToStr(aR)  << "  ";
        }
        StdOut() << "}";
    }
