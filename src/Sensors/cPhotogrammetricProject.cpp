@@ -111,8 +111,10 @@ void cDirsPhProj::Finish()
 
     mFullDirIn  = mAppli.DirProject() + mDirLocOfMode + mDirIn + StringDirSeparator();
 
-    //  MPD, new check, seems correct, hope it will not create new bug ...
-    if (mAppli.IsInSpec(&mDirIn) && IsInit(&mDirIn))
+    //  MPD, new check, seems correct, hope it will not create new bug ... , New modif, 
+    //  we accept this case with NONE, because for "historical" reason, this is the convention
+    //  used by OriBundleAdj, when we do pure topo (i.e. w/o camera, poses ...)
+    if (mAppli.IsInSpec(&mDirIn) && IsInit(&mDirIn) &&  (mDirIn != MMVII_NONE))
     {
         if (! IsDirectory(mFullDirIn) )
         {
