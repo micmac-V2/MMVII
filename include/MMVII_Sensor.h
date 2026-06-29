@@ -475,6 +475,8 @@ class cDirsPhProj : public cMemCheck
           bool CheckDirExists(bool In, bool DoError=false) const;
 
           void SetDirOutInIfNotInit(); ///< If Dir Out is not init, set it to same value than In
+
+          void SetAllowDirInEmpty();
      private :
           cDirsPhProj(const cDirsPhProj &) = delete;
 
@@ -490,6 +492,9 @@ class cDirsPhProj : public cMemCheck
           std::string               mFullDirIn;
           std::string               mFullDirOut;
           bool                      mPurgeOut;
+
+          // Allow special case where we allow empty dir in, like creation of bloc
+          bool                      mAllowDirInEmpty;
 };
 
 
