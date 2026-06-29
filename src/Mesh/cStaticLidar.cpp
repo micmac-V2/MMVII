@@ -1474,12 +1474,10 @@ void cStaticLidar::SelectPatchCenters1(int aNbPatches)
     ExtractExtremum1(aRasterScoreData, aRes, aRadius);
     mPatchCenters = aRes.mPtsMin;
     StdOut() << "Nb patches: " << mPatchCenters.size() <<"\n";
-    std::fstream file1;
-    file1.open("centers.txt", std::ios_base::out);
-    for (auto & aCenter : mPatchCenters)
-    {
-        file1 << aCenter.x() << " " << -aCenter.y() <<"\n";
-    }
+    //std::fstream file1;
+    //file1.open("centers.txt", std::ios_base::out);
+    //for (auto & aCenter : mPatchCenters)
+    //    file1 << aCenter.x() << " " << -aCenter.y() <<"\n";
     //aRasterScoreData.ToFile("Score.tif");
 }
 
@@ -1532,12 +1530,10 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches)
     }
 
     StdOut() << "Nb patches: " << mPatchCenters.size() <<"\n";
-    std::fstream file1;
-    file1.open("centers.txt", std::ios_base::out);
-    for (auto & aCenter : mPatchCenters)
-    {
-        file1 << aCenter.x() << " " << -aCenter.y() <<"\n";
-    }
+    //std::fstream file1;
+    //file1.open("centers.txt", std::ios_base::out);
+    //for (auto & aCenter : mPatchCenters)
+    //    file1 << aCenter.x() << " " << -aCenter.y() <<"\n";
 }
 
 void cStaticLidar::MakeVisu(const cPhotogrammetricProject & aPhProj) const
