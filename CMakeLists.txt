@@ -107,7 +107,7 @@ target_compile_options(MMVII_compiler_flags INTERFACE
     "$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall;-Werror>>"
     "$<${msvc_cxx}:$<BUILD_INTERFACE:/W3;/D_USE_MATH_DEFINES;/D_HAS_STD_BYTE=0;/wd4244;/wd4267;/wd4305;/wd4661;/D_CRT_SECURE_NO_WARNINGS>>"
     "$<$<CONFIG:Debug>:$<$<CXX_COMPILER_ID:MSVC>:/bigobj>>"
-    "$<$<CONFIG:RelWithDebInfo>:$<$<CXX_COMPILER_ID:MSVC>:/bigobj>>"
+    $<$<AND:$<CONFIG:RelWithDebInfo>,$<CXX_COMPILER_ID:MSVC>>:/bigobj /Zi /Zo>
 )
 
 # we really want -O3 instead of -O2 when available (GNU, Clang) in RelWithDebInfo mode
@@ -182,6 +182,10 @@ if(MMVII_KEEP_LIBRARY_MMV1)
     set(mmv2_extlibs -lX11)
   endif()
 endif()
+
+target_link_options(MMVII PRIVATE
+  $<$<CONFIG:RelWithDebInfo>:$<$<CXX_COMPILER_ID:MSVC>:/DEBUG>>
+)
 
 target_include_directories(MMVII PRIVATE "${MMVII_SOURCE_DIR}/include"  )
 target_link_libraries(MMVII PRIVATE MMVII_compiler_flags Threads::Threads P2007 ${mmv1_libs} ${mmv2_extlibs})

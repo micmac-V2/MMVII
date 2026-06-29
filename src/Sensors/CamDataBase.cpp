@@ -333,7 +333,7 @@ class cAppli_AddCamInDataBase : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
-        // std::vector<std::string>  Samples() const override;
+        std::vector<std::string>  Samples() const override;
      private :
 
         cPhotogrammetricProject   mPhgrProj;
@@ -365,7 +365,7 @@ cCollecSpecArg2007 & cAppli_AddCamInDataBase::ArgObl(cCollecSpecArg2007 & anArgO
 cCollecSpecArg2007 & cAppli_AddCamInDataBase::ArgOpt(cCollecSpecArg2007 & anArgObl)
 {
   return      anArgObl
-            << AOpt2007(mParamCam,"Param","SzPix mu x&y,Sz Cap x&y mm, SzIm x&y pixel",{{eTA2007::ISizeV,"[6,6]"}})
+            << AOpt2007(mParamCam,"Param","SzPix, SzSens, SzIm [SzPix.x,SzPix.y,SzSens.x,SzSens.y,SzIm.x,SzIm.y]",{{eTA2007::ISizeV,"[6,6]"}})
     ;
 
 }
@@ -489,6 +489,14 @@ int cAppli_AddCamInDataBase::Exe()
 
 
     return EXIT_SUCCESS;
+}
+
+std::vector<std::string>  cAppli_AddCamInDataBase::Samples() const
+{
+    return
+    {
+        "MMVII EditCamDataBase \"Canon EOS 5D Mark II\" LocalUser 1 Param=[6,6,36,24,5616,3744]"
+    };
 }
 
 tMMVII_UnikPApli Alloc_AddCamInDataBase(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)

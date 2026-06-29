@@ -99,7 +99,7 @@ jobs:
       if: steps.cache-conda-gdal.outputs.cache-hit != 'true'
 
     - name: Install Qt
-      uses: jurplel/install-qt-action@v3
+      uses: jurplel/install-qt-action@v4
       with: 
         cache: false
         version: 5.15
@@ -133,9 +133,9 @@ jobs:
 
         # Qt5 for vMMMVII
         mkdir -p MMVII/bin/platforms
-        cd $Qt5_Dir/bin
+        cd $QT_ROOT_DIR/bin
         cp Qt5Core.dll Qt5Gui.dll Qt5Xml.dll Qt5OpenGL.dll Qt5Widgets.dll ${MMVII_BINDIR}/
-        cd $Qt5_Dir/plugins
+        cd $QT_ROOT_DIR/plugins
         cp platforms/qwindows.dll ${MMVII_BINDIR}/platforms/
         cd $GITHUB_WORKSPACE
 

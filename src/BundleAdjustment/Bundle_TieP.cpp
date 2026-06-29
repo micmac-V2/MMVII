@@ -41,6 +41,8 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
    aMTP->SetPGround();
 
    cWeightAv<tREAL8> aWeigthedRes;
+   cStdStatRes aStatResidual;
+
    cWeightAv<tREAL8> aUnWeightedRed; ///< MPD : a conserver, ils ont mysterieusement disparus; mais il sont pourtant tres utiles
    for (const auto & aPair : aMTP->Pts())
    {
@@ -102,6 +104,7 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
                        aNbEqAdded++;
                    }
                    aUnWeightedRed.Add(1.0,aN2Res);
+                   aStatResidual.Add(aN2Res);
                }
            }
 
@@ -111,10 +114,34 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
        }
 
    }
-   StdOut() <<  "  # " << aBA_TieP.mName << ": Weighted Residual=" << aWeigthedRes.Average()
+   StdOut() <<  "  # " << aBA_TieP.mName << ": Weighted Residual=" << aWeigthedRes.Average(-1)
             << " (" << aWeigthedRes.Nb() << " obs)" 
-            << " UnWeitghRes=" << aUnWeightedRed.Average()
-            << std::endl;
+            << " UnWeitghRes=" << aUnWeightedRed.Average(-1);
+
+   /// MPD :done quick & dirty,  amelioration : user fix %% + put in MMVII lib the format
+   if (aStatResidual.NbMeasures()!=0)
+   {
+       StdOut() << " ;; ResAt[x%%]=YY, {";
+       for (const auto & aPerMil : {500,800,950,970,980,990,999})
+       {
+            tREAL8 aR = aStatResidual.ErrAtProp(aPerMil/1000.0) ;
+            std::string aStr = FixDigToStr(aR,1,3);
+            if (aR<1)
+            {
+            }
+            else if (aR<10)
+                aStr =  FixDigToStr(aR,1,2);
+            else if (aR<100)
+                aStr =  FixDigToStr(aR,1,1);
+            else
+                aStr =  FixDigToStr(aR,1,0);
+
+            StdOut() <<  aPerMil << ":" << aStr  << "  ";
+       }
+       StdOut() << "}";
+   }
+
+   StdOut() << std::endl;
 }
 
 void cMMVII_BundleAdj::OneItere_TieP()
