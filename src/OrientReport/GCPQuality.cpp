@@ -192,6 +192,8 @@ void cAppli_CGPReport::MakeOneIm(const std::string & aNameIm)
             tREAL8 aMesDistance = aStaticLidar->Image2Distance(aP2);
             tREAL8 aResDist3D = aMesDistance - Norm2(aPGr-aStaticLidar->Center());
             aResDist3DStr = ToStr(aResDist3D);
+            if (aMesDistance == 0.)
+                aResDist3DStr = "XXX"; // no measurement
             aAvgD.Add(1.0, aResDist3D);
         }
         aAvg2d.Add(1.0,aVec);

@@ -216,7 +216,7 @@ private :
 
     bool mAreRastersReady;
 
-    tREAL8 mSigma;
+    tREAL8 mSigma;   ///< a priori precision on instrument distances
     std::vector<cPt2di> mPatchCenters;
 
     // rasters for filtering
