@@ -50,7 +50,7 @@ cCollecSpecArg2007 & cAppli_OriRelPipeline::ArgObl(cCollecSpecArg2007 & anArgObl
 cCollecSpecArg2007 & cAppli_OriRelPipeline::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return anArgOpt
-           <<  mPhProj.DPOrient().ArgDirOutOpt()
+           <<  mPhProj.DPOrient().ArgDirOutOpt("","Output Ori: if set, the global orientation is computed")
            <<  mPhProj.DPMulTieP().ArgDirInOpt()
            <<  mPhProj.DPTieP().ArgDirInOpt()
            <<  mPhProj.DPGndPt2D().ArgDirInOpt()

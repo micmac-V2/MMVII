@@ -215,7 +215,7 @@ template<> cE2Str<eTyUEr>::tMapE2Str cE2Str<eTyUEr>::mE2S
                 {eTyUEr::eDirInDoesntExist,"DirInDoesntExist"},
                 {eTyUEr::eLVM_NoConstraint,"LVM_NoConstraint"},
                 {eTyUEr::eLVM_SchurrNoConstraint,"LVM_SchurrNoConstraint"},
-                {eTyUEr::eForceGauje,"ForceGauge"},
+                {eTyUEr::eForceGauge,"ForceGauge"},
                 {eTyUEr::eUnExpectedEmptyData,"UnexpetedEmptyData"},
                 {eTyUEr::eRemoveFile,"RmFile"},
                 {eTyUEr::eEmptyPattern,"EmptyPattern"},
