@@ -38,7 +38,7 @@ cCollecSpecArg2007 & cAppli_GCPSplit::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return anArgObl
            << mPhProj.DPGndPt3D().ArgDirInOpt()
-           << Arg2007(mSplitRatio,"Split ratio",{eTA2007::HDV});
+           << Arg2007(mSplitRatio,"Split ratio: #gcp = ratio * #all_pts",{eTA2007::HDV});
 
 }
 
