@@ -1070,7 +1070,7 @@ void cPhotogrammetricProject::LoadIm(cSetMesGndPt& aSetMes, const std::string & 
    }
       //  StdOut() << "LoadImLoadIm " << aNameIm << "\n";
    cSetMesPtOf1Im  aSetIm = LoadMeasureIm(aNameIm, true, SVP);
-   aSetMes.AddMes2D(aSetIm,aMesDirInfo,aSIm);
+   aSetMes.AddMes2D(aSetIm,aSIm,aMesDirInfo);
 }
 
 void cPhotogrammetricProject::LoadImFromFolder

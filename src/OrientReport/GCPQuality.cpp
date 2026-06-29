@@ -3,7 +3,7 @@
 #include "MMVII_Geom3D.h"
 #include "MMVII_PCSens.h"
 #include "MMVII_Tpl_Images.h"
-
+#include "MMVII_StaticLidar.h"
 
 /**
    \file GCPQuality.cpp
@@ -140,12 +140,13 @@ void cAppli_CGPReport::MakeOneIm(const std::string & aNameIm)
 
     cSetMesGndPt             aSetMes;
     mPhProj.LoadGCP3D(aSetMes,nullptr,"",mFilterName,mFilterAdd);
-    mPhProj.LoadIm(aSetMes,aNameIm);
-    const cSetMesPtOf1Im  &  aSetMesIm = aSetMes.MesImInitOfName(aNameIm);
 
     // cSet2D3D aSet32;
     // mSetMes.ExtractMes1Im(aSet32,aNameIm);
     cSensorImage*  aCam = mPhProj.ReadSensor(aNameIm,true,false);
+
+    mPhProj.LoadIm(aSetMes,aNameIm,nullptr,aCam);
+    const cSetMesPtOf1Im  &  aSetMesIm = aSetMes.MesImInitOfName(aNameIm);
 
     // StdOut() << " aNameImaNameIm " << aNameIm  << " " << aSetMesIm.Measures().size() << " Cam=" << aCam << std::endl;
 
@@ -174,6 +175,7 @@ void cAppli_CGPReport::MakeOneIm(const std::string & aNameIm)
 
 
     cWeightAv<tREAL8,cPt2dr>  aAvg2d;
+    cWeightAv<tREAL8,tREAL8>  aAvgD; // for 3D distance measurments
     cStdStatRes               aStat;
 
     for (const auto & aMes : aSetMesIm.Measures())
@@ -182,11 +184,20 @@ void cAppli_CGPReport::MakeOneIm(const std::string & aNameIm)
         cPt3dr aPGr = aSetMes.MesGCPOfName(aMes.mNamePt).mPt;
         cPt2dr aProj = aCam->Ground2Image(aPGr);
         cPt2dr  aVec = (aP2-aProj);
-
+        std::string aResDist3DStr = "XXX";
+        cStaticLidar * aStaticLidar = dynamic_cast<cStaticLidar*>(aCam);
+        if (aStaticLidar)
+        {
+            aStaticLidar->ReadRasters(mPhProj.DirStaticLidarRasters());
+            tREAL8 aMesDistance = aStaticLidar->Image2Distance(aP2);
+            tREAL8 aResDist3D = aMesDistance - Norm2(aPGr-aStaticLidar->Center());
+            aResDist3DStr = ToStr(aResDist3D);
+            aAvgD.Add(1.0, aResDist3D);
+        }
         aAvg2d.Add(1.0,aVec);
         tREAL8 aDist = Norm2(aVec);
         aStat.Add(aDist);
-        AddOneReportCSV(mNameReportDetail,{aNameIm,aMes.mNamePt,ToStr(aDist),ToStr(aVec.x()),ToStr(aVec.y())});
+        AddOneReportCSV(mNameReportDetail,{aNameIm,aMes.mNamePt,ToStr(aDist),ToStr(aVec.x()),ToStr(aVec.y()),aResDist3DStr});
     }
 
 
@@ -227,10 +238,11 @@ void cAppli_CGPReport::MakeOneIm(const std::string & aNameIm)
 
     auto aMesX = (aAvg2d.SW()>0.) ? ToStr(aAvg2d.Average().x()) : "XXX";
     auto aMesY = (aAvg2d.SW()>0.) ? ToStr(aAvg2d.Average().y()) : "XXX";
+    auto aMesD = (aAvgD.SW()>0.) ? ToStr(aAvgD.Average()) : "XXX";
     AddStdStatCSV
     (
        mNameReportIm,aNameIm,aStat,mPropStat,
-       {aMesX, aMesY}
+       {aMesX, aMesY, aMesD}
     );
 
 }
@@ -390,8 +402,8 @@ int cAppli_CGPReport::Exe()
 
    if (LevelCall()==0)
    {
-       AddStdHeaderStatCSV(mNameReportIm,"Image",mPropStat,{"AvgX","AvgY"});
-       AddOneReportCSV(mNameReportDetail,{"Image","GCP","Err","Dx","Dy"});
+       AddStdHeaderStatCSV(mNameReportIm,"Image",mPropStat,{"AvgX","AvgY","AvgD"});
+       AddOneReportCSV(mNameReportDetail,{"Image","GCP","Err","Dx","Dy","Ddist"});
        AddOneReportCSV(mNameReportMissed,{"Image","GCP","XTh","YTh"});
    }
    if (RunMultiSet(0,0))  // If a pattern was used, run in // by a recall to itself  0->Param 0->Set

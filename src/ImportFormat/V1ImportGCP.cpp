@@ -84,7 +84,7 @@ int cAppli_ConvertV1V2_GCPIM::Exe()
           {
                std::string aNameIm =  aMesIm.NameIm();
                cSensorCamPC * aCamPC =  mPhProj.ReadCamPC(aNameIm,true);
-               aMesImGCP.AddMes2D(aMesIm,nullptr,aCamPC);
+               aMesImGCP.AddMes2D(aMesIm,aCamPC);
                // StdOut() << " Nom Im " << aNameIm << " " << aCamPC->InternalCalib()->F() << std::endl;
           }
 

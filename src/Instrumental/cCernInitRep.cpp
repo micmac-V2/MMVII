@@ -275,7 +275,7 @@ void cAppli_CernInitRep::ProcessOneBloc(const std::vector<cSensorCamPC *> & aVPC
        }
        if (mPhProj.HasMeasureIm(aNameIm))
        {
-           aMesPts.AddMes2D(mPhProj.LoadMeasureIm(aNameIm),nullptr,aCam);
+           aMesPts.AddMes2D(mPhProj.LoadMeasureIm(aNameIm),aCam);
        }
    }
    if (aVPlane.size() < 2) return;

@@ -406,7 +406,7 @@ cPt3dr  cSetMesGndPt::BundleInter(const cMultipleImPt & aMPT) const
      std::vector<tSeg3dr>  aVSeg;
      for (size_t aKI=0 ; aKI<aMPT.VMeasures().size() ; aKI++)
      {
-         cSensorImage * aSIm = mVSens.at(aMPT.VImages().at(aKI));
+         const cSensorImage * aSIm = mVSens.at(aMPT.VImages().at(aKI));
          MMVII_INTERNAL_ASSERT_tiny(aSIm,"No sensor in  cSetMesImGCP::BundleInter");
          aVSeg.push_back(aSIm->Image2Bundle(aMPT. VMeasures().at(aKI)));
      }
@@ -416,7 +416,7 @@ cPt3dr  cSetMesGndPt::BundleInter(const cMultipleImPt & aMPT) const
 
 
 
-void cSetMesGndPt::AddMes2D(const cSetMesPtOf1Im & aSetMesIm, MMVII::cMes2DDirInfo *aMesDirInfo, cSensorImage* aSens, eLevelCheck aOnNonExistGCP)
+void cSetMesGndPt::AddMes2D(const cSetMesPtOf1Im & aSetMesIm, cSensorImage *aSens, MMVII::cMes2DDirInfo *aMesDirInfo, eLevelCheck aOnNonExistGCP)
 {
     //  Are we beginning  the  image measurement phase
     {
@@ -444,7 +444,8 @@ void cSetMesGndPt::AddMes2D(const cSetMesPtOf1Im & aSetMesIm, MMVII::cMes2DDirIn
     for (auto & aMesIni : aSetMesIm.Measures())
     {
         auto aMes = aMesIni;
-        aSens->FixPtPxLoopAroundPP(aMes.mPt);
+        if (aSens)
+            aSens->FixPtPxLoopAroundPP(aMes.mPt);
         int aNumPt = m2MapPtInt.Obj2I(aMes.mNamePt,true);
         if (aNumPt>=0)
         {
@@ -523,7 +524,7 @@ cSetMesGndPt *  cSetMesGndPt::FilterNonEmptyMeasure(int aNbMeasureMin) const
 
   for (size_t aKIm=0 ; aKIm<mMesImInit.size() ; aKIm++)
   {
-     aRes->AddMes2D(mMesImInit.at(aKIm),nullptr,mVSens.at(aKIm)); //aMesDirInfo=nullptr means keep original MesDirInfo
+     aRes->AddMes2D(mMesImInit.at(aKIm),mVSens.at(aKIm)); //aMesDirInfo=nullptr means keep original MesDirInfo
   }
 
    return aRes;
@@ -1086,7 +1087,7 @@ void cFilterMesIm::AddInOrOut(const cPt2dr & aPtIm,const std::string & aNamePt,b
 void cFilterMesIm::SetFinished()
 {
     if (! mFinished)
-       mImGCP.AddMes2D(mMesIm);
+       mImGCP.AddMes2D(mMesIm,nullptr);
 
     mFinished = true;
 }
