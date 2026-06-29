@@ -239,7 +239,7 @@ enum class eTyUEr
               eUnExpectedEmptyData,
               eLVM_NoConstraint,       ///<  => warning if an unknown has no obs and LVM is active
               eLVM_SchurrNoConstraint, ///<  => idem eLVM_NoConstraint bit in Schurr case
-              eForceGauje,             ///<  =>  warnig if gauje is added and was not required
+              eForceGauge,             ///<  =>  warnig if gauge is added and was not required
               eRemoveFile,
               eEmptyPattern,
               eBadPattern,

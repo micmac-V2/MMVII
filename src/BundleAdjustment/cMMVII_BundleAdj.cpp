@@ -814,13 +814,13 @@ void cMMVII_BundleAdj::SetGaujeRelPause(const std::vector<std::string> & aVNames
         }
     }
 
-    MMVII_INTERNAL_ASSERT_always(aWMaxInd.IsInit(),"Cannot compute relative gauje");
+    MMVII_INTERNAL_ASSERT_always(aWMaxInd.IsInit(),"Cannot compute relative gauge");
 
     cPt3di aIndMax = aWMaxInd.IndexExtre();
 
     if (1)
     {
-        StdOut() << "GAUJE SET "
+        StdOut() << "GAUGE SET "
                  << " Im1=" << mVSCPC.at(aIndMax.x())->NameImage()
                  << " Im2=" << mVSCPC.at(aIndMax.y())->NameImage()
                  << " Coord=" << aVCoord.at(aIndMax.z())
