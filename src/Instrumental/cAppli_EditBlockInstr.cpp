@@ -93,8 +93,14 @@ cCollecSpecArg2007 & cAppli_EditBlockInstr::ArgOpt(cCollecSpecArg2007 & anArgOpt
 
 int cAppli_EditBlockInstr::Exe()
 {
+    /// MPD : a very special case where the folder in/out is in fact purely out abd the check that it exist would fail
+    if (mFromScratch)
+        mPhProj.DPBlockInstr().SetAllowDirInEmpty();
+
     mPhProj.DPBlockInstr().SetDirOutInIfNotInit();
+
     mPhProj.FinishInit();
+
 
     cIrbCal_Block *  aBlock =    mFromScratch                           ?
                                  new cIrbCal_Block                      :

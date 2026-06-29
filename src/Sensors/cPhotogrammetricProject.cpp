@@ -95,8 +95,14 @@ cDirsPhProj::cDirsPhProj(eTA2007 aMode,cPhotogrammetricProject & aPhp):
    mAppli          (mPhp.Appli()),
    mPrefix         (E2Str(mMode)),
    mDirLocOfMode   (MMVII_DirPhp + mPrefix + StringDirSeparator()),
-   mPurgeOut       (false)
+   mPurgeOut       (false),
+   mAllowDirInEmpty  (false)
 {
+}
+
+void cDirsPhProj::SetAllowDirInEmpty()
+{
+    mAllowDirInEmpty = true;
 }
 
 const std::string &  cDirsPhProj::DirLocOfMode() const { return mDirLocOfMode; }
@@ -114,7 +120,7 @@ void cDirsPhProj::Finish()
     //  MPD, new check, seems correct, hope it will not create new bug ... , New modif, 
     //  we accept this case with NONE, because for "historical" reason, this is the convention
     //  used by OriBundleAdj, when we do pure topo (i.e. w/o camera, poses ...)
-    if (mAppli.IsInSpec(&mDirIn) && IsInit(&mDirIn) &&  (mDirIn != MMVII_NONE))
+    if (mAppli.IsInSpec(&mDirIn) && IsInit(&mDirIn) &&  (mDirIn != MMVII_NONE) && (!mAllowDirInEmpty))
     {
         if (! IsDirectory(mFullDirIn) )
         {
@@ -308,10 +314,13 @@ void cDirsPhProj::SetDirOut(const std::string & aDirOut)
 
 void cDirsPhProj::SetDirOutInIfNotInit()
 {
+    //StdOut() << "cDirsPhProj::SetDirOutInIfNotInilll=" << __LINE__ << "\n";
     if (! DirOutIsInit())
     {
         SetDirOut(DirIn());
     }
+   // StdOut() << "cDirsPhProj::SetDirOutInIfNotInilll=" << __LINE__ << "\n";
+
 }
 
 
