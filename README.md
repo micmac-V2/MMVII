@@ -6,6 +6,7 @@
 - [Installation from sources (Linux/Windows)](#installation-from-sources)
 	- [Linux Ubuntu distribution](#linux-ubuntu-distribution)
  	- [Windows](#windows)
+ 	- [Mac](#mac)
 	- [Additionnal notes](#additionnal-notes)
 		- [Compilation details](#compilation-details)
 		- [Compilation with MicMac V1 API](#compilation-with-micmac-v1-api)
@@ -23,7 +24,7 @@
 This repository contains the second version named **MMVII** aimed at facilitating external contributions and being more maintainable in the long term has been in development since 2020.
 
 # Prerequisites
-Compilation tools need to be present on your system to build **MMVII** properly:
+Compilation tools are required to build **MMVII**:
 - **C++ compiler (g++ or clang on Linux, MSVC++ on Windows)**
 - **[Git](https://git-scm.com/)** to clone the repository
 - **[CMake](https://cmake.org/)** to generate build files
@@ -48,12 +49,11 @@ In this case, install [micmac v1](https://github.com/micmacIGN/micmac) and make 
 Compilation procedure is described below for:
 - **[Linux Ubuntu distribution](#linux-ubuntu-distribution)**
 - **[Windows](#windows)**
+- **[Mac](#mac)**
 
 
 
 ## Linux Ubuntu distribution
-
-Under Linux (Ubuntu) distribution the installation procedure is as follows:
 
 - Open a terminal
 
@@ -87,7 +87,6 @@ Under Linux (Ubuntu) distribution the installation procedure is as follows:
 	```
 
 ## Windows
-Under Windows the installation procedure is as follows:
 
 ### Install vcpkg 
 - Open a **Git Bash** terminal
@@ -129,6 +128,37 @@ Under Windows the installation procedure is as follows:
 	```bash
 	"C:\src\MMVII\bin"
 	```
+
+## Mac
+
+- Install dependencies 
+	```bash
+    bashbrew install cmake proj gdal xerces-c
+	```
+- Clone MMVII repository
+	```bash
+	bashgit clone https://github.com/micmac-V2/MMVII.git
+	```
+- Change directory to MMVII
+	```bash
+	cd MMVII
+	```
+- Build and compile
+	```bash
+	bashmkdir build && cd build
+    cmake .. -DCMAKE_CXX_FLAGS="-Wno-deprecated-declarations"
+    make full -j$(sysctl -n hw.logicalcpu)
+	```
+- Add to PATH
+	```bash
+	bashecho 'export PATH=/Users/your_username/MMVII/bin:$PATH' >> ~/.zshrc
+    source ~/.zshrc
+	```
+- Run benchmarks
+	```bash
+    MMVII Bench 1
+	```
+Bench passes if it does not end with a fatal error block.
 
 ## Additionnal notes
 ### Compilation details
