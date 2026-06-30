@@ -91,7 +91,6 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     mPatFrozenCenter (""),
     mPatFrozenOrient (""),
     mPatFrozenClinos (""),
-    mPatFrozenTSL    (""),
     //mMesGCP           (nullptr),
     //mSigmaGCP         (-1),
     mBlRig            (nullptr),
@@ -465,25 +464,6 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     {
         mBlClino->SetFrozenVar(*mR8_Sys, mPatFrozenClinos);
     }
-    
-    // if necessary, fix frozen poses of static lidar
-    if (mPatFrozenTSL !="")
-    {
-        // Freeze full pose (TODO: be able to to fix only verticalization)
-        tNameSelector aSel = AllocRegex(mPatFrozenTSL);
-        int nbMatches = 0;
-        for (auto & [aScanName, aLidar] : mMapTSL)
-        {
-            if (aSel.Match(aScanName))
-            {
-                mR8_Sys->SetFrozenVarCurVal(*aLidar,aLidar->Center());
-                mR8_Sys->SetFrozenVarCurVal(*aLidar,aLidar->Omega());
-                nbMatches++;
-            }
-        }
-        if (mVerbose && isFirstIter)
-            StdOut() << "Frozen TSL poses: " << nbMatches << ".\n";
-    }
 
     if (mBlRig) // RIGIDBLOC
     {
@@ -685,11 +665,6 @@ void cMMVII_BundleAdj::SetParamFreeCalib(const std::vector<std::vector<std::stri
 void cMMVII_BundleAdj::SetFrozenCenters(const std::string & aPattern)
 {
     mPatFrozenCenter = aPattern;
-}
-
-void cMMVII_BundleAdj::SetFrozenTSL(const std::string & aPattern)
-{
-    mPatFrozenTSL = aPattern;
 }
 
 void cMMVII_BundleAdj::SetFrozenOrients(const std::string & aPattern)
@@ -1070,12 +1045,6 @@ void cMMVII_BundleAdj::Add1AdjLidarLidar(const std::vector<std::string> &aParam)
     mVBA_LidarLidar.push_back(new cBA_LidarLidarRaster(mPhProj, *this,aParam));
 }
 
-
-void cMMVII_BundleAdj::SaveTSL()
-{
-    for (auto & [aScanName, aLidar] : mMapTSL)
-        aLidar->ToFile(mPhProj->DPOrient().FullDirOut() + aLidar->NameOriStd());
-}
 
 /* ---------------------------------------- */
 /*                 Topo                     */

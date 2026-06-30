@@ -653,7 +653,6 @@ class cMMVII_BundleAdj
           void SetFrozenCenters(const std::string & aPattern);
           void SetFrozenOrients(const std::string & aPattern);
           void SetFrozenClinos(const std::string & aPattern);
-          void SetFrozenTSL(const std::string & aPattern);
           void SetSharedIntrinsicParams(const std::vector<std::string> &);
            
           void SetGaugeRelPause(const std::vector<std::string> &);
@@ -683,7 +682,6 @@ class cMMVII_BundleAdj
           void SaveBlocRigid();
           void Save_newGCP3D();
           void SaveTopo();
-          void SaveTSL();
 
           void Set_UC_UK(const std::vector<std::string> & aParam);
           void ShowUKNames(const std::vector<std::string> & aParam, const std::string &aSuffix, cMMVII_Appli* =nullptr) ;
@@ -759,7 +757,6 @@ class cMMVII_BundleAdj
           std::string  mPatFrozenCenter;      /// Pattern for name of pose with frozen centers
           std::string  mPatFrozenOrient;      /// Pattern for name of pose with frozen centers
           std::string  mPatFrozenClinos;      /// Pattern for name of clino with frozen boresight
-          std::string  mPatFrozenTSL;         /// Pattern for name of static lidars with frozen poses
 
           std::vector<std::string>  mVPatShared;
 

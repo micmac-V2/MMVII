@@ -97,8 +97,7 @@ class cAppliBundlAdj : public cMMVII_Appli
         std::vector<std::string>  mParamGaugeRel;
         std::string               mPatFrosenCenters;
         std::string               mPatFrosenOrient;
-       std::string               mPatFrosenClino;
-       std::string               mPatFrozenTSL;
+        std::string               mPatFrosenClino;
         std::vector<tREAL8>       mViscPose;
         tREAL8                    mLVM;  ///< Levenberk Markard
         bool                      mMeasureAdded ;
@@ -180,7 +179,6 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mPatFrosenCenters,"PatFzCenters","Pattern of images for freezing center of poses")
       << AOpt2007(mPatFrosenOrient,"PatFzOrient","Pattern of images for freezing orientation of poses")
       << AOpt2007(mPatFrosenClino,"PatFzClino","Pattern of clinometers for freezing boresight")
-      << AOpt2007(mPatFrozenTSL,"PatFzTSL","Pattern of static lidar for freezing pose")
       << AOpt2007(mParamGaugeRel,"FixGauge","Param for gauge in pure relative [MainIm?,SecIm?,Coord in x,y,z?]",{{eTA2007::ISizeV,"[0,3]"}})
 
 
@@ -461,11 +459,6 @@ int cAppliBundlAdj::Exe()
         mBA.Add1AdjLidarLidar(aParam);
     }
 
-    if (IsInit(&mPatFrozenTSL))
-    {
-        mBA.SetFrozenTSL(mPatFrozenTSL);
-    }
-
     if (mCheckMeasureAdded)
     {
         MMVII_INTERNAL_ASSERT_User(mMeasureAdded,eTyUEr::eUnClassedError,"Not any measure added");
@@ -492,8 +485,6 @@ int cAppliBundlAdj::Exe()
     mBA.Save_newGCP3D();
     mBA.SaveTopo(); // just for debug for now
     mBA.SaveClino();
-    mBA.SaveTSL();
-
     mBA.SaveBlockInstr();
 
     if (IsInit(&mParamShow_UK_UC))
