@@ -144,10 +144,10 @@ int cAppli_EditBlockInstr::Exe()
         }
     }
 
-   //if (IsInit(&mNumMaster))
+    if (IsInit(&mNumMaster) || mFromScratch)
         aBlock->SetCams().SetNumMaster(mNumMaster);
 
-   // if (IsInit(&mNumPoseInstr))
+    if (IsInit(&mNumPoseInstr) || mFromScratch)
        aBlock->SetCams().SetNumPoseInstr(mNumPoseInstr);
 
 
