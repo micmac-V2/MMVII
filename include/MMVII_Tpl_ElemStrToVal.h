@@ -32,7 +32,7 @@ template <class TypeEnum> class cE2Str
          typename tMapE2Str::iterator anIt = mE2S.find(anE);
          // Enum to string is not user error (user do not create enum)
          if (anIt == mE2S.end())
-            MMVII_INTERNAL_ASSERT_always(false,"E2Str for enum : " + ToStr(int(anE)) + ", for type: " + cStrIO<TypeEnum>::msNameType);
+             MMVII_INTERNAL_ASSERT_always(false,"E2Str for enum : " + ToStr(int(anE)) + ", for type: " + cStrIO<TypeEnum>::msNameType());
          return anIt->second;
      }
 
@@ -242,9 +242,9 @@ template <class Type> class cInstReadOneArgCL2007 : public cSpecOneArg2007
             }
         }
 
-        const std::string & NameType() const override
+        std::string NameType() const override
         {
-            return  cStrIO<Type>::msNameType;
+            return  cStrIO<Type>::msNameType();
         }
         void * AdrParam() override {return &mVal;}
         std::string NameValue() const override {return ToStr(mVal);}
@@ -284,19 +284,13 @@ template tPtrArg2007 AOpt2007<Type>(Type &,const std::string & aName, const std:
 /*                                      */
 /* ==================================== */
 
-#ifndef _MSC_VER
-#define MACRO_DECLARE_STRIO_ENUM(ETYPE) template<> const std::string cStrIO<ETYPE>::msNameType;
-#else
-#define MACRO_DECLARE_STRIO_ENUM(ETYPE)
-#endif
-
 
 #define MACRO_INSTANTIATE_STRIO_ENUM(ETYPE,ENAME)\
 MACRO_INSTANTIATE_ARG2007(ETYPE)\
 TPL_ENUM_2_STRING(ETYPE)\
 template <>  std::string cStrIO<ETYPE>::ToStr(const ETYPE & anEnum) { return  E2Str(anEnum); }\
 template <>  ETYPE cStrIO<ETYPE>::FromStr(const std::string & aStr) { return Str2E<ETYPE>(aStr); }\
-template <>  const std::string cStrIO<ETYPE>::msNameType = ENAME;
+template <>  std::string cStrIO<ETYPE>::msNameType() { return ENAME ;}
 
 
 } // namespace MMVII

@@ -43,7 +43,7 @@ template <class Type> void EnumAddData(const cAuxAr2007 & anAux,Type & anEnum,co
    {
        // modif MPD , if input enum is not init
        std::string aName =   (anAux.Ar().IsSpecif())  ?
-                               ("enum_"+ cStrIO<Type>::msNameType)                   :  // Not sure what to put in case of specification file
+                               ("enum_"+ cStrIO<Type>::msNameType())                   :  // Not sure what to put in case of specification file
                                (anAux.Input() ? std::string("") :E2Str(anEnum) ) ;
        AddData(cAuxAr2007(aTag,anAux),aName);
        if (anAux.Input())
@@ -509,7 +509,7 @@ template<class Type> void  SpecificationSaveInFile(const std::string & aName)
 
 template<class Type> void  SpecificationSaveInFile()
 {
-     SpecificationSaveInFile<Type>("Specifications_"+cStrIO<Type>::msNameType+"."+GlobTaggedNameDefSerial());
+     SpecificationSaveInFile<Type>("Specifications_"+cStrIO<Type>::msNameType()+"."+GlobTaggedNameDefSerial());
 }
 
 

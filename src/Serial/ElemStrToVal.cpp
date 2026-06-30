@@ -937,7 +937,7 @@ template <>  std::vector<TYPE> cStrIO<std::vector<TYPE> >::FromStr(const std::st
 {\
     return Str2Vec<TYPE>(aStr);\
 }\
-template <>  const std::string cStrIO<std::vector<TYPE>>::msNameType = "std::vector<"  #TYPE  ">";\
+template <>  std::string cStrIO<std::vector<TYPE>>::msNameType() { return  "std::vector<"  #TYPE  ">" ;}
 
 MACRO_INSTANTITATE_STRIO_VECT_TYPE(std::vector<std::string>)
 MACRO_INSTANTITATE_STRIO_VECT_TYPE(std::string)
@@ -994,14 +994,13 @@ template <>  cTplBox<TYPE,DIM> cStrIO<cTplBox<TYPE,DIM> >::FromStr(const std::st
     }\
     return cTplBox<TYPE,DIM>(aP0,aP1);\
 }\
-template <>  const std::string cStrIO<cPtxd<TYPE,DIM> >::msNameType = "cPtxd<" #TYPE ","  #DIM ">";\
-template <>  const std::string cStrIO<cTplBox<TYPE,DIM> >::msNameType = "cTplBox<" #TYPE ","  #DIM ">";\
+template <>  std::string cStrIO<cPtxd<TYPE,DIM> >::msNameType() { return  "cPtxd<" #TYPE ","  #DIM ">";}\
+template <>  std::string cStrIO<cTplBox<TYPE,DIM> >::msNameType() { return "cTplBox<" #TYPE ","  #DIM ">";}\
 
 MACRO_INSTANTITATE_STRIO_CPTXD(int,2)
 MACRO_INSTANTITATE_STRIO_CPTXD(double,2)
 MACRO_INSTANTITATE_STRIO_CPTXD(int,3)
 MACRO_INSTANTITATE_STRIO_CPTXD(double,3)
-
 
 MACRO_INSTANTITATE_STRIO_CPTXD(int,4)
 MACRO_INSTANTITATE_STRIO_CPTXD(double,4)
@@ -1098,7 +1097,6 @@ MACRO_INSTANTIATE_STRIO_ENUM(eModeSSR,"ModeSRR")
 MACRO_INSTANTIATE_STRIO_ENUM(eImatchCrit,"ImatchCrit")
 
 
-
 /* ==================================== */
 /*                                      */
 /*         Atomic native type           */
@@ -1122,7 +1120,7 @@ template <>  bool cStrIO<bool>::FromStr(const std::string & aStr)
     return false;
 }
 
-template <>  const std::string cStrIO<bool>::msNameType = "bool";
+template <>  std::string cStrIO<bool>::msNameType() { return "bool"; }
 
    // ================  char ==============================================
 
@@ -1140,7 +1138,7 @@ template <>  char cStrIO<char>::FromStr(const std::string & aStr)
     return aStr[0];
 }
 
-template <>  const std::string cStrIO<char>::msNameType = "char";
+template <>  std::string cStrIO<char>::msNameType() { return "char";}
 
 
 
@@ -1162,7 +1160,7 @@ template <>  size_t cStrIO<size_t>::FromStr(const std::string & aStr)
     MMVII_INTERNAL_ASSERT_User((aNb!=0),eTyUEr::eBadInt,"String is not a valid size_t")
     return aSz;
 }
-template <>  const std::string cStrIO<size_t>::msNameType = "size_t";
+template <>  std::string cStrIO<size_t>::msNameType() { return "size_t";}
 
 
    // ================  int ==============================================
@@ -1202,12 +1200,10 @@ bool IsStrInt(const std::string & aStr)
     return aNb != 0;
 }
 
-template <>  const std::string cStrIO<int>::msNameType = "int";
-template <>  const std::string cStrIO<tINT2>::msNameType = "int2";
-template <>  const std::string cStrIO<tU_INT1>::msNameType = "u_int1";
-template <>  const std::string cStrIO<tREAL4>::msNameType = "float";
-
-
+template <>  std::string cStrIO<int>::msNameType()   { return  "int"; }
+template <>  std::string cStrIO<tINT2>::msNameType() { return "int2"; }
+template <>  std::string cStrIO<tU_INT1>::msNameType() { return "u_int1";}
+template <>  std::string cStrIO<tREAL4>::msNameType()  { return "float";}
 
 std::string ToStr(int aVal,int aSzMin)
 {
@@ -1285,7 +1281,7 @@ template <>  double cStrIO<double>::FromStr(const std::string & aStr)
     }
     return anI;
 }
-template <>  const std::string cStrIO<double>::msNameType = "double";
+template <>  std::string cStrIO<double>::msNameType() { return "double";}
 
 std::string FixDigToStr(double aSignedVal,int aNbDig)
 {
@@ -1345,7 +1341,7 @@ template <>  std::string cStrIO<std::string>::FromStr(const std::string & aStr)
     return aStr;
 }
 
-template <>  const std::string cStrIO<std::string>::msNameType = "string";
+template <>  std::string cStrIO<std::string>::msNameType() { return "string";}
 
 
 
