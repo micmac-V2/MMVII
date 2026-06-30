@@ -133,11 +133,11 @@ Compilation procedure is described below for:
 
 - Install dependencies 
 	```bash
-    bashbrew install cmake proj gdal xerces-c
+    brew install cmake proj gdal xerces-c
 	```
 - Clone MMVII repository
 	```bash
-	bashgit clone https://github.com/micmac-V2/MMVII.git
+	git clone https://github.com/micmac-V2/MMVII.git
 	```
 - Change directory to MMVII
 	```bash
@@ -145,13 +145,13 @@ Compilation procedure is described below for:
 	```
 - Build and compile
 	```bash
-	bashmkdir build && cd build
+	mkdir build && cd build
     cmake .. -DCMAKE_CXX_FLAGS="-Wno-deprecated-declarations"
     make full -j$(sysctl -n hw.logicalcpu)
 	```
 - Add to PATH
 	```bash
-	bashecho 'export PATH=/Users/your_username/MMVII/bin:$PATH' >> ~/.zshrc
+	echo 'export PATH=/Users/your_username/MMVII/bin:$PATH' >> ~/.zshrc
     source ~/.zshrc
 	```
 - Run benchmarks
