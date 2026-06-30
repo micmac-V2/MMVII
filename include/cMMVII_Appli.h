@@ -721,7 +721,6 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         cMultipleOfs                              mStdCout;     ///< Standard Ouput (File,Console, both or none)
         std::string                               mParamStdOut; ///< Users value
         int                                       mSeedRand;    ///< Seed for random generator
-        std::vector<std::string>                  mVecAppliSpecParam; ///< To allow each part of code  some dyn behave
         std::map<std::string,std::string>         mMapAppliSpecParam; ///< Mat created from mVecAppliSpecParam
      //   std::string                               mAppliSpecParam;
         bool                                      mExtandPattern;  ///<  If false Interpret the pattern as single  , def=true !!
