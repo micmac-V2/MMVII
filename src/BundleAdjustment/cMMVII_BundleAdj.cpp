@@ -557,6 +557,8 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
         mRUCSUR = new cResult_UC_SUR<tREAL8>(false,false,mIndCompUC);
     }
 
+    mR8_Sys->SysLinear(); // to force SetPhaseEq(); to init constraints if no AddObs
+
     const auto & aVectSol = mR8_Sys->SolveUpdateReset(aLVM,{},{mRUCSUR},doShowCond);
     mSetIntervUK.SetVUnKnowns(aVectSol);
 
