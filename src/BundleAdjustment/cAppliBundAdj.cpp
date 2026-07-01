@@ -123,6 +123,7 @@ cAppliBundlAdj::cAppliBundlAdj(const std::vector<std::string> & aVArgs,const cSp
    mNbIter            (10),
    mLVM               (0.0),
    mMeasureAdded      (false),
+   mShow_Cond         (false),
    mCheckMeasureAdded (true)
 {
 }
@@ -187,7 +188,7 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mNbIter,"NbIter","Number of iterations",{eTA2007::HDV})
       << AOpt2007(mLVM,"LVM","Levenberg–Marquardt parameter (to have better conditioning of least squares)",{eTA2007::HDV})
       << AOpt2007(mViscPose,"PoseVisc","Sigma viscosity on pose [SigmaCenter,SigmaRot]",{{eTA2007::ISizeV,"[2,2]"}})
-      << AOpt2007(mShow_Cond,"Cond","Compute and show system condition number")
+      << AOpt2007(mShow_Cond,"Cond","Compute and show system condition number",{eTA2007::HDV})
       << AOpt2007(mParamShow_UK_UC,"UC_UK","Param for uncertainty & Show names of unknowns (tuning)")
 
       << AOpt2007(mCheckMeasureAdded,"CheckMeasureAdded","Do we check the adding of measures)",{eTA2007::Tuning,eTA2007::HDV})

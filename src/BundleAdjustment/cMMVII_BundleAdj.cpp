@@ -113,6 +113,7 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     mIter             (0),
     mVerbose          (true),
     mShow_UC_UK       (false),
+    mCompute_Uncert   (false),
     mRUCSUR           (nullptr),
     mVecLineAdjust    (),
     mNbCamPC          (0)
