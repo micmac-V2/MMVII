@@ -94,7 +94,7 @@ class cAppliBundlAdj : public cMMVII_Appli
 
         std::string               mPatParamFrozCalib;
         std::vector<std::vector<std::string>>  mVVParFreeCalib;
-        std::vector<std::string>  mParamGaujeRel;
+        std::vector<std::string>  mParamGaugeRel;
         std::string               mPatFrosenCenters;
         std::string               mPatFrosenOrient;
        std::string               mPatFrosenClino;
@@ -180,8 +180,7 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mPatFrosenOrient,"PatFzOrient","Pattern of images for freezing orientation of poses")
       << AOpt2007(mPatFrosenClino,"PatFzClino","Pattern of clinometers for freezing boresight")
       << AOpt2007(mPatFrozenTSL,"PatFzTSL","Pattern of static lidar for freezing pose")
-      << AOpt2007(mParamGaujeRel,"FixGauge","Param for gauge in pure relative [MainIm?,SecIm?,Coord in x,y,z?]",{{eTA2007::ISizeV,"[0,3]"}})
-
+      << AOpt2007(mParamGaugeRel,"FixGauge","Param for gauge in pure relative [MainIm?,SecIm?,Coord in x,y,z?]",{{eTA2007::ISizeV,"[0,3]"}})
 
 
            << "Computation"
@@ -191,7 +190,7 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mShow_Cond,"Cond","Compute and show system condition number")
       << AOpt2007(mParamShow_UK_UC,"UC_UK","Param for uncertainty & Show names of unknowns (tuning)")
 
-      << AOpt2007(mCheckMeasureAdded,"CheckMeasureAdded","Do we check the adding of measures)",{eTA2007::Tuning})
+      << AOpt2007(mCheckMeasureAdded,"CheckMeasureAdded","Do we check the adding of measures)",{eTA2007::Tuning,eTA2007::HDV})
 
 
            << "Blocks"
@@ -395,17 +394,17 @@ int cAppliBundlAdj::Exe()
     for (const auto& aTieP : mAddTieP)
         AddOneSetTieP(aTieP);
 
-    bool hasGauje = IsInit(&mParamGaujeRel);
-    bool forceNoGauje =   (!mParamGaujeRel.empty()) && (mParamGaujeRel.at(0)==MMVII_NONE);
-    if ((!hasConstrOriPC) && (!hasGauje) && (mBA.NbCamPC()!=0) && (!forceNoGauje))
+    bool hasGauge = IsInit(&mParamGaugeRel);
+    bool forceNoGauge =   (!mParamGaugeRel.empty()) && (mParamGaugeRel.at(0)==MMVII_NONE);
+    if ((!hasConstrOriPC) && (!hasGauge) && (mBA.NbCamPC()!=0) && (!forceNoGauge))
     {
             MMVII_USER_TYPED_WARNING(eTyUEr::eForceGauge,"Gauge in pure relative pause not specified, added by system");
-           hasGauje = true;
+            hasGauge = true;
     }
 
-    if (hasGauje && (!forceNoGauje))
+    if (hasGauge && (!forceNoGauge))
     {
-        mBA.SetGaujeRelPause(mParamGaujeRel);
+        mBA.SetGaugeRelPause(mParamGaugeRel);
     }
 
     if (IsInit(&mBRSigma)) // RIGIDBLOC

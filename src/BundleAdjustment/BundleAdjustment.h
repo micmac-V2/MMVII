@@ -656,8 +656,8 @@ class cMMVII_BundleAdj
           void SetFrozenTSL(const std::string & aPattern);
           void SetSharedIntrinsicParams(const std::vector<std::string> &);
            
-          void SetGaujeRelPause(const std::vector<std::string> &);
-         // void SetGaujeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
+          void SetGaugeRelPause(const std::vector<std::string> &);
+         // void SetGaugeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
 
           void AddPoseViscosity();
           void AddConstrainteRefPose();
@@ -790,13 +790,13 @@ class cMMVII_BundleAdj
           bool                               mDoRefCam;
           cDirsPhProj*                       mDirRefCam;
 
-          // ===================  "Gauje for pure relative pause"  ==================
+          // ===================  "Gauge for pure relative pause"  ==================
 
 
-          bool   mUseGauje;
-          int    mKPoseMainGauje;
-          int    mKPoseSecondGauje;
-          int    mKCoordSecondGauje;
+          bool   mUseGauge;
+          int    mKPoseMainGauge;
+          int    mKPoseSecondGauge;
+          int    mKCoordSecondGauge;
 
           // ===================  "Viscosity"  ==================
 

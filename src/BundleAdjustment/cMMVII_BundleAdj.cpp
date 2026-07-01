@@ -103,10 +103,10 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     mPatternRef       (".*"),
     mDirRefCam        (nullptr),
 
-    mUseGauje         (false),
-    mKPoseMainGauje   (-1),
-    mKPoseSecondGauje (-1),
-    mKCoordSecondGauje (-1),
+    mUseGauge         (false),
+    mKPoseMainGauge   (-1),
+    mKPoseSecondGauge (-1),
+    mKCoordSecondGauge (-1),
     mSigmaViscAngles  (-1.0),
     mSigmaViscCenter  (-1.0),
     mNbMaxIter        (-1),
@@ -411,16 +411,16 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
         }
     }
 
-    if (mUseGauje)
+    if (mUseGauge)
     {
-        cSensorCamPC * aMainCamGauje   = mVSCPC.at(mKPoseMainGauje);
-        cSensorCamPC * aSecondCamGauje = mVSCPC.at(mKPoseSecondGauje);
+        cSensorCamPC * aMainCamGauge   = mVSCPC.at(mKPoseMainGauge);
+        cSensorCamPC * aSecondCamGauge = mVSCPC.at(mKPoseSecondGauge);
 
-        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauje,aMainCamGauje->Center());
-        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauje,aMainCamGauje->Omega());
+        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauge,aMainCamGauge->Center());
+        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauge,aMainCamGauge->Omega());
 
-        tREAL8 & aCoord = aSecondCamGauje->Center()[mKCoordSecondGauje];
-        mR8_Sys->SetFrozenVarCurVal(*aSecondCamGauje,aCoord);
+        tREAL8 & aCoord = aSecondCamGauge->Center()[mKCoordSecondGauge];
+        mR8_Sys->SetFrozenVarCurVal(*aSecondCamGauge,aCoord);
 
     }
 
@@ -810,7 +810,7 @@ int cMMVII_BundleAdj::IndexOfPCPose(const std::string &aNameIm,bool SVP ) const
     return -1;
 }
 
-void cMMVII_BundleAdj::SetGaujeRelPause(const std::vector<std::string> & aVNames)
+void cMMVII_BundleAdj::SetGaugeRelPause(const std::vector<std::string> & aVNames)
 {
 
     cWhichMax<cPt3di,tREAL8> aWMaxInd;
@@ -827,7 +827,7 @@ void cMMVII_BundleAdj::SetGaujeRelPause(const std::vector<std::string> & aVNames
     if (aCoordFix)
     {
         auto anIter = std::find(aVCoord.begin(),aVCoord.end(),aVNames.at(2));
-        MMVII_INTERNAL_ASSERT_always(anIter!=aVCoord.end(),"SetGaujeRelPause bad coord");
+        MMVII_INTERNAL_ASSERT_always(anIter!=aVCoord.end(),"SetGaugeRelPause bad coord");
         aKCoord = anIter - aVCoord.begin();
     }
 
@@ -873,17 +873,17 @@ void cMMVII_BundleAdj::SetGaujeRelPause(const std::vector<std::string> & aVNames
 
 
     }
-    mUseGauje = true;
-    mKPoseMainGauje = aIndMax.x();
-    mKPoseSecondGauje = aIndMax.y();
-    mKCoordSecondGauje = aIndMax.z();
+    mUseGauge = true;
+    mKPoseMainGauge = aIndMax.x();
+    mKPoseSecondGauge = aIndMax.y();
+    mKCoordSecondGauge = aIndMax.z();
 
 
 //    aMaxInd
 }
 
 
-//void SetGaujeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
+//void SetGaugeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
 
 
 bool cMMVII_BundleAdj::CheckGCPConstraints() const
