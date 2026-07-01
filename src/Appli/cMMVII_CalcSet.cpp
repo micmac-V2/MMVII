@@ -247,7 +247,7 @@ cCollecSpecArg2007 & cAppli_EditSet::ArgObl(cCollecSpecArg2007 & anArgObl)
    return
       anArgObl
          << Arg2007(mNameXmlIn,"Full Name of Xml in/out",{eTA2007::FileDirProj})
-         << Arg2007(mOp,"Operator ",{AC_ListVal<eOpAff>()})
+         << Arg2007(mOp,"Operator ")
          << Arg2007(mPat,"Pattern or Xml for modifying",{{eTA2007::MPatFile,"0"}})
       ;
 }
@@ -443,7 +443,7 @@ cCollecSpecArg2007 & cAppli_EditRel::ArgObl(cCollecSpecArg2007 & anArgObl)
    return
       anArgObl
          << Arg2007(mNameXmlIn,"Full Name of Xml in/out",{eTA2007::FileDirProj})
-         << Arg2007(mOp,"Operator ",{AC_ListVal<eOpAff>()})
+         << Arg2007(mOp,"Operator ")
          << Arg2007(mPat,"Pattern or Xml for modifying",{{eTA2007::MPatFile,"0"}})
       ;
 }

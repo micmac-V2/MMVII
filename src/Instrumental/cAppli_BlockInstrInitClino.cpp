@@ -279,8 +279,8 @@ cCollecSpecArg2007 & cAppli_BlockInstrInitClino::ArgOpt(cCollecSpecArg2007 & anA
             << AOpt2007(mNbSamp1Cl,"NbSS","Number of sample on the sphere ",{{eTA2007::HDV}})
             << AOpt2007(mNumPoseInstr,"NPI","Num of cams used  for estimate pose of intsrument")
             << AOpt2007(mPairOrthog,"PairOrthog","Pair of orthogonal camera (if reset)")
-            << AOpt2007(mUnitShow,"USA","Unity Show Angles",{AC_ListVal<eTyUnitAngle>(),{eTA2007::HDV}})
-            << AOpt2007(mReSetSigma,"ResetSigma","Do we use sigma",{{eTA2007::HDV}})
+            << AOpt2007(mUnitShow,"USA","Unity Show Angles",{eTA2007::HDV})
+            << AOpt2007(mReSetSigma,"ResetSigma","Do we use sigma",{eTA2007::HDV})
             << AOpt2007(mVertApriori,"Vert0","A priori vertical => we compte both clino & vert")
             << AOpt2007(mNbSVert,"NbSV","Number of sample, when both Orthog & Vert, x=>quat, y=>Spher",{eTA2007::HDV})
     ;

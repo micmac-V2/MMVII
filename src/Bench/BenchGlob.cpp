@@ -482,8 +482,6 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
    {
         //==== Bench_0000 bench on very basic support functionnalities
 
-       BenchEpipolar(aParam);
-
         Bench_Random(aParam);  // Bench random generator, check they are acceptably unbiased
 
         // Test on split Dir/File, string op,
@@ -613,8 +611,11 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
         Bench_MatEss(aParam);
         Bench_SpatialIndex(aParam);
         Bench_ToHomMult(aParam);
-    BenchLinearConstr(aParam);
-    Bench_HBA(aParam);
+        BenchLinearConstr(aParam);
+
+        BenchEpipolar(aParam);
+
+        Bench_HBA(aParam);
     }
 
     // Now call the bench of all application that define their own bench

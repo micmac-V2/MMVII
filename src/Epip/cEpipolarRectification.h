@@ -4,10 +4,24 @@
 #include "cPolyXY_N.h"
 #include "MMVII_Mappings.h"
 #include "MMVII_AllClassDeclare.h"  // cPt2dr, cPt3dr, cPt2di, etc.
+#include "MMVII_Tpl_ElemStrToVal.h"
 
 namespace MMVII {
 
 class cSensorImage;
+
+// Common vertical interval for epipolar Image pair resamling
+enum class eEpipFrm
+{
+    eIntersect,         // Contains only common parts
+    eUnion,             // Contains all parts
+    eImg_1,             // Frame height from Image 1
+    eImg_2,             // Frame height from Image 2
+    eNbVals
+};
+
+MACRO_DECLARE_STRIO_ENUM(eEpipFrm)
+
 
 class cEpipolarMapping : public cDataInvertibleMapping<tREAL8,2>
 {

@@ -62,9 +62,9 @@ void cBA_GCP::AddGCP3D(cMes3DDirInfo * aMesDirInfo, cSetMesGnd3D &aSetMesGnd3D, 
 }
 
 
-void cBA_GCP::AddMes2D(cSetMesPtOf1Im &aSetMesIm, cMes2DDirInfo *aMesDirInfo, cSensorImage* cSensorImage, eLevelCheck OnNonExistP)
+void cBA_GCP::AddMes2D(cSetMesPtOf1Im &aSetMesIm, cMes2DDirInfo *aMesDirInfo, cSensorImage* aSensorImage, eLevelCheck OnNonExistP)
 {
-    mMesGCP.AddMes2D(aSetMesIm, aMesDirInfo, cSensorImage, OnNonExistP);
+    mMesGCP.AddMes2D(aSetMesIm, aMesDirInfo, aSensorImage, OnNonExistP);
 }
 
 /* -------------------------------------------------------------- */
@@ -214,9 +214,11 @@ void cMMVII_BundleAdj::OneItere_GCP()
             // Do something only if GCP is visible
             if (aSens->IsVisibleOnImFrame(aPIm) && (aSens->IsVisible(aPGr)))
             {
-                aNbImVis++;
                 cPt2dr aResidual = aPIm - aSens->Ground2Image(aPGr);
                 tREAL8 aWeightImage =   aGCPIm_Weighter.SingleWOfResidual(aResidual);
+                if (aWeightImage==0)
+                    continue; // eliminated
+                aNbImVis++;
                 aWeightedSqRes.Add(aWeightImage,SqN2(aResidual));
                 aUW_SqRes.Add(1.0,SqN2(aResidual));
                 cCalculator<double> * anEqColin =  aSens->GetEqColinearity();
@@ -282,10 +284,10 @@ void cMMVII_BundleAdj::OneItere_GCP()
 
         if (aWeightedSqRes.Nb()!=0)
             StdOut() << "  WeightedGcp=" << std::sqrt(aWeightedSqRes.Average())
-                     << " UWGcp=" << std::sqrt(aUW_SqRes.Average()) ; // getchar();
-        StdOut() << " PropVis1Im=" << aNbGCPVis /double(aNbGCP)
-                 << " AvgVis=" << aAvgVis/double(aNbGCP)
-                 << " NonVis=" << aAvgNonVis/double(aNbGCP)
+                     << "  UWGcp=" << std::sqrt(aUW_SqRes.Average()) ; // getchar();
+        StdOut() << "  PropVis1Im=" << aNbGCPVis /double(aNbGCP)
+                 << "  Avg vis/GCP=" << aAvgVis/double(aNbGCP)
+                 << "  Mes used="<<aAvgVis<<" / not used="<<aAvgNonVis
         ;
         StdOut() << std::endl;
     }

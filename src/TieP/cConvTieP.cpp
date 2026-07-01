@@ -125,7 +125,7 @@ cCollecSpecArg2007 & cAppli_TiePConvert::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return anArgObl
            <<  Arg2007(mSpecIm,"Pattern/file for images",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
-           <<  Arg2007(mFormat,"Format specification" ,{AC_ListVal<eFormatExtern>()})
+           <<  Arg2007(mFormat,"Format specification")
            <<  mPhProj.DPTieP().ArgDirOutMand()
      ;
 }

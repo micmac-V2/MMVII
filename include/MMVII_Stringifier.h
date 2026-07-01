@@ -48,6 +48,8 @@ bool IsStrInt(const std::string & aStr);
 std::string FixDigToStr(double aSignedVal,int aNbDig); // Nb Dig after .
 std::string FixDigToStr(double aSignedVal,int aNbDigBefore,int aNbDigAfter); // Nb Dig before and  after .
 
+/// Make a printinf "adapted" to residual, very quick & dirty 4 now, but at least isolate the process
+std::string ResidualToStr(tREAL8 aRes);
 
 // std::string  ToS_NbDigit(int aNb,int aNbDig,bool AcceptOverFlow=false); ///< To generate with a given number of digits
 
@@ -255,8 +257,10 @@ class  cSpecOneArg2007 : public cMemCheck
          std::string     mValue;  ///< memorize Value used in init (command parameter)
          std::string     mName; ///< Name for optionnal
          std::string     mCom;  ///< Comment for all
-         tSemA2007PL     mSemPL;    ///< Vector of semantic
          int             mNbMatch;  ///< Number of match, to generate error on multiple names
+
+     protected:
+         tSemA2007PL     mSemPL;    ///< Vector of semantic
 };
 
 typedef std::shared_ptr<cSpecOneArg2007>  tPtrArg2007;

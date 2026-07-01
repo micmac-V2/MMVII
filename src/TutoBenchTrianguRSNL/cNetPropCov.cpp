@@ -1073,7 +1073,7 @@ cAppli_TestPropCov::cAppli_TestPropCov(const std::vector<std::string> & aVArgs,c
 cCollecSpecArg2007 & cAppli_TestPropCov::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return    anArgObl
-           << Arg2007(mModeTPC,"Mode for Test Propag Covariance ",{AC_ListVal<eModeTestPropCov>()})
+           << Arg2007(mModeTPC,"Mode for Test Propag Covariance ")
     ;
 }
 

@@ -432,9 +432,21 @@ class cDirsPhProj : public cMemCheck
           tPtrArg2007     ArgDirInMand(const std::string & aMes="");
           tPtrArg2007     ArgDirInMand(const std::string & aMes,std::string * aDest) ;
           /// Input Orientation as optional paramaters
-          tPtrArg2007     ArgDirInOpt(const std::string & aNameVar="",const std::string & aMesg="",bool WithHDV=false) ;
+          tPtrArg2007     ArgDirInOpt
+                          (
+                                const std::string & aNameVar="",
+                                const std::string & aMesg="",
+                                const std::vector<tSemA2007>& = {}
+                          ) ;
 
-          tPtrArg2007  ArgDirInputOptWithDef(const std::string & aDef,const std::string & aNameVar="",const std::string & aMesg="") ;
+          tPtrArg2007  ArgDirInputOptWithDef
+                       (
+                              const std::string & aDef,
+                              const std::string & aNameVar="",
+                              const std::string & aMesg="",
+                              const std::vector<tSemA2007>& = {}
+
+                       ) ;
                                                                             //
           /// Output Orientation as mandatory paramaters
           tPtrArg2007     ArgDirOutMand(const std::string & aMes="");
@@ -463,6 +475,8 @@ class cDirsPhProj : public cMemCheck
           bool CheckDirExists(bool In, bool DoError=false) const;
 
           void SetDirOutInIfNotInit(); ///< If Dir Out is not init, set it to same value than In
+
+          void SetAllowDirInEmpty();
      private :
           cDirsPhProj(const cDirsPhProj &) = delete;
 
@@ -478,6 +492,9 @@ class cDirsPhProj : public cMemCheck
           std::string               mFullDirIn;
           std::string               mFullDirOut;
           bool                      mPurgeOut;
+
+          // Allow special case where we allow empty dir in, like creation of bloc
+          bool                      mAllowDirInEmpty;
 };
 
 
@@ -626,7 +643,8 @@ class cPhotogrammetricProject : public cIPhProj
 
 
           /// Load a sensor, try different type (will add RPC , and others ?) use autom delete (dont need to delete it)
-          void ReadSensor(const std::string &NameIm,cSensorImage* &,cSensorCamPC * &,bool ToDeleteAutom,bool SVP=false) const;
+          /// aReadData if heavy data reading is needed
+          void ReadSensor(const std::string &NameIm,cSensorImage* &,cSensorCamPC * &,bool ToDeleteAutom,bool SVP=false, bool aReadData=false) const;
 
           /// return the generic sensor, use autom delete (dont need to delete it)
           cSensorImage* ReadSensor(const std::string  &aNameIm,bool ToDeleteAutom,bool SVP=false) const override;
@@ -654,7 +672,7 @@ class cPhotogrammetricProject : public cIPhProj
     //===================================================================
     //void SaveTriplets(const cTripletSet&,bool useXmlraterThanDmp=true) const;
     //cTripletSet * ReadTriplets() const;
-      std::vector<cDataSolOriTriplet> ReadAllTriplets(const std::vector<std::string>& aVImages) const;
+      std::vector<cDataSolOriTriplet> ReadAllTriplets(const std::vector<std::string>& aVImages,bool OkEmpty=false) const;
     //===================================================================
     //==================   RELATIVE ORIENTATION    ======================
     //===================================================================
@@ -803,6 +821,10 @@ class cPhotogrammetricProject : public cIPhProj
           const cElemCamDataBase * GetCamFromNameCam(const std::string& aNameCam,bool SVP=false) const;
 
 
+          std::string DirCamDataBase(eTypeDBCam) ;
+          std::string FileCamDataBase(eTypeDBCam) ;
+
+
          //===================================================================
          //==================   HOMOLOGOUS Points  ===========================
          //===================================================================
@@ -936,13 +958,12 @@ class cPhotogrammetricProject : public cIPhProj
      //===================================================================
 
 
-     cStaticLidar * ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const; ///< Create Static Lidar
-     cStaticLidar * ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const; ///< Create Static Lidar
-     std::vector<std::string> GetStaticLidarNames(const std::string &aPatSelect) const; ///< pattern without "Ori-Scan-"
+     cStaticLidar * ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const; ///< Create Static Lidar
+     cStaticLidar * ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const; ///< Create Static Lidar
          //==================   Camera Data Base     =========================
 
          void MakeCamDataBase();
-         bool OneTestMakeCamDataBase(const std::string & aDir,cCamDataBase &,bool ForceNew);
+         bool OneTestMakeCamDataBase(const std::string & aDir,cCamDataBase &);
       private :
           cPhotogrammetricProject(const cPhotogrammetricProject &) = delete;
 

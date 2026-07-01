@@ -160,6 +160,9 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpecTestCpp11);
         TheVecAll.push_back(&TheSpecMPDTest);
         TheVecAll.push_back(&TheSpecEditSet);
+        TheVecAll.push_back(&TheSpecEditProfile);
+
+
         TheVecAll.push_back(&TheSpecEditRel);
         TheVecAll.push_back(&TheSpec_EditCalcMetaDataImage);
         TheVecAll.push_back(&TheSpec_EditBlockInstr);
@@ -215,6 +218,7 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_OriCheckGCPDist);
         TheVecAll.push_back(&TheSpec_OriBundlAdj);
         TheVecAll.push_back(&TheSpec_GCPAbsOri);
+        TheVecAll.push_back(&TheSpec_GCPSplit);
         TheVecAll.push_back(&TheSpec_OriRel2Im);
         TheVecAll.push_back(&TheSpec_OriRelPairsOf1m);
         TheVecAll.push_back(&TheSpec_OriRelAllPairs);
@@ -222,6 +226,7 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_OriRel3Im);
         TheVecAll.push_back(&TheSpec_OriRelTripletsOf1m);
         TheVecAll.push_back(&TheSpec_OriRelAllTriplets);
+        TheVecAll.push_back(&TheSpec_OriPoseEstimRel);
 
         TheVecAll.push_back(&TheSpecMeshCheck);
         TheVecAll.push_back(&TheSpecProMeshImage);
@@ -235,7 +240,8 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_ImportOBS);
         TheVecAll.push_back(&TheSpec_ImportORGI);
         TheVecAll.push_back(&TheSpec_ImportAiconCamera);
-        TheVecAll.push_back(&TheSpec_ImportStaticScan);
+        TheVecAll.push_back(&TheSpec_ImportTSL);
+        TheVecAll.push_back(&TheSpec_InitTSL);
         TheVecAll.push_back(&TheSpec_ImportTxtCloud);
         TheVecAll.push_back(&TheSpec_MMVII_CloudClip);
         TheVecAll.push_back(&TheSpec_MMVII_Cloud2Ply);
@@ -276,6 +282,7 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_TestProj);
         TheVecAll.push_back(&TheSpec_ChSysCo);
         TheVecAll.push_back(&TheSpec_CreateCalib);
+        TheVecAll.push_back(&TheSpec_AddCamInDataBase);
         TheVecAll.push_back(&TheSpec_ImportTiePMul);
         TheVecAll.push_back(&TheSpec_ImportMesImGCP);
         TheVecAll.push_back(&TheSpec_ImportClino);

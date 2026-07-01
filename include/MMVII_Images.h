@@ -30,14 +30,14 @@ template <const int Dim>  class cPixBoxIterator
         bool operator == (const tIter& aIt2) const {return  mPCur==aIt2.mPCur;}  ///< Equal iff current point are =
         bool operator != (const tIter& aIt2) const {return  mPCur!=aIt2.mPCur;}  ///< !Equal iif not equal ...
         tPt & operator * () {return mPCur;}         ///< classic operator dereference
-        tPt & operator * () const {return mPCur;}   ///< classic operator dereference
+        const tPt & operator * () const {return mPCur;}   ///< classic operator dereference
         tPt * operator ->() {return &mPCur;}        ///< classic operator dereference
-        tPt * operator ->() const {return &mPCur;}  ///< classic operator dereference
+        const tPt * operator ->() const {return &mPCur;}  ///< classic operator dereference
 
         /// standard prefix incrementation
         tIter &  operator ++();
         /// Just a "facility" to allow post-fix
-        tIter &  operator ++(int) {return ++(*this);}
+        tIter operator ++(int) { tIter Old(*this); ++(*this); return Old; }
      protected :
 
         cPixBoxIterator(tPB & aRO,const  tPt & aP0) : mRO (&aRO),mPCur (aP0) {}

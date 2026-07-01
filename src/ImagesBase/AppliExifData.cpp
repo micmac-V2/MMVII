@@ -1,9 +1,33 @@
 #include "MMVII_ExifData.h"
 #include "MMVII_Image2D.h"
 #include "cMMVII_Appli.h"
+#include "MMVII_Sensor.h"
+#include "MMVII_Tpl_ElemStrToVal.h"
 
 namespace MMVII
 {
+
+enum class eDispExif
+{
+    eSizeType=0,
+    eMainExif,
+    eAllExif,
+    eRawExif,
+    eAllGDALInfo,
+    eNbVals
+};
+
+template<> cE2Str<eDispExif>::tMapE2Str cE2Str<eDispExif>::mE2S
+           {
+                {eDispExif::eSizeType,"SizeType"},
+                {eDispExif::eMainExif,"MainExif"},
+                {eDispExif::eAllExif,"AllExif"},
+                {eDispExif::eRawExif,"RawExif"},
+                {eDispExif::eAllGDALInfo,"AllGDALInfo"}
+           };
+
+MACRO_INSTANTIATE_STRIO_ENUM(eDispExif,"DispExif")
+
 
 class cAppli_ImageMetada : public cMMVII_Appli
 {
@@ -14,9 +38,18 @@ public :
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
 private :
+    cPhotogrammetricProject  mPhgrProj;
     std::string mNameIn;  ///< Input image name
-    int mDisp;
+    eDispExif mDisp;
 };
+
+
+cAppli_ImageMetada:: cAppli_ImageMetada(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec,bool isBasic) :
+    cMMVII_Appli (aVArgs,aSpec),
+    mPhgrProj(*this),
+    mDisp(eDispExif::eMainExif)
+{
+}
 
 
 cCollecSpecArg2007 & cAppli_ImageMetada::ArgObl(cCollecSpecArg2007 & anArgObl)
@@ -31,7 +64,7 @@ cCollecSpecArg2007 & cAppli_ImageMetada::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return
         anArgOpt
-        <<   AOpt2007(mDisp,"Disp","0:Size & type, 1:Main Exif, 2:All Exif, 3:Raw Exif  4:all GDAL info ",{eTA2007::HDV,{eTA2007::Range,"[0,4]"}})
+        <<   AOpt2007(mDisp,"Disp","What to display: SizeType|MainExif|AllExif|RawExif|AllGDALInfo",{eTA2007::HDV})
         ;
 }
 
@@ -44,45 +77,105 @@ std::ostream& operator<<(std::ostream& os, std::optional<T> const& opt)
 }
 
 
+
 int cAppli_ImageMetada::Exe()
 {
+    mPhgrProj.FinishInit();
+
+
+
     const auto default_precision{std::cout.precision()};
     constexpr auto max_precision{std::numeric_limits<long double>::digits10};
 
     for (const auto & aName : VectMainSet(0))
     {
+        cMetaDataImage aMDI = mPhgrProj.GetMetaData(aName);
+
         auto aDataFileIm=cDataFileIm2D::Create(aName,eForceGray::No);
         StdOut() << "####### " << aDataFileIm.Name() <<": " << std::endl;
         StdOut() << "Size: " << aDataFileIm.Sz() << ", Type: "  << ToStr(aDataFileIm.Type()) << ", Channels: " << aDataFileIm.NbChannel() << std::endl;
         switch (mDisp) {
-        case 0:
+        case eDispExif::eSizeType:
+        case eDispExif::eNbVals:
             break;
-        case 1:
-        case 2:
+        case eDispExif::eMainExif:
+        case eDispExif::eAllExif:
         {
             cExifData anExif = aDataFileIm.ExifData();
+
+            // MPD pas mal de remaniement pour :
+            //  - conserver le No Exif Data ajoute par Jo quand il n'y a pas de xif
+            //  - conserver quand meme dans ce cas les xif du a des modif utilisateur
+            //  - je pense qu'a terme il faudrait "de-macroiser" ce code avec des template
+
+#define DISP_EXIF(key) {StdOut() << #key << ": " << anExif.m##key << std::endl;}
+// this macro disp standard xif, and user's changed value if apply
+#define DISP_XIF_MMVII(key,val,def) if (anExif.Valid()) {DISP_EXIF(key);} \
+    if ((val != def) && (anExif.m##key.value_or(def)!=val)  ) { \
+        if (!anExif.Valid())  {StdOut() << #key << std::endl;}\
+        StdOut() << "  *** SetByUserRule " << val << "\n";}
+
+
+            // DISP_EXIF(FocalLength_mm);
+             DISP_XIF_MMVII(FocalLength_mm,aMDI.FocalMM(true),-1);
+
+             //DISP_EXIF(FocalLengthIn35mmFilm_mm);
+             DISP_XIF_MMVII(FocalLengthIn35mmFilm_mm,aMDI.FocalMMEqui35(true),-1);
+
+             //DISP_EXIF(Model);
+             DISP_XIF_MMVII(Model,aMDI.CameraName(true),"");
+             /// the information on size of sensor are generally not provided by xif, so user
+             /// has to indicate it in the data-base, we indicate
+             {
+                /* std::optional<std::string> aModel = anExif.mModel;
+                 std::string aNameMMVII = aMDI.CameraName(true);
+                 if (aNameMMVII != "" )
+                 {
+                     aModel = aNameMMVII;
+                 }*/
+                 std::string aNameMMVII = aMDI.CameraName(true);
+
+                 if (aNameMMVII!="")
+                 {
+                     const cElemCamDataBase * anElCDB = mPhgrProj.GetCamFromNameCam(aNameMMVII,true);
+                     if (anElCDB)
+                     {
+                          StdOut()  << "  *** Camera model is in data base :"
+                                    << " SzSensor=" << anElCDB-> mSzSensor_Mm << " mm "
+                                    << " SzPixel="   << anElCDB->mSzPixel_Micron << " mu"
+                                    << "\n";
+                     }
+                     else
+                     {
+                          StdOut()  << " !!!  Camera model is NOT in data base\n";
+                     }
+                 }
+             }
+
+
             if (! anExif.Valid())
             {
                 StdOut() << "No Exif metadata" << std::endl;
                 break;
             }
 
-#define DISP_EXIF(key) StdOut() << #key << ": " << anExif.m##key << std::endl;
 
             DISP_EXIF(PixelXDimension);
             DISP_EXIF(PixelYDimension);
 
-            DISP_EXIF(FocalLength_mm);
-            DISP_EXIF(FocalLengthIn35mmFilm_mm);
+
             DISP_EXIF(FNumber);
             DISP_EXIF(ExposureTime_s);
             DISP_EXIF(Orientation);
             DISP_EXIF(Make);
-            DISP_EXIF(Model);
+
+
+
+
             DISP_EXIF(LensMake);
             DISP_EXIF(LensModel);
 
-            if (mDisp == 2) {
+            if (mDisp == eDispExif::eAllExif) {
                 DISP_EXIF(XResolution);
                 DISP_EXIF(YResolution);
                 DISP_EXIF(ResolutionUnit);
@@ -118,7 +211,7 @@ int cAppli_ImageMetada::Exe()
             StdOut() << std::setprecision(default_precision);
             break;
         }
-        case 3:
+        case eDispExif::eRawExif:
         {
             auto anExifList = aDataFileIm.ExifStrings();
             if (anExifList.empty())
@@ -130,7 +223,7 @@ int cAppli_ImageMetada::Exe()
             }
             break;
         }
-        case 4:
+        case eDispExif::eAllGDALInfo:
         {
             auto allMetadata = aDataFileIm.AllMetadata();
             for (const auto& aDomain : allMetadata ) {
@@ -143,16 +236,16 @@ int cAppli_ImageMetada::Exe()
         }
         }
         StdOut() << std::endl;
+
+
+
+
+//   const cElemCamDataBase *  cPhotogrammetricProject::GetCamFromNameCam(const std::string& aNameCam,bool SVP) const
+
     }
     return EXIT_SUCCESS;
 }
 
-
-cAppli_ImageMetada:: cAppli_ImageMetada(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec,bool isBasic) :
-    cMMVII_Appli (aVArgs,aSpec),
-    mDisp(1)
-{
-}
 
 
 static tMMVII_UnikPApli Alloc_ImageMetadata(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec)

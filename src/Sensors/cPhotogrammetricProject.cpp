@@ -95,8 +95,14 @@ cDirsPhProj::cDirsPhProj(eTA2007 aMode,cPhotogrammetricProject & aPhp):
    mAppli          (mPhp.Appli()),
    mPrefix         (E2Str(mMode)),
    mDirLocOfMode   (MMVII_DirPhp + mPrefix + StringDirSeparator()),
-   mPurgeOut       (false)
+   mPurgeOut       (false),
+   mAllowDirInEmpty  (false)
 {
+}
+
+void cDirsPhProj::SetAllowDirInEmpty()
+{
+    mAllowDirInEmpty = true;
 }
 
 const std::string &  cDirsPhProj::DirLocOfMode() const { return mDirLocOfMode; }
@@ -110,6 +116,18 @@ void cDirsPhProj::Finish()
         mDirIn  = SuppressDirFromNameFile(mDirLocOfMode,mDirIn,true);
 
     mFullDirIn  = mAppli.DirProject() + mDirLocOfMode + mDirIn + StringDirSeparator();
+
+    //  MPD, new check, seems correct, hope it will not create new bug ... , New modif, 
+    //  we accept this case with NONE, because for "historical" reason, this is the convention
+    //  used by OriBundleAdj, when we do pure topo (i.e. w/o camera, poses ...)
+    if (mAppli.IsInSpec(&mDirIn) && IsInit(&mDirIn) &&  (mDirIn != MMVII_NONE) && (!mAllowDirInEmpty))
+    {
+        if (! IsDirectory(mFullDirIn) )
+        {
+            MMVII_UserError(eTyUEr::eDirInDoesntExist,"for dir in : "+mDirIn + " Type=" + E2Str(mMode));
+//            StdOut()  << " mFullDirIn "  << mFullDirIn  << " " << IsDirectory(mFullDirIn) << "\n";
+        }
+    }
 
     // To see if this rule applies always, 4 now dont see inconvenient
     if (mAppli.IsInSpec(&mDirOut) &&  (! mAppli.IsInit(&mDirOut)))
@@ -141,10 +159,16 @@ tPtrArg2007    cDirsPhProj::ArgDirInMand(const std::string & aMesg)
         return ArgDirInMand(aMesg,nullptr);
 }
 
-tPtrArg2007    cDirsPhProj::ArgDirInOpt(const std::string & aNameVar,const std::string & aMsg,bool WithHDV)
+tPtrArg2007    cDirsPhProj::ArgDirInOpt
+               (
+                      const std::string & aNameVar,
+                      const std::string & aMsg,
+                      const  std::vector<tSemA2007> & aOptAdd
+                )
 {
     std::vector<tSemA2007>   aVOpt{mMode,eTA2007::Input};
-    if (WithHDV) aVOpt.push_back(eTA2007::HDV);
+    AppendIn(aVOpt,aOptAdd);
+    //if (WithHDV) aVOpt.push_back(eTA2007::HDV);
     return  AOpt2007
             (
                mDirIn,
@@ -155,11 +179,18 @@ tPtrArg2007    cDirsPhProj::ArgDirInOpt(const std::string & aNameVar,const std::
 }
 
 
-tPtrArg2007    cDirsPhProj::ArgDirInputOptWithDef(const std::string & aDef,const std::string & aNameVar,const std::string & aMsg)
+tPtrArg2007    cDirsPhProj::ArgDirInputOptWithDef
+              (
+                    const std::string & aDef,
+                    const std::string & aNameVar,
+                    const std::string & aMsg,
+                    const  std::vector<tSemA2007> & aOptAdd
+               )
 {
+
     mDirIn = aDef;
     mAppli.SetVarInit(&mDirIn);
-    return ArgDirInOpt(aNameVar,aMsg,true);
+    return ArgDirInOpt(aNameVar,aMsg,Append({eTA2007::HDV},aOptAdd));
 }
 
 
@@ -283,10 +314,13 @@ void cDirsPhProj::SetDirOut(const std::string & aDirOut)
 
 void cDirsPhProj::SetDirOutInIfNotInit()
 {
+    //StdOut() << "cDirsPhProj::SetDirOutInIfNotInilll=" << __LINE__ << "\n";
     if (! DirOutIsInit())
     {
         SetDirOut(DirIn());
     }
+   // StdOut() << "cDirsPhProj::SetDirOutInIfNotInilll=" << __LINE__ << "\n";
+
 }
 
 
@@ -691,18 +725,22 @@ cSensorImage* cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,bo
      return aSI;
 }
 
-void cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,cSensorImage* & aSI,cSensorCamPC * & aSPC,bool ToDeleteAutom,bool SVP) const
+void cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,cSensorImage* & aSI,cSensorCamPC * & aSPC,bool ToDeleteAutom,bool SVP,bool aReadData) const
 {
      aSI = nullptr;
      aSPC =nullptr;
 
      // Try a stenope camera which has interesting properties
      aSPC = ReadCamPC(aNameIm,ToDeleteAutom,true);
+     // Try TSL
+     if (aSPC==nullptr) aSPC = ReadStaticLidar(aNameIm,ToDeleteAutom,true,aReadData);
+
      if (aSPC !=nullptr)
      {
         aSI = aSPC;
         return;
      }
+
 
      // Else try an external sensor
      if (aSI==nullptr) aSI =  SensorTryReadImported(*this,aNameIm);
@@ -1417,35 +1455,27 @@ cBlocOfCamera * cPhotogrammetricProject::ReadUnikBlocCam() const
 
 //  =============  Static Lidar  =================
 
-cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const
+cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const
 {
     aDP.AssertDirInIsInit();
-    std::string aScanFileName  =  aDP.FullDirIn() + aScanName;
+    std::string aOriName = cStaticLidar::NameFromId(aScanName, true);
+    if (aOriName == MMVII_NONE)
+        return nullptr;
+    std::string aScanFileName  =  aDP.FullDirIn() + aOriName;
+
     cStaticLidar * aScan = nullptr;
+    aScan = cStaticLidar::FromFile(aScanFileName, SVP);
     if (LoadRasters)
-        aScan = cStaticLidar::FromFile(aScanFileName, DirStaticLidarRasters());
-    else
-        aScan = cStaticLidar::FromFile(aScanFileName);
+        aScan->ReadRasters(DirStaticLidarRasters());
 
     if (ToDeleteAutom)
        cMMVII_Appli::AddObj2DelAtEnd(aScan);
     return aScan;
 }
 
-cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const
+cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const
 {
-    return ReadStaticLidar(mDPOrient,aScanName,ToDeleteAutom,LoadRasters);
-}
-
-
-std::vector<std::string> cPhotogrammetricProject::GetStaticLidarNames(const std::string &aPatSelect) const
-{
-    DPOrient().AssertDirInIsInit();
-    std::string aPat2Sup = cStaticLidar::Pat2Sup(aPatSelect);
-    std::string aFullPat2Sup = DPOrient().FullDirIn() + aPat2Sup;
-    tNameSet aSet = SetNameFromPat(aFullPat2Sup);
-    std::vector<std::string> aVect = ToVect(aSet);
-    return aVect;
+    return ReadStaticLidar(mDPOrient,aScanName,ToDeleteAutom,SVP,LoadRasters);
 }
 
 //  =============  Topo Mes  =================
@@ -1466,7 +1496,7 @@ std::vector<std::string> cPhotogrammetricProject::ReadTopoMes() const
 
 //  see cMetaDataImages.cpp
 
-std::vector<cDataSolOriTriplet> cPhotogrammetricProject::ReadAllTriplets(const std::vector<std::string>& aVImages)
+std::vector<cDataSolOriTriplet> cPhotogrammetricProject::ReadAllTriplets(const std::vector<std::string>& aVImages,bool OkEmpty)
     const
 {
     std::vector<cDataSolOriTriplet> aRes;
@@ -1479,6 +1509,10 @@ std::vector<cDataSolOriTriplet> cPhotogrammetricProject::ReadAllTriplets(const s
         std::vector<cDataSolOriTriplet> aVData;
         ReadFromFile(aVData,aFileName);
         aRes.insert(aRes.end(),aVData.begin(),aVData.end());
+    }
+    if (aRes.empty() && (!OkEmpty))
+    {
+        MMVII_UserError(eTyUEr::eUnExpectedEmptyData,"Empty set of triplet");
     }
     return aRes;
 }

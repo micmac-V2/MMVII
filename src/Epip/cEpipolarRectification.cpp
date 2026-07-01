@@ -9,6 +9,16 @@
 
 namespace MMVII {
 
+template<> cE2Str<eEpipFrm>::tMapE2Str cE2Str<eEpipFrm>::mE2S
+    {
+     {eEpipFrm::eIntersect,"Intersect"},
+     {eEpipFrm::eUnion,"Union"},
+     {eEpipFrm::eImg_1,"Img_1"},
+     {eEpipFrm::eImg_2,"Img_2"},
+     };
+
+MACRO_INSTANTIATE_STRIO_ENUM(eEpipFrm,"EpipFrame")
+
 
 cPt2dr cEpipPolyMapping::ToRotatedFrame(const cPt2dr &p) const
 {

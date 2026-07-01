@@ -633,7 +633,18 @@ void CreateLink(const std::filesystem::path & aFileTarget,const std::filesystem:
         );
     }
 
-    std::filesystem::create_symlink(aFileTarget,aLink2Create);
+    std::error_code anErrorCode ;
+    std::filesystem::create_symlink(aFileTarget,aLink2Create,anErrorCode);
+
+    // StdOut() << "EROORCODE " << anErrorCode.value() << " " << EXIT_SUCCESS << "\n";
+    if ( anErrorCode.value() != EXIT_SUCCESS)
+    {
+         if (TheSYS==eSYS::Windows)
+         {
+             StdOut() << "\n\n   ****** FOR WINDOW SYMBLOLIC LINK REQUIRE ADMIN or DEVELOPPER PRIVILEGE; ask BILL WHY !!!\n\n";
+         }
+         MMVII_UnclasseUsEr("Cannot create required symbolic link");
+    }
 }
 
     /* =========================================== */

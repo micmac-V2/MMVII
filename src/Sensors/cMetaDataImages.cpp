@@ -504,7 +504,13 @@ cMetaDataImage::cMetaDataImage
     aGlobCalc->SetReal(mFocalPixel,aNameIm,eMTDIm::eFocalPix,nullptr);
 
     aGlobCalc->SetReal(mAperture,aNameIm,eMTDIm::eAperture,nullptr);
+
+   // tREAL8 aFocMMUser =
+
     aGlobCalc->SetReal(mFocalMM,aNameIm,eMTDIm::eFocalmm,&anExifData.mFocalLength_mm);
+
+    aGlobCalc->SetReal(mFocalMMEqui35,aNameIm,eMTDIm::eFocalEqui35,&anExifData.mFocalLengthIn35mmFilm_mm);
+
     aGlobCalc->SetName(mCameraName,aNameIm,eMTDIm::eModelCam,&anExifData.mModel);
     aGlobCalc->SetName(mAdditionalName,aNameIm,eMTDIm::eAdditionalName,nullptr);
 
@@ -635,6 +641,8 @@ class cAppli_EditCalcMetaDataImage : public cMMVII_Appli
         bool                        mShow;
         bool                        mSave;
         std::string                 mNameImTest;
+        std::string                 mValue;
+        std::string                 mPattern;
         std::vector<std::string>    mModif;
 
         cGlobCalculMetaDataProject* mCalcGlob;
@@ -646,6 +654,7 @@ cAppli_EditCalcMetaDataImage::cAppli_EditCalcMetaDataImage(const std::vector<std
      mPhProj      (*this),
      mShow        (false),
      mSave        (false),
+     mPattern     (".*"),
      mCalcGlob    (nullptr),
      mCalcProj    (nullptr)
 {
@@ -654,20 +663,25 @@ cAppli_EditCalcMetaDataImage::cAppli_EditCalcMetaDataImage(const std::vector<std
 cCollecSpecArg2007 & cAppli_EditCalcMetaDataImage::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
    return     anArgObl
-          <<  mPhProj.DPMetaData().ArgDirInMand()
-          <<  Arg2007(mTypeMTDIM ,"Type of meta-data",{AC_ListVal<eMTDIm>()})
+          <<  Arg2007(mTypeMTDIM ,"Type of meta-data")
    ;
 }
 
 cCollecSpecArg2007 & cAppli_EditCalcMetaDataImage::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return    anArgOpt
-          <<  mPhProj.DPMetaData().ArgDirOutOpt()
+         // <<  mPhProj.DPMetaData().ArgDirOutOpt()
+          << AOpt2007(mValue,"Value","Value associated to meta data")
+          << AOpt2007(mPattern,"PatternApply","Pattern for wich this change woul occur",{eTA2007::HDV})
+          << AOpt2007(mSave,"Save","Do we save result in a new file",{eTA2007::HDV})
           << AOpt2007(mNameImTest,"ImTest","Im for testing rules")
           << AOpt2007(mShow,"Show","Show all rules",{eTA2007::HDV})
-          << AOpt2007(mSave,"Save","Save result in a new file",{eTA2007::HDV})
-          << AOpt2007(mModif,"Modif","Modification [Pat,Subst,Rank], Rank: {at(0)... ,-1 front,High back,at(0),-2 replace }",
+          << AOpt2007(mModif,"Modif","Modification for complicated case [Pat,Subst,Rank], Rank: {at(0)... ,-1 front,High back,at(0),-2 replace }",
                           {{eTA2007::ISizeV,"[3,3]"}})
+
+
+          <<  mPhProj.DPMetaData().ArgDirInputOptWithDef("Std","","If you really want to change (not recommanded)",{eTA2007::Tuning})
+
             /*
            << AOpt2007(mNbTriplets,"NbTriplets","Number max of triplet tested in Ransac",{eTA2007::HDV})
            << AOpt2007(mNbIterBundle,"NbIterBund","Number of bundle iteration, after ransac init",{eTA2007::HDV})
@@ -694,8 +708,18 @@ int cAppli_EditCalcMetaDataImage::Exe()
     mCalcGlob = mPhProj.InitGlobCalcMTD();
     mCalcProj = mCalcGlob->CMDPOfName(mPhProj.DPMetaData().FullDirIn());
 
+    bool isModifInit = IsInit(&mModif);
+
+    if (IsInit(&mValue))
+    {
+        MMVII_INTERNAL_ASSERT_User_UndefE(!isModifInit,"Cannot use Value & Modif simultaneously");
+        isModifInit = true;
+
+        mModif = {mPattern,mValue,"-1"};
+    }
+
     // If we made some modification
-    if (IsInit(&mModif))
+    if (isModifInit)
     {
          cOneTranslAttrIm *   aTransPtr = mCalcProj->GetTransOfType(mTypeMTDIM);
          //  if section for type did not exist we add one
@@ -730,6 +754,10 @@ int cAppli_EditCalcMetaDataImage::Exe()
               aVTries.clear();
               aVTries.push_front(aTry);
          }
+         else if (aRank==-3)
+         {
+             aVTries.push_back(aTry);
+         }
          else
          {
               MMVII_UnclasseUsEr("Bad rank for Modif");
@@ -763,6 +791,13 @@ int cAppli_EditCalcMetaDataImage::Exe()
 
        SaveInFile(*mCalcProj,mPhProj.DPMetaData().FullDirIn() + cCalculMetaDataProject::NameStdFile());
        // mCalcProj
+    }
+    else
+    {
+        if (isModifInit && (!IsInit(&mSave)) && (mSave==false))
+        {
+            MMVII_WARNING("Modification not save, use Save=true if want to save");
+        }
     }
 
 

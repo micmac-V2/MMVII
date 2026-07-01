@@ -185,7 +185,7 @@ cCollecSpecArg2007 & cAppli_EpipResampling::ArgOpt(cCollecSpecArg2007 & anArgOpt
            << AOpt2007(mNbByXY,"XYSteps","Nb XY steps",{eTA2007::HDV})
            << AOpt2007(mNbByZ,"ZSteps","Nb Z steps",{eTA2007::HDV})
            << AOpt2007(mMargin,"Margin","Output image margin",{eTA2007::HDV})
-           << AOpt2007(mFrame,"FrameAlgo","Output image height algo",{eTA2007::HDV,AC_ListVal<eEpipFrm>()})
+           << AOpt2007(mFrame,"FrameAlgo","Output image height algo",{eTA2007::HDV})
            << AOpt2007(mOutDir,"OutDir","Output directory (Default: VISU/" + Specs().Name()+")")
            << AOpt2007(mOutNamePat,"OutName","Output name pattern", {eTA2007::HDV})
            << AOpt2007(mInterpol,"Interpol","Interpolator", {eTA2007::HDV})

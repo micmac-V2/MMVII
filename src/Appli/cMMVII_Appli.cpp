@@ -198,6 +198,8 @@ void cMMVII_Appli::ToDoBeforeDestruction()
 
 cMMVII_Appli::~cMMVII_Appli()
 {
+  ///  std::cout<<  "KILLLLLAPPLY " << mSpecs.Name() << "\n"; getchar();
+
    // Maybe part, or all, the remaining can/should be done in ToDoBeforeDestruction ...
    if (mMainAppliInsideP)
    {
@@ -310,25 +312,6 @@ cMMVII_Appli::cMMVII_Appli
    MMVII_INTERNAL_ASSERT_always(ExistFile(mFullBin),"Could not find MMVII binary (tried with " +  mFullBin + ")");
 }
 
-struct cSpecifProfileUserMMVII
-{
-     public :
-         std::string mNameProfile;
-};
-
-void AddData(const cAuxAr2007 & anAux,cSpecifProfileUserMMVII & aSpec)
-{
-     AddData(cAuxAr2007("NameProfile",anAux),aSpec.mNameProfile);
-}
-
-void AddData(const cAuxAr2007 & anAux,cParamProfile & aProfile)
-{
-     AddData(cAuxAr2007("UserName",anAux),aProfile.mUserName);
-     AddData(cAuxAr2007("NbProcMax",anAux),aProfile.mNbProcMax);
-     EnumAddData(anAux,aProfile.mTaggedDefSerial,"TaggedSerialMode");
-     EnumAddData(anAux,aProfile.mVectDefSerial,"VectSerialMode");
-}
-
 
 void cMMVII_Appli::InitMMVIIDirs(const std::string& aMMVIIDir)
 {
@@ -423,6 +406,7 @@ void cMMVII_Appli::SetNot4Exe()
 
 void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
 {
+
   mSeedRand = DefSeedRand();
   cCollecSpecArg2007 & anArgObl = ArgObl(mArgObl); // Call virtual method
   cCollecSpecArg2007 & anArgFac = ArgOpt(mArgFac); // Call virtual method
@@ -482,7 +466,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
   mArgFac
       <<  AOpt2007(mNumOutPut,GOP_NumVO,"Num version for output format (1 or 2)",{eTA2007::Global,{eTA2007::Range,"[1,2]"}})
       <<  AOpt2007(mSeedRand,GOP_SeedRand,"Seed for random,if <=0 init from time",aGlobHDV)
-      <<  AOpt2007(mVecAppliSpecParam,"AppSpecParam","Parameters for specific Appli Behaviour")
+      <<  AOpt2007(mVecAppliSpecParam,"AppSpecParam","Parameters for specific Appli Behaviour",{eTA2007::Global})
       <<  AOpt2007(mExtandPattern,"ExtPatFile","Do we extang patterns for files (or interpret them literally)",aGlobHDV)
 
       <<  AOpt2007(msWithWarning,GOP_WW,"Do we print warnings",aGlobHDV)
@@ -529,6 +513,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
          SplitStringArround(aName,mPatHelp,aArgK,'=',true,false);
       }
   }
+
   if (mModeHelp)
   {
       GenerateHelp();
@@ -540,6 +525,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
       GenerateArgsSpec(aArgsSpecs);
       return;
   }
+
 
   int aNbObl = mArgObl.size(); //  Number of mandatory argument expected
   int aNbArgGot = 0; // Number of  Arg received untill now
@@ -649,7 +635,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
      }
  //StdOut() << " DDPP " << __LINE__ << " DP=" << mDirProject << "\n";
 
-  
+
      {
          bool HasFileDirProj = false;
          for (size_t aK=0 ; aK<aNbArgTot; aK++)
@@ -894,6 +880,9 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
   // Don't fully initialize project if this appli is a special MMVII management applu
   const auto aFeatures = mSpecs.Features();
   if (std::find(aFeatures.cbegin(), aFeatures.cend(), eApF::ManMMVII) != aFeatures.cend()) {
+    // MPD : j'avais par erreur mis ce tag, et perdu bcp de temps a comprendre, a voir si ca pollue pas trop ??
+      // FINALEMENT SUPPRIME PK EMPECHE LES COMPLETION AUTO ...
+ //    StdOut() << " *************** MANAGEMENT APPLI EXIT BEFORE FULL INITi *******************\n";
      mForExe = false;   // Don't do special cleaning in cMMVII_Appli destructor
      return;
   }
@@ -908,7 +897,10 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
      LogCommandIn(NameFileLog(false),false);
 
   if (mMainAppliInsideP)
+  {
+   //  StdOut()  << "mMainAppliInsidePmMainAppliInsideP " << mMainAppliInsideP << "\n";
      InitProfile();
+  }
 
   MMVII_INTERNAL_ASSERT_strong(mVecAppliSpecParam.size()%2==0,"Odd size for AppSpecParam");
   for (size_t aKP=0 ; aKP<mVecAppliSpecParam.size() ; aKP+=2)
@@ -929,108 +921,6 @@ std::string AppliSpecValue(const std::string & aKey )
     return cMMVII_Appli::CurrentAppli().AppliSpecValue(aKey);
 }
 
-
-void cMMVII_Appli::InitProfile()
-{
-  
-  // ========================================================================
-  // ========================  HANDLING PROFILE USER ETC ... ================
-  // ========================================================================
-
-
-  //  part of code that was used to initialize "at hand", soon will be obsolete...
-  if (0)
-  {
-      StdOut() << "NO USEERRRRRRRRRRRRRR " << std::endl; getchar();
-
-      mParamProfile.mUserName = "Unkown";
-      mParamProfile.mNbProcMax = 1000;
-      mParamProfile.mVectDefSerial = eTypeSerial::ecsv;
-      mParamProfile.mTaggedDefSerial = eTypeSerial::ejson;
-      mVectNameDefSerial = E2Str(mParamProfile.mVectDefSerial);
-      mTaggedNameDefSerial = E2Str(mParamProfile.mTaggedDefSerial);
-      return;
-  }
-
-  /*  Compute the name of file containing the profile of user;  this profile is
-   *
-   *     - "MMVII-CurentPofile.xml" if this file exists, to allow tuning by user
-   *     - "Default-MMVII-CurentPofile.xml" if it does not exist, this is the file shared on github
-   */
-  std::string NameFileCurentProfile =  "MMVII-CurentPofile.xml";
-  std::string DefaultNameFileCurentProfile =  "Default-" + NameFileCurentProfile;
-  std::string NameFileUseOfProfile =  "MMVII-UserOfProfile.xml";
-
-  // if the default file  does not exist, we are probably the first time, or in reinit step because
-  // directory has been purged, we create a file containing  the default profile
-  if (! ExistFile(mDirLocalParameters+DefaultNameFileCurentProfile))
-  {
-        cSpecifProfileUserMMVII  aSpec;
-        aSpec.mNameProfile = "Default";
-        SaveInFile(aSpec,mDirLocalParameters+DefaultNameFileCurentProfile);
-  }
-
-  // we set NameFileCurentProfile  to its default or not,
-  if (! ExistFile(mDirLocalParameters+NameFileCurentProfile))
-  {
-      NameFileCurentProfile = DefaultNameFileCurentProfile;
-  }
-
-  /**  Compute the "usage" store in the profile,
-   *   init the variable  "mProfileUsage"  and  "mDirProfileUsage"
-   */
-  {
-      cSpecifProfileUserMMVII aSpec;
-
-      ReadFromFile(aSpec,mDirLocalParameters+NameFileCurentProfile);
-      mProfileUsage = aSpec.mNameProfile;
-      mDirProfileUsage =  mDirLocalParameters + mProfileUsage + StringDirSeparator();
-  }
-
-  /**  if file containing users profile does not exist, we create some default one */
-  if (! ExistFile(mDirProfileUsage+NameFileUseOfProfile))
-  {
-      CreateDirectories(mDirProfileUsage,false);
-
-      mParamProfile.mUserName = "Unkown";
-      mParamProfile.mNbProcMax = 1000;
-      mParamProfile.mVectDefSerial = eTypeSerial::ecsv;
-      mParamProfile.mTaggedDefSerial = eTypeSerial::exml;
-      SaveInFile(mParamProfile,mDirProfileUsage+NameFileUseOfProfile);
-  }
-  ReadFromFile(mParamProfile,mDirProfileUsage+NameFileUseOfProfile);
-  mVectNameDefSerial = E2Str(mParamProfile.mVectDefSerial);
-  mTaggedNameDefSerial = E2Str(mParamProfile.mTaggedDefSerial);
-
-}
-
-const  std::string & cMMVII_Appli::UserName() {return mParamProfile.mUserName;}
-const  std::string & cMMVII_Appli::DirProfileUsage() {return mDirProfileUsage;}
-
-eTypeSerial cMMVII_Appli::VectDefSerial() const
-{
-    CurrentAppli(); // as member is static assure init was done
-    return mParamProfile.mVectDefSerial;
-}
-eTypeSerial cMMVII_Appli::TaggedDefSerial() const
-{
-    CurrentAppli(); // as member is static assure init was done
-    return mParamProfile.mTaggedDefSerial;
-}
-
-const std::string & cMMVII_Appli::VectNameDefSerial   () const
-{
-    CurrentAppli(); // as member is static assure init was done
-    return mVectNameDefSerial;
-}
-const std::string & cMMVII_Appli::TaggedNameDefSerial   () const
-{
-    CurrentAppli(); // as member is static assure init was done
-    return mTaggedNameDefSerial;
-}
-
-const std::string & GlobVectNameDefSerial() {return cMMVII_Appli::CurrentAppli().VectNameDefSerial();}
-const std::string & GlobTaggedNameDefSerial() {return cMMVII_Appli::CurrentAppli().TaggedNameDefSerial();}
 
 const cSpecMMVII_Appli & cMMVII_Appli::Specs() const {return mSpecs;}
 
@@ -1703,9 +1593,6 @@ std::string cMMVII_Appli::mFullBin;
 std::string cMMVII_Appli::mDirTestMMVII;
 std::string cMMVII_Appli::mDirRessourcesMMVII;
 std::string cMMVII_Appli::mDirLocalParameters;
-std::string cMMVII_Appli::mProfileUsage;
-std::string cMMVII_Appli::mDirProfileUsage;
-cParamProfile cMMVII_Appli::mParamProfile;
 std::string cMMVII_Appli::mDirMicMacv2;
 std::string cMMVII_Appli::mVectNameDefSerial;
 std::string cMMVII_Appli::mTaggedNameDefSerial;
@@ -1722,6 +1609,8 @@ const std::string & cMMVII_Appli::MMV1Bin()           {return mMMV1Bin;}
 
 
 const std::string & cMMVII_Appli::DirRessourcesMMVII()      {return mDirRessourcesMMVII;}
+const std::string & cMMVII_Appli::DirLocalParameters()      {return mDirLocalParameters;}
+
               // Accessors
 const std::string & cMMVII_Appli::DirProject() const  {return mDirProject;}
 int cMMVII_Appli::NbProcAllowed () const {return mNbProcAllowed;}
@@ -2126,6 +2015,7 @@ int  cMMVII_Appli::ExeOnParsedBox()
     MMVII_INTERNAL_ERROR("Call to undefined method ExeOnParsedBox()");
     return EXIT_FAILURE;
 }
+
 
 };
 

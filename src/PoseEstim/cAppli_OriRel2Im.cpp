@@ -830,6 +830,13 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgObl(cCollecSpecArg2007 & anArgObl
 
      anArgObl <<  mPhProj.DPOrient().ArgDirInMand("Input orientation for calibration")  ;
 
+
+     if (mModeCompute==0)
+     {
+            anArgObl
+                   <<  mPhProj.DPOrient().ArgDirOutMand("Output to save relative orientation of 2 images")  ;
+     }
+
   /*   if (mModeCompute!=0)
      {
          anArgObl << mPhProj.DPOriRel().ArgDirOutMand();
@@ -845,7 +852,7 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt
             <<  mPhProj.DPGndPt2D().ArgDirInOpt()
             <<  mPhProj.DPMulTieP().ArgDirInOpt()
 
-            <<  mPhProj.DPTieP().ArgDirOutOpt("VirTP","Output for virtual tie points")
+            <<  mPhProj.DPTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
 
             <<  AOpt2007(mNbMinHom,"NbMinHom","Number minimal of homologous point required",{eTA2007::HDV})
             <<  AOpt2007(mDensitySol,"CompForce","How much computation do we pay?",{eTA2007::HDV})
@@ -860,7 +867,7 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt
 
     if (mModeCompute==0)
     {
-        anArgOpt << mPhProj.DPOrient().ArgDirOutOpt("OriOut","For saving relative or as orientations")
+        anArgOpt  //<< mPhProj.DPOrient().ArgDirOutOpt("OriOut","For saving relative or as orientations")
                  << AOpt2007(mKSaveOri,"KSaveOri","Num of sol to save",{eTA2007::HDV})  ;
     }
 

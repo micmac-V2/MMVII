@@ -309,7 +309,7 @@ class cBA_GCP
           cBA_GCP& operator=(cBA_GCP const&) = delete;
 
           void AddGCP3D(cMes3DDirInfo * aMesDirInfo, cSetMesGnd3D &aSetMesGnd3D, bool verbose);
-          void AddMes2D(cSetMesPtOf1Im &, cMes2DDirInfo * aMesDirInfo, cSensorImage*, eLevelCheck OnNonExistP=eLevelCheck::Warning);
+          void AddMes2D(cSetMesPtOf1Im &, cMes2DDirInfo * aMesDirInfo, cSensorImage* aSensorImage, eLevelCheck OnNonExistP=eLevelCheck::Warning);
           const cSetMesGndPt & getMesGCP() const {return mMesGCP;}
           cSetMesGndPt & getMesGCP() {return mMesGCP;}
           std::vector<cMes2DDirInfo*> mAllMes2DDirInfo;
@@ -344,7 +344,7 @@ class cData1ImLidPhgr
 {
     public :
         std::string mScanAName;    //< origin scan id to get uk
-        std::string mScanBName;    //< secondary scan id to get uk (only for llidar/lidar adj)
+        std::string mScanBName;    //< secondary scan id to get uk (only for lidar/lidar adj)
         size_t mKIm;  ///< number of the image where the patch is seen (only for lidar/im adj)
         std::vector<std::pair<tREAL8,cPt2dr>> mVGr; ///< pair of radiometry/gradient, in image,  for each point of the patch
 };
@@ -474,9 +474,10 @@ public:
 
 protected:
     std::vector<cStaticLidarBAData>   mVScans;      ///< vector of raster representations of lidar
-    std::map<std::string,cIm2D<tREAL4>> mMapZbuf; ///< fusion of all zbuffers for one scan B name
+    std::map<std::string,cIm2D<tREAL4>> mMapZbuf; ///< fusion of all zbuffers for one image/scan B name
     std::map<std::string,cStdWeighterResidual> mWeightersMap;   ///< map from "nameScanA-nameScanB" to the appropriate weighter
     tREAL8                            mThresholdInit, mThresholdFinal;   ///< distance where scan points are supposed to be hidden
+    std::map<std::string, int>        mMapNbUsedPatches; // indexed by "ScanA>ImB", number of patches used for this couple
 };
 
 /**
@@ -544,7 +545,7 @@ protected :
          int                     aKPt
          ) override;
 
-    tREAL8 mNormalDiffMinCos = 0.98;
+    tREAL8 mNormalDiffMinCos = cos(15*M_PI/180);
 };
 
 
@@ -626,7 +627,7 @@ class cMMVII_BundleAdj
           cBA_GCP& getGCP() { return mGCP;}
 
           ///  ============  Add Lidar/Photogra ===============          void AddLineAdjust(const std::vector<std::string> &);
-          cStaticLidar *AddStaticLidar(const std::string &aScanFileName);
+          bool AddStaticLidar(cStaticLidar* aStaticLidar);
           void Add1AdjLidarPhotogra(const std::vector<std::string> &);
           void Add1AdjLidarPhoto(const std::vector<std::string> &);
           void Add1AdjLidarLidar(const std::vector<std::string> &);
@@ -639,7 +640,9 @@ class cMMVII_BundleAdj
           const std::vector<cSensorImage *> &  VSIm() const ;  ///< Accessor
           const std::vector<cSensorCamPC *> &  VSCPC() const;   ///< Accessor
           const std::unordered_map<std::string, cStaticLidar*> & MapTSL() const; ///< Accessor
-                                                                //
+
+          /// Fix the %% for printing stat on tie-p residual
+          void SetTiePShowPerMil(const std::vector<int> &);
 
           bool CheckGCPConstraints() const; //< test if free points have enough observations
           //  =========  control object free/frozen ===================
@@ -653,6 +656,8 @@ class cMMVII_BundleAdj
           void SetFrozenTSL(const std::string & aPattern);
           void SetSharedIntrinsicParams(const std::vector<std::string> &);
            
+          void SetGaujeRelPause(const std::vector<std::string> &);
+         // void SetGaujeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
 
           void AddPoseViscosity();
           void AddConstrainteRefPose();
@@ -685,8 +690,8 @@ class cMMVII_BundleAdj
           cPt3dr GetGCP_UC_UK(const std::string & aGCPName) const;
           // Save results of clino bundle adjustment
           void SaveClino();
-          void  AddBenchSensor(cSensorCamPC *); // Add sensor, used in Bench Clino
-
+          /// Add sensor, used in Bench Clino, deprecated probably
+          void  AddBenchSensor(cSensorCamPC *);
           void setVerbose(bool aVerbose){mVerbose=aVerbose;}; // Print or not residuals
           
           cResolSysNonLinear<tREAL8> *  Sys();  /// Real object, will disapear when fully interfaced for mSys
@@ -699,6 +704,8 @@ class cMMVII_BundleAdj
           int Iter() const { return mIter;}
 
           tREAL8 CurLVMParam() const;
+          int   NbCamPC() const;
+
 
      private :
 
@@ -721,6 +728,11 @@ class cMMVII_BundleAdj
 
           /// One iteration : add all measure + constraint + Least Square Solve/Udpate/Init
           void OneIteration(bool isFirstIter=false, tREAL8 aLVM=0.0, bool doShowCond=false);
+
+          int IndexOfPCPose(const std::string &,bool SVP =false) const;
+
+          /// Show the variable, with their names, which have been frozen because no obs
+          void ShowLVMFrozenVar();
 
           //============== Data =============================
           cPhotogrammetricProject * mPhProj;
@@ -751,6 +763,8 @@ class cMMVII_BundleAdj
 
           std::vector<std::string>  mVPatShared;
 
+          std::vector<int>          mTiePShowPerMil;
+
           // ===================  Information to use ==================
              
                   // - - - - - - - - GCP  - - - - - - - - - - -
@@ -775,6 +789,15 @@ class cMMVII_BundleAdj
           std::string                        mPatternRef;
           bool                               mDoRefCam;
           cDirsPhProj*                       mDirRefCam;
+
+          // ===================  "Gauje for pure relative pause"  ==================
+
+
+          bool   mUseGauje;
+          int    mKPoseMainGauje;
+          int    mKPoseSecondGauje;
+          int    mKCoordSecondGauje;
+
           // ===================  "Viscosity"  ==================
 
           tREAL8   mSigmaViscAngles;  ///< "viscosity"  for angles
@@ -795,6 +818,8 @@ class cMMVII_BundleAdj
           std::vector<cBA_BlockInstr *>          mVecBlockInstrAdj;
 
           tREAL8                                mCurLVMParam;
+          int                                   mNbCamPC;
+
 };
 
 
