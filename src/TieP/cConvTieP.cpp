@@ -16,7 +16,7 @@ namespace MMVII
 {
 
 constexpr int SINGLE_OBS_PT_COLMAP=-1;
-constexpr double IMAGE_ORIGIN_OFFSET=0.5;
+constexpr double IMAGE_ORIGIN_OFFSET_COLMAP=0.5;
 
 std::map<int, std::vector<std::pair<std::string, tPt2dr>>> ReadColmapImagesTxt(const std::string & aFilePath)
 {
@@ -67,7 +67,7 @@ std::map<int, std::vector<std::pair<std::string, tPt2dr>>> ReadColmapImagesTxt(c
         while (aSS >> aX >> aY >> aId)
             if (aId != SINGLE_OBS_PT_COLMAP)
             {
-                aRes[aId].emplace_back(aImName, tPt2dr(aX-IMAGE_ORIGIN_OFFSET,aY-IMAGE_ORIGIN_OFFSET));
+                aRes[aId].emplace_back(aImName, tPt2dr(aX-IMAGE_ORIGIN_OFFSET_COLMAP,aY-IMAGE_ORIGIN_OFFSET_COLMAP));
                 aCount++;
             }
 

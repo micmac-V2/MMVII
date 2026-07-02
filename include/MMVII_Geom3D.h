@@ -733,7 +733,11 @@ class cEllipse3D
 class cGenGauss3D
 {
     public :
-        cGenGauss3D(const cEllipse3D & anEl );
+        cGenGauss3D(const cEllipse3D & );
+        cGenGauss3D(const cDenseMatrix<double> &,
+                    const cDenseMatrix<double> &,
+                    const cDenseMatrix<double> &);
+
         const double & ValP(int aK) const {return mVP(aK);};
         const cDenseVect<tREAL8>   VecP(int aK) const {return mVecP.ReadCol(aK); };
         const cPt3dr  & CDG() const {return mCDG;}

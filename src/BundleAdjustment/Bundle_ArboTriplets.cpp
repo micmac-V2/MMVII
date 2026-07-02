@@ -285,7 +285,7 @@ void cBA_ArboTriplets::OneIteration(int aIter)
         StdOut() << "----------------------   Tree depth=" << mTreeDepth << ", images "
                  << NbCams() << "/" << mPMAT->GOP().AllVertices().size() << std::endl;
 
-        StdOut() << "  # End Iter" << aIter
+        StdOut() << "  # End Iter" << aIter+1
                  << " : Weighted Residual=" << aWeigthedRes.Average()
                  << ", #tie-points=" << aNumTPts << " #eliminated="
                  << " " << (100.0*(aNumAllTiePts-aNumTPts)/std::max(1,aNumAllTiePts)) << "%"
