@@ -874,18 +874,20 @@ cCollecSpecArg2007 & cAppliExtractCircTarget::ArgOpt(cCollecSpecArg2007 & anArgO
 void cAppliExtractCircTarget::DoExport()
 {
      int aCptUnCoded=0;
-     mNameIm = mOriginalNameImage;
-     cVecTiePMul aVTPMul(mNameIm); FakeUseIt(aVTPMul);
-
+     cStaticLidar* aLidar = nullptr;
+     // return to reduced size if TSL
      cPt2dr aImFactor(1.,1.);
-     if (cStaticLidar::IsNameTSL(mNameIm))
+     if (cStaticLidar::IsNameTSL(mOriginalNameImage))
      {
-         auto aTSLOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mNameIm,true);
-         cStaticLidar* aLidar = cStaticLidar::FromFile(aTSLOriFile, false);
+         auto aTSLOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mOriginalNameImage,true);
+         aLidar = cStaticLidar::FromFile(aTSLOriFile, false);
+         aLidar->ReadRasters(mPhProj.DirStaticLidarRasters()); // to read distances
          auto aDImIn = cDataFileIm2D::Create(mNameIm, eForceGray::No);
          aImFactor =  RDivCByC(aLidar->PixelDomain().Sz(), aDImIn.Sz());
-         delete aLidar;
      }
+
+     mNameIm = mOriginalNameImage;
+     cVecTiePMul aVTPMul(mNameIm); FakeUseIt(aVTPMul);
 
      cSetMesPtOf1Im  aSetM(FileOfPath(mNameIm));
      std::vector<cSaveExtrEllipe>  mVSavE;
@@ -896,6 +898,11 @@ void cAppliExtractCircTarget::DoExport()
              std::string aCode = anEE->mWithCode ?  anEE->mEncode.Name() : (MMVII_NONE +"_" + ToStr(aCptUnCoded,mSpec->NbBits()));
              cMesIm1Pt aMesIm(anEE->mPt,aCode,1.0);
              aMesIm.mPt = MulCByC(aMesIm.mPt, aImFactor);
+             if (aLidar)
+                 aMesIm.mDistWithSigma.emplace(
+                     aLidar->Image2Distance(aMesIm.mPt),
+                     aLidar->Sigma() );
+
              aSetM.AddMeasure(aMesIm);
              Tpl_AddOneObjReportCSV(*this,mIdExportCSV,aMesIm);
 
@@ -913,6 +920,9 @@ void cAppliExtractCircTarget::DoExport()
              }
          }
      }
+
+     if (aLidar)
+         delete aLidar;
 
      aSetM.SortMes();
      mPhProj.SaveMeasureIm(aSetM);

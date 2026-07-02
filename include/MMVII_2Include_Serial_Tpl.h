@@ -289,6 +289,14 @@ template <class Type> void AddData(const cAuxAr2007 & anAux,std::vector<Type> & 
 /// cArray interface  AddData -> StdContAddData
 template <class Type,size_t aSz> void AddData(const cAuxAr2007 & anAux,  cArray<Type,aSz> & aL) { AddTabData(anAux, aL.data(), aSz); }
 
+/// pair interface AddData
+template <class Type1,class Type2> void AddData(const cAuxAr2007 & anAux,  std::pair<Type1,Type2> & aPair)
+{
+    AddData(cAuxAr2007("f",anAux),aPair.first);
+    AddData(cAuxAr2007("s",anAux),aPair.second);
+}
+
+
 
 /** Serialization for map (will be) used for cSetMultipleTiePoints, and more ? */
 

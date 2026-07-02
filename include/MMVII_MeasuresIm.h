@@ -54,6 +54,7 @@ struct  cWeightedPair2D3D : public cPair2D3D
 };
 
 
+typedef std::optional<std::pair<tREAL4,tREAL4>>  tOptPairR;
 
 /**  class for representing  set of pairs 2-3  */
 struct cSet2D3D : public cMemCheck
@@ -92,7 +93,8 @@ class cMesIm1Pt
         cPt2dr            mPt;
         std::string       mNamePt;
         cArray<tREAL4,3>  mSigma2;  //< xx xy yy
-        cMes2DDirInfo* mMesDirInfo; //< to recover dir in name and weighter
+        tOptPairR         mDistWithSigma;
+        cMes2DDirInfo*    mMesDirInfo; //< to recover dir in name and weighter
 };
 void AddData(const  cAuxAr2007 & anAux,cMesIm1Pt & aGCPMI);
 
@@ -219,20 +221,22 @@ class cMultipleImPt
     cMultipleImPt(int aNum3DP);   ///< Cstr, num of GCP of -1 for tie point
 
     /// Add One image measurement, 4 now WithSigma must be false
-    void Add(const cMesIm1Pt & ,int aNumIm, cMes2DDirInfo *aMesDirInfo);
+    void Add(const cMesIm1Pt & , int aNumIm, cMes2DDirInfo *aMesDirInfo);
 
     ///  Return if any the point of one image
     const cPt2dr * PtOfIm(int) const;
 
     const std::vector<cPt2dr> & VMeasures() const;  ///< Accessor
     const std::vector<int>    & VImages()   const;  ///< Accessor
-    const std::vector<cMes2DDirInfo*> & VMesDirInfo() const { return mVMesDirInfo; }  ///< Accessor
+    const std::vector<cMes2DDirInfo*> & VMesDirInfo() const;  ///< Accessor
+    const std::vector<tOptPairR> & VDistWithSigmas() const; ///< Accessor
     int NumPt() const;
 private :
     int                             mNumPt; // Num of Point used as identifier
     std::vector<cPt2dr>             mVMeasures;
     std::vector<cMes2DDirInfo*>     mVMesDirInfo;
     std::vector<int>                mVImages;
+    std::vector<tOptPairR> mVDistWithSigmas;
 };
 
 

@@ -312,6 +312,7 @@ void cMultipleImPt::Add(const cMesIm1Pt & aMes, int aNumIm, MMVII::cMes2DDirInfo
     mVMeasures.push_back(aMes.mPt);
     mVImages.push_back(aNumIm);
     mVMesDirInfo.push_back(aMesDirInfo);
+    mVDistWithSigmas.push_back(aMes.mDistWithSigma);
 }
 
 const cPt2dr * cMultipleImPt::PtOfIm(int aIndIm) const
@@ -324,6 +325,9 @@ const cPt2dr * cMultipleImPt::PtOfIm(int aIndIm) const
 
 const std::vector<cPt2dr> & cMultipleImPt::VMeasures() const  {return mVMeasures;}
 const std::vector<int>    & cMultipleImPt::VImages()   const  {return mVImages  ;}
+const std::vector<cMes2DDirInfo*> & cMultipleImPt::VMesDirInfo() const { return mVMesDirInfo;}
+const std::vector<tOptPairR> & cMultipleImPt::VDistWithSigmas() const  {return mVDistWithSigmas;}
+
 
 int cMultipleImPt::NumPt() const {return mNumPt;}
 
@@ -590,6 +594,7 @@ void AddData(const  cAuxAr2007 & anAux,cMesIm1Pt & aMes)
    MMVII::AddData(cAuxAr2007("Name",anAux),aMes.mNamePt);
    MMVII::AddData(cAuxAr2007("Pt",anAux),aMes.mPt);
    MMVII::AddData(cAuxAr2007("Sigma2",anAux),aMes.mSigma2);
+   AddOptData(anAux,"DistWithSigma",aMes.mDistWithSigma);
 }
 
 /* ********************************************* */

@@ -184,6 +184,7 @@ void cMMVII_BundleAdj::OneItere_GCP()
 
         const std::vector<cPt2dr> & aVPIm  = aVMesIm.at(aKp).VMeasures();
         const std::vector<int> &  aVIndIm  = aVMesIm.at(aKp).VImages();
+        const std::vector<tOptPairR> & aVDistWithSigma  = aVMesIm.at(aKp).VDistWithSigmas();
 
         int aNbImVis  = 0;
         // Parse all image having a measure with this GCP
@@ -193,6 +194,7 @@ void cMMVII_BundleAdj::OneItere_GCP()
             int aIndIm = aVIndIm.at(aKIm);
             cSensorImage * aSens = aVSens.at(aIndIm);
             const cPt2dr & aPIm = aVPIm.at(aKIm);
+            auto & aDistWithSigma = aVDistWithSigma.at(aKIm);
             //StdOut() << "aSensaSensaSens " << aSens->NameImage() << " " << aVIndIm << "\n";
 
             // compute indexe of unknown, if GCp are !UK we have fix index for temporary
@@ -232,14 +234,16 @@ void cMMVII_BundleAdj::OneItere_GCP()
                 // the "obs" are made of 2 point and, possibily, current rotation (for PC cams)
                 std::vector<double> aVObs = aPIm.ToStdVector();
 
+                // will use dist only if this is as cStaticLidar and we have a distance in mesInstr
                 cStaticLidar * aStaticLidar = dynamic_cast<cStaticLidar*>(aSens);
+                if (!aDistWithSigma.has_value())
+                    aStaticLidar = nullptr;
                 if (!aStaticLidar)
                     aSens->PushOwnObsColinearity(aVObs,aPGr);
                 else
                 {
-                    aWeighter.addSigma(aStaticLidar->Sigma());
-                    aStaticLidar->ReadRasters(mPhProj->DirStaticLidarRasters());
-                    tREAL4 aMesDistance = aStaticLidar->Image2Distance(aPIm);
+                    aWeighter.addSigma(aDistWithSigma.value().second);
+                    tREAL4 aMesDistance = aDistWithSigma.value().first;
                     if (aMesDistance == 0.)
                         continue; // eliminated, even if 2D may be used...
                     aStaticLidar->PushOwnObsColinearityDistance(aVObs,aMesDistance);

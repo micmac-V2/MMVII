@@ -570,14 +570,15 @@ void  cAppliCheckBoardTargetExtract::DoExport()
      std::vector<cSaveExtrEllipe>  aVSavE;
      cSetMesPtOf1Im  aSetM(FileOfPath(mNameIm));
 
+     cStaticLidar* aLidar = nullptr;
      // return to reduced size if TSL
      cPt2dr aImFactor(1.,1.);
      if (cStaticLidar::IsNameTSL(mNameIm))
      {
          auto aTSLOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mNameIm,true);
-         cStaticLidar* aLidar = cStaticLidar::FromFile(aTSLOriFile, false);
+         aLidar = cStaticLidar::FromFile(aTSLOriFile, false);
+         aLidar->ReadRasters(mPhProj.DirStaticLidarRasters()); // to read distances
          aImFactor =  RDivCByC(aLidar->PixelDomain().Sz(), mSzIm0);
-         delete aLidar;
      }
 
      for (const auto & aCdtM : mVCdtMerged)
@@ -587,6 +588,10 @@ void  cAppliCheckBoardTargetExtract::DoExport()
              std::string aCode = aCdtM.Code()->Name() ;
              cMesIm1Pt aMesIm(aCdtM.mC0,aCode,1.0);
              aMesIm.mPt = MulCByC(aMesIm.mPt, aImFactor);
+             if (aLidar)
+                 aMesIm.mDistWithSigma.emplace(
+                     aLidar->Image2Distance(aMesIm.mPt),
+                     aLidar->Sigma() );
              aSetM.AddMeasure(aMesIm);
              Tpl_AddOneObjReportCSV(*this,mIdExportCSV,aMesIm);
 
@@ -597,6 +602,9 @@ void  cAppliCheckBoardTargetExtract::DoExport()
              //  cSaveExtrEllipe anESave(*anEE,aCode);
          }
      }
+
+     if (aLidar)
+         delete aLidar;
 
      aSetM.SortMes();
      mPhProj.SaveMeasureIm(aSetM);
