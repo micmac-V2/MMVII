@@ -702,6 +702,9 @@ std::vector<std::string>  cAppli_EditCalcMetaDataImage::Samples() const
 
 int cAppli_EditCalcMetaDataImage::Exe()
 {
+    //if ()
+        mPhProj.DPMetaData().SetAllowDirInEmpty();
+
     mPhProj.DPMetaData().SetDirOutInIfNotInit();
 
     mPhProj.FinishInit();
