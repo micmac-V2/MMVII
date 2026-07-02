@@ -781,7 +781,7 @@ int cAppli_ImportTSL::Exe()
     aSL_data.FilterIncidence(mSL_importer, M_PI/2-mIncidenceMin);
     aSL_data.MaskBuffer(mSL_importer, mSL_importer.mPhiStep*mMaskBufferSteps, mPhProj.DirStaticLidarRasters());
     //aSL_data.SelectPatchCenters2(mNbPatches);
-    aSL_data.MakeVisu(mPhProj);
+    //aSL_data.MakeVisu(mPhProj);
 
     aSL_data.ToFile(mPhProj.DirStaticLidarRasters() + aSL_data.NameOriStd());
     mSL_importer.MakeIdImage(aSL_data.NameImage());
@@ -1139,6 +1139,7 @@ int cAppli_InitTSL::Exe()
     }
 
     mLidar->SelectPatchCenters2(mNbPatches);
+    mLidar->MakeVisu(mPhProj);
 
     mLidar->ToFile(mPhProj.DPOrient().FullDirOut() + mLidar->NameOriStd());
 

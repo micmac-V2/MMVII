@@ -1505,11 +1505,12 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches)
     if (aYStep<1.)
         aYStep = 1.;
     int aLineCounter = 0;
+    float aXdecal = float(aRasterMaskData.SzX()) / aNbPatchesX;
     while (aY<aRasterMaskData.SzY())
     {
-        aX = float(aRasterMaskData.SzX()) / aNbPatchesX * ((aLineCounter%2)?1./3.:2./3.);
+        aX = aXdecal * ((aLineCounter%2)?1./3.:2./3.);
         auto aPhi = (aY - InternalCalib()->PP().y()) / InternalCalib()->F();
-        while (aX<aRasterMaskData.SzX())
+        while (aX<aRasterMaskData.SzX()-aXdecal*1./3.)
         {
             // take lat/long proj into account
             aXStep = fabs(((float)aRasterMaskData.SzX()) / aNbPatchesX / aNbPatchesFactor / cos(aPhi));
@@ -1578,6 +1579,7 @@ void cStaticLidar::MakePatches
         for (size_t i=0; i<mPatchCenters.size(); ++i)
         {
             auto & aCenter = mPatchCenters[i];
+            MMVII_INTERNAL_ASSERT_tiny(IsValidPoint(ToR(aCenter))>0, "Error: patch " + ToStr(aCenter) + " is on a masked area");
             auto aCenterR = cPt2dr(aCenter.x(),aCenter.y());
             if (getRasterDistance().InsideInterpolator(aInterp,aCenterR,1.0))  // is it sufficiently inside
             {
