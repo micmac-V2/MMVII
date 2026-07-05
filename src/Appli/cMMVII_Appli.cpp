@@ -325,6 +325,7 @@ void cMMVII_Appli::InitMMVIIDirs(const std::string& aMMVIIDir)
     mDirMicMacv2       = mTopDirMMVII;
     mDirTestMMVII      = mDirMicMacv2 + MMVIITestDir;
     mDirRessourcesMMVII      = mDirMicMacv2 + MMVIIRessourcesDir;
+    mDirHelpByCmd            = mDirRessourcesMMVII+ MMVIIHelpByCmdDir;
     mDirLocalParameters      = mDirMicMacv2 + MMVIILocalParametersDir;
     mTmpDirTestMMVII   = mDirTestMMVII + "Tmp" + StringDirSeparator();
     mInputDirTestMMVII = mDirTestMMVII + "Input" + StringDirSeparator();
@@ -406,6 +407,7 @@ void cMMVII_Appli::SetNot4Exe()
 
 void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
 {
+  //  StdOut() << "XXXXXXXXXXInitParam" << "\n";
 
   mSeedRand = DefSeedRand();
   cCollecSpecArg2007 & anArgObl = ArgObl(mArgObl); // Call virtual method
@@ -498,14 +500,20 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
       }
   }
 
+  mNbMinusInHelp=0;
   // Test if we are in help mode
   for (int aKArg=0 ; aKArg<mArgc ; aKArg++)
   {
       const char * aArgK = mArgv[aKArg].c_str();
-      if (UCaseBegin("help",aArgK) || UCaseBegin("-help",aArgK)|| UCaseBegin("--help",aArgK))
+      while (*aArgK=='-')
+      {
+          mNbMinusInHelp++;
+          aArgK++;
+      }
+      if (UCaseBegin("help",aArgK) )
       {
          mModeHelp = true;
-         while (*aArgK=='-') aArgK++;
+
          mDoGlobHelp = (*aArgK=='H');
          mDoInternalHelp = CaseSBegin("HE",aArgK);
 
@@ -516,6 +524,8 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
 
   if (mModeHelp)
   {
+      // MPD profile required in mode help
+      InitProfile();
       GenerateHelp();
       return;
   }
@@ -896,6 +906,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
   if (!mModeHelp)
      LogCommandIn(NameFileLog(false),false);
 
+  //StdOut() << " MOHHHHH " << mModeHelp << "  MAIN:" << mMainAppliInsideP << "\n";
   if (mMainAppliInsideP)
   {
    //  StdOut()  << "mMainAppliInsidePmMainAppliInsideP " << mMainAppliInsideP << "\n";
@@ -1411,6 +1422,21 @@ void cMMVII_Appli::GenerateHelp()
        }
        HelpOut() << "\n";
    }
+
+   std::string aPdfFile =  mDirHelpByCmd + mSpecs.Name() + ".pdf";
+
+   if (ExistFile(aPdfFile))
+   {
+     //  StdOut()  << " PatH=" << mPatHelp << "\n";
+       HelpOut() << "Detailled help for this command in : " << aPdfFile << "\n";
+       std::optional<std::string> aPdfOpen = mParamProfile.mProgPdfOpen;
+     //  StdOut() << "HHHHHhh " << aPdfOpen.has_value()  << " UN " << mParamProfile.mUserName << "\n";
+       if (aPdfOpen.has_value() && (mPatHelp=="pdf"))
+       {
+           std::string aCmd = aPdfOpen.value() + std::string(" ")  + aPdfFile;
+           system(aCmd.c_str());
+       }
+   }
 }
 
 void cMMVII_Appli::ShowAllParams()
@@ -1592,6 +1618,7 @@ std::string cMMVII_Appli::mTopDirMMVII;
 std::string cMMVII_Appli::mFullBin;
 std::string cMMVII_Appli::mDirTestMMVII;
 std::string cMMVII_Appli::mDirRessourcesMMVII;
+std::string cMMVII_Appli::mDirHelpByCmd;
 std::string cMMVII_Appli::mDirLocalParameters;
 std::string cMMVII_Appli::mDirMicMacv2;
 std::string cMMVII_Appli::mVectNameDefSerial;

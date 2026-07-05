@@ -31,6 +31,9 @@ class cAppli_CGPReport : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
 
+        std::vector<std::string>  Samples() const override;
+
+
      private :
         /** make the report  by image, for each image a cvs file with all GCP,
          * optionnaly make a visualisation of the residual fielsd for each image */
@@ -46,6 +49,8 @@ class cAppli_CGPReport : public cMMVII_Appli
         bool                     mIsGCP;  /// GCP vs Tie Point
 
         std::vector<double>      mGeomFiedlVec;
+        tREAL8                   mFactRed; ///< Reduction factor
+        tREAL8                   mExag;    ///< Exageration factor
         std::vector<int>         mPropStat;
 
         std::string              mPrefixReport;
@@ -73,6 +78,8 @@ cAppli_CGPReport::cAppli_CGPReport
      cMMVII_Appli  (aVArgs,aSpec),
      mPhProj       (*this),
      mIsGCP        (isGCP),
+     mFactRed      (100.0),
+     mExag         (1000.0),
      mPropStat     ({50,75}),
      mMarginMiss   (50.0),
      mSuffixReportSubDir (""),
@@ -101,14 +108,25 @@ cCollecSpecArg2007 & cAppli_CGPReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
                 << AOpt2007(mPropStat,"Perc","Percentil for stat exp",{eTA2007::HDV});
 
     if (mIsGCP)
-       return aRes << AOpt2007(mGeomFiedlVec,"GFV","Geom Fiel Vect for visu [Mul,Witdh,Ray,Zoom?=2]",{{eTA2007::ISizeV,"[3,4]"}})
+       return aRes << AOpt2007(mGeomFiedlVec,"GFV","Geom Fiel Vect for visu [Mul,Witdh,Ray,Zoom?=2,JPeg?=1]",{{eTA2007::ISizeV,"[3,5]"}})
                    << AOpt2007(mMarginMiss,"MargMiss","Margin to border for counting missed target",{eTA2007::HDV})
                    << AOpt2007(mSuffixReportSubDir, "Suffix", "Suffix to report subdirectory name")
                    << AOpt2007(mFilterName, "Filter", "Pattern to filter GCP by name")
                    << AOpt2007(mFilterAdd, "FilterAdd", "Pattern to filter GCP by additional info")
+                   << AOpt2007(mFactRed, "RedFact", "Factor of reduction for sensor images (dist & bias)",{eTA2007::HDV})
+                   << AOpt2007(mExag, "Exga", "Factor of exageration for sensor bias image",{eTA2007::HDV})
+
+
        ;
 
     return aRes;
+}
+
+std::vector<std::string>  cAppli_CGPReport::Samples() const
+{
+    return {
+        "MMVII ReportGCP \"C2_0002.*JPG\" targets-out-wiSigma Targets-2D BA-Block  GFV=[100,1,1,1,0] "
+    };
 }
 
 
@@ -200,7 +218,11 @@ void cAppli_CGPReport::MakeOneIm(const std::string & aNameIm)
     if (IsInit(&mGeomFiedlVec))
     {
         int aDeZoom    = round_ni(GetDef(mGeomFiedlVec,3,2.0));
-        aImaFieldRes.ToJpgFileDeZoom(mPhProj.DirVisu() + "FieldRes-"+aNameIm+".tif",aDeZoom);
+        if (GetDef(mGeomFiedlVec,4,1.0))
+            aImaFieldRes.ToJpgFileDeZoom(mPhProj.DirVisuAppli() + "FieldRes-"+aNameIm,aDeZoom);
+        else
+           aImaFieldRes.ToFileDeZoom(mPhProj.DirVisuAppli() + "FieldRes-"+LastPrefix(aNameIm)+".tif",aDeZoom);
+
     }
 
     auto aMesX = (aAvg2d.SW()>0.) ? ToStr(aAvg2d.Average().x()) : "XXX";
@@ -284,12 +306,12 @@ void cAppli_CGPReport::ReportsByCam()
    InitReportCSV(mNameReportCam,"csv",false);
    AddStdHeaderStatCSV(mNameReportCam,"Cam",mPropStat);
 
-   tREAL8 aFactRed = 100.0;
-   tREAL8 anExag = 1000;
+   //tREAL8 aFactRed = 100.0;
+  // tREAL8 anExag = 1000;
    for (const auto& aPair : aMapCam)
    {
        cPerspCamIntrCalib * aCalib =  aPair.first;
-       cPt2di aSz = Pt_round_up(ToR(aCalib->SzPix())/aFactRed) + cPt2di(1,1);
+       cPt2di aSz = Pt_round_up(ToR(aCalib->SzPix())/mFactRed) + cPt2di(1,1);
 
        cIm2D<tREAL8> aImX(aSz,nullptr,eModeInitImage::eMIA_Null);  // average X residual
        cIm2D<tREAL8> aImY(aSz,nullptr,eModeInitImage::eMIA_Null);  // average Y redidual
@@ -310,15 +332,15 @@ void cAppli_CGPReport::ReportsByCam()
                cPt2dr aRes = (aCam->Ground2Image(aPair.mP3) - aP2) ;
                aStat.Add(Norm2(aRes));
 
-               aRes = aRes *anExag;
-               aImX.DIm().AddVBL(aP2/aFactRed,aRes.x());
-               aImY.DIm().AddVBL(aP2/aFactRed,aRes.y());
-               aImW.DIm().AddVBL(aP2/aFactRed,1.0);
+               aRes = aRes *mExag;
+               aImX.DIm().AddVBL(aP2/mFactRed,aRes.x());
+               aImY.DIm().AddVBL(aP2/mFactRed,aRes.y());
+               aImW.DIm().AddVBL(aP2/mFactRed,1.0);
            }
        }
        tREAL8 aSigma = Norm2(aImX.DIm().Sz()) / std::sqrt(aNbPtsTot);
 
-       aImW.DIm().ToFile(mPhProj.DirVisu() + "W_RawResidual_"+aCalib->Name() +".tif");
+       aImW.DIm().ToFile(mPhProj.DirVisuAppli() + "W_RawResidual_"+aCalib->Name() +".tif");
        aImX = aImX.GaussFilter(aSigma);
        aImY = aImY.GaussFilter(aSigma);
        aImW = aImW.GaussFilter(aSigma);
@@ -326,9 +348,9 @@ void cAppli_CGPReport::ReportsByCam()
        DivImageInPlace(aImX.DIm(),aImX.DIm(),aImW.DIm());
        DivImageInPlace(aImY.DIm(),aImY.DIm(),aImW.DIm());
 
-       aImX.DIm().ToFile(mPhProj.DirVisu() + "X_Residual_"+aCalib->Name() +".tif");
-       aImY.DIm().ToFile(mPhProj.DirVisu() + "Y_Residual_"+aCalib->Name() +".tif");
-       aImW.DIm().ToFile(mPhProj.DirVisu() + "W_FiltResidual_"+aCalib->Name() +".tif");
+       aImX.DIm().ToFile(mPhProj.DirVisuAppli() + "X_Residual_"+aCalib->Name() +".tif");
+       aImY.DIm().ToFile(mPhProj.DirVisuAppli() + "Y_Residual_"+aCalib->Name() +".tif");
+       aImW.DIm().ToFile(mPhProj.DirVisuAppli() + "W_FiltResidual_"+aCalib->Name() +".tif");
 
        AddStdStatCSV(mNameReportCam,aCalib->Name(),aStat,mPropStat);
    }
@@ -398,6 +420,7 @@ int cAppli_CGPReport::Exe()
 /*               MMVII                                  */
 /*                                                      */
 /* ==================================================== */
+
 
 
 tMMVII_UnikPApli Alloc_CGPReport(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)

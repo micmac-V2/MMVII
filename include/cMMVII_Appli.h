@@ -380,10 +380,11 @@ struct cParamProfile
            // initialize with default values
            cParamProfile();
 
-           std::string   mUserName;
-           int           mNbProcMax;
-           eTypeSerial   mTaggedDefSerial;  // xml or json
-           eTypeSerial   mVectDefSerial;     // generally csv, can be xml/json
+           std::string                mUserName;
+           int                        mNbProcMax;
+           eTypeSerial                mTaggedDefSerial;  // xml or json
+           eTypeSerial                mVectDefSerial;     // generally csv, can be xml/json
+           std::optional<std::string> mProgPdfOpen;
 };
 
 bool UserIsMPD();
@@ -680,6 +681,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         std::string                               mFileLogTop;    ///< File for login the top command
         bool                                      mModeHelp;      ///< Is help present on parameter
         bool                                      mDoGlobHelp;    ///< Include common parameter in Help
+        int                                       mNbMinusInHelp;  ///< Used to know id we run auto the pdf opener
         bool                                      mDoInternalHelp;///< Include internal parameter in Help
         std::string                               mPatHelp;       ///< Possible filter on name of optionnal param shown
         bool                                      mModeArgsSpec;  ///< Called to only output args specs to stdout
@@ -744,6 +746,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         static std::string                        mTmpDirTestMMVII;  ///< Tmp files (not versionned)
         static std::string                        mInputDirTestMMVII;  ///< Input files (versionned on git)
         static std::string                        mDirRessourcesMMVII;  ///< Directory for read/write bench files
+        static std::string                        mDirHelpByCmd; ///< Directory where the help of commands can be found
         static std::string                        mDirLocalParameters;  ///< Directory for parameters local to an install
         static std::string                        mProfileUsage;        ///< The "usage" profile stored in "MMVII-CurentPofile.xml"
         static std::string                        mDirProfileUsage;     ///< The full dir containing the information of a profile
