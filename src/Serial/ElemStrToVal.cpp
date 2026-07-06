@@ -215,7 +215,7 @@ template<> cE2Str<eTyUEr>::tMapE2Str cE2Str<eTyUEr>::mE2S
                 {eTyUEr::eDirInDoesntExist,"DirInDoesntExist"},
                 {eTyUEr::eLVM_NoConstraint,"LVM_NoConstraint"},
                 {eTyUEr::eLVM_SchurrNoConstraint,"LVM_SchurrNoConstraint"},
-                {eTyUEr::eForceGauje,"FoceGauje"},
+                {eTyUEr::eForceGauge,"ForceGauge"},
                 {eTyUEr::eUnExpectedEmptyData,"UnexpetedEmptyData"},
                 {eTyUEr::eRemoveFile,"RmFile"},
                 {eTyUEr::eEmptyPattern,"EmptyPattern"},
@@ -1302,6 +1302,24 @@ std::string FixDigToStr(double aSignedVal,int aNbBef,int aNbAfter)
    sprintf(aBuf,aFormat.c_str(),aSignedVal);
    return aBuf;
 }
+
+std::string ResidualToStr(tREAL8 aRes)
+{
+    // can certainly do better using all optio, of sprintf
+    std::string aStr = FixDigToStr(aRes,1,3);
+    if (aRes<1)
+    {
+    }
+    else if (aRes<10)
+        aStr =  FixDigToStr(aRes,1,2);
+    else if (aRes<100)
+        aStr =  FixDigToStr(aRes,1,1);
+    else
+        aStr =  FixDigToStr(aRes,1,0);
+
+    return aStr;
+}
+
 
    // ================  double ==============================================
 

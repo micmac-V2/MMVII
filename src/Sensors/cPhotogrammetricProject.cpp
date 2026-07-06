@@ -95,8 +95,14 @@ cDirsPhProj::cDirsPhProj(eTA2007 aMode,cPhotogrammetricProject & aPhp):
    mAppli          (mPhp.Appli()),
    mPrefix         (E2Str(mMode)),
    mDirLocOfMode   (MMVII_DirPhp + mPrefix + StringDirSeparator()),
-   mPurgeOut       (false)
+   mPurgeOut       (false),
+   mAllowDirInEmpty  (false)
 {
+}
+
+void cDirsPhProj::SetAllowDirInEmpty()
+{
+    mAllowDirInEmpty = true;
 }
 
 const std::string &  cDirsPhProj::DirLocOfMode() const { return mDirLocOfMode; }
@@ -111,8 +117,10 @@ void cDirsPhProj::Finish()
 
     mFullDirIn  = mAppli.DirProject() + mDirLocOfMode + mDirIn + StringDirSeparator();
 
-    //  MPD, new check, seems correct, hope it will not create new bug ...
-    if (mAppli.IsInSpec(&mDirIn) && IsInit(&mDirIn))
+    //  MPD, new check, seems correct, hope it will not create new bug ... , New modif, 
+    //  we accept this case with NONE, because for "historical" reason, this is the convention
+    //  used by OriBundleAdj, when we do pure topo (i.e. w/o camera, poses ...)
+    if (mAppli.IsInSpec(&mDirIn) && IsInit(&mDirIn) &&  (mDirIn != MMVII_NONE) && (!mAllowDirInEmpty))
     {
         if (! IsDirectory(mFullDirIn) )
         {
@@ -151,10 +159,16 @@ tPtrArg2007    cDirsPhProj::ArgDirInMand(const std::string & aMesg)
         return ArgDirInMand(aMesg,nullptr);
 }
 
-tPtrArg2007    cDirsPhProj::ArgDirInOpt(const std::string & aNameVar,const std::string & aMsg,bool WithHDV)
+tPtrArg2007    cDirsPhProj::ArgDirInOpt
+               (
+                      const std::string & aNameVar,
+                      const std::string & aMsg,
+                      const  std::vector<tSemA2007> & aOptAdd
+                )
 {
     std::vector<tSemA2007>   aVOpt{mMode,eTA2007::Input};
-    if (WithHDV) aVOpt.push_back(eTA2007::HDV);
+    AppendIn(aVOpt,aOptAdd);
+    //if (WithHDV) aVOpt.push_back(eTA2007::HDV);
     return  AOpt2007
             (
                mDirIn,
@@ -165,11 +179,18 @@ tPtrArg2007    cDirsPhProj::ArgDirInOpt(const std::string & aNameVar,const std::
 }
 
 
-tPtrArg2007    cDirsPhProj::ArgDirInputOptWithDef(const std::string & aDef,const std::string & aNameVar,const std::string & aMsg)
+tPtrArg2007    cDirsPhProj::ArgDirInputOptWithDef
+              (
+                    const std::string & aDef,
+                    const std::string & aNameVar,
+                    const std::string & aMsg,
+                    const  std::vector<tSemA2007> & aOptAdd
+               )
 {
+
     mDirIn = aDef;
     mAppli.SetVarInit(&mDirIn);
-    return ArgDirInOpt(aNameVar,aMsg,true);
+    return ArgDirInOpt(aNameVar,aMsg,Append({eTA2007::HDV},aOptAdd));
 }
 
 
@@ -293,10 +314,13 @@ void cDirsPhProj::SetDirOut(const std::string & aDirOut)
 
 void cDirsPhProj::SetDirOutInIfNotInit()
 {
+    //StdOut() << "cDirsPhProj::SetDirOutInIfNotInilll=" << __LINE__ << "\n";
     if (! DirOutIsInit())
     {
         SetDirOut(DirIn());
     }
+   // StdOut() << "cDirsPhProj::SetDirOutInIfNotInilll=" << __LINE__ << "\n";
+
 }
 
 

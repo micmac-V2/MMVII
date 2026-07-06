@@ -663,7 +663,6 @@ cAppli_EditCalcMetaDataImage::cAppli_EditCalcMetaDataImage(const std::vector<std
 cCollecSpecArg2007 & cAppli_EditCalcMetaDataImage::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
    return     anArgObl
-          <<  mPhProj.DPMetaData().ArgDirInMand()
           <<  Arg2007(mTypeMTDIM ,"Type of meta-data")
    ;
 }
@@ -671,7 +670,7 @@ cCollecSpecArg2007 & cAppli_EditCalcMetaDataImage::ArgObl(cCollecSpecArg2007 & a
 cCollecSpecArg2007 & cAppli_EditCalcMetaDataImage::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return    anArgOpt
-          <<  mPhProj.DPMetaData().ArgDirOutOpt()
+         // <<  mPhProj.DPMetaData().ArgDirOutOpt()
           << AOpt2007(mValue,"Value","Value associated to meta data")
           << AOpt2007(mPattern,"PatternApply","Pattern for wich this change woul occur",{eTA2007::HDV})
           << AOpt2007(mSave,"Save","Do we save result in a new file",{eTA2007::HDV})
@@ -679,6 +678,9 @@ cCollecSpecArg2007 & cAppli_EditCalcMetaDataImage::ArgOpt(cCollecSpecArg2007 & a
           << AOpt2007(mShow,"Show","Show all rules",{eTA2007::HDV})
           << AOpt2007(mModif,"Modif","Modification for complicated case [Pat,Subst,Rank], Rank: {at(0)... ,-1 front,High back,at(0),-2 replace }",
                           {{eTA2007::ISizeV,"[3,3]"}})
+
+
+          <<  mPhProj.DPMetaData().ArgDirInputOptWithDef("Std","","If you really want to change (not recommanded)",{eTA2007::Tuning})
 
             /*
            << AOpt2007(mNbTriplets,"NbTriplets","Number max of triplet tested in Ransac",{eTA2007::HDV})
@@ -700,6 +702,8 @@ std::vector<std::string>  cAppli_EditCalcMetaDataImage::Samples() const
 
 int cAppli_EditCalcMetaDataImage::Exe()
 {
+    mPhProj.DPMetaData().SetAllowDirInEmpty();
+
     mPhProj.DPMetaData().SetDirOutInIfNotInit();
 
     mPhProj.FinishInit();

@@ -432,9 +432,21 @@ class cDirsPhProj : public cMemCheck
           tPtrArg2007     ArgDirInMand(const std::string & aMes="");
           tPtrArg2007     ArgDirInMand(const std::string & aMes,std::string * aDest) ;
           /// Input Orientation as optional paramaters
-          tPtrArg2007     ArgDirInOpt(const std::string & aNameVar="",const std::string & aMesg="",bool WithHDV=false) ;
+          tPtrArg2007     ArgDirInOpt
+                          (
+                                const std::string & aNameVar="",
+                                const std::string & aMesg="",
+                                const std::vector<tSemA2007>& = {}
+                          ) ;
 
-          tPtrArg2007  ArgDirInputOptWithDef(const std::string & aDef,const std::string & aNameVar="",const std::string & aMesg="") ;
+          tPtrArg2007  ArgDirInputOptWithDef
+                       (
+                              const std::string & aDef,
+                              const std::string & aNameVar="",
+                              const std::string & aMesg="",
+                              const std::vector<tSemA2007>& = {}
+
+                       ) ;
                                                                             //
           /// Output Orientation as mandatory paramaters
           tPtrArg2007     ArgDirOutMand(const std::string & aMes="");
@@ -463,6 +475,8 @@ class cDirsPhProj : public cMemCheck
           bool CheckDirExists(bool In, bool DoError=false) const;
 
           void SetDirOutInIfNotInit(); ///< If Dir Out is not init, set it to same value than In
+
+          void SetAllowDirInEmpty();
      private :
           cDirsPhProj(const cDirsPhProj &) = delete;
 
@@ -478,6 +492,9 @@ class cDirsPhProj : public cMemCheck
           std::string               mFullDirIn;
           std::string               mFullDirOut;
           bool                      mPurgeOut;
+
+          // Allow special case where we allow empty dir in, like creation of bloc
+          bool                      mAllowDirInEmpty;
 };
 
 

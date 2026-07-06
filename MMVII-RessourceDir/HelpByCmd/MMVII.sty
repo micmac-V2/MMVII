@@ -1,0 +1,30 @@
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{comment}
+
+%\newcommand{\MMVII}{{\tt \TheCmd}}
+
+\newcommand{\CmdTitle}{\title{ Help for command \TheCmd}}
+
+%  A command to unify all the text that correspond to name of files, command
+\newcommand{\FileSty}[1]{{\tt  #1}} 
+
+
+\newcommand{\Param}[1]{{\it  #1}} 
+\newcommand{\ParamCam}{\Param{Cam}}
+
+\newcommand{\SecDescr}{\section{ Descrition of  \TheCmd}}
+
+
+\newcommand{\LabelCSVRes}{SEC:CSV:RES}
+\newcommand{\SecCSVRes}{\section{ Generated report as \FileSty{csv} files by \TheCmd} \label{\LabelCSVRes}}
+\newcommand{\RefSecCSVRes}{section \ref{\LabelCSVRes}}
+
+\newcommand{\LabelVisuRes}{SEC:VISU:RES}
+\newcommand{\SecVisuRes}{\section{ Generated visualisation  files by \TheCmd} \label{\LabelVisuRes}}
+\newcommand{\RefSecVisuRes}{section \ref{\LabelVisuRes}}
+
+
+
+%%\newcommand{\MMVII}{MMVI2007}
+

@@ -51,6 +51,8 @@ cAppli_EditBlockInstr::cAppli_EditBlockInstr(const std::vector<std::string> &  a
     mPhProj       (*this),
     mNameBloc     (cIrbCal_Block::theDefaultName),
     mFromScratch  (false),
+    mNumPoseInstr {-1},
+    mNumMaster    (-1),
     mShow         (false)
 {
 }
@@ -83,8 +85,8 @@ cCollecSpecArg2007 & cAppli_EditBlockInstr::ArgOpt(cCollecSpecArg2007 & anArgOpt
             << mPhProj.DPBlockInstr().ArgDirOutOpt()
             << mPhProj.DPMeasuresClino().ArgDirInOpt()
             << AOpt2007(mCstrOrthog,"CstrOrthog","Constraint for vectors orthogonality [[Instr1,Instr2,Sigma]*...] ")
-            << AOpt2007(mNumPoseInstr,"NPI","Num of cams used  for estimate pose of intsrument")
-            << AOpt2007(mNumMaster,"Master","Fix number of master camera")
+            << AOpt2007(mNumPoseInstr,"NPI","Num of cams used  for estimate pose of intsrument",{{eTA2007::HDV}})
+            << AOpt2007(mNumMaster,"Master","Fix number of master camera",{{eTA2007::HDV}})
             << AOpt2007(mShow,"Show","Show detailled information")
 
         ;
@@ -93,8 +95,14 @@ cCollecSpecArg2007 & cAppli_EditBlockInstr::ArgOpt(cCollecSpecArg2007 & anArgOpt
 
 int cAppli_EditBlockInstr::Exe()
 {
+    /// MPD : a very special case where the folder in/out is in fact purely out abd the check that it exist would fail
+    if (mFromScratch)
+        mPhProj.DPBlockInstr().SetAllowDirInEmpty();
+
     mPhProj.DPBlockInstr().SetDirOutInIfNotInit();
+
     mPhProj.FinishInit();
+
 
     cIrbCal_Block *  aBlock =    mFromScratch                           ?
                                  new cIrbCal_Block                      :
@@ -136,10 +144,10 @@ int cAppli_EditBlockInstr::Exe()
         }
     }
 
-    if (IsInit(&mNumMaster))
+    if (IsInit(&mNumMaster) || mFromScratch)
         aBlock->SetCams().SetNumMaster(mNumMaster);
 
-    if (IsInit(&mNumPoseInstr))
+    if (IsInit(&mNumPoseInstr) || mFromScratch)
        aBlock->SetCams().SetNumPoseInstr(mNumPoseInstr);
 
 

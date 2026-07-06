@@ -708,7 +708,7 @@ cCollecSpecArg2007 & cAppli_CalibratedSpaceResection::ArgObl(cCollecSpecArg2007 
               << Arg2007(mSpecImIn,"Pattern/file for images",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
               <<  mPhProj.DPGndPt3D().ArgDirInMand()
               <<  mPhProj.DPGndPt2D().ArgDirInMand()
-              <<  mPhProj.DPOrient().ArgDirInMand()
+              <<  mPhProj.DPOrient().ArgDirInMand("Input calibration")
               <<  mPhProj.DPOrient().ArgDirOutMand()
            ;
 }

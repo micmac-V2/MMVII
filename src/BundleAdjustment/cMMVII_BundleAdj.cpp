@@ -122,6 +122,9 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
 
 cMMVII_BundleAdj::~cMMVII_BundleAdj()
 {
+
+    ShowLVMFrozenVar();
+
     mSetIntervUK.SIUK_Reset();
     delete mSys;
     // delete mMesGCP;
@@ -136,6 +139,47 @@ cMMVII_BundleAdj::~cMMVII_BundleAdj()
 
     DeleteLineAdjust();
     DeleteBlockInstr();
+}
+
+void cMMVII_BundleAdj::ShowLVMFrozenVar()
+{
+    // surprinsinglyy cMMVII_BundleAdj can be constructed but not used in some appli,
+    // this make fail the GenArgSpec
+    if (mSys==nullptr)    return;
+
+    if (mSys->NbLVMFrozen() ==0) return;
+
+    StdOut() << " ------------  VAR W/O OBSERVATION FROZEN IN LVM -------------\n";
+    size_t aIndV0 = 0;
+
+    // Process parameters
+    std::string aPatType = GetDef(mParam_UC_UK,0,std::string(".*"));  // Type selection, def=all
+    std::string aPatName = GetDef(mParam_UC_UK,1,std::string(".*"));  // NameGroup selection, def=all
+    std::string aPatVar =  GetDef(mParam_UC_UK,2,std::string(".*"));  // NameVar selection, def=all
+    mCompute_Uncert = cStrIO<bool>::FromStr(GetDef(mParam_UC_UK,3,std::string("1")));  // Compute Uncert, def=true
+
+    for (size_t aKObj=0 ; aKObj<  mSetIntervUK.NumberObject() ; aKObj++)
+    {
+        cObjWithUnkowns<tREAL8> & anObj = mSetIntervUK.KthObj(aKObj);
+        cGetAdrInfoParam<tREAL8> aGIP (".*",anObj,false); // extract information
+        size_t aNbVLoc = aGIP.VNames().size();
+
+        for (size_t aKLoc=0 ; aKLoc< aNbVLoc ; aKLoc++)
+        {
+            size_t aKSys =  aKLoc +aIndV0;
+            if (mSys->LVMFrozenUsed(aKSys))
+            {
+                 StdOut()  << "   * "
+                           <<  " K="<< aKSys
+                            <<  " Type=" << aGIP.NameType()
+                             << " IdO="  << aGIP.IdObj()
+                             << " Var="  <<  aGIP.VNames().at(aKLoc)
+                           << "\n";
+            }
+
+        }
+        aIndV0 += aNbVLoc;
+    }
 }
 
 void cMMVII_BundleAdj::ShowUKNames(const std::vector<std::string> & aParam, const std::string &aSuffix, cMMVII_Appli * anAppli)
@@ -814,13 +858,13 @@ void cMMVII_BundleAdj::SetGaujeRelPause(const std::vector<std::string> & aVNames
         }
     }
 
-    MMVII_INTERNAL_ASSERT_always(aWMaxInd.IsInit(),"Cannot compute relative gauje");
+    MMVII_INTERNAL_ASSERT_always(aWMaxInd.IsInit(),"Cannot compute relative gauge");
 
     cPt3di aIndMax = aWMaxInd.IndexExtre();
 
     if (1)
     {
-        StdOut() << "GAUJE SET "
+        StdOut() << "GAUGE SET "
                  << " Im1=" << mVSCPC.at(aIndMax.x())->NameImage()
                  << " Im2=" << mVSCPC.at(aIndMax.y())->NameImage()
                  << " Coord=" << aVCoord.at(aIndMax.z())

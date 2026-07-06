@@ -50,6 +50,13 @@ cMMVII_Warning::~cMMVII_Warning()
 {
     if (mCpt==0) return;
 
+    static bool First=true;
+    if (First)
+    {
+        std::cout << "\n";
+        std::cout << " -------------- THERE WERE WARNINGS -----------  : \n\n";
+        First=false;
+    }
     // At this step StdOut() may have be destroyed
     if (cMMVII_Appli::WithWarnings())
     {

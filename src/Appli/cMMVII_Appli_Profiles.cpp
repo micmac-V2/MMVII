@@ -28,6 +28,7 @@ void AddData(const cAuxAr2007 & anAux,cParamProfile & aProfile)
      AddData(cAuxAr2007("NbProcMax",anAux),aProfile.mNbProcMax);
      EnumAddData(anAux,aProfile.mTaggedDefSerial,"TaggedSerialMode");
      EnumAddData(anAux,aProfile.mVectDefSerial,"VectSerialMode");
+     AddOptData(anAux,"PdfOpen",aProfile.mProgPdfOpen);
 }
 
 
@@ -182,6 +183,7 @@ class cAppli_EditProfile : public cMMVII_Appli
 
          bool            mSetUser;
          cParamProfile   mModifParam;
+         std::string     mPdfOpen;
 };
 
 cAppli_EditProfile::cAppli_EditProfile(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
@@ -203,14 +205,21 @@ cCollecSpecArg2007 & cAppli_EditProfile::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
    return
       anArgOpt
-        << AOpt2007(mSetUser,"SetUser","Set this user as the current user of MMVII")
+           << AOpt2007(mSetUser,"SetUser","Set this user as the current user of MMVII",{eTA2007::HDV})
         << AOpt2007(mModifParam.mNbProcMax,"DefNbProc","Default number of processor")
         << AOpt2007(mModifParam.mTaggedDefSerial,"ModeSerial","Mode for serialization")
+        << AOpt2007(mPdfOpen,"PdfOpen","Programm for opening pdf file in help mode")
+
     ;
 }
 
 int cAppli_EditProfile::Exe()
 {
+    if (mModifParam.mUserName==MMVII_NONE)
+    {
+        StdOut() << "Current user name is " << UserName() << "\n";
+       return EXIT_SUCCESS;
+    }
     cParamProfile aParam;
 
     std::string aDirParam = mDirLocalParameters + mModifParam.mUserName ;
@@ -230,7 +239,12 @@ int cAppli_EditProfile::Exe()
         aParam.mNbProcMax = mModifParam.mNbProcMax;
     if (IsInit(&mModifParam.mTaggedDefSerial))
         aParam.mTaggedDefSerial = mModifParam.mTaggedDefSerial;
-
+    if (IsInit(& mPdfOpen))
+    {
+        aParam.mProgPdfOpen = mPdfOpen;
+        if (mPdfOpen==MMVII_NONE)
+             aParam.mProgPdfOpen.reset();
+    }
     SaveInFile(aParam,aFileParam);
 
     if (mSetUser)

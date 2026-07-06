@@ -81,6 +81,7 @@ class cAppliBundlAdj : public cMMVII_Appli
         std::string               mGCPFilterAdd;  // pattern to filter GCP by additional info
         std::vector<std::string>  mTiePWeight;
         std::vector<std::vector<std::string>>  mAddTieP; // In case there is multiple GCP Set
+        std::vector<int>          mTiepShowPerMil;
         std::vector<double>       mBRSigma; // RIGIDBLOC
         std::vector<double>       mBRSigma_Rat; // RIGIDBLOC
         std::vector<std::string>  mParamRefOri;  // Force Poses to be +- equals to this reference
@@ -118,6 +119,7 @@ cAppliBundlAdj::cAppliBundlAdj(const std::vector<std::string> & aVArgs,const cSp
    mBA                (&mPhProj),
    mGCPFilter         (""),
    mGCPFilterAdd      (""),
+   mTiepShowPerMil    {500,750},
    mNbIter            (10),
    mLVM               (0.0),
    mMeasureAdded      (false),
@@ -164,6 +166,9 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << mPhProj.DPMulTieP().ArgDirInOpt("TPDir","Dir for Tie Points if != DataDir")
       << AOpt2007(mTiePWeight,"TiePWeight","Tie point weighting [Sig0,SigAtt?=-1,Thrs?=-1,Exp?=1]",{{eTA2007::ISizeV,"[1,4]"}})
       << AOpt2007(mAddTieP,"AddTieP","For additional TieP, [[Folder,SigG...],[Folder,...]] ")
+      << AOpt2007(mTiepShowPerMil,"TiePShowPerMil","Per/1000 for printing residual, for ex [500] -> show median ",{eTA2007::HDV})
+
+
            << "Lidar"
       << AOpt2007(mParamLidarPhgr,"LidarPhotogra","Paramaters for Lidar/Phgr adj via triangulation [[Mode,Ply,Sigma,Interp?,Perturbate?,NbPtsPerPatch=32]*]")
       << AOpt2007(mParamLidarPhoto,"LidarPhoto","Paramaters for Lidar/Phgr adj via rasterisation [[Mode,PatScan,Sigma,Interp?,ScaleInit?=1,ScaleFinal?=1,Thrs?=-1,NbPtsPerPatch?=49]*]")
@@ -175,7 +180,7 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mPatFrosenOrient,"PatFzOrient","Pattern of images for freezing orientation of poses")
       << AOpt2007(mPatFrosenClino,"PatFzClino","Pattern of clinometers for freezing boresight")
       << AOpt2007(mPatFrozenTSL,"PatFzTSL","Pattern of static lidar for freezing pose")
-      << AOpt2007(mParamGaujeRel,"GaujeRel","Param for gauje in pure relative [MainIm?,SecIm?,Coord in x,y,z?]",{{eTA2007::ISizeV,"[0,3]"}})
+      << AOpt2007(mParamGaujeRel,"FixGauge","Param for gauge in pure relative [MainIm?,SecIm?,Coord in x,y,z?]",{{eTA2007::ISizeV,"[0,3]"}})
 
 
 
@@ -384,24 +389,21 @@ int cAppliBundlAdj::Exe()
         AppendIn(aVParamTieP,mTiePWeight);
         AddOneSetTieP(aVParamTieP);
     }
+
+    mBA.SetTiePShowPerMil(mTiepShowPerMil);
     // Add  the potential suplementary TieP
     for (const auto& aTieP : mAddTieP)
         AddOneSetTieP(aTieP);
 
     bool hasGauje = IsInit(&mParamGaujeRel);
-    if ((!hasConstrOriPC) && (!hasGauje) && (mBA.NbCamPC()!=0))
+    bool forceNoGauje =   (!mParamGaujeRel.empty()) && (mParamGaujeRel.at(0)==MMVII_NONE);
+    if ((!hasConstrOriPC) && (!hasGauje) && (mBA.NbCamPC()!=0) && (!forceNoGauje))
     {
-        if ( (!mParamGaujeRel.empty()) && (mParamGaujeRel.at(0)==MMVII_NONE))
-        {
-        }
-        else
-        {
-            MMVII_USER_TYPED_WARNING(eTyUEr::eForceGauje,"Gauje in relative pause not specified, added by system");
+            MMVII_USER_TYPED_WARNING(eTyUEr::eForceGauge,"Gauge in pure relative pause not specified, added by system");
            hasGauje = true;
-        }
     }
 
-    if (hasGauje)
+    if (hasGauje && (!forceNoGauje))
     {
         mBA.SetGaujeRelPause(mParamGaujeRel);
     }
