@@ -386,6 +386,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                << mPhProj.DPOrient().ArgDirInOpt("OriAug","Absolute orientation -> mandatory if using network augmentation")
                << AOpt2007(mShow,"Show","Show useful details", {eTA2007::HDV})
                << AOpt2007(mVisu,"Visu","Save visualisation of results", {eTA2007::HDV})
+               << AOpt2007(mMaskDil,"MaskDil","Dilate Ref image to filter inliers", {eTA2007::HDV})
             ;
     }
 
@@ -396,7 +397,8 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         mVAugCdT         ({}),
         mIm             (cPt2di(1,1)),
         mDIm            (nullptr),
-        mL1Lim          (20)
+        mL1Lim          (20),
+        mMaskDil        (0)
     {
         //
     }
@@ -575,7 +577,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         //tIm aInCBMask = aDis.MaskInCB(true);
         //aDis.SetInlMask(aInCBMask);
 
-        tIm aInCtMask = aDis.MaskInCt(50);
+        tIm aInCtMask = aDis.MaskInCt(mMaskDil);
         aDis.SetInlMask(aInCtMask);
 
         //----- least square computation of Samp to Crop 10-params mapping
