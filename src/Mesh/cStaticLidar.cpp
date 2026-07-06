@@ -1397,6 +1397,8 @@ void cStaticLidar::FilterDistance(tREAL8 aDistMin, tREAL8 aDistMax)
 
 void cStaticLidar::MaskBuffer(const cStaticLidarImporter &aSL_importer, tREAL8 aAngBuffer, const std::string &aPhProjDirOut)
 {
+    if (aAngBuffer==0)
+        return;
     StdOut() << "Computing Mask buffer..."<<std::endl;
     MMVII_INTERNAL_ASSERT_tiny(mRasterMask, "Error: mRasterMask must be computed first");
     auto & aMaskImData = mRasterMask->DIm();
@@ -1424,9 +1426,8 @@ void cStaticLidar::MaskBuffer(const cStaticLidarImporter &aSL_importer, tREAL8 a
                 {
                     if ((il<0) || (il>=aSL_importer.NbLine())) continue;
                     if (aLinesFull[il]) continue;
-                    //tREAL8 phi = lToPhiApprox(il, aSL_importer.PhiStart(), aSL_importer.PhiStep());
-                    tREAL8 phi = InternalCalib()->DirBundle({0.,(double)l}).y();
-                    tREAL8 w = fabs(sqrt(aRadPx*aRadPx - (il-l)*(il-l))/cos(phi));
+                    //tREAL8 phi = InternalCalib()->DirBundle({0.,(double)l}).y();
+                    tREAL8 w = fabs(sqrt(aRadPx*aRadPx - (il-l)*(il-l)) ); // is  /cos(phi)); useful?
                     if (w>aSL_importer.NbCol())
                     {
                         w=aSL_importer.NbCol();
