@@ -799,4 +799,22 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         return aRes + ".tif";
     }
 
+/******************************************************************************/
+/*
+* cBBox
+*/
+/******************************************************************************/
+
+    template <class Type>
+    cBBox<Type>::cBBox(std::vector<tPt> aVPts)
+    {
+        cBoundVals<Type> aXB;
+        cBoundVals<Type> aYB;
+        for (const auto& aP : aVPts)
+        {
+            aXB.Add(aP.x());
+            aYB.Add(aP.y());
+        }
+        cPixBox(tPt(aXB.VMin(), aYB.VMin()), tPt(aXB.VMax(), aYB.VMax()));
+    }
 }

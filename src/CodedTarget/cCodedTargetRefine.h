@@ -52,18 +52,26 @@ namespace MMVII
     tRect2          BBox(std::vector<cPt2dr> aVPts, int aMin=0, int aMax=100000);//-> computes bounding box from a point vector
     std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1);//-> gets corners of a rectangle formed by aP0/aP1
 
+
+    template <class Type> class cBBox : public cPixBox<2>
+    {
+    public:
+        typedef cPtxd<Type,2> tPt;
+        cBBox(std::vector<tPt> aVPts);
+        cBBox(cTplBox<Type,2>);
+    };
+
     template <class Type> class cOptCorrelThIm : public cDataMapping<tREAL8, 2, 1>
     {
     public:
         typedef  cDataIm2D<Type> tDIm;
-        cOptCorrelThIm(tDIm& aTheorIm, tDIm& aGlobIm, tDIm& aMaskCorrel, std::vector<cPt2dr> aVCorners);
+        cOptCorrelThIm(tDIm& aTheorIm, tDIm& aGlobIm, cDataIm2D<tU_INT1>& aMaskCorrel, cBBox<tREAL8>& aBBox);
         cPt1dr Value(const cPt2dr& aPt) const override;//-> correl score from aPt position
     private:
-        tDIm& mThIm;//-> theoretical image of the CdT generated from detected deformation
-        tDIm& mGIm;//-> global image
+        tDIm& mThDIm;//-> theoretical image of the CdT generated from detected deformation
+        tDIm& mGDIm;//-> global image
         tDIm& mMask;//-> mask for correlation computation
-        std::vector<cPt2dr>& mVCs;//-> predicted corners of the CdT wrt global image
-        tRect2 mBBox;//-> CdT bbox wrt global image
+        cBBox<tREAL8> mBBox;//-> bbox of predicted cdt wrt global image
         cPt2dr mC0;//-> previous centre to compute bbox translation
     };
 
