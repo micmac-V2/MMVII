@@ -1434,7 +1434,11 @@ void cMMVII_Appli::GenerateHelp()
        if (aPdfOpen.has_value() && (mPatHelp=="pdf"))
        {
            std::string aCmd = aPdfOpen.value() + std::string(" ")  + aPdfFile;
-           system(aCmd.c_str());
+           int aResult = system(aCmd.c_str());
+           if (aResult!= EXIT_SUCCESS)
+           {
+               StdOut() << "Can't run command : " << aCmd << "\n";
+           }
        }
    }
 }
