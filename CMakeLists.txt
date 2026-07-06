@@ -97,6 +97,24 @@ if(CCACHE_FOUND)
   set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
 endif(CCACHE_FOUND)
 
+# try faster linkers (lld, gold) if available
+if (UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    include(CheckLinkerFlag)
+
+    check_linker_flag(CXX "-fuse-ld=lld"  HAS_LLD)
+    check_linker_flag(CXX "-fuse-ld=gold" HAS_GOLD)
+
+    if (HAS_LLD)
+        message(STATUS "Using lld linker")
+        add_link_options(-fuse-ld=lld)
+    elseif(HAS_GOLD)
+        message(STATUS "Using gold linker")
+        add_link_options(-fuse-ld=gold)
+    else()
+        message(STATUS "Using default linker")
+    endif()
+endif()
+
 # compilers specific options : warnings, MSVC specific defines
 set(gcc_like_cxx "$<COMPILE_LANG_AND_ID:CXX,ARMClang,AppleClang,Clang,GNU,LCC>")
 set(msvc_cxx "$<COMPILE_LANG_AND_ID:CXX,MSVC>")
@@ -150,24 +168,30 @@ file(GLOB mmv2_headers "${mmv2_include_dir}/*.h" "${mmv2_include_dir}/*/*.h" "${
 #######################################################
 ##        libP2007 buid (MMVII library)
 #######################################################
-add_library(P2007 "${mmv2_libsrcs}" "${mmv2_headers}")
-target_include_directories(P2007 PRIVATE "${mmv2_include_dir};${mmv1_include_dir};${EIGEN3_INCLUDE_PATH};${PROJ_INCLUDE_DIRS};${GDAL_INCLUDE_DIRS}")
-target_link_libraries(P2007 PRIVATE MMVII_compiler_flags Threads::Threads ${PROJ_LIBRARIES} ${GDAL_LIBRARIES})
+add_library(P2007_object OBJECT "${mmv2_libsrcs}" "${mmv2_headers}")
 
-target_link_libraries(P2007 PRIVATE E57Format)
-add_dependencies(P2007 E57Format)
+target_include_directories(P2007_object PUBLIC "${mmv2_include_dir};${mmv1_include_dir};${EIGEN3_INCLUDE_PATH};${PROJ_INCLUDE_DIRS};${GDAL_INCLUDE_DIRS}")
+target_link_libraries(P2007_object PUBLIC MMVII_compiler_flags Threads::Threads ${PROJ_LIBRARIES} ${GDAL_LIBRARIES})
+
+target_link_libraries(P2007_object PUBLIC E57Format)
+add_dependencies(P2007_object E57Format)
+
+# Optional archive target: built only if explicitly requested
+add_library(P2007 STATIC EXCLUDE_FROM_ALL $<TARGET_OBJECTS:P2007_object>)
+target_link_libraries(P2007 PUBLIC MMVII_compiler_flags Threads::Threads ${PROJ_LIBRARIES} ${GDAL_LIBRARIES} E57Format)
 
 # Force parallel compilation with MSVC
 if(MSVC)
- target_compile_options(P2007 PRIVATE "/MP")
+    target_compile_options(P2007_object PUBLIC "/MP")
 endif()
 
 if (MMVII_KEEP_LIBRARY_MMV1)
-  target_compile_definitions(P2007 PUBLIC MMVII_KEEP_LIBRARY_MMV1=true MMVII_KEEP_MMV1_IMAGE)
+    target_compile_definitions(P2007_object PUBLIC MMVII_KEEP_LIBRARY_MMV1=true MMVII_KEEP_MMV1_IMAGE)
+    target_compile_definitions(P2007 PUBLIC MMVII_KEEP_LIBRARY_MMV1=true MMVII_KEEP_MMV1_IMAGE)
 else()
-  target_compile_definitions(P2007 PUBLIC MMVII_KEEP_LIBRARY_MMV1=false)
+    target_compile_definitions(P2007_object PUBLIC MMVII_KEEP_LIBRARY_MMV1=false)
+    target_compile_definitions(P2007 PUBLIC MMVII_KEEP_LIBRARY_MMV1=false)
 endif()
-
 
 #######################################################
 ##        MMVII build (executable)
@@ -188,7 +212,7 @@ target_link_options(MMVII PRIVATE
 )
 
 target_include_directories(MMVII PRIVATE "${MMVII_SOURCE_DIR}/include"  )
-target_link_libraries(MMVII PRIVATE MMVII_compiler_flags Threads::Threads P2007 ${mmv1_libs} ${mmv2_extlibs})
+target_link_libraries(MMVII PRIVATE MMVII_compiler_flags Threads::Threads P2007_object ${mmv1_libs} ${mmv2_extlibs})
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION  VERSION_LESS "9.1")
   target_link_libraries(MMVII PRIVATE -lstdc++fs)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION  VERSION_LESS "9.0")
@@ -197,7 +221,8 @@ endif()
 
 if(OpenMP_CXX_FOUND)
     target_link_libraries(MMVII PRIVATE OpenMP::OpenMP_CXX)
-    target_link_libraries(P2007 PRIVATE OpenMP::OpenMP_CXX)
+    target_link_libraries(P2007_object PUBLIC OpenMP::OpenMP_CXX)
+	target_link_libraries(P2007 PUBLIC OpenMP::OpenMP_CXX)
 endif()
 
 #######################################################
@@ -257,7 +282,16 @@ add_custom_target(full
   COMMAND ${make_parallel_prefix} ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --config $<CONFIG>
   COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/MMVII GenCodeSymDer
   COMMAND ${make_parallel_prefix} ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --config $<CONFIG>
-  VERBATIM USES_TERMINAL)
+  VERBATIM USES_TERMINAL
+)
+
+## full_P2007 : full + build libP2007.a
+add_custom_target(full_P2007
+  COMMAND ${make_parallel_prefix} ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --config $<CONFIG> --target full
+  COMMAND ${make_parallel_prefix} ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --config $<CONFIG> --target P2007
+  VERBATIM USES_TERMINAL
+)
+
 
 ## rebuild : distclean + full
 add_custom_target(rebuild
@@ -265,5 +299,6 @@ add_custom_target(rebuild
   COMMAND ${make_parallel_prefix} ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --config $<CONFIG>
   COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/MMVII GenCodeSymDer
   COMMAND ${make_parallel_prefix} ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --config $<CONFIG>
-  VERBATIM USES_TERMINAL)
+  VERBATIM USES_TERMINAL
+)
 

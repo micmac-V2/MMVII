@@ -49,7 +49,7 @@ jobs:
         CC: clang-18
 
     - name: Build MMVII
-      run: cmake --build build -j 4 --target full -- -k
+      run: cmake --build build -j 4 --target full_P2007 -- -k
 
     - name: Run MMVII Tests
       working-directory: ./bin
