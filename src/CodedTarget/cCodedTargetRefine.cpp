@@ -786,6 +786,31 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
     {
     }
 
+/******************************************************************************/
+/*
+* cAppli_CodedTargetRefine
+*/
+/******************************************************************************/
+
+
+    template <class Type>
+    cOptCorrelThIm<Type>::cOptCorrelThIm(tDIm& aTheorIm, tDIm& aGlobIm, cDataIm2D<tU_INT1> &aMaskCorrel, cBBox<tREAL8>& aBBox):
+        mThDIm (aTheorIm),
+        mGDIm (aGlobIm),
+        mMask (aMaskCorrel),
+        mBBox (aBBox)
+    {
+        mC0 = ToR(mBBox.Middle());
+    }
+
+    template <class Type>
+    const cPt1dr cOptCorrelThIm<Type>::Value(const cPt2dr& aNewC0) const
+    {
+        tRect2 aNewBox = mBBox.Translate(ToI(mC0 - aNewC0));
+        tIm aCrop(mBBox.Sz());
+        aCrop.DIm().CropIn(aNewBox.P0ByRef(), mGDIm());
+        //correl (aCrop, aThDIm, aMask)
+    }
 
     std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1)
     {
