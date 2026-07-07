@@ -47,7 +47,7 @@ namespace MMVII
         void        DiscrMapRefine(cCdTDiscr& aDis);                //-> cCdTDiscr CdT2Im mapping refiner
         void        Visu(cSetMesPtOf1Im& aSet);
         std::string NameVisu(const std::string & aIm, const std::string & aPref, const std::string aPost);
-    };
+        };
 
     tRect2          BBox(std::vector<cPt2dr> aVPts, int aMin=0, int aMax=100000);//-> computes bounding box from a point vector
     std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1);//-> gets corners of a rectangle formed by aP0/aP1
@@ -65,15 +65,17 @@ namespace MMVII
     {
     public:
         typedef  cDataIm2D<Type> tDIm;
-        cOptCorrelThIm(tDIm& aTheorIm, tDIm& aGlobIm, cDataIm2D<tU_INT1>& aMaskCorrel, cBBox<tREAL8>& aBBox);
+        cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1>& aMaskDIm, cBBox<tREAL8>& aBBox);
         cPt1dr Value(const cPt2dr& aPt) const override;//-> correl score from aPt position
     private:
         tDIm& mThDIm;//-> theoretical image of the CdT generated from detected deformation
         tDIm& mGDIm;//-> global image
-        tDIm& mMask;//-> mask for correlation computation
+        tDIm& mDMask;//-> mask for correlation computation
         cBBox<tREAL8> mBBox;//-> bbox of predicted cdt wrt global image
         cPt2dr mC0;//-> previous centre to compute bbox translation
     };
+
+
 
     //cAff2D_r            Descr2Aff(const cCdTDescr& aDes, cSensorCamPC* aCam);//-> converts description to 2d affinity
 }

@@ -794,22 +794,30 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 
 
     template <class Type>
-    cOptCorrelThIm<Type>::cOptCorrelThIm(tDIm& aTheorIm, tDIm& aGlobIm, cDataIm2D<tU_INT1> &aMaskCorrel, cBBox<tREAL8>& aBBox):
-        mThDIm (aTheorIm),
-        mGDIm (aGlobIm),
-        mMask (aMaskCorrel),
+    cOptCorrelThIm<Type>::cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1> &aMaskDIm, cBBox<tREAL8>& aBBox):
+        mThDIm (aTheorDIm),
+        mGDIm (aGlobDIm),
+        mDMask (aMaskDIm),
         mBBox (aBBox)
     {
         mC0 = ToR(mBBox.Middle());
     }
 
     template <class Type>
-    const cPt1dr cOptCorrelThIm<Type>::Value(const cPt2dr& aNewC0) const
+    cPt1dr cOptCorrelThIm<Type>::Value(const cPt2dr& aNewC0) const
     {
-        tRect2 aNewBox = mBBox.Translate(ToI(mC0 - aNewC0));
+        tRect2 aNewBox = mBBox.Translate(ToI(mC0 - aNewC0));//-> translate from new center
         tIm aCrop(mBBox.Sz());
-        aCrop.DIm().CropIn(aNewBox.P0ByRef(), mGDIm());
-        //correl (aCrop, aThDIm, aMask)
+        tDIm& aDCrop = aCrop.DIm();
+        aDCrop->CropIn(aNewBox.P0ByRef(), mGDIm());//-> crop of glob image from new bbox
+
+        cMatIner2Var<double>  aMat;//-> class to compute correl of 2 variables
+        for (const auto& aP : tRect2(mBBox.Sz()))
+        {
+            if (mDMask.GetV(aP) == MaskInV) continue;//-> reject pixels that are in the mask
+            aMat.Add(aDCrop.GetV(aP), mThDIm.GetV(aP));
+        }
+        return cPt1dr(aMat.Correl());//-> similarity score for the new center
     }
 
     std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1)
