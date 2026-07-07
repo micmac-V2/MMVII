@@ -1762,7 +1762,7 @@ void BenchTSL(cParamExeBench & aParam)
     auto & pp = aScan->InternalCalib()->PP();
     cPt2di ppInt = cPt2di(round(pp.x()), round(pp.y()));
     auto & sz = aScan->InternalCalib()->SzPix();
-    std::vector<cPt2di> aVectPtsTest1 = {ppInt, {0, ppInt.y()}, {sz.x()-1, ppInt.y()}, {0, 0}, {sz.x()-1, sz.y()-1}};
+    std::vector<cPt2di> aVectPtsTest1 = {ppInt, {0, ppInt.y()}, {sz.x()-2, ppInt.y()}, {0, 0}, {sz.x()-2, sz.y()-2}};
     TestRaster2Gnd2Raster(aVectPtsTest1, aScan);
 
     std::vector<cPt2dr> aVectPtsTest2;
