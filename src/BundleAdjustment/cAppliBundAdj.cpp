@@ -147,15 +147,15 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mVSharedIP,"SharedIP","Shared intrinc parmaters [Pat1Cam,Pat1Par,Pat2Cam...] ",{{eTA2007::ISizeV,"[2,20]"}})
       << AOpt2007(mPostFixReport,NameParamPostFixReport(),CommentParamPostFixReport())
       << AOpt2007(mParamLine,"AdjLine3D","Parameter for line Adjustment [Folder,SigmaIm,NbPtsSampl]",{{eTA2007::ISizeV,"[3,3]"}})
-           << "Old blocks"
-      << mPhProj.DPRigBloc().ArgDirInOpt("BRDirIn","Dir for Bloc Rigid if != DataDir") //  RIGIDBLOC
-      << mPhProj.DPRigBloc().ArgDirOutOpt() //  RIGIDBLOC
+     //      << "Old blocks"
+    //  << mPhProj.DPRigBloc().ArgDirInOpt("BRDirIn","Dir for Bloc Rigid if != DataDir") //  RIGIDBLOC
+    //  << mPhProj.DPRigBloc().ArgDirOutOpt() //  RIGIDBLOC
            << "Topo"
       << mPhProj.DPTopoMes().ArgDirInOpt("TopoDirIn","Dir for Topo measures") //  TOPO
       << mPhProj.DPTopoMes().ArgDirOutOpt("TopoDirOut","Dir for Topo measures output") //  TOPO
-           << "Clino"
-      << mPhProj.DPClinoMeters().ArgDirInOpt("ClinoDirIn","Dir for Clino if != DataDir") //  CLINOBLOC
-      << mPhProj.DPClinoMeters().ArgDirOutOpt("ClinoDirOut","Dir for Clino if != DataDir") //  CLINOBLOC
+    //       << "Clino"
+   //   << mPhProj.DPClinoMeters().ArgDirInOpt("ClinoDirIn","Dir for Clino if != DataDir") //  CLINOBLOC
+   //   << mPhProj.DPClinoMeters().ArgDirOutOpt("ClinoDirOut","Dir for Clino if != DataDir") //  CLINOBLOC
       << mPhProj.DPMeasuresClino().ArgDirInOpt()
            << "GCPs"
       << AOpt2007 ( mGCP3D, "GCP3D", "GCP ground coords and sigma factor, SG=0 fix, SG<0 schurr elim, SG>0 and optional output dir with optional compensated sigma [[Folder,SigG,FOut?,ExportSigma?=0],...]]")
@@ -405,13 +405,14 @@ int cAppliBundlAdj::Exe()
     {
         mBA.SetGaugeRelPause(mParamGaugeRel);
     }
-
+#if (MAINTAIN_OLD_BLOCK)
     if (IsInit(&mBRSigma)) // RIGIDBLOC
     {
         mBA.AddBlocRig(mBRSigma,mBRSigma_Rat);
         for (const auto &  aNameIm : VectMainSet(0))
             mBA.AddCamBlocRig(aNameIm);
     }
+#endif
 
     if (IsInit(&mParamLine))
     {
@@ -428,10 +429,13 @@ int cAppliBundlAdj::Exe()
        mBA.AddClinoBlokcInstr(mParamBOIClino);
     }
     
+#if (MAINTAIN_OLD_BLOCK)
+
     if (mPhProj.DPClinoMeters().DirInIsInit())
     {
         mBA.AddClinoBloc();
     }
+#endif
 
     if (IsInit(&mPatFrosenClino))
     {
@@ -481,7 +485,7 @@ int cAppliBundlAdj::Exe()
 
     mPhProj.CpSysCoIn2Out(true,true);
 
-    mBA.SaveBlocRigid();  // RIGIDBLOC
+   //  mBA.SaveBlocRigid();  // RIGIDBLOC MAINTAIN_OLD_BLOCK
     mBA.Save_newGCP3D();
     mBA.SaveTopo(); // just for debug for now
     mBA.SaveClino();

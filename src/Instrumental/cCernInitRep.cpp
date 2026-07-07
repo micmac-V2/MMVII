@@ -13,6 +13,11 @@
 
 namespace MMVII
 {
+
+/**  Code of MAINTAIN_OLD_BLOCK that is currently maintained
+ *   because it's poissible part of it will be re used.
+ */
+
 #if (MAINTAIN_OLD_BLOCK)
 
 class cResultWireD
@@ -446,15 +451,11 @@ int cAppli_CernInitRep::Exe()
 /*                                                      */
 /* ==================================================== */
 
-#endif
 
 
 tMMVII_UnikPApli Alloc_CernInitRep(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
 {
-    MMVII_INTERNAL_ERROR("Alloc_CernInitRep ");
-
-   return tMMVII_UnikPApli (nullptr);
-//   return tMMVII_UnikPApli(new cAppli_CernInitRep(aVArgs,aSpec));
+    return tMMVII_UnikPApli(new cAppli_CernInitRep(aVArgs,aSpec));
 }
 
 cSpecMMVII_Appli  TheSpec_CernInitRep
@@ -467,6 +468,7 @@ cSpecMMVII_Appli  TheSpec_CernInitRep
       {eApDT::Xml},
       __FILE__
 );
+#endif
 
 }; // MMVII
 

@@ -153,7 +153,6 @@ int cAppli_ClinoReport::Exe()
 /*                                                      */
 /* ==================================================== */
 
-#endif // (MAINTAIN_OLD_BLOCK)
 
 tMMVII_UnikPApli Alloc_ClinoReport(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
 {
@@ -174,6 +173,7 @@ cSpecMMVII_Appli  TheSpec_ClinoReport
       {eApDT::Xml},
       __FILE__
 );
+#endif // (MAINTAIN_OLD_BLOCK)
 
 }; // MMVII
 

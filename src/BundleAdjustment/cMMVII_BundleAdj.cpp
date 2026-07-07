@@ -93,8 +93,8 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     mPatFrozenClinos (""),
     //mMesGCP           (nullptr),
     //mSigmaGCP         (-1),
-    mBlRig            (nullptr),
 #if(MAINTAIN_OLD_BLOCK)
+    mBlRig            (nullptr),
     mBlClino            (nullptr),
 #endif
     mTopo             (nullptr),
@@ -131,7 +131,9 @@ cMMVII_BundleAdj::~cMMVII_BundleAdj()
     delete mSys;
     // delete mMesGCP;
     DeleteAllAndClear(mVTieP);
+#if(MAINTAIN_OLD_BLOCK)
     delete mBlRig;
+#endif
     delete mTopo;
 #if(MAINTAIN_OLD_BLOCK)
     delete mBlClino;
@@ -468,12 +470,12 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     {
         mBlClino->SetFrozenVar(*mR8_Sys, mPatFrozenClinos);
     }
-#endif
 
     if (mBlRig) // RIGIDBLOC
     {
         mBlRig->SetFrozenVar(*mR8_Sys);
     }
+#endif
 
     if (mTopo) // TOPO
     {
@@ -498,7 +500,10 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
 
     OneItere_GCP();   // add GCP informations
     OneItere_TieP();  // ad tie-points information
+
+
                       //
+#if(MAINTAIN_OLD_BLOCK)
 
     if (mBlRig)
     {
@@ -506,7 +511,6 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     }
     // StdOut() << "SYS=" << mR8_Sys->GetNbObs() << " " <<  mR8_Sys->NbVar() << std::endl;
 
-#if(MAINTAIN_OLD_BLOCK)
     if (mBlClino)
     {
         mBlClino->addEquations(*mR8_Sys);
@@ -968,6 +972,7 @@ void cMMVII_BundleAdj::AddConstrainteRefPose(cSensorCamPC & aCam,cSensorCamPC & 
     /*            Rigid Bloc                    */
     /* ---------------------------------------- */
 
+#if (MAINTAIN_OLD_BLOCK)
 void cMMVII_BundleAdj::AddBlocRig(const std::vector<double>& aSigma,const std::vector<double>& aSigmaRat)  // RIGIDBLOC
 {
     AssertPhpAndPhaseAdd();
@@ -990,24 +995,22 @@ void cMMVII_BundleAdj::SaveBlocRigid()
        mBlRig->Save();
     }
 }
-
+#endif
 
 
     /* ---------------------------------------- */
     /*            Clino Bloc                    */
     /* ---------------------------------------- */
+#if(MAINTAIN_OLD_BLOCK)
 
 void cMMVII_BundleAdj::AddClinoBloc()
 {
     AssertPhpAndPhaseAdd();
-#if(MAINTAIN_OLD_BLOCK)
 
     mBlClino = new cBA_Clino(mPhProj);
 
     mBlClino->AddToSys(mSetIntervUK);
-#endif
 }
-#if(MAINTAIN_OLD_BLOCK)
 
 void cMMVII_BundleAdj::AddClinoBloc(cBA_Clino * aBAClino){
 

@@ -808,7 +808,6 @@ ShowDetails = false;
 /*                                                      */
 /* ==================================================== */
 
-#endif  // MAINTAIN_OLD_BLOCK
 
 
 tMMVII_UnikPApli Alloc_ClinoInit(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
@@ -834,6 +833,7 @@ cSpecMMVII_Appli  TheSpec_ClinoInit
 /*
 */
 
+#endif  // MAINTAIN_OLD_BLOCK
 
 
 

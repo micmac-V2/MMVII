@@ -7,6 +7,8 @@
 #include "MMVII_Tpl_Images.h"
 #include "MMVII_2Include_Serial_Tpl.h"
 
+
+#if (MAINTAIN_OLD_BLOCK)
 //  RIGIDBLOC
 
 
@@ -829,4 +831,4 @@ cSpecMMVII_Appli  TheSpec_BlockCamInit
 
 
 }; // MMVII
-
+#endif

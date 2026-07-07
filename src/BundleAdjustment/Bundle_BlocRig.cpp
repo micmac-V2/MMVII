@@ -1,6 +1,8 @@
 #include "BundleAdjustment.h"
 #include "MMVII_BlocRig.h"
 
+
+#if (MAINTAIN_OLD_BLOCK)
 namespace MMVII
 {
 
@@ -261,4 +263,5 @@ void cBA_BlocRig::AddRigidityEquation(cResolSysNonLinear<tREAL8> & aSys)
 }
 
 };
+#endif // MAINTAIN_OLD_BLOCK
 

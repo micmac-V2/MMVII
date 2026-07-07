@@ -348,8 +348,8 @@ cPhotogrammetricProject::cPhotogrammetricProject(cMMVII_Appli & anAppli) :
     mDPMulTieP        (eTA2007::MulTieP,*this),
     mDPMetaData       (eTA2007::MetaData,*this),
     mDPBlockInstr     (eTA2007::InstrBlock,*this),
-    mDPRigBloc        (eTA2007::RigBlock,*this),  // RIGIDBLOC
-    mDPClinoMeters    (eTA2007::Clino,*this),
+//    mDPRigBloc        (eTA2007::RigBlock,*this),  // RIGIDBLOC
+//    mDPClinoMeters    (eTA2007::Clino,*this),
     mDPMeasuresClino  (eTA2007::MeasureClino,*this),
     mDPTopoMes        (eTA2007::Topo,*this),  // Topo
     mDPStaticLidar    (eTA2007::StaticLidar,*this),  // StaticLidar
@@ -392,8 +392,8 @@ void cPhotogrammetricProject::FinishInit()
     mDPMulTieP.Finish();
     mDPMetaData.Finish();
     mDPBlockInstr.Finish() ;
-    mDPRigBloc.Finish() ; // RIGIDBLOC
-    mDPClinoMeters.Finish() ;
+    //mDPRigBloc.Finish() ; // RIGIDBLOC
+    // mDPClinoMeters.Finish() ;
     mDPMeasuresClino.Finish() ;
     mDPTopoMes.Finish() ; // TOPO
     mDPStaticLidar.Finish() ;
@@ -462,8 +462,8 @@ cDirsPhProj &   cPhotogrammetricProject::DPMetaData() {return mDPMetaData;}
 cDirsPhProj &   cPhotogrammetricProject::DPTieP() {return mDPTieP;}
 cDirsPhProj &   cPhotogrammetricProject::DPMulTieP() {return mDPMulTieP;}
 cDirsPhProj &   cPhotogrammetricProject::DPBlockInstr() {return mDPBlockInstr;}
-cDirsPhProj &   cPhotogrammetricProject::DPRigBloc() {return mDPRigBloc;} // RIGIDBLOC
-cDirsPhProj &   cPhotogrammetricProject::DPClinoMeters() {return mDPClinoMeters;}
+//cDirsPhProj &   cPhotogrammetricProject::DPRigBloc() {return mDPRigBloc;} // RIGIDBLOC
+//cDirsPhProj &   cPhotogrammetricProject::DPClinoMeters() {return mDPClinoMeters;}
 cDirsPhProj &   cPhotogrammetricProject::DPMeasuresClino() {return mDPMeasuresClino;}
 cDirsPhProj &   cPhotogrammetricProject::DPTopoMes() {return mDPTopoMes;} // TOPO
 cDirsPhProj &   cPhotogrammetricProject::DPStaticLidar() {return mDPStaticLidar;}
@@ -482,8 +482,8 @@ const cDirsPhProj &   cPhotogrammetricProject::DPMetaData() const {return mDPMet
 const cDirsPhProj &   cPhotogrammetricProject::DPTieP() const {return mDPTieP;}
 const cDirsPhProj &   cPhotogrammetricProject::DPMulTieP() const {return mDPMulTieP;}
 const cDirsPhProj &   cPhotogrammetricProject::DPBlockInstr() const {return mDPBlockInstr;}
-const cDirsPhProj &   cPhotogrammetricProject::DPRigBloc() const {return mDPRigBloc;} // RIGIDBLOC
-const cDirsPhProj &   cPhotogrammetricProject::DPClinoMeters() const {return mDPClinoMeters;} // RIGIDBLOC
+//const cDirsPhProj &   cPhotogrammetricProject::DPRigBloc() const {return mDPRigBloc;} // RIGIDBLOC
+//const cDirsPhProj &   cPhotogrammetricProject::DPClinoMeters() const {return mDPClinoMeters;} // RIGIDBLOC
 const cDirsPhProj &   cPhotogrammetricProject::DPMeasuresClino() const {return mDPMeasuresClino;} // RIGIDBLOC
 const cDirsPhProj &   cPhotogrammetricProject::DPTopoMes() const {return mDPTopoMes;} // Topo
 
@@ -1426,8 +1426,11 @@ cSetMeasureClino  cPhotogrammetricProject::ReadMeasureClino(const std::string * 
 
         //  =============  Rigid bloc  =================
 
+
                            // RIGIDBLOC
 static const std::string PrefixRigidBloc = "RigidBloc_";
+
+#if (MAINTAIN_OLD_BLOCK)
 
 void   cPhotogrammetricProject::SaveBlocCamera(const cBlocOfCamera & aBloc) const
 {
@@ -1453,6 +1456,7 @@ cBlocOfCamera * cPhotogrammetricProject::ReadUnikBlocCam() const
     MMVII_INTERNAL_ASSERT_tiny(aListBloc.size()==1,"Number of bloc ="+ ToStr(aListBloc.size()));
     return *(aListBloc.begin());
 }
+#endif
 
 //  =============  Static Lidar  =================
 

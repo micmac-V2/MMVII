@@ -20,7 +20,7 @@ class cBA_LidarPhotogra;
 class cBA_TieP;
 class cBA_GCP;
 //class cBA_Clino;
-class cBA_BlocRig;
+//class cBA_BlocRig;
 
 class cUK_Line3D_4BA;
 class cBA_BlockInstr;
@@ -58,6 +58,8 @@ class cStdWeighterResidual : public cResidualWeighter<tREAL8>
          tREAL8   mSig2Thrs;
          tREAL8   mExpS2;
 };
+
+#if (MAINTAIN_OLD_BLOCK)
 
 // RIGIDBLOC
 class cBA_BlocRig
@@ -97,7 +99,6 @@ class cBA_BlocRig
 
 };
 
-#if (MAINTAIN_OLD_BLOCK)
 
 
 class cClinoMes1Cam : public cMemCheck
@@ -612,13 +613,13 @@ class cMMVII_BundleAdj
           void  AddCam(const std::string & aNameIm);  /// add from name, require PhP exist
           void  AddReferencePoses(const std::vector<std::string> &);  ///  [Fofder,SigmGCP,SigmaRot ?]
 
-          void AddBlocRig(const std::vector<double>& aSigma,const std::vector<double>&  aSigmRat ); // RIGIDBLOC
-          void AddCamBlocRig(const std::string & aCam); // RIGIDBLOC
+         // void AddBlocRig(const std::vector<double>& aSigma,const std::vector<double>&  aSigmRat ); // RIGIDBLOC
+         // void AddCamBlocRig(const std::string & aCam); // RIGIDBLOC
           void AddTopo(); // TOPO
           cBA_Topo* getTopo() { return mTopo;}
 
           // Add clino bloc to compute relative orientation between clino and a camera
-          void AddClinoBloc();
+          // void AddClinoBloc();
           //void AddClinoBloc(cBA_Clino * aBAClino);
 
           bool AddTopo(const std::string & aTopoFilePath); // TOPO
@@ -680,7 +681,7 @@ class cMMVII_BundleAdj
 
 
 
-          void SaveBlocRigid();
+      //    void SaveBlocRigid();
           void Save_newGCP3D();
           void SaveTopo();
 
@@ -772,7 +773,7 @@ class cMMVII_BundleAdj
           std::vector<cBA_TieP*>   mVTieP;
 
                  // - - - - - - -   Bloc Rigid - - - - - - - -
-          cBA_BlocRig*              mBlRig;  // RIGIDBLOC
+       //   cBA_BlocRig*              mBlRig;  // RIGIDBLOC
         //  cBA_Clino*              mBlClino;  // CLINOBLOC
           cBA_Topo*              mTopo;  // TOPO
 
