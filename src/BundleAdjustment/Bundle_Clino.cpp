@@ -1,4 +1,5 @@
 #include "BundleAdjustment.h"
+#if (MAINTAIN_OLD_BLOCK)
 
 namespace MMVII
 {
@@ -426,3 +427,4 @@ namespace MMVII
     }
 
 }
+#endif

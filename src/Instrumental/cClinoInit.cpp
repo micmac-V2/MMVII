@@ -6,7 +6,6 @@
 #include "MMVII_Tpl_Images.h"
 
 
-static bool ShowDetails =false;
 
 /**
    \file cClinoInit.cpp
@@ -17,6 +16,9 @@ static bool ShowDetails =false;
 
 namespace MMVII
 {
+#if (MAINTAIN_OLD_BLOCK)
+
+static bool ShowDetails =false;
 
         /*
 enum class eTyClino
@@ -807,9 +809,14 @@ ShowDetails = false;
 /* ==================================================== */
 
 
+
 tMMVII_UnikPApli Alloc_ClinoInit(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
 {
-   return tMMVII_UnikPApli(new cAppli_ClinoInit(aVArgs,aSpec));
+   MMVII_INTERNAL_ERROR("Alloc_ClinoInit ");
+
+   // return tMMVII_UnikPApli(new cAppli_ClinoInit(aVArgs,aSpec));
+
+   return tMMVII_UnikPApli(nullptr);
 }
 
 cSpecMMVII_Appli  TheSpec_ClinoInit
@@ -826,6 +833,7 @@ cSpecMMVII_Appli  TheSpec_ClinoInit
 /*
 */
 
+#endif  // MAINTAIN_OLD_BLOCK
 
 
 

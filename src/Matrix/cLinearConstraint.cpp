@@ -633,9 +633,6 @@ void BenchFrozenAndShare()
     if (verbose)
         std::cout<<"aVectSol "<<aVectSol<<std::endl;
     aSetIntervMultObj.SIUK_Reset();
-    delete eqX;
-    delete eqY;
-    delete eqZ;
 }
 
 void  BenchLinearConstr(cParamExeBench & aParam)

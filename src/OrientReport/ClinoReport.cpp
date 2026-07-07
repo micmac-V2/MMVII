@@ -14,6 +14,7 @@
 namespace MMVII
 {
 
+#if (MAINTAIN_OLD_BLOCK)
 
 /* ==================================================== */
 /*                                                      */
@@ -152,9 +153,14 @@ int cAppli_ClinoReport::Exe()
 /*                                                      */
 /* ==================================================== */
 
+
 tMMVII_UnikPApli Alloc_ClinoReport(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
 {
-   return tMMVII_UnikPApli(new cAppli_ClinoReport(aVArgs,aSpec));
+    MMVII_INTERNAL_ERROR("Alloc_ClinoReport ");
+
+   // return tMMVII_UnikPApli(new cAppli_ClinoReport(aVArgs,aSpec));
+   return tMMVII_UnikPApli(nullptr);
+
 }
 
 cSpecMMVII_Appli  TheSpec_ClinoReport
@@ -167,6 +173,7 @@ cSpecMMVII_Appli  TheSpec_ClinoReport
       {eApDT::Xml},
       __FILE__
 );
+#endif // (MAINTAIN_OLD_BLOCK)
 
 }; // MMVII
 

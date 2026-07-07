@@ -8,6 +8,7 @@
 
 namespace MMVII
 {
+#if (MAINTAIN_OLD_BLOCK)
 
     void BenchClinoFormula()
     {
@@ -439,5 +440,11 @@ namespace MMVII
         aParam.EndBench();
         return;
     }
+#else
+    void BenchClino(cParamExeBench & aParam)
+    {
+	    MMVII_INTERNAL_ASSERT_bench(false,"No moreBenchClino");
+    }
+#endif
 
 }

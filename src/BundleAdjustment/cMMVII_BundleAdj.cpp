@@ -93,8 +93,10 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     mPatFrozenClinos (""),
     //mMesGCP           (nullptr),
     //mSigmaGCP         (-1),
+#if(MAINTAIN_OLD_BLOCK)
     mBlRig            (nullptr),
     mBlClino            (nullptr),
+#endif
     mTopo             (nullptr),
     mFolderRefCam     (""),
     mSigmaTrRefCam    (-1.0),
@@ -129,9 +131,13 @@ cMMVII_BundleAdj::~cMMVII_BundleAdj()
     delete mSys;
     // delete mMesGCP;
     DeleteAllAndClear(mVTieP);
+#if(MAINTAIN_OLD_BLOCK)
     delete mBlRig;
+#endif
     delete mTopo;
+#if(MAINTAIN_OLD_BLOCK)
     delete mBlClino;
+#endif
     delete mRUCSUR;
     // DeleteAllAndClear(mGCP_UK);
     DeleteAllAndClear(mVBA_Lidar);
@@ -459,7 +465,7 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     }
     // if necessary fix hard cosntraint onf Gauge of Rigid-Block of instrument
     SetHardGaugeBlockInstr();
-
+#if(MAINTAIN_OLD_BLOCK)
     if (mPatFrozenClinos != "" && mBlClino)
     {
         mBlClino->SetFrozenVar(*mR8_Sys, mPatFrozenClinos);
@@ -469,6 +475,7 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     {
         mBlRig->SetFrozenVar(*mR8_Sys);
     }
+#endif
 
     if (mTopo) // TOPO
     {
@@ -493,7 +500,10 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
 
     OneItere_GCP();   // add GCP informations
     OneItere_TieP();  // ad tie-points information
+
+
                       //
+#if(MAINTAIN_OLD_BLOCK)
 
     if (mBlRig)
     {
@@ -509,6 +519,7 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
             mBlClino->printRes();
         }
     }
+#endif
 
     for (const auto & aLidarPh : mVBA_Lidar )
         aLidarPh->AddObs();
@@ -961,6 +972,7 @@ void cMMVII_BundleAdj::AddConstrainteRefPose(cSensorCamPC & aCam,cSensorCamPC & 
     /*            Rigid Bloc                    */
     /* ---------------------------------------- */
 
+#if (MAINTAIN_OLD_BLOCK)
 void cMMVII_BundleAdj::AddBlocRig(const std::vector<double>& aSigma,const std::vector<double>& aSigmaRat)  // RIGIDBLOC
 {
     AssertPhpAndPhaseAdd();
@@ -983,32 +995,40 @@ void cMMVII_BundleAdj::SaveBlocRigid()
        mBlRig->Save();
     }
 }
-
+#endif
 
 
     /* ---------------------------------------- */
     /*            Clino Bloc                    */
     /* ---------------------------------------- */
+#if(MAINTAIN_OLD_BLOCK)
 
 void cMMVII_BundleAdj::AddClinoBloc()
 {
     AssertPhpAndPhaseAdd();
+
     mBlClino = new cBA_Clino(mPhProj);
 
     mBlClino->AddToSys(mSetIntervUK);
 }
 
 void cMMVII_BundleAdj::AddClinoBloc(cBA_Clino * aBAClino){
+
     mBlClino = aBAClino;
     mBlClino->AddToSys(mSetIntervUK);
 }
+#endif
+
 
 void cMMVII_BundleAdj::SaveClino()
 {
+#if(MAINTAIN_OLD_BLOCK)
+
     if (mBlClino)
     {
        mBlClino->Save();
     }
+#endif
 }
 
 /* ---------------------------------------- */
