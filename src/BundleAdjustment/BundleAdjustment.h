@@ -19,7 +19,7 @@ class cBA_ArboTriplets;
 class cBA_LidarPhotogra;
 class cBA_TieP;
 class cBA_GCP;
-class cBA_Clino;
+//class cBA_Clino;
 class cBA_BlocRig;
 
 class cUK_Line3D_4BA;
@@ -97,6 +97,7 @@ class cBA_BlocRig
 
 };
 
+#if (MAINTAIN_OLD_BLOCK)
 
 
 class cClinoMes1Cam : public cMemCheck
@@ -265,7 +266,7 @@ class cBA_Clino : public cMemCheck
           std::string                   mCameraName;              // name of the camera
           
 };
-
+#endif // MAINTAIN_OLD_BLOCK
 
 
 // class to record data specific to a measurement directory : In/out name, w factor
@@ -618,7 +619,7 @@ class cMMVII_BundleAdj
 
           // Add clino bloc to compute relative orientation between clino and a camera
           void AddClinoBloc();
-          void AddClinoBloc(cBA_Clino * aBAClino);
+          //void AddClinoBloc(cBA_Clino * aBAClino);
 
           bool AddTopo(const std::string & aTopoFilePath); // TOPO
           ///  =======  Add GCP, can be measure or measure & object
@@ -772,7 +773,7 @@ class cMMVII_BundleAdj
 
                  // - - - - - - -   Bloc Rigid - - - - - - - -
           cBA_BlocRig*              mBlRig;  // RIGIDBLOC
-          cBA_Clino*              mBlClino;  // CLINOBLOC
+        //  cBA_Clino*              mBlClino;  // CLINOBLOC
           cBA_Topo*              mTopo;  // TOPO
 
           std::vector<cBA_LidarPhotogra*>  mVBA_Lidar;

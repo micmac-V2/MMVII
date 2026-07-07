@@ -94,7 +94,9 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     //mMesGCP           (nullptr),
     //mSigmaGCP         (-1),
     mBlRig            (nullptr),
+#if(MAINTAIN_OLD_BLOCK)
     mBlClino            (nullptr),
+#endif
     mTopo             (nullptr),
     mFolderRefCam     (""),
     mSigmaTrRefCam    (-1.0),
@@ -131,7 +133,9 @@ cMMVII_BundleAdj::~cMMVII_BundleAdj()
     DeleteAllAndClear(mVTieP);
     delete mBlRig;
     delete mTopo;
+#if(MAINTAIN_OLD_BLOCK)
     delete mBlClino;
+#endif
     delete mRUCSUR;
     // DeleteAllAndClear(mGCP_UK);
     DeleteAllAndClear(mVBA_Lidar);
@@ -459,11 +463,12 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     }
     // if necessary fix hard cosntraint onf Gauge of Rigid-Block of instrument
     SetHardGaugeBlockInstr();
-
+#if(MAINTAIN_OLD_BLOCK)
     if (mPatFrozenClinos != "" && mBlClino)
     {
         mBlClino->SetFrozenVar(*mR8_Sys, mPatFrozenClinos);
     }
+#endif
 
     if (mBlRig) // RIGIDBLOC
     {
@@ -501,6 +506,7 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     }
     // StdOut() << "SYS=" << mR8_Sys->GetNbObs() << " " <<  mR8_Sys->NbVar() << std::endl;
 
+#if(MAINTAIN_OLD_BLOCK)
     if (mBlClino)
     {
         mBlClino->addEquations(*mR8_Sys);
@@ -509,6 +515,7 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
             mBlClino->printRes();
         }
     }
+#endif
 
     for (const auto & aLidarPh : mVBA_Lidar )
         aLidarPh->AddObs();
@@ -993,22 +1000,32 @@ void cMMVII_BundleAdj::SaveBlocRigid()
 void cMMVII_BundleAdj::AddClinoBloc()
 {
     AssertPhpAndPhaseAdd();
+#if(MAINTAIN_OLD_BLOCK)
+
     mBlClino = new cBA_Clino(mPhProj);
 
     mBlClino->AddToSys(mSetIntervUK);
+#endif
 }
+#if(MAINTAIN_OLD_BLOCK)
 
 void cMMVII_BundleAdj::AddClinoBloc(cBA_Clino * aBAClino){
+
     mBlClino = aBAClino;
     mBlClino->AddToSys(mSetIntervUK);
 }
+#endif
+
 
 void cMMVII_BundleAdj::SaveClino()
 {
+#if(MAINTAIN_OLD_BLOCK)
+
     if (mBlClino)
     {
        mBlClino->Save();
     }
+#endif
 }
 
 /* ---------------------------------------- */

@@ -13,6 +13,7 @@
 
 namespace MMVII
 {
+#if (MAINTAIN_OLD_BLOCK)
 
 class cResultWireD
 {
@@ -445,9 +446,15 @@ int cAppli_CernInitRep::Exe()
 /*                                                      */
 /* ==================================================== */
 
+#endif
+
+
 tMMVII_UnikPApli Alloc_CernInitRep(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
 {
-   return tMMVII_UnikPApli(new cAppli_CernInitRep(aVArgs,aSpec));
+    MMVII_INTERNAL_ERROR("Alloc_CernInitRep ");
+
+   return tMMVII_UnikPApli (nullptr);
+//   return tMMVII_UnikPApli(new cAppli_CernInitRep(aVArgs,aSpec));
 }
 
 cSpecMMVII_Appli  TheSpec_CernInitRep

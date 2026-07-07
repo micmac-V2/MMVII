@@ -1327,6 +1327,7 @@ void cPhotogrammetricProject::ReadHomolMultiSrce
 
         //  =============  Clino meters  =================
 
+#if (MAINTAIN_OLD_BLOCK)
 std::string cPhotogrammetricProject::NameFileClino(const std::string &aNameCam,bool Input, const std::string aClinoName) const
 {
     static const std::string TheClinoPrefix = "ClinoCalib-";
@@ -1385,7 +1386,7 @@ cCalibSetClino  cPhotogrammetricProject::ReadSetClino
    return cCalibSetClino(aCalib.Name(),aVCC);
 }
 
-
+#endif // MAINTAIN_OLD_BLOCK
 
             //  ================  Measures clino ===================
 
