@@ -587,8 +587,10 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
                         MMVII_INTERNAL_ASSERT_always(false,"\""+ aName +"\" is multiple in specification");
                     }
                     // Same name was used several time
-                    MMVII_INTERNAL_ASSERT_User
-                    (  aSpec->NbMatch()==0  ,eTyUEr::eMulOptParam,"\""+aName +"\" was used multiple time");
+                    if (aSpec->NbMatch() > 0 && (!aSpec->HasType(eTA2007::CanRepeat) || !aSpec->IsVector()))
+                    {
+                        MMVII_UserError(eTyUEr::eMulOptParam,"\""+aName +"\" was used multiple time, but not vector");
+                    }
                     aSpec->IncrNbMatch();
                  }
              }

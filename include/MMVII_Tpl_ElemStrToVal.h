@@ -192,7 +192,22 @@ template class cES_PropertyList<eTA2007>;
 template<typename T> struct is_vector : public std::false_type {};
 
 template<typename T, typename A>
-struct is_vector<std::vector<T, A>> : public std::true_type {};
+struct is_vector<std::vector<T, A>> : public std::true_type { using value_type = T; };
+
+
+template <class T>
+struct vector_depth
+{
+    static constexpr int value = 0;
+    using value_type = T;
+};
+
+template <class U, class Alloc>
+struct vector_depth<std::vector<U, Alloc>>
+{
+    static constexpr int value = 1 + vector_depth<U>::value;
+    using value_type = typename vector_depth<U>::value_type;
+};
 
 
 template <class Type> void  GlobCheckSize(const Type & ,const std::string & anArg)
@@ -228,7 +243,20 @@ template <class Type> class cInstReadOneArgCL2007 : public cSpecOneArg2007
 
         void V_InitParam(const std::string & aStr) override
         {
-            mVal = cStrIO<Type>::FromStr(aStr);
+            constexpr int v_depth = vector_depth<Type>::value;          // levels of std::vector<>
+
+            if constexpr (v_depth > 0) {                               // at least one level of std::vector<>
+                size_t n=0;
+                while ( n< aStr.size() && aStr[n] == '[') n++;
+                if (v_depth == n+1) {                                   // string has one less level of brackets than the vector depth : assume singleton
+                    mVal.push_back(cStrIO<typename is_vector<Type>::value_type>::FromStr(aStr));
+                } else {                                                // else: push_back all values from the string into the vector
+                    auto aVals = cStrIO<Type>::FromStr(aStr);
+                    mVal.insert(mVal.end(), aVals.begin(), aVals.end());
+                }
+            } else {                                                    // not a vector
+                mVal = cStrIO<Type>::FromStr(aStr);
+            }
         }
         cInstReadOneArgCL2007 (Type & aVal,const std::string & aName,const std::string & aCom,const tAllSemPL & aVSem) :
               cSpecOneArg2007(aName,aCom,aVSem),

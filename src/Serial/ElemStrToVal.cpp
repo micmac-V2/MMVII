@@ -132,6 +132,7 @@ template<> cE2Str<eTA2007>::tMapE2Str cE2Str<eTA2007>::mE2S
                 {eTA2007::Tuning,"##Tune"},
                 {eTA2007::Global,"##Glob"},
                 {eTA2007::Shared,"##Shar"},
+                {eTA2007::CanRepeat,"##CanRepeat"},
                 {eTA2007::HDV,"##HDV"},
                 {eTA2007::ISizeV,"##ISizeV"},
                 {eTA2007::XmlOfTopTag,"##XmlOfTopTag"},

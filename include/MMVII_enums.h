@@ -72,6 +72,7 @@ enum class eTA2007
                 Global,        ///< Parameter  Common to all commands
                 Internal,      ///< Reserved to internall use by MMVII
                 Tuning,        ///< Used for testing/tuning command but not targeted for user
+                CanRepeat,     ///< Parameter can be repeated several times, and will be stored in a vector
                 HDV,           ///< Has Default Value, will be printed on help
                 ISizeV,        ///< Interval size vect, print on help
                 XmlOfTopTag,   ///< Parameter must be a XML-file containing certain tag
