@@ -94,70 +94,137 @@ The format of each file is :
 %---------------------------------------------
 %---------------------------------------------
 
+
 \section{User specific parametrization}
 
 \label{UserParametrisation}
 
-Sometimes user need to fix some stable default parametrization of {\tt MMVII}, 
-the parameters acessible for now are :
+Sometimes a user needs to fix stable default parametrization of {\tt MMVII}
+without repeating the same options in every command line. This mechanism is
+called a \emph{user profile}. A profile is a set of key/value preferences stored
+outside the project data directory and loaded by every {\tt MMVII} command.
+
+The parameters accessible for now are :
 
 \begin{itemize}
-    \item maximal number of processor that will be allowed when  {\tt MMVII} execute
-          parallel computation;
+    \item maximal number of processors allowed when {\tt MMVII} executes
+          parallel computation, through the key {\tt NbProcMax};
 
-     \item default format for human readible export, it can be for now \emph{xml} or \emph{json};
+    \item default format for serialized tagged data, through the key
+          {\tt TaggedSerialMode};
 
-      \item name of the user, this field is for now rather target for devloppers who want to
-            include in this devlopped code   some message/test ...  specific to himself
-           (for example, in some suspicipus case, I will make a breakpoint for myself, but will
-		not bother others with that as it should work if we are a bit lucky);
+    \item default format for serialized vector-like data, through the key
+          {\tt VectSerialMode};
+
+    \item command used by {\tt MMVII} to open generated {\tt pdf} files, through
+          the key {\tt PdfOpen}.
 \end{itemize}
 
-This will probably evolve, for example we can imagine to have some category of user.
-The way this is done is done by filling a {\tt xml} file located in the folder 
-{\tt MMVII-LocalParameters}, for example we have the file {\tt Default/MMVII-UserOfProfile.xml} :
+The distributed defaults are stored in the installation directory, in
+{\tt MMVII-LocalParameters/MMVII-Default-Profile.xml}. This file is shared with
+{\tt MMVII} and should be modified only when changing the distributed defaults.
+For a standard installation it contains a map of string key/value pairs such as :
 
 \begin{verbatim}
-<?xml version="1.0" encoding="ISO8859-1" standalone="yes" ?>
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <Root>
    <Type>"MMVII_Serialization"</Type>
-   <Version>"0.00"</Version>
+   <Version>"0.0.0"</Version>
    <Data>
-      <UserName>"Uknown"</UserName>
-      <NbProcMax>1000</NbProcMax>
-      <SerialMode>"xml"</SerialMode>
+      <Pair>
+         <K>"NbProcMax"</K>
+         <V>"4"</V>
+      </Pair>
+      <Pair>
+         <K>"TaggedSerialMode"</K>
+         <V>"xml"</V>
+      </Pair>
+      <Pair>
+         <K>"VectSerialMode"</K>
+         <V>"csv"</V>
+      </Pair>
+      <Pair>
+         <K>"PdfOpen"</K>
+         <V>""</V>
+      </Pair>
    </Data>
 </Root>
 \end{verbatim}
 
-Now the question is how will {\tt MMVII} locate file to use. This name of the folder containing
-this file will be contained in a file {\tt MMVII-CurentPofile.xml} if it exists,
-or in {\tt Default-MMVII-CurentPofile.xml} in the other case. This file should always exist
-at it is a git-shared file {\emph should not ne modified except by devlopers}.
-If we take a look at  it : 
-
-\begin{verbatim}
-<?xml version="1.0" encoding="ISO8859-1" standalone="yes" ?>
-<Root>
-   <Type>"MMVII_Serialization"</Type>
-   <Version>"0.00"</Version>
-   <Data>
-      <NameProfile>"Default"</NameProfile>
-   </Data>
-</Root>
-\end{verbatim}
-
-We see that the only meaningfull part is {\tt NameProfile} indicating the name
-of the folder. For creating a profile, what user must do is :
+The user-specific files are not stored in the project folder. They are stored in
+an operating-system-specific configuration directory :
 
 \begin{itemize}
-    \item creat a file  {\tt MMVII-CurentPofile.xml} if it was not already done;
-    \item fill the field {\tt <NameProfile>};
-    \item create in the corresponding folder, a file {\tt MMVII-UserOfProfile.xml}
+    \item on Linux, {\tt \$XDG\_CONFIG\_HOME/MMVII} when
+          {\tt XDG\_CONFIG\_HOME} is an absolute path, otherwise
+          {\tt \$HOME/.config/MMVII};
+    \item on macOS, {\tt \$HOME/Library/Application Support/MMVII};
+    \item on Windows, {\tt \%APPDATA\%/MMVII}.
 \end{itemize}
 
-The idea, is that a user can have several predefined profile in different folders,
-and only modify  {\tt MMVII-CurentPofile.xml}.
+This directory is also used by {\tt MMVII} for other user-local data, including the user camera database. For profiles, it contains two kinds of files. The file
+{\tt MMVII-Current-Profile.xml} stores the name of the current profile. Each
+profile is then stored in a file named {\tt MMVII-profile-<Name>.xml}. Profile
+names must contain only letters, digits, underscores or hyphens, and must not be
+empty. If {\tt MMVII-Current-Profile.xml} does not exist, {\tt MMVII} uses the
+profile named {\tt Default}.
+
+When a profile is loaded, {\tt MMVII} first reads
+{\tt MMVII-Default-Profile.xml}, then overlays the values found in
+{\tt MMVII-profile-<Name>.xml} if this user file already exists. The merged
+profile is written back to the user profile file. This makes new distributed keys
+appear automatically in existing user profiles, while preserving user overrides.
+
+The command {\tt EditProfile} is the normal way to inspect and modify profiles.
+Called without option, it prints the known profile names, the current profile
+between square brackets, the current profile file path, and the key/value pairs. This path also shows the user configuration directory :
+
+\begin{verbatim}
+MMVII EditProfile
+\end{verbatim}
+
+To make a profile current for subsequent commands, use {\tt SetCurrent} :
+
+\begin{verbatim}
+MMVII EditProfile SetCurrent=Default
+MMVII EditProfile SetCurrent=Test
+\end{verbatim}
+
+To set one key/value pair in the selected profile, use {\tt KeyVal}. It must
+contain exactly two values, the key and the value. To specify an empty string for
+a value, use the syntax {\tt KeyVal=[Key,,]}.
+
+\begin{verbatim}
+MMVII EditProfile KeyVal=[NbProcMax,8]
+MMVII EditProfile KeyVal=[TaggedSerialMode,json]
+MMVII EditProfile KeyVal=[VectSerialMode,csv]
+MMVII EditProfile KeyVal=[PdfOpen,evince]
+MMVII EditProfile KeyVal=[Empty,,]
+\end{verbatim}
+
+To remove a key from the selected profile, use {\tt DelKey} :
+
+\begin{verbatim}
+MMVII EditProfile DelKey=PdfOpen
+\end{verbatim}
+
+Removing a key from a user profile does not remove it from the distributed
+default profile. If the key exists in {\tt MMVII-Default-Profile.xml}, it will be
+restored with its default value at the next synchronization unless the user
+profile overrides it again.
+
+Every {\tt MMVII} command also has a global option {\tt Profile}. It selects a
+profile only for the current execution and does not modify
+{\tt MMVII-Current-Profile.xml} :
+
+\begin{verbatim}
+MMVII SomeCommand ... Profile=Test
+\end{verbatim}
+
+Command-line options remain authoritative for the command being executed. For
+example, {\tt NbProcMax} is applied only when the command did not explicitly
+initialize the global option {\tt NbProc}. When both are present, the explicit
+command-line option keeps priority.
 
 
 %---------------------------------------------

@@ -122,6 +122,8 @@ template<> cE2Str<eTA2007>::tMapE2Str cE2Str<eTA2007>::mE2S
                 {eTA2007::OriRel,"OriRel"},
                 {eTA2007::Topo,"Topo"},
                 {eTA2007::SysCo,"SysCo"},
+                {eTA2007::Profile,"Profile"},
+                {eTA2007::ProfileKey,"ProfileKey"},
                 {eTA2007::Input,"In"},
                 {eTA2007::Output,"Out"},
                 {eTA2007::OptionalExist,"OptEx"},

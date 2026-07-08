@@ -59,6 +59,9 @@ enum class eTA2007
                 StaticLidar,   ///< Static Lidar
                 Topo,          ///< Topo
                 SysCo,         ///< System coord
+                Profile,       ///< User profile name
+                ProfileKey,    ///< Key for user profile
+                CanRepeat,     ///< Parameter can be repeated several times, and will be stored in a vector
                 Input,         ///< Is this parameter used as input/read
                 Output,        ///< Is this parameter used as output/write
                 OptionalExist, ///< if given, the file (image or other) can be unexisting (interface mut allow seizing "at hand")
@@ -72,7 +75,6 @@ enum class eTA2007
                 Global,        ///< Parameter  Common to all commands
                 Internal,      ///< Reserved to internall use by MMVII
                 Tuning,        ///< Used for testing/tuning command but not targeted for user
-                CanRepeat,     ///< Parameter can be repeated several times, and will be stored in a vector
                 HDV,           ///< Has Default Value, will be printed on help
                 ISizeV,        ///< Interval size vect, print on help
                 XmlOfTopTag,   ///< Parameter must be a XML-file containing certain tag

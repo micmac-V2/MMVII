@@ -293,7 +293,7 @@ cMMVII_Appli::cMMVII_Appli
    mHasInputV2    (false),
    mStdCout       (std::cout),
    mSeedRand      (msDefSeedRand), // In constructor, don't use virtual, wait ...
-   mExtandPattern (true),
+   mExtendPattern (true),
    mVSPO          (aVSPO),
    mCarPPrefOut   (MMVII_StdDest),
    mCarPPrefIn    (MMVII_StdDest),
@@ -410,6 +410,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
   //  StdOut() << "XXXXXXXXXXInitParam" << "\n";
 
   mSeedRand = DefSeedRand();
+  mProfileName = GetProfileName();
   cCollecSpecArg2007 & anArgObl = ArgObl(mArgObl); // Call virtual method
   cCollecSpecArg2007 & anArgFac = ArgOpt(mArgFac); // Call virtual method
 
@@ -468,16 +469,18 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
   mArgFac
       <<  AOpt2007(mNumOutPut,GOP_NumVO,"Num version for output format (1 or 2)",{eTA2007::Global,{eTA2007::Range,"[1,2]"}})
       <<  AOpt2007(mSeedRand,GOP_SeedRand,"Seed for random,if <=0 init from time",aGlobHDV)
-      <<  AOpt2007(mExtandPattern,"ExtPatFile","Do we extang patterns for files (or interpret them literally)",aGlobHDV)
+      <<  AOpt2007(mExtendPattern,"ExtPatFile","Do we extend patterns for files (or interpret them literally)",aGlobHDV)
 
       <<  AOpt2007(msWithWarning,GOP_WW,"Do we print warnings",aGlobHDV)
       <<  AOpt2007(mNbProcAllowed,GOP_NbProc,"Number of process allowed in parallelisation",aGlobHDV)
       <<  AOpt2007(aDP ,GOP_DirProj,"Project Directory",{eTA2007::DirProject,eTA2007::Global})
       <<  AOpt2007(mParamStdOut,GOP_StdOut,"Redirection of Ouput (+File for terminal and file output, 0File to reset file, "+ MMVII_NONE + " for no out)",aGlob)
+
+      <<  AOpt2007(mProfileName,"Profile","Apply specific user profile for this command",{eTA2007::Global,eTA2007::HDV,eTA2007::Profile})
+
       <<  AOpt2007(mLevelCall,GIP_LevCall," Level Of Call",aInternal)
       <<  AOpt2007(mKthCall,GIP_KthCall," Ordre Of Call when multiple call",aInternal)
       <<  AOpt2007(mPatternInitGMA,GIP_PatternGMA,"Initial pattern of global main appli ",aInternal)
-
       <<  AOpt2007(mShowAll,GIP_ShowAll,"",aInternal)
       <<  AOpt2007(mPrefixGMA,GIP_PGMA," Prefix Global Main Appli",aInternal)
       <<  AOpt2007(mPrefix_TIM_GMA,GIP_TIM_GMA," Prefix for Time of Global Main Appli",aInternal)
@@ -800,7 +803,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
          if (!mVMainSets.at(aNum).IsInit())
          {
             // mVMainSets.at(aNum)= SetNameFromString(mDirProject+aVValues[aK],true);
-            if (mExtandPattern)
+            if (mExtendPattern)
             {
         // StdOut() << "LLLLLL=" << __LINE__  << mDirProject << "##" << aVValues[aK] << "\n";
                  mVMainSets.at(aNum)= SetNameFromString(mDirProject+FileOfPath(aVValues[aK],false),true);
@@ -888,6 +891,17 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
      mSeedRand =  std::chrono::system_clock::to_time_t(mT0);
   }
 
+  if (mMainAppliInsideP)
+  {
+      InitProfile();
+  }
+
+  if (mParamProfile.HasKey("NbProcMax") && !IsInit(&mNbProcAllowed))
+  {
+      mNbProcAllowed = std::min(mNbProcAllowed,mParamProfile.Get<int>("NbProcMax",mNbProcAllowed));
+  }
+
+
   // Don't fully initialize project if this appli is a special MMVII management applu
   const auto aFeatures = mSpecs.Features();
   if (std::find(aFeatures.cbegin(), aFeatures.cend(), eApF::ManMMVII) != aFeatures.cend()) {
@@ -906,13 +920,6 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
   }
   if (!mModeHelp)
      LogCommandIn(NameFileLog(false),false);
-
-  //StdOut() << " MOHHHHH " << mModeHelp << "  MAIN:" << mMainAppliInsideP << "\n";
-  if (mMainAppliInsideP)
-  {
-   //  StdOut()  << "mMainAppliInsidePmMainAppliInsideP " << mMainAppliInsideP << "\n";
-     InitProfile();
-  }
 
 }
 
@@ -1145,6 +1152,8 @@ static std::string JsonEscaped(const std::string& s)
 
 void cMMVII_Appli::GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::string& aSpecName, bool aOptional, cGenArgsSpecContext *aArgsSpec)
 {
+    static auto aGlobProfileNames = GlobProfileNames();
+
     if (aOptional)
         aArgsSpec->jsonSpec += "      \"optional\": [";
     else
@@ -1218,7 +1227,12 @@ void cMMVII_Appli::GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::
                 vectorSize = a.Aux();
             }
         }
-
+        if (allowed.empty() && Arg->HasType(eTA2007::Profile)) {
+            allowed = aGlobProfileNames;
+        }
+        if (allowed.empty() && Arg->HasType(eTA2007::ProfileKey)) {
+            allowed =  mParamProfile.Keys();
+        }
         aArgsSpec->jsonSpec +=  "\n        {\n";
         if (aOptional) {
             std::string level = Arg->HasType(eTA2007::Global) ? "global" : Arg->HasType(eTA2007::Tuning) ? "tuning" : "normal";
@@ -1421,24 +1435,24 @@ void cMMVII_Appli::GenerateHelp()
        HelpOut() << "\n";
    }
 
-   std::string aPdfFile =  mDirHelpByCmd + mSpecs.Name() + ".pdf";
+    std::string aPdfFile =  mDirHelpByCmd + mSpecs.Name() + ".pdf";
 
-   if (ExistFile(aPdfFile))
-   {
-     //  StdOut()  << " PatH=" << mPatHelp << "\n";
-       HelpOut() << "Detailled help for this command in : " << aPdfFile << "\n";
-       std::optional<std::string> aPdfOpen = mParamProfile.mProgPdfOpen;
-     //  StdOut() << "HHHHHhh " << aPdfOpen.has_value()  << " UN " << mParamProfile.mUserName << "\n";
-       if (aPdfOpen.has_value() && (mPatHelp=="pdf"))
-       {
-           std::string aCmd = aPdfOpen.value() + std::string(" ")  + aPdfFile;
-           int aResult = system(aCmd.c_str());
-           if (aResult!= EXIT_SUCCESS)
-           {
-               StdOut() << "Can't run command : " << aCmd << "\n";
-           }
-       }
-   }
+    if (ExistFile(aPdfFile))
+    {
+        //  StdOut()  << " PatH=" << mPatHelp << "\n";
+        HelpOut() << "Detailled help for this command in : " << aPdfFile << "\n";
+        std::string aPdfOpen = mParamProfile.Get("PdfOpen",std::string());
+        //  StdOut() << "HHHHHhh " << aPdfOpen.has_value()  << " UN " << mParamProfile.mUserName << "\n";
+        if (aPdfOpen.size() && (mPatHelp=="pdf"))
+        {
+            std::string aCmd = aPdfOpen + std::string(" ")  + aPdfFile;
+            int aResult = system(aCmd.c_str());
+            if (aResult!= EXIT_SUCCESS)
+            {
+                StdOut() << "Can't run command : " << aCmd << "\n";
+            }
+        }
+    }
 }
 
 void cMMVII_Appli::ShowAllParams()
@@ -1556,7 +1570,7 @@ bool cMMVII_Appli::ExistAppli()
 
 bool UserIsMPD()
 {
-     return cMMVII_Appli::CurrentAppli().UserName() == "MPD";
+     return cMMVII_Appli::CurrentAppli().ProfileName() == "MPD";
 }
  
     // ========== Random seed  =================

@@ -376,15 +376,46 @@ typedef const char * tConstCharPtr;
 
 struct cParamProfile
 {
-       public :
-           // initialize with default values
-           cParamProfile();
+public :
+    cParamProfile();
+    bool HasKey(const std::string& key) { return mMap.find(key) != mMap.end(); }
 
-           std::string                mUserName;
-           int                        mNbProcMax;
-           eTypeSerial                mTaggedDefSerial;  // xml or json
-           eTypeSerial                mVectDefSerial;     // generally csv, can be xml/json
-           std::optional<std::string> mProgPdfOpen;
+    template <typename T>
+    T Get(const std::string &key, const T &aDef) const
+    {
+        auto it = mMap.find(key);
+        if (it == mMap.end()) {
+            MMVII_USER_WARNING("Missing profile key: " + key + ", using default value: " + cStrIO<T>::ToStr(aDef));
+            return aDef;
+        }
+        try {
+            return cStrIO<T>::FromStr(it->second, true);
+        } catch(StrIOException& e) {
+            MMVII_USER_WARNING("User Profile, Key '" + key + "': " + e.what());
+            return aDef;
+        }
+    }
+    template <typename T>
+    void Set(const std::string& aKey, const T& aVal) { mMap[aKey] = cStrIO<T>::ToStr(aVal);}
+    std::vector<std::string> Keys() const
+    {
+        std::vector<std::string> keys;
+        for (const auto& pair : mMap) {
+            keys.push_back(pair.first);
+        }
+        return keys;
+    }
+
+    void Remove(const std::string& aKey) { mMap.erase(aKey);}
+
+    void AddData(const cAuxAr2007 & anAux);
+
+    auto begin() const -> auto {return mMap.begin();}
+    auto end() const -> auto {return mMap.end();}
+
+
+private:
+    std::map<std::string,std::string> mMap;
 };
 
 bool UserIsMPD();
@@ -501,7 +532,6 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         static bool        OutV2Format() ;  ///<  Do we write in V2 Format
 
         void InitParam(cGenArgsSpecContext *aArgsSpec = nullptr);  ///< Parse the parameter list, aArgsSpecs must be nullptr. (only cMMVII_GenArgsSpec use aArgsSpec)
-        void InitProfile();  ///< init the profile of usage/user ....
         void SetNot4Exe(); ///< Indicate that the appli was not fully initialized
 
         const cSpecMMVII_Appli & Specs() const; ///< Accessor to appli specification
@@ -542,8 +572,8 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
 
         static const std::string & DirRessourcesMMVII();       ///< Location of all ressources
         static  const std::string & DirLocalParameters() ;
-        static const std::string & UserName();
-        static const std::string & DirProfileUsage();
+        static const std::string & ProfileName();
+        static const std::string & DirUserProfile();
 
         const std::string & PrefixGMA () const; /// Accessor
         const std::string & Prefix_TIM_GMA () const; /// Accessor
@@ -625,6 +655,9 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         bool RunMultiSet(int aKParam,int aKSet,bool MkFSilence=false);  /// If VectMainSet > 1 => Call itsef in // , result indicates if was executed
         int  ResultMultiSet() const; /// Iff RunMultiSet was execute
         tPtrArg2007 AOptBench();  ///< to add in args mode if command can execute in bench mode
+
+        void InitProfile();               ///< init the profile of user ....
+        std::string GetProfileName();     ///< get the current profile for user
 
         static const std::string & FullBin();            ///< Protected accessor to full pathname of MMVII executable
         static const std::string & DirTestMMVII();       ///< Protected accessor to dir to read/write test bench
@@ -723,7 +756,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         int                                       mSeedRand;    ///< Seed for random generator
         std::map<std::string,std::string>         mMapAppliSpecParam; ///< Mat created from mVecAppliSpecParam
      //   std::string                               mAppliSpecParam;
-        bool                                      mExtandPattern;  ///<  If false Interpret the pattern as single  , def=true !!
+        bool                                      mExtendPattern;  ///<  If false Interpret the pattern as single  , def=true !!
         // Control position/hierachy of call
         int                                       mNumCallInsideP; ///< Numero of Appli in the process of creation
         bool                                      mMainAppliInsideP; ///< Is the main/firsy Appli inside the process
@@ -747,10 +780,11 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         static std::string                        mDirRessourcesMMVII;  ///< Directory for read/write bench files
         static std::string                        mDirHelpByCmd; ///< Directory where the help of commands can be found
         static std::string                        mDirLocalParameters;  ///< Directory for parameters local to an install
-        static std::string                        mProfileUsage;        ///< The "usage" profile stored in "MMVII-CurentPofile.xml"
-        static std::string                        mDirProfileUsage;     ///< The full dir containing the information of a profile
+        static std::string                        mProfileName;         ///< Name selected in MMVII-Current-Profile.xml
+        static std::string                        mUserProfile;        ///< Full path of the profile effectively loaded
+        static std::string                        mDirUserProfile;     ///< OS-specific directory containing user profiles
 
-        static cParamProfile                      mParamProfile;   ///< Parameters of the profile (as user name)
+        static cParamProfile                      mParamProfile;   ///< Parameters of the profile
         static std::string                        mVectNameDefSerial;  ///< the string "csv", or "xml", "json" ...
         static std::string                        mTaggedNameDefSerial;  ///< the string "xml", "json" ...
 
@@ -806,6 +840,7 @@ std::vector<std::string> VInt2VStrPerc(const std::vector<int> & aVPerc,const cSt
 
 const std::string & GlobVectNameDefSerial() ; ///< of current appli
 const std::string & GlobTaggedNameDefSerial() ; ///< of current appli
+std::vector<std::string> GlobProfileNames(); ///< Names of user profiles, sorted
 
 /// Access to AppliSpecValue of cMMVII_Appli::CurrentAppli()
 std::string AppliSpecValue(const std::string & );

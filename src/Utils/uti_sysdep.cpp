@@ -4,6 +4,7 @@
 #include "MMVII_2Include_Serial_Tpl.h"
 
 #include <filesystem>
+#include <cstdlib>
 #include <string>
 #include <mutex>
 #include <thread>
@@ -207,12 +208,24 @@ std::string MMVII_CanonicalRootDirFromExec()
    return fs::canonical(selfExec).parent_path().parent_path().generic_string();
 }
 
+static std::string MMVII_RequiredEnv(const char * aName)
+{
+    const char * aValue = std::getenv(aName);
+    MMVII_INTERNAL_ASSERT_User
+    (
+        (aValue != nullptr) && (*aValue != '\0'),
+        eTyUEr::eUnClassedError,
+        std::string("Environment variable ") + aName + " is required to locate the MMVII user profile"
+    );
+    return aValue;
+}
+
 
 #if   (THE_MACRO_MMVII_SYS==MMVII_SYS_L)
 const std::string TheMMVII_SysName = "Gnu/Linux";
 int mmvii_NbProcSys()
 {
-    return sysconf (_SC_NPROCESSORS_CONF);
+    return sysconf (_SC_NPROCESSORS_ONLN);
 }
 int mmvii_GetPId()
 {
@@ -230,6 +243,17 @@ static fs::path MMVII_RawSelfExecName()
     else
         buf[0] = 0;
     return fs::path(buf);
+}
+
+std::string MMVII_UserConfigDir()
+{
+    const char * aXdgConfig = std::getenv("XDG_CONFIG_HOME");
+    fs::path aConfigDir;
+    if ((aXdgConfig != nullptr) && (*aXdgConfig != '\0') && fs::path(aXdgConfig).is_absolute())
+        aConfigDir = aXdgConfig;
+    else
+        aConfigDir = fs::path(MMVII_RequiredEnv("HOME")) / ".config";
+    return (aConfigDir / "MMVII").generic_string();
 }
 
 #elif (THE_MACRO_MMVII_SYS==MMVII_SYS_W)
@@ -255,6 +279,11 @@ fs::path MMVII_RawSelfExecName()
     if (size <0 || size == (DWORD)sizeof(buffer))
         *buffer = L'0';
     return fs::path(buffer);
+}
+
+std::string MMVII_UserConfigDir()
+{
+    return (fs::path(MMVII_RequiredEnv("APPDATA")) / "MMVII").generic_string();
 }
 
 #else
@@ -283,6 +312,11 @@ fs::path MMVII_RawSelfExecName()
     }
     delete[] buffer;
     return path;
+}
+
+std::string MMVII_UserConfigDir()
+{
+    return (fs::path(MMVII_RequiredEnv("HOME")) / "Library" / "Application Support" / "MMVII").generic_string();
 }
 
 #endif

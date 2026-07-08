@@ -210,7 +210,7 @@ struct vector_depth<std::vector<U, Alloc>>
 };
 
 
-template <class Type> void  GlobCheckSize(const Type & ,const std::string & anArg)
+template <class Type> void  GlobCheckSize(const Type & ,const std::string & )
 {
     MMVII_INTERNAL_ASSERT_always(false,"Check size vect for non vect arg");
 }

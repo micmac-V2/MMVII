@@ -557,7 +557,7 @@ cGlobCalculMetaDataProject * cPhotogrammetricProject::InitGlobCalcMTD() const
     {
            mGlobCalcMTD = new cGlobCalculMetaDataProject;
            mGlobCalcMTD->AddDir(mDPMetaData.FullDirIn());
-           mGlobCalcMTD->AddDir(mAppli.DirProfileUsage());
+           mGlobCalcMTD->AddDir(mAppli.DirUserProfile());
     }
     return mGlobCalcMTD;
 }

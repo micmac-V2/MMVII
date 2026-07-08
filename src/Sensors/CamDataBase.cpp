@@ -123,7 +123,7 @@ std::string cPhotogrammetricProject::DirCamDataBase(eTypeDBCam aType)
             return mDPMetaData.FullDirIn()  ;
 
        case  eTypeDBCam::eLocalUser :
-         return cMMVII_Appli::DirLocalParameters()  + mAppli.UserName() + StringDirSeparator();
+         return mAppli.DirUserProfile();
 
        case  eTypeDBCam::eLocalMVVI :
            return cMMVII_Appli::DirLocalParameters() ;
