@@ -772,8 +772,6 @@ int cAppli_ImportTSL::Exe()
                           cIsometry3D<tREAL8>({}, cRotation3D<tREAL8>::Identity()),
                           aCalib, mSL_importer.RotInput2Raster(), mSigma);
 
-    aSL_data.SetPose(mSL_importer.ReadPose());
-
     aSL_data.FillRasters(mSL_importer, mPhProj.DirStaticLidarRasters(), true);
 
     aSL_data.FilterIntensity(mSL_importer, mIntensityMinMax[0], mIntensityMinMax[1]);
@@ -786,6 +784,11 @@ int cAppli_ImportTSL::Exe()
     aSL_data.ToFile(mPhProj.DirStaticLidarRasters() + aSL_data.NameOriStd());
     mSL_importer.MakeIdImage(aSL_data.NameImage());
 
+    if (mSL_importer.ReadPose().has_value())
+    {
+        SaveInFile(mSL_importer.ReadPose().value(),
+                   mSL_importer.DefaultPoseName(mPhProj.DirStaticLidarRasters(),aSL_data.NameImage()));
+    }
 
     // check scan normals
     /*auto aInterp  = cDiffInterpolator1D::AllocFromNames({"Linear"});
@@ -1109,6 +1112,15 @@ int cAppli_InitTSL::Exe()
     auto aTSLOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mNameFileTSLId,true);
     mLidar = cStaticLidar::FromFile(aTSLOriFile, false);
     mLidar->ReadRasters(mPhProj.DirStaticLidarRasters());
+
+    // try to read pose from cloud file
+    std::string aInputPoseFileName = cStaticLidarImporter::DefaultPoseName(mPhProj.DirStaticLidarRasters(),mLidar->NameImage());
+    if (ExistFile(aInputPoseFileName))
+    {
+        StdOut() << "Found a pose from cloud file.\n";
+        ReadFromFile(mForcedPose, aInputPoseFileName);
+        mIsForcedPoseInit = true;
+    }
 
     // read pose file to crash quickly if error
     if (IsInit(&mPoseXYZFilename))

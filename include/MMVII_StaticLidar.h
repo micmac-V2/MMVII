@@ -48,7 +48,7 @@ public:
     tREAL8 PhiStart() const {return mPhiStart;}
     tREAL8 PhiStep() const {return mPhiStep;}
     tREAL8 DistMinToExist() const {return mDistMinToExist;}
-    tPoseR ReadPose() const { return mReadPose;}
+    const std::optional<tPoseR> & ReadPose() const { return mReadPose;}
     bool checkLineCol(); // verify that mMaxCol/mMaxLine ar compatible with mVectPtsLine/mVectPtsCol
     void decimXY(const cPt2di & aDecim);
     const cRotation3D<tREAL8> & RotInput2TSL() const { return mRotInput2TSL; }
@@ -62,6 +62,7 @@ public:
     float LocalPhiToLinePrecise(float aPhi) const;
     float LocalThetaToColPrecise(float aTheta) const;
     cPt2dr Input3DtoRasterAngle(const cPt3dr & aPt3DInput) const;
+    static std::string DefaultPoseName(const std::string & aDirStaticLidarRasters, const std::string & aLidarId);
 
     void MakeIdImage(const std::string & aNameFile) const; // create miniature to select this scan along images
 
@@ -87,7 +88,7 @@ protected:
     bool mNoMiss; // seems to be full (even if some points are (0,0,0)
     bool mAllPointsReturn; // some points are (0,0,0) => no angle!
     bool mIsStrucured;
-    tPoseR mReadPose;
+    std::optional<tPoseR> mReadPose;
     tREAL8 mDistMinToExist;
 
     int mNbCol, mNbLine;

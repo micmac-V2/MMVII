@@ -45,7 +45,7 @@ tREAL8 toMinusPiPlusPi(tREAL8 aAng, tREAL8 aOffset)
 
 cStaticLidarImporter::cStaticLidarImporter() :
     mHasRowCol(false), mNoMiss(false), mAllPointsReturn(false), mIsStrucured(false),
-    mReadPose(tPoseR::Identity()), mDistMinToExist(1e-5),
+    mReadPose(), mDistMinToExist(1e-5),
     mNbCol            (0),
     mNbLine           (0),
     mThetaStart        (NAN),
@@ -197,7 +197,12 @@ void cStaticLidarImporter::readE57Points(std::string aE57FileName, bool aForceGr
         }
 
         vectorReader.close();
+        cRotation3D<tREAL8> aRotTSL2MM = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j");
+        cRotation3D<tREAL8> aRot = cRotation3D(Quat2MatrRot<tREAL8>({data3DHeader.pose.rotation.w,data3DHeader.pose.rotation.x,
+                                                 data3DHeader.pose.rotation.y,data3DHeader.pose.rotation.z}).Transpose(), false);
 
+        mReadPose.emplace(cPt3dr(data3DHeader.pose.translation.x,data3DHeader.pose.translation.y,data3DHeader.pose.translation.z),
+                          (aRotTSL2MM*aRot).MapInverse());
     }
     catch (const std::runtime_error &e)
     {
@@ -237,8 +242,8 @@ void cStaticLidarImporter::readPtxPoints(std::string aPtxFileName, bool aForceGr
         aPtxFile >> aR21 >> aR22 >> aR23;
         tREAL8 aR31, aR32, aR33;
         aPtxFile >> aR31 >> aR32 >> aR33;
-        mReadPose.Tr() = {aTx, aTy, aTz};
-        mReadPose.Rot() = cRotation3D<tREAL8>({aR11, aR12, aR13}, {aR21, aR22, aR23}, {aR31, aR32, aR33}, false);
+        mReadPose.emplace(cPt3dr(aTx, aTy, aTz),
+                          cRotation3D<tREAL8>({aR11, aR12, aR13}, {aR21, aR22, aR23}, {aR31, aR32, aR33}, false));
         char tmp[200];
         aPtxFile.getline(tmp, 200); // for now just skip transformation matrix
         aPtxFile.getline(tmp, 200);
@@ -626,6 +631,11 @@ cPt2dr cStaticLidarImporter::Input3DtoRasterAngle(const cPt3dr &aPt3DInput) cons
     std::cout<<"  => "<<aThetaPhi<<"  => "<<aP2d<<"\n";
     return aP2d;
 }*/
+
+std::string cStaticLidarImporter::DefaultPoseName(const std::string & aDirStaticLidarRasters, const std::string & aLidarId)
+{
+    return aDirStaticLidarRasters + "PoseFromCloudFile-" + aLidarId + ".xml";
+}
 
 void cStaticLidarImporter::MakeIdImage(const std::string & aNameFile) const
 {
