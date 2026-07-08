@@ -14,7 +14,10 @@
 namespace MMVII
 {
 
-/**  Code of MAINTAIN_OLD_BLOCK that is currently maintained
+/** DONT SUPRESS FOR NOW
+
+
+      Code of MAINTAIN_OLD_BLOCK that is currently maintained
  *   because it's poissible part of it will be re used.
  */
 
