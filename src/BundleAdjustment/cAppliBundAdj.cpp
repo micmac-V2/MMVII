@@ -169,7 +169,7 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            << "Lidar"
       << AOpt2007(mParamLidarPhgr,"LidarPhotogra","Paramaters for Lidar/Phgr adj via triangulation [[Mode,Ply,Sigma,Interp?,Perturbate?,NbPtsPerPatch=32]*]")
       << AOpt2007(mParamLidarPhoto,"LidarPhoto","Paramaters for Lidar/Phgr adj via rasterisation [[Mode,PatScan,Sigma,Interp?,ScaleInit?=1,ScaleFinal?=1,Thrs?=-1,NbPtsPerPatch?=49]*]")
-      << AOpt2007(mParamLidarLidar,"LidarLidar","Paramaters for Lidar/Lidar adj via rasterisation [[PatScan,Sigma,ThrsInit?=1,ThrsFinal?=0.1,Interp?=[Linear]]]")
+      << AOpt2007(mParamLidarLidar,"LidarLidar","Paramaters for Lidar/Lidar adj via rasterisation [[PatScan,Sigma,ThrsInit?=1,ThrsFinal?=0.1,NormalTolDeg?=15,Interp?=[Linear]]]")
            << "Freeze"
       << AOpt2007(mPatParamFrozCalib,"PPFzCal","Pattern for freezing internal calibration parameters")
       << AOpt2007(mVVParFreeCalib,"PPFreeCal","Pattern for free internal calibration parameters [[PatCal1,PatParam1],[PatCal2,PatParam2] ...] ")

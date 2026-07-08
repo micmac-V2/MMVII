@@ -1008,8 +1008,8 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
     mEq = EqEqLidarLidar (true,1,true);
     std::vector<std::string> aParamBis = aParam;
     // if interpolator is empty, force linear
-    if (aParamBis.size() < 5)
-        aParamBis.resize(5);
+    if (aParamBis.size() < 6)
+        aParamBis.resize(6);
     if (aParamBis.at(2).empty())
     {
         aParamBis[2] = "1."; // default threshold init
@@ -1020,9 +1020,13 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
     }
     if (aParamBis.at(4).empty())
     {
-        aParamBis[4] = "[Linear]";
+        aParamBis[4] = "15"; // default normal tolerancy degree
     }
-    init(aParamBis, 1, 4);
+    if (aParamBis.at(5).empty())
+    {
+        aParamBis[5] = "[Linear]";
+    }
+    init(aParamBis, 1, 5);
 
     mThresholdInit = cStrIO<double>::FromStr(aParamBis[2]);
     if (mThresholdInit<0)
@@ -1030,6 +1034,9 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
     mThresholdFinal = cStrIO<double>::FromStr(aParamBis[3]);
     if (mThresholdFinal<0)
         mThresholdFinal = INFINITY;
+
+    double aNormalTolerancyDeg = cStrIO<double>::FromStr(aParamBis[4]);
+    mNormalDiffMinCos = cos(aNormalTolerancyDeg*M_PI/180.);
 
     //read scans files from directory corresponding to pattern in aParam.at(0)
     tNameSelector aSel =   AllocRegex(aParam.at(0));
