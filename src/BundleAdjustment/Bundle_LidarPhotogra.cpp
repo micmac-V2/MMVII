@@ -7,7 +7,7 @@ namespace MMVII
 {
 
 //#define NUMPATCHDEBUG 3
-
+//#define SCANSCANDEBUG 10
 
 cBA_LidarBase::cBA_LidarBase(cPhotogrammetricProject * aPhProj,
                                      cMMVII_BundleAdj& aBA, const std::vector<std::string>& aParam) :
@@ -1076,7 +1076,7 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
 {
     tREAL4 aTh = aBA.NbMaxIter() < 2 ? mThresholdFinal :
                      mThresholdInit + (mThresholdFinal - mThresholdInit)*float(aBA.Iter())/(aBA.NbMaxIter()-1);
-    std::cout << "up weighters, th="<<aTh<<"\n";
+    //std::cout << "up weighters, th="<<aTh<<"\n";
     if (aTh>10000)
         aTh = -1;
     for (auto & aScanDataA: mVScans)
@@ -1093,8 +1093,6 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
     }
 }
 
-
-//#define SCANSCANDEBUG 10
 
 void cBA_LidarLidarRaster::AddObs()
 {
@@ -1213,6 +1211,8 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
     tREAL8 aMinResidual = INFINITY;
     cPt3dr aNormalGndA = aScanA->Pose().Rot().Value(aPatch.mNormalInstr);
 
+    //std::cout<<"ScanA: "<<aScanA->NameImage()<<" Patch "<<aPatch.mId<<": "<<*aPatch.mLPatchesP.begin()<<" -> Gnd: "<<aPGround<<"\n";
+
     //  Parse all the scans B, we will select the ones where the patch is visible
     for (auto & aScanBData: mVScans)
     {
@@ -1222,9 +1222,12 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             continue; // no obs on the same scan
 
         // 1st test: zbuffer visibility
-        //std::cout<<"Im "<<aScanBData.mScanName<<" patch "<<aPatch.mId<<" vis "<<aPatch.mImVisible.at(aScanBData.mScanName)<<"\n";
+        //std::cout<<"On scan B "<<aScanB->NameImage()<<": ";
         if (aPatch.mHiddenOnImage.count(aScanB->NameImage())>0)
+        {
+            //std::cout<<" hidden\n";
             continue;
+        }
         cDataGenUnTypedIm<2> & aGenDImDist = aScanB->getRasterDistance();
 
         // recheck if central point visible, TODO: remove, aPatch.mImVisible should be enought
@@ -1234,9 +1237,13 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             aData.mScanAName = aScanA->NameImage();
             aData.mScanBName = aScanB->NameImage();
             cPt2dr aPIm = aScanB->Ground2Image(aPGround); // extract the image  projection
+            //std::cout<<" projection :"<<aPIm<<"\n";
             tREAL8 aDist = Norm2(aPGround-aScanB->Center());
             if (!aScanB->IsValidPoint(aPIm))
+            {
+                //std::cout<<" not a valid point\n";
                 continue;
+            }
             if (aGenDImDist.InsideInterpolator(*mInterp,aPIm,1.0))  // is it sufficiently inside
             {
                 auto aVGr = aGenDImDist.GetValueAndGradInterpol(*mInterp,aPIm); // extract pair Value/Grad of image
@@ -1251,7 +1258,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                     aMinResidual = aResidual;
                 if (aWeighter.SingleWOfResidual( std::vector<tREAL8>{aResidual})==0.0)
                 {
-                    //std::cout<<"removed\n";
+                    //std::cout<<"removed W\n";
                     continue;
                 }
                 cPt3dr aNormalInstrB = aScanB->Image2NormalInstr(aPIm, *mInterp);
@@ -1267,6 +1274,8 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                 aAvgRes.Add(1.0,fabs(aResidual));  // compute std deviation
                 aVData.push_back(aData); // memorize the data for this image
             }
+        } else {
+            //std::cout<<" not visible\n";
         }
     }
 
