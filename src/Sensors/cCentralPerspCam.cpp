@@ -596,7 +596,7 @@ void cPerspCamIntrCalib::FixLoopPixelsInImage(cPt2dr &aPtInOut) const
 {
     if (mTypeProj==eProjPC::eEquiRect)
     {
-        tREAL8 aW2piInPixels = mMapPProj2Im.F()*2*M_PI;
+        tREAL8 aW2piInPixels = std::max(mMapPProj2Im.F()*2*M_PI, (tREAL8)PixelDomain().Sz().x());
         if (aPtInOut.x() >= aW2piInPixels) aPtInOut.x() -= aW2piInPixels;
         if (aPtInOut.x() < 0.) aPtInOut.x() += aW2piInPixels;
     } else {
