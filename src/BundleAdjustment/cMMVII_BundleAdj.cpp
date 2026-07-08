@@ -93,8 +93,7 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     mPatFrozenClinos (""),
     //mMesGCP           (nullptr),
     //mSigmaGCP         (-1),
-    mBlRig            (nullptr),
-    mBlClino            (nullptr),
+
     mTopo             (nullptr),
     mFolderRefCam     (""),
     mSigmaTrRefCam    (-1.0),
@@ -129,9 +128,7 @@ cMMVII_BundleAdj::~cMMVII_BundleAdj()
     delete mSys;
     // delete mMesGCP;
     DeleteAllAndClear(mVTieP);
-    delete mBlRig;
     delete mTopo;
-    delete mBlClino;
     delete mRUCSUR;
     // DeleteAllAndClear(mGCP_UK);
     DeleteAllAndClear(mVBA_Lidar);
@@ -460,15 +457,6 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     // if necessary fix hard cosntraint onf Gauge of Rigid-Block of instrument
     SetHardGaugeBlockInstr();
 
-    if (mPatFrozenClinos != "" && mBlClino)
-    {
-        mBlClino->SetFrozenVar(*mR8_Sys, mPatFrozenClinos);
-    }
-
-    if (mBlRig) // RIGIDBLOC
-    {
-        mBlRig->SetFrozenVar(*mR8_Sys);
-    }
 
     if (mTopo) // TOPO
     {
@@ -493,22 +481,10 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
 
     OneItere_GCP();   // add GCP informations
     OneItere_TieP();  // ad tie-points information
+
+
                       //
 
-    if (mBlRig)
-    {
-        mBlRig->AddRigidityEquation(*mR8_Sys);
-    }
-    // StdOut() << "SYS=" << mR8_Sys->GetNbObs() << " " <<  mR8_Sys->NbVar() << std::endl;
-
-    if (mBlClino)
-    {
-        mBlClino->addEquations(*mR8_Sys);
-        if (mVerbose)
-        {
-            mBlClino->printRes();
-        }
-    }
 
     for (const auto & aLidarPh : mVBA_Lidar )
         aLidarPh->AddObs();
@@ -961,55 +937,8 @@ void cMMVII_BundleAdj::AddConstrainteRefPose(cSensorCamPC & aCam,cSensorCamPC & 
     /*            Rigid Bloc                    */
     /* ---------------------------------------- */
 
-void cMMVII_BundleAdj::AddBlocRig(const std::vector<double>& aSigma,const std::vector<double>& aSigmaRat)  // RIGIDBLOC
-{
-    AssertPhpAndPhaseAdd();
-    mBlRig = new cBA_BlocRig(*mPhProj,aSigma,aSigmaRat);
-
-    mBlRig->AddToSys(mSetIntervUK);
-}
-void cMMVII_BundleAdj::AddCamBlocRig(const std::string & aNameIm) // RIGIDBLOC
-{
-    cSensorCamPC * aCam = mPhProj->ReadCamPC(aNameIm,/*ToDel*/true,/*SVP*/false);
-    if (aCam == nullptr)
-       return;
-
-    mBlRig->AddCam(aCam);
-}
-void cMMVII_BundleAdj::SaveBlocRigid()
-{
-    if (mBlRig  && mPhProj->DPRigBloc().DirOutIsInit())  // RIGIDBLOC
-    {
-       mBlRig->Save();
-    }
-}
 
 
-
-    /* ---------------------------------------- */
-    /*            Clino Bloc                    */
-    /* ---------------------------------------- */
-
-void cMMVII_BundleAdj::AddClinoBloc()
-{
-    AssertPhpAndPhaseAdd();
-    mBlClino = new cBA_Clino(mPhProj);
-
-    mBlClino->AddToSys(mSetIntervUK);
-}
-
-void cMMVII_BundleAdj::AddClinoBloc(cBA_Clino * aBAClino){
-    mBlClino = aBAClino;
-    mBlClino->AddToSys(mSetIntervUK);
-}
-
-void cMMVII_BundleAdj::SaveClino()
-{
-    if (mBlClino)
-    {
-       mBlClino->Save();
-    }
-}
 
 /* ---------------------------------------- */
 /*                 Lidar                    */

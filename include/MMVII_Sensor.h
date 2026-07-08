@@ -589,8 +589,8 @@ class cPhotogrammetricProject : public cIPhProj
           cDirsPhProj &   DPTieP();    ///<  Accessor
           cDirsPhProj &   DPMulTieP();    ///<  Accessor
           cDirsPhProj &   DPBlockInstr();    ///<  Accessor  // RIGIDBLOC
-          cDirsPhProj &   DPRigBloc();    ///<  Accessor  // RIGIDBLOC
-          cDirsPhProj &   DPClinoMeters();    ///<  Accessor  // RIGIDBLOC
+        //  cDirsPhProj &   DPRigBloc();    ///<  Accessor  // RIGIDBLOC
+        //  cDirsPhProj &   DPClinoMeters();    ///<  Accessor  // RIGIDBLOC
           cDirsPhProj &   DPTopoMes();    ///<  Accessor  // TOPO
           cDirsPhProj &   DPMeasuresClino();    ///<  Accessor  // RIGIDBLOC
       cDirsPhProj &   DPStaticLidar();    ///<  Accessor  // STATIC LIDAR
@@ -609,8 +609,8 @@ class cPhotogrammetricProject : public cIPhProj
           const cDirsPhProj &   DPTieP() const;    ///<  Accessor
           const cDirsPhProj &   DPMulTieP() const;    ///<  Accessor
           const cDirsPhProj &   DPBlockInstr()const;    ///<  Accessor
-          const cDirsPhProj &   DPRigBloc() const;    ///<  Accessor
-          const cDirsPhProj &   DPClinoMeters() const;    ///<  Accessor
+         //  const cDirsPhProj &   DPRigBloc() const;    ///<  Accessor
+          // const cDirsPhProj &   DPClinoMeters() const;    ///<  Accessor
           const cDirsPhProj &   DPTopoMes() const;    ///<  Accessor
           const cDirsPhProj &   DPMeasuresClino() const;    ///<  Accessor
           const cDirsPhProj &   DPStaticLidar() const;    ///<  Accessor
@@ -915,7 +915,7 @@ class cPhotogrammetricProject : public cIPhProj
          //===================================================================
          //==================   Clinometers           ========================
          //===================================================================
-        
+#if (MAINTAIN_OLD_BLOCK)
          /// Standard name for clino file using DPClinoMeters, in or out
          std::string NameFileClino(const std::string &aNameCam ,bool Input, const std::string aClinoName) const;
          /// Save clinometer calib in santdard out folder of DPClinoMeters
@@ -927,7 +927,7 @@ class cPhotogrammetricProject : public cIPhProj
          cOneCalibClino * GetClino(const cPerspCamIntrCalib &, const std::string aClinoName) const;
          void  ReadGetClino(cOneCalibClino&,const cPerspCamIntrCalib &, const std::string aClinoName) const;
          cCalibSetClino  ReadSetClino(const cPerspCamIntrCalib &, const std::vector<std::string> &aClinoName) const;
-
+#endif
          /// Standard name for file of measures clino
          std::string NameFileMeasuresClino(bool Input,const std::string & aNameFile="" ) const;
          void SaveMeasureClino(const cSetMeasureClino &) const;
@@ -937,19 +937,20 @@ class cPhotogrammetricProject : public cIPhProj
          //===================================================================
          //==================   Rigid Bloc           =========================
          //===================================================================
-         
+#if (MAINTAIN_OLD_BLOCK)
+
                  // RIGIDBLOC
          std::list<cBlocOfCamera *> ReadBlocCams() const;
          cBlocOfCamera *            ReadUnikBlocCam() const;
          void   SaveBlocCamera(const cBlocOfCamera &) const;
-              
+#endif
+
                //  New formalisation
          std::string   NameRigBoI(const std::string &,bool isIn) const;
          /// read a new bloc from existing name, if SVP and dont exist return block empty, else error
          cIrbCal_Block*  ReadRigBoI(const std::string &,bool SVP=false) const;
          void   SaveRigBoI(const cIrbCal_Block &) const;
-     std::vector<std::string>  ListBlockExisting() const;
-
+         std::vector<std::string>  ListBlockExisting() const;
          //===================================================================
          //==================   Topo Mes           =========================
          //===================================================================
@@ -1004,8 +1005,8 @@ class cPhotogrammetricProject : public cIPhProj
           cDirsPhProj     mDPMulTieP;         ///<  For multiple Homologous point
           cDirsPhProj     mDPMetaData;
           cDirsPhProj     mDPBlockInstr;       // RIGIDBLOC
-          cDirsPhProj     mDPRigBloc;         // RIGIDBLOC
-          cDirsPhProj     mDPClinoMeters;      // +-  resulta of clino calib (boresight)
+        // cDirsPhProj     mDPRigBloc;         // RIGIDBLOC
+        //  cDirsPhProj     mDPClinoMeters;      // +-  resulta of clino calib (boresight)
           cDirsPhProj     mDPMeasuresClino;     // measure (angles) of clino
           cDirsPhProj     mDPTopoMes;         // Topo
           cDirsPhProj     mDPStaticLidar;         // Static Lidar

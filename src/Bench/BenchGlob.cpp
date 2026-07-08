@@ -602,7 +602,6 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
         BenchSSRNL(aParam);
         BenchDeformIm(aParam);
 
-        BenchClino(aParam);
 
         BenchCentralePerspective(aParam);
         cImageRadiomData::Bench(aParam);
