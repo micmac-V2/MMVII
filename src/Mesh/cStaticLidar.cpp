@@ -551,6 +551,16 @@ void cStaticLidarImporter::ComputeAgregatedAngles()
         mVectThetasLine[i] /= aNbMesThetasLine[i];
     }
     // TODO: check that phis are constant among first and last lines
+
+    // export mean thetas per col
+    std::fstream file_thetas;
+    file_thetas.open("thetas.txt", std::ios_base::out);
+    for (auto aTheta:mVectThetasLine)
+    {
+        file_thetas << aTheta << "\n";
+    }
+    //file_thetas << "\n";
+    file_thetas.close();
 }
 
 float cStaticLidarImporter::LocalPhiToLinePrecise(float aPhi) const
