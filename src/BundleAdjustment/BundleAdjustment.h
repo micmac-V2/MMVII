@@ -689,7 +689,7 @@ class cMMVII_BundleAdj
           void ShowUKNames(const std::vector<std::string> & aParam, const std::string &aSuffix, cMMVII_Appli* =nullptr) ;
           cPt3dr GetGCP_UC_UK(const std::string & aGCPName) const;
           // Save results of clino bundle adjustment
-          void SaveClino();
+         // void SaveClino();
           /// Add sensor, used in Bench Clino, deprecated probably
           void  AddBenchSensor(cSensorCamPC *);
           void setVerbose(bool aVerbose){mVerbose=aVerbose;}; // Print or not residuals
