@@ -812,11 +812,258 @@ MACRO_INSTANTIATE_ARG2007(cBox3dr)
 
 /* ==================================== */
 /*                                      */
+/*         Atomic native type           */
+/*  bool, int, double, std::string      */
+/*                                      */
+/* ==================================== */
+thread_local static char BufStrIO[1000];
+
+
+// ================  bool ==============================================
+
+template <>  std::string cStrIO<bool>::ToStr(const bool & anI)
+{
+    return  anI ? "true" : "false";
+}
+template <>  bool cStrIO<bool>::FromStr(const std::string & aStr)
+{
+    if ((aStr=="1") || UCaseEqual(aStr,"true")) return true;
+    if ((aStr=="0") || UCaseEqual(aStr,"false")) return false;
+
+    MMVII_UserError(eTyUEr::eBadBool,"Bad value for boolean :["+aStr+"]");
+
+    return false;
+}
+
+template <>  std::string cStrIO<bool>::msNameType() { return "bool"; }
+
+// ================  char ==============================================
+
+template <>  std::string cStrIO<char>::ToStr(const char & anI)
+{
+
+    std::string aStrI;
+    aStrI += anI;
+    return   aStrI ;
+}
+template <>  char cStrIO<char>::FromStr(const std::string & aStr)
+{
+    MMVII_INTERNAL_ASSERT_User(aStr.size()==1,eTyUEr::eUnClassedError,"String size shoul be 1 for char create");
+
+    return aStr[0];
+}
+
+template <>  std::string cStrIO<char>::msNameType() { return "char";}
+
+
+
+// ================  size_t ==============================================
+
+template <>  std::string cStrIO<size_t>::ToStr(const size_t & aSz)
+{
+    sprintf(BufStrIO,"%zu",aSz);
+    return BufStrIO;
+}
+template <>  size_t cStrIO<size_t>::FromStr(const std::string & aStr)
+{
+    // can be convenient that empty string correspond to zero
+    if (aStr.empty())
+        return 0;
+    size_t aSz;
+    int aNb= sscanf(aStr.c_str(),"%zu",&aSz);
+
+    MMVII_INTERNAL_ASSERT_User((aNb!=0),eTyUEr::eBadInt,"String is not a valid size_t")
+        return aSz;
+}
+template <>  std::string cStrIO<size_t>::msNameType() { return "size_t";}
+
+
+// ================  int ==============================================
+
+bool  StringIsIntOk(const std::string & aStr)
+{
+    int anI;
+    int aNb= sscanf(aStr.c_str(),"%d",&anI);
+
+    return aNb!=0;
+}
+
+template <>  std::string cStrIO<int>::ToStr(const int & anI)
+{
+    sprintf(BufStrIO,"%d",anI);
+    return BufStrIO;
+}
+template <>  int cStrIO<int>::FromStr(const std::string & aStr)
+{
+    // can be convenient that empty string correspond to zero
+    if (aStr.empty())
+        return 0;
+    int anI;
+    int aNb= sscanf(aStr.c_str(),"%d",&anI);
+
+    if (aNb==0)
+    {
+        MMVII_INTERNAL_ASSERT_User((aNb!=0),eTyUEr::eBadInt,"String=["+ aStr +"] is not a valid int")
+    }
+    return anI;
+}
+
+bool IsStrInt(const std::string & aStr)
+{
+    int anI;
+    int aNb= sscanf(aStr.c_str(),"%d",&anI);
+    return aNb != 0;
+}
+
+template <>  std::string cStrIO<int>::msNameType()   { return  "int"; }
+template <>  std::string cStrIO<tINT2>::msNameType() { return "int2"; }
+template <>  std::string cStrIO<tU_INT1>::msNameType() { return "u_int1";}
+template <>  std::string cStrIO<tREAL4>::msNameType()  { return "float";}
+
+std::string ToStr(int aVal,int aSzMin)
+{
+    std::string aRes = ToStr(std::abs(aVal));
+    while (int(aRes.size())<aSzMin)
+        aRes = "0" + aRes;
+    if (aVal<0)
+        aRes = "-" + aRes;
+    return aRes;
+}
+
+
+
+/*
+std::string  ToS_NbDigit(int aNb,int aNbDig,bool AcceptOverFlow)
+{
+   std::string aRes = ToS(aNb);
+   int aSz = (int)aRes.size();
+   if ((!AcceptOverFlow) && (aSz>aNbDig))
+   {
+       MMVII_INTERNAL_ASSERT_user(eTyUEr::eTooBig4NbDigit,"Pas assez de digit dans ToStringNBD")
+   }
+   for (;aSz<aNbDig ; aSz++)
+   {
+       aRes = "0" + aRes;
+   }
+   return aRes;
+}
+*/
+
+
+// ================  double ==============================================
+
+static std::vector<size_t> The_VecPrecTxtSerial = {15};
+void PushPrecTxtSerial(size_t aPrec) { The_VecPrecTxtSerial.push_back(aPrec); }
+void PopPrecTxtSerial() { The_VecPrecTxtSerial.pop_back(); }
+
+
+template <>  std::string cStrIO<double>::ToStr(const double & aD)
+{
+    if (int(aD) == aD) return cStrIO<int>::ToStr (int(aD));
+
+    std::ostringstream out;
+    out.precision(The_VecPrecTxtSerial.back());
+    out << std::fixed << aD;
+
+    std::string aRes = std::move(out).str();
+
+    if (aRes.back() != '0') return aRes;
+
+    int aL = aRes.size()-1;
+
+    while ((aL>=0) && (aRes[aL] == '0'))
+        aL--;
+
+    std::string aNewRes = aRes.substr(0,aL+1);
+
+    if (RelativeSafeDifference(aD,FromStr(aNewRes)) < 1e-10)
+        return aNewRes;
+
+    return aRes;
+    /*
+   sprintf(BufStrIO,"%lf",aD);
+   return BufStrIO;
+    */
+    // return std::to_string(aD);
+}
+template <>  double cStrIO<double>::FromStr(const std::string & aStr)
+{
+    double anI;
+    int aNb = sscanf(aStr.c_str(),"%lf",&anI);
+    if (aNb==0)
+    {
+        MMVII_INTERNAL_ASSERT_User((aNb!=0),eTyUEr::eBadInt,"String=["+ aStr +"] is not a valid double")
+    }
+    return anI;
+}
+template <>  std::string cStrIO<double>::msNameType() { return "double";}
+
+std::string FixDigToStr(double aSignedVal,int aNbDig)
+{
+    std::string aFormat = "%."+ToS(aNbDig) + "f";
+    char aBuf[100];
+    sprintf(aBuf,aFormat.c_str(),aSignedVal);
+    return aBuf;
+}
+
+std::string FixDigToStr(double aSignedVal,int aNbBef,int aNbAfter)
+{
+    std::string aFormat = "%0" + ToS(aNbBef+aNbAfter+1) + "."+ToS(aNbAfter) + "f";
+    char aBuf[100];
+    sprintf(aBuf,aFormat.c_str(),aSignedVal);
+    return aBuf;
+}
+
+std::string ResidualToStr(tREAL8 aRes)
+{
+    // can certainly do better using all optio, of sprintf
+    std::string aStr = FixDigToStr(aRes,1,3);
+    if (aRes<1)
+    {
+    }
+    else if (aRes<10)
+        aStr =  FixDigToStr(aRes,1,2);
+    else if (aRes<100)
+        aStr =  FixDigToStr(aRes,1,1);
+    else
+        aStr =  FixDigToStr(aRes,1,0);
+
+    return aStr;
+}
+
+
+// ================  double ==============================================
+
+template <>  std::string cStrIO<tREAL16>::ToStr(const tREAL16 & aD)
+{
+    return cStrIO<tREAL8>::ToStr((tREAL8) (aD));
+}
+
+template <>  std::string cStrIO<tREAL4>::ToStr(const tREAL4 & aD)
+{
+    return cStrIO<tREAL8>::ToStr((tREAL8) (aD));
+}
+
+
+// ================  std::string ==============================================
+
+template <>  std::string cStrIO<std::string>::ToStr(const std::string & aStr)
+{
+    return aStr;
+}
+template <>  std::string cStrIO<std::string>::FromStr(const std::string & aStr)
+{
+    return aStr;
+}
+
+template <>  std::string cStrIO<std::string>::msNameType() { return "string";}
+
+
+/* ==================================== */
+/*                                      */
 /*         std::vector<T>               */
 /*                                      */
 /* ==================================== */
-
-thread_local static char BufStrIO[1000];
 
 //  vector<int>  => [1,2,3]
 
@@ -937,13 +1184,12 @@ template <>  std::vector<TYPE> cStrIO<std::vector<TYPE> >::FromStr(const std::st
 {\
     return Str2Vec<TYPE>(aStr);\
 }\
-template <>  std::string cStrIO<std::vector<TYPE>>::msNameType() { return  "std::vector<"  #TYPE  ">" ;}
+template <>  std::string cStrIO<std::vector<TYPE>>::msNameType() { return  std::string("vector<") + cStrIO<TYPE>::msNameType() +  ">" ;}
 
-MACRO_INSTANTITATE_STRIO_VECT_TYPE(std::vector<std::string>)
 MACRO_INSTANTITATE_STRIO_VECT_TYPE(std::string)
+MACRO_INSTANTITATE_STRIO_VECT_TYPE(std::vector<std::string>)
 MACRO_INSTANTITATE_STRIO_VECT_TYPE(int)
 MACRO_INSTANTITATE_STRIO_VECT_TYPE(double)
-MACRO_INSTANTITATE_STRIO_VECT_TYPE(cPt2di)
 
 
 std::vector<std::string> Str2VStr(const std::string & aS)
@@ -1007,6 +1253,8 @@ MACRO_INSTANTITATE_STRIO_CPTXD(double,4)
 MACRO_INSTANTITATE_STRIO_CPTXD(int,5)
 MACRO_INSTANTITATE_STRIO_CPTXD(double,5)
 
+
+MACRO_INSTANTITATE_STRIO_VECT_TYPE(cPt2di)
 
 
 void OneBenchStrIO(std::string aStr,const  std::vector<std::string> & aV)
@@ -1096,252 +1344,6 @@ MACRO_INSTANTIATE_STRIO_ENUM(eFormatSensor,"FormatSensor")
 MACRO_INSTANTIATE_STRIO_ENUM(eModeSSR,"ModeSRR")
 MACRO_INSTANTIATE_STRIO_ENUM(eImatchCrit,"ImatchCrit")
 
-
-/* ==================================== */
-/*                                      */
-/*         Atomic native type           */
-/*  bool, int, double, std::string      */
-/*                                      */
-/* ==================================== */
-
-   // ================  bool ==============================================
-
-template <>  std::string cStrIO<bool>::ToStr(const bool & anI)
-{
-   return  anI ? "true" : "false";
-}
-template <>  bool cStrIO<bool>::FromStr(const std::string & aStr)
-{
-    if ((aStr=="1") || UCaseEqual(aStr,"true")) return true;
-    if ((aStr=="0") || UCaseEqual(aStr,"false")) return false;
-
-    MMVII_UserError(eTyUEr::eBadBool,"Bad value for boolean :["+aStr+"]");
-
-    return false;
-}
-
-template <>  std::string cStrIO<bool>::msNameType() { return "bool"; }
-
-   // ================  char ==============================================
-
-template <>  std::string cStrIO<char>::ToStr(const char & anI)
-{
-
-   std::string aStrI;
-   aStrI += anI;
-   return   aStrI ;
-}
-template <>  char cStrIO<char>::FromStr(const std::string & aStr)
-{
-    MMVII_INTERNAL_ASSERT_User(aStr.size()==1,eTyUEr::eUnClassedError,"String size shoul be 1 for char create");
-
-    return aStr[0];
-}
-
-template <>  std::string cStrIO<char>::msNameType() { return "char";}
-
-
-
-   // ================  size_t ==============================================
-
-template <>  std::string cStrIO<size_t>::ToStr(const size_t & aSz)
-{
-   sprintf(BufStrIO,"%zu",aSz);
-   return BufStrIO;
-}
-template <>  size_t cStrIO<size_t>::FromStr(const std::string & aStr)
-{
-    // can be convenient that empty string correspond to zero
-    if (aStr.empty())
-       return 0;
-    size_t aSz;
-    int aNb= sscanf(aStr.c_str(),"%zu",&aSz);
-
-    MMVII_INTERNAL_ASSERT_User((aNb!=0),eTyUEr::eBadInt,"String is not a valid size_t")
-    return aSz;
-}
-template <>  std::string cStrIO<size_t>::msNameType() { return "size_t";}
-
-
-   // ================  int ==============================================
-
-bool  StringIsIntOk(const std::string & aStr)
-{
-    int anI;
-    int aNb= sscanf(aStr.c_str(),"%d",&anI);
-
-    return aNb!=0;
-}
-
-template <>  std::string cStrIO<int>::ToStr(const int & anI)
-{
-   sprintf(BufStrIO,"%d",anI);
-   return BufStrIO;
-}
-template <>  int cStrIO<int>::FromStr(const std::string & aStr)
-{
-    // can be convenient that empty string correspond to zero
-    if (aStr.empty())
-       return 0;
-    int anI;
-    int aNb= sscanf(aStr.c_str(),"%d",&anI);
-
-    if (aNb==0)
-    {
-         MMVII_INTERNAL_ASSERT_User((aNb!=0),eTyUEr::eBadInt,"String=["+ aStr +"] is not a valid int")
-    }
-    return anI;
-}
-
-bool IsStrInt(const std::string & aStr)
-{
-    int anI;
-    int aNb= sscanf(aStr.c_str(),"%d",&anI);
-    return aNb != 0;
-}
-
-template <>  std::string cStrIO<int>::msNameType()   { return  "int"; }
-template <>  std::string cStrIO<tINT2>::msNameType() { return "int2"; }
-template <>  std::string cStrIO<tU_INT1>::msNameType() { return "u_int1";}
-template <>  std::string cStrIO<tREAL4>::msNameType()  { return "float";}
-
-std::string ToStr(int aVal,int aSzMin)
-{
-   std::string aRes = ToStr(std::abs(aVal));
-   while (int(aRes.size())<aSzMin)
-       aRes = "0" + aRes;
-   if (aVal<0)
-       aRes = "-" + aRes;
-   return aRes;
-}
-
-
-
-/*
-std::string  ToS_NbDigit(int aNb,int aNbDig,bool AcceptOverFlow)
-{
-   std::string aRes = ToS(aNb);
-   int aSz = (int)aRes.size();
-   if ((!AcceptOverFlow) && (aSz>aNbDig))
-   {
-       MMVII_INTERNAL_ASSERT_user(eTyUEr::eTooBig4NbDigit,"Pas assez de digit dans ToStringNBD")
-   }
-   for (;aSz<aNbDig ; aSz++)
-   {
-       aRes = "0" + aRes;
-   }
-   return aRes;
-}
-*/
-
-
-   // ================  double ==============================================
-
-static std::vector<size_t> The_VecPrecTxtSerial = {15};
-void PushPrecTxtSerial(size_t aPrec) { The_VecPrecTxtSerial.push_back(aPrec); }
-void PopPrecTxtSerial() { The_VecPrecTxtSerial.pop_back(); }
-
-
-template <>  std::string cStrIO<double>::ToStr(const double & aD)
-{
-    if (int(aD) == aD) return cStrIO<int>::ToStr (int(aD));
-
-    std::ostringstream out;
-    out.precision(The_VecPrecTxtSerial.back());
-    out << std::fixed << aD;
-
-    std::string aRes = std::move(out).str();
-
-    if (aRes.back() != '0') return aRes;
-
-    int aL = aRes.size()-1;
-
-    while ((aL>=0) && (aRes[aL] == '0'))
-          aL--;
-
-    std::string aNewRes = aRes.substr(0,aL+1);
-
-    if (RelativeSafeDifference(aD,FromStr(aNewRes)) < 1e-10)
-            return aNewRes;
-
-    return aRes;
-        /*
-   sprintf(BufStrIO,"%lf",aD);
-   return BufStrIO;
-    */
-   // return std::to_string(aD);
-}
-template <>  double cStrIO<double>::FromStr(const std::string & aStr)
-{
-    double anI;
-    int aNb = sscanf(aStr.c_str(),"%lf",&anI);
-    if (aNb==0)
-    {
-        MMVII_INTERNAL_ASSERT_User((aNb!=0),eTyUEr::eBadInt,"String=["+ aStr +"] is not a valid double")
-    }
-    return anI;
-}
-template <>  std::string cStrIO<double>::msNameType() { return "double";}
-
-std::string FixDigToStr(double aSignedVal,int aNbDig)
-{
-   std::string aFormat = "%."+ToS(aNbDig) + "f";
-   char aBuf[100];
-   sprintf(aBuf,aFormat.c_str(),aSignedVal);
-   return aBuf;
-}
-
-std::string FixDigToStr(double aSignedVal,int aNbBef,int aNbAfter)
-{
-   std::string aFormat = "%0" + ToS(aNbBef+aNbAfter+1) + "."+ToS(aNbAfter) + "f";
-   char aBuf[100];
-   sprintf(aBuf,aFormat.c_str(),aSignedVal);
-   return aBuf;
-}
-
-std::string ResidualToStr(tREAL8 aRes)
-{
-    // can certainly do better using all optio, of sprintf
-    std::string aStr = FixDigToStr(aRes,1,3);
-    if (aRes<1)
-    {
-    }
-    else if (aRes<10)
-        aStr =  FixDigToStr(aRes,1,2);
-    else if (aRes<100)
-        aStr =  FixDigToStr(aRes,1,1);
-    else
-        aStr =  FixDigToStr(aRes,1,0);
-
-    return aStr;
-}
-
-
-   // ================  double ==============================================
-
-template <>  std::string cStrIO<tREAL16>::ToStr(const tREAL16 & aD)
-{
-    return cStrIO<tREAL8>::ToStr((tREAL8) (aD));
-}
-
-template <>  std::string cStrIO<tREAL4>::ToStr(const tREAL4 & aD)
-{
-    return cStrIO<tREAL8>::ToStr((tREAL8) (aD));
-}
-
-
-   // ================  std::string ==============================================
-
-template <>  std::string cStrIO<std::string>::ToStr(const std::string & aStr)
-{
-   return aStr;
-}
-template <>  std::string cStrIO<std::string>::FromStr(const std::string & aStr)
-{
-    return aStr;
-}
-
-template <>  std::string cStrIO<std::string>::msNameType() { return "string";}
 
 
 
