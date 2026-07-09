@@ -129,6 +129,23 @@ void cTopoData::InsertTopoData(const cTopoData & aOtherTopoData)
         mObsSetSimple.mObs.push_back(aObs);
 }
 
+void cTopoData::InsertTopoDataFromPhProj(const cPhotogrammetricProject &aPhProj)
+{
+    for (auto & aInFile: aPhProj.ReadTopoMes())
+    {
+        std::string aPost = Postfix(aInFile, '.', true);
+        if (UCaseEqual(aPost,"obs"))
+        {
+            InsertCompObsFile(aPhProj.DPTopoMes().FullDirIn() + aInFile);
+            continue;
+        }
+
+        cTopoData aTopoData;
+        aTopoData.FromFile(aPhProj.DPTopoMes().FullDirIn() + aInFile);
+        InsertTopoData(aTopoData);
+    }
+}
+
 
 eCompObsType intToCompObsType(int i)
 {

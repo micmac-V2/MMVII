@@ -48,6 +48,7 @@ public:
     int Exe() override;
     cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
+    bool AcceptEmptySet(int) const override;
 
     std::vector<cOneHelpSampleCmp>  Samples() const override;
 
@@ -64,8 +65,29 @@ private:
     bool                      mBinary;
     bool                      mWithRGB;
     bool                      mWithAvgRGB; //RGB values averaged over all images, slower? but less noisy
+    double                    mTopoLineSpacing;
 
-    void AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulTieP * &, const std::vector<cSensorImage *>& );
+    void AddPointsFromCameras(
+        cPlyVertices& aPlyverts,
+        cComputeMergeMulTieP * & aTPts,
+        const std::vector<cSensorImage *>& aVSens
+    );
+    void AddOnlyCameras(cPlyVertices& aPlyverts, const std::vector<cSensorImage *>& aVSens);
+
+    void HandleTiePoints(
+        cPlyVertices& aPlyverts,
+        const std::vector<cSensorImage *>& aVSens,
+        const std::vector<std::string>& aVNames
+    );
+    void HandleGCP2D(
+        cPlyVertices& aPlyverts,
+        const std::vector<cSensorImage *>& aVSens,
+        const std::vector<std::string>& aVNames
+    );
+    void HandleGCP3D(
+        cPlyVertices& aPlyverts
+    );
+
     void AddPointCould(cPlyVertices& aPlyverts, cStaticLidar* aScan, int aTSLCloudDezoom, cPt3dr aScanColor, bool aOnlyEdges=false);
     double CalculateFDepth(const cPt2di&, const double&);
 };

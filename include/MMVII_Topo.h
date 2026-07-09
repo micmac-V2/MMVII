@@ -26,6 +26,11 @@ class cBA_Topo : public cMemCheck
 {
     friend class cTopoData;
 public :
+    static void ReadAllTopoDataInto(
+        cPhotogrammetricProject *aPhProj,
+        cTopoData &aTopoData
+    );
+
     cBA_Topo(cPhotogrammetricProject *aPhProj, cBA_GCP * aBA_GCP);
     ~cBA_Topo();
     void clear();

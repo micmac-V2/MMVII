@@ -101,6 +101,7 @@ public:
     void AddData(const  cAuxAr2007 & anAuxInit);
     void ToFile(const std::string & aFileName) const;
     void FromFile(const std::string & aFileName);
+    void InsertTopoDataFromPhProj(const cPhotogrammetricProject &aPhProj);
     bool InsertCompObsFile(const std::string & aFileName);
     void clear();
     static std::pair<cTopoData, cSetMesGnd3D>  createEx1();

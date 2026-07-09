@@ -765,6 +765,24 @@ public:
     ~cPlyVertices();
     void AddVert(const std::array<double, 3> &aVert, const std::array<double, 3> &aColor={1.,1.,1.});
     void AddVert(const cPt3dr &aVert, const cPt3dr &aColor={1.,1.,1.});
+    void DrawLineAsVert(
+        const cPt3dr &aStartVert,
+        const cPt3dr &aEndVert,
+        const cPt3dr &aColor = {1.,1.,1.},
+        const tREAL8 aSpacingBetweenPoints = 0.1
+    );
+    void Draw3DPlusAsVert(
+        const cPt3dr &aOrigin,
+        const cPt3dr &aColor = {1.,1.,1.},
+        const tREAL8 aLength = 1,
+        const tREAL8 aSpacingBetweenPoints = 0.1
+    );
+    void Draw3DCrossAsVert(
+        const cPt3dr &aOrigin,
+        const cPt3dr &aColor = {1.,1.,1.},
+        const tREAL8 aLength = 1,
+        const tREAL8 aSpacingBetweenPoints = 0.1
+    );
     void ToPly(const std::string & aFileName, bool aIsBinary);
 protected:
     std::vector<std::array<double, 3>> mPlyVerts;
