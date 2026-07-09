@@ -45,6 +45,7 @@ namespace MMVII
         //------ methods
         void        BuildDiscr(cCdTDiscr& aDis, bool& isOk);  //-> cCdTDiscr builder
         void        DiscrMapRefine(cCdTDiscr& aDis);                //-> cCdTDiscr CdT2Im mapping refiner
+        void        CorrelCropSamp(cCdTDiscr& aDis);
         void        Visu(cSetMesPtOf1Im& aSet);
         std::string NameVisu(const std::string & aIm, const std::string & aPref, const std::string aPost);
         };
@@ -53,29 +54,54 @@ namespace MMVII
     std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1);//-> gets corners of a rectangle formed by aP0/aP1
 
 
-    template <class Type> class cBBox : public cPixBox<2>
+    class cPixBBox : public cPixBox<2>
     {
     public:
-        typedef cPtxd<Type,2> tPt;
-        cBBox(std::vector<tPt> aVPts);
-        cBBox(cTplBox<Type,2>);
+        typedef cPtxd<tINT4,2> tPt;
+        cPixBBox(std::vector<tPt> aVPts);
+        cPixBBox(cPixBox<2>);
     };
 
     template <class Type> class cOptCorrelThIm : public cDataMapping<tREAL8, 2, 1>
     {
     public:
         typedef  cDataIm2D<Type> tDIm;
-        cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1>& aMaskDIm, cBBox<tREAL8>& aBBox);
+        cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1>& aMaskDIm, cPixBBox aBBox);
         cPt1dr Value(const cPt2dr& aPt) const override;//-> correl score from aPt position
     private:
         tDIm& mThDIm;//-> theoretical image of the CdT generated from detected deformation
         tDIm& mGDIm;//-> global image
         tDIm& mDMask;//-> mask for correlation computation
-        cBBox<tREAL8> mBBox;//-> bbox of predicted cdt wrt global image
-        cPt2dr mC0;//-> previous centre to compute bbox translation
+        cPixBBox mBBox;//-> bbox of predicted cdt wrt global image
+        cPt2dr mP0;//-> initial bbox up corner to compute translation
     };
 
 
+    template <class Type> class cCdtIm
+    {
+    public:
+        typedef cIm2D<Type> tIm;
+        typedef cDataIm2D<Type> tDIm;
+        cCdtIm();
+    private:
+        std::string mName;
+        cPt2dr mC;//-> center of the cdt wrt global image
+        tIm mIm;//-> cdt image
+        tDIm mDIm;
+    };
+
+    //template <class Type> class cCdtTr : cCdtIm<Type>
+    //{
+
+    //}
+
+    template <class Type> class cCdtRef : cCdtIm<Type>
+    {
+    public:
+        typedef cAffin2D<class TAff> tAff2d;
+        cCdtRef(std::shared_ptr<cFullSpecifTarget> aFSpec, std::string aName);
+        //cCdtTr Transform(tAff2d aTransfo);
+    };
 
     //cAff2D_r            Descr2Aff(const cCdTDescr& aDes, cSensorCamPC* aCam);//-> converts description to 2d affinity
 }

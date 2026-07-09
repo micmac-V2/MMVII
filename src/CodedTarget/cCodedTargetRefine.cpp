@@ -1,4 +1,5 @@
 #include "cCodedTargetRefine.h"
+#include "MMVII_HeuristikOpt.h"
 #include "MMVII_Interpolators.h"
 
 namespace MMVII
@@ -438,6 +439,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         {
             mGlobImN = aIm;
             mIm = tIm::FromFile(mGlobImN);
+            mDIm = &mIm.DIm();
             cSetOfCdTDiscr aSetOfDiscr(mGlobImN);//-> collection of image CdT discretizations
             cSetMesPtOf1Im aSet(mGlobImN);//-> to save final image measurements
 
@@ -502,6 +504,9 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 
                         cMesIm1Pt aMes(aCorC, aDis.mName, 1);
                         aSet.AddMeasure(aMes);
+
+                        //-> ** test heuristik optim**
+                        CorrelCropSamp(aDis);
                     }
                 }
             if (mVisu) Visu(aSet);
@@ -597,6 +602,13 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         }
     }
 
+    void cAppli_CodedTargetRefine::CorrelCropSamp(cCdTDiscr& aDis)
+    {
+        cOptCorrelThIm<tU_INT1> aOptMap(aDis.Samp().DIm(), *mDIm, aDis.Mask().DIm(), cPixBBox(aDis.Extent()));
+        cOptimByStep aOpt(aOptMap, false, 2.0);
+        auto [aVal,aDelta] = aOpt.Optim(ToR(aDis.Extent().P0()), 4, .1);
+        StdOut() << "Correl. score : " << aVal << " P0: " << aDis.Extent().P0() << "NewP0: " << aDelta << "\n";
+    }
 
     //----- memory allocation
     tMMVII_UnikPApli Alloc_CodedTargetRefine(const std::vector<std::string> & aVArgs,
@@ -794,30 +806,26 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 
 
     template <class Type>
-    cOptCorrelThIm<Type>::cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1> &aMaskDIm, cBBox<tREAL8>& aBBox):
+    cOptCorrelThIm<Type>::cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1> &aMaskDIm, cPixBBox aBBox):
         mThDIm (aTheorDIm),
         mGDIm (aGlobDIm),
         mDMask (aMaskDIm),
         mBBox (aBBox)
     {
-        mC0 = ToR(mBBox.Middle());
+        mP0 = ToR(mBBox.P0());
     }
 
     template <class Type>
-    cPt1dr cOptCorrelThIm<Type>::Value(const cPt2dr& aNewC0) const
+    cPt1dr cOptCorrelThIm<Type>::Value(const cPt2dr& aNewP0) const
     {
-        tRect2 aNewBox = mBBox.Translate(ToI(mC0 - aNewC0));//-> translate from new center
-        tIm aCrop(mBBox.Sz());
-        tDIm& aDCrop = aCrop.DIm();
-        aDCrop->CropIn(aNewBox.P0ByRef(), mGDIm());//-> crop of glob image from new bbox
-
-        cMatIner2Var<double>  aMat;//-> class to compute correl of 2 variables
+        cMatIner2Var<tREAL8>  aMat;//-> class to compute correl of 2 variables
         for (const auto& aP : tRect2(mBBox.Sz()))
         {
             if (mDMask.GetV(aP) == MaskInV) continue;//-> reject pixels that are in the mask
-            aMat.Add(aDCrop.GetV(aP), mThDIm.GetV(aP));
+            //-> add somthg with interpolation
+            aMat.Add(mGDIm.GetVBL(ToR(aP) + aNewP0), mThDIm.GetV(aP));
         }
-        return cPt1dr(aMat.Correl());//-> similarity score for the new center
+        return cPt1dr(aMat.Correl());//-> similarity score for aNewP0
     }
 
     std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1)
@@ -834,20 +842,28 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 
 /******************************************************************************/
 /*
-* cBBox
+* cPixBBox
 */
 /******************************************************************************/
 
-    template <class Type>
-    cBBox<Type>::cBBox(std::vector<tPt> aVPts)
+    cPixBBox::cPixBBox(std::vector<tPt> aVPts):
+        cPixBox<2>(tPt(0,0), tPt(0,0))
     {
-        cBoundVals<Type> aXB;
-        cBoundVals<Type> aYB;
+        cBoundVals<tINT4> aXB;
+        cBoundVals<tINT4> aYB;
         for (const auto& aP : aVPts)
         {
             aXB.Add(aP.x());
             aYB.Add(aP.y());
         }
-        cPixBox(tPt(aXB.VMin(), aYB.VMin()), tPt(aXB.VMax(), aYB.VMax()));
+        mP0 = tPt(aXB.VMin(), aYB.VMin());
+        mP1 = tPt(aXB.VMax(), aYB.VMax());
     }
+
+    cPixBBox::cPixBBox(cPixBox<2> aBox):
+        cPixBox<2>(aBox)
+    {
+    }
+
 }
+
