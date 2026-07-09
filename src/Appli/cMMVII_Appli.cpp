@@ -1448,11 +1448,11 @@ void cMMVII_Appli::GenerateHelp()
         //  StdOut() << "HHHHHhh " << aPdfOpen.has_value()  << " UN " << mParamProfile.mUserName << "\n";
         if (aPdfOpen.size() && (mPatHelp=="pdf"))
         {
-            std::string aCmd = aPdfOpen + std::string(" ")  + aPdfFile;
-            int aResult = system(aCmd.c_str());
+            cParamCallSys aCom(aPdfOpen,aPdfFile);
+            int aResult = system(aCom.Com().c_str());
             if (aResult!= EXIT_SUCCESS)
             {
-                StdOut() << "Can't run command : " << aCmd << "\n";
+                StdOut() << "Can't run command : '" << aCom.Com() << "'\n";
             }
         }
     }
