@@ -826,11 +826,13 @@ template <>  std::string cStrIO<bool>::ToStr(const bool & anI)
 {
     return  anI ? "true" : "false";
 }
-template <>  bool cStrIO<bool>::FromStr(const std::string & aStr)
+template <>  bool cStrIO<bool>::FromStr(const std::string & aStr, bool ExceptionOnError)
 {
     if ((aStr=="1") || UCaseEqual(aStr,"true")) return true;
     if ((aStr=="0") || UCaseEqual(aStr,"false")) return false;
 
+    if (ExceptionOnError)
+        throw StrIOException("Bad value for boolean :["+aStr+"]");
     MMVII_UserError(eTyUEr::eBadBool,"Bad value for boolean :["+aStr+"]");
 
     return false;
@@ -847,9 +849,13 @@ template <>  std::string cStrIO<char>::ToStr(const char & anI)
     aStrI += anI;
     return   aStrI ;
 }
-template <>  char cStrIO<char>::FromStr(const std::string & aStr)
+template <>  char cStrIO<char>::FromStr(const std::string & aStr, bool ExceptionOnError)
 {
-    MMVII_INTERNAL_ASSERT_User(aStr.size()==1,eTyUEr::eUnClassedError,"String size shoul be 1 for char create");
+    if (aStr.size()!=1) {
+        if (ExceptionOnError)
+            throw StrIOException("String size shoul be 1 for char create");
+        MMVII_UserError(eTyUEr::eUnClassedError,"String size shoul be 1 for char create");
+    }
 
     return aStr[0];
 }
@@ -865,7 +871,7 @@ template <>  std::string cStrIO<size_t>::ToStr(const size_t & aSz)
     sprintf(BufStrIO,"%zu",aSz);
     return BufStrIO;
 }
-template <>  size_t cStrIO<size_t>::FromStr(const std::string & aStr)
+template <>  size_t cStrIO<size_t>::FromStr(const std::string & aStr, bool ExceptionOnError)
 {
     // can be convenient that empty string correspond to zero
     if (aStr.empty())
@@ -873,8 +879,12 @@ template <>  size_t cStrIO<size_t>::FromStr(const std::string & aStr)
     size_t aSz;
     int aNb= sscanf(aStr.c_str(),"%zu",&aSz);
 
-    MMVII_INTERNAL_ASSERT_User((aNb!=0),eTyUEr::eBadInt,"String is not a valid size_t")
-        return aSz;
+    if (aNb == 0) {
+        if (ExceptionOnError)
+            throw StrIOException("String is not a valid size_t");
+        MMVII_UserError(eTyUEr::eBadInt,"String is not a valid size_t");
+    }
+    return aSz;
 }
 template <>  std::string cStrIO<size_t>::msNameType() { return "size_t";}
 
@@ -894,7 +904,7 @@ template <>  std::string cStrIO<int>::ToStr(const int & anI)
     sprintf(BufStrIO,"%d",anI);
     return BufStrIO;
 }
-template <>  int cStrIO<int>::FromStr(const std::string & aStr)
+template <>  int cStrIO<int>::FromStr(const std::string & aStr, bool ExceptionOnError)
 {
     // can be convenient that empty string correspond to zero
     if (aStr.empty())
@@ -902,9 +912,10 @@ template <>  int cStrIO<int>::FromStr(const std::string & aStr)
     int anI;
     int aNb= sscanf(aStr.c_str(),"%d",&anI);
 
-    if (aNb==0)
-    {
-        MMVII_INTERNAL_ASSERT_User((aNb!=0),eTyUEr::eBadInt,"String=["+ aStr +"] is not a valid int")
+    if (aNb == 0) {
+        if (ExceptionOnError)
+            throw StrIOException("String=["+ aStr +"] is not a valid int");
+        MMVII_UserError(eTyUEr::eBadInt,"String=["+ aStr +"] is not a valid int");
     }
     return anI;
 }
@@ -987,13 +998,14 @@ template <>  std::string cStrIO<double>::ToStr(const double & aD)
     */
     // return std::to_string(aD);
 }
-template <>  double cStrIO<double>::FromStr(const std::string & aStr)
+template <>  double cStrIO<double>::FromStr(const std::string & aStr, bool ExceptionOnError)
 {
     double anI;
     int aNb = sscanf(aStr.c_str(),"%lf",&anI);
-    if (aNb==0)
-    {
-        MMVII_INTERNAL_ASSERT_User((aNb!=0),eTyUEr::eBadInt,"String=["+ aStr +"] is not a valid double")
+    if (aNb == 0) {
+        if (ExceptionOnError)
+            throw StrIOException("String=["+ aStr +"] is not a valid double");
+        MMVII_UserError(eTyUEr::eBadInt,"String=["+ aStr +"] is not a valid double");
     }
     return anI;
 }
@@ -1052,7 +1064,7 @@ template <>  std::string cStrIO<std::string>::ToStr(const std::string & aStr)
 {
     return aStr;
 }
-template <>  std::string cStrIO<std::string>::FromStr(const std::string & aStr)
+template <>  std::string cStrIO<std::string>::FromStr(const std::string & aStr, bool)
 {
     return aStr;
 }
@@ -1083,13 +1095,16 @@ template <class Type>  std::string Vect2Str(const std::vector<Type>  & aV)
 
 //  4/12/2023 : "Big" modif by MPD to be abble to parse nested stuff like "[1,[2,3],4]" correctly
 
-template <class Type>  std::vector<Type> Str2Vec(const std::string & aStrGlob)
+template <class Type>  std::vector<Type> Str2Vec(const std::string & aStrGlob, bool ExceptionOnError)
 {
 // StdOut() <<  "aStrGlobaStrGlobaStrGlob =" << aStrGlob << "\n";
    std::vector<Type> aRes;
    const char * aC=aStrGlob.c_str();
-   if (*aC!='[')
+   if (*aC!='[') {
+       if (ExceptionOnError)
+           throw StrIOException("expected [ at beging of vect");
        MMVII_UserError(eTyUEr::eParseError,"expected [ at beging of vect");
+   }
    aC++;
    int aLevel = 1;  // level in the parenthesis language, if Lev>1 we dont consider [,] as poncutation
    std::string aStrV;
@@ -1097,12 +1112,14 @@ template <class Type>  std::vector<Type> Str2Vec(const std::string & aStrGlob)
    {
        if (*aC==0)
        {
+          if (ExceptionOnError)
+              throw StrIOException("unexpected end of string while parsing " + aStrGlob);
           MMVII_UserError(eTyUEr::eParseError,"unexpected end of string while parsing " + aStrGlob);
        }
        // only level 1 "," are considered as separators
        else if ((*aC==',') && (aLevel==1))
        {
-           aRes.push_back(cStrIO<Type>::FromStr(aStrV));
+           aRes.push_back(cStrIO<Type>::FromStr(aStrV,ExceptionOnError));
            aStrV="";
        }
        //  a "[" is an ordinary carater, just increase the level
@@ -1121,7 +1138,7 @@ template <class Type>  std::vector<Type> Str2Vec(const std::string & aStrGlob)
             {
                 // else it's the final ponctuation
                 if (aStrV!="")
-                    aRes.push_back(cStrIO<Type>::FromStr(aStrV));
+                    aRes.push_back(cStrIO<Type>::FromStr(aStrV,ExceptionOnError));
                 else
                 {
                     // if last string  is "", we dont add it
@@ -1138,8 +1155,11 @@ template <class Type>  std::vector<Type> Str2Vec(const std::string & aStrGlob)
        aC++;
    }
 
-   if (aLevel!=0)
+   if (aLevel!=0) {
+       if (ExceptionOnError)
+           throw StrIOException("unexpected end of string , bad match in []");
       MMVII_UserError(eTyUEr::eParseError,"unexpected end of string , bad match in []");
+   }
 
    return  aRes;
 }
@@ -1181,9 +1201,9 @@ template <>  std::string cStrIO<std::vector<TYPE>>::ToStr(const std::vector<TYPE
 {\
    return  Vect2Str(aV);\
 }\
-template <>  std::vector<TYPE> cStrIO<std::vector<TYPE> >::FromStr(const std::string & aStr)\
+template <>  std::vector<TYPE> cStrIO<std::vector<TYPE> >::FromStr(const std::string & aStr, bool ExceptionOnError)\
 {\
-    return Str2Vec<TYPE>(aStr);\
+    return Str2Vec<TYPE>(aStr, ExceptionOnError);\
 }\
 template <>  std::string cStrIO<std::vector<TYPE>>::msNameType() { return  std::string("vector<") + cStrIO<TYPE>::msNameType() +  ">" ;}
 
@@ -1219,21 +1239,27 @@ template <>  std::string cStrIO<cPtxd<TYPE,DIM> >::ToStr(const cPtxd<TYPE,DIM>  
 {\
   return Vect2Str(std::vector<TYPE>(aV.PtRawData(),aV.PtRawData()+cPtxd<TYPE,DIM>::TheDim));\
 }\
-template <>  cPtxd<TYPE,DIM> cStrIO<cPtxd<TYPE,DIM> >::FromStr(const std::string & aStr)\
+template <>  cPtxd<TYPE,DIM> cStrIO<cPtxd<TYPE,DIM> >::FromStr(const std::string & aStr, bool ExceptionOnError)\
 {\
-    std::vector<TYPE> aV = cStrIO<std::vector<TYPE>>::FromStr(aStr);\
-    if (aV.size()!=DIM)\
+    std::vector<TYPE> aV = cStrIO<std::vector<TYPE>>::FromStr(aStr,ExceptionOnError);\
+    if (aV.size()!=DIM) {\
+        if (ExceptionOnError)\
+            throw StrIOException("Bad dimension for point, expect=" + MMVII::ToStr(DIM) + " Got=" + MMVII::ToStr(int(aV.size())) );\
        MMVII_UserError(eTyUEr::eBadDimForPt,"Expect="+ MMVII::ToStr(DIM) + " Got=" + MMVII::ToStr(int(aV.size())) );\
+    }\
     cPtxd<TYPE,DIM> aRes;\
     for (int aK=0 ; aK<DIM ; aK++)\
         aRes[aK] = aV[aK];\
     return aRes;\
 }\
-template <>  cTplBox<TYPE,DIM> cStrIO<cTplBox<TYPE,DIM> >::FromStr(const std::string & aStr)\
+template <>  cTplBox<TYPE,DIM> cStrIO<cTplBox<TYPE,DIM> >::FromStr(const std::string & aStr, bool ExceptionOnError)\
 {\
-    std::vector<TYPE> aV = cStrIO<std::vector<TYPE>>::FromStr(aStr);\
-    if (aV.size()!=2*DIM)\
-       MMVII_UserError(eTyUEr::eBadDimForBox,"Expect="+ MMVII::ToStr(2*DIM) + " Got=" + MMVII::ToStr(int(aV.size())) );\
+    std::vector<TYPE> aV = cStrIO<std::vector<TYPE>>::FromStr(aStr, ExceptionOnError);\
+    if (aV.size()!=2*DIM) {\
+        if (ExceptionOnError)\
+            throw StrIOException("Expect="+ MMVII::ToStr(2*DIM) + " Got=" + MMVII::ToStr(int(aV.size())));\
+        MMVII_UserError(eTyUEr::eBadDimForBox,"Expect="+ MMVII::ToStr(2*DIM) + " Got=" + MMVII::ToStr(int(aV.size())) );\
+    }\
     cPtxd<TYPE,DIM> aP0,aP1;\
     for (int aK=0 ; aK<DIM ; aK++){\
         aP0[aK] = aV[aK];\

@@ -28,13 +28,21 @@ class cAuxAr2007;          ///< Auxilary class, only neccessry
     This class handle conversion (two way) between
     atomic type and string.  Contain only static members.
 */
+
+class StrIOException : public std::runtime_error
+{
+    public :
+        StrIOException(const std::string & aMes) : std::runtime_error(aMes) {}
+};
+
+
 template <class Type> class  cStrIO
 {
     public :
        /// Atomic -> string
        static std::string ToStr(const Type &);
       /// String -> Atomic object
-       static Type  FromStr(const std::string &);
+       static Type  FromStr(const std::string &, bool ExceptionOnError=false);
       /// Readable name for type
        static std::string msNameType();
 };
@@ -60,16 +68,16 @@ std::string ResidualToStr(tREAL8 aRes);
 */
 
 template <>  std::string cStrIO<bool>::ToStr(const bool & anI);
-template <>  bool cStrIO<bool>::FromStr(const std::string & aStr);
-template <>  size_t cStrIO<size_t>::FromStr(const std::string & aStr);
+template <>  bool cStrIO<bool>::FromStr(const std::string & aStr, bool ExceptionOnError);
+template <>  size_t cStrIO<size_t>::FromStr(const std::string & aStr, bool ExceptionOnError);
 template <>  std::string cStrIO<int>::ToStr(const int & anI);
-template <>  int cStrIO<int>::FromStr(const std::string & aStr);
+template <>  int cStrIO<int>::FromStr(const std::string & aStr, bool ExceptionOnError);
 template <>  std::string cStrIO<double>::ToStr(const double & anI);
-template <>  double cStrIO<double>::FromStr(const std::string & aStr);
+template <>  double cStrIO<double>::FromStr(const std::string & aStr, bool ExceptionOnError);
 template <>  std::string cStrIO<std::string>::ToStr(const std::string & anI);
-template <>  std::string cStrIO<std::string>::FromStr(const std::string & aStr);
+template <>  std::string cStrIO<std::string>::FromStr(const std::string & aStr, bool ExceptionOnError);
 template <>  std::string cStrIO<char>::ToStr(const char & anI);
-template <>  char cStrIO<char>::FromStr(const std::string & aStr);
+template <>  char cStrIO<char>::FromStr(const std::string & aStr, bool ExceptionOnError);
 
 // is it a valid string-int, may be templatized , but not sure very curent use ..
 bool  StringIsIntOk(const std::string & aStr);

@@ -317,7 +317,15 @@ template tPtrArg2007 AOpt2007<Type>(Type &,const std::string & aName, const std:
 MACRO_INSTANTIATE_ARG2007(ETYPE)\
 TPL_ENUM_2_STRING(ETYPE)\
 template <>  std::string cStrIO<ETYPE>::ToStr(const ETYPE & anEnum) { return  E2Str(anEnum); }\
-template <>  ETYPE cStrIO<ETYPE>::FromStr(const std::string & aStr) { return Str2E<ETYPE>(aStr); }\
+template <>  ETYPE cStrIO<ETYPE>::FromStr(const std::string & aStr, bool ExceptionOnError) { \
+    auto val = Str2E<ETYPE>(aStr,true);\
+    if (val == ETYPE::eNbVals) {\
+        if (ExceptionOnError) throw StrIOException("Str2E for : "+aStr+" ; valids are : "+ StrAllVall<ETYPE>() );\
+        MMVII_UserError(eTyUEr::eBadEnum,"Str2E for : "+aStr+" ; valids are : "+ StrAllVall<ETYPE>() );\
+        return ETYPE::eNbVals;\
+    }\
+    return val;\
+}\
 template <>  std::string cStrIO<ETYPE>::msNameType() { return ENAME ;}
 
 
