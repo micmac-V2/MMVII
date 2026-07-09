@@ -15,6 +15,63 @@ namespace MMVII
 {
 
 
+/* ==================================================== */
+/*                                                      */
+/*                  cSetIm4SparseDist                   */
+/*                                                      */
+/* ==================================================== */
+
+template <class Type>  cSetIm4SparseDist<Type>::cSetIm4SparseDist(size_t aNbIm,const cPt2di& aSzInit,tREAL8 aFactRed) :
+      mNbIm      (aNbIm),
+      mNbMeasure (0.0),
+      mSumW      (0.0),
+      mSzInit    (aSzInit),
+      mFactRed   (aFactRed),
+      mSzRed     (Pt_round_up(ToR(mSzInit)/aFactRed)),
+      mImW       (mSzRed,nullptr,eModeInitImage::eMIA_Null)
+{
+     for (size_t aKIm=0 ; aKIm<mNbIm ; aKIm++)
+         mIm2Avg.push_back(tIm(mSzRed,nullptr,eModeInitImage::eMIA_Null));
+}
+
+template <class Type> void cSetIm4SparseDist<Type>::Add(const cPt2dr &aPFull,const std::vector<tREAL8> & aVValues,tREAL8 aWeight)
+{
+    mNbMeasure++;
+    mSumW += aWeight;
+    cPt2dr aPRed = aPFull/mFactRed;
+
+    if (!mImW.DIm().InsideBL(aPRed))
+        return;
+    mImW.DIm().AddVBL(aPRed,aWeight);
+    MMVII_INTERNAL_ASSERT_always(aVValues.size()==mNbIm,"Bad size in cSetIm4SparseDist::Add");
+
+    for (size_t aKIm=0 ; aKIm<mNbIm ; aKIm++)
+    {
+       mIm2Avg[aKIm].DIm().AddVBL(aPRed,aVValues.at(aKIm)*aWeight);
+    }
+}
+
+template <class Type> void cSetIm4SparseDist<Type>::MakeDense(tREAL8 aMulSigma)
+{
+    //  S^2 * aNbPtsTot = Sz.x() * Sz.y()
+    tREAL8 aSigma = std::sqrt(mImW.DIm().NbElem() / tREAL8(mNbMeasure)) * aMulSigma;
+    mImW = mImW.GaussFilter(aSigma);
+
+    SetMaxCsteInPlace(mImW.DIm(),mImW.DIm(),Type(1e-10));
+    for (size_t aKIm=0 ; aKIm<mNbIm ; aKIm++)
+    {
+        mIm2Avg[aKIm] = mIm2Avg[aKIm].GaussFilter(aSigma);
+        DivImageInPlace(mIm2Avg[aKIm].DIm(),mIm2Avg[aKIm].DIm(),mImW.DIm());
+    }
+}
+
+template <class Type>  cIm2D<Type>  cSetIm4SparseDist<Type>::ImW() const {return mImW;}
+template <class Type>  cIm2D<Type>  cSetIm4SparseDist<Type>::ImAvg(size_t aKth) const {return mIm2Avg.at(aKth);}
+//tIm ImAvg(size_t aKTh) const;
+
+template class cSetIm4SparseDist<tREAL4>;
+template class cSetIm4SparseDist<tREAL8>;
+
 
 /* ==================================================== */
 /*                                                      */
@@ -94,9 +151,10 @@ cCollecSpecArg2007 & cAppli_CGPReport::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
       anArgObl << Arg2007(mSpecImIn,"Pattern/file for images",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}});
       if (mIsGCP)
-          anArgObl << mPhProj.DPGndPt3D().ArgDirInMand() << mPhProj.DPGndPt2D().ArgDirInMand();
+          anArgObl << mPhProj.DPGndPt3D().ArgDirInMand()
+                   << mPhProj.DPGndPt2D().ArgDirInMand();
       else
-          anArgObl << mPhProj.DPMulTieP().ArgDirInMand();
+          anArgObl << mPhProj.DPTieP().ArgDirInMand();
       anArgObl <<  mPhProj.DPOrient().ArgDirInMand();
       return anArgObl;
 }
@@ -115,9 +173,11 @@ cCollecSpecArg2007 & cAppli_CGPReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
                    << AOpt2007(mFilterAdd, "FilterAdd", "Pattern to filter GCP by additional info")
                    << AOpt2007(mFactRed, "RedFact", "Factor of reduction for sensor images (dist & bias)",{eTA2007::HDV})
                    << AOpt2007(mExag, "Exga", "Factor of exageration for sensor bias image",{eTA2007::HDV})
-
-
        ;
+    else
+    {
+
+    }
 
     return aRes;
 }
@@ -148,10 +208,11 @@ void cAppli_CGPReport::MakeOneIm(const std::string & aNameIm)
     mPhProj.LoadIm(aSetMes,aNameIm,nullptr,aCam);
     const cSetMesPtOf1Im  &  aSetMesIm = aSetMes.MesImInitOfName(aNameIm);
 
-    // StdOut() << " aNameImaNameIm " << aNameIm  << " " << aSetMesIm.Measures().size() << " Cam=" << aCam << std::endl;
+
 
     cRGBImage aImaFieldRes(cPt2di(1,1));
 
+    // ----- Initialise the RGB Background && print the array of residual --------------
     if (IsInit(&mGeomFiedlVec))
     {
          tREAL8 aMul    = mGeomFiedlVec.at(0);
@@ -173,10 +234,11 @@ void cAppli_CGPReport::MakeOneIm(const std::string & aNameIm)
 
     }
 
+    // ------------ Generate the csv for residual : individual && aggregated by image -------------------
 
-    cWeightAv<tREAL8,cPt2dr>  aAvg2d;
-    cWeightAv<tREAL8,tREAL8>  aAvgD; // for 3D distance measurments
-    cStdStatRes               aStat;
+    cWeightAv<tREAL8,cPt2dr>  aAvg2d;  // Average of 2d-residual for bias
+    cWeightAv<tREAL8,tREAL8>  aAvgD;   // for 3D distance measurments
+    cStdStatRes               aStat;   // Statistique for residual
 
     for (const auto & aMes : aSetMesIm.Measures())
     {
@@ -320,25 +382,16 @@ void cAppli_CGPReport::ReportsByCam()
    InitReportCSV(mNameReportCam,"csv",false);
    AddStdHeaderStatCSV(mNameReportCam,"Cam",mPropStat);
 
-   //tREAL8 aFactRed = 100.0;
-  // tREAL8 anExag = 1000;
    for (const auto& aPair : aMapCam)
    {
        cPerspCamIntrCalib * aCalib =  aPair.first;
-       cPt2di aSz = Pt_round_up(ToR(aCalib->SzPix())/mFactRed) + cPt2di(1,1);
-
-       cIm2D<tREAL8> aImX(aSz,nullptr,eModeInitImage::eMIA_Null);  // average X residual
-       cIm2D<tREAL8> aImY(aSz,nullptr,eModeInitImage::eMIA_Null);  // average Y redidual
-       cIm2D<tREAL8> aImW(aSz,nullptr,eModeInitImage::eMIA_Null);  // averagge weight
-
+       cSetIm4SparseDist<tREAL8> aImAvg(2,aCalib->SzPix(),mFactRed);
        cStdStatRes               aStat;
 
-       int aNbPtsTot =0;
        for (const auto & aCam : aPair.second)
        {
            cSet2D3D aSet32;
            aSetMes.ExtractMes1Im(aSet32,aCam->NameImage(),true);
-           aNbPtsTot += aSet32.NbPair();
 
            for (const auto & aPair : aSet32.Pairs())
            {
@@ -347,24 +400,16 @@ void cAppli_CGPReport::ReportsByCam()
                aStat.Add(Norm2(aRes));
 
                aRes = aRes *mExag;
-               aImX.DIm().AddVBL(aP2/mFactRed,aRes.x());
-               aImY.DIm().AddVBL(aP2/mFactRed,aRes.y());
-               aImW.DIm().AddVBL(aP2/mFactRed,1.0);
+               aImAvg.Add(aP2,aRes.ToStdVector());
            }
        }
-       tREAL8 aSigma = Norm2(aImX.DIm().Sz()) / std::sqrt(aNbPtsTot);
 
-       aImW.DIm().ToFile(mPhProj.DirVisuAppli() + "W_RawResidual_"+aCalib->Name() +".tif");
-       aImX = aImX.GaussFilter(aSigma);
-       aImY = aImY.GaussFilter(aSigma);
-       aImW = aImW.GaussFilter(aSigma);
+       aImAvg.ImW().DIm().ToFile(mPhProj.DirVisuAppli() + "W_RawResidual_"+aCalib->Name() +".tif");
 
-       DivImageInPlace(aImX.DIm(),aImX.DIm(),aImW.DIm());
-       DivImageInPlace(aImY.DIm(),aImY.DIm(),aImW.DIm());
-
-       aImX.DIm().ToFile(mPhProj.DirVisuAppli() + "X_Residual_"+aCalib->Name() +".tif");
-       aImY.DIm().ToFile(mPhProj.DirVisuAppli() + "Y_Residual_"+aCalib->Name() +".tif");
-       aImW.DIm().ToFile(mPhProj.DirVisuAppli() + "W_FiltResidual_"+aCalib->Name() +".tif");
+       aImAvg.MakeDense();
+       aImAvg.ImW().DIm().ToFile(mPhProj.DirVisuAppli() + "W_FiltResidual_"+aCalib->Name() +".tif");
+       aImAvg.ImAvg(0).DIm().ToFile(mPhProj.DirVisuAppli() + "X_FiltResidual_"+aCalib->Name() +".tif");
+       aImAvg.ImAvg(1).DIm().ToFile(mPhProj.DirVisuAppli() + "Y_FiltResidual_"+aCalib->Name() +".tif");
 
        AddStdStatCSV(mNameReportCam,aCalib->Name(),aStat,mPropStat);
    }
@@ -377,10 +422,6 @@ void cAppli_CGPReport::ReportsByCam()
 int cAppli_CGPReport::Exe()
 {
    mPhProj.FinishInit();
-
-   mPhProj.DPGndPt3D().CheckDirExists(true, true);
-   mPhProj.DPGndPt2D().CheckDirExists(true, true);
-   mPhProj.DPOrient().CheckDirExists(true, true);
 
    auto nameSubDir = mPhProj.DPOrient().DirIn() +  "_Mes-"+  mPhProj.DPGndPt3D().DirIn()
                                                 +  "-"+  mPhProj.DPGndPt2D().DirIn();
@@ -453,6 +494,25 @@ cSpecMMVII_Appli  TheSpec_CGPReport
       __FILE__
 );
 
+
+/*
+
+tMMVII_UnikPApli Alloc_TiePReport(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
+{
+   return tMMVII_UnikPApli(new cAppli_CGPReport(aVArgs,aSpec,false));
+}
+
+cSpecMMVII_Appli  TheSpec_TiePReport
+(
+     "ReportTieP",
+      Alloc_TiePReport,
+      "Reports on TieP projection",
+      {eApF::TieP,eApF::Ori},
+      {eApDT::TieP,eApDT::Orient},
+      {eApDT::Image,eApDT::Xml},
+      __FILE__
+);
+*/
 
 }; // MMVII
 

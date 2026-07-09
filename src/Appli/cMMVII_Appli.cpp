@@ -1449,7 +1449,8 @@ void cMMVII_Appli::GenerateHelp()
         if (aPdfOpen.size() && (mPatHelp=="pdf"))
         {
             cParamCallSys aCom(aPdfOpen,aPdfFile);
-            int aResult = system(aCom.Com().c_str());
+            int aResult = aCom.Execute(true);
+ //           int aResult = system(aCom.Com().c_str());
             if (aResult!= EXIT_SUCCESS)
             {
                 StdOut() << "Can't run command : '" << aCom.Com() << "'\n";

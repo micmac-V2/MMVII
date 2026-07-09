@@ -57,7 +57,7 @@ cAutoChgRestoreDefFolder::~cAutoChgRestoreDefFolder()
 }
 
     // =============================================================================
-   
+
 std::string SuppressDirFromNameFile(const std::string & aDir,const std::string & aName,bool ByDir)
 {
     // mOriIn.starts_with(aDir);  -> C++20
@@ -77,7 +77,7 @@ std::string SuppressDirFromNameFile(const std::string & aDir,const std::string &
          );
      }
      std::string aRes =  ReplacePattern(aPat,"$2",aName);
-             
+
      return aRes;
 }
 
@@ -117,7 +117,7 @@ void cDirsPhProj::Finish()
 
     mFullDirIn  = mAppli.DirProject() + mDirLocOfMode + mDirIn + StringDirSeparator();
 
-    //  MPD, new check, seems correct, hope it will not create new bug ... , New modif, 
+    //  MPD, new check, seems correct, hope it will not create new bug ... , New modif,
     //  we accept this case with NONE, because for "historical" reason, this is the convention
     //  used by OriBundleAdj, when we do pure topo (i.e. w/o camera, poses ...)
     if (mAppli.IsInSpec(&mDirIn) && IsInit(&mDirIn) &&  (mDirIn != MMVII_NONE) && (!mAllowDirInEmpty))
@@ -564,7 +564,7 @@ cRadialCRS * cPhotogrammetricProject::CreateNewRadialCRS(size_t aDegree,const st
       return aRes;
 }
 
-         
+
         //  ============================================
         //                   Orientation
         //  ============================================
@@ -675,7 +675,7 @@ cSensorCamPC * cPhotogrammetricProject::ReadCamPC(const cDirsPhProj & aDP,const 
 
     if (ToDeleteAutom)
        cMMVII_Appli::AddObj2DelAtEnd(aCamPC);
-      
+
 
     return aCamPC;
 }
@@ -699,7 +699,7 @@ tPoseR cPhotogrammetricProject::ReadPoseCamPC(const std::string & aNameIm,bool *
     {
         MMVII_INTERNAL_ASSERT_strong(aCamPC!=nullptr,"Cannot ReadPoseCamPC");
     }
-    
+
     return aCamPC->Pose();
 }
 
@@ -1003,7 +1003,7 @@ cSetMesPtOf1Im cPhotogrammetricProject::LoadMeasureImFromFolder(const std::strin
 {
      cAutoChgRestoreDefFolder  aCRDF(aFolder,DPGndPt2D(),true); // Chg Folder and restore at destruction
      return  LoadMeasureIm(aNameIm);
-     
+
      // auto aRes  = LoadMeasureIm(aNameIm);
      // FakeUseIt(
      // return aRes;
@@ -1273,6 +1273,25 @@ void  cPhotogrammetricProject::ReadHomol
     ReadFromFile(aSetHCI.SetH(),aName);
 }
 
+bool cPhotogrammetricProject::GenReadHomol
+     (
+            cSetHomogCpleIm &aSetHCI,
+            std::string  aNameIm1 ,
+            std::string  aNameIm2,
+            const std::string & aDirIn
+        ) const
+{
+   // aSetHCI
+    std::string aName = NameTiePIn(aNameIm1,aNameIm2,aDirIn);
+    if (!ExistFile(aName))
+    {
+        return false;
+    }
+    ReadFromFile(aSetHCI.SetH(),aName);
+    return true;
+}
+
+
 void  cPhotogrammetricProject::ReadHomol
       (
            cSetHomogCpleIm & aSetHCI,
@@ -1325,68 +1344,6 @@ void cPhotogrammetricProject::ReadHomolMultiSrce
     }
 }
 
-        //  =============  Clino meters  =================
-
-#if (MAINTAIN_OLD_BLOCK)
-std::string cPhotogrammetricProject::NameFileClino(const std::string &aNameCam,bool Input, const std::string aClinoName) const
-{
-    static const std::string TheClinoPrefix = "ClinoCalib-";
-    return mDPClinoMeters.FullDirInOut(Input) + TheClinoPrefix + aClinoName + "-" + aNameCam + "."+ GlobTaggedNameDefSerial();
-}
-
-void cPhotogrammetricProject::SaveClino(const cCalibSetClino & aCalib) const
-{
-    std::vector<cOneCalibClino> aOneCalibClinoVector = aCalib.ClinosCal();
-    std::string aCameraName = aCalib.NameCam();
-    for (const auto& aOneCalibClino : aOneCalibClinoVector)
-    {
-        const std::string& aClinoName = aOneCalibClino.NameClino();
-        SaveInFile(aOneCalibClino,NameFileClino(aCameraName,false, aClinoName));
-    }
-}
-
-bool cPhotogrammetricProject::HasClinoCalib(const cPerspCamIntrCalib & aCalib, const std::string aClinoName) const
-{
-    return ExistFile(NameFileClino(aCalib.Name(),true, aClinoName));
-}
-
-
-void  cPhotogrammetricProject::ReadGetClino
-      (
-            cOneCalibClino& aCalClino,
-            const cPerspCamIntrCalib & aCalibCam,
-            const std::string aClinoName
-      ) const
-{
-    std::string aFileName = NameFileClino(aCalibCam.Name(),true, aClinoName);
-    if (!ExistFile(aFileName))
-    {
-        MMVII_UserError(eTyUEr::eOpenFile, "Clino filename not found : " + aFileName);
-    }
-    ReadFromFile(aCalClino,aFileName);
-}
-
-cOneCalibClino * cPhotogrammetricProject::GetClino(const cPerspCamIntrCalib & aCalib, const std::string aClinoName) const
-{
-    cOneCalibClino * aResult = new cOneCalibClino;
-    ReadGetClino(*aResult,aCalib,aClinoName);
-    return aResult;
-}
-
-cCalibSetClino  cPhotogrammetricProject::ReadSetClino
-                (
-                    const cPerspCamIntrCalib &        aCalib,
-                    const std::vector<std::string> &  aVecClinoName
-                 ) const
-{
-   std::vector<cOneCalibClino> aVCC(aVecClinoName.size());
-   for (size_t aK=0 ; aK<aVecClinoName.size() ; aK++)
-       ReadGetClino(aVCC.at(aK),aCalib,aVecClinoName.at(aK));
-
-   return cCalibSetClino(aCalib.Name(),aVCC);
-}
-
-#endif // MAINTAIN_OLD_BLOCK
 
             //  ================  Measures clino ===================
 

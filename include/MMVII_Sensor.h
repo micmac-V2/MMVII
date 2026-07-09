@@ -847,6 +847,11 @@ class cPhotogrammetricProject : public cIPhProj
              const std::string & aNameIm2,const std::string & aDir="") const;
              //  const std::string & aNameIm2,const std::string & aDir="",bool SVP=false) const;
 
+         bool GenReadHomol (cSetHomogCpleIm &,std::string  aNameIm1 ,std::string  aNameIm2,
+                            const std::string & aDirIn = ""
+                ) const;
+
+
          std::string NameTiePIn(const std::string & aNameIm1,const std::string & aNameIm2,const std::string & aDir="") const;
 
      ///  Read Homol from multiple source : DPTieP, DPGndPt2D, DPMulTieP

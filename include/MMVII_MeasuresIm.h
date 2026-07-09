@@ -313,6 +313,7 @@ class cHomogCpleIm
            cPt2dr  mP2;
            const cPt2dr & Pt(bool First) const {return First ? mP1 : mP2;}
 
+           void Swap(); // Swap P1/P2
            void AddData(const  cAuxAr2007 & anAux);
 };
 void AddData(const  cAuxAr2007 & anAux,cHomogCpleIm &);
@@ -332,6 +333,8 @@ class cSetHomogCpleIm
         std::vector<cHomogCpleIm> & SetH() ;
 
         void Add(const cHomogCpleIm &);
+        void Add(const cSetHomogCpleIm &);
+
         /** When we want to use Set Measure Images like Hom (WARN: dont merge when points with
          *  same coodinates already exist, this woul be longer : and another function to write if needed) */
         void AddPairSet(const cSetMesPtOf1Im&,const cSetMesPtOf1Im&);
@@ -346,6 +349,8 @@ class cSetHomogCpleIm
 
         cSetHomogCpleIm  SelectRandom(int aNb) const;
         cSetHomogCpleIm  SelectOnSpatialCriteria(int aNb) const;
+
+         void Swap(); // Swap all cple
 
       private :
         std::vector<cHomogCpleIm>  mSetH;

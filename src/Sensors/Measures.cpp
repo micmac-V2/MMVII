@@ -85,6 +85,10 @@ void cHomogCpleIm::AddData(const  cAuxAr2007 & anAux)
 void AddData(const  cAuxAr2007 & anAux,cHomogCpleIm & aCple)  {aCple.AddData(anAux);}
 
 
+void cHomogCpleIm::Swap()
+{
+    std::swap(mP1,mP2);
+}
 
 
 
@@ -108,6 +112,11 @@ void cSetHomogCpleIm::Add(const cHomogCpleIm & aCple)
         mSetH.push_back(aCple);
 }
 
+void cSetHomogCpleIm::Add(const cSetHomogCpleIm & aSet)
+{
+   AppendIn(mSetH,aSet.mSetH);
+}
+
 void cSetHomogCpleIm::AddData(const  cAuxAr2007 & anAux)
 {
      MMVII::AddData(anAux,mSetH);
@@ -117,6 +126,11 @@ void AddData(const  cAuxAr2007 & anAux,cSetHomogCpleIm & aSet)
     aSet.AddData(anAux);
 }
 
+void cSetHomogCpleIm::Swap()
+{
+    for (auto & aCple : mSetH)
+        aCple.Swap();
+}
 
 void cSetHomogCpleIm::AddPairSet(const cSetMesPtOf1Im& aSet1,const cSetMesPtOf1Im& aSet2)
 {
