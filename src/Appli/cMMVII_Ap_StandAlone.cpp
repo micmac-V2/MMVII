@@ -4,7 +4,7 @@ namespace MMVII {
 
 void OpenRandom();
 
-class cDummyAppli : public cMMVII_Appli
+class cDummyAppli : public cMMVII_Appli, public cObj2DelAtEnd
 {
 public :
     cDummyAppli(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli &aSpec)
@@ -42,9 +42,9 @@ void InitStandAloneAppli(const char* aAppName, const char *aComment)
                 {eApDT::None},
                 __FILE__
             );
-    static cDummyAppli cDummyAppli({},TheSpecDummyAppli);
+    auto  aDummyAppli = new cDummyAppli({},TheSpecDummyAppli);
     OpenRandom();
-    cDummyAppli.InitParam(nullptr);
+    aDummyAppli->InitParam(nullptr);
 }
 
 int InitStandAloneAppli(const cSpecMMVII_Appli & aSpec, int argc, char*argv[])

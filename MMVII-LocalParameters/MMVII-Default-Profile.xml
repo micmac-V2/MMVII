@@ -12,6 +12,10 @@
          <V>"xml"</V>
       </Pair>
       <Pair>
+         <K>"HelpColorMode"</K>
+         <V>"Dark"</V>
+      </Pair>
+      <Pair>
          <K>"VectSerialMode"</K>
          <V>"csv"</V>
       </Pair>

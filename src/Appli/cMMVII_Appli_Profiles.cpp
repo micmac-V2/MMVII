@@ -1,4 +1,5 @@
 #include "cMMVII_Appli.h"
+#include "MMVII_Tpl_ElemStrToVal.h"
 #include "MMVII_Sys.h"
 #include "MMVII_DeclareCste.h"
 #include "MMVII_2Include_Serial_Tpl.h"
@@ -11,7 +12,104 @@
 namespace MMVII
 {
 
-std::string MMVII_UserConfigDir();
+/* ==================================================== */
+/*                                                      */
+/*          Colors for Help                             */
+/*                                                      */
+/* ==================================================== */
+
+/// Color set used by command help and command list output
+enum class eModeHelpColor
+{
+    Dark,      ///< Color set for dark terminal background
+    Light,     ///< Color set for light terminal background
+    None,      ///< Disable terminal colorization
+    eNbVals    ///< Tag for number of value
+};
+
+template<> cE2Str<eModeHelpColor>::tMapE2Str cE2Str<eModeHelpColor>::mE2S
+    {
+        {eModeHelpColor::Dark,"Dark"},
+        {eModeHelpColor::Light,"Light"},
+        {eModeHelpColor::None,"None"}
+    };
+
+MACRO_INSTANTIATE_STRIO_ENUM(eModeHelpColor,"ModeHelpColor")
+
+
+// TODOCM: Supprimer std:: de std::vector dans HElp ?
+// TODOCM: SetColors() ou executer ? Apres Profile ?  Attention au InitProfile dans GenerateHelp Et dans main() pour help general ?
+// TODOCM: profile : possibilite check values ...
+
+Col Col::Reset       ("\033[0m");
+
+Col Col::DarkRed     ("\033[31m");
+Col Col::DarkGreen   ("\033[32m");
+Col Col::DarkYellow  ("\033[33m");
+Col Col::DarkBlue    ("\033[34m");
+Col Col::DarkMagenta ("\033[35m");
+Col Col::DarkCyan    ("\033[36m");
+Col Col::LightGray   ("\033[37m");
+
+Col Col::DarkGray    ("\033[90m");
+Col Col::Red         ("\033[91m");
+Col Col::Green       ("\033[92m");
+Col Col::Yellow      ("\033[93m");
+Col Col::Blue        ("\033[94m");
+Col Col::Magenta     ("\033[95m");
+Col Col::Cyan        ("\033[96m");
+Col Col::White       ("\033[97m");
+
+Col Col::command;
+Col Col::argument;
+Col Col::title;
+Col Col::error;
+Col Col::warning;
+Col Col::descr;
+Col Col::end;
+
+static void SetColors(eModeHelpColor aMode)
+{
+    if (aMode == eModeHelpColor::None)
+    {
+        Col::command = Col();
+        Col::argument =Col();
+        Col::descr = Col();
+        Col::title = Col();
+        Col::error = Col();
+        Col::warning = Col();
+        Col::end = Col();
+    }
+    else if (aMode == eModeHelpColor::Light)
+    {
+        Col::command = Col::DarkBlue;
+        Col::argument = Col::DarkMagenta;
+        Col::descr = Col::DarkGreen;
+        Col::title = Col::DarkCyan;
+        Col::error = Col::DarkRed;
+        Col::warning = Col::DarkMagenta;
+        Col::end = Col::Reset;
+    }
+    else
+    {
+        Col::command = Col::DarkGreen;
+        Col::argument = Col::DarkGreen;
+        Col::descr = Col::DarkYellow;
+        Col::title = Col::Blue;
+        Col::error = Col::Red;
+        Col::warning = Col::DarkYellow;
+        Col::end = Col::Reset;
+    }
+}
+
+
+/* ==================================================== */
+/*                                                      */
+/*          Helpers for profile managment               */
+/*                                                      */
+/* ==================================================== */
+
+extern std::string MMVII_UserConfigDir();
 
 struct cSelectedProfile
 {
@@ -33,7 +131,6 @@ static void CheckProfileName(const std::string & aName)
     );
 }
 
-
 static cParamProfile SyncUserProfile(const std::string & aUserFile,const std::string & aDefaultFile)
 {
     cParamProfile aDefaultProfile;
@@ -41,6 +138,7 @@ static cParamProfile SyncUserProfile(const std::string & aUserFile,const std::st
     {                 // Shouldn't happen ...
         aDefaultProfile.Set("VectSerialMode",eTypeSerial::ecsv);
         aDefaultProfile.Set("TaggedSerialMode",eTypeSerial::exml);
+        aDefaultProfile.Set("HelpColorMode",eModeHelpColor::Dark);
         SaveInFile(aDefaultProfile,aDefaultFile);          //  ... create one just in case
     }
     ReadFromFile(aDefaultProfile,aDefaultFile);
@@ -77,8 +175,6 @@ void AddData(const cAuxAr2007 & anAux,cParamProfile & aProfile)
 cParamProfile::cParamProfile()
 {
 }
-
-
 
 
 void cParamProfile::AddData(const cAuxAr2007 &anAux)
@@ -145,6 +241,11 @@ void cMMVII_Appli::InitProfile()
     mParamProfile = SyncUserProfile(mUserProfile,aDefaultProfile);
     mVectNameDefSerial = mParamProfile.Get("VectSerialMode",ToS(eTypeSerial::ecsv));
     mTaggedNameDefSerial = mParamProfile.Get("TaggedSerialMode",ToS(eTypeSerial::exml));
+    if (mParamProfile.HasKey("HelpColorMode")) {
+        SetColors(mParamProfile.Get("HelpColorMode",eModeHelpColor::Dark));
+    } else {
+        SetColors(eModeHelpColor::Dark);
+    }
 }
 
 const std::string & cMMVII_Appli::ProfileName() {return mProfileName;}
@@ -200,13 +301,11 @@ std::vector<std::string> GlobProfileNames()
 }
 
 
-
 /* ==================================================== */
 /*                                                      */
 /*          cAppli_EditProfile                          */
 /*                                                      */
 /* ==================================================== */
-
 
 
 class cAppli_EditProfile : public cMMVII_Appli
@@ -222,6 +321,7 @@ class cAppli_EditProfile : public cMMVII_Appli
          std::string     mCurrent;
          std::vector<std::string>   mKeyVal;
          std::string   mDelKey;
+         eModeHelpColor mColor;
 };
 
 cAppli_EditProfile::cAppli_EditProfile(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
@@ -242,6 +342,7 @@ cCollecSpecArg2007 & cAppli_EditProfile::ArgOpt(cCollecSpecArg2007 & anArgOpt)
         << AOpt2007(mCurrent,"SetCurrent","Name of the profile to make current",{eTA2007::Profile})
         << AOpt2007(mKeyVal,"KeyVal","Set Value to Key: [Key,Value]")
         << AOpt2007(mDelKey,"DelKey","Delete Key",{eTA2007::ProfileKey})
+           << AOpt2007(mColor,"Color","Delete Key")
    ;
 }
 

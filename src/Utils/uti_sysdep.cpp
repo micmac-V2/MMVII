@@ -82,8 +82,8 @@ void cMMVII_Warning::Activate()
       return;
    if (cMMVII_Appli::WithWarnings())
    {
-      StdOut() << "   - MVII Warning at line " <<  mLine << " of " << mFile << std::endl;
-      StdOut() << "   - " << mMes << std::endl;
+       StdOut() << Col::warning << "   - MMVII Warning at line " << Col::end << mLine << " of " << mFile << std::endl;
+       StdOut() << Col::warning << "   - " << mMes <<  Col::end << std::endl;
    }
 }
 

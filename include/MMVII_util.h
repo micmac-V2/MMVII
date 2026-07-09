@@ -349,6 +349,53 @@ class cMultipleOfs
 };
 
 
+// Colors for terminal output, using ANSI escape codes
+
+class Col {
+public:
+    const std::string& AnsiCode() const { return mAnsiCode; }
+
+    static Col command;
+    static Col argument;
+    static Col descr;
+    static Col title;
+    static Col error;
+    static Col warning;
+    static Col end;
+
+
+    static Col Reset;
+
+    static Col Black;
+    static Col DarkRed;
+    static Col DarkGreen;
+    static Col DarkYellow;
+    static Col DarkBlue;
+    static Col DarkMagenta;
+    static Col DarkCyan;
+    static Col LightGray;
+
+    static Col DarkGray;
+    static Col Red;
+    static Col Green;
+    static Col Yellow;
+    static Col Blue;
+    static Col Magenta;
+    static Col Cyan;
+    static Col White;
+
+    Col(const std::string& ansiCode={}) : mAnsiCode(ansiCode) {}
+private:
+    std::string mAnsiCode;
+};
+
+
+inline std::ostream & operator << (std::ostream& os, const Col & aCol)
+{
+    if (os.rdbuf() == std::cout.rdbuf() || os.rdbuf() == std::cerr.rdbuf() )    // don't colorize in files
+        os << aCol.AnsiCode();
+    return os;
+}
 
 /** Probably job could be done with std::duration, but I am not sure I could handle
     precisely output format
