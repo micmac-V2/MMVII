@@ -6,6 +6,7 @@
 #include "../Serial/Serial.h"
 
 
+#include <functional>
 #include <thread>
 #include <mutex>
 
@@ -309,22 +310,74 @@ std::vector<std::string> GlobProfileNames()
 /*                                                      */
 /* ==================================================== */
 
-static const std::set<std::string> & SetAllowedProfileKey()
+
+class cValidator
 {
-    static std::set<std::string>  TheSet
+public:
+    template <typename T> static cValidator ForType()
     {
-        "HelpColorMode",
-        "NbProcMax",
-        "PdfOpen",
-        "TaggedSerialMode",
-        "VectSerialMode"
+        std::string aAllowed;
+        if constexpr (std::is_enum_v<T>) {
+            aAllowed = StrAllVall<T>();
+        }
+        return cValidator
+        (
+            [](const std::string & aVal)
+            {
+                try
+                {
+                    cStrIO<T>::FromStr(aVal,true);
+                    return true;
+                }
+                catch (const StrIOException &)
+                {
+                    return false;
+                }
+            },
+            cStrIO<T>::msNameType(),
+            aAllowed
+        );
+    }
 
-        /* Was for test
-        ,"Atoto",
-        "tutu"*/
+    bool operator()(const std::string & aVal) const
+    {
+        return mValidate(aVal);
+    }
+
+    const std::string & TypeName() const { return mTypeName; }
+    const std::string & Allowed() const { return mAllowedValues; }
+
+private:
+    cValidator
+    (
+        const std::function<bool(const std::string &)> & aValidate,
+        const std::string & aTypeName,
+        const std::string & aAllowedValues
+    ) :
+        mTypeName (aTypeName),
+        mAllowedValues (aAllowedValues),
+        mValidate (aValidate)
+    {
+    }
+
+    std::string mTypeName;
+    std::string mAllowedValues;
+    std::function<bool(const std::string &)> mValidate;
+};
+
+using tMapProfileValidator = std::map<std::string,cValidator>;
+
+static const tMapProfileValidator & MapProfileKeyValidator()
+{
+    static const tMapProfileValidator TheMap
+    {
+        {"HelpColorMode",    cValidator::ForType<eModeHelpColor>()},
+        {"NbProcMax",        cValidator::ForType<int>()},
+        {"PdfOpen",          cValidator::ForType<std::string>()},
+        {"TaggedSerialMode", cValidator::ForType<eTypeSerial>()},
+        {"VectSerialMode",   cValidator::ForType<eTypeSerial>()}
     };
-
-    return TheSet;
+    return TheMap;
 }
 
 class cAppli_EditProfile : public cMMVII_Appli
@@ -336,7 +389,6 @@ class cAppli_EditProfile : public cMMVII_Appli
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
 
      private :
-
          std::string     mCurrent;
          std::vector<std::string>   mKeyVal;
          std::string   mDelKey;
@@ -381,17 +433,14 @@ int cAppli_EditProfile::Exe()
         StdOut() << "Current profile path is " << mUserProfile << "\n";
         StdOut() << "Profile values:\n";
 
-        for (const auto & aKey : SetAllowedProfileKey())
+        for (const auto & [aKey,aValidator] : MapProfileKeyValidator())
         {
+            (void) aValidator;
             std::string aVal ="";
             if ( mParamProfile.HasKey(aKey))
-                aVal =  mParamProfile.Get(aKey,std::string(""));
-            StdOut() << "  " << aKey << "=[" <<  aVal  << "]\n";
+                aVal =  mParamProfile.Get(aKey,std::string("<Missing>"));
+            StdOut() << "  " << aKey << "= \"" <<  aVal  << "\"\n";
         }
-        /*
-        for (const auto& [aKey, aVal] : mParamProfile)
-            StdOut() << "  " << aKey << ": " << aVal << "\n";
-            */
         return EXIT_SUCCESS;
     }
 
@@ -402,23 +451,34 @@ int cAppli_EditProfile::Exe()
 
     if (IsInit(&mKeyVal))
     {
-        /* MPD : handled by IsSizeV
-        if (mKeyVal.size() != 2)
-            MMVII_UserError(eTyUEr::eBadSize4Vect, "Each KeyVal must have exactly two elements: key and value");*/
         const auto& aKey = mKeyVal[0];
+        const auto & aMapValidator = MapProfileKeyValidator();
+        const auto aItValidator = aMapValidator.find(aKey);
 
-        if (MapBoolFind(SetAllowedProfileKey(),aKey))
+        if (aItValidator != aMapValidator.end())
         {
             const auto& aVal = mKeyVal[1];
+
+            auto& aValidator = aItValidator->second;
+            MMVII_INTERNAL_ASSERT_User
+            (
+                aItValidator->second(aVal),
+                eTyUEr::eBadOptParam,
+                "Invalid value [" + aVal + "] for profile key [" + aKey
+                    + "], expecting " + ( aValidator.Allowed().empty() ? ("type " + aValidator.TypeName()) : aValidator.Allowed() )
+            );
             StdOut() << "Setting profile key '" << aKey << "' to value '" << aVal << "'\n";
             aParam.Set(aKey, aVal);
         }
         else
         {
-            MMVII_USER_WARNING("Unkown key for : " +aKey);
+            MMVII_USER_WARNING("Unknown profile key: " + aKey);
             StdOut() << "--------- Allowed values -------------\n";
-            for (const auto & aKeyAllowed : SetAllowedProfileKey() )
+            for (const auto & [aKeyAllowed,aValidator] : aMapValidator)
+            {
+                (void) aValidator;
                 StdOut() << "  * " << aKeyAllowed << "\n";
+            }
         }
     }
     if (IsInit(&mDelKey))
@@ -461,7 +521,5 @@ cSpecMMVII_Appli  TheSpecEditProfile
       __FILE__
 );
 
-
-
-};
+} // namespace MMVII
 
