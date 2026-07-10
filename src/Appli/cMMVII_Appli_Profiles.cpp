@@ -307,6 +307,23 @@ std::vector<std::string> GlobProfileNames()
 /*                                                      */
 /* ==================================================== */
 
+static const std::set<std::string> & SetAllowedProfileKey()
+{
+    static std::set<std::string>  TheSet
+    {
+        "HelpColorMode",
+        "NbProcMax",
+        "PdfOpen",
+        "TaggedSerialMode",
+        "VectSerialMode"
+
+        /* Was for test
+        ,"Atoto",
+        "tutu"*/
+    };
+
+    return TheSet;
+}
 
 class cAppli_EditProfile : public cMMVII_Appli
 {
@@ -340,11 +357,13 @@ cCollecSpecArg2007 & cAppli_EditProfile::ArgOpt(cCollecSpecArg2007 & anArgOpt)
    return
       anArgOpt
         << AOpt2007(mCurrent,"SetCurrent","Name of the profile to make current",{eTA2007::Profile})
-        << AOpt2007(mKeyVal,"KeyVal","Set Value to Key: [Key,Value]")
+        << AOpt2007(mKeyVal,"KeyVal","Set Value to Key: [Key,Value]",{{eTA2007::ISizeV,"[2,2]"}})
         << AOpt2007(mDelKey,"DelKey","Delete Key",{eTA2007::ProfileKey})
            << AOpt2007(mColor,"Color","Delete Key")
    ;
 }
+
+
 
 int cAppli_EditProfile::Exe()
 {
@@ -361,8 +380,18 @@ int cAppli_EditProfile::Exe()
         StdOut() << "\n";
         StdOut() << "Current profile path is " << mUserProfile << "\n";
         StdOut() << "Profile values:\n";
+
+        for (const auto & aKey : SetAllowedProfileKey())
+        {
+            std::string aVal ="";
+            if ( mParamProfile.HasKey(aKey))
+                aVal =  mParamProfile.Get(aKey,std::string(""));
+            StdOut() << "  " << aKey << "=[" <<  aVal  << "]\n";
+        }
+        /*
         for (const auto& [aKey, aVal] : mParamProfile)
             StdOut() << "  " << aKey << ": " << aVal << "\n";
+            */
         return EXIT_SUCCESS;
     }
 
@@ -373,17 +402,36 @@ int cAppli_EditProfile::Exe()
 
     if (IsInit(&mKeyVal))
     {
+        /* MPD : handled by IsSizeV
         if (mKeyVal.size() != 2)
-            MMVII_UserError(eTyUEr::eBadSize4Vect, "Each KeyVal must have exactly two elements: key and value");
+            MMVII_UserError(eTyUEr::eBadSize4Vect, "Each KeyVal must have exactly two elements: key and value");*/
         const auto& aKey = mKeyVal[0];
-        const auto& aVal = mKeyVal[1];
-        StdOut() << "Setting profile key '" << aKey << "' to value '" << aVal << "'\n";
-        aParam.Set(aKey, aVal);
+
+        if (MapBoolFind(SetAllowedProfileKey(),aKey))
+        {
+            const auto& aVal = mKeyVal[1];
+            StdOut() << "Setting profile key '" << aKey << "' to value '" << aVal << "'\n";
+            aParam.Set(aKey, aVal);
+        }
+        else
+        {
+            MMVII_USER_WARNING("Unkown key for : " +aKey);
+            StdOut() << "--------- Allowed values -------------\n";
+            for (const auto & aKeyAllowed : SetAllowedProfileKey() )
+                StdOut() << "  * " << aKeyAllowed << "\n";
+        }
     }
     if (IsInit(&mDelKey))
     {
-        StdOut() << "Deleting key '" << mDelKey << "'\n";
-        aParam.Remove(mDelKey);
+        if (aParam.HasKey(mDelKey))
+        {
+           StdOut() << "Deleting key '" << mDelKey << "'\n";
+           aParam.Remove(mDelKey);
+        }
+        else
+        {
+            MMVII_USER_WARNING("Key to remove doesn't exist : " + mDelKey);
+        }
     }
     SaveInFile(aParam,aFileParam);
 
