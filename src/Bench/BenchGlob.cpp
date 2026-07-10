@@ -446,7 +446,7 @@ int  cAppli_MMVII_Bench::Exe()
    }
    StdOut().SetSilent(false);
    StdOut() << "=====  END BENCH, " << aParam.NbExe() << " bench executed ========" << std::endl;
-   StdOut() << "Bench is successfull !" << std::endl << std::endl;
+   StdOut() << Color::success << "Bench is successful." << Color::end << std::endl << std::endl;
    return EXIT_SUCCESS;
 }
 

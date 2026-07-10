@@ -18,7 +18,7 @@ void Default_MMVII_Error(const std::string & aType,const std::string &  aMes,con
     errorMsg +=  "Mes=[" + aMes + "]\n";
     if (aFile)
         errorMsg += "at line  " + std::to_string(aLine) + " of file "  + aFile  + "\n";
-    ErrOut() << Col::error << errorMsg << Col::end;
+    ErrOut() << Color::error << errorMsg << Color::end;
     ErrOut().flush();
 
     cSpecMMVII_Appli::ShowCmdArgs();        // Writes to std::cout ..

@@ -1321,30 +1321,30 @@ void cMMVII_Appli::GenerateHelp()
 {
    HelpOut() << "\n";
 
-   HelpOut() << Col::title;
+   HelpOut() << Color::title;
    HelpOut() << "**********************************\n";
    HelpOut() << "*   Help project 2007/MMVII      *\n";
    HelpOut() << "**********************************\n";
-   HelpOut() << Col::end;
+   HelpOut() << Color::end;
 
    HelpOut() << "\n";
-   HelpOut() << Col::title << "  For command : " << Col::command << mSpecs.Name() << Col::end << " \n";
-   HelpOut() << "   => " << Col::descr << mSpecs.Comment() << Col::end << "\n";
+   HelpOut() << Color::title << "  For command : " << Color::command << mSpecs.Name() << Color::end << " \n";
+   HelpOut() << "   => " << Color::descr << mSpecs.Comment() << Color::end << "\n";
    HelpOut() << "   => Srce code entry in :" << mSpecs.NameFile() << "\n";
    HelpOut() << "\n";
 
-   HelpOut() << Col::title << " == Mandatory unnamed args : ==\n" << Col::end;
+   HelpOut() << Color::title << " == Mandatory unnamed args : ==\n" << Color::end;
 
    for (const auto & Arg : mArgObl.Vec())
    {
-       HelpOut() << "  * " << Arg->NameType()  << Arg->Name4Help()  << " :: " << Col::descr << Arg->Com() << Col::end << "\n";
+       HelpOut() << "  * " << Arg->NameType()  << Arg->Name4Help()  << " :: " << Color::descr << Arg->Com() << Color::end << "\n";
        PrintAdditionnalComments(Arg);
    }
 
    tNameSelector  aSelName =  AllocRegex(mPatHelp);
 
    HelpOut() << "\n";
-   HelpOut() << Col::title << " == Optional named args : ==\n" << Col::end;
+   HelpOut() << Color::title << " == Optional named args : ==\n" << Color::end;
    //  Help to write only once the #### XXXX ###
    bool InternalMet = false;
    bool GlobalMet   = false;
@@ -1370,34 +1370,34 @@ void cMMVII_Appli::GenerateHelp()
                    while ((aCommNum<mArgFac.mVComm.size()) &&(mArgFac.mVComm.at(aCommNum).first==aArgNum) )
                    {
                       HelpOut() << " ------------------------\n" ;
-                      HelpOut() << "       "<< Col::title << mArgFac.mVComm.at(aCommNum).second << Col::end << "\n" ;
+                      HelpOut() << "       "<< Color::title << mArgFac.mVComm.at(aCommNum).second << Color::end << "\n" ;
                       HelpOut() << " ------------------------\n" ;
                       aCommNum++;
                    }
                    if (IsTuning && (!TuningMet))
                    {
-                      HelpOut() << Col::title << "       ####### TUNING #######\n" << Col::end ;
+                      HelpOut() << Color::title << "       ####### TUNING #######\n" << Color::end ;
                       TuningMet = true;
                    }
                    else if (IsIinternal && (!InternalMet))
                    {
-                      HelpOut() << Col::title << "       ####### INTERNAL #######\n" << Col::end ;
+                      HelpOut() << Color::title << "       ####### INTERNAL #######\n" << Color::end ;
                       InternalMet = true;
                    }
                    else if (IsGlobHelp && (!GlobalMet))
                    {
-                      HelpOut() << Col::title << "       ####### GLOBAL   #######\n" << Col::end ;
+                      HelpOut() << Color::title << "       ####### GLOBAL   #######\n" << Color::end ;
                       GlobalMet = true;
                    }
 
-                   HelpOut()  << "  * [" << Col::argument << Arg->Name() << Col::end << "] " << Arg->NameType() << Arg->Name4Help() << ": " ;
+                   HelpOut()  << "  * [" << Color::argument << Arg->Name() << Color::end << "] " << Arg->NameType() << Arg->Name4Help() << ": " ;
                    if (IsIinternal)
                        HelpOut()  << "(!!== INTERNAL DONT USE DIRECTLY ==!!)";
-                   HelpOut()  << Col::descr <<  Arg->Com() << Col::end ;
+                   HelpOut()  << Color::descr <<  Arg->Com() << Color::end ;
                    bool HasDefVal = Arg->HasType(eTA2007::HDV);
                    if (HasDefVal)
                    {
-                      HelpOut() << ", [Default="  << Col::descr << Arg->NameValue() << Col::end << "]";
+                      HelpOut() << ", [Default="  << Color::descr << Arg->NameValue() << Color::end << "]";
                    }
 
                    HelpOut()  << "\n";

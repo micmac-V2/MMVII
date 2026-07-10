@@ -101,19 +101,19 @@ int main(int argc, char ** argv)
 
     if (aMatchingSpecs.empty()) {
         if (! aNameCom.empty()) {
-            StdOut() << Col::error << "Command '" << Col::command << aNameCom << Col::error << "' not found.\n";
-            StdOut() << Col::warning << "Use 'MMVII' without any argument to get the list of available commands.\n" << Col::end;
+            StdOut() << Color::error << "Command '" << Color::command << aNameCom << Color::error << "' not found.\n";
+            StdOut() << Color::warning << "Use 'MMVII' without any argument to get the list of available commands.\n" << Color::end;
             return EXIT_FAILURE;
         }
         aMatchingSpecs =  cSpecMMVII_Appli::VecAll();
     } else {
-        StdOut() << Col::warning << "** Command '" << Col::command << aNameCom << Col::warning << "' not found, ";
-        StdOut() << "but the following commands contain '" << Col::command << aNameCom;
-        StdOut() << Col::warning << "' in their " << Col::argument << aDescr <<":\n" << Col::end;
+        StdOut() << Color::warning << "** Command '" << Color::command << aNameCom << Color::warning << "' not found, ";
+        StdOut() << "but the following commands contain '" << Color::command << aNameCom;
+        StdOut() << Color::warning << "' in their " << Color::argument << aDescr <<":\n" << Color::end;
     }
 
     for (const auto& aSpec : aMatchingSpecs) {
-        StdOut()  << Col::command << aSpec->Name() << Col::end << " => " << aSpec->Comment() << std::endl;
+        StdOut()  << Color::command << aSpec->Name() << Color::end << " => " << aSpec->Comment() << std::endl;
     }
 
 #ifdef MMVII_KEEP_MMV1_IMAGE

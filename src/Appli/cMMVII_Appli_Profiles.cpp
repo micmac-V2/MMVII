@@ -41,64 +41,66 @@ MACRO_INSTANTIATE_STRIO_ENUM(eModeHelpColor,"ModeHelpColor")
 // TODOCM: SetColors() ou executer ? Apres Profile ?  Attention au InitProfile dans GenerateHelp Et dans main() pour help general ?
 // TODOCM: profile : possibilite check values ...
 
-Col Col::Reset       ("\033[0m");
 
-Col Col::DarkRed     ("\033[31m");
-Col Col::DarkGreen   ("\033[32m");
-Col Col::DarkYellow  ("\033[33m");
-Col Col::DarkBlue    ("\033[34m");
-Col Col::DarkMagenta ("\033[35m");
-Col Col::DarkCyan    ("\033[36m");
-Col Col::LightGray   ("\033[37m");
+Color Color::command;
+Color Color::argument;
+Color Color::title;
+Color Color::success;
+Color Color::error;
+Color Color::warning;
+Color Color::descr;
+Color Color::end;
 
-Col Col::DarkGray    ("\033[90m");
-Col Col::Red         ("\033[91m");
-Col Col::Green       ("\033[92m");
-Col Col::Yellow      ("\033[93m");
-Col Col::Blue        ("\033[94m");
-Col Col::Magenta     ("\033[95m");
-Col Col::Cyan        ("\033[96m");
-Col Col::White       ("\033[97m");
-
-Col Col::command;
-Col Col::argument;
-Col Col::title;
-Col Col::error;
-Col Col::warning;
-Col Col::descr;
-Col Col::end;
+bool Color::mNoColor = true;
 
 static void SetColors(eModeHelpColor aMode)
 {
+    static const Color Reset       ("\033[0m");
+
+    static const Color DarkRed     ("\033[31m");
+    static const Color DarkGreen   ("\033[32m");
+    static const Color DarkYellow  ("\033[33m");
+    static const Color DarkBlue    ("\033[34m");
+    static const Color DarkMagenta ("\033[35m");
+    static const Color DarkCyan    ("\033[36m");
+    static const Color LightGray   ("\033[37m");
+
+    static const Color DarkGray    ("\033[90m");
+    static const Color Red         ("\033[91m");
+    static const Color Green       ("\033[92m");
+    static const Color Yellow      ("\033[93m");
+    static const Color Blue        ("\033[94m");
+    static const Color Magenta     ("\033[95m");
+    static const Color Cyan        ("\033[96m");
+    static const Color White       ("\033[97m");
+
     if (aMode == eModeHelpColor::None)
     {
-        Col::command = Col();
-        Col::argument =Col();
-        Col::descr = Col();
-        Col::title = Col();
-        Col::error = Col();
-        Col::warning = Col();
-        Col::end = Col();
+        Color::Off();
+        return;
     }
-    else if (aMode == eModeHelpColor::Light)
+    Color::On();
+    if (aMode == eModeHelpColor::Light)
     {
-        Col::command = Col::DarkBlue;
-        Col::argument = Col::DarkMagenta;
-        Col::descr = Col::DarkGreen;
-        Col::title = Col::DarkCyan;
-        Col::error = Col::DarkRed;
-        Col::warning = Col::DarkMagenta;
-        Col::end = Col::Reset;
+        Color::command = DarkBlue;
+        Color::argument = DarkMagenta;
+        Color::descr = DarkGreen;
+        Color::title = DarkCyan;
+        Color::success = DarkGreen;
+        Color::error = DarkRed;
+        Color::warning = DarkMagenta;
+        Color::end = Reset;
     }
     else
     {
-        Col::command = Col::DarkGreen;
-        Col::argument = Col::DarkGreen;
-        Col::descr = Col::DarkYellow;
-        Col::title = Col::Blue;
-        Col::error = Col::Red;
-        Col::warning = Col::DarkYellow;
-        Col::end = Col::Reset;
+        Color::command = DarkGreen;
+        Color::argument = DarkGreen;
+        Color::descr = DarkYellow;
+        Color::success = Green;
+        Color::title = Blue;
+        Color::error = Red;
+        Color::warning = DarkYellow;
+        Color::end = Reset;
     }
 }
 
@@ -338,7 +340,6 @@ class cAppli_EditProfile : public cMMVII_Appli
          std::string     mCurrent;
          std::vector<std::string>   mKeyVal;
          std::string   mDelKey;
-         eModeHelpColor mColor;
 };
 
 cAppli_EditProfile::cAppli_EditProfile(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
@@ -359,7 +360,6 @@ cCollecSpecArg2007 & cAppli_EditProfile::ArgOpt(cCollecSpecArg2007 & anArgOpt)
         << AOpt2007(mCurrent,"SetCurrent","Name of the profile to make current",{eTA2007::Profile})
         << AOpt2007(mKeyVal,"KeyVal","Set Value to Key: [Key,Value]",{{eTA2007::ISizeV,"[2,2]"}})
         << AOpt2007(mDelKey,"DelKey","Delete Key",{eTA2007::ProfileKey})
-           << AOpt2007(mColor,"Color","Delete Key")
    ;
 }
 

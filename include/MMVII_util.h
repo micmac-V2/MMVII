@@ -351,46 +351,29 @@ class cMultipleOfs
 
 // Colors for terminal output, using ANSI escape codes
 
-class Col {
+class Color {
 public:
-    const std::string& AnsiCode() const { return mAnsiCode; }
+    Color(const std::string& ansiCode={}) : mAnsiCode(ansiCode) {}
+    std::string AnsiCode() const { return mNoColor ? std::string() :  mAnsiCode; }
+    static void Off() { mNoColor = true; }
+    static void On() { mNoColor = false; }
 
-    static Col command;
-    static Col argument;
-    static Col descr;
-    static Col title;
-    static Col error;
-    static Col warning;
-    static Col end;
+    static Color command;
+    static Color argument;
+    static Color descr;
+    static Color title;
+    static Color success;
+    static Color error;
+    static Color warning;
+    static Color end;
 
-
-    static Col Reset;
-
-    static Col Black;
-    static Col DarkRed;
-    static Col DarkGreen;
-    static Col DarkYellow;
-    static Col DarkBlue;
-    static Col DarkMagenta;
-    static Col DarkCyan;
-    static Col LightGray;
-
-    static Col DarkGray;
-    static Col Red;
-    static Col Green;
-    static Col Yellow;
-    static Col Blue;
-    static Col Magenta;
-    static Col Cyan;
-    static Col White;
-
-    Col(const std::string& ansiCode={}) : mAnsiCode(ansiCode) {}
 private:
     std::string mAnsiCode;
+    static bool mNoColor;
 };
 
 
-inline std::ostream & operator << (std::ostream& os, const Col & aCol)
+inline std::ostream & operator << (std::ostream& os, const Color & aCol)
 {
     if (os.rdbuf() == std::cout.rdbuf() || os.rdbuf() == std::cerr.rdbuf() )    // don't colorize in files
         os << aCol.AnsiCode();
