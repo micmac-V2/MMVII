@@ -41,11 +41,13 @@ namespace MMVII
         cSetMesPtOf1Im                      mSetImMes;  //-> current image measurements
         tU_INT1                             mL1Lim;     //-> L1 limit to consider outliers from ransac TF computation
         int                                 mMaskDil;   //-> inlier mask dilatation (wrt Ref image)
+        std::string mRefine;//-> refine method to choose (corr, lsm)
+        bool mMissedOnly;//-> only refine missed ctd
 
         //------ methods
         void        BuildDiscr(cCdTDiscr& aDis, bool& isOk);  //-> cCdTDiscr builder
         void        DiscrMapRefine(cCdTDiscr& aDis);                //-> cCdTDiscr CdT2Im mapping refiner
-        void        CorrelCropSamp(cCdTDiscr& aDis);
+        cPt2dr        CorrelCropSamp(cCdTDiscr& aDis, bool &isOk);
         void        Visu(cSetMesPtOf1Im& aSet);
         std::string NameVisu(const std::string & aIm, const std::string & aPref, const std::string aPost);
         };

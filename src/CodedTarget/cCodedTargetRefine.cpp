@@ -13,9 +13,10 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
     */
     /**************************************************************************/
 
-    cCdTDiscr::cCdTDiscr(const std::string& aName, const std::string& aImName, MMVII::tAff2Dr aAff):
+    cCdTDiscr::cCdTDiscr(const std::string& aName, const std::string& aImName, MMVII::tAff2Dr aAff, bool aFromAug):
         mName       (aName),
         mImName     (aImName),
+        mFromAug    (aFromAug),
         mExtent     (cPt2di(1,1)),
         mIm         (cPt2di(1,1)),
         mDIm        (nullptr),
@@ -388,6 +389,8 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                << AOpt2007(mShow,"Show","Show useful details", {eTA2007::HDV})
                << AOpt2007(mVisu,"Visu","Save visualisation of results", {eTA2007::HDV})
                << AOpt2007(mMaskDil,"MaskDil","Dilate Ref image to filter inliers", {eTA2007::HDV})
+               << AOpt2007(mRefine,"Refine","H-euristik (=cross-correl),G-radient(=LSM)")
+               << AOpt2007(mMissedOnly,"MissedOnly","Only process undetected targets")
             ;
     }
 
@@ -395,11 +398,13 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                                                            const cSpecMMVII_Appli& aSpec):
         cMMVII_Appli    (aVArgs, aSpec),
         mPhProj         (*this),
-        mVAugCdT         ({}),
+        mVAugCdT        ({}),
         mIm             (cPt2di(1,1)),
         mDIm            (nullptr),
         mL1Lim          (20),
-        mMaskDil        (0)
+        mMaskDil        (0),
+        mRefine         (""),
+        mMissedOnly     (false)
     {
         //
     }
@@ -475,6 +480,9 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
             //----- refinement for CdT which have been extracted
             for (auto& aDis : aSetOfDiscr.CdTDiscretizations())
             {
+                if (mMissedOnly == aDis.mFromAug || !mMissedOnly)
+                {
+                    cMesIm1Pt aMes;
                     //-> set prerequisites to use cCdTDiscr
                     bool isOk = true;
                     BuildDiscr(aDis, isOk);
@@ -486,29 +494,40 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                         {
                             aDis.SaveSample(mPhProj.DirVisuAppli());
                         }
-                        //-> refinement of image measurement based on CdT sampling
-                        DiscrMapRefine(aDis);
 
-                        //-> save refined measurement
-                        cPt2dr aC = aDis.SampC();
-                        cPt2dr aCorC = ToR(aDis.Extent().P0()) + aC + aDis.LSSm2Cr().mAff.Value(aC);
-
-                        if (mShow)
+                        if (mRefine == "G")
                         {
-                            StdOut() << "-------------------\n"
-                                     << "CdT n°" << aDis.mName << '\n'
-                                     << "-----\n"
-                                     << "LS Params: " << aDis.LSSm2Cr().mVP << '\n'
-                                     <<" refined mes :" << aC << "->" << aCorC << '\n';
+                            //-> refinement of image measurement based on CdT sampling
+                            DiscrMapRefine(aDis);
+
+                            //-> save refined measurement
+                            cPt2dr aC = aDis.SampC();
+                            cPt2dr aCorC = ToR(aDis.Extent().P0()) + aC + aDis.LSSm2Cr().mAff.Value(aC);
+                            aMes = cMesIm1Pt(aCorC, aDis.mName, 1);
+
+                            if (mShow)
+                            {
+                                StdOut() << "-------------------\n"
+                                         << "CdT n°" << aDis.mName << '\n'
+                                         << "-----\n"
+                                         << "LS Params: " << aDis.LSSm2Cr().mVP << '\n'
+                                         <<" refined mes :" << aC << "->" << aCorC << '\n';
+                            }
                         }
 
-                        cMesIm1Pt aMes(aCorC, aDis.mName, 1);
-                        aSet.AddMeasure(aMes);
-
-                        //-> ** test heuristik optim**
-                        CorrelCropSamp(aDis);
+                        if (mRefine == "H")
+                        {
+                            bool isOk = false;
+                            cPt2dr aC = CorrelCropSamp(aDis, isOk);//-> heuristik optim
+                            if (isOk)
+                            {
+                                aMes = cMesIm1Pt(aC, aDis.mName, 1);
+                                aSet.AddMeasure(aMes);
+                            }
+                        }
                     }
                 }
+            }
             if (mVisu) Visu(aSet);
             mPhProj.SaveMeasureIm(aSet);
             }
@@ -602,12 +621,14 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         }
     }
 
-    void cAppli_CodedTargetRefine::CorrelCropSamp(cCdTDiscr& aDis)
+    cPt2dr cAppli_CodedTargetRefine::CorrelCropSamp(cCdTDiscr& aDis, bool& isOk)
     {
         cOptCorrelThIm<tU_INT1> aOptMap(aDis.Samp().DIm(), *mDIm, aDis.Mask().DIm(), cPixBBox(aDis.Extent()));
         cOptimByStep aOpt(aOptMap, false, 2.0);
         auto [aVal,aDelta] = aOpt.Optim(ToR(aDis.Extent().P0()), 4, .1);
-        StdOut() << "Correl. score : " << aVal << " P0: " << aDis.Extent().P0() << "NewP0: " << aDelta << "\n";
+        if (mShow) StdOut() << "Cdt n°" << aDis.mName << " hcorr=" << aVal << '\n';
+        if (aVal >= 0.6) isOk = true;
+        return aDelta+ToR(aDis.Extent().Sz())/2.0;
     }
 
     //----- memory allocation
@@ -822,7 +843,6 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         for (const auto& aP : tRect2(mBBox.Sz()))
         {
             if (mDMask.GetV(aP) == MaskInV) continue;//-> reject pixels that are in the mask
-            //-> add somthg with interpolation
             aMat.Add(mGDIm.GetVBL(ToR(aP) + aNewP0), mThDIm.GetV(aP));
         }
         return cPt1dr(aMat.Correl());//-> similarity score for aNewP0

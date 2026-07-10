@@ -152,11 +152,12 @@ class cCdTDiscr
 {
 public:
 
-    cCdTDiscr(const std::string& aName, const std::string& aImName, tAff2Dr aAff);
+    cCdTDiscr(const std::string& aName, const std::string& aImName, tAff2Dr aAff, bool aFromAug=false);
     cCdTDiscr();
     //----- members
     const std::string             mName;//-> CdT name
     const std::string             mImName;//-> name of the image in which CdT is discretized
+    const bool                    mFromAug;//-> has it been created using network augmentation
 
     //----- methods
     bool                        ReqCt(std::string aRCt);//-> request content as a prerequisites check
@@ -210,7 +211,7 @@ private:
     tIm                     mSamp;  //-> CdT sampled from CdT2Im mapping
     tIm                     mMask;  //-> bbox of CdT formed by predicted corners (local coordinates, MaskIn/MaskOut)
     tIm                     mInlMask; //-> mask for inliers used for mapping LS adjustment
-    tAff2Dr                mRef2Glob;//-> reference (MMVII generated) CdT image to input image mapping
+    tAff2Dr                 mRef2Glob;//-> reference (MMVII generated) CdT image to input image mapping
     std::vector<cPt2dr>     mVBCenters;//-> white bit centers w.r.t Ref image coordinates
     std::vector<cPt2dr>     mVWCenters;//-> black bit centers w.r.t Ref image coordinates
     cRansacSol              mTFSm2Cr;//-> radiometric transfert function from sampled image to cropped image computed by RansacATF

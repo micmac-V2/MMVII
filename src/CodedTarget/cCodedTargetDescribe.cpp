@@ -117,7 +117,7 @@ namespace MMVII
         tAff2Dr    aAff;
         aAff = aAff.StdGlobEstimate(Corners(), aVOut, &aRes, nullptr, cParamCtrlOpt::Default());
         isIn = aCam->IsVisibleOnImFrame(aAff.Value(mCenter));
-        return cCdTDiscr(mName, aCam->NameImage(), aAff);
+        return cCdTDiscr(mName, aCam->NameImage(), aAff, true);
     }
 
     void cAugCdT::AddData(const cAuxAr2007& anAux)
