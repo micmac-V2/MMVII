@@ -5,7 +5,7 @@
    <Data>
       <Pair>
          <K>"NbProcMax"</K>
-         <V>"4"</V>
+         <V>"-1"</V>
       </Pair>
       <Pair>
          <K>"TaggedSerialMode"</K>

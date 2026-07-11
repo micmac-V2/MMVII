@@ -899,7 +899,11 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
 
   if (mParamProfile.HasKey("NbProcMax") && !IsInit(&mNbProcAllowed))
   {
-      mNbProcAllowed = std::min(mNbProcAllowed,mParamProfile.Get<int>("NbProcMax",mNbProcAllowed));
+      auto aNbProcMax = mParamProfile.Get<int>("NbProcMax",mNbProcAllowed);
+      if (aNbProcMax > 0)
+      {
+          mNbProcAllowed = std::min(mNbProcAllowed,aNbProcMax);
+      }
   }
 
 
