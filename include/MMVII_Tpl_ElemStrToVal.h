@@ -53,7 +53,7 @@ template <class TypeEnum> class cE2Str
          {
             if (WithDef)
                 return TypeEnum::eNbVals;
-            MMVII_UserError(eTyUEr::eBadEnum,"Str2E for : "+aStr+" ; valids are : "+ StrAllVal() );
+            MMVII_UserError(eTyUEr::eBadEnum,"Str2E for : "+aStr+" ; valids are : " + StrAllVal() );
          }
          return anIt->second;
      }
@@ -61,12 +61,13 @@ template <class TypeEnum> class cE2Str
      static const std::string   StrAllVal()
      {
          std::string aRes;
+         char aSep = '[';
          for (const auto & it : mE2S)
          {
-             if (aRes!="") aRes += ",";
-             aRes += it.second;
+             aRes += aSep + it.second;
+             aSep=',';
          }
-         return aRes;
+         return aRes + ']';
      }
 
      static std::vector<TypeEnum> VecOfPat(const std::string & aPat,bool AcceptEmpy)

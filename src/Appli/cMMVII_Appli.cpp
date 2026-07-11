@@ -1223,7 +1223,7 @@ void cMMVII_Appli::GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::
                 semantic.push_back(E2Str(a.Type()));
             }
             if (a.Type() == eTA2007::AllowedValues) {
-                allowed = SplitString(a.Aux(),",");
+                FromS(a.Aux(),allowed);
             }
             if (a.Type() == eTA2007::Range) {
                 range = a.Aux();
