@@ -32,6 +32,8 @@ class cAppliSpecSerial : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
+        std::string mOutDir;
+
 };
 
 
@@ -40,7 +42,9 @@ cAppliSpecSerial::cAppliSpecSerial
     const std::vector<std::string> & aVArgs,
     const cSpecMMVII_Appli & aSpec
 ) :
-   cMMVII_Appli   (aVArgs,aSpec)
+    cMMVII_Appli   (aVArgs,aSpec),
+    mOutDir(DirRessourcesMMVII() + "SpecifSerial/")
+
 {
 }
 
@@ -53,8 +57,8 @@ cCollecSpecArg2007 & cAppliSpecSerial::ArgObl(cCollecSpecArg2007 & anArgObl)
 
 cCollecSpecArg2007 & cAppliSpecSerial::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
-   return
-                  anArgOpt
+   return anArgOpt
+           << AOpt2007(mOutDir,"OutDir","Directory for generated specifiction files", {eTA2007::HDV})
           ;
 }
 
@@ -62,21 +66,27 @@ cCollecSpecArg2007 & cAppliSpecSerial::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 void GenSpec_BitEncoding(const std::string & aDir);
 void GenSpec_SysCo(const std::string & aDir);
 
+template<typename T>
+static inline void GenSpec(const std::string & aFile)
+{
+    SpecificationSaveInFile<T>(aFile +".xml");
+    SpecificationSaveInFile<T>(aFile +".json");
+
+}
 
 int  cAppliSpecSerial::Exe()
 {
-   std::string aDir = DirRessourcesMMVII() + "SpecifSerial/";
+   CreateDirectories(mOutDir,false);
+   mOutDir += "/";
+   GenSpec_BitEncoding(mOutDir);
+   GenSpec_SysCo(mOutDir);
+   GenSpec<cSysCoData>(mOutDir+"SysCo");
+   GenSpec<tNameSet>(mOutDir+"SetName");
+   GenSpec<cSetMesPtOf1Im>(mOutDir+"SetMesureIm");
+   GenSpec<cSetMesGnd3D>(mOutDir+"SetMesureGCP");
+   GenSpec<cComputeAssociation>(mOutDir+"ComputeAssociation");
+   GenSpec<cCamDataBase>(mOutDir+"CamDataBase");
 
-   // SpecificationSaveInFile<cTestSerial1>(aDir+"cTestSerial1.xml");
-   // SpecificationSaveInFile<cTestSerial1>(aDir+"cTestSerial1.json");
-
-   GenSpec_BitEncoding(aDir);
-   GenSpec_SysCo(aDir);
-   SpecificationSaveInFile<tNameSet>(aDir+"SetName.xml");
-   SpecificationSaveInFile<cSetMesPtOf1Im>(aDir+"SetMesureIm.xml");
-   SpecificationSaveInFile<cSetMesGnd3D>(aDir+"SetMesureGCP.xml");
-
-   SpecificationSaveInFile<cComputeAssociation>(aDir+"ComputeAssociation.xml");
 
    return EXIT_SUCCESS;
 }
