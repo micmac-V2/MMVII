@@ -21,8 +21,16 @@ namespace MMVII
 /*                                                      */
 /* ==================================================== */
 
-template <class Type>  cSetIm4SparseDist<Type>::cSetIm4SparseDist(size_t aNbIm,const cPt2di& aSzInit,tREAL8 aFactRed) :
-      mNbIm      (aNbIm),
+template <class Type>
+   cSetIm4SparseDist<Type>::cSetIm4SparseDist
+   (
+           const std::vector<std::string> & aVNames,
+           const cPt2di& aSzInit,
+           tREAL8 aFactRed
+    ) :
+      mFiltered  (false),
+      mNames     (aVNames),
+      mNbIm      (mNames.size()),
       mNbMeasure (0.0),
       mSumW      (0.0),
       mSzInit    (aSzInit),
@@ -36,6 +44,8 @@ template <class Type>  cSetIm4SparseDist<Type>::cSetIm4SparseDist(size_t aNbIm,c
 
 template <class Type> void cSetIm4SparseDist<Type>::Add(const cPt2dr &aPFull,const std::vector<tREAL8> & aVValues,tREAL8 aWeight)
 {
+   MMVII_INTERNAL_ASSERT_tiny(!mFiltered,"Already filtered in MakeDense");
+
     mNbMeasure++;
     mSumW += aWeight;
     cPt2dr aPRed = aPFull/mFactRed;
@@ -53,6 +63,8 @@ template <class Type> void cSetIm4SparseDist<Type>::Add(const cPt2dr &aPFull,con
 
 template <class Type> void cSetIm4SparseDist<Type>::MakeDense(tREAL8 aMulSigma)
 {
+    MMVII_INTERNAL_ASSERT_always(!mFiltered,"Already filtered in MakeDense");
+    mFiltered = true;
     //  S^2 * aNbPtsTot = Sz.x() * Sz.y()
     tREAL8 aSigma = std::sqrt(mImW.DIm().NbElem() / tREAL8(mNbMeasure)) * aMulSigma;
     mImW = mImW.GaussFilter(aSigma);
@@ -64,6 +76,49 @@ template <class Type> void cSetIm4SparseDist<Type>::MakeDense(tREAL8 aMulSigma)
         DivImageInPlace(mIm2Avg[aKIm].DIm(),mIm2Avg[aKIm].DIm(),mImW.DIm());
     }
 }
+
+template <class Type> void cSetIm4SparseDist<Type>::Gen1File
+                           (
+                               tIm anIm,
+                               const std::string& aDir,
+                               std::string aLayer,
+                               const std::string & aPref
+                           )
+{
+  aLayer = aLayer + std::string(mFiltered?"_Filtered_" : "_Raw_");
+  std::string aName = aDir + aLayer + aPref + ".tif";
+
+  anIm.DIm().ToFile(aName);
+}
+
+
+
+template <class Type> void cSetIm4SparseDist<Type>::GenFiles(const std::string& aDir,const std::string & aPref,bool WithLayer)
+{
+       Gen1File(mImW,aDir,"Weight",aPref);
+       if (WithLayer)
+       {
+           for (size_t aKIm=0 ; aKIm<mNbIm; aKIm++)
+           {
+               Gen1File(mIm2Avg.at(aKIm),aDir,mNames.at(aKIm),aPref);
+           }
+       }
+}
+
+template <class Type> void cSetIm4SparseDist<Type>::SaveDenseSave
+                           (
+                                  const std::string& aDir,
+                                  const std::string & aPref,
+                                  bool WithLayebefore,
+                                  bool WithLayerAfter
+                            )
+{
+    GenFiles(aDir,aPref,WithLayebefore);
+    MakeDense();
+    GenFiles(aDir,aPref,WithLayerAfter);
+}
+
+
 
 template <class Type>  cIm2D<Type>  cSetIm4SparseDist<Type>::ImW() const {return mImW;}
 template <class Type>  cIm2D<Type>  cSetIm4SparseDist<Type>::ImAvg(size_t aKth) const {return mIm2Avg.at(aKth);}
@@ -136,7 +191,7 @@ cAppli_CGPReport::cAppli_CGPReport
      mPhProj       (*this),
      mIsGCP        (isGCP),
      mFactRed      (100.0),
-     mExag         (1000.0),
+     mExag         (1.0),
      mPropStat     ({50,75}),
      mMarginMiss   (50.0),
      mSuffixReportSubDir (""),
@@ -385,7 +440,7 @@ void cAppli_CGPReport::ReportsByCam()
    for (const auto& aPair : aMapCam)
    {
        cPerspCamIntrCalib * aCalib =  aPair.first;
-       cSetIm4SparseDist<tREAL8> aImAvg(2,aCalib->SzPix(),mFactRed);
+       cSetIm4SparseDist<tREAL8> aImAvg({"x","y"},aCalib->SzPix(),mFactRed);
        cStdStatRes               aStat;
 
        for (const auto & aCam : aPair.second)
@@ -403,13 +458,8 @@ void cAppli_CGPReport::ReportsByCam()
                aImAvg.Add(aP2,aRes.ToStdVector());
            }
        }
+       aImAvg.SaveDenseSave(mPhProj.DirVisuAppli(), aCalib->Name());
 
-       aImAvg.ImW().DIm().ToFile(mPhProj.DirVisuAppli() + "W_RawResidual_"+aCalib->Name() +".tif");
-
-       aImAvg.MakeDense();
-       aImAvg.ImW().DIm().ToFile(mPhProj.DirVisuAppli() + "W_FiltResidual_"+aCalib->Name() +".tif");
-       aImAvg.ImAvg(0).DIm().ToFile(mPhProj.DirVisuAppli() + "X_FiltResidual_"+aCalib->Name() +".tif");
-       aImAvg.ImAvg(1).DIm().ToFile(mPhProj.DirVisuAppli() + "Y_FiltResidual_"+aCalib->Name() +".tif");
 
        AddStdStatCSV(mNameReportCam,aCalib->Name(),aStat,mPropStat);
    }
@@ -449,10 +499,16 @@ int cAppli_CGPReport::Exe()
        AddOneReportCSV(mNameReportDetail,{"Image","GCP","Err","Dx","Dy","Ddist"});
        AddOneReportCSV(mNameReportMissed,{"Image","GCP","XTh","YTh"});
    }
-   if (RunMultiSet(0,0))  // If a pattern was used, run in // by a recall to itself  0->Param 0->Set
+
+   // --------- If a pattern was used, run in // by a recall to itself  0->Param 0->Set  -------------
+   if (RunMultiSet(0,0))
    {
+       // After the run in // extract the result
       int aRes = ResultMultiSet();
 
+      // Do the stat that agregate by Cam/GCP
+      // N.B. this is not called when you have a single image; but it's not realy a pb (?)
+      // because it would be equal to Image/Detail ...
       if (mIsGCP)
       {
           ReportsByGCP();

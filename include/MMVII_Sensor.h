@@ -469,6 +469,8 @@ class cDirsPhProj : public cMemCheck
           const std::string & FullDirIn() const;   ///< Accessor
           const std::string & FullDirOut() const;   ///< Accessor
           const std::string & FullDirInOut(bool In) const;   ///< Facility FullDirIn/FullDirInOut
+          std::string ComputeFullDir(const std::string& aDirIn) const;
+
 
           const std::string & DirLocOfMode() const;   ///< Accessor
 
@@ -483,6 +485,7 @@ class cDirsPhProj : public cMemCheck
           void SetDirOutInIfNotInit(); ///< If Dir Out is not init, set it to same value than In
 
           void SetAllowDirInEmpty();
+          eTA2007 Mode() const; ///< Accessor
      private :
           cDirsPhProj(const cDirsPhProj &) = delete;
 
@@ -578,7 +581,7 @@ class cPhotogrammetricProject : public cIPhProj
           const std::string & TaggedNameDefSerial() const; /// short to Appli.Nam...
           const std::string & VectNameDefSerial() const; /// short to Appli.Nam...
           cDirsPhProj &   DPOrient(); ///< Accessor
-      cDirsPhProj &   DPOriTriplets(); ///< Accessor
+         cDirsPhProj &   DPOriTriplets(); ///< Accessor
           cDirsPhProj &   DPRadiomData(); ///< Accessor
           cDirsPhProj &   DPRadiomModel(); ///< Accessor
           cDirsPhProj &   DPMeshDev(); ///< Accessor
@@ -917,6 +920,9 @@ class cPhotogrammetricProject : public cIPhProj
          /// If ChSys.Target() is not init, set it to RTL, considering center is expressed in SysOrigin
          void InitSysCoRTLIfNotReady(const cPt3dr & aCenter);
 
+         /// Used in cDirsPhProj constructor so that it knows all its dir
+         void AddDirProj(const cDirsPhProj*);
+
          //===================================================================
          //==================   Clinometers           ========================
          //===================================================================
@@ -985,6 +991,8 @@ class cPhotogrammetricProject : public cIPhProj
 
           cMMVII_Appli &  mAppli;
           std::string     mFolderProject;
+          std::vector<const cDirsPhProj*> mAllDir;
+
 
           std::string     mDirPhp;
           std::string     mDirVisu;
@@ -1019,6 +1027,7 @@ class cPhotogrammetricProject : public cIPhProj
                           //
 
           std::vector<cDirsPhProj*> mDirAdded;
+
           mutable cGlobCalculMetaDataProject *  mGlobCalcMTD;
 
           cCamDataBase   mCamDataBase;
