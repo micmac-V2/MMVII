@@ -507,6 +507,95 @@ void cGG_Graph<Type>::AddEdge(const cPt2di & aP1,const cPt2di & aP2)
 }
 
 
+
+// class cImageImpainting 
+template <class Type> class cImageImpainting
+{
+    public: 
+
+    cImageImpainting (cIm2D<tU_INT1> & aImMasqInit,
+                       cIm2D<tU_INT1> & aImMasqFinal,
+                       cIm2D<Type> & aImToFill,
+                       tREAL4 aDyn):
+        mImMasqInit(aImMasqInit),
+        mImMasqFinal(aImMasqFinal),
+        mImToFill(aImToFill),
+        mBuffIm(cIm2D<Type>(aImToFill.DIm().Sz())),
+        mSetPixToFill({}),
+        mSz(aImToFill.DIm().Sz()),
+        mDyn(aDyn),
+        mNbPixToFill(0)
+    {
+
+        for(const auto & aP: cPixBox<2>(cPt2di(1,1), mSz-cPt2di(1,1)))
+         {
+            if (mImMasqInit.DIm().GetV(aP) &&  (!mImMasqFinal.DIm().GetV(aP)))
+            {
+                mSetPixToFill.push_back(aP);
+            }
+         }
+         StdOut() << "Number of pixels to fill: " << mSetPixToFill.size() << "\n";
+         mNbPixToFill = mSetPixToFill.size();
+    }
+
+    void FillMissingPixels()
+    {
+        std::vector<cPt2di> aNeighPts={cPt2di(-1,0),cPt2di(1,0),cPt2di(0,-1),cPt2di(0,1),
+                                cPt2di(-1,-1),cPt2di(-1,1),cPt2di(1,-1),cPt2di(1,1)};
+
+        for (const auto & aP: mImToFill.DIm())
+        {
+            Type aVal = mImMasqFinal.DIm().GetV(aP) ? mImToFill.DIm().GetV(aP)*mDyn : 1e10;
+            mBuffIm.DIm().SetV(aP,aVal);
+        }
+
+        for (int aKIter=0 ; aKIter< 6 ; aKIter++)
+        {
+
+            bool Pair= ((aKIter%2)==0);
+
+            int IndDeb = Pair ? 0       : (mNbPixToFill-1);
+            int IndOut = Pair ? mNbPixToFill  : (-1)      ;
+            int Incr   = Pair ? 1       : (-1)      ;
+
+            for (int Ind=IndDeb ; Ind!=IndOut ; Ind+=Incr)
+            {
+                    cPt2di aP2Cur = mSetPixToFill[Ind];
+                    Type aValOfZMin = (Type)mImToFill.DIm().GetV(aP2Cur);
+                    Type aZMin = mBuffIm.DIm().GetV(aP2Cur);
+                    for (int aKV = 0 ; aKV<8 ; aKV++)
+                    {
+                        cPt2di aPVois = aP2Cur + aNeighPts[aKV];
+                        if (mImMasqFinal.DIm().GetV(aPVois) || mImMasqInit.DIm().GetV(aPVois))
+                        {
+                            Type aZAugm = mBuffIm.DIm().GetV(aPVois) + ((aKV%2) ? 3 : 2);
+                            if (aZAugm < aZMin)
+                            {
+                                aZMin = aZAugm;
+                                aValOfZMin = (Type)mImToFill.DIm().GetV(aPVois);
+                            }
+                        }
+                    }
+                    //StdOut() << "Filling pixel " << aP2Cur << " with value " << aValOfZMin << "\n";
+                    mImToFill.DIm().SetV(aP2Cur,aValOfZMin);
+                    mBuffIm.DIm().SetV(aP2Cur,aZMin);
+            }
+        }
+    }
+
+    cIm2D<tU_INT1> & mImMasqInit;
+    cIm2D<tU_INT1> & mImMasqFinal;
+    cIm2D<Type> & mImToFill;
+    cIm2D<Type> mBuffIm;
+    std::vector<cPt2di> mSetPixToFill;
+    cPt2di mSz;
+    tREAL4 mDyn;
+    size_t mNbPixToFill;
+
+    private:
+
+};
+
 class cAppliParsedBoxVirtualIm : public cAppliParseBoxIm<tREAL4>
 {
     private :
@@ -688,6 +777,7 @@ class cAppliCloudFuser : public cMMVII_Appli,
                                  cIm2D<tREAL4> & aMergedDem,
                                  cIm2D<tU_INT1> & aMergedMask,
                                  cIm2D<tU_INT1> & aMergedCorrel);
+        void FillVoids(cIm2D<tREAL4> & aDem, cIm2D<tU_INT1> & aMask);
         void ExtractInterpDems(cCloudRaster & aDem,
                                 const cBox2dr & aBoxInDem, 
                                 const cBox2dr & aBoxInCurTileCalc,
@@ -900,6 +990,15 @@ void cAppliCloudFuser::FuseDemsByChP( std::vector<cIm2D<tREAL4>> & aVDems,
                                     ,255)
                                     );    
     }
+}
+
+
+void cAppliCloudFuser::FillVoids(cIm2D<tREAL4> & aDem, cIm2D<tU_INT1> & aMask)
+{
+    cIm2D<tU_INT1> aMasqInit(aMask.DIm().Sz());
+    aMasqInit.DIm().InitCste(1);
+    cImageImpainting<tREAL4> aImpaint(aMasqInit,aMask,aDem,1.0);
+    aImpaint.FillMissingPixels();
 }
 
 
@@ -1145,6 +1244,9 @@ int cAppliCloudFuser::ExeOnParsedBox()
 
     FuseDemsByChP(mSetOfBoxedDems,mSetOfBoxedWeighters,
               aFinalDem,aFinalMask, aFinalCorrel);
+
+    FillVoids(aFinalDem,aFinalMask);
+
     // Save DEM, MASK and CORREL
     cAutoTimerSegm aTSFinalWrite(TimeSegm(),"FinalWriting"); 
     if(IsOutputTiled)

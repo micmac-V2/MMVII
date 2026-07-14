@@ -123,9 +123,9 @@ def fetch_optimizer(args, model):
         total_steps=args.num_steps,
         pct_start=0.01,        # 1% warmup to peak learning rate
         anneal_strategy='cos', # cosine annealing after peak
-        div_factor=25,         # initial_lr = max_lr / 25 = 4e-6
-        final_div_factor=1000, # final_lr = max_lr / 1000 = 1e-7
-        cycle_momentum=False   # required for AdamW
+        div_factor=10,         # initial_lr = max_lr / 10 = 4e-6
+        final_div_factor=100, # final_lr = max_lr / 100 = 1e-7
+        cycle_momentum=True   # required for AdamW
 )
 
     return optimizer, scheduler

@@ -70,7 +70,7 @@ class FlowAugmentor:
         self.crop_size = crop_size
         self.min_scale = min_scale
         self.max_scale = max_scale
-        self.spatial_aug_prob = 0.7
+        self.spatial_aug_prob = 0.0
         self.stretch_prob = 0.8
         self.max_stretch = 0.2
 
@@ -234,7 +234,7 @@ class FlowAugmentor:
     def __call__(self, img1, img2, flow, valid_mask):
         img1, img2 = self.color_transform(img1, img2)
         img1, img2 = self.eraser_transform(img1, img2)
-        img1,img2,flow,valid_mask = self.disparity_increase(img1, img2, flow, valid_mask)
+        #img1,img2,flow,valid_mask = self.disparity_increase(img1, img2, flow, valid_mask)
         img1, img2, flow, valid_mask = self.spatial_transform(img1, img2, flow, valid_mask)
 
         img1 = np.ascontiguousarray(img1)
