@@ -10,6 +10,7 @@
 #include "MMVII_Topo.h"
 #include "MMVII_PoseRel.h"
 #include "MMVII_InstrumentalBlock.h"
+#include "MMVII_DeclareAllCmd.h"
 
 /**
    \file  cPhotogrammetricProject.cpp
@@ -225,7 +226,11 @@ tPtrArg2007    cDirsPhProj::ArgDirOutOpt(const std::string & aNameVar,const std:
 tPtrArg2007    cDirsPhProj::ArgDirOutOptWithDef(const std::string & aDef,const std::string & aNameVar,const std::string & aMsg)
 {
     mDirOut = aDef;
-    mAppli.SetVarInit(&mDirOut);
+    // Because it creates false log cmd
+    if (Nb_GenArgsSpec_Running()==0)
+    {
+        mAppli.SetVarInit(&mDirOut);
+    }
     return ArgDirOutOpt(aNameVar,aMsg,true);
 }
 
@@ -465,17 +470,24 @@ cDirsPhProj * cPhotogrammetricProject::NewDPIn(eTA2007 aType,const std::string &
 
 cPhotogrammetricProject::~cPhotogrammetricProject()
 {
-    for (const auto &  aDirP : mAllDir)
+   // StdOut() << "XXX~cPhotogrammetricProject " << mAppli.Specs().Name() << "\n";
+    if (Nb_GenArgsSpec_Running()==0) // mAppli.Specs().Name() == TheSpecGenArgsSpec.Name())
     {
-        if (aDirP->DirOutIsInit() && (mAppli.LevelCall()==0))
+        for (const auto &  aDirP : mAllDir)
         {
-            std::string aNameFileLog = aDirP->FullDirOut() + "MMVII-LogCmdModif.txt";
+            if (aDirP->DirOutIsInit() && (mAppli.LevelCall()==0))
+            {
 
-            cMMVII_Ofs  aOfs(aNameFileLog,eFileModeOut::AppendText);
+                std::string aNameFileLog = aDirP->FullDirOut() + "MMVII-LogCmdModif.txt";
 
-            aOfs.Ofs() << "=============================================================\n\n";
-            aOfs.Ofs() <<   mAppli.CommandOfMain().Com() << " \n";
-            aOfs.Ofs() << "  ending correctly at : " <<  mAppli.StrDateCur() << "\n\n";
+                cMMVII_Ofs  aOfs(aNameFileLog,eFileModeOut::AppendText);
+
+                aOfs.Ofs() << "=============================================================\n\n";
+                aOfs.Ofs() <<   mAppli.CommandOfMain().Com() << " \n";
+               // aOfs.Ofs() << "MODEEEE= " <<  E2Str(aDirP->Mode()) << "\n";
+                aOfs.Ofs() << "  ending correctly at : " <<  mAppli.StrDateCur() << "\n\n";
+
+            }
         }
     }
 
@@ -1322,7 +1334,7 @@ bool cPhotogrammetricProject::GenReadHomol
 {
    // aSetHCI
     std::string aName = NameTiePIn(aNameIm1,aNameIm2,aDirIn);
-    StdOut() << "NH=" << aName << "\n";
+  //  StdOut() << "NH=" << aName << "\n";
     if (!ExistFile(aName))
     {
         aName  = NameTiePIn(aNameIm2,aNameIm1,aDirIn);

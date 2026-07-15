@@ -5,7 +5,7 @@
 
 namespace MMVII
 {
-
+int Nb_GenArgsSpec_Running();
 
 /** \file MMVII_DeclareAllCmd.h
     \brief Contains declaration  of all MMVII Commands

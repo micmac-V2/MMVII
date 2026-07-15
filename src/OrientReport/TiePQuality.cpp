@@ -28,6 +28,7 @@ class cAppli_TiePReport : public cMMVII_Appli
              //  void ShowImage(const cSetIm4SparseDist<tREAL8>&,const std::string& aVal) const;
              void MakeStatByImage();
              void ProcessByPair();
+             void ProcessPly();
 
              void ProcessOnePair(const std::string&,const std::string&);
 
@@ -48,6 +49,9 @@ class cAppli_TiePReport : public cMMVII_Appli
 
              std::vector<std::string> mParamByPair;
 
+             bool                     mWithPly;
+             cPlyVertices             mPlyFile;
+
 
 };
 
@@ -61,7 +65,8 @@ cAppli_TiePReport::cAppli_TiePReport
      mPropStat     ({50,75}),
      mCMTP         (nullptr),
      mFactRedIm    (100.0),
-     mDoImResCalib (true)
+     mDoImResCalib (true),
+     mWithPly      (false)
 {
 }
 
@@ -83,6 +88,7 @@ cCollecSpecArg2007 & cAppli_TiePReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
           << AOpt2007(mPatImRes,"PatImRes","Pattern of  images  where we generat residual (if any)")
           << AOpt2007(mDoImResCalib,"DoImResCalib","Do we generate images of residual by calibration ?",{eTA2007::HDV})
           << AOpt2007(mParamByPair,"ByPair","Parameter for detail by pair [TieP,Pat,Ampl?=100,SsRes?=2] ",{{eTA2007::ISizeV,"[2,4]"}})
+          << AOpt2007(mWithPly,"WithPly","Generate a 3D visualization of ply files",{eTA2007::HDV})
     ;
 }
 
@@ -124,8 +130,10 @@ void  cAppli_TiePReport::ProcessOnePair(const std::string & aName1,const std::st
             cPt3dr aPG = aSens1->PInterBundle(aCple,*aSens2);
             cPt2dr aVect = aSens1->Ground2Image(aPG)-aCple.mP1;
 
+           // StdOut() << "POL" << ToPolar(aVect,1000.0) << "\n";
+
             anIm.DrawCircle(cRGBImage::Blue,aCple.mP1,4.0);
-            anIm.DrawLine(aCple.mP1,aCple.mP1+aVect*anAmpl,cRGBImage::Red,2);
+            anIm.DrawLine(aCple.mP1,aCple.mP1+aVect*anAmpl,cRGBImage::Red,1);
         }
         anIm.ToFileDeZoom(mPhProj.DirVisuAppli()+"Res_"+LastPrefix(aName1)+"_"+LastPrefix(aName2)+".tif",aDeZoom);
 }
@@ -140,6 +148,12 @@ void  cAppli_TiePReport::ProcessByPair()
            ProcessOnePair(mSetNames.at(aKIm1),mSetNames.at(aKIm2));
         }
     }
+}
+
+
+void cAppli_TiePReport::ProcessPly()
+{
+
 }
 
 
@@ -218,8 +232,10 @@ void cAppli_TiePReport::MakeStatByImage()
            }
 
        }
+     //  StdOut() << "NIIIIIIiimmm= " << aNameIm << " " << aImAvg << "\n";
        if (aImAvg)
        {
+       //    StdOut() << "aImAvgaImAvg " << mPhProj.DirVisuAppli() << " " << aNameIm << "\n";
            aImAvg->SaveDenseSave(mPhProj.DirVisuAppli(),aNameIm);
            delete aImAvg;
        }
@@ -229,7 +245,7 @@ void cAppli_TiePReport::MakeStatByImage()
           mPrefixCSVIma,aNameIm,aStat,mPropStat,
           {ToStr(aAvg2d.Average().x()),ToStr(aAvg2d.Average().y())}
        );
-       StdOut() << aNameIm  << " Avg=" << aStat.Avg() << std::endl;
+      // StdOut() << aNameIm  << " Avg=" << aStat.Avg() << std::endl;
    }
 
 
@@ -253,6 +269,9 @@ int cAppli_TiePReport::Exe()
 
    if (IsInit(&mParamByPair))
        ProcessByPair();
+
+   if (mWithPly)
+       ProcessPly();
 
    for (auto [aName,aAvgByCam] : mMapResByCam)
    {
