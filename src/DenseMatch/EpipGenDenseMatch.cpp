@@ -764,7 +764,7 @@ cCollecSpecArg2007 & cAppli::ArgObl(cCollecSpecArg2007 & anArgObl)
    
    return
       anArgObl
-         << Arg2007(mModeMatchFinal,"Matching mode at high resol",{AC_ListVal<eModeEpipMatch>()})
+         << Arg2007(mModeMatchFinal,"Matching mode at high resol")
          << Arg2007(mNameIm1,"Name Input Image1",{eTA2007::FileImage})
          << Arg2007(mNameIm2,"Name Input Image1",{eTA2007::FileImage})
    ;
@@ -776,7 +776,7 @@ cCollecSpecArg2007 & cAppli::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       anArgOpt
          << AOpt2007(mSzTile,"SzTile","Size of tiling used to split computation",{eTA2007::HDV})
          << AOpt2007(mSzOverL,"SzOverL","Size of overlap between tiles",{eTA2007::HDV})
-         << AOpt2007(mModeMatchInit,"MMInit","Matching mode at low resol resol, def=mode high resol",{AC_ListVal<eModeEpipMatch>()})
+         << AOpt2007(mModeMatchInit,"MMInit","Matching mode at low resol resol, def=mode high resol")
          << AOpt2007(mSzBasculeMM,"SzBascMM","Sz in MegaPix of transition Init/Final for match mode",{eTA2007::HDV})
          << AOpt2007(mOutPx,CurOP_Out,"Name of Out file, def=Px_+$Im1")
          << AOpt2007(mOutDir,"DirMEC","Name of Output folder, def=MEC_PSMNet_{Im1}/")

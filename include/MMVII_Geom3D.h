@@ -4,6 +4,10 @@
 #include "MMVII_Triangles.h"
 #include "MMVII_Matrix.h"
 
+namespace happly
+{
+class PLYData;
+}
 
 namespace MMVII
 {
@@ -799,7 +803,11 @@ class cEllipse3D
 class cGenGauss3D
 {
     public :
-        cGenGauss3D(const cEllipse3D & anEl );
+        cGenGauss3D(const cEllipse3D & );
+        cGenGauss3D(const cDenseMatrix<double> &,
+                    const cDenseMatrix<double> &,
+                    const cDenseMatrix<double> &);
+
         const double & ValP(int aK) const {return mVP(aK);};
         const cDenseVect<tREAL8>   VecP(int aK) const {return mVecP.ReadCol(aK); };
         const cPt3dr  & CDG() const {return mCDG;}
@@ -819,6 +827,20 @@ class cGenGauss3D
 
 };
 
+
+class cPlyVertices
+{
+public:
+    cPlyVertices();
+    ~cPlyVertices();
+    void AddVert(const std::array<double, 3> &aVert, const std::array<double, 3> &aColor={1.,1.,1.});
+    void AddVert(const cPt3dr &aVert, const cPt3dr &aColor={1.,1.,1.});
+    void ToPly(const std::string & aFileName, bool aIsBinary);
+protected:
+    std::vector<std::array<double, 3>> mPlyVerts;
+    std::vector<std::array<double, 3>> mPlyColors;
+    happly::PLYData * mPlyOut;
+};
 
 
 };

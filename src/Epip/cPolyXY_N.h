@@ -100,13 +100,8 @@ template <typename T> inline int cPolyXY_N<T>::NbCoeffsForDegree(int d)
 
 template <typename T> inline int cPolyXY_N<T>::Index(int a, int b) const
 {
-    assert(a >= 0 && b >= 0 && a + b <= mDegree);  // TODOCM: Use MMVII_ASSERT
-    int idx = 0;
-    for (int aa = 0; aa < a; ++aa)
-        idx += (mDegree - aa + 1);
-    idx += b;
-    return idx;
-// TODOCM: MMVII_INTERNAL_ASSERT_medium(a>=0 && b>=0 && a+b<=mDegree,"Bad usage of cPolyXY_N"); return b + ((mDegree + 1) * (mDegree + 2) - (mDegree - a + 1) * (mDegree - a + 2)) / 2;
+    MMVII_INTERNAL_ASSERT_medium(a>=0 && b>=0 && a+b<=mDegree,"Bad usage of cPolyXY_N");
+    return b + ((mDegree + 1) * (mDegree + 2) - (mDegree - a + 1) * (mDegree - a + 2)) / 2;
 }
 
 template <typename T> inline T &cPolyXY_N<T>::Coeff(int a, int b)
@@ -121,13 +116,13 @@ template <typename T> inline T cPolyXY_N<T>::Coeff(int a, int b) const
 
 template <typename T> inline T &cPolyXY_N<T>::CoeffByIdx(int k)
 {
-    assert(k >= 0 && k < NbCoeffs());  // TODOCM: Use MMVII_ASSERT
+    MMVII_INTERNAL_ASSERT_medium(k>=0 && k < NbCoeffs(),"Bad index in cPolyXY_N::CoeffByIdx");
     return mCoeffs[k];
 }
 
 template <typename T> inline T cPolyXY_N<T>::CoeffByIdx(int k) const
 {
-    assert(k >= 0 && k < NbCoeffs());  // TODOCM: Use MMVII_ASSERT
+    MMVII_INTERNAL_ASSERT_medium(k>=0 && k < NbCoeffs(),"Bad index in cPolyXY_N::CoeffByIdx");
     return mCoeffs[k];
 }
 
@@ -136,10 +131,11 @@ template <typename T> inline T cPolyXY_N<T>::Eval(T x, T y) const
 {
     T val = static_cast<T>(0);
     T px = static_cast<T>(1); // x^a
+    int idx = 0;
     for (int a = 0; a <= mDegree; ++a, px *= x) {
         T py = static_cast<T>(1); // y^b
         for (int b = 0; b <= mDegree - a; ++b, py *= y)
-            val += mCoeffs[Index(a, b)] * px * py;
+            val += mCoeffs[idx++] * px * py;
     }
     return val;
 }
@@ -156,15 +152,14 @@ inline cDenseVect<T> cPolyXY_N<T>::BasisVector(T x, T y) const
 {
     const int n = NbCoeffs();
     cDenseVect<T> v(n);
-    for (int k = 0; k < n; ++k)         // TODOCM: supprimer ces 2 lignes
-        v(k) = static_cast<T>(0);
 
+    int idx=0;
     T px = static_cast<T>(1);
     for (int a = 0; a <= mDegree; ++a, px *= x)
     {
         T py = static_cast<T>(1);
         for (int b = 0; b <= mDegree - a; ++b, py *= y)
-            v(Index(a, b)) = px * py;       // TODOCM : utiliser un idx++ a la place de Index(a,b)
+            v(idx++) = px * py;
     }
     return v;
 }
@@ -293,8 +288,6 @@ inline cDenseVect<T> cPolyXY_N_IdentityOnYAxis<T>::FreeBasisVector(T x,
     const int d = Base::mDegree;
     const int nf = NbFreeCoeffs();
     cDenseVect<T> v(nf);
-    for (int k = 0; k < nf; ++k)        // TODOCM: supprimer ces 2 lignes
-        v(k) = static_cast<T>(0);
 
     T px = static_cast<T>(1);
     int idx = 0;

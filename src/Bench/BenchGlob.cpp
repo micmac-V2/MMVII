@@ -446,7 +446,7 @@ int  cAppli_MMVII_Bench::Exe()
    }
    StdOut().SetSilent(false);
    StdOut() << "=====  END BENCH, " << aParam.NbExe() << " bench executed ========" << std::endl;
-   StdOut() << "Bench is successfull !" << std::endl << std::endl;
+   StdOut() << Color::success << "Bench is successful." << Color::end << std::endl << std::endl;
    return EXIT_SUCCESS;
 }
 
@@ -602,7 +602,6 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
         BenchSSRNL(aParam);
         BenchDeformIm(aParam);
 
-        BenchClino(aParam);
 
         BenchCentralePerspective(aParam);
         cImageRadiomData::Bench(aParam);
@@ -611,8 +610,11 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
         Bench_MatEss(aParam);
         Bench_SpatialIndex(aParam);
         Bench_ToHomMult(aParam);
-    BenchLinearConstr(aParam);
-    Bench_HBA(aParam);
+        BenchLinearConstr(aParam);
+
+        BenchEpipolar(aParam);
+
+        Bench_HBA(aParam);
     }
 
     // Now call the bench of all application that define their own bench

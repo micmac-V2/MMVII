@@ -161,6 +161,7 @@ cCollecSpecArg2007 & cAppli_SelectPairOriRel::ArgOpt(cCollecSpecArg2007 & anArgO
 {
    return       anArgOpt
         <<  mPhProj.DPTieP().ArgDirInOpt()
+        <<  mPhProj.DPMulTieP().ArgDirInOpt()
         <<  mPhProj.DPGndPt2D().ArgDirInOpt()
         << AOpt2007(mNbMinSpanTree,"NbMSTree","Number of minimal spanning trees",{eTA2007::HDV})
         << AOpt2007(mNbKBestSom,"NbKBest","Number of k best point",{eTA2007::HDV})

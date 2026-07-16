@@ -133,19 +133,27 @@ void PopErrorEigenErrorLevel(); ///< restore previous behaving
 
 class cMMVII_Warning
 {
+    eTyUEr        mType;
+    bool          mUser;
     int           mCpt;
     std::string   mMes;
     int           mLine;
     std::string   mFile;
   public :
-    cMMVII_Warning(const std::string & aMes,int aLine,const std::string &  aFile);
+    cMMVII_Warning(const eTyUEr &,bool isUser,const std::string & aMes,int aLine,const std::string &  aFile);
     ~cMMVII_Warning();
     void Activate();
 };
 
-#define MMVII_DEV_WARNING(MES) {static MMVII::cMMVII_Warning aWarn(MES,__LINE__,__FILE__); aWarn.Activate();}
-#define MMVII_USER_WARNING(MES) {MMVII_DEV_WARNING(MES);}
+//const eTyUEr &,
+//#define MMVII_DEV_WARNING(MES) {static MMVII::cMMVII_Warning aWarn(eTyUErMES,__LINE__,__FILE__); aWarn.Activate();}
 
+
+#define MMVII_DEV_TYPED_WARNING(TYPE,USER,MES) {static MMVII::cMMVII_Warning aWarn(TYPE,USER,MES,__LINE__,__FILE__); aWarn.Activate();}
+#define MMVII_DEV_WARNING(MES) {MMVII_DEV_TYPED_WARNING(eTyUEr::eUnClassedError,false,MES);}
+
+#define MMVII_USER_WARNING(MES) {MMVII_DEV_TYPED_WARNING(eTyUEr::eUnClassedError,true,MES);}
+#define MMVII_USER_TYPED_WARNING(TYPE,MES) {MMVII_DEV_TYPED_WARNING(TYPE,true,MES);}
 
 #if (The_MMVII_DebugLevel>=The_MMVII_DebugLevel_InternalError_tiny )
 template <class Type>  void AssertSorted(const std::vector<Type> & aV)

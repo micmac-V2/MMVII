@@ -108,8 +108,15 @@ class cSensorImage  :   public cObj2DelAtEnd,
           virtual cSensorImage * SensorChangSys(const std::string & aDir, cChangeSysCo &) const ;
           /// Create a RPC sensor with an optional resampling map and an optional change of coordinate system map.
           /// (Use nullptr to indicate that no map is provided).
-          /// Original Sensor needs to have a defined Z interval.
-          cSensorImage * GenerateSensorRPC(const std::string& aNameIm, const cDataInvertibleMapping<tREAL8,2>* aResampleMap, const cDataInvertibleMapping<tREAL8,3>* aChSysCoMap, bool SVP=false) const;;
+          /// aZintv specifies the Z interval needed for RPC. If none (std::nullopt) is given, the sensor must have a defined Z interval
+          cSensorImage * GenerateSensorRPC(const cDataInvertibleMapping<tREAL8,2>* aResampleMap,
+                                           const cDataInvertibleMapping<tREAL8,3>* aChSysCoMap,
+                                           bool XYisLonLat = true,
+                                           std::optional<std::string> aNameIm  = std::nullopt,
+                                           std::optional<cPt2dr> aZIntv = std::nullopt
+                                          ) const;
+
+          virtual void FixPtPxLoopAroundPP(cPt2dr &aPtPx) const; ///< fix ambiguity for 360 deg sensors
 
           virtual const cPixelDomain & PixelDomain() const = 0;
           const cPt2di & Sz() const;
@@ -193,6 +200,11 @@ class cSensorImage  :   public cObj2DelAtEnd,
          bool IsVisibleOnImFrame(const cPt2dr &) const  ;
          /// 2d & 3d are visible
          bool PairIsVisible(const cPair2D3D &) const  ;
+
+         virtual void FixLoopPixelsInImage(std::vector<cPt2dr> &aVPtInOut) const;
+         virtual void FixLoopPixelsInImage(cPt2dr &aPtInOut) const;  ///< when having a point in a looping image
+         virtual void FixLoopPixelsResiduals(cPt2dr &aResPx) const;  ///< when searching for a residual (difference between two points) in a looping image
+         virtual void FixLoopBundle(cPt2dr &aPtBundle) const;
 
          // =================   Generation of points & correspondance   ===========================
 
@@ -367,7 +379,9 @@ class cMetaDataImage
           //  generate an identifier specific to data
           std::string InternalCalibGeomIdent() const;
 
-          cMetaDataImage(const std::string & aDir,const std::string & aNameIm,const cGlobCalculMetaDataProject * aCalc);
+          cMetaDataImage(const std::string & aDir,const std::string & aNameIm,
+                         const cGlobCalculMetaDataProject * aCalc,
+                         const cExifData &);
           cMetaDataImage();
       private :
 
@@ -424,9 +438,21 @@ class cDirsPhProj : public cMemCheck
           tPtrArg2007     ArgDirInMand(const std::string & aMes="");
           tPtrArg2007     ArgDirInMand(const std::string & aMes,std::string * aDest) ;
           /// Input Orientation as optional paramaters
-          tPtrArg2007     ArgDirInOpt(const std::string & aNameVar="",const std::string & aMesg="",bool WithHDV=false) ;
+          tPtrArg2007     ArgDirInOpt
+                          (
+                                const std::string & aNameVar="",
+                                const std::string & aMesg="",
+                                const std::vector<tSemA2007>& = {}
+                          ) ;
 
-          tPtrArg2007  ArgDirInputOptWithDef(const std::string & aDef,const std::string & aNameVar="",const std::string & aMesg="") ;
+          tPtrArg2007  ArgDirInputOptWithDef
+                       (
+                              const std::string & aDef,
+                              const std::string & aNameVar="",
+                              const std::string & aMesg="",
+                              const std::vector<tSemA2007>& = {}
+
+                       ) ;
                                                                             //
           /// Output Orientation as mandatory paramaters
           tPtrArg2007     ArgDirOutMand(const std::string & aMes="");
@@ -455,6 +481,8 @@ class cDirsPhProj : public cMemCheck
           bool CheckDirExists(bool In, bool DoError=false) const;
 
           void SetDirOutInIfNotInit(); ///< If Dir Out is not init, set it to same value than In
+
+          void SetAllowDirInEmpty();
      private :
           cDirsPhProj(const cDirsPhProj &) = delete;
 
@@ -470,6 +498,9 @@ class cDirsPhProj : public cMemCheck
           std::string               mFullDirIn;
           std::string               mFullDirOut;
           bool                      mPurgeOut;
+
+          // Allow special case where we allow empty dir in, like creation of bloc
+          bool                      mAllowDirInEmpty;
 };
 
 
@@ -558,8 +589,8 @@ class cPhotogrammetricProject : public cIPhProj
           cDirsPhProj &   DPTieP();    ///<  Accessor
           cDirsPhProj &   DPMulTieP();    ///<  Accessor
           cDirsPhProj &   DPBlockInstr();    ///<  Accessor  // RIGIDBLOC
-          cDirsPhProj &   DPRigBloc();    ///<  Accessor  // RIGIDBLOC
-          cDirsPhProj &   DPClinoMeters();    ///<  Accessor  // RIGIDBLOC
+        //  cDirsPhProj &   DPRigBloc();    ///<  Accessor  // RIGIDBLOC
+        //  cDirsPhProj &   DPClinoMeters();    ///<  Accessor  // RIGIDBLOC
           cDirsPhProj &   DPTopoMes();    ///<  Accessor  // TOPO
           cDirsPhProj &   DPMeasuresClino();    ///<  Accessor  // RIGIDBLOC
       cDirsPhProj &   DPStaticLidar();    ///<  Accessor  // STATIC LIDAR
@@ -578,8 +609,8 @@ class cPhotogrammetricProject : public cIPhProj
           const cDirsPhProj &   DPTieP() const;    ///<  Accessor
           const cDirsPhProj &   DPMulTieP() const;    ///<  Accessor
           const cDirsPhProj &   DPBlockInstr()const;    ///<  Accessor
-          const cDirsPhProj &   DPRigBloc() const;    ///<  Accessor
-          const cDirsPhProj &   DPClinoMeters() const;    ///<  Accessor
+         //  const cDirsPhProj &   DPRigBloc() const;    ///<  Accessor
+          // const cDirsPhProj &   DPClinoMeters() const;    ///<  Accessor
           const cDirsPhProj &   DPTopoMes() const;    ///<  Accessor
           const cDirsPhProj &   DPMeasuresClino() const;    ///<  Accessor
           const cDirsPhProj &   DPStaticLidar() const;    ///<  Accessor
@@ -618,7 +649,8 @@ class cPhotogrammetricProject : public cIPhProj
 
 
           /// Load a sensor, try different type (will add RPC , and others ?) use autom delete (dont need to delete it)
-          void ReadSensor(const std::string &NameIm,cSensorImage* &,cSensorCamPC * &,bool ToDeleteAutom,bool SVP=false) const;
+          /// aReadData if heavy data reading is needed
+          void ReadSensor(const std::string &NameIm,cSensorImage* &,cSensorCamPC * &,bool ToDeleteAutom,bool SVP=false, bool aReadData=false) const;
 
           /// return the generic sensor, use autom delete (dont need to delete it)
           cSensorImage* ReadSensor(const std::string  &aNameIm,bool ToDeleteAutom,bool SVP=false) const override;
@@ -646,7 +678,7 @@ class cPhotogrammetricProject : public cIPhProj
     //===================================================================
     //void SaveTriplets(const cTripletSet&,bool useXmlraterThanDmp=true) const;
     //cTripletSet * ReadTriplets() const;
-      std::vector<cDataSolOriTriplet> ReadAllTriplets(const std::vector<std::string>& aVImages) const;
+      std::vector<cDataSolOriTriplet> ReadAllTriplets(const std::vector<std::string>& aVImages,bool OkEmpty=false) const;
     //===================================================================
     //==================   RELATIVE ORIENTATION    ======================
     //===================================================================
@@ -795,6 +827,10 @@ class cPhotogrammetricProject : public cIPhProj
           const cElemCamDataBase * GetCamFromNameCam(const std::string& aNameCam,bool SVP=false) const;
 
 
+          std::string DirCamDataBase(eTypeDBCam) ;
+          std::string FileCamDataBase(eTypeDBCam) ;
+
+
          //===================================================================
          //==================   HOMOLOGOUS Points  ===========================
          //===================================================================
@@ -810,6 +846,11 @@ class cPhotogrammetricProject : public cIPhProj
              const std::string & aNameIm1 ,
              const std::string & aNameIm2,const std::string & aDir="") const;
              //  const std::string & aNameIm2,const std::string & aDir="",bool SVP=false) const;
+
+         bool GenReadHomol (cSetHomogCpleIm &,std::string  aNameIm1 ,std::string  aNameIm2,
+                            const std::string & aDirIn = ""
+                ) const;
+
 
          std::string NameTiePIn(const std::string & aNameIm1,const std::string & aNameIm2,const std::string & aDir="") const;
 
@@ -879,7 +920,7 @@ class cPhotogrammetricProject : public cIPhProj
          //===================================================================
          //==================   Clinometers           ========================
          //===================================================================
-        
+#if (MAINTAIN_OLD_BLOCK)
          /// Standard name for clino file using DPClinoMeters, in or out
          std::string NameFileClino(const std::string &aNameCam ,bool Input, const std::string aClinoName) const;
          /// Save clinometer calib in santdard out folder of DPClinoMeters
@@ -891,7 +932,7 @@ class cPhotogrammetricProject : public cIPhProj
          cOneCalibClino * GetClino(const cPerspCamIntrCalib &, const std::string aClinoName) const;
          void  ReadGetClino(cOneCalibClino&,const cPerspCamIntrCalib &, const std::string aClinoName) const;
          cCalibSetClino  ReadSetClino(const cPerspCamIntrCalib &, const std::vector<std::string> &aClinoName) const;
-
+#endif
          /// Standard name for file of measures clino
          std::string NameFileMeasuresClino(bool Input,const std::string & aNameFile="" ) const;
          void SaveMeasureClino(const cSetMeasureClino &) const;
@@ -901,19 +942,20 @@ class cPhotogrammetricProject : public cIPhProj
          //===================================================================
          //==================   Rigid Bloc           =========================
          //===================================================================
-         
+#if (MAINTAIN_OLD_BLOCK)
+
                  // RIGIDBLOC
          std::list<cBlocOfCamera *> ReadBlocCams() const;
          cBlocOfCamera *            ReadUnikBlocCam() const;
          void   SaveBlocCamera(const cBlocOfCamera &) const;
-              
+#endif
+
                //  New formalisation
          std::string   NameRigBoI(const std::string &,bool isIn) const;
          /// read a new bloc from existing name, if SVP and dont exist return block empty, else error
          cIrbCal_Block*  ReadRigBoI(const std::string &,bool SVP=false) const;
          void   SaveRigBoI(const cIrbCal_Block &) const;
-     std::vector<std::string>  ListBlockExisting() const;
-
+         std::vector<std::string>  ListBlockExisting() const;
          //===================================================================
          //==================   Topo Mes           =========================
          //===================================================================
@@ -928,13 +970,12 @@ class cPhotogrammetricProject : public cIPhProj
      //===================================================================
 
 
-     cStaticLidar * ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const; ///< Create Static Lidar
-     cStaticLidar * ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const; ///< Create Static Lidar
-     std::vector<std::string> GetStaticLidarNames(const std::string &aPatSelect) const; ///< pattern without "Ori-Scan-"
+     cStaticLidar * ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const; ///< Create Static Lidar
+     cStaticLidar * ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const; ///< Create Static Lidar
          //==================   Camera Data Base     =========================
 
          void MakeCamDataBase();
-         bool OneTestMakeCamDataBase(const std::string & aDir,cCamDataBase &,bool ForceNew);
+         bool OneTestMakeCamDataBase(const std::string & aDir,cCamDataBase &);
       private :
           cPhotogrammetricProject(const cPhotogrammetricProject &) = delete;
 
@@ -969,8 +1010,8 @@ class cPhotogrammetricProject : public cIPhProj
           cDirsPhProj     mDPMulTieP;         ///<  For multiple Homologous point
           cDirsPhProj     mDPMetaData;
           cDirsPhProj     mDPBlockInstr;       // RIGIDBLOC
-          cDirsPhProj     mDPRigBloc;         // RIGIDBLOC
-          cDirsPhProj     mDPClinoMeters;      // +-  resulta of clino calib (boresight)
+        // cDirsPhProj     mDPRigBloc;         // RIGIDBLOC
+        //  cDirsPhProj     mDPClinoMeters;      // +-  resulta of clino calib (boresight)
           cDirsPhProj     mDPMeasuresClino;     // measure (angles) of clino
           cDirsPhProj     mDPTopoMes;         // Topo
           cDirsPhProj     mDPStaticLidar;         // Static Lidar

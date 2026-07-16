@@ -16,7 +16,7 @@ namespace MMVII
 {
 
 constexpr int SINGLE_OBS_PT_COLMAP=-1;
-constexpr double IMAGE_ORIGIN_OFFSET=0.5;
+constexpr double IMAGE_ORIGIN_OFFSET_COLMAP=0.5;
 
 std::map<int, std::vector<std::pair<std::string, tPt2dr>>> ReadColmapImagesTxt(const std::string & aFilePath)
 {
@@ -67,7 +67,7 @@ std::map<int, std::vector<std::pair<std::string, tPt2dr>>> ReadColmapImagesTxt(c
         while (aSS >> aX >> aY >> aId)
             if (aId != SINGLE_OBS_PT_COLMAP)
             {
-                aRes[aId].emplace_back(aImName, tPt2dr(aX-IMAGE_ORIGIN_OFFSET,aY-IMAGE_ORIGIN_OFFSET));
+                aRes[aId].emplace_back(aImName, tPt2dr(aX-IMAGE_ORIGIN_OFFSET_COLMAP,aY-IMAGE_ORIGIN_OFFSET_COLMAP));
                 aCount++;
             }
 
@@ -95,6 +95,7 @@ class cAppli_TiePConvert : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
+        std::vector<std::string>  Samples() const override;
      private :
         std::string              mSpecIm;
         eFormatExtern            mFormat;
@@ -124,7 +125,7 @@ cCollecSpecArg2007 & cAppli_TiePConvert::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return anArgObl
            <<  Arg2007(mSpecIm,"Pattern/file for images",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
-           <<  Arg2007(mFormat,"Format specification" ,{AC_ListVal<eFormatExtern>()})
+           <<  Arg2007(mFormat,"Format specification")
            <<  mPhProj.DPTieP().ArgDirOutMand()
      ;
 }
@@ -141,6 +142,14 @@ cCollecSpecArg2007 & cAppli_TiePConvert::ArgOpt(cCollecSpecArg2007 & anArgObl)
              << AOpt2007(mPatNameDebug,"PND","Pattern names for debuging",{eTA2007::Tuning})
              << AOpt2007(mGenerateMTP,"GenMTP","Generate multiple tie point after conversion",{eTA2007::HDV})
            ;
+}
+
+std::vector<std::string>  cAppli_TiePConvert::Samples() const
+{
+    return {
+               "MMVII TiePConvert IMG_5.*JPG MMV1 V1 Post=dat"
+
+    };
 }
 
 

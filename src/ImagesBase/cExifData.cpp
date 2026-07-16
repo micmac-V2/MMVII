@@ -249,6 +249,7 @@ void FillExif(const CPLStringList& aStrings, cExifData& aExif)
 
 // Convert GPS Date and Time to Unix Epoch (second and nanosec)
     ExifGPSDateTimeToEpoch(aExif.mGPSDateStamp, aExif.mGPSTimeStamp, aExif.mGPSTimeUTC_s, aExif.mGPSTimeUTC_ns);
+    aExif.mValid = true;
 }
 
 
@@ -292,7 +293,8 @@ bool cExifData::FromFile(const std::string &aFileName, cExifData &anExif, bool S
 {
     auto aMetadataList = cGdalApi::GetExifMetadata(aFileName,SVP ? cGdalApi::eOnError::ReturnNullptr : cGdalApi::eOnError::RaiseError);
     FillExif(aMetadataList, anExif);
-    return aMetadataList.empty();
+//    return aMetadataList.empty();
+    return !aMetadataList.empty();   // MPD=> JO,  Ok ?
 }
 
 

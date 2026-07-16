@@ -1,4 +1,5 @@
 #include "BundleAdjustment.h"
+#include "MMVII_Stringifier.h"
 
 
 namespace MMVII
@@ -30,6 +31,12 @@ void cMMVII_BundleAdj::AddMTieP(const std::string & aName,cComputeMergeMulTieP  
     mVTieP.push_back(new cBA_TieP(aName,aMTP,aWIm));
 }
 
+void cMMVII_BundleAdj::SetTiePShowPerMil(const std::vector<int> & aTiePShowPerMil)
+{
+     mTiePShowPerMil = aTiePShowPerMil;
+}
+
+
 
 void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
 {
@@ -41,6 +48,10 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
    aMTP->SetPGround();
 
    cWeightAv<tREAL8> aWeigthedRes;
+   cStdStatRes aStatResidual;
+   bool doStatRes = ! mTiePShowPerMil.empty();
+
+   cWeightAv<tREAL8> aUnWeightedRed; ///< MPD : a conserver, ils ont mysterieusement disparus; mais il sont pourtant tres utiles
    for (const auto & aPair : aMTP->Pts())
    {
        const auto & aConfig  = aPair.first;
@@ -93,12 +104,16 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
                       anObj->PushIndexes(aVIndGlob);
                    }
 
+                   tREAL8 aN2Res = Norm2(aResidual);
                    if (aWeightImage>0)
                    {
-                       aWeigthedRes.Add(aWeightImage,Norm2(aResidual));
+                       aWeigthedRes.Add(aWeightImage,aN2Res);
                        mSys->R_AddEq2Subst(aStrSubst,anEqColin,aVIndGlob,aVObs,aWeightImage);
                        aNbEqAdded++;
                    }
+                   aUnWeightedRed.Add(1.0,aN2Res);
+                   if (doStatRes)
+                      aStatResidual.Add(aN2Res);
                }
            }
 
@@ -108,8 +123,24 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
        }
 
    }
-   StdOut() <<  "  # " << aBA_TieP.mName << ": Weighted Residual=" << aWeigthedRes.Average()
-            << " (" << aWeigthedRes.Nb() << " obs)" << std::endl;
+   StdOut() <<  "  # " << aBA_TieP.mName << ": Weighted Residual=" << aWeigthedRes.Average(-1)
+            << " (" << aWeigthedRes.Nb() << " obs)" 
+            << " UnWeitghRes=" << aUnWeightedRed.Average(-1);
+
+   /// MPD :done quick & dirty,  amelioration : user fix %% + put in MMVII lib the format
+   if (aStatResidual.NbMeasures()!=0)
+   {
+       StdOut() << " ;; ResAt[x%%]=YY, {";
+       for (const auto & aPerMil : mTiePShowPerMil)
+       {
+            tREAL8 aR = aStatResidual.ErrAtProp(aPerMil/1000.0) ;
+
+            StdOut() <<  aPerMil << ":" << ResidualToStr(aR)  << "  ";
+       }
+       StdOut() << "}";
+   }
+
+   StdOut() << std::endl;
 }
 
 void cMMVII_BundleAdj::OneItere_TieP()

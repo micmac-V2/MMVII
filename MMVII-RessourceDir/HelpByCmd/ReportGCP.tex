@@ -1,0 +1,72 @@
+\documentclass[a4paper]{article}
+\usepackage{MMVII}
+
+\newcommand{\TheCmd}{ReportGCP}
+
+\begin{document}
+
+\CmdTitle
+%\maketitle
+
+\tableofcontents
+
+
+ %=================================================================================
+
+\SecDescr
+
+This command generate report on quality of orientation relative to a set of Ground
+control point. It generate two kind of information :
+
+\begin{itemize}
+  \item statisical information in \FileSty{csv} format , these file are generated in the  ReportDir of the application
+        see  \RefSecCSVRes ;
+  \item visual information, in  \FileSty{jpg/tiff} format, that contains a visualization of the residual for each camera an, optionnaly, for each image,
+        these result are stored in the VisuDir of the application, see \RefSecVisuRes;
+\end{itemize}
+
+ %=================================================================================
+
+\SecCSVRes
+
+The following csv files are generated :
+\begin{itemize}
+  \item \FileSty{ByCam.csv}  : residual of projection in pixel, agregated by camera, usable to analyse internal calibration quality
+  \item \FileSty{ByGCP.csv}  : residual of projection in pixel, agregated by 3D point, usable to analyse ground coordinates quality
+  \item \FileSty{ByGCP3D.csv}  : difference in ground coordinate between 3D coordinate and budle intesection
+  \item \FileSty{ByGCP3D\_Stat.csv}  : statistique on value of  \FileSty{ByGCP3D.csv} (average ...)
+  \item \FileSty{ByImage.csv} : residual of projection in pixel, agregated by images, usable to analyse pose estimation quality
+  \item \FileSty{Detail.csv} : residual of projection in pixel for each point/image, usable to analyse outliers
+\end{itemize}
+
+
+ %=================================================================================
+
+\SecVisuRes
+
+For each camera  \ParamCam, the following low resolution images are generated to anlyse the distribution of GCP on the sensor and
+the bias of reprojection :
+
+\begin{itemize}
+   \item \FileSty{W\_RawResidual\_}\ParamCam  : raw distribution of point on the sensor plane (generally sparse )
+   \item \FileSty{W\_FiltResidual\_}\ParamCam \; : gaussian filtered distribution of point on the sensor plane to make it continuous
+   \item  \FileSty{X\_Residual\_}\ParamCam \; and  \FileSty{Y\_Residual\_}\ParamCam\;   images of reprojection error, gaussian filtered,
+            usable to detect spatial bias in intrinsic parameters.
+\end{itemize}
+
+
+When the optional vector \FileSty{GFV} \footnote{generate  field vecror} is used, a  visualisation  is generated for each image ; 
+it shows for each GCP if it is
+detected and, if it is,  shows the vector between detection and projection .
+
+\begin{itemize}
+   \item let note \FileSty{GFV}= $[M,W,\rho,Z?=2,Jpg?=1]$ the vector of size $3$ to $5$;
+   \item  for each \emph{detected} GCP, a vector between its localisation and its projection  is drawn with an amplification of $M$ and a witdh $W$
+   \item for each \emph{undected} GGP, a circle of ray $\rho$ is drawn centereed on projection  of the GCP
+   \item $Z$ is the reduction factor and $Jpg$ is used a boolean indicating if  \FileSty{Jpeg/Tiff } is to be used.
+\end{itemize}
+
+
+
+\end{document}
+

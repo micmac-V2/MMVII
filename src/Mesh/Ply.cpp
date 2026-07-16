@@ -5,6 +5,7 @@
 #include "MMVII_Mappings.h"
 #include "MMVII_2Include_Tiling.h"
 #include "MMVII_PCSens.h"
+#include "MMVII_StaticLidar.h"
 #include "../PoseEstim/VisPoseAndStructure.h"
 
 #include <omp.h>
@@ -186,7 +187,7 @@ template <class Type> void cTriangulation3D<Type>::PlyInit(const std::string & a
 {
  try
  {
-  PLYData  aPlyF(aNameFile,false);
+  PLYData aPlyF(aNameFile,false);
   auto aElementsNames = aPlyF.getElementNames();
   // Read points
     {
@@ -1069,65 +1070,192 @@ INSTANTIATE_TRI3D(tREAL16)
 
 /* ********************************************************** */
 /*                                                            */
+/*                       cPlyVertices                         */
+/*                                                            */
+/* ********************************************************** */
+
+cPlyVertices::cPlyVertices()
+    : mPlyOut(new happly::PLYData)
+{
+}
+cPlyVertices::~cPlyVertices()
+{
+    delete mPlyOut;
+}
+
+void cPlyVertices::AddVert(const std::array<double, 3> &aVert, const std::array<double, 3> &aColor)
+{
+    mPlyVerts.push_back(aVert);
+    mPlyColors.push_back(aColor);
+}
+
+void cPlyVertices::AddVert(const cPt3dr &aVert, const cPt3dr &aColor)
+{
+    mPlyVerts.push_back({aVert.x(),aVert.y(),aVert.z()});
+    mPlyColors.push_back({aColor.x(),aColor.y(),aColor.z()});
+}
+
+void cPlyVertices::ToPly(const std::string & aFileName, bool aIsBinary)
+{
+    mPlyOut->addVertexPositions(mPlyVerts); // can be done only once with happly?!
+    mPlyOut->addVertexColors(mPlyColors);
+    mPlyOut->write(aFileName,(aIsBinary?happly::DataFormat::Binary:happly::DataFormat::ASCII));
+    delete mPlyOut; // reset for new ply
+    mPlyOut =new happly::PLYData;
+}
+
+
+/* ********************************************************** */
+/*                                                            */
 /*                   cAppli_VisuPoseStr3D                     */
 /*                                                            */
 /* ********************************************************** */
 
-void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::vector<cSensorImage *>& aVSens)
+void cAppli_VisuPoseStr3D::AddPointCould(cPlyVertices& aPlyverts, cStaticLidar* aScan, int aTSLCloudDezoom, cPt3dr aScanColor, bool aOnlyEdges)
 {
-    PLYData aPlyOut;
+    if (aTSLCloudDezoom<=0)
+        return;
 
-    //  convert Pts to array
-    std::vector<std::array<double, 3>> aPlyPts;
+    cImGrad<tREAL4> aMask({1,1});
+    if (aOnlyEdges)
+        aMask = Deriche(aScan->getRasterDistance(),0.1);
+
+    int aStep = 1;
+    for (int i=1;i<aTSLCloudDezoom;++i)
+        aStep *= 2;
+    for (int l = 0 ; l < aScan->PixelDomain().Sz().y(); l+=aStep)
+        for (int c = 0 ; c < aScan->PixelDomain().Sz().x(); c+=aStep)
+        {
+            if ((!aOnlyEdges) || (Norm2(aMask.Grad(cPt2di(c,l)))>0.01))
+                aPlyverts.AddVert(aScan->Image2Ground(cPt2di(c,l)), aScanColor);
+        }
+}
+
+void cAppli_VisuPoseStr3D::AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulTieP * & aTPts, const std::vector<cSensorImage *>& aVSens)
+{
+    size_t aNbCam=aVSens.size();
 
     // add 3d points
-    size_t aNum3DPt=0;
     if (aTPts)
     {
+        // Three-step processing for better memory management
+        // 1- collect all 3D points and valid camera observations
+        // 2- load each image once, collect colors, the free image
+        // 3- save colored points to ply
+
+        // Collect 3D and 2D points
+        struct tObs { size_t mPtIdx; cPt2dr mPIm; }; //global point index, image obs
+        std::vector<cPt3dr> aAllPts3D;
+        std::vector<std::vector<tObs>> aObsByCam(aNbCam);
+
         for (auto aAllConfigs : aTPts->Pts())
         {
             const auto & aConfig = aAllConfigs.first;
             auto & aVals = aAllConfigs.second;
-
             size_t aNbIm = aConfig.size();
             size_t aNbPts = aVals.mVIdPts.empty() ? NbPtsMul(aAllConfigs) : aVals.mVIdPts.size();
 
-
             for (size_t aKPts=0; aKPts<aNbPts; aKPts++)
             {
-                const cPt3dr & aP3D = aVals.mVPGround.at(aKPts);
+                std::vector<std::pair<size_t,cPt2dr>> aValidPtObs;
 
+                const cPt3dr & aP3D = aVals.mVPGround.at(aKPts);
 
                 for (size_t aKIm=0; aKIm<aNbIm; aKIm++)
                 {
                     size_t aKImSorted = aConfig.at(aKIm);
-
                     const cPt2dr aPIm = aVals.mVPIm.at(aKPts*aNbIm+aKIm);
                     cSensorImage* aCam = aVSens.at(aKImSorted);
 
                     if (aCam->IsVisibleOnImFrame(aPIm) && aCam->IsVisible(aP3D))
                     {
-
                         double aResidual = Norm2(aPIm - aCam->Ground2Image(aP3D));
-
                         if (aResidual<mErrProjMax)
-                        {
-                            std::array<double,3> anArray;
-                            for (int aK=0 ; aK<3 ; aK++)
-                                anArray[aK] = aP3D[aK];
-                            aPlyPts.push_back(anArray);
+                            aValidPtObs.push_back({aKImSorted,aPIm});
 
-                            aNum3DPt++;
-                        }
+                    }
+                }
 
+                if (aValidPtObs.size()>1)
+                {
+                    size_t aGPtIdx = aAllPts3D.size(); // global index follows the order of pts in aAllPts3D
+                    aAllPts3D.push_back(aP3D);
+                    for (auto & [aCamIdx,aPIm] : aValidPtObs)
+                    {
+                        aObsByCam.at(aCamIdx).push_back({aGPtIdx,aPIm});
+                        if (!mWithAvgRGB) break; //no averaging so no need to collect more RGB vals
                     }
                 }
             }
         }
+
+        // read an image at a time, accumulate colors, free the image
+        std::vector<cPt3dr> aSumRGB(aAllPts3D.size(),{1.,1.,1.});
+        std::vector<int>    aNbRGB(aAllPts3D.size(),0);
+
+        if (mWithRGB)
+        {
+            // RGB values averaged over all images
+            // neater results but slower?
+            if (mWithAvgRGB)
+            {
+                for (size_t aKCam=0; aKCam<aNbCam; aKCam++)
+                {
+                    if (aObsByCam[aKCam].empty()) continue;
+
+                    cRGBImage aImRGB = cRGBImage::FromFile(aVSens[aKCam]->NameImage());
+
+                    for (auto& aObs : aObsByCam[aKCam])
+                    {
+                        if (aImRGB.InsideBL(aObs.mPIm))
+                        {
+                            aSumRGB[aObs.mPtIdx] += ToR(aImRGB.GetRGBPixBL(aObs.mPIm));
+                            aNbRGB[aObs.mPtIdx] += 1;
+                        }
+                    }
+                    StdOut() << "(" << aKCam+1 << "/" << aNbCam << ") "
+                             << aVSens[aKCam]->NameImage() << std::endl;
+                }
+            }
+            else
+            {
+                //cMemManager::SetActiveMemoryCount(false);
+                //#pragma omp parallel for schedule(dynamic)
+                for (size_t aKCam = 0; aKCam < aVSens.size(); aKCam++)
+                {
+                    if (aObsByCam[aKCam].empty()) continue;
+
+                    cRGBImage aIm = cRGBImage::FromFile(aVSens[aKCam]->NameImage());
+
+                    for (auto & aObs : aObsByCam[aKCam])
+                    {
+                        if (aIm.InsideBL(aObs.mPIm))
+                        {
+                            aSumRGB[aObs.mPtIdx] = ToR(aIm.GetRGBPixBL(aObs.mPIm));
+                            aNbRGB[aObs.mPtIdx] = 1;
+                        }
+                    }
+                    //StdOutLock::lock();
+                    StdOut() << "(" << aKCam+1 << "/" << aNbCam << ") "
+                             << aVSens[aKCam]->NameImage() << std::endl;
+                    //StdOutLock::unlock();
+                }
+                //cMemManager::SetActiveMemoryCount(true);
+            }
+        }
+
+        // send points to the ply pointcloud
+        cPt3dr aDefRGB (1.,1.,1.);
+        for (size_t aK=0; aK<aAllPts3D.size(); aK++)
+        {
+            cPt3dr aRGBVal = (mWithRGB && aNbRGB[aK]>0) ? (aSumRGB[aK] / (255.0 * aNbRGB[aK])) : aDefRGB ;
+            aPlyverts.AddVert(aAllPts3D[aK],aRGBVal);
+        }
+
     }
 
+
     // add camera centers
-    size_t aNumImPlane=0;
     std::vector<cPt3dr> aVCenters;
     cPt3dr aCenter;
     for (auto aCam : aVSens)
@@ -1144,12 +1272,8 @@ void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::v
         } // perspective sensor
         else aCenter = aCam->PseudoCenterOfProj();
 
-        std::array<double,3> anArray;
-        for (int aK=0 ; aK<3 ; aK++)
-            anArray[aK] = aCenter[aK];
-        aPlyPts.push_back(anArray);
+        aPlyverts.AddVert(aCenter, {1.,0.,0.});
 
-        aNumImPlane++;
         aVCenters.push_back(aCenter);
     }
 
@@ -1180,13 +1304,7 @@ void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::v
                 aImVPts.push_back(BundMid(cPt2dr(aDX,     aSz[1])));
 
                 for (auto aP : aImVPts)
-                {
-                    std::array<double,3> anArray;
-                    for (int aK=0 ; aK<3 ; aK++)
-                        anArray[aK] = aP[aK];
-                    aPlyPts.push_back(anArray);
-                    aNumImPlane++;
-                }
+                    aPlyverts.AddVert(aP, {1.,0.,0.});
             }
 
             // Satellite trajectory: perspective centers sampled along the along-track direction
@@ -1197,11 +1315,7 @@ void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::v
                 tSeg3dr aBund1 = aSens->Image2Bundle(cPt2dr(aSz[0],  aDY));
                 cPt3dr aSatPos = BundleInters(aBund0, aBund1);
 
-                std::array<double,3> anArray;
-                for (int aK=0 ; aK<3 ; aK++)
-                    anArray[aK] = aSatPos[aK];
-                aPlyPts.push_back(anArray);
-                aNumImPlane++;
+                aPlyverts.AddVert(aSatPos, {1.,0.,0.});
             }
         }
         else
@@ -1212,28 +1326,46 @@ void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::v
             double aF = CalculateFDepth(aSz,aFPix);
 
 
+            // add image border
+            std::vector<cPt3dr> aImVPts;
             for (int aS=0; aS<=aSteps; aS++)
             {
-                std::vector<cPt3dr> aImVPts;
+
                 double aDX = aImStepSz[0]*aS-1;
                 double aDY = aImStepSz[1]*aS-1;
 
+                // image plane border
                 aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(0,aDY,aF) ));
                 aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aDX,0,aF) ));
                 aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aSz[0],aDY,aF) ));
                 aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aDX,aSz[1],aF) ));
 
-
-                for (auto aP : aImVPts)
+            }
+            // add image plane grid for non-pinhole
+            if (aSens->IsSensorCamPC() )
+            {
+                if (aSens->GetSensorCamPC()->InternalCalib()->TypeProj()!=eProjPC::eStenope)
                 {
-                    std::array<double,3> anArray;
-                    for (int aK=0 ; aK<3 ; aK++)
-                        anArray[aK] = aP[aK];
-                    aPlyPts.push_back(anArray);
+                    int aSmallSteps = aSteps/2;
+                    cPt2dr aImSmallStepSz(aSz[0]/aSmallSteps,aSz[1]/aSmallSteps);
 
-                    aNumImPlane++;
+                    for (int aSX=0; aSX<=aSmallSteps; aSX++)
+                    {
+                        double aDX = aImSmallStepSz[0]*aSX-1;
+
+                        for (int aSY=0; aSY<=aSmallSteps; aSY++)
+                        {
+                            double aDY = aImSmallStepSz[1]*aSY-1;
+
+                            aImVPts.push_back(aSens->ImageAndDepth2Ground( cPt3dr(aDX,aDY,aF) ));
+                            //StdOut() << cPt2dr(aDX,aDY) << std::endl;
+                        }
+                    }
                 }
             }
+
+            for (auto aP : aImVPts)
+                aPlyverts.AddVert(aP, {1.,0.,0.});
         }
     }
 
@@ -1265,48 +1397,13 @@ void cAppli_VisuPoseStr3D::WritePly(cComputeMergeMulTieP * & aTPts, const std::v
 
                 for (auto aP : aImVPts)
                 {
-                    std::array<double,3> anArray;
-                    for (int aK=0 ; aK<3 ; aK++)
-                        anArray[aK] = aP[aK];
-                    aPlyPts.push_back(anArray);
+                    aPlyverts.AddVert(aP, {0.,1.,0.});
                 }
             }
         }
     }
-
-    aPlyOut.addVertexPositions(aPlyPts);
-
-    // assign colors
-    std::vector<std::array<double, 3>> colors;
-    for (size_t aK=0; aK<aPlyPts.size(); aK++)
-    {
-        std::array<double,3> anArray;
-        if (aK<aNum3DPt)
-        {
-            // todo: add colors from images
-            for (int aI=0 ; aI<3 ; aI++)
-                anArray[aI] = 1.0;
-        }
-        else if (aK<(aNum3DPt+aNumImPlane))
-        {
-            anArray[0] = 1.0;
-            anArray[1] = 0;
-            anArray[2] = 0;
-        }
-        else
-        {
-            anArray[0] = 0;
-            anArray[1] = 1.0;
-            anArray[2] = 0;
-        }
-        colors.push_back(anArray);
-
-    }
-    aPlyOut.addVertexColors(colors);
-
-    // write ply
-    aPlyOut.write(mOutfile,(mBinary?happly::DataFormat::Binary:happly::DataFormat::ASCII));
 }
+
 
 double cAppli_VisuPoseStr3D::CalculateFDepth(const cPt2di& aSz, const double& aF)
 {

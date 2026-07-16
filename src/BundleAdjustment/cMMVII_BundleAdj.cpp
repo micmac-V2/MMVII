@@ -12,6 +12,8 @@
 namespace MMVII
 {
 
+//#define  TOTO(A,B) {StdOut() << A << B;}
+//#define TOTO(A) {TOTO(A,"B")}
 
 /* ************************************************************************ */
 /*                                                                          */
@@ -89,37 +91,44 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     mPatFrozenCenter (""),
     mPatFrozenOrient (""),
     mPatFrozenClinos (""),
-    mPatFrozenTSL    (""),
     //mMesGCP           (nullptr),
     //mSigmaGCP         (-1),
-    mBlRig            (nullptr),
-    mBlClino            (nullptr),
+
     mTopo             (nullptr),
     mFolderRefCam     (""),
     mSigmaTrRefCam    (-1.0),
     mSigmaRotRefCam   (-1.0),
     mPatternRef       (".*"),
     mDirRefCam        (nullptr),
+
+    mUseGauge         (false),
+    mKPoseMainGauge   (-1),
+    mKPoseSecondGauge (-1),
+    mKCoordSecondGauge (-1),
     mSigmaViscAngles  (-1.0),
     mSigmaViscCenter  (-1.0),
     mNbMaxIter        (-1),
     mIter             (0),
     mVerbose          (true),
     mShow_UC_UK       (false),
+    mCompute_Uncert   (false),
     mRUCSUR           (nullptr),
-    mVecLineAdjust    ()
+    mVecLineAdjust    (),
+    mNbCamPC          (0)
 {
 }
 
+
 cMMVII_BundleAdj::~cMMVII_BundleAdj()
 {
+
+    ShowLVMFrozenVar();
+
     mSetIntervUK.SIUK_Reset();
     delete mSys;
     // delete mMesGCP;
     DeleteAllAndClear(mVTieP);
-    delete mBlRig;
     delete mTopo;
-    delete mBlClino;
     delete mRUCSUR;
     // DeleteAllAndClear(mGCP_UK);
     DeleteAllAndClear(mVBA_Lidar);
@@ -127,6 +136,47 @@ cMMVII_BundleAdj::~cMMVII_BundleAdj()
 
     DeleteLineAdjust();
     DeleteBlockInstr();
+}
+
+void cMMVII_BundleAdj::ShowLVMFrozenVar()
+{
+    // surprinsinglyy cMMVII_BundleAdj can be constructed but not used in some appli,
+    // this make fail the GenArgSpec
+    if (mSys==nullptr)    return;
+
+    if (mSys->NbLVMFrozen() ==0) return;
+
+    StdOut() << " ------------  VAR W/O OBSERVATION FROZEN IN LVM -------------\n";
+    size_t aIndV0 = 0;
+
+    // Process parameters
+    std::string aPatType = GetDef(mParam_UC_UK,0,std::string(".*"));  // Type selection, def=all
+    std::string aPatName = GetDef(mParam_UC_UK,1,std::string(".*"));  // NameGroup selection, def=all
+    std::string aPatVar =  GetDef(mParam_UC_UK,2,std::string(".*"));  // NameVar selection, def=all
+    mCompute_Uncert = cStrIO<bool>::FromStr(GetDef(mParam_UC_UK,3,std::string("1")));  // Compute Uncert, def=true
+
+    for (size_t aKObj=0 ; aKObj<  mSetIntervUK.NumberObject() ; aKObj++)
+    {
+        cObjWithUnkowns<tREAL8> & anObj = mSetIntervUK.KthObj(aKObj);
+        cGetAdrInfoParam<tREAL8> aGIP (".*",anObj,false); // extract information
+        size_t aNbVLoc = aGIP.VNames().size();
+
+        for (size_t aKLoc=0 ; aKLoc< aNbVLoc ; aKLoc++)
+        {
+            size_t aKSys =  aKLoc +aIndV0;
+            if (mSys->LVMFrozenUsed(aKSys))
+            {
+                 StdOut()  << "   * "
+                           <<  " K="<< aKSys
+                            <<  " Type=" << aGIP.NameType()
+                             << " IdO="  << aGIP.IdObj()
+                             << " Var="  <<  aGIP.VNames().at(aKLoc)
+                           << "\n";
+            }
+
+        }
+        aIndV0 += aNbVLoc;
+    }
 }
 
 void cMMVII_BundleAdj::ShowUKNames(const std::vector<std::string> & aParam, const std::string &aSuffix, cMMVII_Appli * anAppli)
@@ -268,6 +318,7 @@ void cMMVII_BundleAdj::InitIteration()
        std::string aPatVar =  GetDef(mParam_UC_UK,2,std::string(".*"));  // NameVar selection, def=all
        mCompute_Uncert = cStrIO<bool>::FromStr(GetDef(mParam_UC_UK,3,std::string("1")));  // Compute Uncert, def=true
 
+       StdOut() <<"All unknowns:\n";
        // Parse all "object"
        for (size_t aKObj=0 ; aKObj<  mSetIntervUK.NumberObject() ; aKObj++)
        {
@@ -279,6 +330,10 @@ void cMMVII_BundleAdj::InitIteration()
            aBBNV.mIdObj = aGIP.IdObj();
            aBBNV.mIndVar0 = aIndV0;
            aBBNV.mNamesVar =  aGIP.VNames();
+           StdOut() <<"    "<<aGIP.NameType()<<" "<<aGIP.IdObj()<<": ";
+           for (auto & aS:aGIP.VNames())
+               StdOut() << aS << " ";
+           StdOut() << "\n";
            
            if (MatchRegex(aBBNV.mType,aPatType) && MatchRegex(aBBNV.mIdObj,aPatName) ) // If type and ident match
            {
@@ -355,6 +410,19 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
         }
     }
 
+    if (mUseGauge)
+    {
+        cSensorCamPC * aMainCamGauge   = mVSCPC.at(mKPoseMainGauge);
+        cSensorCamPC * aSecondCamGauge = mVSCPC.at(mKPoseSecondGauge);
+
+        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauge,aMainCamGauge->Center());
+        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauge,aMainCamGauge->Omega());
+
+        tREAL8 & aCoord = aSecondCamGauge->Center()[mKCoordSecondGauge];
+        mR8_Sys->SetFrozenVarCurVal(*aSecondCamGauge,aCoord);
+
+    }
+
     // if necessary, fix frozen centers of external calibration
     if (mPatFrozenCenter !="")
     {
@@ -391,34 +459,6 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     // if necessary fix hard cosntraint onf Gauge of Rigid-Block of instrument
     SetHardGaugeBlockInstr();
 
-    if (mPatFrozenClinos != "" && mBlClino)
-    {
-        mBlClino->SetFrozenVar(*mR8_Sys, mPatFrozenClinos);
-    }
-    
-    // if necessary, fix frozen poses of static lidar
-    if (mPatFrozenTSL !="")
-    {
-        // Freeze full pose (TODO: be able to to fix only verticalization)
-        tNameSelector aSel = AllocRegex(mPatFrozenTSL);
-        int nbMatches = 0;
-        for (auto & [aScanName, aLidar] : mMapTSL)
-        {
-            if (aSel.Match(aScanName))
-            {
-                mR8_Sys->SetFrozenVarCurVal(*aLidar,aLidar->Center());
-                mR8_Sys->SetFrozenVarCurVal(*aLidar,aLidar->Omega());
-                nbMatches++;
-            }
-        }
-        if (mVerbose && isFirstIter)
-            StdOut() << "Frozen TSL poses: " << nbMatches << ".\n";
-    }
-
-    if (mBlRig) // RIGIDBLOC
-    {
-        mBlRig->SetFrozenVar(*mR8_Sys);
-    }
 
     if (mTopo) // TOPO
     {
@@ -443,22 +483,10 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
 
     OneItere_GCP();   // add GCP informations
     OneItere_TieP();  // ad tie-points information
+
+
                       //
 
-    if (mBlRig)
-    {
-        mBlRig->AddRigidityEquation(*mR8_Sys);
-    }
-    // StdOut() << "SYS=" << mR8_Sys->GetNbObs() << " " <<  mR8_Sys->NbVar() << std::endl;
-
-    if (mBlClino)
-    {
-        mBlClino->addEquations(*mR8_Sys);
-        if (mVerbose)
-        {
-            mBlClino->printRes();
-        }
-    }
 
     for (const auto & aLidarPh : mVBA_Lidar )
         aLidarPh->AddObs();
@@ -487,6 +515,8 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
 // StdOut() <<  "mCompute_UncertmCompute_UncertmCompute_Uncert--------------------------------\n";
         mRUCSUR = new cResult_UC_SUR<tREAL8>(false,false,mIndCompUC);
     }
+
+    mR8_Sys->SysLinear(); // to force SetPhaseEq(); to init constraints if no AddObs
 
     const auto & aVectSol = mR8_Sys->SolveUpdateReset(aLVM,{},{mRUCSUR},doShowCond);
     mSetIntervUK.SetVUnKnowns(aVectSol);
@@ -535,7 +565,9 @@ void cMMVII_BundleAdj::AddSensor(cSensorImage* aSI)
 
 void cMMVII_BundleAdj::AddCamPC(cSensorCamPC * aCamPC)
 {
-    AddCalib(aCamPC->InternalCalib());
+    mNbCamPC++;
+    if (aCamPC->DoAddCalibToUk())
+        AddCalib(aCamPC->InternalCalib());
 }
 
 void cMMVII_BundleAdj::AddReferencePoses(const std::vector<std::string> & aVec)
@@ -592,7 +624,7 @@ cPhotogrammetricProject  & cMMVII_BundleAdj::PhProj() {return *mPhProj;}
 
 
 cSetInterUK_MultipeObj<tREAL8> &   cMMVII_BundleAdj::SetIntervUK() {return mSetIntervUK;}
-
+int cMMVII_BundleAdj::NbCamPC() const {return mNbCamPC;}
 
     /* ---------------------------------------- */
     /*            Frozen/Shared                 */
@@ -611,11 +643,6 @@ void cMMVII_BundleAdj::SetParamFreeCalib(const std::vector<std::vector<std::stri
 void cMMVII_BundleAdj::SetFrozenCenters(const std::string & aPattern)
 {
     mPatFrozenCenter = aPattern;
-}
-
-void cMMVII_BundleAdj::SetFrozenTSL(const std::string & aPattern)
-{
-    mPatFrozenTSL = aPattern;
 }
 
 void cMMVII_BundleAdj::SetFrozenOrients(const std::string & aPattern)
@@ -730,6 +757,92 @@ void cMMVII_BundleAdj::CompileSharedIntrinsicParams(bool ForAvg)
     }
 }
 
+int cMMVII_BundleAdj::IndexOfPCPose(const std::string &aNameIm,bool SVP ) const
+{
+    for (size_t aKP=0 ; aKP<mVSCPC.size() ; aKP++)
+    {
+        if (mVSCPC.at(aKP) && (mVSCPC.at(aKP)->NameImage()==aNameIm))
+            return aKP;
+    }
+    MMVII_INTERNAL_ASSERT_always(SVP,"IndexOfPCPose, cannot get name :"+aNameIm);
+    return -1;
+}
+
+void cMMVII_BundleAdj::SetGaugeRelPause(const std::vector<std::string> & aVNames)
+{
+
+    cWhichMax<cPt3di,tREAL8> aWMaxInd;
+
+    bool aN1Fix =    aVNames.size()>=1;
+    bool aN2Fix =    aVNames.size()>=2;
+    bool aCoordFix = aVNames.size()>=3;
+
+    std::string aN1 = aN1Fix ? aVNames.at(0) : "";
+    std::string aN2 = aN2Fix ? aVNames.at(1) : "";
+
+    std::vector<std::string> aVCoord{"x","y","z"};
+    int aKCoord = -1;
+    if (aCoordFix)
+    {
+        auto anIter = std::find(aVCoord.begin(),aVCoord.end(),aVNames.at(2));
+        MMVII_INTERNAL_ASSERT_always(anIter!=aVCoord.end(),"SetGaugeRelPause bad coord");
+        aKCoord = anIter - aVCoord.begin();
+    }
+
+    int aKCoordBegin = aCoordFix      ?  aKCoord    : 0 ;
+    int aKCoordEnd   = aCoordFix      ? (aKCoord+1) : 3 ;
+
+
+
+    for (size_t aKP1=0 ; aKP1<mVSCPC.size() ; aKP1++)
+    {
+        cSensorCamPC * aCam1 = mVSCPC.at(aKP1);
+        if (aCam1 && ((!aN1Fix) || (aCam1->NameImage()==aN1))  )
+        {
+           cPt3dr aC1 = aCam1->Center();
+           int aBeginKP2 = aN1Fix ? 0 : (aKP1+1);
+           for (size_t aKP2=aBeginKP2 ; aKP2<mVSCPC.size() ; aKP2++)
+           {
+                cSensorCamPC * aCam2 = mVSCPC.at(aKP2);
+                if (aCam2 && ((!aN2Fix) || (aCam2->NameImage()==aN2)) )
+                {
+                    cPt3dr aV12 = aCam2->Center() - aC1;
+                    for (int aKCoord=aKCoordBegin; aKCoord<aKCoordEnd ; aKCoord++)
+                    {
+                        aWMaxInd.Add(cPt3di(aKP1,aKP2,aKCoord),std::abs(aV12[aKCoord]));
+                    }
+                }
+           }
+        }
+    }
+
+    MMVII_INTERNAL_ASSERT_always(aWMaxInd.IsInit(),"Cannot compute relative gauge");
+
+    cPt3di aIndMax = aWMaxInd.IndexExtre();
+
+    if (1)
+    {
+        StdOut() << "GAUGE SET "
+                 << " Im1=" << mVSCPC.at(aIndMax.x())->NameImage()
+                 << " Im2=" << mVSCPC.at(aIndMax.y())->NameImage()
+                 << " Coord=" << aVCoord.at(aIndMax.z())
+                 << " Dist=" << aWMaxInd.ValExtre()
+                 << "\n";
+
+
+    }
+    mUseGauge = true;
+    mKPoseMainGauge = aIndMax.x();
+    mKPoseSecondGauge = aIndMax.y();
+    mKCoordSecondGauge = aIndMax.z();
+
+
+//    aMaxInd
+}
+
+
+//void SetGaugeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
+
 
 bool cMMVII_BundleAdj::CheckGCPConstraints() const
 {
@@ -828,55 +941,8 @@ void cMMVII_BundleAdj::AddConstrainteRefPose(cSensorCamPC & aCam,cSensorCamPC & 
     /*            Rigid Bloc                    */
     /* ---------------------------------------- */
 
-void cMMVII_BundleAdj::AddBlocRig(const std::vector<double>& aSigma,const std::vector<double>& aSigmaRat)  // RIGIDBLOC
-{
-    AssertPhpAndPhaseAdd();
-    mBlRig = new cBA_BlocRig(*mPhProj,aSigma,aSigmaRat);
-
-    mBlRig->AddToSys(mSetIntervUK);
-}
-void cMMVII_BundleAdj::AddCamBlocRig(const std::string & aNameIm) // RIGIDBLOC
-{
-    cSensorCamPC * aCam = mPhProj->ReadCamPC(aNameIm,/*ToDel*/true,/*SVP*/false);
-    if (aCam == nullptr)
-       return;
-
-    mBlRig->AddCam(aCam);
-}
-void cMMVII_BundleAdj::SaveBlocRigid()
-{
-    if (mBlRig  && mPhProj->DPRigBloc().DirOutIsInit())  // RIGIDBLOC
-    {
-       mBlRig->Save();
-    }
-}
 
 
-
-    /* ---------------------------------------- */
-    /*            Clino Bloc                    */
-    /* ---------------------------------------- */
-
-void cMMVII_BundleAdj::AddClinoBloc()
-{
-    AssertPhpAndPhaseAdd();
-    mBlClino = new cBA_Clino(mPhProj);
-
-    mBlClino->AddToSys(mSetIntervUK);
-}
-
-void cMMVII_BundleAdj::AddClinoBloc(cBA_Clino * aBAClino){
-    mBlClino = aBAClino;
-    mBlClino->AddToSys(mSetIntervUK);
-}
-
-void cMMVII_BundleAdj::SaveClino()
-{
-    if (mBlClino)
-    {
-       mBlClino->Save();
-    }
-}
 
 /* ---------------------------------------- */
 /*                 Lidar                    */
@@ -892,24 +958,17 @@ void cMMVII_BundleAdj::Add1AdjLidarPhoto(const std::vector<std::string> &aParam)
     mVBA_Lidar.push_back(new cBA_LidarPhotograRaster(mPhProj, *this,aParam));
 }
 
-cStaticLidar * cMMVII_BundleAdj::AddStaticLidar(const std::string &aScanFileName)
+bool cMMVII_BundleAdj::AddStaticLidar(cStaticLidar* aStaticLidar)
 {
     AssertPhpAndPhaseAdd();
-    // fisrt, read xml to get sensor name
-    cStaticLidar * aLidarTmp = mPhProj->ReadStaticLidar(aScanFileName, true, false);
 
-    if (mMapTSL.count(aLidarTmp->NameImage())==0)
+    if (mMapTSL.count(aStaticLidar->NameImage())==0)
     {
-        cStaticLidar * aLidarData = mPhProj->ReadStaticLidar(aScanFileName, true, true);
-        MMVII_INTERNAL_ASSERT_User(aLidarData,
-                                   eTyUEr::eUnClassedError,"Error opening static scans " + aScanFileName);
-        mMapTSL[aLidarData->NameImage()] = aLidarData;
-
-        MMVII_INTERNAL_ASSERT_tiny (!aLidarData->UkIsInit(),"Multiple add of TSL : " + aLidarData->NameImage());
-        mSetIntervUK.AddOneObj(aLidarData);
-        aLidarData->SetAndGetEqColinearity(true,10,true);  // WithDer, SzBuf, ReUse
+        aStaticLidar->ReadRasters(mPhProj->DirStaticLidarRasters());
+        MMVII_INTERNAL_ASSERT_tiny (mMapTSL.count(aStaticLidar->NameImage())==0,"Multiple add of TSL : " + aStaticLidar->NameImage());
+        mMapTSL[aStaticLidar->NameImage()] = aStaticLidar;
     }
-    return mMapTSL.at(aLidarTmp->NameImage());
+    return true;
 }
 
 const std::unordered_map<std::string, cStaticLidar *> &cMMVII_BundleAdj::MapTSL() const {return mMapTSL;}
@@ -919,12 +978,6 @@ void cMMVII_BundleAdj::Add1AdjLidarLidar(const std::vector<std::string> &aParam)
     mVBA_LidarLidar.push_back(new cBA_LidarLidarRaster(mPhProj, *this,aParam));
 }
 
-
-void cMMVII_BundleAdj::SaveTSL()
-{
-    for (auto & [aScanName, aLidar] : mMapTSL)
-        aLidar->ToFile(mPhProj->DPOrient().FullDirOut() + aLidar->NameOriStd());
-}
 
 /* ---------------------------------------- */
 /*                 Topo                     */
@@ -941,8 +994,8 @@ void cMMVII_BundleAdj::SaveTopo()
 
 void cMMVII_BundleAdj::AddTopo() // TOPO
 {
-    mTopo = new cBA_Topo(mPhProj);
-    mTopo->AddPointsFromDataToGCP(mGCP, mPhProj);
+    mTopo = new cBA_Topo(mPhProj, &mGCP);
+    mTopo->AddPointsFromDataToGCP( mPhProj);
 }
 
 }; // MMVII

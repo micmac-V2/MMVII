@@ -85,6 +85,10 @@ void cHomogCpleIm::AddData(const  cAuxAr2007 & anAux)
 void AddData(const  cAuxAr2007 & anAux,cHomogCpleIm & aCple)  {aCple.AddData(anAux);}
 
 
+void cHomogCpleIm::Swap()
+{
+    std::swap(mP1,mP2);
+}
 
 
 
@@ -108,6 +112,11 @@ void cSetHomogCpleIm::Add(const cHomogCpleIm & aCple)
         mSetH.push_back(aCple);
 }
 
+void cSetHomogCpleIm::Add(const cSetHomogCpleIm & aSet)
+{
+   AppendIn(mSetH,aSet.mSetH);
+}
+
 void cSetHomogCpleIm::AddData(const  cAuxAr2007 & anAux)
 {
      MMVII::AddData(anAux,mSetH);
@@ -117,6 +126,11 @@ void AddData(const  cAuxAr2007 & anAux,cSetHomogCpleIm & aSet)
     aSet.AddData(anAux);
 }
 
+void cSetHomogCpleIm::Swap()
+{
+    for (auto & aCple : mSetH)
+        aCple.Swap();
+}
 
 void cSetHomogCpleIm::AddPairSet(const cSetMesPtOf1Im& aSet1,const cSetMesPtOf1Im& aSet2)
 {
@@ -312,6 +326,7 @@ void cMultipleImPt::Add(const cMesIm1Pt & aMes, int aNumIm, MMVII::cMes2DDirInfo
     mVMeasures.push_back(aMes.mPt);
     mVImages.push_back(aNumIm);
     mVMesDirInfo.push_back(aMesDirInfo);
+    mVDistWithSigmas.push_back(aMes.mDistWithSigma);
 }
 
 const cPt2dr * cMultipleImPt::PtOfIm(int aIndIm) const
@@ -324,6 +339,9 @@ const cPt2dr * cMultipleImPt::PtOfIm(int aIndIm) const
 
 const std::vector<cPt2dr> & cMultipleImPt::VMeasures() const  {return mVMeasures;}
 const std::vector<int>    & cMultipleImPt::VImages()   const  {return mVImages  ;}
+const std::vector<cMes2DDirInfo*> & cMultipleImPt::VMesDirInfo() const { return mVMesDirInfo;}
+const std::vector<tOptPairR> & cMultipleImPt::VDistWithSigmas() const  {return mVDistWithSigmas;}
+
 
 int cMultipleImPt::NumPt() const {return mNumPt;}
 
@@ -406,7 +424,7 @@ cPt3dr  cSetMesGndPt::BundleInter(const cMultipleImPt & aMPT) const
      std::vector<tSeg3dr>  aVSeg;
      for (size_t aKI=0 ; aKI<aMPT.VMeasures().size() ; aKI++)
      {
-         cSensorImage * aSIm = mVSens.at(aMPT.VImages().at(aKI));
+         const cSensorImage * aSIm = mVSens.at(aMPT.VImages().at(aKI));
          MMVII_INTERNAL_ASSERT_tiny(aSIm,"No sensor in  cSetMesImGCP::BundleInter");
          aVSeg.push_back(aSIm->Image2Bundle(aMPT. VMeasures().at(aKI)));
      }
@@ -416,7 +434,7 @@ cPt3dr  cSetMesGndPt::BundleInter(const cMultipleImPt & aMPT) const
 
 
 
-void cSetMesGndPt::AddMes2D(const cSetMesPtOf1Im & aSetMesIm, MMVII::cMes2DDirInfo *aMesDirInfo, cSensorImage* aSens, eLevelCheck aOnNonExistGCP)
+void cSetMesGndPt::AddMes2D(const cSetMesPtOf1Im & aSetMesIm, cSensorImage *aSens, MMVII::cMes2DDirInfo *aMesDirInfo, eLevelCheck aOnNonExistGCP)
 {
     //  Are we beginning  the  image measurement phase
     {
@@ -441,8 +459,11 @@ void cSetMesGndPt::AddMes2D(const cSetMesPtOf1Im & aSetMesIm, MMVII::cMes2DDirIn
         MMVII_INTERNAL_ASSERT_tiny(mVSens.at(aNumIm) == aSens,"Variable sensor in cSetMesImGCP::AddMes2D");
     }
 
-    for (auto & aMes : aSetMesIm.Measures())
+    for (auto & aMesIni : aSetMesIm.Measures())
     {
+        auto aMes = aMesIni;
+        if (aSens)
+            aSens->FixPtPxLoopAroundPP(aMes.mPt);
         int aNumPt = m2MapPtInt.Obj2I(aMes.mNamePt,true);
         if (aNumPt>=0)
         {
@@ -521,7 +542,7 @@ cSetMesGndPt *  cSetMesGndPt::FilterNonEmptyMeasure(int aNbMeasureMin) const
 
   for (size_t aKIm=0 ; aKIm<mMesImInit.size() ; aKIm++)
   {
-     aRes->AddMes2D(mMesImInit.at(aKIm),nullptr,mVSens.at(aKIm)); //aMesDirInfo=nullptr means keep original MesDirInfo
+     aRes->AddMes2D(mMesImInit.at(aKIm),mVSens.at(aKIm)); //aMesDirInfo=nullptr means keep original MesDirInfo
   }
 
    return aRes;
@@ -587,6 +608,7 @@ void AddData(const  cAuxAr2007 & anAux,cMesIm1Pt & aMes)
    MMVII::AddData(cAuxAr2007("Name",anAux),aMes.mNamePt);
    MMVII::AddData(cAuxAr2007("Pt",anAux),aMes.mPt);
    MMVII::AddData(cAuxAr2007("Sigma2",anAux),aMes.mSigma2);
+   AddOptData(anAux,"DistWithSigma",aMes.mDistWithSigma);
 }
 
 /* ********************************************* */
@@ -1084,7 +1106,7 @@ void cFilterMesIm::AddInOrOut(const cPt2dr & aPtIm,const std::string & aNamePt,b
 void cFilterMesIm::SetFinished()
 {
     if (! mFinished)
-       mImGCP.AddMes2D(mMesIm);
+       mImGCP.AddMes2D(mMesIm,nullptr);
 
     mFinished = true;
 }

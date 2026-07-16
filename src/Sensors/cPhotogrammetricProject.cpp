@@ -57,7 +57,7 @@ cAutoChgRestoreDefFolder::~cAutoChgRestoreDefFolder()
 }
 
     // =============================================================================
-   
+
 std::string SuppressDirFromNameFile(const std::string & aDir,const std::string & aName,bool ByDir)
 {
     // mOriIn.starts_with(aDir);  -> C++20
@@ -77,7 +77,7 @@ std::string SuppressDirFromNameFile(const std::string & aDir,const std::string &
          );
      }
      std::string aRes =  ReplacePattern(aPat,"$2",aName);
-             
+
      return aRes;
 }
 
@@ -95,8 +95,14 @@ cDirsPhProj::cDirsPhProj(eTA2007 aMode,cPhotogrammetricProject & aPhp):
    mAppli          (mPhp.Appli()),
    mPrefix         (E2Str(mMode)),
    mDirLocOfMode   (MMVII_DirPhp + mPrefix + StringDirSeparator()),
-   mPurgeOut       (false)
+   mPurgeOut       (false),
+   mAllowDirInEmpty  (false)
 {
+}
+
+void cDirsPhProj::SetAllowDirInEmpty()
+{
+    mAllowDirInEmpty = true;
 }
 
 const std::string &  cDirsPhProj::DirLocOfMode() const { return mDirLocOfMode; }
@@ -110,6 +116,18 @@ void cDirsPhProj::Finish()
         mDirIn  = SuppressDirFromNameFile(mDirLocOfMode,mDirIn,true);
 
     mFullDirIn  = mAppli.DirProject() + mDirLocOfMode + mDirIn + StringDirSeparator();
+
+    //  MPD, new check, seems correct, hope it will not create new bug ... , New modif,
+    //  we accept this case with NONE, because for "historical" reason, this is the convention
+    //  used by OriBundleAdj, when we do pure topo (i.e. w/o camera, poses ...)
+    if (mAppli.IsInSpec(&mDirIn) && IsInit(&mDirIn) &&  (mDirIn != MMVII_NONE) && (!mAllowDirInEmpty))
+    {
+        if (! IsDirectory(mFullDirIn) )
+        {
+            MMVII_UserError(eTyUEr::eDirInDoesntExist,"for dir in : "+mDirIn + " Type=" + E2Str(mMode));
+//            StdOut()  << " mFullDirIn "  << mFullDirIn  << " " << IsDirectory(mFullDirIn) << "\n";
+        }
+    }
 
     // To see if this rule applies always, 4 now dont see inconvenient
     if (mAppli.IsInSpec(&mDirOut) &&  (! mAppli.IsInit(&mDirOut)))
@@ -141,10 +159,16 @@ tPtrArg2007    cDirsPhProj::ArgDirInMand(const std::string & aMesg)
         return ArgDirInMand(aMesg,nullptr);
 }
 
-tPtrArg2007    cDirsPhProj::ArgDirInOpt(const std::string & aNameVar,const std::string & aMsg,bool WithHDV)
+tPtrArg2007    cDirsPhProj::ArgDirInOpt
+               (
+                      const std::string & aNameVar,
+                      const std::string & aMsg,
+                      const  std::vector<tSemA2007> & aOptAdd
+                )
 {
     std::vector<tSemA2007>   aVOpt{mMode,eTA2007::Input};
-    if (WithHDV) aVOpt.push_back(eTA2007::HDV);
+    AppendIn(aVOpt,aOptAdd);
+    //if (WithHDV) aVOpt.push_back(eTA2007::HDV);
     return  AOpt2007
             (
                mDirIn,
@@ -155,11 +179,18 @@ tPtrArg2007    cDirsPhProj::ArgDirInOpt(const std::string & aNameVar,const std::
 }
 
 
-tPtrArg2007    cDirsPhProj::ArgDirInputOptWithDef(const std::string & aDef,const std::string & aNameVar,const std::string & aMsg)
+tPtrArg2007    cDirsPhProj::ArgDirInputOptWithDef
+              (
+                    const std::string & aDef,
+                    const std::string & aNameVar,
+                    const std::string & aMsg,
+                    const  std::vector<tSemA2007> & aOptAdd
+               )
 {
+
     mDirIn = aDef;
     mAppli.SetVarInit(&mDirIn);
-    return ArgDirInOpt(aNameVar,aMsg,true);
+    return ArgDirInOpt(aNameVar,aMsg,Append({eTA2007::HDV},aOptAdd));
 }
 
 
@@ -283,10 +314,13 @@ void cDirsPhProj::SetDirOut(const std::string & aDirOut)
 
 void cDirsPhProj::SetDirOutInIfNotInit()
 {
+    //StdOut() << "cDirsPhProj::SetDirOutInIfNotInilll=" << __LINE__ << "\n";
     if (! DirOutIsInit())
     {
         SetDirOut(DirIn());
     }
+   // StdOut() << "cDirsPhProj::SetDirOutInIfNotInilll=" << __LINE__ << "\n";
+
 }
 
 
@@ -314,8 +348,8 @@ cPhotogrammetricProject::cPhotogrammetricProject(cMMVII_Appli & anAppli) :
     mDPMulTieP        (eTA2007::MulTieP,*this),
     mDPMetaData       (eTA2007::MetaData,*this),
     mDPBlockInstr     (eTA2007::InstrBlock,*this),
-    mDPRigBloc        (eTA2007::RigBlock,*this),  // RIGIDBLOC
-    mDPClinoMeters    (eTA2007::Clino,*this),
+//    mDPRigBloc        (eTA2007::RigBlock,*this),  // RIGIDBLOC
+//    mDPClinoMeters    (eTA2007::Clino,*this),
     mDPMeasuresClino  (eTA2007::MeasureClino,*this),
     mDPTopoMes        (eTA2007::Topo,*this),  // Topo
     mDPStaticLidar    (eTA2007::StaticLidar,*this),  // StaticLidar
@@ -358,8 +392,8 @@ void cPhotogrammetricProject::FinishInit()
     mDPMulTieP.Finish();
     mDPMetaData.Finish();
     mDPBlockInstr.Finish() ;
-    mDPRigBloc.Finish() ; // RIGIDBLOC
-    mDPClinoMeters.Finish() ;
+    //mDPRigBloc.Finish() ; // RIGIDBLOC
+    // mDPClinoMeters.Finish() ;
     mDPMeasuresClino.Finish() ;
     mDPTopoMes.Finish() ; // TOPO
     mDPStaticLidar.Finish() ;
@@ -428,8 +462,8 @@ cDirsPhProj &   cPhotogrammetricProject::DPMetaData() {return mDPMetaData;}
 cDirsPhProj &   cPhotogrammetricProject::DPTieP() {return mDPTieP;}
 cDirsPhProj &   cPhotogrammetricProject::DPMulTieP() {return mDPMulTieP;}
 cDirsPhProj &   cPhotogrammetricProject::DPBlockInstr() {return mDPBlockInstr;}
-cDirsPhProj &   cPhotogrammetricProject::DPRigBloc() {return mDPRigBloc;} // RIGIDBLOC
-cDirsPhProj &   cPhotogrammetricProject::DPClinoMeters() {return mDPClinoMeters;}
+//cDirsPhProj &   cPhotogrammetricProject::DPRigBloc() {return mDPRigBloc;} // RIGIDBLOC
+//cDirsPhProj &   cPhotogrammetricProject::DPClinoMeters() {return mDPClinoMeters;}
 cDirsPhProj &   cPhotogrammetricProject::DPMeasuresClino() {return mDPMeasuresClino;}
 cDirsPhProj &   cPhotogrammetricProject::DPTopoMes() {return mDPTopoMes;} // TOPO
 cDirsPhProj &   cPhotogrammetricProject::DPStaticLidar() {return mDPStaticLidar;}
@@ -448,8 +482,8 @@ const cDirsPhProj &   cPhotogrammetricProject::DPMetaData() const {return mDPMet
 const cDirsPhProj &   cPhotogrammetricProject::DPTieP() const {return mDPTieP;}
 const cDirsPhProj &   cPhotogrammetricProject::DPMulTieP() const {return mDPMulTieP;}
 const cDirsPhProj &   cPhotogrammetricProject::DPBlockInstr() const {return mDPBlockInstr;}
-const cDirsPhProj &   cPhotogrammetricProject::DPRigBloc() const {return mDPRigBloc;} // RIGIDBLOC
-const cDirsPhProj &   cPhotogrammetricProject::DPClinoMeters() const {return mDPClinoMeters;} // RIGIDBLOC
+//const cDirsPhProj &   cPhotogrammetricProject::DPRigBloc() const {return mDPRigBloc;} // RIGIDBLOC
+//const cDirsPhProj &   cPhotogrammetricProject::DPClinoMeters() const {return mDPClinoMeters;} // RIGIDBLOC
 const cDirsPhProj &   cPhotogrammetricProject::DPMeasuresClino() const {return mDPMeasuresClino;} // RIGIDBLOC
 const cDirsPhProj &   cPhotogrammetricProject::DPTopoMes() const {return mDPTopoMes;} // Topo
 
@@ -530,7 +564,7 @@ cRadialCRS * cPhotogrammetricProject::CreateNewRadialCRS(size_t aDegree,const st
       return aRes;
 }
 
-         
+
         //  ============================================
         //                   Orientation
         //  ============================================
@@ -641,7 +675,7 @@ cSensorCamPC * cPhotogrammetricProject::ReadCamPC(const cDirsPhProj & aDP,const 
 
     if (ToDeleteAutom)
        cMMVII_Appli::AddObj2DelAtEnd(aCamPC);
-      
+
 
     return aCamPC;
 }
@@ -665,7 +699,7 @@ tPoseR cPhotogrammetricProject::ReadPoseCamPC(const std::string & aNameIm,bool *
     {
         MMVII_INTERNAL_ASSERT_strong(aCamPC!=nullptr,"Cannot ReadPoseCamPC");
     }
-    
+
     return aCamPC->Pose();
 }
 
@@ -691,18 +725,22 @@ cSensorImage* cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,bo
      return aSI;
 }
 
-void cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,cSensorImage* & aSI,cSensorCamPC * & aSPC,bool ToDeleteAutom,bool SVP) const
+void cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,cSensorImage* & aSI,cSensorCamPC * & aSPC,bool ToDeleteAutom,bool SVP,bool aReadData) const
 {
      aSI = nullptr;
      aSPC =nullptr;
 
      // Try a stenope camera which has interesting properties
      aSPC = ReadCamPC(aNameIm,ToDeleteAutom,true);
+     // Try TSL
+     if (aSPC==nullptr) aSPC = ReadStaticLidar(aNameIm,ToDeleteAutom,true,aReadData);
+
      if (aSPC !=nullptr)
      {
         aSI = aSPC;
         return;
      }
+
 
      // Else try an external sensor
      if (aSI==nullptr) aSI =  SensorTryReadImported(*this,aNameIm);
@@ -965,7 +1003,7 @@ cSetMesPtOf1Im cPhotogrammetricProject::LoadMeasureImFromFolder(const std::strin
 {
      cAutoChgRestoreDefFolder  aCRDF(aFolder,DPGndPt2D(),true); // Chg Folder and restore at destruction
      return  LoadMeasureIm(aNameIm);
-     
+
      // auto aRes  = LoadMeasureIm(aNameIm);
      // FakeUseIt(
      // return aRes;
@@ -1032,7 +1070,7 @@ void cPhotogrammetricProject::LoadIm(cSetMesGndPt& aSetMes, const std::string & 
    }
       //  StdOut() << "LoadImLoadIm " << aNameIm << "\n";
    cSetMesPtOf1Im  aSetIm = LoadMeasureIm(aNameIm, true, SVP);
-   aSetMes.AddMes2D(aSetIm,aMesDirInfo,aSIm);
+   aSetMes.AddMes2D(aSetIm,aSIm,aMesDirInfo);
 }
 
 void cPhotogrammetricProject::LoadImFromFolder
@@ -1235,6 +1273,25 @@ void  cPhotogrammetricProject::ReadHomol
     ReadFromFile(aSetHCI.SetH(),aName);
 }
 
+bool cPhotogrammetricProject::GenReadHomol
+     (
+            cSetHomogCpleIm &aSetHCI,
+            std::string  aNameIm1 ,
+            std::string  aNameIm2,
+            const std::string & aDirIn
+        ) const
+{
+   // aSetHCI
+    std::string aName = NameTiePIn(aNameIm1,aNameIm2,aDirIn);
+    if (!ExistFile(aName))
+    {
+        return false;
+    }
+    ReadFromFile(aSetHCI.SetH(),aName);
+    return true;
+}
+
+
 void  cPhotogrammetricProject::ReadHomol
       (
            cSetHomogCpleIm & aSetHCI,
@@ -1287,67 +1344,6 @@ void cPhotogrammetricProject::ReadHomolMultiSrce
     }
 }
 
-        //  =============  Clino meters  =================
-
-std::string cPhotogrammetricProject::NameFileClino(const std::string &aNameCam,bool Input, const std::string aClinoName) const
-{
-    static const std::string TheClinoPrefix = "ClinoCalib-";
-    return mDPClinoMeters.FullDirInOut(Input) + TheClinoPrefix + aClinoName + "-" + aNameCam + "."+ GlobTaggedNameDefSerial();
-}
-
-void cPhotogrammetricProject::SaveClino(const cCalibSetClino & aCalib) const
-{
-    std::vector<cOneCalibClino> aOneCalibClinoVector = aCalib.ClinosCal();
-    std::string aCameraName = aCalib.NameCam();
-    for (const auto& aOneCalibClino : aOneCalibClinoVector)
-    {
-        const std::string& aClinoName = aOneCalibClino.NameClino();
-        SaveInFile(aOneCalibClino,NameFileClino(aCameraName,false, aClinoName));
-    }
-}
-
-bool cPhotogrammetricProject::HasClinoCalib(const cPerspCamIntrCalib & aCalib, const std::string aClinoName) const
-{
-    return ExistFile(NameFileClino(aCalib.Name(),true, aClinoName));
-}
-
-
-void  cPhotogrammetricProject::ReadGetClino
-      (
-            cOneCalibClino& aCalClino,
-            const cPerspCamIntrCalib & aCalibCam,
-            const std::string aClinoName
-      ) const
-{
-    std::string aFileName = NameFileClino(aCalibCam.Name(),true, aClinoName);
-    if (!ExistFile(aFileName))
-    {
-        MMVII_UserError(eTyUEr::eOpenFile, "Clino filename not found : " + aFileName);
-    }
-    ReadFromFile(aCalClino,aFileName);
-}
-
-cOneCalibClino * cPhotogrammetricProject::GetClino(const cPerspCamIntrCalib & aCalib, const std::string aClinoName) const
-{
-    cOneCalibClino * aResult = new cOneCalibClino;
-    ReadGetClino(*aResult,aCalib,aClinoName);
-    return aResult;
-}
-
-cCalibSetClino  cPhotogrammetricProject::ReadSetClino
-                (
-                    const cPerspCamIntrCalib &        aCalib,
-                    const std::vector<std::string> &  aVecClinoName
-                 ) const
-{
-   std::vector<cOneCalibClino> aVCC(aVecClinoName.size());
-   for (size_t aK=0 ; aK<aVecClinoName.size() ; aK++)
-       ReadGetClino(aVCC.at(aK),aCalib,aVecClinoName.at(aK));
-
-   return cCalibSetClino(aCalib.Name(),aVCC);
-}
-
-
 
             //  ================  Measures clino ===================
 
@@ -1387,8 +1383,11 @@ cSetMeasureClino  cPhotogrammetricProject::ReadMeasureClino(const std::string * 
 
         //  =============  Rigid bloc  =================
 
+
                            // RIGIDBLOC
 static const std::string PrefixRigidBloc = "RigidBloc_";
+
+#if (MAINTAIN_OLD_BLOCK)
 
 void   cPhotogrammetricProject::SaveBlocCamera(const cBlocOfCamera & aBloc) const
 {
@@ -1414,38 +1413,31 @@ cBlocOfCamera * cPhotogrammetricProject::ReadUnikBlocCam() const
     MMVII_INTERNAL_ASSERT_tiny(aListBloc.size()==1,"Number of bloc ="+ ToStr(aListBloc.size()));
     return *(aListBloc.begin());
 }
+#endif
 
 //  =============  Static Lidar  =================
 
-cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const
+cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const cDirsPhProj & aDP,const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const
 {
     aDP.AssertDirInIsInit();
-    std::string aScanFileName  =  aDP.FullDirIn() + aScanName;
+    std::string aOriName = cStaticLidar::NameFromId(aScanName, true);
+    if (aOriName == MMVII_NONE)
+        return nullptr;
+    std::string aScanFileName  =  aDP.FullDirIn() + aOriName;
+
     cStaticLidar * aScan = nullptr;
+    aScan = cStaticLidar::FromFile(aScanFileName, SVP);
     if (LoadRasters)
-        aScan = cStaticLidar::FromFile(aScanFileName, DirStaticLidarRasters());
-    else
-        aScan = cStaticLidar::FromFile(aScanFileName);
+        aScan->ReadRasters(DirStaticLidarRasters());
 
     if (ToDeleteAutom)
        cMMVII_Appli::AddObj2DelAtEnd(aScan);
     return aScan;
 }
 
-cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool LoadRasters) const
+cStaticLidar * cPhotogrammetricProject::ReadStaticLidar(const std::string &aScanName, bool ToDeleteAutom, bool SVP, bool LoadRasters) const
 {
-    return ReadStaticLidar(mDPOrient,aScanName,ToDeleteAutom,LoadRasters);
-}
-
-
-std::vector<std::string> cPhotogrammetricProject::GetStaticLidarNames(const std::string &aPatSelect) const
-{
-    DPOrient().AssertDirInIsInit();
-    std::string aPat2Sup = cStaticLidar::Pat2Sup(aPatSelect);
-    std::string aFullPat2Sup = DPOrient().FullDirIn() + aPat2Sup;
-    tNameSet aSet = SetNameFromPat(aFullPat2Sup);
-    std::vector<std::string> aVect = ToVect(aSet);
-    return aVect;
+    return ReadStaticLidar(mDPOrient,aScanName,ToDeleteAutom,SVP,LoadRasters);
 }
 
 //  =============  Topo Mes  =================
@@ -1466,7 +1458,7 @@ std::vector<std::string> cPhotogrammetricProject::ReadTopoMes() const
 
 //  see cMetaDataImages.cpp
 
-std::vector<cDataSolOriTriplet> cPhotogrammetricProject::ReadAllTriplets(const std::vector<std::string>& aVImages)
+std::vector<cDataSolOriTriplet> cPhotogrammetricProject::ReadAllTriplets(const std::vector<std::string>& aVImages,bool OkEmpty)
     const
 {
     std::vector<cDataSolOriTriplet> aRes;
@@ -1479,6 +1471,10 @@ std::vector<cDataSolOriTriplet> cPhotogrammetricProject::ReadAllTriplets(const s
         std::vector<cDataSolOriTriplet> aVData;
         ReadFromFile(aVData,aFileName);
         aRes.insert(aRes.end(),aVData.begin(),aVData.end());
+    }
+    if (aRes.empty() && (!OkEmpty))
+    {
+        MMVII_UserError(eTyUEr::eUnExpectedEmptyData,"Empty set of triplet");
     }
     return aRes;
 }

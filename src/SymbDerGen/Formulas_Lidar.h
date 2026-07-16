@@ -8,7 +8,7 @@
 #include "MMVII_Stringifier.h"
 #include "MMVII_DeclareCste.h"
 #include "MMVII_PhgrDist.h"
-
+#include "Formulas_CentralProj.h"
 #include "ComonHeaderSymb.h"
 
 
@@ -343,6 +343,99 @@ private :
 };
 
 
+class cEqTSL_GCP
+{
+public :
+    cEqTSL_GCP() {}
+    std::string FormulaName() const { return "cEqTSL_GCP";}
+    std::vector<std::string>  VNamesUnknowns() const
+    {
+        return Append
+            (
+                NamesP3("PGround"),     //  0-3
+                NamesPose("CCam","W")  // 3-9
+                );
+    }
+
+    std::vector<std::string>    VNamesObs() const
+    {
+        return Append(NamesP2("Im"),{"D","F"},NamesP2("PP"),NamesMatr("M",cPt2di(3,3)));
+    }
+
+    template <typename tUk>
+    std::vector<tUk> formula
+        (
+            const std::vector<tUk> & aVUk,
+            const std::vector<tUk> & aVObs
+            ) const
+    {
+        cPtxd<tUk,3>  aPGround;
+        size_t aIndUk = 0;
+        size_t aIndObs = 0;
+
+        auto  aPtIm    = VtoP2AutoIncr(aVObs,&aIndObs);
+        auto  aDistance   =  aVObs.at(aIndObs++);
+        auto  aFoc   =  aVObs.at(aIndObs++);
+        auto  aPP   =  VtoP2AutoIncr(aVObs,&aIndObs);
+
+        cPtxd<tUk,2>  aPtNormIm;
+
+        // aPGround = VtoP3(aVUk,0);
+        aPGround = VtoP3AutoIncr(aVUk,&aIndUk);
+
+        cPtxd<tUk,3>  aCCcam = VtoP3AutoIncr(aVUk,&aIndUk);
+        cPtxd<tUk,3>  aW     = VtoP3AutoIncr(aVUk,&aIndUk);
+
+        cPtxd<tUk,3>  aVCP = aPGround - aCCcam;     // vector  CenterCam -> PGround
+
+        cMatF<tUk> aRotInit (3,3,&aIndObs,aVObs);
+        // cMatF(size_t aSzX,size_t aSzY, size_t * anIndAutoIncr, const std::vector<Type> & aVal) :
+
+        cMatF<tUk> aDeltaRot =  cMatF<tUk>::MatAxiator(aW);
+        cPtxd<tUk,3> aPCam =  aDeltaRot * (aRotInit * aVCP);
+        auto aGndDistance  = Norm2(aVCP);
+
+        cPtxd<tUk,2>  aPProj = cHelperProj<cProj_EquiRect>::Proj(aPCam);  // project 3D-> photogram point
+
+        cPtxd<tUk,2> aPPix =  aPP + aPProj * aFoc; // Use Focal and PP to make pixel
+
+        MMVII_INTERNAL_ASSERT_always(aIndUk=aVUk.size(),"cEqColinearityDistance : Uk-size");
+        MMVII_INTERNAL_ASSERT_always(aIndObs== aVObs.size(),"cEqColinearityDistance : Obs-size");
+
+        cPtxd<tUk,2> aResidual2D = aPPix - aPtIm;  // compare to mesured point
+        auto aResidualDistance = aGndDistance - aDistance;
+
+        return {aResidual2D.x(),aResidual2D.y(),aResidualDistance};
+        /*
+        //  extract unknown parameters from vector
+        cPtxd<tUk,3>  aPGround = VtoP3(aVUk,0);
+        cPtxd<tUk,3>  aCCcam   = VtoP3(aVUk,3);
+        cPtxd<tUk,3>  aW       = VtoP3(aVUk,6);
+
+        // obs pixel
+        cPtxd<tUk,2>  aBundle    = VtoP2(aVObs,0);
+        cPtxd<tUk,2>  aPP    = VtoP2(aVObs,0);
+
+        cPtxd<tUk,3>  aVCP = aPGround - aCCcam;     // vector  CenterCam -> PGround
+
+
+        cMatF<tUk> aRotInit (3,3,aVObs,2);
+        cMatF<tUk> aDeltaRot =  cMatF<tUk>::MatAxiator(aW);
+        cPtxd<tUk,3> aPCam =  aDeltaRot * (aRotInit * aVCP);
+        auto aGndDistance  = Norm2(aVCP);
+
+
+        cPtxd<tUk,2>  aBundleProj = VtoP2(cProj_EquiRect::Proj(ToVect(aPCam)));  // project 3D-> bundle
+
+        cPtxd<tUk,2> aResidual = aBundleProj - aBundle;  // compare to mesured bundle
+
+        cPtxd<tUk,2> aResidual2D = aPPix - aPtIm;  // compare to mesured point
+        auto aResidualDistance = aGndDistance - aDistance;
+
+        return {aResidual2D.x(),aResidual2D.y(),aResidualDistance};*/
+    }
+
+};
 
 
 

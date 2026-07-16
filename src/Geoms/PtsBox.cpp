@@ -287,42 +287,10 @@ template <const int Dim> cPtxd<int,Dim> CalPEnd(const cPtxd<int,Dim> & aP0,const
 /* ========================== */
 
 template <const int Dim>
-  cBorderPixBoxIterator<Dim>::cBorderPixBoxIterator(tBPB & aBPB,const  tPt & aP0) :
+  cBorderPixBoxIterator<Dim>::cBorderPixBoxIterator(const tBPB & aBPB,const  tPt & aP0) :
       cPixBoxIterator<Dim>  (aBPB.PB(),aP0),
       mBPB                  (&aBPB)
 {
-}
-
-template <const int Dim>
-  cBorderPixBoxIterator<Dim>  & cBorderPixBoxIterator<Dim>::operator ++(int)
-{
-   return ++(*this);
-}
-
-
-template <const int Dim>
-  cBorderPixBoxIterator<Dim>  & cBorderPixBoxIterator<Dim>::operator ++()
-{
-    //cPixBoxIterator<Dim>::operator ++ ();
-    tPBI::operator ++ ();
-
-    mBPB->IncrPt(tPBI::mPCur);
-    return *this;
-}
-
-template <const int Dim> void IncrementPixBoxIteratorGen(cPixBoxIterator<Dim>& anIter)
-{
-   for (int aD=0 ; aD<Dim-1 ; aD++)
-   {
-        if (++anIter.mPCur[aD] == anIter.mRO->P1()[aD])
-        {
-             anIter.mPCur[aD] = anIter.mRO->P0()[aD];
-        }
-        else
-            return;
-   }
-
-   anIter.mPCur[Dim-1]++;
 }
 
 
@@ -338,9 +306,7 @@ template <const int Dim>
     mSz     (aSz),
     mBoxInt (mPB.Dilate(-mSz)),
     mX0     (mBoxInt.P0().x()),
-    mX1     (mBoxInt.P1().x()),
-    mBegin  (*this,mPB.P0()),
-    mEnd    (*this,CalPEnd(mPB.P0(),mPB.P1()))
+    mX1     (mBoxInt.P1().x())
 {
 }
 template <const int Dim>
@@ -348,23 +314,6 @@ template <const int Dim>
       cBorderPixBox<Dim>(aPB,tPt::PCste(aSz))
 {
 }
-
-template <const int Dim>
-  cBorderPixBox<Dim>::cBorderPixBox(const cBorderPixBox<Dim> & aBPB) :
-    cBorderPixBox<Dim>(mPB,mSz)
-{
-}
-
-template <const int Dim>  cPixBox<Dim> &   cBorderPixBox<Dim>::PB() {return mPB;}
-
-
-template <const int Dim>  void cBorderPixBox<Dim>::IncrPt(tPt & aP)
-{
-   if  ((aP.x()==mX0) && (mBoxInt.Inside(aP)))
-      aP.x() = mX1;
-
-}
-
 
 
 
@@ -839,16 +788,10 @@ static std::string MesNegSz="Negative size in rect object";
 
 
 template <const int Dim>   cPixBox<Dim>::cPixBox(const cPtxd<int,Dim> & aP0,const cPtxd<int,Dim> & aP1,bool AllowEmpty) :
-     cTplBox<int,Dim>(aP0,aP1,AllowEmpty),
-     mBegin  (*this,aP0),
-     mEnd    (*this,CalPEnd(aP0,aP1))
+     cTplBox<int,Dim>(aP0,aP1,AllowEmpty)
 {
 }
 
-template <const int Dim>   cPixBox<Dim>::cPixBox(const cPixBox<Dim> & aR) :
-   cPixBox<Dim>(aR.mP0,aR.mP1,true)
-{
-}
 
 template <const int Dim> cPixBox<Dim>  cPixBox<Dim>::BoxWindow(const tPt & aC,const tPt & aSz)
 {
@@ -1613,7 +1556,6 @@ template cPtxd<int,DIM> Pt_round_ni(const cPtxd<TYPE,DIM>&  aP);\
 
 
 #define MACRO_INSTATIATE_PRECT_DIM(DIM)\
-template  void IncrementPixBoxIteratorGen(cPixBoxIterator<DIM>&);\
 MACRO_INSTATIATE_POINT(DIM)\
 template class cAffineSpace<DIM>;\
 template const std::vector<std::vector<cPtxd<int,DIM>>> & TabGrowNeigh(int);\

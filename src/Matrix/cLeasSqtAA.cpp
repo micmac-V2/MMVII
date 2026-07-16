@@ -106,15 +106,29 @@ template <class Type>
          }
       }
 
-      for (size_t aK = 0 ; aK<mNbTmp ; aK++)
+      if (anEpsilonLVM!=0)
       {
-          //mSysRed.AddEqFixVar(aK,0.0,anEpsilonLVM* aSetSetEq.LVMW()(aK));
+          for (size_t aK = 0 ; aK<mNbTmp ; aK++)
+          {
+              //mSysRed.AddEqFixVar(aK,0.0,anEpsilonLVM* aSetSetEq.LVMW()(aK));
 
-           mSV.Reset();
-           mSV.AddIV(aK,1.0);
-          // Dont forget that the linear system compute the difference with current solution ...
-           mSysRed.PublicAddObservation(anEpsilonLVM*aSetSetEq.LVMW()(aK),mSV,0.0);
+               mSV.Reset();
+               mSV.AddIV(aK,1.0);
+               Type aLVMCoeff = aSetSetEq.LVMW()(aK);
 
+               if (aLVMCoeff==0)
+               {
+                  MMVII_USER_TYPED_WARNING
+                  (
+                      eTyUEr::eLVM_SchurrNoConstraint,
+                      "In schurr, LVM : freezing an unsused unknown"
+                  );
+                  aLVMCoeff = 1.0;
+               }
+
+              // Dont forget that the linear system compute the difference with current solution ...
+               mSysRed.PublicAddObservation(anEpsilonLVM*aLVMCoeff,mSV,0.0);
+          }
       }
 
      //  extract normal matrix, vector, symetrise
@@ -426,15 +440,32 @@ template<class Type> Type cLinearOverCstrSys<Type>::VarLastSol() const
     return mLastSumWRHS2 / mLastSumW;
 }
 
+
 template<class Type> void cLinearOverCstrSys<Type>::AddLVMCstr(tREAL8 aW)
 {
    if (aW<=0) return;
+
    for (int aK=0 ; aK<mNbVar ; aK++)
    {
        cSparseVect<Type> aSV;
        aSV.AddIV(aK,1.0);
+       tREAL8 aWTot = aW*LVMW(aK);
+
+
+       if (aWTot==0)
+       {
+           MMVII_USER_TYPED_WARNING(eTyUEr::eLVM_NoConstraint,"LVM : freezing an unsused unknown");
+           aWTot = 1.0;
+       }
+
        // Dont forget that the linear system compute the difference with current solution ...
-       PublicAddObservation(aW*LVMW(aK),aSV,0.0);
+       if (aWTot !=0 )
+       {
+          PublicAddObservation(aWTot,aSV,0.0);
+       }
+       else
+       {
+       }
    }
 }
 

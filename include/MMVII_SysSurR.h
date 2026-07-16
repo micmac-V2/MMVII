@@ -50,10 +50,12 @@ template <class Type> class cResidualWeighterExplicit: public cResidualWeighter<
 
             cResidualWeighterExplicit(bool isSigmas, const tStdVect & aData);
             virtual tStdVect WeightOfResidual(const tStdVect &) const override;
-            const tStdVect & getSigmas() const { return mSigmas; }
-            tStdVect & getSigmas() { return mSigmas; }
-            const tStdVect & geWeights() const { return mWeights; }
-            tStdVect & geWeights() { return mWeights; }
+            const tStdVect & getSigmas() const;
+            tStdVect & getSigmas();
+            const tStdVect & geWeights() const;
+            tStdVect & geWeights();
+            void addSigma( Type aSigma);
+            void addWeight( Type aWeight);
             int size() const { return mWeights.size(); }
             void AddData(const  cAuxAr2007 & anAuxInit);
        private :
@@ -161,6 +163,9 @@ class cREAL8_RSNL
           // To update with Shared
           int   CountFreeVariables() const;          ///< number of free variables
 
+          int NbVar() const;
+          int  NbLVMFrozen() const;
+           bool  LVMFrozenUsed(int aK) const;
           // ------------------ Handling shared unknowns --------------------
           void   SetShared(const std::vector<int> &  aVUk);
           void   SetUnShared(const std::vector<int> &  aVUk);
@@ -179,11 +184,13 @@ class cREAL8_RSNL
           int                  mNbVar;
           bool                 mInPhaseAddEq;   ///< check that dont modify val fixed after adding  equations
           std::vector<bool>    mVarIsFrozen;    ///< indicate for each var is it is frozen
+          int                  mNbLVMFrozenUSed; ///< Number of case where LVM Frozen was used
+          std::vector<bool>    mLVMFrozenUsed;  ///< Autom frozen was used on this car
           int                  mNbIter;         ///< Number of iteration made
           // int                  mNbUnkown;
           int                  mCurMaxEquiv;       ///< Used to label the
           std::vector<int>     mEquivNum;       ///< Equivalence numerotation, used for shared unknowns
-      bool                 mUseWarningNotEnoughObs; ///< Allow to avoid this warning for some special case
+          bool                 mUseWarningNotEnoughObs; ///< Allow to avoid this warning for some special case
 };
 
 

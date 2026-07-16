@@ -13,7 +13,7 @@
 */
 
 #include "cCheckBoardTargetExtract.h"
-
+#include "MMVII_StaticLidar.h"
 
 namespace MMVII
 {
@@ -302,7 +302,10 @@ void cAppliCheckBoardTargetExtract::GenerateVisuFinal() const
       //  "G" => G-lobal image with rectangles : "green" : target with code OK, "red" : target shape but no code
       if ( contains(mStrShow,'J') || contains(mStrShow,'T')  )
       {
-         cRGBImage  aIm = cRGBImage::FromFile(mNameIm);
+         std::string aImFileName = mNameIm;
+         if (cStaticLidar::IsNameTSL(mNameIm))
+             aImFileName = cStaticLidar::RasterIntensityPath(mPhProj,mNameIm);
+         cRGBImage  aIm = cRGBImage::FromFile(aImFileName);
          aIm.ResetGray();
          for (auto & aCdt :  mVCdtMerged)
          {
@@ -566,12 +569,29 @@ void  cAppliCheckBoardTargetExtract::DoExport()
 {
      std::vector<cSaveExtrEllipe>  aVSavE;
      cSetMesPtOf1Im  aSetM(FileOfPath(mNameIm));
+
+     cStaticLidar* aLidar = nullptr;
+     // return to reduced size if TSL
+     cPt2dr aImFactor(1.,1.);
+     if (cStaticLidar::IsNameTSL(mNameIm))
+     {
+         auto aTSLOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mNameIm,true);
+         aLidar = cStaticLidar::FromFile(aTSLOriFile, false);
+         aLidar->ReadRasters(mPhProj.DirStaticLidarRasters()); // to read distances
+         aImFactor =  RDivCByC(aLidar->PixelDomain().Sz(), mSzIm0);
+     }
+
      for (const auto & aCdtM : mVCdtMerged)
      {
          if (aCdtM.Code())
          {
              std::string aCode = aCdtM.Code()->Name() ;
              cMesIm1Pt aMesIm(aCdtM.mC0,aCode,1.0);
+             aMesIm.mPt = MulCByC(aMesIm.mPt, aImFactor);
+             if (aLidar)
+                 aMesIm.mDistWithSigma.emplace(
+                     aLidar->Image2Distance(aMesIm.mPt),
+                     aLidar->Sigma() );
              aSetM.AddMeasure(aMesIm);
              Tpl_AddOneObjReportCSV(*this,mIdExportCSV,aMesIm);
 
@@ -582,6 +602,9 @@ void  cAppliCheckBoardTargetExtract::DoExport()
              //  cSaveExtrEllipe anESave(*anEE,aCode);
          }
      }
+
+     if (aLidar)
+         delete aLidar;
 
      aSetM.SortMes();
      mPhProj.SaveMeasureIm(aSetM);
@@ -597,11 +620,22 @@ void cAppliCheckBoardTargetExtract::DoOneImage()
    // Redirect the reports on folder of result
    SetReportRedir(mIdExportCSV,mPhProj.DPGndPt2D().FullDirOut());
 
-
+   // if TSL name, use intensity raster
+   std::string aOriginalNameIm = mNameIm;
+   if (cStaticLidar::IsNameTSL(mNameIm))
+       mNameIm = cStaticLidar::RasterIntensityPath(mPhProj,mNameIm);
 
     mInterpol = new   cTabulatedDiffInterpolator(cSinCApodInterpolator(5.0,5.0));
 
     mSpecif = cFullSpecifTarget::CreateFromFile(mNameSpecif);
+
+    MMVII_INTERNAL_ASSERT_User(
+        (mSpecif->Type()==eTyCodeTarget::eIGNIndoor)
+        ||(mSpecif->Type()==eTyCodeTarget::eIGNDroneSym)
+        ||(mSpecif->Type()==eTyCodeTarget::eIGNDroneTop),
+        eTyUEr::eBadEnum,
+        "This command does not support targets type "+ToStr(mSpecif->Type()))
+
 
     mImIn0 =  tIm::FromFile(mNameIm);
     mDImIn0 = &mImIn0.DIm() ;
@@ -636,6 +670,8 @@ void cAppliCheckBoardTargetExtract::DoOneImage()
 
     cAutoTimerSegm aTSMakeIm(mTimeSegm,"OTHERS");
 
+    // restore original name
+    mNameIm = aOriginalNameIm;
     GenerateVisuFinal();
     DoExport();
     delete mSpecif;

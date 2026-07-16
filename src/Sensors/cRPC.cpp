@@ -99,7 +99,7 @@ class cRatioPolynXY
         void PushCoeffs(std::vector<tREAL8>&) const;
 
         //  Recompute a new RPC using correspondance
-        void  InitFromSamples(const std::vector<cPt3dr> & aVIn,const std::vector<cPt3dr> & aVOut);
+        void  InitFromSamples(const std::vector<cPt3dr> & aVIn, const std::vector<cPt3dr> & aVOut);
 
     private:
         cRPC_RatioPolyn mX;
@@ -496,7 +496,6 @@ void cRPCSens::InitFromFile(const cAnalyseTSOF & anAnalyse)
 }
 
 
-// TODOCM:  aVIm : vector of cPt2dr ???
 void cRPCSens::InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &aVGr)
 {
     cBox3dr aBoxIn = cTplBoxOfPts<tREAL8,3>::FromVect(aVIm).CurBox();
@@ -505,6 +504,7 @@ void cRPCSens::InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &a
     mGroundOffset = aBoxOut.Middle();
     mGroundScale = aBoxOut.Sz() / 2.0;
 
+    // TODOCM: ImOffset/scale : force integer value ?
     mImOffset = Proj(aBoxIn.Middle());
     mImScale =  Proj(aBoxIn.Sz() / 2.0);
 
@@ -516,6 +516,7 @@ void cRPCSens::InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &a
     {
         aPIm = IO_PtIm(DivCByC(aPIm - m3DImOffset, m3DImScale)); // Normalize to [-1,1]
     }
+
     for (auto &aPGr : aVGr)
     {
         aPGr = IO_PtGr(DivCByC(aPGr - mGroundOffset, mGroundScale)); // Normalize to [-1,1]
@@ -659,14 +660,12 @@ void  cRatioPolynXY::InitFromSamples(const std::vector<cPt3dr> & aVIn,const std:
         }
         aSys.AddObsFixVar(std::sqrt(aSomC2),IndNumCste,1.0);
 
-        // TODOCM: check variance
         std::vector<tREAL8> aSol = aSys.PublicSolve().ToStdVect();
-        StdOut() << "RPC Var(" << (IsX ? "X" : "Y") << ") : " << aSys.VarCurSol() << "\n";
-
-        if (IsX)
+        if (IsX) {
            mX.SetCoeffs(aSol);
-        else
+        } else {
            mY.SetCoeffs(aSol);
+        }
     }
                    
 }
@@ -947,18 +946,24 @@ cSensorImage *  AllocRPCDimap(const cAnalyseTSOF & anAnalyse,const std::string &
 }
 
 
-cSensorImage * cSensorImage::GenerateSensorRPC(const std::string& aNameIm, const cDataInvertibleMapping<tREAL8,2>* aResampleMap, const cDataInvertibleMapping<tREAL8,3>* aChSysCoMap, bool SVP) const
+cSensorImage * cSensorImage::GenerateSensorRPC(const cDataInvertibleMapping<tREAL8,2>* aResampleMap,
+                                               const cDataInvertibleMapping<tREAL8,3>* aChSysCoMap,
+                                               bool XYisLonLat,
+                                               std::optional<std::string> aNameIm,
+                                               std::optional<cPt2dr> aZIntv
+                                              ) const
 {
-    if (! HasIntervalZ())
-    {
-        if (SVP)
-            return nullptr;
-        MMVII_INTERNAL_ERROR("cSensorImage::GenerateSensorRPC no interval Z");
+    if (! aZIntv) {
+        if (! HasIntervalZ())
+        {
+        MMVII_INTERNAL_ERROR("cSensorImage::GenerateSensorRPC no Z interval");
+        }
+        aZIntv = GetIntervalZ();
     }
-    std::vector<cPt2dr>  aVPts =  PtsSampledOnSensor(3,0);
-
     // TODOCM: Must infer correct values for 30,5
-    cSet2D3D aSet = SyntheticsCorresp3D2D(30,5,GetIntervalZ().x(),GetIntervalZ().y(),false,0.0);
+    auto stepsXY = 30;
+    auto stepsZ = 5;
+    cSet2D3D aSet = SyntheticsCorresp3D2D(stepsXY,stepsZ,aZIntv->x(),aZIntv->y(),false,0.0);
 
     std::vector<cPt3dr> aVIm;
     std::vector<cPt3dr> aVGr;
@@ -967,15 +972,154 @@ cSensorImage * cSensorImage::GenerateSensorRPC(const std::string& aNameIm, const
     {
         cPt3dr  aPGr = aChSysCoMap ? aChSysCoMap->Value(aPair.mP3) : aPair.mP3;
         cPt3dr  aPIm = TP3z(aResampleMap ? aResampleMap->Value(aPair.mP2) : aPair.mP2, aPGr.z());
-
         aVIm.push_back(aPIm);
-        aVGr.push_back(aPGr);
+        if (XYisLonLat) {
+            aVGr.push_back(cPt3dr(aPGr.y(),aPGr.x(),aPGr.z()));
+        } else {
+            aVGr.push_back(aPGr);
+        }
     }
+    cRPCSens * aRPCSens = new cRPCSens(aNameIm ? *aNameIm : NameImage());
+    aRPCSens->InitFromSamples(aVIm, aVGr);
+    // Ccompute residual
+    cBox3dr aBoxIn = cTplBoxOfPts<tREAL8,3>::FromVect(aVIm).CurBox();
+    cBox3dr aBoxOut = cTplBoxOfPts<tREAL8,3>::FromVect(aVGr).CurBox();
 
-    cRPCSens * aRes = new cRPCSens(aNameIm);
-    aRes->InitFromSamples(aVIm, aVGr);
+    auto aGroundScale = aBoxOut.Sz() / 2.0;
+    auto aImScale =  aBoxIn.Sz() / 2.0;
+    auto aGrSigmaScale = aGroundScale.x() / aImScale.x();
 
-    return aRes;
+    aSet = aRPCSens->SyntheticsCorresp3D2D(stepsXY-3,stepsZ-1,aZIntv->x(),aZIntv->y(),false,0.0);
+    double dirRes = 0.0;
+    double invRes = 0.0;
+
+    for (const auto& aPair : aSet.Pairs())
+    {
+        dirRes += SqN2(aRPCSens->ImageZToGround(aPair.mP2, aPair.mP3.z()) - aPair.mP3);
+        invRes += SqN2(aRPCSens->Ground2Image(aPair.mP3) - aPair.mP2);
+    }
+    dirRes /= aSet.Pairs().size();
+    invRes /= aSet.Pairs().size();
+    auto dirSigma = sqrt(dirRes);
+    auto invSigma = sqrt(invRes);
+    StdOut() << "RPC Direct  sigma : " << dirSigma / aGrSigmaScale << " (~px) " << dirSigma << " (sysco unit)" << std::endl;
+    StdOut() << "RPC Inverse sigma : " << invSigma << " (px)" << std::endl;
+    if (dirSigma > aGrSigmaScale * 0.1)
+    {
+        MMVII_USER_WARNING("High residual for RPC inverse model (" +std::to_string(dirSigma) + " > " + std::to_string(aGrSigmaScale * 0.1) + ")");
+    }
+    if (invSigma > 0.1)
+     {
+        MMVII_USER_WARNING("High residual for RPC inverse model (" +std::to_string(invSigma) + " > 0.1)");
+     }
+    return aRPCSens;
 }
 
+
+
+class cApp_OriCreateRPC : public cMMVII_Appli
+{
+public :
+
+    cApp_OriCreateRPC(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli &);
+    int Exe() override;
+    cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
+    cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
+
+private :
+    cPhotogrammetricProject  mPhProj;
+    std::string  mNameIm;
+    cPt2dr mZIntv;
+    std::string mNameSysOut;
+    tREAL8      mEpsDer = 200.0 ;
+    std::vector<std::string> mOutNamePat = {"(.*)\\.tif","RPC-$1.xml"};
+    bool mXYisLonLat = true;
+
+};
+
+cApp_OriCreateRPC::cApp_OriCreateRPC (
+    const std::vector<std::string> &  aVArgs,
+    const cSpecMMVII_Appli & aSpec
+    )
+    : cMMVII_Appli  (aVArgs,aSpec)
+    , mPhProj       (*this)
+{
+}
+
+
+int cApp_OriCreateRPC::Exe()
+{
+    mPhProj.FinishInit();
+
+    cChangeSysCo *aChSys = nullptr;
+    tPtrSysCo aSysOut = nullptr;
+
+    if (IsInit(&mNameSysOut))
+    {
+        aSysOut = mPhProj.ReadSysCo(mNameSysOut);
+        aChSys = new cChangeSysCo(mPhProj.CurSysCoOri(),aSysOut);
+        aChSys->SetEpsJac(cPt3dr::PCste(mEpsDer));
+    }
+
+    for (const auto & aNameIm : VectMainSet(0))
+    {
+        const cSensorImage *  aSIin =  mPhProj.ReadSensor(FileOfPath(aNameIm,false /* Ok Not Exist*/),true/*DelAuto*/,false /* Not SVP*/);
+        if (! IsInit(&mZIntv)) {
+            if (! aSIin->HasIntervalZ())
+            {
+                MMVII_UserError(eTyUEr::eOpenFile,"Image has no Z validity interval (" + aNameIm + ")");
+            }
+            mZIntv = aSIin->GetIntervalZ();
+        }
+
+        auto aRPCName = ReplacePattern(mOutNamePat[0],mOutNamePat[1],aNameIm);
+        StdOut() << "\n* RPC: " << aRPCName << std::endl;
+        auto aRPCSensor = aSIin->GenerateSensorRPC(nullptr, aChSys, mXYisLonLat, std::nullopt, mZIntv);
+        aRPCSensor->ToFile(aRPCName);
+
+        delete aRPCSensor;
+    }
+
+    delete aChSys;
+    return EXIT_SUCCESS;
+}
+
+
+cCollecSpecArg2007 & cApp_OriCreateRPC::ArgObl(cCollecSpecArg2007 & anArgObl)
+{
+    return anArgObl
+           << Arg2007(mNameIm ,"Name of Input File",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
+           << mPhProj.DPOrient().ArgDirInMand()
+        ;
+}
+
+cCollecSpecArg2007 & cApp_OriCreateRPC::ArgOpt(cCollecSpecArg2007 & anArgOpt)
+{
+    return anArgOpt
+           << AOpt2007(mZIntv,"ZIntv","Z interval")
+           << AOpt2007(mNameSysOut,"SysCoOut","Output system coordinate")
+           << AOpt2007(mOutNamePat,"RPCPat","Output RPC name pattern \"[Pattern,subst]\"", {eTA2007::HDV})
+           << AOpt2007(mXYisLonLat,"XYisLonLat","XY convention for final coord sys", {eTA2007::HDV})
+        ;
+}
+
+
+
+/* ==================================================== */
+
+tMMVII_UnikPApli Alloc_OriCreateRPC(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
+{
+    return tMMVII_UnikPApli(new cApp_OriCreateRPC(aVArgs,aSpec));
+}
+
+cSpecMMVII_Appli  TheSpec_OriCreateRPC
+    (
+        "OriCreateRPC",
+        Alloc_OriCreateRPC,
+        "Create an RPC xml file from an orientation",
+        {eApF::Ori},
+        {eApDT::Orient,eApDT::Image},
+        {eApDT::Orient},
+        __FILE__
+        );
 };

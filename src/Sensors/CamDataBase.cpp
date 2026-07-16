@@ -58,24 +58,12 @@ std::map<std::string,cElemCamDataBase>  &        cCamDataBase::Map()       {retu
 /*  ******************************************************* */
 static const std::string TheNameDBCam = "CameraDataBase.xml";
 
-bool  cPhotogrammetricProject::OneTestMakeCamDataBase(const std::string & aDir,cCamDataBase & aDB,bool ForceNew)
+bool  cPhotogrammetricProject::OneTestMakeCamDataBase(const std::string & aDir,cCamDataBase & aDB)
 {
   std::string aName = aDir + TheNameDBCam;
   if (! ExistFile(aName))
   {
-     if (! ForceNew)
-        return false;
-
-     // If force new, create a entry just to have a template for editing
-     cElemCamDataBase anElem;
-     anElem.mName = "UltraCam Eagle Mark 3";
-     anElem.mSzPixel_Micron = cPt2dr(4,4);
-     anElem.mSzSensor_Mm = cPt2dr(105.840,68.016);
-     anElem.mNbPixels = cPt2di(26460,17004);
-
-     cCamDataBase aDataB;
-     aDataB.Map()[anElem.mName] = anElem;
-     SaveInFile(aDataB,aName);
+      return false;
   }
 
   cCamDataBase aDBNew;
@@ -91,7 +79,13 @@ bool  cPhotogrammetricProject::OneTestMakeCamDataBase(const std::string & aDir,c
 
 void cPhotogrammetricProject::MakeCamDataBase()
 {
-    OneTestMakeCamDataBase(cMMVII_Appli::DirRessourcesMMVII(),mCamDataBase,true);
+    for (int aNumM=(int)eTypeDBCam::eNbVals-1 ; aNumM>=0 ; aNumM--)
+    {
+        eTypeDBCam  aMode = (eTypeDBCam)  aNumM;
+        std::string aDir = DirCamDataBase(aMode);
+
+        OneTestMakeCamDataBase(aDir,mCamDataBase);
+    }
 }
 
 const cElemCamDataBase *  cPhotogrammetricProject::GetCamFromNameCam(const std::string& aNameCam,bool SVP) const
@@ -107,6 +101,40 @@ const cElemCamDataBase *  cPhotogrammetricProject::GetCamFromNameCam(const std::
     }
 
     return &(anIter->second);
+}
+
+std::string cPhotogrammetricProject::FileCamDataBase(eTypeDBCam aType)
+{
+    return DirCamDataBase(aType) + TheNameDBCam ;
+}
+
+
+std::string cPhotogrammetricProject::DirCamDataBase(eTypeDBCam aType)
+{
+    //std::string aNameLoc = "CameraDataBase.xml";
+
+     mDPMetaData.SetDirInIfNoInit("Std");
+    //  cMMVII_Appli::DirRessourcesMMVII();
+     // std::string aDirLoc = mDPMetaData.DirIn();
+
+     switch (aType)
+     {
+        case  eTypeDBCam::eLocalFolder :
+            return mDPMetaData.FullDirIn()  ;
+
+       case  eTypeDBCam::eLocalUser :
+         return mAppli.DirUserProfile();
+
+       case  eTypeDBCam::eLocalMVVI :
+           return cMMVII_Appli::DirLocalParameters() ;
+
+       case eTypeDBCam::eGlobalMMVII :
+            return   cMMVII_Appli::DirRessourcesMMVII() ;
+
+        default :
+             MMVII_INTERNAL_ERROR("Value not handled in DirCamDataBase");
+     }
+     return "";
 }
 
 
@@ -171,6 +199,8 @@ cPerspCamIntrCalib * cPhotogrammetricProject::GetCalibInit
     if (aFocPix<0)
     {
         tREAL8 aFoc35 = aMTD.FocalMMEqui35(true);
+
+      //  StdOut()  << "FOCEQUI3555555 " << aFoc35 << "\n";
         if (aFoc35>0)
         {
            // in fact I am not sure of foc equi 35, but I think it is suited for a 24x36 ..
@@ -251,7 +281,7 @@ cCollecSpecArg2007 & cAppli_CreateCalib::ArgObl(cCollecSpecArg2007 & anArgObl)
 cCollecSpecArg2007 & cAppli_CreateCalib::ArgOpt(cCollecSpecArg2007 & anArgObl)
 {
   return      anArgObl
-            << AOpt2007(mProj,"Proj","Projection mode ",{{eTA2007::HDV},AC_ListVal<eProjPC>()})
+            << AOpt2007(mProj,"Proj","Projection mode ",{eTA2007::HDV})
             << AOpt2007(mDegree,"Degree","Degree for distorsion param",{{eTA2007::HDV}})
             << AOpt2007(mSystCyl,"SystCyl","Use SIA/SytCyl instead of Fraser Model",{{eTA2007::HDV}})
             // << AOpt2007(mNameBloc,"NameBloc","Set the name of the bloc ",{{eTA2007::HDV}})
@@ -285,6 +315,203 @@ cSpecMMVII_Appli  TheSpec_CreateCalib
       {eApF::SysCo,eApF::Ori},
       {eApDT::Ori},
       {eApDT::Ori},
+      __FILE__
+);
+
+
+/* ************************************************************* */
+/*                                                               */
+/*                   cAppli_AddCamInDataBas                      */
+/*                                                               */
+/* ************************************************************* */
+
+class cAppli_AddCamInDataBase : public cMMVII_Appli
+{
+     public :
+        cAppli_AddCamInDataBase(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec);
+
+        int Exe() override;
+        cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
+        cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
+        std::vector<std::string>  Samples() const override;
+     private :
+
+        cPhotogrammetricProject   mPhgrProj;
+
+        std::string               mNameCamera;
+        eTypeDBCam                mTypeDB;
+        int                       mMode;
+        std::vector<tREAL8>       mParamCam;
+
+
+};
+
+cAppli_AddCamInDataBase::cAppli_AddCamInDataBase(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec):
+    cMMVII_Appli(aVArgs,aSpec),
+    mPhgrProj(*this)
+{
+}
+
+cCollecSpecArg2007 & cAppli_AddCamInDataBase::ArgObl(cCollecSpecArg2007 & anArgObl)
+{
+    return anArgObl
+              <<  Arg2007(mNameCamera ,"Name of Camera Model, or name image containg metadata")
+              <<  Arg2007(mTypeDB ,"Which  database (in enum value)")
+              <<  Arg2007(mMode ,"0:Info , 1:AddIfNew ; 2:Overwrite ; -1:supress")
+
+           ;
+}
+
+cCollecSpecArg2007 & cAppli_AddCamInDataBase::ArgOpt(cCollecSpecArg2007 & anArgObl)
+{
+  return      anArgObl
+            << AOpt2007(mParamCam,"Param","SzPix, SzSens, SzIm [SzPix.x,SzPix.y,SzSens.x,SzSens.y,SzIm.x,SzIm.y]",{{eTA2007::ISizeV,"[6,6]"}})
+    ;
+
+}
+
+int cAppli_AddCamInDataBase::Exe()
+{
+
+    mPhgrProj.FinishInit();
+
+    if (IsNameFileImage(mNameCamera))
+    {
+       cExifData anExif =   cExifData::CreateFromFile(mNameCamera);
+       auto aModCam = anExif.mModel;
+       if (aModCam.has_value())
+       {
+           mNameCamera = aModCam.value();
+           StdOut() << "\n";
+           StdOut() << "  *  Found  Exif Name Camera, use it " << mNameCamera << "\n";
+
+           auto aF35 = anExif.mFocalLengthIn35mmFilm_mm;
+           auto aFoc = anExif.mFocalLength_mm;
+           auto aNbPix_X = anExif.mPixelXDimension;
+           auto aNbPix_Y = anExif.mPixelYDimension;
+
+           if (aF35.has_value() && aFoc.has_value() && aNbPix_X.has_value() && aNbPix_Y.has_value())
+           {
+               cPt2di aNbPix(aNbPix_X.value(),aNbPix_Y.value());
+               tREAL8 aRatio = aFoc.value() / aF35.value();
+               cPt2dr aSzSensor = cPt2dr(36,24) * aRatio;
+
+               tREAL8 aSzPix = std::sqrt(MulCoord(aSzSensor) / MulCoord(aNbPix)  );
+
+               aSzSensor  = ToR(aNbPix) * aSzPix;
+               if (!IsInit(&mParamCam))
+               {
+                  std::vector<tREAL8> aVCalc
+                                   {
+                                       aSzPix*1e3,aSzPix*1e3,
+                                       aSzSensor.x(),aSzSensor.y(),
+                                       tREAL8(aNbPix.x()),tREAL8(aNbPix.y())
+                                   };
+                  SetIfNotInit(mParamCam,aVCalc);
+
+                   StdOut() << "  *  Found exif senssor size "<<  aVCalc << "\n\n";
+               }
+           }
+       }
+      //  cMetaDataImage aMDI =  mPhgrProj.GetMetaData(mNameCamera);
+    }
+
+    std::string  aNameFile = mPhgrProj.FileCamDataBase(mTypeDB) ;
+    cCamDataBase aCamDB;
+    cElemCamDataBase aNewElem;
+
+    if (mMode==0)
+    {
+        const cElemCamDataBase *  anElem = mPhgrProj.GetCamFromNameCam(mNameCamera,true);
+        if (anElem==nullptr)
+        {
+            StdOut() << mNameCamera << " is NOT in any data base\n";
+        }
+        else
+        {
+            StdOut() << mNameCamera << " is at least  in one of the data base, with following information \n";
+            StdOut()  << "  * PixSz="  << anElem->mSzPixel_Micron << " microns\n";
+            StdOut()  << "  * SensoSz="  << anElem->mSzSensor_Mm << " mm\n";
+            StdOut()  << "  * NbPixels="  << anElem->mNbPixels << " pixels\n";
+
+        }
+    }
+
+    if (mMode>0)
+    {
+        if (!IsInit(&mParamCam))
+        {
+             MMVII_UnclasseUsEr("ParamCam must be initialized in write modes");
+        }
+        aNewElem.mName = mNameCamera;
+        aNewElem.mSzPixel_Micron = cPt2dr(mParamCam.at(0),mParamCam.at(1));
+        aNewElem.mSzSensor_Mm    = cPt2dr(mParamCam.at(2),mParamCam.at(3));
+        aNewElem.mNbPixels       = cPt2di(mParamCam.at(4),mParamCam.at(5));
+    }
+
+
+    if (ExistFile(aNameFile))
+    {
+        ReadFromFile(aCamDB,aNameFile);
+    }
+
+
+    StdOut() <<  " FILE FOR DATA BASE =  " << mPhgrProj.FileCamDataBase(mTypeDB) << "\n";
+
+    auto  anIter = aCamDB.Map().find(mNameCamera);
+
+    if (anIter==aCamDB.Map().end())
+    {
+        StdOut() << mNameCamera << " is NOT in the data base " << E2Str(mTypeDB) << "\n";
+        if (mMode>0)
+        {
+            aCamDB.Map()[mNameCamera] = aNewElem;
+        }
+
+    }
+    else
+    {
+         StdOut() << mNameCamera << " is in the data base  " << E2Str(mTypeDB) << "\n";
+         if (mMode==2)
+         {
+             aCamDB.Map()[mNameCamera] = aNewElem;
+         }
+         else if (mMode==-1)
+         {
+             aCamDB.Map().erase(anIter);
+         }
+    }
+
+    if (mMode==0)
+        return EXIT_SUCCESS;
+
+    SaveInFile(aCamDB,aNameFile);
+
+
+    return EXIT_SUCCESS;
+}
+
+std::vector<std::string>  cAppli_AddCamInDataBase::Samples() const
+{
+    return
+    {
+        "MMVII EditCamDataBase \"Canon EOS 5D Mark II\" LocalUser 1 Param=[6,6,36,24,5616,3744]"
+    };
+}
+
+tMMVII_UnikPApli Alloc_AddCamInDataBase(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
+{
+   return tMMVII_UnikPApli(new cAppli_AddCamInDataBase(aVArgs,aSpec));
+}
+
+cSpecMMVII_Appli  TheSpec_AddCamInDataBase
+(
+     "EditCamDataBase",
+      Alloc_AddCamInDataBase,
+      "Create initial internal calibration",
+      {eApF::Ori},
+      {eApDT::ToDef},
+      {eApDT::Xml},
       __FILE__
 );
 

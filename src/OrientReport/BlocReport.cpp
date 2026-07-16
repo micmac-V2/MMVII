@@ -63,7 +63,7 @@ class cAppli_ReportBlock : public cMMVII_Appli
 
      private :
         void ProcessOneBloc(const std::string& anIdSync,const cIrbComp_TimeS &);
-        void AddStatDistWirePt(const cPt3dr& aPt,const cPt3dr& aDirLoc,const std::string & anIdSync,const std::string & aNamePt);
+        void AddStatDistWirePt(const cPt3dr& aPt,const cPt3dr& aDirLoc,const std::string & anIdSync,const std::string& aNameIm,const std::string & aNamePt);
 
         void TestWire3D(const std::string& anIdSync,const std::vector<cSensorCamPC *> & aVCam);
         /// For a given Id of Sync and a bloc of cameras, compute the stat on accuracy of intersection
@@ -128,6 +128,7 @@ class cAppli_ReportBlock : public cMMVII_Appli
         cSetMesGndPt                            mMesGround;     ///< "Absolute" coordinate of the point
         std::string                             mPatDistWire;   ///< Pattern of point name for computing distance point <--> WIRE
         std::string                             mPatAgregateDist;  ///< Pattern for aggregatinf distance
+        std::string                             mCern_ReportSynthGlob;
 
         bool                                    mWithClino;  /// Where clino measure loade
         bool                                    mWithAgregateDist; ///< Do we agregate the measure
@@ -195,12 +196,13 @@ cCollecSpecArg2007 & cAppli_ReportBlock::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
              << AOpt2007(mPatDistWire,"Cern-PatDistWire","Pattern of points name to computing distance point<-->wire",{{eTA2007::HDV}})
              << AOpt2007(mPatAgregateDist,"Cern-AggregateDist","Pattern of points name to computing distance point<-->wire",{{eTA2007::HDV}})
+              << AOpt2007(mCern_ReportSynthGlob, "CernReportSynthGlob","File for s syntehic global report")
              << mPhProj.DPMeasuresClino().ArgDirInOpt("Cern-Clino")
 
              << AOpt2007(mSCFreeScale,"Cern-SphFreeScale","Do we have free scale for sphere",{{eTA2007::HDV}})
 
              << AOpt2007(mShow,"Show","Show details on results",{{eTA2007::HDV}})
-             << AOpt2007(mParamReportShared,"SaveRem","Remanent save [File,Id,Reset]",{{eTA2007::ISizeV,"[3,3]"}})
+             << AOpt2007(mParamReportShared,"SaveRem","Remanent save [File,Id in Csv,Do we Reset?]",{{eTA2007::ISizeV,"[3,3]"}})
 
     ;
 }
@@ -212,6 +214,7 @@ void cAppli_ReportBlock::AddStatDistWirePt
      (
             const cPt3dr& aPt,
             const cPt3dr& aVertLoc,
+            const std::string & aTimeStamp,
             const std::string & anIm0,
             const std::string & aNamePt
      )
@@ -261,7 +264,9 @@ void cAppli_ReportBlock::AddStatDistWirePt
      }
 
      // Add individual statistic for each point each image
-     AddOneReportCSV(mIdRepDWirePt,{anIm0,aNamePt,ToStr(aD3),ToStr(aDH),ToStr(aDV)});
+     AddOneReportCSV(mIdRepDWirePt,{aTimeStamp,aNamePt,ToStr(aD3),ToStr(aDH),ToStr(aDV)});
+
+
 }
 
 
@@ -517,7 +522,7 @@ void cAppli_ReportBlock::ProcessOneBloc(const std::string& anIdSync,const cIrbCo
                 cPt3dr aPtLoc = mSCFreeScale                 ?
                                    aSim.Value(aMes3d.mPt)    :
                                    aPose.Value(aMes3d.mPt)   ;
-                AddStatDistWirePt(aPtLoc,aWMin.IndexExtre(),aVCam[0]->NameImage(),aMes3d.mNamePt);
+                AddStatDistWirePt(aPtLoc,aWMin.IndexExtre(),anIdSync,aVCam[0]->NameImage(),aMes3d.mNamePt);
             }
         }
      }
@@ -605,7 +610,7 @@ int cAppli_ReportBlock::Exe()
    {
        CSV_AddStat(mParamReportShared.at(0),mParamReportShared.at(1),mStatGlobPt);
    }
-   // AddStdHeaderStatCSV(mIdRepPtGlob,"Ident",mPercStat);
+   // AddStdHeaderStatCSV(mIdRepPtGlob,"Ident",mPercStat);La confidentialité des échanges entre avocats couvre les correspondances et les discussions échangées entre les avocats eux-mêmes, notamment dans le cadre de négociations ou de discussions précontentieuses. Contrairement au secret professionnel, qui est une obligation légale absolue, la confidentialité des échanges entre avocats repose principalement sur des règles déontologiques.
 
     if (mShow)
     {
@@ -631,7 +636,7 @@ int cAppli_ReportBlock::Exe()
         for (const auto & [aName,aStat] : aMap ) // parse all stats
         {
            // size_t aNb = aStat.mStat3d.NbMeasures();
-            std::vector<std::string> aVStat
+            std::vector<std::string> aHVStat
                                      {
                                           aName,
                                           ToStr(aStat.mStat3d.NbMeasures()),
@@ -641,12 +646,44 @@ int cAppli_ReportBlock::Exe()
                                      };
             if (mWithClino)
             {
-                  AppendIn(aVStat,{aStat.mStatH.StrAvg(),StrDiff(aStat.mStatH,aRef.mStatH),StrDev(aStat.mStatH)});
-                  AppendIn(aVStat,{aStat.mStatV.StrAvg(),StrDiff(aStat.mStatV,aRef.mStatV),StrDev(aStat.mStatV)});
+                  AppendIn(aHVStat,{aStat.mStatH.StrAvg(),StrDiff(aStat.mStatH,aRef.mStatH),StrDev(aStat.mStatH)});
+                  AppendIn(aHVStat,{aStat.mStatV.StrAvg(),StrDiff(aStat.mStatV,aRef.mStatV),StrDev(aStat.mStatV)});
             }
-            AddOneReportCSV(anIdStatWire,aVStat);
+            AddOneReportCSV(anIdStatWire,aHVStat);
+        }
+
+
+    }
+
+    if (IsInit(&mCern_ReportSynthGlob))
+    {
+        SetReportSubDir("");
+
+        for (auto & [aNamePt,aMap] : mStatWirePt ) // parse all points
+        {
+             std::string aIdentCERN = mCern_ReportSynthGlob + "-" + aNamePt;
+             const cStatDistPtWire & aStat =  aMap[StrGLOB];
+             const auto & aS3d =  aStat.mStat3d;
+             const auto & aSH =   aStat.mStatH;
+             const auto & aSV =   aStat.mStatV;
+
+            std::vector<std::string>  aLineHeader{"Id","Mu-Dev3d","Mu-Interv3D","Mu-DevH","Mu-IntervH","Mu-DevV","Mu-InterV"};
+            AppendIn(aLineHeader,{"Pix-Pt","Pix-Wire"});
+            InitReportCSV(aIdentCERN,"csv",false,aLineHeader,false);
+
+            std::vector<std::string> aNewL{aDirRep};
+
+            AppendIn(aNewL,{ToStr(aS3d.DevStd()*1e6),ToStr(aS3d.Interv()*1e6)});
+            AppendIn(aNewL,{ToStr(aSH.DevStd()*1e6),ToStr(aSH.Interv()*1e6)});
+            AppendIn(aNewL,{ToStr(aSV.DevStd()*1e6),ToStr(aSV.Interv()*1e6)});
+            AppendIn(aNewL,{ToStr(mStatGlobPt.Avg()),ToStr( mStatGlobWire.Avg())});
+
+            AddOneReportCSV(aIdentCERN,aNewL);
+
+          //  StdOut() << " Pt="  << mStatGlobPt.Avg() << " W=" <<  mStatGlobWire.Avg() << "\n";
         }
     }
+
 
 
     delete mCompBlocInstr;

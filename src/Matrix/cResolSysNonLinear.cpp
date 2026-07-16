@@ -17,12 +17,15 @@ namespace MMVII
 
 cREAL8_RSNL::~cREAL8_RSNL()
 {
+
 }
 
 cREAL8_RSNL::cREAL8_RSNL(int aNbVar) :
     mNbVar          (aNbVar),
     mInPhaseAddEq   (false),
     mVarIsFrozen    (mNbVar,false),
+    mNbLVMFrozenUSed (0),
+    mLVMFrozenUsed   (mNbVar,false),
     mNbIter         (0),
     mCurMaxEquiv    (0),
     mEquivNum       (aNbVar,TheLabelNoEquiv),
@@ -45,6 +48,15 @@ void cREAL8_RSNL::UnfrozeAll()
 bool cREAL8_RSNL::VarIsFrozen(int aK) const
 {
      return mVarIsFrozen.at(aK);
+}
+
+int  cREAL8_RSNL::NbVar() const {return mNbVar;}
+
+int  cREAL8_RSNL::NbLVMFrozen() const {return mNbLVMFrozenUSed;}
+
+bool  cREAL8_RSNL::LVMFrozenUsed(int aK) const
+{
+    return mLVMFrozenUsed.at(aK);
 }
 
 void cREAL8_RSNL::AssertNotInEquation() const
@@ -832,11 +844,11 @@ template <> void cResolSysNonLinear<tREAL8>::R_AddObsWithTmpUK (const tR_Up::tSe
 
 template <class Type>
    const cDenseVect<Type> &
-          cResolSysNonLinear<Type>::SolveUpdateReset(const Type & aLVM,tVPtr_SUR AfterCstr ,tVPtr_SUR AfterLVM, bool calcCond)
+          cResolSysNonLinear<Type>::SolveUpdateReset(const Type & aWeighLVM,tVPtr_SUR AfterCstr ,tVPtr_SUR AfterLVM, bool calcCond)
 {
     if (mUseWarningNotEnoughObs && (mNbVar-GetNbLinearConstraints()>currNbObs) )
     {
-           // StdOut()  << "currNbObscurrNbObs " << currNbObs  << " RRRRR=" << currNbObs - mNbVar << std::endl;
+           // StdOut()  << "currNbObscurrNbObs " << currNbObs  << " RRRRR=" << currNbObs - mNbVar -GetNbLinearConstraints()<< std::endl;
         MMVII_DEV_WARNING("Not enough obs for var ");
     }
     lastNbObs = currNbObs;
@@ -857,11 +869,19 @@ template <class Type>
        if (aPtrSur)
           aPtrSur->Compile(this);
 
-    for (int aK=0 ; aK<mNbVar ; aK++)
+    if (aWeighLVM>0)
     {
-        if (aLVM>0)
+        for (int aK=0 ; aK<mNbVar ; aK++)
         {
-           AddEqFixVar(aK,CurSol(aK),mSysLinear->LVMW(aK)*aLVM);
+            tREAL8 aLVMCoeff =  mSysLinear->LVMW(aK);
+            if (aLVMCoeff==0)
+            {
+               MMVII_USER_TYPED_WARNING(eTyUEr::eLVM_NoConstraint,"LVM : freezing an unsused unknown");
+               aLVMCoeff = 1.0;
+               mNbLVMFrozenUSed ++;
+               mLVMFrozenUsed.at(aK) = true;
+            }
+            AddEqFixVar(aK,CurSol(aK),aLVMCoeff*aWeighLVM);
         }
     }
 

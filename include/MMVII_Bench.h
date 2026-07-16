@@ -103,6 +103,7 @@ void BenchTopoComp(cParamExeBench & aParam); ///< Topo compensation
 
 void BenchTSL(cParamExeBench & aParam); ///< Static lidar
 
+void BenchEpipolar(cParamExeBench & aParam);
 
 // void cAppli_MMVII_Bench::Bench_0000_String(); => Bench on string-split
 void BenchSerialization(cParamExeBench & aParam,const std::string & aDirOut,const std::string & aDirIn); ///< Bench on seriaization function
@@ -170,7 +171,7 @@ void Bench_SpatialIndex(cParamExeBench & aParam); /// test spatial index
 
 void  BenchLinearConstr(cParamExeBench & aParam);  /// elementary test on linear constr
 
-void BenchClino(cParamExeBench & aParam); // Bench for clinometer Bundle Adjustment
+// void BenchClino(cParamExeBench & aParam); // Bench for clinometer Bundle Adjustment
 
 
 /* Called by BenchGlobImage */

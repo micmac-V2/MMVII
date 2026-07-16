@@ -272,11 +272,14 @@ class cOriTriplets : public cMemCheck
             typedef std::vector<tPoseR>* tPtrVPoses;
 
             const cOneSolOriTriplet * BestSol() const;
+            const tREAL8 BestScore() const {return mBestScore;}
 
             const cComputeMergeMulTieP * TiepMFull() const;
             const cComputeMergeMulTieP * TiepMAvg() const;
 
             const cPerspCamIntrCalib* Calib(int) const;
+             cPerspCamIntrCalib* Calib(int) ;
+
 
 
    private :
@@ -463,6 +466,12 @@ const cComputeMergeMulTieP * cOriTriplets::TiepMAvg() const
 }
 
 const cPerspCamIntrCalib* cOriTriplets::Calib(int aK) const
+{
+    return mVCalibs[aK];
+}
+
+
+ cPerspCamIntrCalib* cOriTriplets::Calib(int aK)
 {
     return mVCalibs[aK];
 }
@@ -669,6 +678,7 @@ class cAppli_OriRelTripletsOfIm : public cMMVII_Appli
         void DoAllTriplet();
 
         void Generate5Pts(const cOriTriplets*,cSaveNPoint&);
+        void Generate5PtsV2(const cOriTriplets*,cSaveNPoint&);
 
 
         int                       mModeCompute;
@@ -726,6 +736,10 @@ cCollecSpecArg2007 & cAppli_OriRelTripletsOfIm::ArgObl(cCollecSpecArg2007 & anAr
                <<  mPhProj.DPOrient().ArgDirInMand("Input orientation for calibration")  ;
 
 
+     if (mModeCompute==0)
+     {
+         anArgObl  <<  mPhProj.DPOrient().ArgDirOutMand("Output orientation for save result")  ;
+     }
 
      return anArgObl;
 }
@@ -740,7 +754,7 @@ cCollecSpecArg2007 & cAppli_OriRelTripletsOfIm::ArgOpt(cCollecSpecArg2007 & anAr
             <<  AOpt2007(mShow,"Show","Show details of result",{eTA2007::HDV})
             <<  AOpt2007(mUseOri4GT,"UseOriGT","Set if orientation contains also exterior as a ground truth",{eTA2007::HDV})
             <<  AOpt2007(mFolderOriGT,"OriGT","If ground truth ori != calib")
-             << mPhProj.DPMulTieP().ArgDirOutOpt("VirTP","Destination for virtual tie points");
+             << mPhProj.DPMulTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points");
    ;
 }
 
@@ -764,6 +778,23 @@ cOriTriplets * cAppli_OriRelTripletsOfIm::Do1Triplet(const std::vector<std::stri
     }
 
     cOriTriplets * anOri3 = new cOriTriplets(a3Names,mPhProj,mRanTrR,aVPoseRef,mShow,mTimeSegm);
+
+
+    if (mPhProj.DPOrient().DirOutIsInit())
+    {
+        const cOneSolOriTriplet* aBSol = anOri3->BestSol();
+
+        StdOut() << "OUT=" << mPhProj.DPOrient().DirOut() << "\n";
+
+        cSensorCamPC aCam1(a3Names.at(0),aBSol->mP0,anOri3->Calib(0));
+        mPhProj.SaveCamPC(aCam1);
+
+        cSensorCamPC aCam2(a3Names.at(1),aBSol->mP01,anOri3->Calib(1));
+        mPhProj.SaveCamPC(aCam2);
+
+        cSensorCamPC aCam3(a3Names.at(2),aBSol->mP02,anOri3->Calib(2));
+        mPhProj.SaveCamPC(aCam3);
+    }
 
     return anOri3;
 }
@@ -829,62 +860,69 @@ void cAppli_OriRelTripletsOfIm::DoAllTriplet()
     //StdOut() <<  mArgv << "\n";
 
 }
-void cAppli_OriRelTripletsOfIm::Generate5Pts(const cOriTriplets* aOri3,cSaveNPoint& aSaveNP)
+void cAppli_OriRelTripletsOfIm::Generate5PtsV2(const cOriTriplets* aOri3,cSaveNPoint& aSaveNP)
 {
     const cOneSolOriTriplet* aBSol = aOri3->BestSol();
+    const cElemBA & aEBA = aBSol->mEBA;
+    tREAL8 aBestScore = aOri3->BestScore();
 
     // construct an elliposoid over the 3D points
-    cEllipse3D aEllipse;
+    cStrStat2<double> aCovMat(3);
 
-    for (auto & [aConf,aPts] : aOri3->TiepMFull()->Pts())
+    for (auto &[aConf,aPts] : aOri3->TiepMFull()->Pts())
     {
         size_t aNbPts = aPts.mVPIm.size();
         int aNbIm = aConf.size();
 
-        // only triplet points for now
-        if (aNbIm != 3) continue;
-
-        for (size_t aKPts=0; aKPts<aNbPts; aKPts+=3)
+        for (size_t aKPts=0; aKPts<aNbPts; aKPts+=aNbIm)
         {
-            std::vector<tREAL8>  aPds;
-            std::vector<tSeg3dr> aVBund;
+            const cPt3dr* aPtrPts = aPts.mVPGround.data()+aKPts;
+            StdOut() << aPtrPts->x() << " " << aPtrPts->y() << aPtrPts->z() << std::endl;
 
-            for (int aKIm=0; aKIm<3; aKIm++)
-            {
+            auto [aRes1,aPGr] = aEBA.InterBundles(aConf,aPtrPts,1e-6);
+            tREAL8 aW = 1.0/(1.0 + Square(aRes1/(4.0*aBestScore)));
 
-                cPt3dr aBunCam = aOri3->Calib(aKIm)->DirBundle(aPts.mVPIm.at(aKPts + aKIm));
-
-                cPt3dr aP1, aP2;
-                if (aKIm==0)
-                {
-                    aP1 = aBSol->mP0.Tr();
-                    aP2 = aBSol->mP0.Value(aBunCam);
-                }
-                else if (aKIm==1)
-                {
-                    aP1 = aBSol->mP01.Tr();
-                    aP2 = aBSol->mP01.Value(aBunCam);
-                }
-                else
-                {
-                    aP1 = aBSol->mP02.Tr();
-                    aP2 = aBSol->mP02.Value(aBunCam);
-                }
-
-                aVBund.push_back( tSeg3dr(aP1,aP2));
-                aPds.push_back(1.0);
-
-            }
-
-            cPt3dr aPGr = BundleInters(aVBund,&aPds);
-
-            aEllipse.AddData(aPGr,1.0);
-
-            //ahhhStdOut() << "aPGr=" << aPGr << std::endl;
-
+            aCovMat.WeightedAdd(aPGr.ToVect(),aW);
         }
 
     }
+    aCovMat.Normalise(true);
+    cResulSymEigenValue<double>  aVp = aCovMat.DoEigen();
+
+
+}
+
+void cAppli_OriRelTripletsOfIm::Generate5Pts(const cOriTriplets* aOri3,cSaveNPoint& aSaveNP)
+{
+
+    const cOneSolOriTriplet* aBSol = aOri3->BestSol();
+    const cElemBA & aEBA = aBSol->mEBA;
+    tREAL8 aBestScore = aOri3->BestScore();
+
+    // construct an elliposoid over the 3D points
+    cEllipse3D aEllipse;
+    //cStrStat2<double> aCovMat(3);
+
+    for (auto &[aConf,aPts] : aOri3->TiepMFull()->Pts())
+    {
+        size_t aNbPts = aPts.mVPIm.size();
+        int aNbIm = aConf.size();
+
+        for (size_t aKPts=0; aKPts<aNbPts; aKPts+=aNbIm)
+        {
+            const cPt3dr* aPtrPts = aPts.mVPGround.data()+aKPts;
+
+            auto [aRes1,aPGr] = aEBA.InterBundles(aConf,aPtrPts,1e-6);
+            tREAL8 aW = 1.0/(1.0 + Square(aRes1/(4.0*aBestScore)));
+
+            aEllipse.AddData(aPGr,aW);
+
+            //StdOut() << "aW " << aW << ", aRes1 " << aRes1 << ", aBestScore " << aBestScore << std::endl;
+            //getchar();
+        }
+
+    }
+
     aEllipse.Normalise();
 
     // generate 5 virtual points
@@ -944,7 +982,6 @@ void cAppli_OriRelTripletsOfIm::Generate5Pts(const cOriTriplets* aOri3,cSaveNPoi
 
         }
     }
-    //getchar();
 }
 
 

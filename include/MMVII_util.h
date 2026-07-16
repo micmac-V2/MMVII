@@ -105,6 +105,10 @@ std::string DirCur(); // as "./" on Unix
 std::string DirOfPath(const std::string & aPath,bool ErroNonExist=true);
 std::string FileOfPath(const std::string & aPath,bool ErroNonExist=true);
 std::string UpDir(const std::string & aDir);
+bool IsNameFileImage(const std::string & aNameFile); ///< Has it the postfix known as image extention
+bool IsFileImage(const std::string & aNameFile); ///< File existe, and its name is file image extension
+
+
 
 // std::string AbsoluteName(const std::string &); ///< Get absolute name of path; rather pwd than unalias, no good
 std::string ToLower(const std::string &  aStr);  ///< return lower case version
@@ -345,6 +349,36 @@ class cMultipleOfs
 };
 
 
+// Colors for terminal output, using ANSI escape codes
+
+class Color {
+public:
+    Color(const std::string& ansiCode={}) : mAnsiCode(ansiCode) {}
+    std::string AnsiCode() const { return mNoColor ? std::string() :  mAnsiCode; }
+    static void Off() { mNoColor = true; }
+    static void On() { mNoColor = false; }
+
+    static Color command;
+    static Color argument;
+    static Color descr;
+    static Color title;
+    static Color success;
+    static Color error;
+    static Color warning;
+    static Color end;
+
+private:
+    std::string mAnsiCode;
+    static bool mNoColor;
+};
+
+
+inline std::ostream & operator << (std::ostream& os, const Color & aCol)
+{
+    if (os.rdbuf() == std::cout.rdbuf() || os.rdbuf() == std::cerr.rdbuf() )    // don't colorize in files
+        os << aCol.AnsiCode();
+    return os;
+}
 
 /** Probably job could be done with std::duration, but I am not sure I could handle
     precisely output format

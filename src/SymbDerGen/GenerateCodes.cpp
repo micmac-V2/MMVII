@@ -385,91 +385,91 @@ cCalculator<double> * EqBundleElem_CamN(eModResBund aMode,bool WithDerive,int aS
 
 // cFormulaBundleElem_Cam1
 // topo subframe with dist parameter
-template <class Type> cCalculator<Type> * TplEqTopoSubFrame(bool WithDerive,int aSzBuf)
+template <class Type> cCalculator<Type> * TplEqTopoSubFrame(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return StdAllocCalc(NameFormula(cTopoSubFrame(),WithDerive),aSzBuf);
+    return StdAllocCalc(NameFormula(cTopoSubFrame(),WithDerive),aSzBuf,false,ReUse);
 }
 
-cCalculator<double> * EqTopoSubFrame(bool WithDerive,int aSzBuf)
+cCalculator<double> * EqTopoSubFrame(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return TplEqTopoSubFrame<double>(WithDerive,aSzBuf);
+    return TplEqTopoSubFrame<double>(WithDerive,aSzBuf,ReUse);
 }
 
 // topo az
-template <class Type> cCalculator<Type> * TplEqTopoAz(bool WithDerive,int aSzBuf)
+template <class Type> cCalculator<Type> * TplEqTopoHz(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return StdAllocCalc(NameFormula(cFormulaTopoHz(),WithDerive),aSzBuf);
+    return StdAllocCalc(NameFormula(cFormulaTopoHz(),WithDerive),aSzBuf,false,ReUse);
 }
 
-cCalculator<double> * EqTopoHz(bool WithDerive,int aSzBuf)
+cCalculator<double> * EqTopoHz(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return TplEqTopoAz<double>(WithDerive,aSzBuf);
+    return TplEqTopoHz<double>(WithDerive,aSzBuf,ReUse);
 }
 
 // topo zen
-template <class Type> cCalculator<Type> * TplEqTopoZen(bool WithDerive,int aSzBuf)
+template <class Type> cCalculator<Type> * TplEqTopoZen(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return StdAllocCalc(NameFormula(cFormulaTopoZen(),WithDerive),aSzBuf);
+    return StdAllocCalc(NameFormula(cFormulaTopoZen(),WithDerive),aSzBuf,false,ReUse);
 }
 
-cCalculator<double> * EqTopoZen(bool WithDerive,int aSzBuf)
+cCalculator<double> * EqTopoZen(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return TplEqTopoZen<double>(WithDerive,aSzBuf);
+    return TplEqTopoZen<double>(WithDerive,aSzBuf,ReUse);
 }
 
 // topo dist
-template <class Type> cCalculator<Type> * TplEqTopoDist(bool WithDerive,int aSzBuf)
+template <class Type> cCalculator<Type> * TplEqTopoDist(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return StdAllocCalc(NameFormula(cFormulaTopoDist(),WithDerive),aSzBuf);
+    return StdAllocCalc(NameFormula(cFormulaTopoDist(),WithDerive),aSzBuf,false,ReUse);
 }
 
-cCalculator<double> * EqTopoDist(bool WithDerive,int aSzBuf)
+cCalculator<double> * EqTopoDist(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return TplEqTopoDist<double>(WithDerive,aSzBuf);
+    return TplEqTopoDist<double>(WithDerive,aSzBuf,ReUse);
 }
 
 // topo dX
-template <class Type> cCalculator<Type> * TplEqTopoDX(bool WithDerive,int aSzBuf)
+template <class Type> cCalculator<Type> * TplEqTopoDX(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return StdAllocCalc(NameFormula(cFormulaTopoDX(),WithDerive),aSzBuf);
+    return StdAllocCalc(NameFormula(cFormulaTopoDX(),WithDerive),aSzBuf,false,ReUse);
 }
 
-cCalculator<double> * EqTopoDX(bool WithDerive,int aSzBuf)
+cCalculator<double> * EqTopoDX(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return TplEqTopoDX<double>(WithDerive,aSzBuf);
+    return TplEqTopoDX<double>(WithDerive,aSzBuf,ReUse);
 }
 
 // topo dY
-template <class Type> cCalculator<Type> * TplEqTopoDY(bool WithDerive,int aSzBuf)
+template <class Type> cCalculator<Type> * TplEqTopoDY(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return StdAllocCalc(NameFormula(cFormulaTopoDY(),WithDerive),aSzBuf);
+    return StdAllocCalc(NameFormula(cFormulaTopoDY(),WithDerive),aSzBuf,false,ReUse);
 }
 
-cCalculator<double> * EqTopoDY(bool WithDerive,int aSzBuf)
+cCalculator<double> * EqTopoDY(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return TplEqTopoDY<double>(WithDerive,aSzBuf);
+    return TplEqTopoDY<double>(WithDerive,aSzBuf,ReUse);
 }
 
 // topo dZ
-template <class Type> cCalculator<Type> * TplEqTopoDZ(bool WithDerive,int aSzBuf)
+template <class Type> cCalculator<Type> * TplEqTopoDZ(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return StdAllocCalc(NameFormula(cFormulaTopoDZ(),WithDerive),aSzBuf);
+    return StdAllocCalc(NameFormula(cFormulaTopoDZ(),WithDerive),aSzBuf,false,ReUse);
 }
 
-cCalculator<double> * EqTopoDZ(bool WithDerive,int aSzBuf)
+cCalculator<double> * EqTopoDZ(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return TplEqTopoDZ<double>(WithDerive,aSzBuf);
+    return TplEqTopoDZ<double>(WithDerive,aSzBuf,ReUse);
 }
 
 // topo dH
-template <class Type> cCalculator<Type> * TplEqTopoDH(bool WithDerive,int aSzBuf)
+template <class Type> cCalculator<Type> * TplEqTopoDH(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return StdAllocCalc(NameFormula(cFormulaTopoDH(),WithDerive),aSzBuf);
+    return StdAllocCalc(NameFormula(cFormulaTopoDH(),WithDerive),aSzBuf,false,ReUse);
 }
 
-cCalculator<double> * EqTopoDH(bool WithDerive,int aSzBuf)
+cCalculator<double> * EqTopoDH(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return TplEqTopoDH<double>(WithDerive,aSzBuf);
+    return TplEqTopoDH<double>(WithDerive,aSzBuf,ReUse);
 }
 
 
@@ -482,25 +482,31 @@ cCalculator<double> * EqSumSquare(int aNb,bool WithDerive,int aSzBuf,bool ReUse)
 
   // Projection image lidar
 
-cCalculator<double> * EqEqLidarImPonct(bool WithDerive,int aSzBuf, bool aScanPoseUk)
+cCalculator<double> * EqEqLidarImPonct(bool WithDerive,int aSzBuf, bool aScanPoseUk,bool ReUse)
 {
-    return StdAllocCalc(NameFormula(cEqLidarImPonct(aScanPoseUk),WithDerive),aSzBuf);
+    return StdAllocCalc(NameFormula(cEqLidarImPonct(aScanPoseUk),WithDerive),aSzBuf,false,ReUse);
 }
 
-cCalculator<double> * EqEqLidarImCensus(bool WithDerive,int aSzBuf, bool aScanPoseUk)
+cCalculator<double> * EqEqLidarImCensus(bool WithDerive,int aSzBuf, bool aScanPoseUk,bool ReUse)
 {
-    return StdAllocCalc(NameFormula(cEqLidarImCensus(aScanPoseUk),WithDerive),aSzBuf);
+    return StdAllocCalc(NameFormula(cEqLidarImCensus(aScanPoseUk),WithDerive),aSzBuf,false,ReUse);
 }
 
-cCalculator<double> * EqEqLidarImCorrel(bool WithDerive,int aSzBuf, bool aScanPoseUk)
+cCalculator<double> * EqEqLidarImCorrel(bool WithDerive,int aSzBuf, bool aScanPoseUk,bool ReUse)
 {
-    return StdAllocCalc(NameFormula(cEqLidarImCorrel(aScanPoseUk),WithDerive),aSzBuf);
+    return StdAllocCalc(NameFormula(cEqLidarImCorrel(aScanPoseUk),WithDerive),aSzBuf,false,ReUse);
 }
 
-cCalculator<double> * EqEqLidarLidar(bool WithDerive,int aSzBuf)
+cCalculator<double> * EqEqLidarLidar(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return StdAllocCalc(NameFormula(cEqLidarLidar(),WithDerive),aSzBuf);
+    return StdAllocCalc(NameFormula(cEqLidarLidar(),WithDerive),aSzBuf,false,ReUse);
 }
+
+cCalculator<double> * EqTSL_GCP(bool WithDerive,int aSzBuf,bool ReUse)
+{
+    return StdAllocCalc(NameFormula(cEqTSL_GCP(),WithDerive),aSzBuf,false,ReUse);
+}
+
 
 
 /* **************************** */
@@ -704,7 +710,7 @@ cCollecSpecArg2007 & cAppliGenCode::ArgObl(cCollecSpecArg2007 & anArgObl)
    return
       anArgObl  ;
 /*
-         << Arg2007(mModeMatch,"Matching mode",{AC_ListVal<eModeEpipMatch>()})
+         << Arg2007(mModeMatch,"Matching mode")
          << Arg2007(mNameIm1,"Name Input Image1",{eTA2007::FileImage})
          << Arg2007(mNameIm2,"Name Input Image1",{eTA2007::FileImage})
    ;
@@ -715,7 +721,7 @@ cCollecSpecArg2007 & cAppliGenCode::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
    return
       anArgOpt
-         << AOpt2007(mTypeProj,"TypeProj","Type of projection for specific generation",{AC_ListVal<eProjPC>()})
+         << AOpt2007(mTypeProj,"TypeProj","Type of projection for specific generation")
       ;
 }
 
@@ -930,6 +936,8 @@ int cAppliGenCode::Exe()
        GenCodesFormula((tREAL8*)nullptr,cEqLidarImCorrel(true),WithDer);
 
        GenCodesFormula((tREAL8*)nullptr,cEqLidarLidar(),WithDer); // lidar/lidar
+
+       GenCodesFormula((tREAL8*)nullptr,cEqTSL_GCP(),WithDer); // TSL/GCP
 
        GenCodesFormula((tREAL8*)nullptr,cFormulaSumSquares(8),WithDer); // example for contraint
 

@@ -201,7 +201,7 @@ namespace MMVII
         {
             const tREAL8 aDx = aDImDispx->GetV(aPix);
             const tREAL8 aDy = aDImDispy->GetV(aPix);
-            const tPt2dr aPixR = ToR(aPix) - tPt2dr(aDx, aDy);
+            const tPt2dr aPixR = ToR(aPix) + tPt2dr(aDx, aDy);
 
             const bool aPixIn = (aIsBillinearInterp) ? mDImIn->InsideBL(aPixR) : mDImIn->InsideInterpolator(*anInterp, aPixR, 0);
 

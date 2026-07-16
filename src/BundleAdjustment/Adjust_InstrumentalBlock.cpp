@@ -45,7 +45,7 @@ class cBA_BlockInstr : public cMemCheck
                cIrbComp_Block* aBEstim, //< Block that will be used & adjusted
                cIrbComp_Block* aBInit,  //< Initial value of block
                const std::vector<std::string> & aVParamPair,
-               const std::vector<std::string> & aVParamGauje,
+               const std::vector<std::string> & aVParamGauge,
                const std::vector<std::string> & aVParamCur
        );
 
@@ -109,7 +109,7 @@ class cBA_BlockInstr : public cMemCheck
        tREAL8                    mMulSigmOrthogCl;
 
 
-       cIrbCal_Cam1 &            mMasterCam;      //<  Master cam to fix Gauje
+       cIrbCal_Cam1 &            mMasterCam;      //<  Master cam to fix Gauge
 
        std::vector<std::string>  mVParams;        //< copy of parameters
        cCalculator<tREAL8> *     mEqRigCam;       //< Calculator for pair of camera
@@ -123,8 +123,8 @@ class cBA_BlockInstr : public cMemCheck
        tREAL8                               mValSigRot;  ///< Multiplier for sigma-rot
        tINT4                                mModeSaveSigma;
        bool                                 mValSigArMul;  ///< Are the sig for pair & cur, rel to sig saved ?
-       tREAL8                               mGaujeTr;   //< If <=0  : "hard" freeze
-       tREAL8                               mGaujeRot;  //< If <=0  : "hard" freeze
+       tREAL8                               mGaugeTr;   //< If <=0  : "hard" freeze
+       tREAL8                               mGaugeRot;  //< If <=0  : "hard" freeze
 
        std::map<tNamePair,cIrb_SigmaInstr>  mSigmaPair;      //< Sigma a posteriori for pair of images
        cWeightAv<tREAL8,tREAL8>             mAvgTrPair;
@@ -147,7 +147,7 @@ cBA_BlockInstr::cBA_BlockInstr
         cIrbComp_Block * aCompBl,
         cIrbComp_Block * aCompBl0,
         const std::vector<std::string> & aVParamsPair,
-        const std::vector<std::string> & aVParamGauje,
+        const std::vector<std::string> & aVParamGauge,
         const std::vector<std::string> & aVParamCur
 ) :
     mBA            (aBA),
@@ -178,8 +178,8 @@ cBA_BlockInstr::cBA_BlockInstr
     mValSigRot   (cStrIO<double>::FromStr(GetDef(aVParamsPair,2,std::string("1.0")))),
     mModeSaveSigma (cStrIO<int>::FromStr(GetDef(aVParamsPair,3,std::string("1")))),
     mValSigArMul     (cStrIO<bool>::FromStr(GetDef(aVParamsPair,4,std::string("true")))),
-    mGaujeTr       (cStrIO<double>::FromStr(GetDef(aVParamGauje,0,std::string("0.0")))),
-    mGaujeRot      (cStrIO<double>::FromStr(GetDef(aVParamGauje,1,std::string("0.0")))),
+    mGaugeTr       (cStrIO<double>::FromStr(GetDef(aVParamGauge,0,std::string("0.0")))),
+    mGaugeRot      (cStrIO<double>::FromStr(GetDef(aVParamGauge,1,std::string("0.0")))),
     mUseRat2CurrBR (! aVParamCur.empty())
 {
 
@@ -597,17 +597,17 @@ void cBA_BlockInstr::AddGauge(bool InEq)
      if (InEq)
      {
           const cIrb_SigmaInstr & aSigma = mCalBl->DescrIndiv(mMasterCam.NameCal()).Sigma();
-          if (mGaujeTr>0)
-              Sys().AddEqFixCurVar(aPBl,aC,1.0/Square(mGaujeTr*aSigma.SigmaTr()));
-          if (mGaujeRot>0)
-              Sys().AddEqFixCurVar(aPBl,aW,1.0/Square(mGaujeRot*aSigma.SigmaRot()));
+          if (mGaugeTr>0)
+              Sys().AddEqFixCurVar(aPBl,aC,1.0/Square(mGaugeTr*aSigma.SigmaTr()));
+          if (mGaugeRot>0)
+              Sys().AddEqFixCurVar(aPBl,aW,1.0/Square(mGaugeRot*aSigma.SigmaRot()));
      }
      else
      {
         FrozenClino();
-        if (mGaujeTr<=0)
+        if (mGaugeTr<=0)
             Sys().SetFrozenVarCurVal(aPBl,aC);
-        if (mGaujeRot<=0)
+        if (mGaugeRot<=0)
             Sys().SetFrozenVarCurVal(aPBl,aW);
      }
 }

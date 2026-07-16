@@ -70,7 +70,7 @@ class cAppliBundlAdj : public cMMVII_Appli
 
         std::string               mSpecImIn;
 
-        std::string               mDataDir;  /// Default Data dir for all
+       // std::string               mDataDir;  /// Default Data dir for all
 
         cPhotogrammetricProject   mPhProj;
         cMMVII_BundleAdj          mBA;
@@ -81,6 +81,7 @@ class cAppliBundlAdj : public cMMVII_Appli
         std::string               mGCPFilterAdd;  // pattern to filter GCP by additional info
         std::vector<std::string>  mTiePWeight;
         std::vector<std::vector<std::string>>  mAddTieP; // In case there is multiple GCP Set
+        std::vector<int>          mTiepShowPerMil;
         std::vector<double>       mBRSigma; // RIGIDBLOC
         std::vector<double>       mBRSigma_Rat; // RIGIDBLOC
         std::vector<std::string>  mParamRefOri;  // Force Poses to be +- equals to this reference
@@ -93,10 +94,10 @@ class cAppliBundlAdj : public cMMVII_Appli
 
         std::string               mPatParamFrozCalib;
         std::vector<std::vector<std::string>>  mVVParFreeCalib;
+        std::vector<std::string>  mParamGaugeRel;
         std::string               mPatFrosenCenters;
         std::string               mPatFrosenOrient;
-       std::string               mPatFrosenClino;
-       std::string               mPatFrozenTSL;
+        std::string               mPatFrosenClino;
         std::vector<tREAL8>       mViscPose;
         tREAL8                    mLVM;  ///< Levenberk Markard
         bool                      mMeasureAdded ;
@@ -107,17 +108,22 @@ class cAppliBundlAdj : public cMMVII_Appli
         std::vector<std::string>  mParamLine;
         std::vector<std::vector<std::string>> mParamBOI;  //< Param for bloc of instrum
          std::vector<std::vector<std::string>> mParamBOIClino;
+         /// For tuning other options, like LVM, we may want to omit the check on measure
+         bool                     mCheckMeasureAdded;
 };
 cAppliBundlAdj::cAppliBundlAdj(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
    cMMVII_Appli    (aVArgs,aSpec),
-   mDataDir        ("Std"),
-   mPhProj         (*this),
-   mBA             (&mPhProj),
-   mGCPFilter      (""),
-   mGCPFilterAdd   (""),
-   mNbIter         (10),
-   mLVM            (0.0),
-   mMeasureAdded   (false)
+  // mDataDir        ("Std"),
+   mPhProj            (*this),
+   mBA                (&mPhProj),
+   mGCPFilter         (""),
+   mGCPFilterAdd      (""),
+   mTiepShowPerMil    {500,750},
+   mNbIter            (10),
+   mLVM               (0.0),
+   mMeasureAdded      (false),
+   mShow_Cond         (false),
+   mCheckMeasureAdded (true)
 {
 }
 
@@ -136,44 +142,56 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     
     return
           anArgOpt
-      << AOpt2007(mDataDir,"DataDir","Default data directories ",{eTA2007::HDV})
-      << AOpt2007(mNbIter,"NbIter","Number of iterations",{eTA2007::HDV})
-      << mPhProj.DPMulTieP().ArgDirInOpt("TPDir","Dir for Tie Points if != DataDir")
-      << mPhProj.DPRigBloc().ArgDirInOpt("BRDirIn","Dir for Bloc Rigid if != DataDir") //  RIGIDBLOC
-      << mPhProj.DPRigBloc().ArgDirOutOpt() //  RIGIDBLOC
+     // << AOpt2007(mDataDir,"DataDir","Default data directories ",{eTA2007::HDV})
+      << AOpt2007(mParamRefOri,"RefOri","Reference orientation [Ori,SimgaTr,SigmaRot?,PatApply?]",{{eTA2007::ISizeV,"[2,4]"}})
+      << AOpt2007(mVSharedIP,"SharedIP","Shared intrinc parmaters [Pat1Cam,Pat1Par,Pat2Cam...] ",{{eTA2007::ISizeV,"[2,20]"}})
+      << AOpt2007(mPostFixReport,NameParamPostFixReport(),CommentParamPostFixReport())
+      << AOpt2007(mParamLine,"AdjLine3D","Parameter for line Adjustment [Folder,SigmaIm,NbPtsSampl]",{{eTA2007::ISizeV,"[3,3]"}})
+
+           << "Topo"
       << mPhProj.DPTopoMes().ArgDirInOpt("TopoDirIn","Dir for Topo measures") //  TOPO
       << mPhProj.DPTopoMes().ArgDirOutOpt("TopoDirOut","Dir for Topo measures output") //  TOPO
-      << mPhProj.DPClinoMeters().ArgDirInOpt("ClinoDirIn","Dir for Clino if != DataDir") //  CLINOBLOC
-      << mPhProj.DPClinoMeters().ArgDirOutOpt("ClinoDirOut","Dir for Clino if != DataDir") //  CLINOBLOC
+
+      << "Clino"
       << mPhProj.DPMeasuresClino().ArgDirInOpt()
-      << AOpt2007 ( mGCP3D, "GCP3D", "GCP ground coords and sigma factor, SG=0 fix, SG<0 schurr elim, SG>0 and optional output dir with optional compensated sigma [[Folder,SigG,FOut?,ExportSigma?=0],...]]")
-      << AOpt2007 ( mGCP2D, "GCP2D", "GCP image coords and sigma factor and optional attenuation, threshold and exponent [[Folder,SigI,SigAt?=-1,Thrs?=-1,Exp?=1]...]")
+           << "GCPs"
+      << AOpt2007 ( mGCP3D, "GCP3D", "GCP ground coords and sigma factor, SG=0 fix, SG<0 schurr elim, SG>0 and optional output dir with optional compensated sigma [[Folder,SigG,FOut?,ExportSigma?=0],...]]",{eTA2007::CanRepeat})
+      << AOpt2007 ( mGCP2D, "GCP2D", "GCP image coords and sigma factor and optional attenuation, threshold and exponent [[Folder,SigI,SigAt?=-1,Thrs?=-1,Exp?=1]...]",{eTA2007::CanRepeat})
       << AOpt2007(mGCPFilter,"GCPFilter","Pattern to filter GCP by name")
       << AOpt2007(mGCPFilterAdd,"GCPFilterAdd","Pattern to filter GCP by additional info")
+           << "Tie points"
+      << mPhProj.DPMulTieP().ArgDirInOpt("TPDir","Dir for Tie Points if != DataDir")
       << AOpt2007(mTiePWeight,"TiePWeight","Tie point weighting [Sig0,SigAtt?=-1,Thrs?=-1,Exp?=1]",{{eTA2007::ISizeV,"[1,4]"}})
       << AOpt2007(mAddTieP,"AddTieP","For additional TieP, [[Folder,SigG...],[Folder,...]] ")
+      << AOpt2007(mTiepShowPerMil,"TiePShowPerMil","Per/1000 for printing residual, for ex [500] -> show median ",{eTA2007::HDV})
+
+
+           << "Lidar"
       << AOpt2007(mParamLidarPhgr,"LidarPhotogra","Paramaters for Lidar/Phgr adj via triangulation [[Mode,Ply,Sigma,Interp?,Perturbate?,NbPtsPerPatch=32]*]")
       << AOpt2007(mParamLidarPhoto,"LidarPhoto","Paramaters for Lidar/Phgr adj via rasterisation [[Mode,PatScan,Sigma,Interp?,ScaleInit?=1,ScaleFinal?=1,Thrs?=-1,NbPtsPerPatch?=49]*]")
-      << AOpt2007(mParamLidarLidar,"LidarLidar","Paramaters for Lidar/Lidar adj via rasterisation [[PatScan,Sigma,ThrsInit?=1,ThrsFinal?=0.1,Interp?=[Linear]]]")
+      << AOpt2007(mParamLidarLidar,"LidarLidar","Paramaters for Lidar/Lidar adj via rasterisation [[PatScan,Sigma,ThrsInit?=1,ThrsFinal?=0.1,NormalTolDeg?=15,Interp?=[Linear]]]")
+           << "Freeze"
       << AOpt2007(mPatParamFrozCalib,"PPFzCal","Pattern for freezing internal calibration parameters")
       << AOpt2007(mVVParFreeCalib,"PPFreeCal","Pattern for free internal calibration parameters [[PatCal1,PatParam1],[PatCal2,PatParam2] ...] ")
       << AOpt2007(mPatFrosenCenters,"PatFzCenters","Pattern of images for freezing center of poses")
       << AOpt2007(mPatFrosenOrient,"PatFzOrient","Pattern of images for freezing orientation of poses")
       << AOpt2007(mPatFrosenClino,"PatFzClino","Pattern of clinometers for freezing boresight")
-      << AOpt2007(mPatFrozenTSL,"PatFzTSL","Pattern of static lidar for freezing pose")
-      << AOpt2007(mViscPose,"PoseVisc","Sigma viscosity on pose [SigmaCenter,SigmaRot]",{{eTA2007::ISizeV,"[2,2]"}})
+      << AOpt2007(mParamGaugeRel,"FixGauge","Param for gauge in pure relative [MainIm?,SecIm?,Coord in x,y,z?]",{{eTA2007::ISizeV,"[0,3]"}})
+
+
+           << "Computation"
+      << AOpt2007(mNbIter,"NbIter","Number of iterations",{eTA2007::HDV})
       << AOpt2007(mLVM,"LVM","Levenberg–Marquardt parameter (to have better conditioning of least squares)",{eTA2007::HDV})
+      << AOpt2007(mViscPose,"PoseVisc","Sigma viscosity on pose [SigmaCenter,SigmaRot]",{{eTA2007::ISizeV,"[2,2]"}})
+      << AOpt2007(mShow_Cond,"Cond","Compute and show system condition number",{eTA2007::HDV})
+      << AOpt2007(mParamShow_UK_UC,"UC_UK","Param for uncertainty & Show names of unknowns (tuning)")
+
+      << AOpt2007(mCheckMeasureAdded,"CheckMeasureAdded","Do we check the adding of measures)",{eTA2007::Tuning,eTA2007::HDV})
+
+
+           << "Blocks"
       << AOpt2007(mBRSigma,"BRW","Bloc Rigid Weighting [SigmaCenter,SigmaRot]",{{eTA2007::ISizeV,"[2,2]"}})  // RIGIDBLOC
       << AOpt2007(mBRSigma_Rat,"BRW_Rat","Rattachment fo Bloc Rigid Weighting [SigmaCenter,SigmaRot]",{{eTA2007::ISizeV,"[2,2]"}})  // RIGIDBLOC
-
-      << AOpt2007(mParamRefOri,"RefOri","Reference orientation [Ori,SimgaTr,SigmaRot?,PatApply?]",{{eTA2007::ISizeV,"[2,4]"}})
-      << AOpt2007(mVSharedIP,"SharedIP","Shared intrinc parmaters [Pat1Cam,Pat1Par,Pat2Cam...] ",{{eTA2007::ISizeV,"[2,20]"}})
-
-      << AOpt2007(mShow_Cond,"Cond","Compute and show system condition number")
-      << AOpt2007(mParamShow_UK_UC,"UC_UK","Param for uncertainty & Show names of unknowns (tuning)")
-      << AOpt2007(mPostFixReport,NameParamPostFixReport(),CommentParamPostFixReport())
-      << AOpt2007(mParamLine,"AdjLine3D","Parameter for line Adjustment [Folder,SigmaIm,NbPtsSampl]",{{eTA2007::ISizeV,"[3,3]"}})
-
       << AOpt2007
          (
              mParamBOI,
@@ -182,7 +200,6 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
                             ",[GjTr?,GjRot?],[RelSigTrCur,RelSigRotCur]?]",
              {{eTA2007::ISizeV,"[2,3]"}}
           )
-
       << AOpt2007
          (
              mParamBOIClino,
@@ -190,7 +207,6 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
              "Clino parameter [[Bloc?,RelSigmaAngle?,RelCstrOrthog?][VertFree?,OkNewTs?][DegFree0?,DegFree1?...]]",
              {{eTA2007::ISizeV,"[1,3]"}}
           )
-
       << mPhProj.DPBlockInstr().ArgDirInOpt()
       << mPhProj.DPBlockInstr().ArgDirOutOpt()
 
@@ -250,6 +266,9 @@ void  cAppliBundlAdj::AddOneSetTieP(const std::vector<std::string> & aVParStd)
 
 int cAppliBundlAdj::Exe()
 {
+
+   // bool hasOrientPC     = false;
+    bool hasConstrOriPC  = mLVM > 0;
 /*
 {
     StdOut() << "TESTT  mAddGCPWmAddGCPW\n";
@@ -264,8 +283,8 @@ int cAppliBundlAdj::Exe()
 */
 
     //   ========== [0]   initialisation of def values  =============================
-    mPhProj.DPMulTieP().SetDirInIfNoInit(mDataDir);
-    mPhProj.DPRigBloc().SetDirInIfNoInit(mDataDir); //  RIGIDBLOC
+ //  mPhProj.DPMulTieP().SetDirInIfNoInit(mDataDir);
+  //  mPhProj.DPRigBloc().SetDirInIfNoInit(mDataDir); //  RIGIDBLOC
 
     mPhProj.FinishInit();
 
@@ -278,7 +297,10 @@ int cAppliBundlAdj::Exe()
 
 
     if (IsInit(&mParamRefOri))
-         mBA.AddReferencePoses(mParamRefOri);
+    {
+        hasConstrOriPC = true;
+        mBA.AddReferencePoses(mParamRefOri);
+    }
 
     //   ========== [1]   Read unkowns of bundle  =============================
     for (const auto &  aNameIm : VectMainSet(0))
@@ -299,16 +321,19 @@ int cAppliBundlAdj::Exe()
 
     if (IsInit(&mPatFrosenCenters))
     {
+        hasConstrOriPC = true;
         mBA.SetFrozenCenters(mPatFrosenCenters);
     }
 
     if (IsInit(&mPatFrosenOrient))
     {
+        hasConstrOriPC = true;
         mBA.SetFrozenOrients(mPatFrosenOrient);
     }
 
     if (IsInit(&mViscPose))
     {
+        hasConstrOriPC = true;
         mBA.SetViscosity(mViscPose.at(0),mViscPose.at(1));
     }
 
@@ -319,6 +344,8 @@ int cAppliBundlAdj::Exe()
 
     for (const auto& aVStrGCP : mGCP3D)
     {
+        hasConstrOriPC = true;
+
         // expected: [Folder,SigG,FOut?]
         if ((aVStrGCP.size() <2) || (aVStrGCP.size() >4))
         {
@@ -357,17 +384,25 @@ int cAppliBundlAdj::Exe()
         AppendIn(aVParamTieP,mTiePWeight);
         AddOneSetTieP(aVParamTieP);
     }
+
+    mBA.SetTiePShowPerMil(mTiepShowPerMil);
     // Add  the potential suplementary TieP
     for (const auto& aTieP : mAddTieP)
         AddOneSetTieP(aTieP);
 
-
-    if (IsInit(&mBRSigma)) // RIGIDBLOC
+    bool hasGauge = IsInit(&mParamGaugeRel);
+    bool forceNoGauge =   (!mParamGaugeRel.empty()) && (mParamGaugeRel.at(0)==MMVII_NONE);
+    if ((!hasConstrOriPC) && (!hasGauge) && (mBA.NbCamPC()!=0) && (!forceNoGauge))
     {
-        mBA.AddBlocRig(mBRSigma,mBRSigma_Rat);
-        for (const auto &  aNameIm : VectMainSet(0))
-            mBA.AddCamBlocRig(aNameIm);
+            MMVII_USER_TYPED_WARNING(eTyUEr::eForceGauge,"Gauge in pure relative pause not specified, added by system");
+            hasGauge = true;
     }
+
+    if (hasGauge && (!forceNoGauge))
+    {
+        mBA.SetGaugeRelPause(mParamGaugeRel);
+    }
+
 
     if (IsInit(&mParamLine))
     {
@@ -384,10 +419,7 @@ int cAppliBundlAdj::Exe()
        mBA.AddClinoBlokcInstr(mParamBOIClino);
     }
     
-    if (mPhProj.DPClinoMeters().DirInIsInit())
-    {
-        mBA.AddClinoBloc();
-    }
+
 
     if (IsInit(&mPatFrosenClino))
     {
@@ -415,12 +447,10 @@ int cAppliBundlAdj::Exe()
         mBA.Add1AdjLidarLidar(aParam);
     }
 
-    if (IsInit(&mPatFrozenTSL))
+    if (mCheckMeasureAdded)
     {
-        mBA.SetFrozenTSL(mPatFrozenTSL);
+        MMVII_INTERNAL_ASSERT_User(mMeasureAdded,eTyUEr::eUnClassedError,"Not any measure added");
     }
-
-    MMVII_INTERNAL_ASSERT_User(mMeasureAdded,eTyUEr::eUnClassedError,"Not any measure added");
 
     if (IsInit(&mParamShow_UK_UC))
        mBA.Set_UC_UK(mParamShow_UK_UC);
@@ -439,12 +469,9 @@ int cAppliBundlAdj::Exe()
 
     mPhProj.CpSysCoIn2Out(true,true);
 
-    mBA.SaveBlocRigid();  // RIGIDBLOC
     mBA.Save_newGCP3D();
     mBA.SaveTopo(); // just for debug for now
-    mBA.SaveClino();
-    mBA.SaveTSL();
-
+  //   mBA.SaveClino();
     mBA.SaveBlockInstr();
 
     if (IsInit(&mParamShow_UK_UC))

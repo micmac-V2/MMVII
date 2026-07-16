@@ -61,6 +61,8 @@ extern const std::string TmpMMVIIDirGlob;
 extern const std::string TmpMMVIIDirPCar;
 extern const std::string MMVIITestDir;
 extern const std::string MMVIIRessourcesDir;
+extern const std::string MMVIIHelpByCmdDir;
+
 extern const std::string MMVIILocalParametersDir;
 extern const std::string TmpMMVIIProcSubDir;
 

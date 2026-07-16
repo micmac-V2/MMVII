@@ -15,6 +15,7 @@ extern cSpecMMVII_Appli  TheSpecBench;
 extern cSpecMMVII_Appli  TheSpecTestCpp11;
 extern cSpecMMVII_Appli  TheSpecMPDTest;
 extern cSpecMMVII_Appli  TheSpecEditSet;
+extern cSpecMMVII_Appli  TheSpecEditProfile;
 extern cSpecMMVII_Appli  TheSpecEditRel;
 extern cSpecMMVII_Appli  TheSpec_EditCalcMetaDataImage;
 extern cSpecMMVII_Appli  TheSpec_EditBlockInstr;
@@ -75,6 +76,7 @@ extern cSpecMMVII_Appli  TheSpec_OriConvV1V2;
 extern cSpecMMVII_Appli  TheSpec_OriUncalibSpaceResection;
 extern cSpecMMVII_Appli  TheSpec_OriCalibratedSpaceResection;
 extern cSpecMMVII_Appli  TheSpec_OriCheckGCPDist;
+extern cSpecMMVII_Appli  TheSpec_GCPSplit;
 extern cSpecMMVII_Appli  TheSpec_OriRel2Im;
 extern cSpecMMVII_Appli  TheSpec_OriRelPairsOf1m;
 extern cSpecMMVII_Appli  TheSpec_OriRelAllPairs;
@@ -88,6 +90,7 @@ extern cSpecMMVII_Appli  TheSpecCloudFuser;
 extern cSpecMMVII_Appli  TheSpec_OriRel3Im;
 extern cSpecMMVII_Appli  TheSpec_OriRelTripletsOf1m;
 extern cSpecMMVII_Appli  TheSpec_OriRelAllTriplets;
+extern cSpecMMVII_Appli  TheSpec_OriPoseEstimRel;
 
 extern cSpecMMVII_Appli  TheSpecRadiom2ImageSameMod;
 extern cSpecMMVII_Appli  TheSpecRadiomCreateModel;
@@ -103,7 +106,8 @@ extern cSpecMMVII_Appli  TheSpec_ImportGCP;
 extern cSpecMMVII_Appli  TheSpec_ImportOBS;
 extern cSpecMMVII_Appli  TheSpec_ImportORGI;
 extern cSpecMMVII_Appli  TheSpec_ImportAiconCamera;
-extern cSpecMMVII_Appli  TheSpec_ImportStaticScan;
+extern cSpecMMVII_Appli  TheSpec_ImportTSL;
+extern cSpecMMVII_Appli  TheSpec_InitTSL;
 extern cSpecMMVII_Appli  TheSpec_ImportTxtCloud;
 extern cSpecMMVII_Appli  TheSpec_MMVII_CloudClip;
 extern cSpecMMVII_Appli  TheSpec_MMVII_Cloud2Ply;
@@ -122,12 +126,11 @@ extern cSpecMMVII_Appli  TheSpec_MesImReport;
 extern cSpecMMVII_Appli  TheSpec_TiePReport;
 extern cSpecMMVII_Appli  TheSpec_SegImReport;
 extern cSpecMMVII_Appli  TheSpec_PoseCmpReport;
-extern cSpecMMVII_Appli  TheSpec_BlockCamInit;   // RIGIDBLOC
+//extern cSpecMMVII_Appli  TheSpec_BlockCamInit;   // RIGIDBLOC
 extern cSpecMMVII_Appli  TheSpec_BlocReport;
-extern cSpecMMVII_Appli  TheSpec_ClinoReport;
-extern cSpecMMVII_Appli  TheSpec_CernInitRep;
-
-extern cSpecMMVII_Appli  TheSpec_ClinoInit;
+// extern cSpecMMVII_Appli  TheSpec_ClinoReport;
+//  extern cSpecMMVII_Appli  TheSpec_CernInitRep;
+// extern cSpecMMVII_Appli  TheSpec_ClinoInit;
 extern cSpecMMVII_Appli  TheSpecRename;
 extern cSpecMMVII_Appli  TheSpecRenameSubFolder;
 extern cSpecMMVII_Appli  TheSpec_V2ImportCalib;
@@ -140,6 +143,7 @@ extern cSpecMMVII_Appli  TheSpec_TestProj;
 extern cSpecMMVII_Appli  TheSpec_ChSysCo;
 extern cSpecMMVII_Appli  TheSpec_ChSysCoGCP;
 extern cSpecMMVII_Appli  TheSpec_CreateCalib;
+extern cSpecMMVII_Appli  TheSpec_AddCamInDataBase;
 extern cSpecMMVII_Appli  TheSpecImportExtSens;
 extern cSpecMMVII_Appli  TheSpecTestSensor;
 extern cSpecMMVII_Appli  TheSpecParametrizeSensor;
@@ -164,6 +168,7 @@ extern cSpecMMVII_Appli  TheSpec_VisuPoseStr3D;
 extern cSpecMMVII_Appli  TheSpec_TransformPoses;
 
 extern cSpecMMVII_Appli  TheSpec_EpipResampling;
+extern cSpecMMVII_Appli  TheSpec_OriCreateRPC;
 extern cSpecMMVII_Appli  TheSpec_EpipTest;
 
 extern cSpecMMVII_Appli  TheSpecAppliBenchAPBI;

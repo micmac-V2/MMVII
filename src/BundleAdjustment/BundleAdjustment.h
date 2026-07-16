@@ -19,8 +19,8 @@ class cBA_ArboTriplets;
 class cBA_LidarPhotogra;
 class cBA_TieP;
 class cBA_GCP;
-class cBA_Clino;
-class cBA_BlocRig;
+//class cBA_Clino;
+//class cBA_BlocRig;
 
 class cUK_Line3D_4BA;
 class cBA_BlockInstr;
@@ -58,6 +58,8 @@ class cStdWeighterResidual : public cResidualWeighter<tREAL8>
          tREAL8   mSig2Thrs;
          tREAL8   mExpS2;
 };
+
+#if (MAINTAIN_OLD_BLOCK)
 
 // RIGIDBLOC
 class cBA_BlocRig
@@ -265,7 +267,7 @@ class cBA_Clino : public cMemCheck
           std::string                   mCameraName;              // name of the camera
           
 };
-
+#endif // MAINTAIN_OLD_BLOCK
 
 
 // class to record data specific to a measurement directory : In/out name, w factor
@@ -309,7 +311,7 @@ class cBA_GCP
           cBA_GCP& operator=(cBA_GCP const&) = delete;
 
           void AddGCP3D(cMes3DDirInfo * aMesDirInfo, cSetMesGnd3D &aSetMesGnd3D, bool verbose);
-          void AddMes2D(cSetMesPtOf1Im &, cMes2DDirInfo * aMesDirInfo, cSensorImage*, eLevelCheck OnNonExistP=eLevelCheck::Warning);
+          void AddMes2D(cSetMesPtOf1Im &, cMes2DDirInfo * aMesDirInfo, cSensorImage* aSensorImage, eLevelCheck OnNonExistP=eLevelCheck::Warning);
           const cSetMesGndPt & getMesGCP() const {return mMesGCP;}
           cSetMesGndPt & getMesGCP() {return mMesGCP;}
           std::vector<cMes2DDirInfo*> mAllMes2DDirInfo;
@@ -344,7 +346,7 @@ class cData1ImLidPhgr
 {
     public :
         std::string mScanAName;    //< origin scan id to get uk
-        std::string mScanBName;    //< secondary scan id to get uk (only for llidar/lidar adj)
+        std::string mScanBName;    //< secondary scan id to get uk (only for lidar/lidar adj)
         size_t mKIm;  ///< number of the image where the patch is seen (only for lidar/im adj)
         std::vector<std::pair<tREAL8,cPt2dr>> mVGr; ///< pair of radiometry/gradient, in image,  for each point of the patch
 };
@@ -514,9 +516,10 @@ public:
 
 protected:
     std::vector<cStaticLidarBAData>   mVScans;      ///< vector of raster representations of lidar
-    std::map<std::string,cIm2D<tREAL4>> mMapZbuf; ///< fusion of all zbuffers for one scan B name
+    std::map<std::string,cIm2D<tREAL4>> mMapZbuf; ///< fusion of all zbuffers for one image/scan B name
     std::map<std::string,cStdWeighterResidual> mWeightersMap;   ///< map from "nameScanA-nameScanB" to the appropriate weighter
     tREAL8                            mThresholdInit, mThresholdFinal;   ///< distance where scan points are supposed to be hidden
+    std::map<std::string, int>        mMapNbUsedPatches; // indexed by "ScanA>ImB", number of patches used for this couple
 };
 
 /**
@@ -584,7 +587,7 @@ protected :
          int                     aKPt
          ) override;
 
-    tREAL8 mNormalDiffMinCos = 0.98;
+    tREAL8 mNormalDiffMinCos = cos(15*M_PI/180);
 };
 
 
@@ -623,8 +626,6 @@ class cBA_ArboTriplets
     private:
         cMakeArboTriplet*                            mPMAT;
         int                                                mNbIter;
-        tREAL8                                             mSigAttFinal;
-        tREAL8                                             mThrFinal;
         std::vector<tREAL8>                                mSigARange;  ///< [start, end] dynamic threshold
         std::vector<tREAL8>                                mThrRange;   ///< [start, end] dynamic threshold
 
@@ -652,8 +653,8 @@ class cMMVII_BundleAdj
           void  AddCam(const std::string & aNameIm);  /// add from name, require PhP exist
           void  AddReferencePoses(const std::vector<std::string> &);  ///  [Fofder,SigmGCP,SigmaRot ?]
 
-          void AddBlocRig(const std::vector<double>& aSigma,const std::vector<double>&  aSigmRat ); // RIGIDBLOC
-          void AddCamBlocRig(const std::string & aCam); // RIGIDBLOC
+         // void AddBlocRig(const std::vector<double>& aSigma,const std::vector<double>&  aSigmRat ); // RIGIDBLOC
+         // void AddCamBlocRig(const std::string & aCam); // RIGIDBLOC
           void AddTopo(); // TOPO
           cBA_Topo* getTopo() { return mTopo;}
           cPhotogrammetricProject * getPhProj() {return mPhProj;}
@@ -661,8 +662,8 @@ class cMMVII_BundleAdj
           bool checkIfLastIter(){return mIsLastIter;}
 
           // Add clino bloc to compute relative orientation between clino and a camera
-          void AddClinoBloc();
-          void AddClinoBloc(cBA_Clino * aBAClino);
+          // void AddClinoBloc();
+          //void AddClinoBloc(cBA_Clino * aBAClino);
 
           bool AddTopo(const std::string & aTopoFilePath); // TOPO
           ///  =======  Add GCP, can be measure or measure & object
@@ -671,7 +672,7 @@ class cMMVII_BundleAdj
           cBA_GCP& getGCP() { return mGCP;}
 
           ///  ============  Add Lidar/Photogra ===============          void AddLineAdjust(const std::vector<std::string> &);
-          cStaticLidar *AddStaticLidar(const std::string &aScanFileName);
+          bool AddStaticLidar(cStaticLidar* aStaticLidar);
           void Add1AdjLidarPhotogra(const std::vector<std::string> &);
           void Add1AdjLidarPhoto(const std::vector<std::string> &);
           void Add1AdjLidarLidar(const std::vector<std::string> &);
@@ -684,7 +685,9 @@ class cMMVII_BundleAdj
           const std::vector<cSensorImage *> &  VSIm() const ;  ///< Accessor
           const std::vector<cSensorCamPC *> &  VSCPC() const;   ///< Accessor
           const std::unordered_map<std::string, cStaticLidar*> & MapTSL() const; ///< Accessor
-                                                                //
+
+          /// Fix the %% for printing stat on tie-p residual
+          void SetTiePShowPerMil(const std::vector<int> &);
 
           bool CheckGCPConstraints() const; //< test if free points have enough observations
           //  =========  control object free/frozen ===================
@@ -695,9 +698,10 @@ class cMMVII_BundleAdj
           void SetFrozenCenters(const std::string & aPattern);
           void SetFrozenOrients(const std::string & aPattern);
           void SetFrozenClinos(const std::string & aPattern);
-          void SetFrozenTSL(const std::string & aPattern);
           void SetSharedIntrinsicParams(const std::vector<std::string> &);
            
+          void SetGaugeRelPause(const std::vector<std::string> &);
+         // void SetGaugeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
 
           void AddPoseViscosity();
           void AddConstrainteRefPose();
@@ -720,18 +724,17 @@ class cMMVII_BundleAdj
 
 
 
-          void SaveBlocRigid();
+      //    void SaveBlocRigid();
           void Save_newGCP3D();
           void SaveTopo();
-          void SaveTSL();
 
           void Set_UC_UK(const std::vector<std::string> & aParam);
           void ShowUKNames(const std::vector<std::string> & aParam, const std::string &aSuffix, cMMVII_Appli* =nullptr) ;
           cPt3dr GetGCP_UC_UK(const std::string & aGCPName) const;
           // Save results of clino bundle adjustment
-          void SaveClino();
-          void  AddBenchSensor(cSensorCamPC *); // Add sensor, used in Bench Clino
-
+         // void SaveClino();
+          /// Add sensor, used in Bench Clino, deprecated probably
+          void  AddBenchSensor(cSensorCamPC *);
           void setVerbose(bool aVerbose){mVerbose=aVerbose;}; // Print or not residuals
           
           cResolSysNonLinear<tREAL8> *  Sys();  /// Real object, will disapear when fully interfaced for mSys
@@ -744,6 +747,8 @@ class cMMVII_BundleAdj
           int Iter() const { return mIter;}
 
           tREAL8 CurLVMParam() const;
+          int   NbCamPC() const;
+
 
      private :
 
@@ -766,6 +771,11 @@ class cMMVII_BundleAdj
 
           /// One iteration : add all measure + constraint + Least Square Solve/Udpate/Init
           void OneIteration(bool isFirstIter=false, tREAL8 aLVM=0.0, bool doShowCond=false);
+
+          int IndexOfPCPose(const std::string &,bool SVP =false) const;
+
+          /// Show the variable, with their names, which have been frozen because no obs
+          void ShowLVMFrozenVar();
 
           //============== Data =============================
           cPhotogrammetricProject * mPhProj;
@@ -792,9 +802,10 @@ class cMMVII_BundleAdj
           std::string  mPatFrozenCenter;      /// Pattern for name of pose with frozen centers
           std::string  mPatFrozenOrient;      /// Pattern for name of pose with frozen centers
           std::string  mPatFrozenClinos;      /// Pattern for name of clino with frozen boresight
-          std::string  mPatFrozenTSL;         /// Pattern for name of static lidars with frozen poses
 
           std::vector<std::string>  mVPatShared;
+
+          std::vector<int>          mTiePShowPerMil;
 
           // ===================  Information to use ==================
              
@@ -805,8 +816,8 @@ class cMMVII_BundleAdj
           std::vector<cBA_TieP*>   mVTieP;
 
                  // - - - - - - -   Bloc Rigid - - - - - - - -
-          cBA_BlocRig*              mBlRig;  // RIGIDBLOC
-          cBA_Clino*              mBlClino;  // CLINOBLOC
+       //   cBA_BlocRig*              mBlRig;  // RIGIDBLOC
+        //  cBA_Clino*              mBlClino;  // CLINOBLOC
           cBA_Topo*              mTopo;  // TOPO
 
           std::vector<cBA_LidarPhotogra*>  mVBA_Lidar;
@@ -820,6 +831,15 @@ class cMMVII_BundleAdj
           std::string                        mPatternRef;
           bool                               mDoRefCam;
           cDirsPhProj*                       mDirRefCam;
+
+          // ===================  "Gauge for pure relative pause"  ==================
+
+
+          bool   mUseGauge;
+          int    mKPoseMainGauge;
+          int    mKPoseSecondGauge;
+          int    mKCoordSecondGauge;
+
           // ===================  "Viscosity"  ==================
 
           tREAL8   mSigmaViscAngles;  ///< "viscosity"  for angles
@@ -841,6 +861,8 @@ class cMMVII_BundleAdj
           std::vector<cBA_BlockInstr *>          mVecBlockInstrAdj;
 
           tREAL8                                mCurLVMParam;
+          int                                   mNbCamPC;
+
 };
 
 

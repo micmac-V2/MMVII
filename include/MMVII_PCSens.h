@@ -288,8 +288,10 @@ class cPerspCamIntrCalib : public cObj2DelAtEnd,
             cPt2dr InterpolOnUDLine(const tSeg2dr&,tREAL8 WeightP1) const;
 
         /// in case of a equirect projection, image coordinates may have to be fixed with modulo 2pi
-            void FixLoop(tVecOut &aVPtInOut) const;
-            void FixLoop(tPtOut &aVPtInOut) const;
+            void FixLoopPixelsInImage(std::vector<cPt2dr> &aVPtInOut) const;
+            void FixLoopPixelsInImage(cPt2dr &aPtInOut) const;  ///< when having a point in a looping image
+            void FixLoopPixelsResiduals(cPt2dr &aResPx) const;  ///< when searching for a residual (difference between two points) in a looping image
+            void FixLoopBundle(cPt2dr &aPtBundle) const ;
     // ==================   Accessors & Modifiers ===================
             const double & F() const;   ///< access to focal
             const cPt2dr & PP() const;  ///< acess to principal point
@@ -739,6 +741,14 @@ class cSensorCamPC : public cSensorImage
          cSensorCamPC * GetSensorCamPC()  override;
 
          void Show() const override;
+
+         virtual bool DoAddCalibToUk() const;
+
+
+         virtual void FixLoopPixelsInImage(std::vector<cPt2dr> &aVPtInOut) const override;
+         virtual void FixLoopPixelsInImage(cPt2dr &aPtInOut) const override;  ///< when having a point in a looping image
+         virtual void FixLoopPixelsResiduals(cPt2dr &aResPx) const override;  ///< when searching for a residual (difference between two points) in a looping image
+         virtual void FixLoopBundle(cPt2dr &aPtBundle) const override;
 
      private :
         void Bench();
