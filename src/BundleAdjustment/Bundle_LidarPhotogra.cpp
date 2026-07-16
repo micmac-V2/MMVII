@@ -1036,6 +1036,9 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
         mThresholdFinal = INFINITY;
 
     double aNormalTolerancyDeg = cStrIO<double>::FromStr(aParamBis[4]);
+    MMVII_INTERNAL_ASSERT_User((aNormalTolerancyDeg>=0) && (aNormalTolerancyDeg<=180),
+                               eTyUEr::eBadOptParam,"Normal tolerancy must be inside [0,180], got "+ToStr(aNormalTolerancyDeg));
+
     mNormalDiffMinCos = cos(aNormalTolerancyDeg*M_PI/180.);
 
     //read scans files from directory corresponding to pattern in aParam.at(0)
@@ -1211,8 +1214,9 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
     tREAL8 aMinResidual = INFINITY;
     cPt3dr aNormalGndA = aScanA->Pose().Rot().Value(aPatch.mNormalInstr);
 
-    //std::cout<<"ScanA: "<<aScanA->NameImage()<<" Patch "<<aPatch.mId<<": "<<*aPatch.mLPatchesP.begin()<<" -> Gnd: "<<aPGround<<"\n";
-
+    #ifdef SCANSCANDEBUG
+    std::cout<<"ScanA: "<<aScanA->NameImage()<<" Patch "<<aPatch.mId<<": "<<*aPatch.mLPatchesP.begin()<<" -> Gnd: "<<aPGround<<"\n";
+    #endif
     //  Parse all the scans B, we will select the ones where the patch is visible
     for (auto & aScanBData: mVScans)
     {
@@ -1222,10 +1226,14 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             continue; // no obs on the same scan
 
         // 1st test: zbuffer visibility
-        //std::cout<<"On scan B "<<aScanB->NameImage()<<": ";
+        #ifdef SCANSCANDEBUG
+        std::cout<<"On scan B "<<aScanB->NameImage()<<": ";
+        #endif
         if (aPatch.mHiddenOnImage.count(aScanB->NameImage())>0)
         {
-            //std::cout<<" hidden\n";
+            #ifdef SCANSCANDEBUG
+            std::cout<<" hidden\n";
+            #endif
             continue;
         }
         cDataGenUnTypedIm<2> & aGenDImDist = aScanB->getRasterDistance();
@@ -1237,20 +1245,24 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             aData.mScanAName = aScanA->NameImage();
             aData.mScanBName = aScanB->NameImage();
             cPt2dr aPIm = aScanB->Ground2Image(aPGround); // extract the image  projection
-            //std::cout<<" projection :"<<aPIm<<"\n";
+            #ifdef SCANSCANDEBUG
+            std::cout<<" projection :"<<aPIm<<"\n";
+            #endif
             tREAL8 aDist = Norm2(aPGround-aScanB->Center());
             if (!aScanB->IsValidPoint(aPIm))
             {
-                //std::cout<<" not a valid point\n";
+                #ifdef SCANSCANDEBUG
+                std::cout<<" not a valid point\n";
+                #endif
                 continue;
             }
             if (aGenDImDist.InsideInterpolator(*mInterp,aPIm,1.0))  // is it sufficiently inside
             {
                 auto aVGr = aGenDImDist.GetValueAndGradInterpol(*mInterp,aPIm); // extract pair Value/Grad of image
                 aData.mVGr = {aVGr};
-                //std::cout<<aPIm<<" GetValueAndGradInterpol: "<<aVGr.first<<" "<<aVGr.second.x()*1940<<" "<<aVGr.second.y()*1940<<"\n";
-                //auto aVGrTest = aGenDImDist.GetValueAndGradInterpol(*mInterp,{6173,3847});
-                //std::cout<<cPt2dr(6173,3847)<<" GetValueAndGradInterpol: "<<aVGrTest.first<<" "<<aVGrTest.second.x()*1940<<" "<<aVGrTest.second.y()*1940<<"\n";
+                #ifdef SCANSCANDEBUG
+                std::cout<<aPIm<<" GetValueAndGradInterpol: "<<aVGr.first<<" "<<aVGr.second.x()*1940<<" "<<aVGr.second.y()*1940<<"\n";
+                #endif
 
                 tREAL8 aValIm = aData.mVGr.at(0).first;   // value of first/central pixel in this image
                 tREAL8 aResidual = aValIm-aDist;
@@ -1258,19 +1270,25 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                     aMinResidual = aResidual;
                 if (aWeighter.SingleWOfResidual( std::vector<tREAL8>{aResidual})==0.0)
                 {
-                    //std::cout<<"removed W\n";
+                    #ifdef SCANSCANDEBUG
+                    std::cout<<"removed W\n";
+                    #endif
                     continue;
                 }
                 cPt3dr aNormalInstrB = aScanB->Image2NormalInstr(aPIm, *mInterp);
                 cPt3dr aNormalGndB = aScanB->Pose().Rot().Value(aNormalInstrB);
                 if (Scal(aNormalGndA,aNormalGndB)<mNormalDiffMinCos)
                 {
-                    //std::cout<<"Removed "<<aPatch.mLPatchesP[0]<<" due to normals: "<<aNormalGndA<<" "<<aNormalGndB
-                    //         <<" "<<acos(Scal(aNormalGndA,aNormalGndB))*180/M_PI<<"deg\n";
+                    #ifdef SCANSCANDEBUG
+                    std::cout<<"Removed "<<aPatch.mLPatchesP[0]<<" due to normals: "<<aNormalGndA<<" "<<aNormalGndB
+                             <<" "<<acos(Scal(aNormalGndA,aNormalGndB))*180/M_PI<<"deg\n";
+                    #endif
                     continue;
                 }
-                //std::cout<<"Patch "<<aPatch.mLPatchesP[0]<<" accepted. Normals: "<<aNormalGndA<<" "<<aNormalGndB
-                //         <<" "<<acos(Scal(aNormalGndA,aNormalGndB))*180/M_PI<<"deg\n";
+                #ifdef SCANSCANDEBUG
+                std::cout<<"Patch "<<aPatch.mLPatchesP[0]<<" accepted. Normals: "<<aNormalGndA<<" "<<aNormalGndB
+                         <<" "<<acos(Scal(aNormalGndA,aNormalGndB))*180/M_PI<<"deg\n";
+                #endif
                 aAvgRes.Add(1.0,fabs(aResidual));  // compute std deviation
                 aVData.push_back(aData); // memorize the data for this image
             }
