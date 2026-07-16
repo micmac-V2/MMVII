@@ -10,6 +10,7 @@
 #include "MMVII_Topo.h"
 #include "MMVII_PoseRel.h"
 #include "MMVII_InstrumentalBlock.h"
+#include "MMVII_DeclareAllCmd.h"
 
 /**
    \file  cPhotogrammetricProject.cpp
@@ -98,6 +99,7 @@ cDirsPhProj::cDirsPhProj(eTA2007 aMode,cPhotogrammetricProject & aPhp):
    mPurgeOut       (false),
    mAllowDirInEmpty  (false)
 {
+     aPhp.AddDirProj(this);
 }
 
 void cDirsPhProj::SetAllowDirInEmpty()
@@ -107,6 +109,11 @@ void cDirsPhProj::SetAllowDirInEmpty()
 
 const std::string &  cDirsPhProj::DirLocOfMode() const { return mDirLocOfMode; }
 
+std::string cDirsPhProj::ComputeFullDir(const std::string& aDirIn) const
+{
+   return    mAppli.DirProject() + mDirLocOfMode + aDirIn + StringDirSeparator();
+}
+
 void cDirsPhProj::Finish()
 {
     //  Allow user to specify indiferrently short name of full name, will extract short name
@@ -115,7 +122,8 @@ void cDirsPhProj::Finish()
     if (mAppli.IsInit(&mDirIn))  // dont do it if mDirIn not used ...
         mDirIn  = SuppressDirFromNameFile(mDirLocOfMode,mDirIn,true);
 
-    mFullDirIn  = mAppli.DirProject() + mDirLocOfMode + mDirIn + StringDirSeparator();
+   // mFullDirIn  = mAppli.DirProject() + mDirLocOfMode + mDirIn + StringDirSeparator();
+    mFullDirIn =  ComputeFullDir(mDirIn);
 
     //  MPD, new check, seems correct, hope it will not create new bug ... , New modif,
     //  we accept this case with NONE, because for "historical" reason, this is the convention
@@ -218,7 +226,11 @@ tPtrArg2007    cDirsPhProj::ArgDirOutOpt(const std::string & aNameVar,const std:
 tPtrArg2007    cDirsPhProj::ArgDirOutOptWithDef(const std::string & aDef,const std::string & aNameVar,const std::string & aMsg)
 {
     mDirOut = aDef;
-    mAppli.SetVarInit(&mDirOut);
+    // Because it creates false log cmd
+    if (Nb_GenArgsSpec_Running()==0)
+    {
+        mAppli.SetVarInit(&mDirOut);
+    }
     return ArgDirOutOpt(aNameVar,aMsg,true);
 }
 
@@ -273,6 +285,8 @@ const std::string & cDirsPhProj::DirOut() const
    AssertDirOutIsInit();
    return mDirOut;
 }
+eTA2007 cDirsPhProj::Mode() const {return mMode;}
+
 const std::string & cDirsPhProj::FullDirIn() const
 {
    AssertDirInIsInit();
@@ -361,6 +375,7 @@ cPhotogrammetricProject::cPhotogrammetricProject(cMMVII_Appli & anAppli) :
 
 void cPhotogrammetricProject::FinishInit()
 {
+
     mFolderProject = mAppli.DirProject() ;
 
     mDirPhp   = mFolderProject + MMVII_DirPhp + StringDirSeparator();
@@ -400,11 +415,18 @@ void cPhotogrammetricProject::FinishInit()
     mDPOriRel.Finish() ;
 
 
+    // One more modif, it has side effect to articially  make mDPMetaData an Output, so we create "by hand" the folder
+    // std::string aDirMTD = mDirPhp + E2Str(eTA2007::MetaData) + StringDirSeparator() + "Std" + StringDirSeparator() ;
+    std::string aDirMTD = mDPMetaData.ComputeFullDir("Std");
+    CreateDirectories(aDirMTD,true);
+    /*
+    StdOut()  << "DITRMTD "<< aDirMTD << "\n";
     // Force the creation of directory for metadata spec, make
     if (! mDPMetaData.DirOutIsInit())
     {
         mDPMetaData.ArgDirOutOptWithDef("Std","","");
     }
+    */
     //  Make Std as default value for input
     if (! mDPMetaData.DirInIsInit())
         mDPMetaData.SetDirIn("Std");
@@ -425,7 +447,15 @@ void cPhotogrammetricProject::FinishInit()
     {
        mCurSysCo = ReadSysCo(mNameCurSysCo);
     }
+
+
 }
+
+void cPhotogrammetricProject::AddDirProj(const cDirsPhProj* aDP)
+{
+    mAllDir.push_back(aDP);
+}
+
 
 cDirsPhProj * cPhotogrammetricProject::NewDPIn(eTA2007 aType,const std::string & aDirIn)
 {
@@ -440,6 +470,27 @@ cDirsPhProj * cPhotogrammetricProject::NewDPIn(eTA2007 aType,const std::string &
 
 cPhotogrammetricProject::~cPhotogrammetricProject()
 {
+   // StdOut() << "XXX~cPhotogrammetricProject " << mAppli.Specs().Name() << "\n";
+    if (Nb_GenArgsSpec_Running()==0) // mAppli.Specs().Name() == TheSpecGenArgsSpec.Name())
+    {
+        for (const auto &  aDirP : mAllDir)
+        {
+            if (aDirP->DirOutIsInit() && (mAppli.LevelCall()==0))
+            {
+
+                std::string aNameFileLog = aDirP->FullDirOut() + "MMVII-LogCmdModif.txt";
+
+                cMMVII_Ofs  aOfs(aNameFileLog,eFileModeOut::AppendText);
+
+                aOfs.Ofs() << "=============================================================\n\n";
+                aOfs.Ofs() <<   mAppli.CommandOfMain().Com() << " \n";
+               // aOfs.Ofs() << "MODEEEE= " <<  E2Str(aDirP->Mode()) << "\n";
+                aOfs.Ofs() << "  ending correctly at : " <<  mAppli.StrDateCur() << "\n\n";
+
+            }
+        }
+    }
+
     DeleteMTD();
     DeleteAllAndClear(mDirAdded);
 }
@@ -1250,7 +1301,7 @@ void  cPhotogrammetricProject::SaveHomol
 
 std::string cPhotogrammetricProject::NameTiePIn(const std::string & aNameIm1,const std::string & aNameIm2,const std::string & aDirIn) const
 {
-    std::string aDir = (aDirIn=="") ? mDPTieP.FullDirIn() : aDirIn;
+    std::string aDir = (aDirIn=="") ? mDPTieP.FullDirIn() : mDPTieP.ComputeFullDir(aDirIn);
     return  aDir+aNameIm1+StringDirSeparator()+aNameIm2+"."+VectNameDefSerial();
 }
 
@@ -1283,8 +1334,16 @@ bool cPhotogrammetricProject::GenReadHomol
 {
    // aSetHCI
     std::string aName = NameTiePIn(aNameIm1,aNameIm2,aDirIn);
+  //  StdOut() << "NH=" << aName << "\n";
     if (!ExistFile(aName))
     {
+        aName  = NameTiePIn(aNameIm2,aNameIm1,aDirIn);
+        if (ExistFile(aName))
+        {
+              ReadFromFile(aSetHCI.SetH(),aName);
+              aSetHCI.Swap();
+              return true;
+        }
         return false;
     }
     ReadFromFile(aSetHCI.SetH(),aName);

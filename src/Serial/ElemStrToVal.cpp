@@ -635,7 +635,12 @@ cSpecOneArg2007::cSpecOneArg2007(const std::string & aName,const std::string & a
     mCom   (aCom),
     mSemPL (aVPL)
 {
+    //if (mSemPL.cES_PropertyList)
     ReInit();
+    if (HasType(eTA2007::Output))
+    {
+     //   StdOut() << "cSpecOneArg2007::cSpecOneArg2 :" << mName << "\n"; getchar();
+    }
 }
 
 cSpecOneArg2007::~cSpecOneArg2007()

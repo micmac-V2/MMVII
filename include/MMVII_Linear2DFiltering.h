@@ -409,7 +409,7 @@ template <class Type> class cSetIm4SparseDist
      typedef cIm2D<Type>     tIm;
      typedef cDataIm2D<Type> tDIm;
 
-     cSetIm4SparseDist(size_t aNmIm,const cPt2di& aSzInit,tREAL8 aFactRed);
+     cSetIm4SparseDist(const std::vector<std::string> &,const cPt2di& aSzInit,tREAL8 aFactRed);
      void Add(const cPt2dr& aPt,const std::vector<tREAL8> & aVValues,tREAL8 aWeight=1.0);
 
      /** Make the weithting and the average dense measure by convoluting, the default size of
@@ -422,16 +422,27 @@ template <class Type> class cSetIm4SparseDist
      tIm ImW() const;
      tIm ImAvg(size_t aKTh) const;
 
+     /// Generate files computed, if not WithLayer : only weighting
+     void GenFiles(const std::string& aDir,const std::string & Pref,bool WithLayer);
+
+     ///  Gen file + MakeDense + GenFile again
+     void SaveDenseSave(const std::string& aDir,const std::string & Pref,bool WithLayebefore=false,bool WithLayerAfter=true);
+
+
    private :
 
-     size_t            mNbIm;        ///< Number of images
-     tREAL8            mNbMeasure;   ///< Number of measures added
-     tREAL8            mSumW;        ///< Sum of weights
-     cPt2di            mSzInit;      ///< Initial size of images
-     tREAL8            mFactRed;     ///< Reduction factor
-     cPt2di            mSzRed;       ///< Size of reduced images
-     tIm               mImW;         ///< Image of weights
-     std::vector<tIm>  mIm2Avg;      ///<  Vector of image averaged
+     void Gen1File(tIm,const std::string& aDir,std::string aLayer,const std::string & Pref);
+
+     bool                      mFiltered;
+     std::vector<std::string>  mNames;       ///< Names of layer
+     size_t                    mNbIm;        ///< Number of images
+     tREAL8                    mNbMeasure;   ///< Number of measures added
+     tREAL8                    mSumW;        ///< Sum of weights
+     cPt2di                    mSzInit;      ///< Initial size of images
+     tREAL8                    mFactRed;     ///< Reduction factor
+     cPt2di                    mSzRed;       ///< Size of reduced images
+     tIm                       mImW;         ///< Image of weights
+     std::vector<tIm>          mIm2Avg;      ///<  Vector of image averaged
 };
 
 };

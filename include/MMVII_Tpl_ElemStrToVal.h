@@ -285,6 +285,7 @@ template <class Type> class cInstReadOneArgCL2007 : public cSpecOneArg2007
 
 template <class Type> tPtrArg2007 Arg2007(Type & aVal, const std::string & aCom,const cSpecOneArg2007::tAllSemPL & aVSem )
 {
+
    return tPtrArg2007(new cInstReadOneArgCL2007<Type>(aVal,"",aCom,aVSem));
 }
 

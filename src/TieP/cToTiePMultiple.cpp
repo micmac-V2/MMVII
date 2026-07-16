@@ -56,6 +56,14 @@ size_t NbPtsMul(const tPairTiePMult & aPair)
 }
 
 
+cPt2dr  KthPt(const tPairTiePMult & aPair, int aKIm,int aKPt)
+{
+   // size_t aMult = Multiplicity(aPair);
+
+   return aPair.second.mVPIm.at(aKIm+Multiplicity(aPair)*aKPt);
+}
+
+
 cPt3dr BundleInter(const tPairTiePMult & aPair,size_t aKPts,const std::vector<cSensorImage *>&  aVSI)
 {
 
