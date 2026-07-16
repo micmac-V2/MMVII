@@ -92,12 +92,42 @@ cCollecSpecArg2007 & cAppli_TiePReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     ;
 }
 
-cPt2dr  KthPt(const tPairTiePMult & aPair, int aKIm,int aKPt)
-{
-   // size_t aMult = Multiplicity(aPair);
 
-   return aPair.second.mVPIm.at(aKIm+Multiplicity(aPair)*aKPt);
+class cImageVectorField
+{
+   public :
+     cImageVectorField(const std::string & aNameIm,const std::vector<tREAL8> &aVParams);
+
+     void DrawArrow(const cPt2dr & aP1,const cPt2dr& aP2);
+   private :
+     std::string   mNameIm;
+     cRGBImage     mIm;
+     tREAL8        mAmpl;
+     tREAL8        mWidth;
+     tREAL8        mRay;
+     cPt3di        mColorArrow;
+     cPt3di        mColorCircle;
+};
+
+cImageVectorField::cImageVectorField(const std::string & aNameIm,const  std::vector<tREAL8> &aVParams) :
+    mNameIm       (aNameIm),
+    mIm           (cRGBImage::FromFile(mNameIm,1,eForceGray::Yes)),
+    mAmpl         (aVParams.at(0)),
+    mWidth        (GetDef(aVParams,1,1.0)),
+    mRay          (GetDef(aVParams,2,4.0)),
+    mColorArrow   (cRGBImage::Red),
+    mColorCircle  (cRGBImage::Blue)
+{
 }
+
+void cImageVectorField::DrawArrow(const cPt2dr & aP1,const cPt2dr& aP2)
+{
+    mIm.DrawCircle(mColorCircle,aP1,mRay);
+    mIm.DrawLine(aP1,aP1+(aP2-aP1)*mAmpl,mColorArrow,mWidth);
+}
+
+
+
 
 void  cAppli_TiePReport::ProcessOnePair(const std::string & aName1,const std::string& aName2)
 {

@@ -452,6 +452,8 @@ inline cVal1ConfTPM     & Val(tPairTiePMult & aPair)    {return aPair.second;}
 
 size_t NbPtsMul(const tPairTiePMult &) ;
 size_t Multiplicity(const tPairTiePMult&);
+cPt2dr  KthPt(const tPairTiePMult & aPair, int aKIm,int aKPt);
+
 cPt3dr BundleInter(const tPairTiePMult &,size_t aKPts,const std::vector<cSensorImage *> &);
 void   MakePGround(tPairTiePMult &,const std::vector<cSensorImage *>&);
 void   MakePGroundFromBundles(tPairTiePMult &,const std::vector<cSensorImage *> &);
