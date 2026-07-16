@@ -17,6 +17,7 @@ CodeDir=${DenseMDir}"RAFT-Stereo/"
 #MODELPATH=${RAFTSDir}"60000_raftstereo_experiment-PATCH-512_AUG.pth"
 #MODELPATH=${RAFTSDir}"100000_raftstereo_experiment-PATCH-512_AUG_more.pth"
 MODELPATH=${RAFTSDir}"260000_raftstereo_experiment-PATCH-512_AUG_LARGE_DISP_300K.pth"
+#MODELPATH=${RAFTSDir}"50000_color_ortho_raftstereo_forest_512_waugmentation.pth"
 #MODELPATH=${RAFTSDir}"220000_raftstereo_forest_512_w_heavy_augmentation.pth"
 #MODELPATH=${RAFTSDir}"110000_raftstereo_forest_512_waugmentation.pth"
 

@@ -660,10 +660,12 @@ void cAppliParsedBoxVirtualIm::APBI_ExecAll(bool Silence)
     {
         for (const auto & aBox: mSetBoxes)
         {
-            aSetOfPixIndexes.push_back(
-                        CByC1P(aPBIO.BoxIndex().FromNormaliseCoord(aPBIO.BoxGlob().ToNormaliseCoord(aBox.Middle())),
-                        round_ni)
-                    );
+
+            //StdOut()<<"box glob to Index coord "<<aPBIO.BoxIndex().FromNormaliseCoord(aPBIO.BoxGlob().ToNormaliseCoord(aBox.P0()))<<"\n";
+            cPt2di BoxPixIndex = CByC1P(aPBIO.BoxIndex().FromNormaliseCoord(aPBIO.BoxGlob().ToNormaliseCoord(aBox.P0())),
+                        round_ni);
+            aSetOfPixIndexes.push_back(BoxPixIndex);
+            //StdOut() << "Box to parse: " << aBox << " with pixel index: " << BoxPixIndex << "\n";
         }
     }
 
@@ -676,9 +678,8 @@ void cAppliParsedBoxVirtualIm::APBI_ExecAll(bool Silence)
         {
             // if a the top level of paralelization, construct the string
             // For first box, run it classically so that files are created only once
-            if (TopCallParallTile() && (aPixI!=aSetOfPixIndexes[0]))
+            if (TopCallParallTile() /*&& (aPixI!=aSetOfPixIndexes[0])*/)
             {
-            //std::string aCom = mAppli.CommandOfMain() + " " +NameIndBoxRecal + "=" + ToStr(aPixI);
                 cParamCallSys aCom = mAppli.CommandOfMain();
                 aCom.AddArgs(NameIndBoxRecal + "=" + ToStr(aPixI));
                 aLComParal.push_back(aCom);
@@ -686,9 +687,11 @@ void cAppliParsedBoxVirtualIm::APBI_ExecAll(bool Silence)
             else
             {
                 // If not in paral do all box, else do only the box indicate by recall
+
                 if ((!mParalTiles) || (aPixI==mIndBoxRecal))
                 {
                     mCurPixIndex = aPixI;
+                    //StdOut() << "Processing box with pixel index: " << aPixI << "\n";
                     //LoadI(CurBoxIn());
                     mAppli.ExeOnParsedBox();
                 }
@@ -722,6 +725,8 @@ void cAppliParsedBoxVirtualIm::APBI_ExecAll(bool Silence)
     }
 
     mParseBox = nullptr ;   // No longer inside parsing
+
+    //StdOut() << "Number of boxes to process in parallel: " << aLComParal.size() << "\n";
     mAppli.ExeComParal(aLComParal,Silence);
 
 }
@@ -1370,6 +1375,8 @@ int cAppliCloudFuser::Exe()
         // read mTilingIndexFile
         ReadIndexTilingAndMetadataFile();
 
+        //StdOut()<<"mSetRealBoxCalc.size() "<<mSetRealBoxCalc.size()<<std::endl;
+
         // global affine transform for the resulting output image
         mGlobTf = cAffin2D<tREAL8>(cPt2dr(mGlobalRealBoxFusion.CurBox().P0().x(),
                                     mGlobalRealBoxFusion.CurBox().P1().y()),
@@ -1383,7 +1390,7 @@ int cAppliCloudFuser::Exe()
         }
     
 
-        // some sorting and indexing with a mask to specify what should be compuated 
+        // some sorting and indexing with a mask to specify what should be computed 
         std::sort(mSetPixBoxCalc.begin(), mSetPixBoxCalc.end(), [](const cBox2di& a, const cBox2di& b) 
         {
             if (a.P0().y() != b.P0().y()) return a.P0().y() < b.P0().y();
