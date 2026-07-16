@@ -778,6 +778,8 @@ cPt3dr cStaticLidar::Image2InputXYZ(cPt2di aRasterPxI) const
     auto & aRasterXData = mRasterX->DIm();
     auto & aRasterYData = mRasterY->DIm();
     auto & aRasterZData = mRasterZ->DIm();
+    if (!aRasterXData.Inside(aRasterPxI))
+        return {0.,0.,0.};
     return cPt3dr{
         aRasterXData.GetV(aRasterPxI),
         aRasterYData.GetV(aRasterPxI),
@@ -792,6 +794,8 @@ cPt3dr cStaticLidar::Image2InputXYZ(cPt2dr aRasterPx) const
     auto & aRasterXData = mRasterX->DIm();
     auto & aRasterYData = mRasterY->DIm();
     auto & aRasterZData = mRasterZ->DIm();
+    if (!aRasterXData.InsideBL(aRasterPx))
+        return {0.,0.,0.};
     return cPt3dr{
         aRasterXData.GetVBL(aRasterPx),
         aRasterYData.GetVBL(aRasterPx),
@@ -1095,7 +1099,7 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
     //std::cout<<"  Ground2ImagePrecise for point "<<aGroundPt<<"\n";
     cPt2dr aDirCam3DTheoretical = InternalCalib()->Dir_Proj()->Value(Pose().Inverse(aGroundPt));
     //std::cout<<"  UV th: "<<aDirCam3DTheoretical<<"\n";
-    cPt3dr aPtRasterApprox = this->Ground2ImageAndDepth(aGroundPt);
+    cPt3dr aPtRasterApprox =cSensorCamPC::Ground2ImageAndDepth(aGroundPt);
     cPt2dr aPtRaster = {aPtRasterApprox.x(), aPtRasterApprox.y()};
 
     // test if int value
@@ -1112,7 +1116,14 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
     }
 
     // if approx is sufficient, no need for iter
-    cPt2dr aDirTest = InternalCalib()->Dir_Proj()->Value(Image2Camera3D(aPtRaster));
+    cPt3dr aPtCam3D = Image2Camera3D(aPtRaster);
+    if (IsNull(aPtCam3D))
+    {
+        // we have no data for this point => use default Ground2Image
+        return cSensorCamPC::Ground2Image(aGroundPt);
+    }
+
+    cPt2dr aDirTest = InternalCalib()->Dir_Proj()->Value(aPtCam3D);
     if (Norm2(aDirTest - aDirCam3DTheoretical)< 1e-5)
     {
         //std::cout<<"  skip iter\n";
@@ -1124,8 +1135,14 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
         //std::cout<<"   raster: "<<aPtRaster<<"\n";
         cPt2di aPtRasterUL((int)aPtRaster.x(), (int)aPtRaster.y());
         cPt2di aPtRasterLR((int)aPtRaster.x()+1, (int)aPtRaster.y()+1);
-        cPt2dr aDirUL = InternalCalib()->Dir_Proj()->Value(Image2Camera3D(aPtRasterUL));
-        cPt2dr aDirLR = InternalCalib()->Dir_Proj()->Value(Image2Camera3D(aPtRasterLR));
+        cPt3dr aPtCam3DUL = Image2Camera3D(aPtRasterUL);
+        if (IsNull(aPtCam3DUL))
+            return aPtRaster; // impossible to continue
+        cPt2dr aDirUL = InternalCalib()->Dir_Proj()->Value(aPtCam3DUL);
+        cPt3dr aPtCam3DLR = Image2Camera3D(aPtRasterLR);
+        if (IsNull(aPtCam3DLR))
+            return aPtRaster; // impossible to continue
+        cPt2dr aDirLR = InternalCalib()->Dir_Proj()->Value(aPtCam3DLR);
         //std::cout<<"   Dirs: "<<aDirUL<<" "<<aDirLR<<"\n";
         float aBetterX = aPtRasterUL.x() + (aDirCam3DTheoretical.x()-aDirUL.x())/(aDirLR.x()-aDirUL.x())
                                                *(aPtRasterLR.x()-aPtRasterUL.x());
@@ -1136,6 +1153,19 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
 
     return aPtRaster;
 }
+
+cPt2dr cStaticLidar::Ground2Image(const cPt3dr & aGroundPt) const
+{
+    return Ground2ImagePrecise(aGroundPt);
+}
+
+cPt3dr cStaticLidar::Ground2ImageAndDepth(const cPt3dr & aGroundPt) const
+{
+    cPt2dr aImPt = Ground2Image(aGroundPt);
+    tREAL8 aDist = Image2Distance(aImPt);
+    return {aImPt.x(), aImPt.y(), aDist};
+}
+
 
 void cStaticLidar::ToFile(const std::string & aNameFile) const
 {
@@ -1749,7 +1779,7 @@ void TestRaster2Gnd2Raster(const std::vector<TYPE> &aVectPtsTest, cStaticLidar *
     {
         //std::cout<<"Test " << i << ": "<<aPIm<<"\n";
         auto aPgnd = aScan->Image2Ground(aPIm);
-        auto aPImtest = aScan->Ground2ImagePrecise(aPgnd);
+        auto aPImtest = aScan->Ground2Image(aPgnd);
         //std::cout<<"Result: "<<aPIm<<" -> "<<aPgnd<<" -> "<<aPImtest<<"\n";
         ++i;
         MMVII_INTERNAL_ASSERT_bench(Norm2(cPt2dr(aPIm.x(), aPIm.y())-aPImtest)<aPrecision ,"TestRaster2Gnd2Raster: " + std::to_string(i));
@@ -1761,7 +1791,7 @@ void TestPose(const std::string & aInPath, const std::string & aScanName, const 
 {
     cStaticLidar * aScan =  cStaticLidar::FromFile(aInPath + aScanName, false);
     aScan->ReadRasters(aInPath);
-    auto aRasterPx = aScan->Ground2ImagePrecise({0,0,-8.66});
+    auto aRasterPx = aScan->Ground2Image({0,0,-8.66});
     //std::cout<<"Result: "<<aRasterPx<<" - theoritical "<<aSummitPx<<" -> error "<<Norm2(aRasterPx-aSummitPx)<<"\n";
     MMVII_INTERNAL_ASSERT_bench(Norm2(aRasterPx-aSummitPx)<1e-3 ,"TestPose " + aScanName);
     delete aScan;

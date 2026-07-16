@@ -167,7 +167,8 @@ public :
     cPt3dr Image2Ground(cPt2dr aRasterPx) const;
     tREAL4 Image2Distance(cPt2dr aRasterPx) const;
 
-    cPt2dr Ground2ImagePrecise(const cPt3dr & aGroundPt) const;
+    cPt2dr Ground2Image(const cPt3dr &aGroundPt) const override;
+    cPt3dr Ground2ImageAndDepth(const cPt3dr &) const override;
 
     void FixPtPxLoopAroundPP(cPt2dr &aPtPx) const override;
 
@@ -195,6 +196,8 @@ private :
 
     template <typename TYPE> static void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
                     std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE>> & aIm, bool saveRaster); // keep image in memory
+
+    cPt2dr Ground2ImagePrecise(const cPt3dr & aGroundPt) const;
 
     std::string mStationName;
     std::string mScanName;
