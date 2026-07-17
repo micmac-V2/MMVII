@@ -826,19 +826,20 @@ tREAL4 cStaticLidar::Image2Distance(cPt2dr aRasterPx) const
 
 std::pair<tREAL8,tREAL8> cStaticLidar::AvgDistAndNbValid() const
 {
-    tREAL8 aAvg = 0.;
+    // take mean cubed dist, because less pixels when far
+    tREAL16 aAvg = 0.;
     int aNb = 0;
     for (int l = 0 ; l < PixelDomain().Sz().y(); l++)
         for (int c = 0 ; c < PixelDomain().Sz().x(); c++)
         {
             auto aDist = getRasterDistance().GetV(cPt2di(c, l));
-            if (aDist>0)
+            if (IsValidPoint(cPt2dr(c, l)))
             {
-                aAvg+=aDist;
+                aAvg+=aDist*aDist*aDist;
                 ++aNb;
             }
         }
-    return {aAvg/aNb, aNb};
+    return {pow(aAvg/aNb, 1./3.), aNb};
 }
 
 
@@ -1552,6 +1553,9 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches)
         aYStep = 1.;
     int aLineCounter = 0;
     float aXdecal = float(aRasterMaskData.SzX()) / aNbPatchesX;
+
+    //std::cout<<"aAvgDist="<<aAvgDist<<" aNbValid="<<aNbValid<<
+    //           " aNbPatchesFactor="<<aNbPatchesFactor<<" aYStep="<<aYStep<<"\n";
     while (aY<aRasterMaskData.SzY())
     {
         aX = aXdecal * ((aLineCounter%2)?1./3.:2./3.);
@@ -1559,7 +1563,7 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches)
         while (aX<aRasterMaskData.SzX()-aXdecal*1./3.)
         {
             // take lat/long proj into account
-            aXStep = fabs(((float)aRasterMaskData.SzX()) / aNbPatchesX / aNbPatchesFactor / cos(aPhi));
+            aXStep = fabs(((float)aRasterMaskData.SzX()) / aNbPatchesX / aNbPatchesFactor / cos(aPhi))+1;
             auto aPt = cPt2di(aX, aY);
             if (aRasterMaskData.GetV(aPt))
             {
@@ -1567,8 +1571,8 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches)
                 aXStep *= aAvgDist/aRasterDistData.GetV(aPt); // take depth into account
             } else
                 aXStep /= 3.;
-            if (aXStep<1.)
-                aXStep = 1.;
+            if (aXStep<2.)
+                aXStep = 2.;
             aX += aXStep;
 
         }
@@ -1588,7 +1592,7 @@ void cStaticLidar::MakeVisu(const cPhotogrammetricProject & aPhProj) const
     MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
     auto & aRasterDistData = mRasterDistance->DIm();
     double aDistMax = 0.;
-    int aPtSize = 1 + mRasterDistance->DIm().SzX()/1000;
+    int aPtSize = 1 + mRasterDistance->DIm().SzX()/5000;
     for (auto & aPt :  aRasterDistData)
     {
         if (aRasterDistData.GetV(aPt)>aDistMax)
