@@ -1091,7 +1091,8 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
             tREAL8 aSigmaAB = sqrt(aScanA->Sigma()*aScanA->Sigma()
                                    +aScanB->Sigma()*aScanB->Sigma());
             mWeightersMap[aScanA->NameImage()+"-"+aScanB->NameImage()]
-                = cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh / 9., aTh, 1);
+                //= cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh / 9., aTh, 1); // simulate least L1 with 1/10 of weight before exclusion
+                = cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, -1, aTh, 1); // least squares better for final convergence since exclusion methods are efficient
         }
     }
 }
