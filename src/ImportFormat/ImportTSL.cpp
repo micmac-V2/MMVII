@@ -647,9 +647,12 @@ int cAppli_ImportTSL::Exe()
     fixLineColRasterDirections();
 
     // export intensity image before decimation
+    std::unique_ptr<cIm2D<tU_INT1>> aRasterIntensityFull;
     std::string aRasterIntensityPath = cStaticLidar::RasterIntensityPath(mStationName + "-" + mScanName + cStaticLidar::GetIdSuffix());
-    cStaticLidar::fillRaster<tU_INT1>(mSL_importer, mPhProj.DirStaticLidarRasters(), aRasterIntensityPath,
-                                      [this](int i){return this->mSL_importer.mVectPtsIntens[i]*255;} );
+    cStaticLidar::fillRaster<tU_INT1>(mSL_importer,
+                                      [this](int i){return this->mSL_importer.mVectPtsIntens[i]*255;},
+                                      aRasterIntensityFull );
+    aRasterIntensityFull->DIm().ToFile(mPhProj.DirStaticLidarRasters()+aRasterIntensityPath);
 
     mSL_importer.decimXY(mDecimXY);
     mThetaStepApprox *= mDecimXY.x();
@@ -772,15 +775,17 @@ int cAppli_ImportTSL::Exe()
                           cIsometry3D<tREAL8>({}, cRotation3D<tREAL8>::Identity()),
                           aCalib, mSL_importer.RotInput2Raster(), mSigma);
 
-    aSL_data.FillRasters(mSL_importer, mPhProj.DirStaticLidarRasters(), true);
+    aSL_data.FillRasters(mSL_importer);
 
     aSL_data.FilterIntensity(mSL_importer, mIntensityMinMax[0], mIntensityMinMax[1]);
     aSL_data.FilterDistance(mDistanceMinMax[0], mDistanceMinMax[1]);
-    aSL_data.FilterIncidence(mSL_importer, M_PI/2-mIncidenceMin);
+    if (mIncidenceMin>0)
+        aSL_data.FilterIncidence(mSL_importer, M_PI/2-mIncidenceMin);
     aSL_data.MaskBuffer(mSL_importer, mSL_importer.mPhiStep*mMaskBufferSteps, mPhProj.DirStaticLidarRasters());
     //aSL_data.SelectPatchCenters2(mNbPatches);
     //aSL_data.MakeVisu(mPhProj);
 
+    aSL_data.SaveRasters(mSL_importer, mPhProj.DirStaticLidarRasters());
     aSL_data.ToFile(mPhProj.DirStaticLidarRasters() + aSL_data.NameOriStd());
     mSL_importer.MakeIdImage(aSL_data.NameImage());
 
