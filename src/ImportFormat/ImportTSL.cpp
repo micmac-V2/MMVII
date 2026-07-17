@@ -70,10 +70,10 @@ cAppli_ImportTSL::cAppli_ImportTSL(const std::vector<std::string> & aVArgs,const
     mForceStructured(false), // skip all checks, suppose all the points are present and ordered by col
     mDoVerticalize  (false),
     mForceGreenAsIntensity (false),
-    mIntensityMinMax({0.01,0.99}),
+    mIntensityMinMax({0.03,0.98}),
     mDistanceMinMax ({0.,100.}),
     mIncidenceMin   (0.05),
-    mMaskBufferSteps(2.),
+    mMaskBufferSteps(1.),
     mSigma          (0.001),
     mDecimXY        (1,1),
     mDistNoiseSigma  (0.),
