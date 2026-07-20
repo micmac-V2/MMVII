@@ -14,6 +14,84 @@
 namespace MMVII
 {
 
+
+class cImageVectorField
+{
+   public :
+     cImageVectorField(const std::string & aNameIm,const std::vector<tREAL8> &aVParams);
+     cRGBImage  Im() const;
+     void DrawArrow_P1P2(const cPt2dr & aP1,const cPt2dr& aP2);
+     void DrawArrow_P1Vect(const cPt2dr & aP1,const cPt2dr& aVect);
+
+     static const std::vector<tREAL8> &DefParam();
+     void Save(const std::string &) ;
+   private :
+     std::string   mNameIm;
+     cRGBImage     mIm;
+     tREAL8        mAmpl;
+     tREAL8        mWidth;
+     tREAL8        mRay;
+     tREAL8        mDeZoom;
+     bool          mJPeg;
+     cPt3di        mColorArrow;
+     cPt3di        mColorCircle;
+};
+
+void cImageVectorField::Save(const std::string & aName)
+{
+  mIm.ToFileDeZoom(LastPrefix(aName)+".tif",mDeZoom);
+}
+
+
+
+cImageVectorField::cImageVectorField(const std::string & aNameIm,const  std::vector<tREAL8> &aVParams) :
+    mNameIm       (aNameIm),
+    mIm           (cRGBImage::FromFile(mNameIm,1,eForceGray::Yes)),
+    mAmpl         (aVParams.at(0)),
+    mWidth        (GetDef(aVParams,1,DefParam().at(1))),
+    mRay          (GetDef(aVParams,2,DefParam().at(2))),
+    mDeZoom       (GetDef(aVParams,3,DefParam().at(3))),
+    mJPeg         (GetDef(aVParams,4,DefParam().at(4))),
+    mColorArrow   (cRGBImage::Red),
+    mColorCircle  (cRGBImage::Blue)
+{
+}
+
+const std::vector<tREAL8> & cImageVectorField::DefParam()
+{
+    static std::vector<tREAL8> aRes {100.0,1.0,4.0,1.0,1.0};
+    return aRes;
+}
+
+cRGBImage cImageVectorField::Im() const {return mIm;}
+
+void cImageVectorField::DrawArrow_P1Vect(const cPt2dr & aP1,const cPt2dr& aVect)
+{
+    mIm.DrawCircle(mColorCircle,aP1,mRay);
+    mIm.DrawLine(aP1,aP1+aVect*mAmpl,mColorArrow,mWidth);
+}
+
+void cImageVectorField::DrawArrow_P1P2(const cPt2dr & aP1,const cPt2dr& aP2)
+{
+    DrawArrow_P1Vect(aP1,aP2-aP1);
+}
+
+//==============================================
+
+struct cStatRes2D
+{
+  public :
+    cStdStatRes mStatRes;
+    cWeightAv<tREAL8,cPt2dr>  mAvg2d;
+
+    void AddResidu(const cPt2dr &aRes)
+    {
+        mStatRes.Add(Norm2(aRes));
+        mAvg2d.Add(1.0,aRes);
+    }
+
+};
+
 class cAppli_TiePReport : public cMMVII_Appli
 {
      public :
@@ -23,10 +101,13 @@ class cAppli_TiePReport : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
 
+
      private :
 
+            cPt3dr ColourOfResidual(tREAL8 aRes);
+
              //  void ShowImage(const cSetIm4SparseDist<tREAL8>&,const std::string& aVal) const;
-             void MakeStatByImage();
+             void ProcessBySingleImage();
              void ProcessByPair();
              void ProcessPly();
 
@@ -36,24 +117,42 @@ class cAppli_TiePReport : public cMMVII_Appli
              std::vector<int>         mPropStat;
              std::string              mSpecImIn;   ///  Pattern of xml file
              std::vector<std::string> mSetNames;
-             std::map<std::string,cSetIm4SparseDist<tREAL8>*>  mMapResByCam;
 
+
+
+             void RegisterStatRes(const cStatRes2D&, const std::string anAggreg);
 
              cComputeMergeMulTieP *   mCMTP;
-             std::string              mPrefixCSV;
              std::string              mPrefixCSVIma;
 
+
              std::string              mPatImRes;       // Pattern for residual images
+             std::string              mPatImFV;        // Patternof images for field vector
              tREAL8                   mFactRedIm;      // Reduction factor for residual images
              bool                     mDoImResCalib;   // do we generate residual images by calib
 
              std::vector<std::string> mParamByPair;
 
-             bool                     mWithPly;
+             std::vector<tREAL8>      mParamPly;
              cPlyVertices             mPlyFile;
 
+             std::vector<tREAL8>      mParamsFV;  /// Parameters for fields of vectors
+             tREAL8                   mStepHisto;
+             tREAL8                   mMaxHisto;
+             tHistoCumulrr            mHistoRes;
 
+             std::string              mPrefixSave;
 };
+
+void cAppli_TiePReport::RegisterStatRes(const cStatRes2D& aS2D, const std::string anAggreg)
+{
+   cPt2dr anAvg2 = aS2D.mAvg2d.Average();
+   AddStdStatCSV
+   (
+      mPrefixCSVIma,anAggreg,aS2D.mStatRes,mPropStat,
+      {ToStr(anAvg2.x()),ToStr(anAvg2.y())}
+   );
+}
 
 cAppli_TiePReport::cAppli_TiePReport
 (
@@ -66,7 +165,10 @@ cAppli_TiePReport::cAppli_TiePReport
      mCMTP         (nullptr),
      mFactRedIm    (100.0),
      mDoImResCalib (true),
-     mWithPly      (false)
+     mParamsFV     (cImageVectorField::DefParam()),
+     mStepHisto    (1e-3),
+     mMaxHisto     (1e2),
+     mHistoRes     (mMaxHisto/mStepHisto)
 {
 }
 
@@ -84,46 +186,29 @@ cCollecSpecArg2007 & cAppli_TiePReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
 
     return   anArgOpt
-          << AOpt2007(mPropStat,"Perc","Percentil for stat exp",{eTA2007::HDV})
+
+          <<  "Parameters for per/image stas/visu"
           << AOpt2007(mPatImRes,"PatImRes","Pattern of  images  where we generat residual (if any)")
+          << AOpt2007
+             (
+                 mParamsFV,
+                 "ParamFV",
+                 "Parameters for field of vectors [Ampl,Width?,Ray?,Zoom?,Jpeg?]",
+                 {{eTA2007::HDV},{eTA2007::ISizeV,"[1,5]"}}
+             )
           << AOpt2007(mDoImResCalib,"DoImResCalib","Do we generate images of residual by calibration ?",{eTA2007::HDV})
+
+          << "Parameters by pairs "
+          << mPhProj.DPTieP().ArgDirInOpt("","Tie point in pair format for by pair stat/visu")
           << AOpt2007(mParamByPair,"ByPair","Parameter for detail by pair [TieP,Pat,Ampl?=100,SsRes?=2] ",{{eTA2007::ISizeV,"[2,4]"}})
-          << AOpt2007(mWithPly,"WithPly","Generate a 3D visualization of ply files",{eTA2007::HDV})
+
+          << "3D pamerters"
+          << AOpt2007(mParamPly,"ParamPly","Generate a 3D visualization of ply files [Colored,ExpQual]",{{eTA2007::ISizeV,"[2,2]"}})
+
+          << "General pamerters"
+          << AOpt2007(mPropStat,"Perc","Percentil for stat exp",{eTA2007::HDV})
+          << AOpt2007(mPatImFV,"PatImFV","Pattern of  images  where we generat field vector (if any)")
     ;
-}
-
-
-class cImageVectorField
-{
-   public :
-     cImageVectorField(const std::string & aNameIm,const std::vector<tREAL8> &aVParams);
-
-     void DrawArrow(const cPt2dr & aP1,const cPt2dr& aP2);
-   private :
-     std::string   mNameIm;
-     cRGBImage     mIm;
-     tREAL8        mAmpl;
-     tREAL8        mWidth;
-     tREAL8        mRay;
-     cPt3di        mColorArrow;
-     cPt3di        mColorCircle;
-};
-
-cImageVectorField::cImageVectorField(const std::string & aNameIm,const  std::vector<tREAL8> &aVParams) :
-    mNameIm       (aNameIm),
-    mIm           (cRGBImage::FromFile(mNameIm,1,eForceGray::Yes)),
-    mAmpl         (aVParams.at(0)),
-    mWidth        (GetDef(aVParams,1,1.0)),
-    mRay          (GetDef(aVParams,2,4.0)),
-    mColorArrow   (cRGBImage::Red),
-    mColorCircle  (cRGBImage::Blue)
-{
-}
-
-void cImageVectorField::DrawArrow(const cPt2dr & aP1,const cPt2dr& aP2)
-{
-    mIm.DrawCircle(mColorCircle,aP1,mRay);
-    mIm.DrawLine(aP1,aP1+(aP2-aP1)*mAmpl,mColorArrow,mWidth);
 }
 
 
@@ -135,9 +220,6 @@ void  cAppli_TiePReport::ProcessOnePair(const std::string & aName1,const std::st
        cSensorImage* aSens2 = mPhProj.ReadSensor(aName2,true);
 
        std::string aDirHom =  mParamByPair.at(0);
-       tREAL8 anAmpl = cStrIO<tREAL8>::FromStr(GetDef(mParamByPair,2,std::string("100.0")));
-       int aDeZoom = cStrIO<int>::FromStr(GetDef(mParamByPair,3,std::string("2")));
-
 
        cSetHomogCpleIm aSetH;
 
@@ -145,27 +227,24 @@ void  cAppli_TiePReport::ProcessOnePair(const std::string & aName1,const std::st
        if (!HasHom)
            return;
 
+
+       StdOut()  << "N1N2 " << aName1 << " " << aName2 << " " << aSetH.NbH() << "\n";
+       //return;
        tNameSelector aSelIm = AllocRegex(mParamByPair.at(1));
 
        if (! (aSelIm.Match(aName1) && aSelIm.Match(aName2)))
           return;
+       cImageVectorField aIVF(aName1,mParamsFV);
 
-       StdOut()  << HasHom << " "<< aName1 << aSens1->Sz()  << " ;; " << aName2 << aSens2->Sz()   << " A=" << anAmpl << " Z="<< aDeZoom << "\n";
-
-        cRGBImage anIm = cRGBImage::FromFile(aName1,1,eForceGray::Yes);
-        anIm.ResetGray();
 
         for (const auto & aCple : aSetH.SetH())
         {
             cPt3dr aPG = aSens1->PInterBundle(aCple,*aSens2);
             cPt2dr aVect = aSens1->Ground2Image(aPG)-aCple.mP1;
 
-           // StdOut() << "POL" << ToPolar(aVect,1000.0) << "\n";
-
-            anIm.DrawCircle(cRGBImage::Blue,aCple.mP1,4.0);
-            anIm.DrawLine(aCple.mP1,aCple.mP1+aVect*anAmpl,cRGBImage::Red,1);
+            aIVF.DrawArrow_P1Vect(aCple.mP1,aVect*2.0);
         }
-        anIm.ToFileDeZoom(mPhProj.DirVisuAppli()+"Res_"+LastPrefix(aName1)+"_"+LastPrefix(aName2)+".tif",aDeZoom);
+        aIVF.Save(mPhProj.DirVisuAppli()+"Res_"+LastPrefix(aName1)+"_"+LastPrefix(aName2));
 }
 
 
@@ -180,24 +259,97 @@ void  cAppli_TiePReport::ProcessByPair()
     }
 }
 
+cPt3dr cAppli_TiePReport::ColourOfResidual(tREAL8 aRes)
+{
+   tREAL8 aProp=    mHistoRes.PropCumul(aRes/mStepHisto);
+
+   tREAL8 aQual = 1.0 - std::pow(aProp,mParamPly.at(1));
+
+   if (mParamPly.at(0)==0.0)
+   {
+      return cPt3dr::PCste(1.0 -aQual);
+   }
+   else
+   {
+      static  cPt3dr aColRed (1.0,0,0);
+      static  cPt3dr aColOrange(1.0,0.5,0);
+      static  cPt3dr aColGreen(0,1.0,0.0);
+
+       if (aQual<0.5)
+       {
+           tREAL8 aWRed = 2.0 * (0.5-aQual);
+           return aColRed * aWRed + aColOrange * (1-aWRed);
+       }
+       tREAL8 aWGreen = (aQual-0.5) * 2.0;
+       return aColGreen * aWGreen + aColOrange * (1-aWGreen);
+   }
+}
+
 
 void cAppli_TiePReport::ProcessPly()
 {
 
+    // Compute residual & histogra!!
+    std::vector<tREAL8> aVRes;
+    for (const auto&  aPair : mCMTP->Pts())
+    {
+        const auto & [aConfig,aValue]  = aPair;
+        size_t aNbPts = NbPtsMul(aPair);
+        size_t aNbIm = Multiplicity(aPair);
+        for (size_t aKPt=0 ; aKPt<aNbPts ; aKPt++)
+        {
+            cPt3dr aPGround = aValue.mVPGround.at(aKPt);
+            tREAL8 aRes = 0.0;
+            for (int aKIm = 0 ; aKIm<aNbIm ; aKIm++)
+            {
+                 cSensorImage * aSensI = mCMTP->VSensors().at(aConfig.at(aKIm));
+                cPt2dr aMesIm = KthPt(aPair,aKIm,aKPt);
+                cPt2dr aProj =aSensI->Ground2Image(aPGround);
+                aRes += Norm2(aMesIm-aProj);
+            }
+            aRes /= aNbIm-1;
+            aVRes.push_back(aRes);
+
+            mHistoRes.AddV(aRes/mStepHisto,1.0);
+        }
+    }
+    // make cumulative histogramm
+    mHistoRes.MakeCumul();
+
+    // generate date for ply
+    size_t aKRes=0;
+    for (const auto&  aPair : mCMTP->Pts())
+    {
+        const auto & [aConfig,aValue]  = aPair;
+        size_t aNbPts = NbPtsMul(aPair);
+        for (size_t aKPt=0 ; aKPt<aNbPts ; aKPt++)
+        {
+            cPt3dr aPGround = aValue.mVPGround.at(aKPt);
+
+            cPt3dr aCol = ColourOfResidual(aVRes.at(aKRes++));
+            mPlyFile.AddVert(aPGround,aCol);
+        }
+    }
+
+    // export
+    mPlyFile.ToPly(mPhProj.DirVisuAppli()+"RTP.ply",false);
+
+
 }
 
-
-void cAppli_TiePReport::MakeStatByImage()
+void cAppli_TiePReport::ProcessBySingleImage()
 {
-   InitReportCSV(mPrefixCSVIma,"csv",false);
+   std::map<std::string,cStatRes2D>                 aMapStatByCam;
+   cStatRes2D                                       aStatGlob;
+   std::map<std::string,cSetIm4SparseDist<tREAL8>*>  aMapResByCam;
+
+
+   InitReportCSV(mPrefixCSVIma,"csv",false);   
    AddStdHeaderStatCSV(mPrefixCSVIma,"Image",mPropStat,{"AvgX","AvgY"});
 
-   // const std::vector<std::list<std::pair<size_t,tPairTiePMult*>>>
-   const auto & aVII  = mCMTP->IndexeOfImages();
+   // Parse all images
    for (size_t aKImGlob = 0 ; aKImGlob<mSetNames.size() ; aKImGlob++)
    {
-       // std::list<std::pair<size_t,tPairTiePMult*>>
-       const auto & aLInd = aVII.at(aKImGlob);
        cSensorImage * aSensI = mCMTP->VSensors().at(aKImGlob);
        std::string aNameIm = aSensI->NameImage();
 
@@ -207,78 +359,106 @@ void cAppli_TiePReport::MakeStatByImage()
        // a litle check on indexe for these complexe structures
        MMVII_INTERNAL_ASSERT_tiny(mSetNames[aKImGlob]==aNameIm,"Chek names in Appli_TiePReport::MakeStatByImage");
 
-       cWeightAv<tREAL8,cPt2dr>  aAvg2d;
-       cStdStatRes               aStat;
+       cStatRes2D  aStat2;
 
+
+       // ---  Data for images of residual per images--------------------------
        cSetIm4SparseDist<tREAL8>* aImAvg = nullptr;
-
        if (IsInit(&mPatImRes) && MatchRegex(aNameIm,mPatImRes))
        {
            aImAvg = new cSetIm4SparseDist<tREAL8>({"N2","x","y"},aSensI->Sz(),mFactRedIm);
        }
 
-       std::string aNameCalib;
-       cSetIm4SparseDist<tREAL8>* aImAvgCalib = nullptr;
-
-     //  StdOut() <<  "PCCCCC= "  << aSensI->IsSensorCamPC() << " " <<  mDoImResCalib << "\n";
-       if (aSensI->IsSensorCamPC() && mDoImResCalib)
+       //  ---------- Data for image of vector's field ---------------
+       cImageVectorField * aIVF = nullptr;
+       if (IsInit(&mPatImFV) &&  MatchRegex(aNameIm,mPatImFV))
        {
-           aNameCalib = aSensI->GetSensorCamPC()->InternalCalib()->Name();
-           if (! MapBoolFind(mMapResByCam,aNameCalib))
-               mMapResByCam[aNameCalib] = new cSetIm4SparseDist<tREAL8>({"N2","x","y"},aSensI->Sz(),mFactRedIm);
-           aImAvgCalib =   mMapResByCam[aNameCalib];
+          aIVF = new cImageVectorField(aNameIm,mParamsFV);
        }
 
-       for (const auto& aPairKC : aLInd)
+       // ---------  Data for images of residual per camera ------------------
+       std::string aNameCamera;
+       cSetIm4SparseDist<tREAL8>* aImAvgCamera = nullptr;
+       if (aSensI->IsSensorCamPC() && mDoImResCalib)
        {
-           // std::pair<size_t,tPairTiePMult*W
-           size_t aKImLoc =  aPairKC.first;
-           // Unused in mode release
-           [[maybe_unused]] const auto & aConfig = aPairKC.second->first;
-           // a litle check on indexe for these complexe structures
-           MMVII_INTERNAL_ASSERT_tiny(aKImGlob==(size_t)aConfig.at(aKImLoc),"Check nums in cAppli_TiePReport::MakeStatByImage");
+           aNameCamera = aSensI->GetSensorCamPC()->InternalCalib()->Name();
+           if (! MapBoolFind(aMapResByCam,aNameCamera))
+               aMapResByCam[aNameCamera] = new cSetIm4SparseDist<tREAL8>({"N2","x","y"},aSensI->Sz(),mFactRedIm);
+           aImAvgCamera =   aMapResByCam[aNameCamera];
+       }
 
-           const auto & aVal = aPairKC.second->second;
-           size_t aNbP = NbPtsMul(*aPairKC.second);
-           // size_t aMult = Multiplicity(*aPairKC.second);
-
-           for (size_t aKp=0 ; aKp<aNbP ; aKp++)
+       // Parse all the configuration that contain the image
+       const auto & aLInd = mCMTP->IndexeOf1Image(aKImGlob);
+       for (const auto& [aKImLoc,aPairConfTiep] : aLInd)
+       {
+           // little check that aKImLoc is the postisition where aKImGlob is found in the configuration of tie points
            {
-               // cPt2dr aPt  = aVal.mVPIm.at(aKImLoc + aMult*aKp);
-               cPt2dr aPt =  KthPt(*aPairKC.second,aKImLoc,aKp);
-               cPt3dr aPGr = aVal.mVPGround.at(aKp);
-               cPt2dr aResidu = aSensI->Ground2Image(aPGr) - aPt;
+              // Unused in mode release
+              [[maybe_unused]] const auto & aConfig = aPairConfTiep->first;
+              // a litle check on indexe for these complexe structures
+              MMVII_INTERNAL_ASSERT_tiny(aKImGlob==(size_t)aConfig.at(aKImLoc),"Check nums in cAppli_TiePReport::MakeStatByImage");
+           }
 
-               aStat.Add(Norm2(aResidu));
-               aAvg2d.Add(1.0,aResidu);
+           const cVal1ConfTPM & aVal = aPairConfTiep->second; // The data itsefl : tiep, Pt3D ? ,
+           size_t aMult = Multiplicity(*aPairConfTiep);
+           tREAL8 aAmplMul = aMult / tREAL8(aMult); // take into account degree of freedom
+
+           // Parse all the points of this configuration that contain the image
+           for (size_t aKp=0 ; aKp<NbPtsMul(*aPairConfTiep) ; aKp++)
+           {
+               cPt2dr aPtIm =  KthPt(*aPairConfTiep,aKImLoc,aKp);
+               cPt3dr aPGr = aVal.mVPGround.at(aKp);
+               cPt2dr aPProj = aSensI->Ground2Image(aPGr);
+               cPt2dr aResidu = (aPProj - aPtIm) * aAmplMul;
+
+               aStat2.AddResidu(aResidu);
+               aStatGlob.AddResidu(aResidu);
+               if (aNameCamera!="")
+                  aMapStatByCam[aNameCamera].AddResidu(aResidu);
+
 
                if (aImAvg)
                {
-                   aImAvg->Add(aPt,{Norm2(aResidu),aResidu.x(),aResidu.y()});
+                   aImAvg->Add(aPtIm,{Norm2(aResidu),aResidu.x(),aResidu.y()});
                }
-               if (aImAvgCalib)
-                   aImAvgCalib->Add(aPt,{Norm2(aResidu),aResidu.x(),aResidu.y()});
+               if (aImAvgCamera)
+               {
+                   aImAvgCamera->Add(aPtIm,{Norm2(aResidu),aResidu.x(),aResidu.y()});
+               }
+               if (aIVF)
+               {
+                   aIVF->DrawArrow_P1Vect(aPtIm,aResidu);
+               }
 
            }
-
        }
-     //  StdOut() << "NIIIIIIiimmm= " << aNameIm << " " << aImAvg << "\n";
+       // Eventually write and clear  Images of resisual
        if (aImAvg)
        {
-       //    StdOut() << "aImAvgaImAvg " << mPhProj.DirVisuAppli() << " " << aNameIm << "\n";
            aImAvg->SaveDenseSave(mPhProj.DirVisuAppli(),aNameIm);
            delete aImAvg;
        }
+       // Eventutaly, write and clear images of vector's field
+       if (aIVF)
+       {
+           aIVF->Save(mPhProj.DirVisuAppli()+"Res_"+LastPrefix(aNameIm));
+           delete aIVF;
+       }
 
-       AddStdStatCSV
-       (
-          mPrefixCSVIma,aNameIm,aStat,mPropStat,
-          {ToStr(aAvg2d.Average().x()),ToStr(aAvg2d.Average().y())}
-       );
-      // StdOut() << aNameIm  << " Avg=" << aStat.Avg() << std::endl;
+       // Save statistique for this image
+       RegisterStatRes(aStat2,aNameIm);
    }
 
+   for (auto [aNameCam,aStat] : aMapStatByCam)
+      RegisterStatRes(aStat,aNameCam);
 
+    RegisterStatRes(aStatGlob,"Glob");
+
+    for (auto [aName,aAvgByCam] : aMapResByCam)
+    {
+        aAvgByCam->SaveDenseSave(mPhProj.DirVisuAppli(),aName);
+        delete aAvgByCam;
+    }
 }
 
 
@@ -286,28 +466,29 @@ int cAppli_TiePReport::Exe()
 {
    mPhProj.FinishInit();
 
+   mPrefixSave = mPhProj.DPOrient().DirIn() + "_" + mPhProj.DPMulTieP().DirIn();
+   SetReportSubDir(mPrefixSave);
+
+
    mSetNames = VectMainSet(0);
    // ...    bool  WithIndexPt,   bool  WithSensor,bool  WithIndexImages
    mCMTP = AllocStdFromMTP(mSetNames,mPhProj,true,true,true);
    mCMTP->SetPGround();
 
-   mPrefixCSV =  "_Ori-"+  mPhProj.DPOrient().DirIn() +  "_Mes-"+  mPhProj.DPMulTieP().DirIn() ;
-   mPrefixCSVIma =  "ByImages" + mPrefixCSV;
+   mPrefixCSVIma =  "ByImages" ;
 
 
-   MakeStatByImage();
+   ProcessBySingleImage();
 
-   if (IsInit(&mParamByPair))
+   if ( mPhProj.DPTieP().DirInIsInit())
        ProcessByPair();
 
-   if (mWithPly)
+   if (IsInit(&mParamPly))
        ProcessPly();
 
-   for (auto [aName,aAvgByCam] : mMapResByCam)
-   {
-       aAvgByCam->SaveDenseSave(mPhProj.DirVisuAppli(),aName);
-       delete aAvgByCam;
-   }
+
+
+
 
    delete mCMTP;
    return EXIT_SUCCESS;

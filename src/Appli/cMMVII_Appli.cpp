@@ -1373,9 +1373,11 @@ void cMMVII_Appli::GenerateHelp()
                 {
                    while ((aCommNum<mArgFac.mVComm.size()) &&(mArgFac.mVComm.at(aCommNum).first==aArgNum) )
                    {
-                      HelpOut() << " ------------------------\n" ;
-                      HelpOut() << "       "<< Color::title << mArgFac.mVComm.at(aCommNum).second << Color::end << "\n" ;
-                      HelpOut() << " ------------------------\n" ;
+                      std::string aDeco1 = "----------------";
+                      std::string aDeco2 = "===";
+                      HelpOut() << Color::title  << aDeco1 << aDeco2 << " ["
+                                << mArgFac.mVComm.at(aCommNum).second
+                                <<  "] " << aDeco2 << aDeco1 << Color::end << "\n" ;
                       aCommNum++;
                    }
                    if (IsTuning && (!TuningMet))
