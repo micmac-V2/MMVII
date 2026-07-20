@@ -306,8 +306,8 @@ void   Bench_0000_Param(cParamExeBench & aParam)
    int a,b;
    cCollecSpecArg2007 aCol;
    aCol << Arg2007(a,"UnA") << AOpt2007(b,"b","UnB") ;
-   aCol[0]->InitParam("111");
-   aCol[1]->InitParam("222");
+   aCol[0]->InitParam("111",true);
+   aCol[1]->InitParam("222",true);
 
    MMVII_INTERNAL_ASSERT_bench(a==111,"Bench_0000_Param");
    MMVII_INTERNAL_ASSERT_bench(b==222,"Bench_0000_Param");
