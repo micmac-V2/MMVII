@@ -1145,10 +1145,16 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
             return aPtRaster; // impossible to continue
         cPt2dr aDirLR = InternalCalib()->Dir_Proj()->Value(aPtCam3DLR);
         //std::cout<<"   Dirs: "<<aDirUL<<" "<<aDirLR<<"\n";
-        float aBetterX = aPtRasterUL.x() + (aDirCam3DTheoretical.x()-aDirUL.x())/(aDirLR.x()-aDirUL.x())
-                                               *(aPtRasterLR.x()-aPtRasterUL.x());
-        float aBetterY = aPtRasterUL.y() + (aDirCam3DTheoretical.y()-aDirUL.y())/(aDirLR.y()-aDirUL.y())
-                                               *(aPtRasterLR.y()-aPtRasterUL.y());
+        float aDiffDirX = aDirLR.x()-aDirUL.x();
+        float aDiffDirY = aDirLR.y()-aDirUL.y();
+        float aBetterX =  (aDiffDirX!=0) ?
+                            aPtRasterUL.x() + (aDirCam3DTheoretical.x()-aDirUL.x())/aDiffDirX
+                                               *(aPtRasterLR.x()-aPtRasterUL.x())
+                                        : aPtRasterUL.x();
+        float aBetterY = (aDiffDirY!=0) ?
+                            aPtRasterUL.y() + (aDirCam3DTheoretical.y()-aDirUL.y())/aDiffDirY
+                                               *(aPtRasterLR.y()-aPtRasterUL.y())
+                                        : aPtRasterUL.y();
         aPtRaster = {aBetterX, aBetterY};
     }
 
