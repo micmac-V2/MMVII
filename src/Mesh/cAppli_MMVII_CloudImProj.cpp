@@ -15,13 +15,6 @@ namespace MMVII
 {
 
 
-/*cDemiConeVert::cDemiConeVert(const cPt3dr & aC,tREAL8 aTgt2Max,cPt3dr aOptAxis):
-  mC (aC),
-  mOptAxis (aOptAxis),
-  mTgt2 (aTgt2Max)
-{
-}*/
-
 cDemiConeVert::cDemiConeVert(const cSensorCamPC & aCam) :
   mC       (aCam.Center()),
   mOptAxis (aCam.AxeK()),
@@ -41,16 +34,6 @@ cDemiConeVert::cDemiConeVert(const cSensorCamPC & aCam) :
 
     mTgt2 = (Square(aDx) + Square(aDy)) / Square(aF);
 }
-
-/*bool  cDemiConeVert::InsideV2(const cPt3dr& aPt) const
-{
-    cPt3dr aVec = aPt - mC;
-    if (aVec.z()>=0) return false;
-
-    tREAL8 aTg2 =  (Square(aVec.x())+Square(aVec.y())) / Square(aVec.z()) ;
-
-    return aTg2 < mTgt2;
-}*/
 
 bool  cDemiConeVert::Inside(const cPt3dr& aPt) const
 {
@@ -268,6 +251,7 @@ void cAppli_MMVII_CloudImProj::GenerateSynthImage(cProjPointCloud& aPPC,const cS
 
 void cAppli_MMVII_CloudImProj::ProcessConikModeWithOri(cPointCloud  & aPC_In,cProjPointCloud& aPPC)
 {
+    aPPC.SetComputeProfMax(false);
 
     std::string aDirIn = mPhProj.DPOrient().FullDirIn();
     std::string aOriPrefix = cSensorImage::PrefixName() + "-" + cSensorCamPC::PrefixName() + "-";
@@ -365,7 +349,7 @@ void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud  & aPC_In,cProjPoint
 
             mPhProj.SaveCamPC(aCam);
 
-            StdOut() << "Doneee=" << aNameImage << "\n";
+            StdOut() << aNameImage << "\n";
         }
 
     }
