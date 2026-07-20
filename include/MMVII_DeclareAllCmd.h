@@ -5,7 +5,7 @@
 
 namespace MMVII
 {
-
+int Nb_GenArgsSpec_Running();
 
 /** \file MMVII_DeclareAllCmd.h
     \brief Contains declaration  of all MMVII Commands
@@ -119,12 +119,11 @@ extern cSpecMMVII_Appli  TheSpec_MesImReport;
 extern cSpecMMVII_Appli  TheSpec_TiePReport;
 extern cSpecMMVII_Appli  TheSpec_SegImReport;
 extern cSpecMMVII_Appli  TheSpec_PoseCmpReport;
-extern cSpecMMVII_Appli  TheSpec_BlockCamInit;   // RIGIDBLOC
+//extern cSpecMMVII_Appli  TheSpec_BlockCamInit;   // RIGIDBLOC
 extern cSpecMMVII_Appli  TheSpec_BlocReport;
-extern cSpecMMVII_Appli  TheSpec_ClinoReport;
-extern cSpecMMVII_Appli  TheSpec_CernInitRep;
-
-extern cSpecMMVII_Appli  TheSpec_ClinoInit;
+// extern cSpecMMVII_Appli  TheSpec_ClinoReport;
+//  extern cSpecMMVII_Appli  TheSpec_CernInitRep;
+// extern cSpecMMVII_Appli  TheSpec_ClinoInit;
 extern cSpecMMVII_Appli  TheSpecRename;
 extern cSpecMMVII_Appli  TheSpecRenameSubFolder;
 extern cSpecMMVII_Appli  TheSpec_V2ImportCalib;

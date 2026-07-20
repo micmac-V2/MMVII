@@ -452,15 +452,17 @@ const  std::vector<cPt2dr> &  cPerspCamIntrCalib::Values(tVecOut & aV3 ,const tV
      mDir_Proj->Values(aV1,aV0);
      mDir_Dist->Values(aV2,aV1);
      mMapPProj2Im.Values(aV3,aV2);
-     FixLoop(aV3);
+     FixLoopPixelsInImage(aV3);
      return aV3;
 }
 
 
-double cPerspCamIntrCalib::DegreeVisibilityOnImFrame(const cPt2dr & aPIm) const
+double cPerspCamIntrCalib::DegreeVisibilityOnImFrame(const cPt2dr & aPImIn) const
 {
      double MaxCalc = 10.0;
      //  For domain where dist is inversible this should be sufficient
+     cPt2dr aPIm = aPImIn;
+     FixLoopPixelsInImage(aPIm);
      double aRes1 = mPixDomain.InsidenessWithBox(aPIm);
      // dont want to do inversion too far it may overflow ...
      if (aRes1<-MaxCalc)
@@ -469,6 +471,7 @@ double cPerspCamIntrCalib::DegreeVisibilityOnImFrame(const cPt2dr & aPIm) const
      UpdateLSQDistIfRequired();
 
      cPt2dr  aPDist   =  mMapIm2PProj.Value(aPIm);  //  point with dist
+     FixLoopBundle(aPDist);
      cPt2dr  aPUndist =  mDist_DirInvertible->Inverse(aPDist);   //  point w/o dist
      cPt2dr aPDistBack  = mDir_Dist->Value(aPUndist);   // dist again, should go back to aPDist is we are invertible
 
@@ -502,7 +505,7 @@ double cPerspCamIntrCalib::DegreeVisibility(const cPt3dr & aP) const
 
      //  For domain where dist is inversible this should be sufficient
      cPt2dr aPIm   = mMapPProj2Im.Value(aPDist);
-     FixLoop(aPIm);
+     FixLoopPixelsInImage(aPIm);
      double aRes1 = mPixDomain.InsidenessWithBox(aPIm);
      // dont want to do inversion too far it may overflow ...
      if (aRes1<-MaxCalc)
@@ -566,7 +569,7 @@ cPt2dr  cPerspCamIntrCalib::Undist(const tPtOut & aP0) const
     cPt2dr aP1 = Proj(aPt) / aPt.z();
 
     cPt2dr aPout = mMapPProj2Im.Value(aP1);
-    FixLoop(aPout);
+    FixLoopPixelsInImage(aPout);
     return aPout;
 }
 
@@ -589,11 +592,11 @@ cPt2dr cPerspCamIntrCalib::InterpolOnUDLine(const tSeg2dr& aSeg,tREAL8 aWeightP1
      return Redist(Centroid(aWeightP1,aPU1,1.0-aWeightP1,aPU2));
 }
 
-void cPerspCamIntrCalib::FixLoop(tPtOut &aPtInOut) const
+void cPerspCamIntrCalib::FixLoopPixelsInImage(cPt2dr &aPtInOut) const
 {
     if (mTypeProj==eProjPC::eEquiRect)
     {
-        tREAL8 aW2piInPixels = mMapPProj2Im.F()*2*M_PI;
+        tREAL8 aW2piInPixels = std::max(mMapPProj2Im.F()*2*M_PI, (tREAL8)PixelDomain().Sz().x());
         if (aPtInOut.x() >= aW2piInPixels) aPtInOut.x() -= aW2piInPixels;
         if (aPtInOut.x() < 0.) aPtInOut.x() += aW2piInPixels;
     } else {
@@ -601,13 +604,39 @@ void cPerspCamIntrCalib::FixLoop(tPtOut &aPtInOut) const
     }
 }
 
-void cPerspCamIntrCalib::FixLoop(tVecOut &aVPtInOut) const
+void cPerspCamIntrCalib::FixLoopPixelsResiduals(cPt2dr &aResPx) const
+{
+    if (mTypeProj==eProjPC::eEquiRect)
+    {
+        tREAL8 aW2piInPixels = mMapPProj2Im.F()*2*M_PI;
+        if (aResPx.x() >= aW2piInPixels/2) aResPx.x() -= aW2piInPixels;
+        if (aResPx.x() < -aW2piInPixels/2) aResPx.x() += aW2piInPixels;
+    } else {
+        // noting to do
+    }
+}
+
+
+void cPerspCamIntrCalib::FixLoopBundle(cPt2dr &aPtBundle) const
+{
+    if (mTypeProj==eProjPC::eEquiRect)
+    {
+        if (aPtBundle.x()<-M_PI)
+            aPtBundle.x() += 2*M_PI;
+        if (aPtBundle.x()>M_PI)
+            aPtBundle.x() -= 2*M_PI;
+    } else {
+        // noting to do
+    }
+}
+
+void cPerspCamIntrCalib::FixLoopPixelsInImage(std::vector<cPt2dr> &aVPtInOut) const
 {
     if (mTypeProj==eProjPC::eEquiRect)
     {
         for (auto & aPtInOut: aVPtInOut)
         {
-            FixLoop(aPtInOut);
+            FixLoopPixelsInImage(aPtInOut);
         }
     } else {
         // noting to do
@@ -615,7 +644,7 @@ void cPerspCamIntrCalib::FixLoop(tVecOut &aVPtInOut) const
 }
 
 
-tREAL8  cPerspCamIntrCalib::InvProjIsDef(const tPtOut & aPix ) const
+tREAL8  cPerspCamIntrCalib::InvProjIsDef(const tPtOut &aPix ) const
 {
     return mDefProj->P2DIsDef(mDist_DirInvertible->Inverse(mMapIm2PProj.Value(aPix)));
 }

@@ -48,7 +48,7 @@ public:
     tREAL8 PhiStart() const {return mPhiStart;}
     tREAL8 PhiStep() const {return mPhiStep;}
     tREAL8 DistMinToExist() const {return mDistMinToExist;}
-    tPoseR ReadPose() const { return mReadPose;}
+    const std::optional<tPoseR> & ReadPose() const { return mReadPose;}
     bool checkLineCol(); // verify that mMaxCol/mMaxLine ar compatible with mVectPtsLine/mVectPtsCol
     void decimXY(const cPt2di & aDecim);
     const cRotation3D<tREAL8> & RotInput2TSL() const { return mRotInput2TSL; }
@@ -62,6 +62,7 @@ public:
     float LocalPhiToLinePrecise(float aPhi) const;
     float LocalThetaToColPrecise(float aTheta) const;
     cPt2dr Input3DtoRasterAngle(const cPt3dr & aPt3DInput) const;
+    static std::string DefaultPoseName(const std::string & aDirStaticLidarRasters, const std::string & aLidarId);
 
     void MakeIdImage(const std::string & aNameFile) const; // create miniature to select this scan along images
 
@@ -87,7 +88,7 @@ protected:
     bool mNoMiss; // seems to be full (even if some points are (0,0,0)
     bool mAllPointsReturn; // some points are (0,0,0) => no angle!
     bool mIsStrucured;
-    tPoseR mReadPose;
+    std::optional<tPoseR> mReadPose;
     tREAL8 mDistMinToExist;
 
     int mNbCol, mNbLine;
@@ -127,9 +128,15 @@ public :
     void AddData(const  cAuxAr2007 & anAux) ;
     virtual void ToFile(const std::string &) const override;
     static std::string RasterIntensityPath(const std::string & aImName); ///< base name should be Station-scan
+    static std::string RasterIntensityPath(const cPhotogrammetricProject & aPhProj, const std::string & aImIDName); ///< base name should be Station-scan
     void FillRasters(const cStaticLidarImporter & aSL_importer, const std::string &aPhProjDirOut, bool saveRasters);
     static std::string NameFromId(const std::string &aIdName, bool getOriName);
     static bool IsNameTSL(const std::string &aImageName);
+
+    cCalculator<double> * CreateEqColinearity(bool WithDerives, int aSzBuf, bool ReUse) override;
+    void PushOwnObsColinearity(std::vector<double> & aVObs,const cPt3dr &) override; // just fail
+    void PushOwnObsColinearityDistance(std::vector<double> & aVObs, tREAL4 aMesDistance); // use this for GCP obs
+
 
     //inline tREAL8 lToPhiApprox(int l, double aPhiStart, double aPhiStep) const { return aPhiStart + l * aPhiStep; }
     //inline tREAL8 cToThetaApprox(int c, double aThetaStart, double aThetaStep) const { return aThetaStart + c * aThetaStep; }
@@ -146,8 +153,8 @@ public :
                      const cDiffInterpolator1D &aInterp) const;
     std::pair<tREAL8,tREAL8> AvgDistAndNbValid() const; //< return average dist for valid points, and number of valid points
 
-    cPt3dr Image2InputXYZ(const cPt2di & aRasterPx) const; // in input frame
-    cPt3dr Image2InputXYZ(const cPt2dr & aRasterPx) const;
+    cPt3dr Image2InputXYZ(cPt2di aRasterPxI) const; // in input frame
+    cPt3dr Image2InputXYZ(cPt2dr aRasterPx) const;
 
     template <typename TYPE>
     cPt3dr Image2Camera3D(const TYPE & aRasterPx) const; // in sensor frame (Z forward)
@@ -156,10 +163,13 @@ public :
     template <typename TYPE>
         cPt3dr Image2ThetaPhiDist(const TYPE & aRasterPx) const;
 
-    cPt3dr Image2Ground(const cPt2di & aRasterPx) const;
-    cPt3dr Image2Ground(const cPt2dr & aRasterPx) const;
+    cPt3dr Image2Ground(const cPt2di &aRasterPxI) const;
+    cPt3dr Image2Ground(cPt2dr aRasterPx) const;
+    tREAL4 Image2Distance(cPt2dr aRasterPx) const;
 
     cPt2dr Ground2ImagePrecise(const cPt3dr & aGroundPt) const;
+
+    void FixPtPxLoopAroundPP(cPt2dr &aPtPx) const override;
 
     void TriangulateRegular(const std::string &aVisuPath, int aFactor=16);
     void Triangulate(const std::string &aVisuPath, int aFactor=16);
@@ -207,7 +217,7 @@ private :
 
     bool mAreRastersReady;
 
-    tREAL8 mSigma;
+    tREAL8 mSigma;   ///< a priori precision on instrument distances
     std::vector<cPt2di> mPatchCenters;
 
     // rasters for filtering

@@ -118,7 +118,7 @@ int cAppli_PoseCmp::Exe()
         aAvgDif_Ori.Add(1.0,Norm2(aWPK));
         aAvgDif_Center.Add(1.0,Norm2(aP2In1.Tr()));
         if (mVerbose)
-            StdOut()<<aNameIm<<": dist="<<Norm2(aP2In1.Tr())<<", angle="<<Norm2(aWPK)<<"\n";
+            StdOut()<<aNameIm<<": Ori="<<Norm2(aWPK)<<", Center="<<Norm2(aP2In1.Tr())<<"\n";
 
         if (aLastWPK.IsValid())
             aAvgRelDif_Ori.Add(1.0,Norm2(aWPK-aLastWPK));

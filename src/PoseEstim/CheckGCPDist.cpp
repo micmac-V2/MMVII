@@ -48,12 +48,12 @@ class cGeomCERNPannel
              bool IsAlmostZ(tREAL8 aZ,tREAL8 aRef) {return std::abs(aZ-aRef) < mDH;}
 };
 
-template <>  const std::string cStrIO<cGeomCERNPannel>::msNameType = "GeomCERNPannel";
+template <>  std::string cStrIO<cGeomCERNPannel>::msNameType() { return "GeomCERNPannel"; }
 
 
 void cGeomCERNPannel::AddData(const cAuxAr2007 & anAux0)
 {
-    cAuxAr2007 anAux(cStrIO<cGeomCERNPannel>::msNameType,anAux0);
+    cAuxAr2007 anAux(cStrIO<cGeomCERNPannel>::msNameType(),anAux0);
 
     MMVII::AddData(cAuxAr2007("H0",anAux),mH0);
     MMVII::AddData(cAuxAr2007("H1",anAux),mH1);
@@ -183,7 +183,7 @@ cCollecSpecArg2007 & cAppli_CheckGCPDist::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
     return    anArgOpt
               << AOpt2007(mNameGCP,"CERNFilter","File for Geometric of CERN-like pannel, for special filtering",
-                              {{eTA2007::XmlOfTopTag,cStrIO<cGeomCERNPannel>::msNameType}})
+                       {{eTA2007::XmlOfTopTag,cStrIO<cGeomCERNPannel>::msNameType()}})
               << AOpt2007(mNbMin11P,"NbMin11P","Number minimal of point for 11 Param",{eTA2007::HDV})
               << AOpt2007(mMinPlan11,"MinPlane11P","Minim planarity index of 11 Param",{eTA2007::HDV})
               << AOpt2007(mNbMinResec,"NbMinResec","Number minimal of point for space resection",{eTA2007::HDV})

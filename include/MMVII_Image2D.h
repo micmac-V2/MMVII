@@ -551,7 +551,7 @@ class cRGBImage
         void ToJpgFileDeZoom(const std::string & aName,int aDeZoom, const std::vector<std::string>& aOptions={});
 
 
-        static cRGBImage FromFile(const std::string& aName,int aZoom=1);  ///< Allocate and init from file
+        static cRGBImage FromFile(const std::string& aName,int aZoom=1,eForceGray = eForceGray::No);  ///< Allocate and init from file
         static cRGBImage FromFile(const std::string& aName,const cBox2di & ,int aZoom=1);  ///< Allocate and init from file
 
         void Read(const cDataFileIm2D &,const cPt2di & aP0,double aDyn=1,const cRect2& =cRect2::TheEmptyBox);  ///< 1 to 1

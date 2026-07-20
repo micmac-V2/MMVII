@@ -7,7 +7,7 @@ namespace MMVII
 {
 
 //#define NUMPATCHDEBUG 3
-
+//#define SCANSCANDEBUG 10
 
 cBA_LidarBase::cBA_LidarBase(cPhotogrammetricProject * aPhProj,
                                      cMMVII_BundleAdj& aBA, const std::vector<std::string>& aParam) :
@@ -24,7 +24,6 @@ cBA_LidarBase::cBA_LidarBase(cPhotogrammetricProject * aPhProj,
 
 cBA_LidarBase::~cBA_LidarBase()
 {
-    delete mEq;
     delete mInterp;
 }
 
@@ -220,11 +219,11 @@ cBA_LidarPhotogra::cBA_LidarPhotogra(cPhotogrammetricProject * aPhProj,
 void cBA_LidarPhotogra::InitEq(bool aScanPoseUk)
 {
     if (mModeSim==eImatchCrit::eDifRad)
-        mEq = EqEqLidarImPonct (true,1,aScanPoseUk);
+        mEq = EqEqLidarImPonct (true,1,aScanPoseUk,true);
     else if (mModeSim==eImatchCrit::eCensus)
-        mEq = EqEqLidarImCensus(true,1, aScanPoseUk);
+        mEq = EqEqLidarImCensus(true,1, aScanPoseUk,true);
     else if (mModeSim==eImatchCrit::eCorrel)
-        mEq = EqEqLidarImCorrel(true,1, aScanPoseUk);
+        mEq = EqEqLidarImCorrel(true,1, aScanPoseUk,true);
     else
     {
         MMVII_UnclasseUsEr("Bad enum for cBA_LidarPhotogra");
@@ -339,7 +338,6 @@ cBA_LidarPhotograTri::~cBA_LidarPhotograTri()
 
 cBA_LidarPhotograRaster::~cBA_LidarPhotograRaster()
 {
-    //if (mLidarData) delete mLidarData; // automatically deleted at the end
 }
 
 void cBA_LidarPhotograTri::AddObs()
@@ -1007,11 +1005,11 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
                                            cMMVII_BundleAdj& aBA, const std::vector<std::string>& aParam) :
     cBA_LidarBase(aPhProj, aBA, aParam)
 {
-    mEq = EqEqLidarLidar (true,1);
+    mEq = EqEqLidarLidar (true,1,true);
     std::vector<std::string> aParamBis = aParam;
     // if interpolator is empty, force linear
-    if (aParamBis.size() < 5)
-        aParamBis.resize(5);
+    if (aParamBis.size() < 6)
+        aParamBis.resize(6);
     if (aParamBis.at(2).empty())
     {
         aParamBis[2] = "1."; // default threshold init
@@ -1022,9 +1020,13 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
     }
     if (aParamBis.at(4).empty())
     {
-        aParamBis[4] = "[Linear]";
+        aParamBis[4] = "15"; // default normal tolerancy degree
     }
-    init(aParamBis, 1, 4);
+    if (aParamBis.at(5).empty())
+    {
+        aParamBis[5] = "[Linear]";
+    }
+    init(aParamBis, 1, 5);
 
     mThresholdInit = cStrIO<double>::FromStr(aParamBis[2]);
     if (mThresholdInit<0)
@@ -1032,6 +1034,9 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
     mThresholdFinal = cStrIO<double>::FromStr(aParamBis[3]);
     if (mThresholdFinal<0)
         mThresholdFinal = INFINITY;
+
+    double aNormalTolerancyDeg = cStrIO<double>::FromStr(aParamBis[4]);
+    mNormalDiffMinCos = cos(aNormalTolerancyDeg*M_PI/180.);
 
     //read scans files from directory corresponding to pattern in aParam.at(0)
     tNameSelector aSel =   AllocRegex(aParam.at(0));
@@ -1071,7 +1076,7 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
 {
     tREAL4 aTh = aBA.NbMaxIter() < 2 ? mThresholdFinal :
                      mThresholdInit + (mThresholdFinal - mThresholdInit)*float(aBA.Iter())/(aBA.NbMaxIter()-1);
-    std::cout << "up weighters, th="<<aTh<<"\n";
+    //std::cout << "up weighters, th="<<aTh<<"\n";
     if (aTh>10000)
         aTh = -1;
     for (auto & aScanDataA: mVScans)
@@ -1088,8 +1093,6 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
     }
 }
 
-
-//#define SCANSCANDEBUG 10
 
 void cBA_LidarLidarRaster::AddObs()
 {
@@ -1208,6 +1211,8 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
     tREAL8 aMinResidual = INFINITY;
     cPt3dr aNormalGndA = aScanA->Pose().Rot().Value(aPatch.mNormalInstr);
 
+    //std::cout<<"ScanA: "<<aScanA->NameImage()<<" Patch "<<aPatch.mId<<": "<<*aPatch.mLPatchesP.begin()<<" -> Gnd: "<<aPGround<<"\n";
+
     //  Parse all the scans B, we will select the ones where the patch is visible
     for (auto & aScanBData: mVScans)
     {
@@ -1217,9 +1222,12 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             continue; // no obs on the same scan
 
         // 1st test: zbuffer visibility
-        //std::cout<<"Im "<<aScanBData.mScanName<<" patch "<<aPatch.mId<<" vis "<<aPatch.mImVisible.at(aScanBData.mScanName)<<"\n";
+        //std::cout<<"On scan B "<<aScanB->NameImage()<<": ";
         if (aPatch.mHiddenOnImage.count(aScanB->NameImage())>0)
+        {
+            //std::cout<<" hidden\n";
             continue;
+        }
         cDataGenUnTypedIm<2> & aGenDImDist = aScanB->getRasterDistance();
 
         // recheck if central point visible, TODO: remove, aPatch.mImVisible should be enought
@@ -1229,9 +1237,13 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             aData.mScanAName = aScanA->NameImage();
             aData.mScanBName = aScanB->NameImage();
             cPt2dr aPIm = aScanB->Ground2Image(aPGround); // extract the image  projection
+            //std::cout<<" projection :"<<aPIm<<"\n";
             tREAL8 aDist = Norm2(aPGround-aScanB->Center());
             if (!aScanB->IsValidPoint(aPIm))
+            {
+                //std::cout<<" not a valid point\n";
                 continue;
+            }
             if (aGenDImDist.InsideInterpolator(*mInterp,aPIm,1.0))  // is it sufficiently inside
             {
                 auto aVGr = aGenDImDist.GetValueAndGradInterpol(*mInterp,aPIm); // extract pair Value/Grad of image
@@ -1246,7 +1258,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                     aMinResidual = aResidual;
                 if (aWeighter.SingleWOfResidual( std::vector<tREAL8>{aResidual})==0.0)
                 {
-                    //std::cout<<"removed\n";
+                    //std::cout<<"removed W\n";
                     continue;
                 }
                 cPt3dr aNormalInstrB = aScanB->Image2NormalInstr(aPIm, *mInterp);
@@ -1262,6 +1274,8 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                 aAvgRes.Add(1.0,fabs(aResidual));  // compute std deviation
                 aVData.push_back(aData); // memorize the data for this image
             }
+        } else {
+            //std::cout<<" not visible\n";
         }
     }
 

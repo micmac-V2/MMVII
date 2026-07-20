@@ -847,7 +847,7 @@ template <class Type>
 {
     if (mUseWarningNotEnoughObs && (mNbVar-GetNbLinearConstraints()>currNbObs) )
     {
-           // StdOut()  << "currNbObscurrNbObs " << currNbObs  << " RRRRR=" << currNbObs - mNbVar << std::endl;
+           // StdOut()  << "currNbObscurrNbObs " << currNbObs  << " RRRRR=" << currNbObs - mNbVar -GetNbLinearConstraints()<< std::endl;
         MMVII_DEV_WARNING("Not enough obs for var ");
     }
     lastNbObs = currNbObs;

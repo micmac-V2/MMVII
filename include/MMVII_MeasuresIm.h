@@ -54,6 +54,7 @@ struct  cWeightedPair2D3D : public cPair2D3D
 };
 
 
+typedef std::optional<std::pair<tREAL4,tREAL4>>  tOptPairR;
 
 /**  class for representing  set of pairs 2-3  */
 struct cSet2D3D : public cMemCheck
@@ -92,7 +93,8 @@ class cMesIm1Pt
         cPt2dr            mPt;
         std::string       mNamePt;
         cArray<tREAL4,3>  mSigma2;  //< xx xy yy
-        cMes2DDirInfo* mMesDirInfo; //< to recover dir in name and weighter
+        tOptPairR         mDistWithSigma;
+        cMes2DDirInfo*    mMesDirInfo; //< to recover dir in name and weighter
 };
 void AddData(const  cAuxAr2007 & anAux,cMesIm1Pt & aGCPMI);
 
@@ -219,20 +221,22 @@ class cMultipleImPt
     cMultipleImPt(int aNum3DP);   ///< Cstr, num of GCP of -1 for tie point
 
     /// Add One image measurement, 4 now WithSigma must be false
-    void Add(const cMesIm1Pt & ,int aNumIm, cMes2DDirInfo *aMesDirInfo);
+    void Add(const cMesIm1Pt & , int aNumIm, cMes2DDirInfo *aMesDirInfo);
 
     ///  Return if any the point of one image
     const cPt2dr * PtOfIm(int) const;
 
     const std::vector<cPt2dr> & VMeasures() const;  ///< Accessor
     const std::vector<int>    & VImages()   const;  ///< Accessor
-    const std::vector<cMes2DDirInfo*> & VMesDirInfo() const { return mVMesDirInfo; }  ///< Accessor
+    const std::vector<cMes2DDirInfo*> & VMesDirInfo() const;  ///< Accessor
+    const std::vector<tOptPairR> & VDistWithSigmas() const; ///< Accessor
     int NumPt() const;
 private :
     int                             mNumPt; // Num of Point used as identifier
     std::vector<cPt2dr>             mVMeasures;
     std::vector<cMes2DDirInfo*>     mVMesDirInfo;
     std::vector<int>                mVImages;
+    std::vector<tOptPairR> mVDistWithSigmas;
 };
 
 
@@ -252,7 +256,7 @@ class cSetMesGndPt : public cMemCheck
             /// For a single GCP (called by AddMes3D)
             void Add1GCP(const cMes1Gnd3D &);
             ///  Add mesure on 1 images, close the possibility for further call to AddMes3D
-            void AddMes2D(const cSetMesPtOf1Im &, cMes2DDirInfo * aMesDirInfo=nullptr, cSensorImage* =nullptr, eLevelCheck OnNonExistP=eLevelCheck::Warning);
+            void AddMes2D(const cSetMesPtOf1Im &, cSensorImage *, cMes2DDirInfo * aMesDirInfo=nullptr, eLevelCheck OnNonExistP=eLevelCheck::Warning);
 
             /// return a set of mesure as 2d/3d corresp : if SVP accept image absent and returns empty
             void ExtractMes1Im(cSet2D3D&,const std::string &aNameIm,bool SVP=false) const;
@@ -309,6 +313,7 @@ class cHomogCpleIm
            cPt2dr  mP2;
            const cPt2dr & Pt(bool First) const {return First ? mP1 : mP2;}
 
+           void Swap(); // Swap P1/P2
            void AddData(const  cAuxAr2007 & anAux);
 };
 void AddData(const  cAuxAr2007 & anAux,cHomogCpleIm &);
@@ -328,6 +333,8 @@ class cSetHomogCpleIm
         std::vector<cHomogCpleIm> & SetH() ;
 
         void Add(const cHomogCpleIm &);
+        void Add(const cSetHomogCpleIm &);
+
         /** When we want to use Set Measure Images like Hom (WARN: dont merge when points with
          *  same coodinates already exist, this woul be longer : and another function to write if needed) */
         void AddPairSet(const cSetMesPtOf1Im&,const cSetMesPtOf1Im&);
@@ -342,6 +349,8 @@ class cSetHomogCpleIm
 
         cSetHomogCpleIm  SelectRandom(int aNb) const;
         cSetHomogCpleIm  SelectOnSpatialCriteria(int aNb) const;
+
+         void Swap(); // Swap all cple
 
       private :
         std::vector<cHomogCpleIm>  mSetH;
@@ -443,6 +452,8 @@ inline cVal1ConfTPM     & Val(tPairTiePMult & aPair)    {return aPair.second;}
 
 size_t NbPtsMul(const tPairTiePMult &) ;
 size_t Multiplicity(const tPairTiePMult&);
+cPt2dr  KthPt(const tPairTiePMult & aPair, int aKIm,int aKPt);
+
 cPt3dr BundleInter(const tPairTiePMult &,size_t aKPts,const std::vector<cSensorImage *> &);
 void   MakePGround(tPairTiePMult &,const std::vector<cSensorImage *>&);
 void   MakePGroundFromBundles(tPairTiePMult &,const std::vector<cSensorImage *> &);

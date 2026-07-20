@@ -208,13 +208,13 @@ NS_SymbolicDerivative::cCalculator<double> * EqSumSquare(int aNb,bool WithDerive
 
 // .............   Equation for topo stations .............
 /// topo obs from a station: , Uk={pose_origin, pt_to} Obs={r00, r01, r02, r10, r11, r12, r20, r21, r22, val},
-NS_SymbolicDerivative::cCalculator<double> * EqTopoHz(bool WithDerive,int aSzBuf);
-NS_SymbolicDerivative::cCalculator<double> * EqTopoZen(bool WithDerive,int aSzBuf);
-NS_SymbolicDerivative::cCalculator<double> * EqTopoDist(bool WithDerive,int aSzBuf);
-NS_SymbolicDerivative::cCalculator<double> * EqTopoDX(bool WithDerive,int aSzBuf);
-NS_SymbolicDerivative::cCalculator<double> * EqTopoDY(bool WithDerive,int aSzBuf);
-NS_SymbolicDerivative::cCalculator<double> * EqTopoDZ(bool WithDerive,int aSzBuf);
-NS_SymbolicDerivative::cCalculator<double> * EqTopoDH(bool WithDerive,int aSzBuf);
+NS_SymbolicDerivative::cCalculator<double> * EqTopoHz(bool WithDerive,int aSzBuf,bool ReUse);
+NS_SymbolicDerivative::cCalculator<double> * EqTopoZen(bool WithDerive,int aSzBuf,bool ReUse);
+NS_SymbolicDerivative::cCalculator<double> * EqTopoDist(bool WithDerive,int aSzBuf,bool ReUse);
+NS_SymbolicDerivative::cCalculator<double> * EqTopoDX(bool WithDerive,int aSzBuf,bool ReUse);
+NS_SymbolicDerivative::cCalculator<double> * EqTopoDY(bool WithDerive,int aSzBuf,bool ReUse);
+NS_SymbolicDerivative::cCalculator<double> * EqTopoDZ(bool WithDerive,int aSzBuf,bool ReUse);
+NS_SymbolicDerivative::cCalculator<double> * EqTopoDH(bool WithDerive,int aSzBuf,bool ReUse);
 
            // .............   Equation implying 2D distance conservation .............
            
@@ -233,10 +233,11 @@ NS_SymbolicDerivative::cCalculator<double> * EqNetworkConsDistFixPoints(bool Wit
 NS_SymbolicDerivative::cCalculator<double> * EqNetworkConsDistFixPoints(bool WithDerive,int aSzBuf,int aNbPts);
 
            // .............   Registration Lidar/Image and Lidar/Lidar   .............
-NS_SymbolicDerivative::cCalculator<double> * EqEqLidarImPonct(bool WithDerive,int aSzBuf,bool aScanPoseUk);
-NS_SymbolicDerivative::cCalculator<double> * EqEqLidarImCensus(bool WithDerive,int aSzBuf,bool aScanPoseUk);
-NS_SymbolicDerivative::cCalculator<double> * EqEqLidarImCorrel(bool WithDerive,int aSzBuf,bool aScanPoseUk);
-NS_SymbolicDerivative::cCalculator<double> * EqEqLidarLidar(bool WithDerive,int aSzBuf);
+NS_SymbolicDerivative::cCalculator<double> * EqEqLidarImPonct(bool WithDerive,int aSzBuf,bool aScanPoseUk,bool ReUse);
+NS_SymbolicDerivative::cCalculator<double> * EqEqLidarImCensus(bool WithDerive,int aSzBuf,bool aScanPoseUk,bool ReUse);
+NS_SymbolicDerivative::cCalculator<double> * EqEqLidarImCorrel(bool WithDerive,int aSzBuf,bool aScanPoseUk,bool ReUse);
+NS_SymbolicDerivative::cCalculator<double> * EqEqLidarLidar(bool WithDerive,int aSzBuf,bool ReUse);
+NS_SymbolicDerivative::cCalculator<double> * EqTSL_GCP(bool WithDerive,int aSzBuf,bool ReUse);
 
 
 };

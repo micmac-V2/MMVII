@@ -86,6 +86,43 @@ std::vector<Type> cResidualWeighterExplicit<Type>::WeightOfResidual(const std::v
     return mWeights;
 }
 
+template <class Type>
+const std::vector<Type> & cResidualWeighterExplicit<Type>::getSigmas() const
+{
+    return mSigmas;
+}
+
+template <class Type>
+std::vector<Type> & cResidualWeighterExplicit<Type>::getSigmas()
+{
+    return mSigmas;
+}
+
+template <class Type>
+const std::vector<Type> & cResidualWeighterExplicit<Type>::geWeights() const
+{
+    return mWeights;
+}
+
+template <class Type>
+std::vector<Type> & cResidualWeighterExplicit<Type>::geWeights()
+{
+    return mWeights;
+}
+
+template <class Type>
+void cResidualWeighterExplicit<Type>::addSigma(Type aSigma)
+{
+    mSigmas.push_back(aSigma);
+    mWeights.push_back(1/Square(aSigma));
+}
+
+template <class Type>
+void cResidualWeighterExplicit<Type>::addWeight(Type aWeight)
+{
+    mWeights.push_back(aWeight);
+    mSigmas.push_back(1/std::sqrt(aWeight));
+}
 
 #define INSTANTIATE_RESOLSYSNL(TYPE)\
 template class  cREAL8_RWAdapt<TYPE>;\

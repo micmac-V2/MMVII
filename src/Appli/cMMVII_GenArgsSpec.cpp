@@ -96,11 +96,15 @@ bool IsFileImage(const std::string & aNameFile)
 /*                                                      */
 /* ==================================================== */
 
+static int The_Nb_GenArgsSpec_Running = 0;
+
+int Nb_GenArgsSpec_Running() {return The_Nb_GenArgsSpec_Running;}
 
 class cAppli_GenArgsSpec : public cMMVII_Appli
 {
      public :
         cAppli_GenArgsSpec(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli &);  ///< constructor
+        ~cAppli_GenArgsSpec();
         int Exe() override;                                             ///< execute action
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override; ///< return spec of  mandatory args
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override; ///< return spec of optional args
@@ -118,8 +122,13 @@ cAppli_GenArgsSpec::cAppli_GenArgsSpec(const std::vector<std::string> & aVArgs,c
     mArgsSpecs(GenArgsInternal::prjSubDirList(), GenArgsInternal::fileList()),
     mQuiet(false),mNoInfo(false)
 {
+    The_Nb_GenArgsSpec_Running++;
 }
 
+cAppli_GenArgsSpec::~cAppli_GenArgsSpec()
+{
+    The_Nb_GenArgsSpec_Running--;
+}
 
 cCollecSpecArg2007 & cAppli_GenArgsSpec::ArgObl(cCollecSpecArg2007 & anArgObl)
 {

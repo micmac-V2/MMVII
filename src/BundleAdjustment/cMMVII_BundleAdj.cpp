@@ -91,11 +91,9 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     mPatFrozenCenter (""),
     mPatFrozenOrient (""),
     mPatFrozenClinos (""),
-    mPatFrozenTSL    (""),
     //mMesGCP           (nullptr),
     //mSigmaGCP         (-1),
-    mBlRig            (nullptr),
-    mBlClino            (nullptr),
+
     mTopo             (nullptr),
     mFolderRefCam     (""),
     mSigmaTrRefCam    (-1.0),
@@ -103,16 +101,17 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     mPatternRef       (".*"),
     mDirRefCam        (nullptr),
 
-    mUseGauje         (false),
-    mKPoseMainGauje   (-1),
-    mKPoseSecondGauje (-1),
-    mKCoordSecondGauje (-1),
+    mUseGauge         (false),
+    mKPoseMainGauge   (-1),
+    mKPoseSecondGauge (-1),
+    mKCoordSecondGauge (-1),
     mSigmaViscAngles  (-1.0),
     mSigmaViscCenter  (-1.0),
     mNbMaxIter        (-1),
     mIter             (0),
     mVerbose          (true),
     mShow_UC_UK       (false),
+    mCompute_Uncert   (false),
     mRUCSUR           (nullptr),
     mVecLineAdjust    (),
     mNbCamPC          (0)
@@ -129,9 +128,7 @@ cMMVII_BundleAdj::~cMMVII_BundleAdj()
     delete mSys;
     // delete mMesGCP;
     DeleteAllAndClear(mVTieP);
-    delete mBlRig;
     delete mTopo;
-    delete mBlClino;
     delete mRUCSUR;
     // DeleteAllAndClear(mGCP_UK);
     DeleteAllAndClear(mVBA_Lidar);
@@ -411,16 +408,16 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
         }
     }
 
-    if (mUseGauje)
+    if (mUseGauge)
     {
-        cSensorCamPC * aMainCamGauje   = mVSCPC.at(mKPoseMainGauje);
-        cSensorCamPC * aSecondCamGauje = mVSCPC.at(mKPoseSecondGauje);
+        cSensorCamPC * aMainCamGauge   = mVSCPC.at(mKPoseMainGauge);
+        cSensorCamPC * aSecondCamGauge = mVSCPC.at(mKPoseSecondGauge);
 
-        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauje,aMainCamGauje->Center());
-        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauje,aMainCamGauje->Omega());
+        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauge,aMainCamGauge->Center());
+        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauge,aMainCamGauge->Omega());
 
-        tREAL8 & aCoord = aSecondCamGauje->Center()[mKCoordSecondGauje];
-        mR8_Sys->SetFrozenVarCurVal(*aSecondCamGauje,aCoord);
+        tREAL8 & aCoord = aSecondCamGauge->Center()[mKCoordSecondGauge];
+        mR8_Sys->SetFrozenVarCurVal(*aSecondCamGauge,aCoord);
 
     }
 
@@ -460,34 +457,6 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     // if necessary fix hard cosntraint onf Gauge of Rigid-Block of instrument
     SetHardGaugeBlockInstr();
 
-    if (mPatFrozenClinos != "" && mBlClino)
-    {
-        mBlClino->SetFrozenVar(*mR8_Sys, mPatFrozenClinos);
-    }
-    
-    // if necessary, fix frozen poses of static lidar
-    if (mPatFrozenTSL !="")
-    {
-        // Freeze full pose (TODO: be able to to fix only verticalization)
-        tNameSelector aSel = AllocRegex(mPatFrozenTSL);
-        int nbMatches = 0;
-        for (auto & [aScanName, aLidar] : mMapTSL)
-        {
-            if (aSel.Match(aScanName))
-            {
-                mR8_Sys->SetFrozenVarCurVal(*aLidar,aLidar->Center());
-                mR8_Sys->SetFrozenVarCurVal(*aLidar,aLidar->Omega());
-                nbMatches++;
-            }
-        }
-        if (mVerbose && isFirstIter)
-            StdOut() << "Frozen TSL poses: " << nbMatches << ".\n";
-    }
-
-    if (mBlRig) // RIGIDBLOC
-    {
-        mBlRig->SetFrozenVar(*mR8_Sys);
-    }
 
     if (mTopo) // TOPO
     {
@@ -512,22 +481,10 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
 
     OneItere_GCP();   // add GCP informations
     OneItere_TieP();  // ad tie-points information
+
+
                       //
 
-    if (mBlRig)
-    {
-        mBlRig->AddRigidityEquation(*mR8_Sys);
-    }
-    // StdOut() << "SYS=" << mR8_Sys->GetNbObs() << " " <<  mR8_Sys->NbVar() << std::endl;
-
-    if (mBlClino)
-    {
-        mBlClino->addEquations(*mR8_Sys);
-        if (mVerbose)
-        {
-            mBlClino->printRes();
-        }
-    }
 
     for (const auto & aLidarPh : mVBA_Lidar )
         aLidarPh->AddObs();
@@ -556,6 +513,8 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
 // StdOut() <<  "mCompute_UncertmCompute_UncertmCompute_Uncert--------------------------------\n";
         mRUCSUR = new cResult_UC_SUR<tREAL8>(false,false,mIndCompUC);
     }
+
+    mR8_Sys->SysLinear(); // to force SetPhaseEq(); to init constraints if no AddObs
 
     const auto & aVectSol = mR8_Sys->SolveUpdateReset(aLVM,{},{mRUCSUR},doShowCond);
     mSetIntervUK.SetVUnKnowns(aVectSol);
@@ -684,11 +643,6 @@ void cMMVII_BundleAdj::SetFrozenCenters(const std::string & aPattern)
     mPatFrozenCenter = aPattern;
 }
 
-void cMMVII_BundleAdj::SetFrozenTSL(const std::string & aPattern)
-{
-    mPatFrozenTSL = aPattern;
-}
-
 void cMMVII_BundleAdj::SetFrozenOrients(const std::string & aPattern)
 {
     mPatFrozenOrient = aPattern;
@@ -810,7 +764,7 @@ int cMMVII_BundleAdj::IndexOfPCPose(const std::string &aNameIm,bool SVP ) const
     return -1;
 }
 
-void cMMVII_BundleAdj::SetGaujeRelPause(const std::vector<std::string> & aVNames)
+void cMMVII_BundleAdj::SetGaugeRelPause(const std::vector<std::string> & aVNames)
 {
 
     cWhichMax<cPt3di,tREAL8> aWMaxInd;
@@ -827,7 +781,7 @@ void cMMVII_BundleAdj::SetGaujeRelPause(const std::vector<std::string> & aVNames
     if (aCoordFix)
     {
         auto anIter = std::find(aVCoord.begin(),aVCoord.end(),aVNames.at(2));
-        MMVII_INTERNAL_ASSERT_always(anIter!=aVCoord.end(),"SetGaujeRelPause bad coord");
+        MMVII_INTERNAL_ASSERT_always(anIter!=aVCoord.end(),"SetGaugeRelPause bad coord");
         aKCoord = anIter - aVCoord.begin();
     }
 
@@ -873,17 +827,17 @@ void cMMVII_BundleAdj::SetGaujeRelPause(const std::vector<std::string> & aVNames
 
 
     }
-    mUseGauje = true;
-    mKPoseMainGauje = aIndMax.x();
-    mKPoseSecondGauje = aIndMax.y();
-    mKCoordSecondGauje = aIndMax.z();
+    mUseGauge = true;
+    mKPoseMainGauge = aIndMax.x();
+    mKPoseSecondGauge = aIndMax.y();
+    mKCoordSecondGauge = aIndMax.z();
 
 
 //    aMaxInd
 }
 
 
-//void SetGaujeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
+//void SetGaugeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
 
 
 bool cMMVII_BundleAdj::CheckGCPConstraints() const
@@ -983,55 +937,8 @@ void cMMVII_BundleAdj::AddConstrainteRefPose(cSensorCamPC & aCam,cSensorCamPC & 
     /*            Rigid Bloc                    */
     /* ---------------------------------------- */
 
-void cMMVII_BundleAdj::AddBlocRig(const std::vector<double>& aSigma,const std::vector<double>& aSigmaRat)  // RIGIDBLOC
-{
-    AssertPhpAndPhaseAdd();
-    mBlRig = new cBA_BlocRig(*mPhProj,aSigma,aSigmaRat);
-
-    mBlRig->AddToSys(mSetIntervUK);
-}
-void cMMVII_BundleAdj::AddCamBlocRig(const std::string & aNameIm) // RIGIDBLOC
-{
-    cSensorCamPC * aCam = mPhProj->ReadCamPC(aNameIm,/*ToDel*/true,/*SVP*/false);
-    if (aCam == nullptr)
-       return;
-
-    mBlRig->AddCam(aCam);
-}
-void cMMVII_BundleAdj::SaveBlocRigid()
-{
-    if (mBlRig  && mPhProj->DPRigBloc().DirOutIsInit())  // RIGIDBLOC
-    {
-       mBlRig->Save();
-    }
-}
 
 
-
-    /* ---------------------------------------- */
-    /*            Clino Bloc                    */
-    /* ---------------------------------------- */
-
-void cMMVII_BundleAdj::AddClinoBloc()
-{
-    AssertPhpAndPhaseAdd();
-    mBlClino = new cBA_Clino(mPhProj);
-
-    mBlClino->AddToSys(mSetIntervUK);
-}
-
-void cMMVII_BundleAdj::AddClinoBloc(cBA_Clino * aBAClino){
-    mBlClino = aBAClino;
-    mBlClino->AddToSys(mSetIntervUK);
-}
-
-void cMMVII_BundleAdj::SaveClino()
-{
-    if (mBlClino)
-    {
-       mBlClino->Save();
-    }
-}
 
 /* ---------------------------------------- */
 /*                 Lidar                    */
@@ -1067,12 +974,6 @@ void cMMVII_BundleAdj::Add1AdjLidarLidar(const std::vector<std::string> &aParam)
     mVBA_LidarLidar.push_back(new cBA_LidarLidarRaster(mPhProj, *this,aParam));
 }
 
-
-void cMMVII_BundleAdj::SaveTSL()
-{
-    for (auto & [aScanName, aLidar] : mMapTSL)
-        aLidar->ToFile(mPhProj->DPOrient().FullDirOut() + aLidar->NameOriStd());
-}
 
 /* ---------------------------------------- */
 /*                 Topo                     */

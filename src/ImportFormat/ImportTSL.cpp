@@ -772,8 +772,6 @@ int cAppli_ImportTSL::Exe()
                           cIsometry3D<tREAL8>({}, cRotation3D<tREAL8>::Identity()),
                           aCalib, mSL_importer.RotInput2Raster(), mSigma);
 
-    aSL_data.SetPose(mSL_importer.ReadPose());
-
     aSL_data.FillRasters(mSL_importer, mPhProj.DirStaticLidarRasters(), true);
 
     aSL_data.FilterIntensity(mSL_importer, mIntensityMinMax[0], mIntensityMinMax[1]);
@@ -781,11 +779,16 @@ int cAppli_ImportTSL::Exe()
     aSL_data.FilterIncidence(mSL_importer, M_PI/2-mIncidenceMin);
     aSL_data.MaskBuffer(mSL_importer, mSL_importer.mPhiStep*mMaskBufferSteps, mPhProj.DirStaticLidarRasters());
     //aSL_data.SelectPatchCenters2(mNbPatches);
-    aSL_data.MakeVisu(mPhProj);
+    //aSL_data.MakeVisu(mPhProj);
 
     aSL_data.ToFile(mPhProj.DirStaticLidarRasters() + aSL_data.NameOriStd());
     mSL_importer.MakeIdImage(aSL_data.NameImage());
 
+    if (mSL_importer.ReadPose().has_value())
+    {
+        SaveInFile(mSL_importer.ReadPose().value(),
+                   mSL_importer.DefaultPoseName(mPhProj.DirStaticLidarRasters(),aSL_data.NameImage()));
+    }
 
     // check scan normals
     /*auto aInterp  = cDiffInterpolator1D::AllocFromNames({"Linear"});
@@ -857,9 +860,11 @@ public :
     std::vector<std::string>  Samples() const override;
     void poseFromXYZ();
     void poseFromXYZv4();
+    void poseFromGCP();
 
 private :
     cPhotogrammetricProject  mPhProj;
+    cStaticLidar* mLidar;
 
     // Mandatory Arg
     std::string              mNameFileTSLId;
@@ -868,16 +873,20 @@ private :
     int                      mNbPatches;
     std::string              mPoseXYZFilename;
     std::string              mPoseXYZv4Filename;
+    bool                     mSupposeVerticalized; ///< need only 2 GCP for approx init
 
     // data
     tPoseR                   mForcedPose;
+    bool                     mIsForcedPoseInit;
 };
 
 cAppli_InitTSL::cAppli_InitTSL(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
     cMMVII_Appli    (aVArgs,aSpec),
     mPhProj         (*this),
+    mLidar          (nullptr),
     mNbPatches      (1000),
-    mForcedPose     (tPoseR::Identity())
+    mForcedPose     (tPoseR::Identity()),
+    mIsForcedPoseInit(false)
 {
 }
 
@@ -895,12 +904,68 @@ cCollecSpecArg2007 & cAppli_InitTSL::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            << AOpt2007(mNbPatches,"NbPatches","Approx nb patches to make",{{eTA2007::HDV}})
            << AOpt2007(mPoseXYZFilename,"PoseXYZ","Set initial pose from a Comp3D .xyz file",{{eTA2007::HDV, eTA2007::FileAny}})
            << AOpt2007(mPoseXYZv4Filename,"PoseXYZv4","Set initial pose from a Comp3D v4 .xyz file",{{eTA2007::HDV, eTA2007::FileAny}})
+           << mPhProj.DPGndPt3D().ArgDirInOpt("GCP3D","GCPs 3D coords")
+           << mPhProj.DPGndPt2D().ArgDirInOpt("GCP2D","GCPs 3D coords")
+           << AOpt2007(mSupposeVerticalized,"SupposeVerticalized","Initialize supposing verticalized station (only 2 GCP needed)",{{eTA2007::HDV}})
         ;
 }
 
 
+void cAppli_InitTSL::poseFromGCP()
+{
+    StdOut() << "Pose from GCP\n";
+    cSetMesGndPt  aSetMes;
+    cSet2D3D      aSet23;
+    mPhProj.LoadGCP3D(aSetMes);
+    mPhProj.LoadIm(aSetMes,mNameFileTSLId,nullptr,mLidar);
+
+    aSetMes.ExtractMes1Im(aSet23,mNameFileTSLId);
+
+    std::vector<cPt3dr> aVectPtsGnd, aVectPtsInstr;
+
+
+    for (auto & aPair : aSet23.Pairs())
+    {
+        tREAL4 aMesDistance = mLidar->Image2Distance(aPair.mP2);
+        if (aMesDistance == 0.)
+            continue; // eliminated, even if 2D may be used...
+        aVectPtsInstr.push_back(mLidar->Image2Camera3D(aPair.mP2));
+        aVectPtsGnd.push_back(aPair.mP3);
+
+        if (mSupposeVerticalized) // add a point 1m above
+        {
+            aVectPtsInstr.push_back(mLidar->Image2Camera3D(aPair.mP2) + cPt3dr(0.,-1.,0.));
+            aVectPtsGnd.push_back(aPair.mP3 + cPt3dr(0.,0.,1.));
+        }
+    }
+    StdOut() << "Found "<< (mSupposeVerticalized?aVectPtsInstr.size()/2:aVectPtsInstr.size()) <<" measurements\n";
+
+    if (aVectPtsInstr.size()<= 3)
+    {
+        MMVII_INTERNAL_ASSERT_User
+            (false,eTyUEr::eUnClassedError,"Not enouh 3-2 pair for space resection!");
+    }
+
+    auto anIso = RobustIsometry(aVectPtsInstr, aVectPtsGnd);
+
+    mForcedPose.Rot() = anIso.Rot();
+    mForcedPose.Tr() = anIso.Tr(); //-(anIso.Rot().Mat().Transpose()*anIso.Tr());
+    mIsForcedPoseInit = true;
+
+
+    cWeightAv<tREAL8,tREAL8> aWeightedSqRes;
+    for (size_t i=0; i<aVectPtsInstr.size(); ++i)
+    {
+        aWeightedSqRes.Add(1.,Norm2(aVectPtsGnd[i]-anIso.Value(aVectPtsInstr[i])));
+        if (mSupposeVerticalized)
+            ++i; //skip half mes
+    }
+    StdOut() << "Isometry residual: " << std::sqrt(aWeightedSqRes.Average())<<"m\n";
+}
+
 void cAppli_InitTSL::poseFromXYZv4()
 {
+    StdOut() << "Pose from XYZ file\n";
     /*The rotation is given from ground to TSL frame. Has to be converted to MM camera frame
      *
      * Comp3D v4 .XYZ file format :
@@ -964,11 +1029,13 @@ CT197	3.580	-3.306	5.238	0.001
                              {aR1.y(), aR2.y(), aR3.y()},
                              {aR1.z(), aR2.z(), aR3.z()}, true)
          ).MapInverse();
+    mIsForcedPoseInit = true;
 }
 
 
 void cAppli_InitTSL::poseFromXYZ()
 {
+    StdOut() << "Pose from XYZ file\n";
     /*The rotation is given from ground to TSL frame. Has to be converted to MM camera frame
      *
      * Comp3D .XYZ file format :
@@ -1035,13 +1102,27 @@ CT197	3.580	-3.306	5.238	0.001
                              {aR1.y(), aR2.y(), aR3.y()},
                              {aR1.z(), aR2.z(), aR3.z()}, true)
          ).MapInverse();
+    mIsForcedPoseInit = true;
 }
 
 int cAppli_InitTSL::Exe()
 {
     mPhProj.FinishInit();
 
-    // read pose file to crash quickly if not present
+    auto aTSLOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mNameFileTSLId,true);
+    mLidar = cStaticLidar::FromFile(aTSLOriFile, false);
+    mLidar->ReadRasters(mPhProj.DirStaticLidarRasters());
+
+    // try to read pose from cloud file
+    std::string aInputPoseFileName = cStaticLidarImporter::DefaultPoseName(mPhProj.DirStaticLidarRasters(),mLidar->NameImage());
+    if (ExistFile(aInputPoseFileName))
+    {
+        StdOut() << "Found a pose from cloud file.\n";
+        ReadFromFile(mForcedPose, aInputPoseFileName);
+        mIsForcedPoseInit = true;
+    }
+
+    // read pose file to crash quickly if error
     if (IsInit(&mPoseXYZFilename))
     {
         MMVII_INTERNAL_ASSERT_tiny(!IsInit(&mPoseXYZv4Filename),"Please choose between XYZ and XYZv4!");
@@ -1053,24 +1134,28 @@ int cAppli_InitTSL::Exe()
         StdOut() << "Read XYZ v4 pose file: " << mPoseXYZv4Filename << std::endl;
         poseFromXYZv4();
     }
+    MMVII_INTERNAL_ASSERT_tiny(
+        mPhProj.DPGndPt3D().DirInIsInit() == mPhProj.DPGndPt2D().DirInIsInit(),
+        "Error: needs GCP3D and GCP2D for init from GCP");
 
-
-    auto aTSLOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mNameFileTSLId,true);
-    cStaticLidar* aLidar = cStaticLidar::FromFile(aTSLOriFile, false);
-    aLidar->ReadRasters(mPhProj.DirStaticLidarRasters());
-
-    if (IsInit(&mPoseXYZFilename) || IsInit(&mPoseXYZv4Filename))
+    if (mPhProj.DPGndPt3D().DirInIsInit() && mPhProj.DPGndPt2D().DirInIsInit())
     {
-        aLidar->SetPose(mForcedPose);
-    } else {
-        MMVII_INTERNAL_ASSERT_tiny(false, "Needs at least one Ori source");
+        poseFromGCP();
     }
 
-    aLidar->SelectPatchCenters2(mNbPatches);
+    if (mIsForcedPoseInit)
+    {
+        mLidar->SetPose(mForcedPose);
+    } else {
+        MMVII_INTERNAL_ASSERT_tiny(false, "Needs at least one pose source");
+    }
 
-    aLidar->ToFile(mPhProj.DPOrient().FullDirOut() + aLidar->NameOriStd());
+    mLidar->SelectPatchCenters2(mNbPatches);
+    mLidar->MakeVisu(mPhProj);
 
-    delete aLidar;
+    mLidar->ToFile(mPhProj.DPOrient().FullDirOut() + mLidar->NameOriStd());
+
+    delete mLidar;
     return EXIT_SUCCESS;
 }
 

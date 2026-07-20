@@ -32,7 +32,7 @@ template <class TypeEnum> class cE2Str
          typename tMapE2Str::iterator anIt = mE2S.find(anE);
          // Enum to string is not user error (user do not create enum)
          if (anIt == mE2S.end())
-            MMVII_INTERNAL_ASSERT_always(false,"E2Str for enum : " + ToStr(int(anE)) + ", for type: " + cStrIO<TypeEnum>::msNameType);
+             MMVII_INTERNAL_ASSERT_always(false,"E2Str for enum : " + ToStr(int(anE)) + ", for type: " + cStrIO<TypeEnum>::msNameType());
          return anIt->second;
      }
 
@@ -53,7 +53,7 @@ template <class TypeEnum> class cE2Str
          {
             if (WithDef)
                 return TypeEnum::eNbVals;
-            MMVII_UserError(eTyUEr::eBadEnum,"Str2E for : "+aStr+" ; valids are : "+ StrAllVal() );
+            MMVII_UserError(eTyUEr::eBadEnum,"Str2E for : "+aStr+" ; valids are : " + StrAllVal() );
          }
          return anIt->second;
      }
@@ -61,12 +61,13 @@ template <class TypeEnum> class cE2Str
      static const std::string   StrAllVal()
      {
          std::string aRes;
+         char aSep = '[';
          for (const auto & it : mE2S)
          {
-             if (aRes!="") aRes += ",";
-             aRes += it.second;
+             aRes += aSep + it.second;
+             aSep=',';
          }
-         return aRes;
+         return aRes + ']';
      }
 
      static std::vector<TypeEnum> VecOfPat(const std::string & aPat,bool AcceptEmpy)
@@ -192,10 +193,25 @@ template class cES_PropertyList<eTA2007>;
 template<typename T> struct is_vector : public std::false_type {};
 
 template<typename T, typename A>
-struct is_vector<std::vector<T, A>> : public std::true_type {};
+struct is_vector<std::vector<T, A>> : public std::true_type { using value_type = T; };
 
 
-template <class Type> void  GlobCheckSize(const Type & ,const std::string & anArg)
+template <class T>
+struct vector_depth
+{
+    static constexpr int value = 0;
+    using value_type = T;
+};
+
+template <class U, class Alloc>
+struct vector_depth<std::vector<U, Alloc>>
+{
+    static constexpr int value = 1 + vector_depth<U>::value;
+    using value_type = typename vector_depth<U>::value_type;
+};
+
+
+template <class Type> void  GlobCheckSize(const Type & ,const std::string & )
 {
     MMVII_INTERNAL_ASSERT_always(false,"Check size vect for non vect arg");
 }
@@ -228,7 +244,20 @@ template <class Type> class cInstReadOneArgCL2007 : public cSpecOneArg2007
 
         void V_InitParam(const std::string & aStr) override
         {
-            mVal = cStrIO<Type>::FromStr(aStr);
+            constexpr int v_depth = vector_depth<Type>::value;          // levels of std::vector<>
+
+            if constexpr (v_depth > 0) {                               // at least one level of std::vector<>
+                size_t n=0;
+                while ( n< aStr.size() && aStr[n] == '[') n++;
+                if (v_depth == n+1) {                                   // string has one less level of brackets than the vector depth : assume singleton
+                    mVal.push_back(cStrIO<typename is_vector<Type>::value_type>::FromStr(aStr));
+                } else {                                                // else: push_back all values from the string into the vector
+                    auto aVals = cStrIO<Type>::FromStr(aStr);
+                    mVal.insert(mVal.end(), aVals.begin(), aVals.end());
+                }
+            } else {                                                    // not a vector
+                mVal = cStrIO<Type>::FromStr(aStr);
+            }
         }
         cInstReadOneArgCL2007 (Type & aVal,const std::string & aName,const std::string & aCom,const tAllSemPL & aVSem) :
               cSpecOneArg2007(aName,aCom,aVSem),
@@ -242,9 +271,9 @@ template <class Type> class cInstReadOneArgCL2007 : public cSpecOneArg2007
             }
         }
 
-        const std::string & NameType() const override
+        std::string NameType() const override
         {
-            return  cStrIO<Type>::msNameType;
+            return  cStrIO<Type>::msNameType();
         }
         void * AdrParam() override {return &mVal;}
         std::string NameValue() const override {return ToStr(mVal);}
@@ -256,6 +285,7 @@ template <class Type> class cInstReadOneArgCL2007 : public cSpecOneArg2007
 
 template <class Type> tPtrArg2007 Arg2007(Type & aVal, const std::string & aCom,const cSpecOneArg2007::tAllSemPL & aVSem )
 {
+
    return tPtrArg2007(new cInstReadOneArgCL2007<Type>(aVal,"",aCom,aVSem));
 }
 
@@ -284,19 +314,21 @@ template tPtrArg2007 AOpt2007<Type>(Type &,const std::string & aName, const std:
 /*                                      */
 /* ==================================== */
 
-#ifndef _MSC_VER
-#define MACRO_DECLARE_STRIO_ENUM(ETYPE) template<> const std::string cStrIO<ETYPE>::msNameType;
-#else
-#define MACRO_DECLARE_STRIO_ENUM(ETYPE)
-#endif
-
 
 #define MACRO_INSTANTIATE_STRIO_ENUM(ETYPE,ENAME)\
 MACRO_INSTANTIATE_ARG2007(ETYPE)\
 TPL_ENUM_2_STRING(ETYPE)\
 template <>  std::string cStrIO<ETYPE>::ToStr(const ETYPE & anEnum) { return  E2Str(anEnum); }\
-template <>  ETYPE cStrIO<ETYPE>::FromStr(const std::string & aStr) { return Str2E<ETYPE>(aStr); }\
-template <>  const std::string cStrIO<ETYPE>::msNameType = ENAME;
+template <>  ETYPE cStrIO<ETYPE>::FromStr(const std::string & aStr, bool ExceptionOnError) { \
+    auto val = Str2E<ETYPE>(aStr,true);\
+    if (val == ETYPE::eNbVals) {\
+        if (ExceptionOnError) throw StrIOException("Str2E for : "+aStr+" ; valids are : "+ StrAllVall<ETYPE>() );\
+        MMVII_UserError(eTyUEr::eBadEnum,"Str2E for : "+aStr+" ; valids are : "+ StrAllVall<ETYPE>() );\
+        return ETYPE::eNbVals;\
+    }\
+    return val;\
+}\
+template <>  std::string cStrIO<ETYPE>::msNameType() { return ENAME ;}
 
 
 } // namespace MMVII

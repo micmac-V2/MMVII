@@ -14,6 +14,15 @@
 namespace MMVII
 {
 
+/** DONT SUPRESS FOR NOW
+
+
+      Code of MAINTAIN_OLD_BLOCK that is currently maintained
+ *   because it's poissible part of it will be re used.
+ */
+
+#if (MAINTAIN_OLD_BLOCK)
+
 class cResultWireD
 {
     public :
@@ -275,7 +284,7 @@ void cAppli_CernInitRep::ProcessOneBloc(const std::vector<cSensorCamPC *> & aVPC
        }
        if (mPhProj.HasMeasureIm(aNameIm))
        {
-           aMesPts.AddMes2D(mPhProj.LoadMeasureIm(aNameIm),nullptr,aCam);
+           aMesPts.AddMes2D(mPhProj.LoadMeasureIm(aNameIm),aCam);
        }
    }
    if (aVPlane.size() < 2) return;
@@ -445,9 +454,11 @@ int cAppli_CernInitRep::Exe()
 /*                                                      */
 /* ==================================================== */
 
+
+
 tMMVII_UnikPApli Alloc_CernInitRep(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
 {
-   return tMMVII_UnikPApli(new cAppli_CernInitRep(aVArgs,aSpec));
+    return tMMVII_UnikPApli(new cAppli_CernInitRep(aVArgs,aSpec));
 }
 
 cSpecMMVII_Appli  TheSpec_CernInitRep
@@ -460,6 +471,7 @@ cSpecMMVII_Appli  TheSpec_CernInitRep
       {eApDT::Xml},
       __FILE__
 );
+#endif
 
 }; // MMVII
 

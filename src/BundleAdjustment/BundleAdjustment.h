@@ -19,8 +19,8 @@ class cBA_ArboTriplets;
 class cBA_LidarPhotogra;
 class cBA_TieP;
 class cBA_GCP;
-class cBA_Clino;
-class cBA_BlocRig;
+//class cBA_Clino;
+//class cBA_BlocRig;
 
 class cUK_Line3D_4BA;
 class cBA_BlockInstr;
@@ -58,6 +58,8 @@ class cStdWeighterResidual : public cResidualWeighter<tREAL8>
          tREAL8   mSig2Thrs;
          tREAL8   mExpS2;
 };
+
+#if (MAINTAIN_OLD_BLOCK)
 
 // RIGIDBLOC
 class cBA_BlocRig
@@ -265,7 +267,7 @@ class cBA_Clino : public cMemCheck
           std::string                   mCameraName;              // name of the camera
           
 };
-
+#endif // MAINTAIN_OLD_BLOCK
 
 
 // class to record data specific to a measurement directory : In/out name, w factor
@@ -611,14 +613,14 @@ class cMMVII_BundleAdj
           void  AddCam(const std::string & aNameIm);  /// add from name, require PhP exist
           void  AddReferencePoses(const std::vector<std::string> &);  ///  [Fofder,SigmGCP,SigmaRot ?]
 
-          void AddBlocRig(const std::vector<double>& aSigma,const std::vector<double>&  aSigmRat ); // RIGIDBLOC
-          void AddCamBlocRig(const std::string & aCam); // RIGIDBLOC
+         // void AddBlocRig(const std::vector<double>& aSigma,const std::vector<double>&  aSigmRat ); // RIGIDBLOC
+         // void AddCamBlocRig(const std::string & aCam); // RIGIDBLOC
           void AddTopo(); // TOPO
           cBA_Topo* getTopo() { return mTopo;}
 
           // Add clino bloc to compute relative orientation between clino and a camera
-          void AddClinoBloc();
-          void AddClinoBloc(cBA_Clino * aBAClino);
+          // void AddClinoBloc();
+          //void AddClinoBloc(cBA_Clino * aBAClino);
 
           bool AddTopo(const std::string & aTopoFilePath); // TOPO
           ///  =======  Add GCP, can be measure or measure & object
@@ -653,11 +655,10 @@ class cMMVII_BundleAdj
           void SetFrozenCenters(const std::string & aPattern);
           void SetFrozenOrients(const std::string & aPattern);
           void SetFrozenClinos(const std::string & aPattern);
-          void SetFrozenTSL(const std::string & aPattern);
           void SetSharedIntrinsicParams(const std::vector<std::string> &);
            
-          void SetGaujeRelPause(const std::vector<std::string> &);
-         // void SetGaujeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
+          void SetGaugeRelPause(const std::vector<std::string> &);
+         // void SetGaugeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
 
           void AddPoseViscosity();
           void AddConstrainteRefPose();
@@ -680,16 +681,15 @@ class cMMVII_BundleAdj
 
 
 
-          void SaveBlocRigid();
+      //    void SaveBlocRigid();
           void Save_newGCP3D();
           void SaveTopo();
-          void SaveTSL();
 
           void Set_UC_UK(const std::vector<std::string> & aParam);
           void ShowUKNames(const std::vector<std::string> & aParam, const std::string &aSuffix, cMMVII_Appli* =nullptr) ;
           cPt3dr GetGCP_UC_UK(const std::string & aGCPName) const;
           // Save results of clino bundle adjustment
-          void SaveClino();
+         // void SaveClino();
           /// Add sensor, used in Bench Clino, deprecated probably
           void  AddBenchSensor(cSensorCamPC *);
           void setVerbose(bool aVerbose){mVerbose=aVerbose;}; // Print or not residuals
@@ -759,7 +759,6 @@ class cMMVII_BundleAdj
           std::string  mPatFrozenCenter;      /// Pattern for name of pose with frozen centers
           std::string  mPatFrozenOrient;      /// Pattern for name of pose with frozen centers
           std::string  mPatFrozenClinos;      /// Pattern for name of clino with frozen boresight
-          std::string  mPatFrozenTSL;         /// Pattern for name of static lidars with frozen poses
 
           std::vector<std::string>  mVPatShared;
 
@@ -774,8 +773,8 @@ class cMMVII_BundleAdj
           std::vector<cBA_TieP*>   mVTieP;
 
                  // - - - - - - -   Bloc Rigid - - - - - - - -
-          cBA_BlocRig*              mBlRig;  // RIGIDBLOC
-          cBA_Clino*              mBlClino;  // CLINOBLOC
+       //   cBA_BlocRig*              mBlRig;  // RIGIDBLOC
+        //  cBA_Clino*              mBlClino;  // CLINOBLOC
           cBA_Topo*              mTopo;  // TOPO
 
           std::vector<cBA_LidarPhotogra*>  mVBA_Lidar;
@@ -790,13 +789,13 @@ class cMMVII_BundleAdj
           bool                               mDoRefCam;
           cDirsPhProj*                       mDirRefCam;
 
-          // ===================  "Gauje for pure relative pause"  ==================
+          // ===================  "Gauge for pure relative pause"  ==================
 
 
-          bool   mUseGauje;
-          int    mKPoseMainGauje;
-          int    mKPoseSecondGauje;
-          int    mKCoordSecondGauje;
+          bool   mUseGauge;
+          int    mKPoseMainGauge;
+          int    mKPoseSecondGauge;
+          int    mKCoordSecondGauge;
 
           // ===================  "Viscosity"  ==================
 

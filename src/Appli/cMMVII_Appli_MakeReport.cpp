@@ -101,8 +101,9 @@ void  cMMVII_Appli::AddTopReport(const std::string &anId,const std::string & aMs
 void  cMMVII_Appli::AddOneReport(const std::string &anId,const std::string & aMsg)
 {
     std::string  aName = NameFileCSVReport(anId);
-    cMMVII_Ofs aFile(aName, eFileModeOut::AppendText);
 
+    // In fact there is no risk of multiple access, as
+    cMMVII_Ofs aFile(aName, eFileModeOut::AppendText);
     aFile.Ofs() << aMsg;
 }
 

@@ -33,7 +33,8 @@ void pyb_init_MatEssential(py::module_ &m) {
     py::class_<cSetHomogCpleIm>(m, "SetHomogCpleIm", DOC(MMVII_cSetHomogCpleIm))
         .def(py::init<>(),DOC(MMVII_cSetHomogCpleIm,cSetHomogCpleIm))
         .def(py::init<py::ssize_t >(),DOC(MMVII_cSetHomogCpleIm,cSetHomogCpleIm))
-        .def("Add", &cSetHomogCpleIm::Add,DOC(MMVII_cSetHomogCpleIm,Add))
+        .def("Add", py::overload_cast<const cHomogCpleIm&>(&cSetHomogCpleIm::Add),DOC(MMVII_cSetHomogCpleIm,Add))
+        .def("Add", py::overload_cast<const cSetHomogCpleIm&>(&cSetHomogCpleIm::Add),DOC(MMVII_cSetHomogCpleIm,Add))
         .def_static("fromFile", &cSetHomogCpleIm::FromFile,DOC(MMVII_cSetHomogCpleIm,FromFile))
         .def("setH", py::overload_cast<>(&cSetHomogCpleIm::SetH), DOC(MMVII_cSetHomogCpleIm,SetH))
         

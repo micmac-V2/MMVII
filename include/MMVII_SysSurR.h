@@ -50,10 +50,12 @@ template <class Type> class cResidualWeighterExplicit: public cResidualWeighter<
 
             cResidualWeighterExplicit(bool isSigmas, const tStdVect & aData);
             virtual tStdVect WeightOfResidual(const tStdVect &) const override;
-            const tStdVect & getSigmas() const { return mSigmas; }
-            tStdVect & getSigmas() { return mSigmas; }
-            const tStdVect & geWeights() const { return mWeights; }
-            tStdVect & geWeights() { return mWeights; }
+            const tStdVect & getSigmas() const;
+            tStdVect & getSigmas();
+            const tStdVect & geWeights() const;
+            tStdVect & geWeights();
+            void addSigma( Type aSigma);
+            void addWeight( Type aWeight);
             int size() const { return mWeights.size(); }
             void AddData(const  cAuxAr2007 & anAuxInit);
        private :

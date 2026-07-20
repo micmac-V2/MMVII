@@ -23,13 +23,13 @@ cBA_Topo::cBA_Topo
     mBA_GCP(aBA_GCP),
     mTopoObsType2equation
     {
-        {eTopoObsType::eDist, EqTopoDist(true,1)},
-        {eTopoObsType::eHz,   EqTopoHz(true,1)},
-        {eTopoObsType::eZen,  EqTopoZen(true,1)},
-        {eTopoObsType::eDX,   EqTopoDX(true,1)},
-        {eTopoObsType::eDY,   EqTopoDY(true,1)},
-        {eTopoObsType::eDZ,   EqTopoDZ(true,1)},
-        {eTopoObsType::eDH,   EqTopoDH(true,1)},
+        {eTopoObsType::eDist, EqTopoDist(true,1,true)},
+        {eTopoObsType::eHz,   EqTopoHz(true,1,true)},
+        {eTopoObsType::eZen,  EqTopoZen(true,1,true)},
+        {eTopoObsType::eDX,   EqTopoDX(true,1,true)},
+        {eTopoObsType::eDY,   EqTopoDY(true,1,true)},
+        {eTopoObsType::eDZ,   EqTopoDZ(true,1,true)},
+        {eTopoObsType::eDH,   EqTopoDH(true,1,true)},
         //{eTopoObsType::eDist, EqDist3D(true,1)},
         //{eTopoObsType::eDistParam, EqDist3DParam(true,1)},
     },
@@ -71,9 +71,6 @@ cBA_Topo::cBA_Topo
 cBA_Topo::~cBA_Topo()
 {
     clear();
-    for (auto& [_, aEq] : mTopoObsType2equation)
-                  delete aEq;
-
 }
 
 void cBA_Topo::clear()

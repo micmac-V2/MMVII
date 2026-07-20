@@ -557,7 +557,7 @@ cGlobCalculMetaDataProject * cPhotogrammetricProject::InitGlobCalcMTD() const
     {
            mGlobCalcMTD = new cGlobCalculMetaDataProject;
            mGlobCalcMTD->AddDir(mDPMetaData.FullDirIn());
-           mGlobCalcMTD->AddDir(mAppli.DirProfileUsage());
+           mGlobCalcMTD->AddDir(mAppli.DirUserProfile());
     }
     return mGlobCalcMTD;
 }
@@ -702,6 +702,8 @@ std::vector<std::string>  cAppli_EditCalcMetaDataImage::Samples() const
 
 int cAppli_EditCalcMetaDataImage::Exe()
 {
+    mPhProj.DPMetaData().SetAllowDirInEmpty();
+
     mPhProj.DPMetaData().SetDirOutInIfNotInit();
 
     mPhProj.FinishInit();

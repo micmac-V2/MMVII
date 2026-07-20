@@ -28,15 +28,23 @@ class cAuxAr2007;          ///< Auxilary class, only neccessry
     This class handle conversion (two way) between
     atomic type and string.  Contain only static members.
 */
+
+class StrIOException : public std::runtime_error
+{
+    public :
+        StrIOException(const std::string & aMes) : std::runtime_error(aMes) {}
+};
+
+
 template <class Type> class  cStrIO
 {
     public :
        /// Atomic -> string
        static std::string ToStr(const Type &);
       /// String -> Atomic object
-       static Type  FromStr(const std::string &);
+       static Type  FromStr(const std::string &, bool ExceptionOnError=false);
       /// Readable name for type
-       static const std::string  msNameType;
+       static std::string msNameType();
 };
 
 /// Facilities when the type is well defined
@@ -60,16 +68,16 @@ std::string ResidualToStr(tREAL8 aRes);
 */
 
 template <>  std::string cStrIO<bool>::ToStr(const bool & anI);
-template <>  bool cStrIO<bool>::FromStr(const std::string & aStr);
-template <>  size_t cStrIO<size_t>::FromStr(const std::string & aStr);
+template <>  bool cStrIO<bool>::FromStr(const std::string & aStr, bool ExceptionOnError);
+template <>  size_t cStrIO<size_t>::FromStr(const std::string & aStr, bool ExceptionOnError);
 template <>  std::string cStrIO<int>::ToStr(const int & anI);
-template <>  int cStrIO<int>::FromStr(const std::string & aStr);
+template <>  int cStrIO<int>::FromStr(const std::string & aStr, bool ExceptionOnError);
 template <>  std::string cStrIO<double>::ToStr(const double & anI);
-template <>  double cStrIO<double>::FromStr(const std::string & aStr);
+template <>  double cStrIO<double>::FromStr(const std::string & aStr, bool ExceptionOnError);
 template <>  std::string cStrIO<std::string>::ToStr(const std::string & anI);
-template <>  std::string cStrIO<std::string>::FromStr(const std::string & aStr);
+template <>  std::string cStrIO<std::string>::FromStr(const std::string & aStr, bool ExceptionOnError);
 template <>  std::string cStrIO<char>::ToStr(const char & anI);
-template <>  char cStrIO<char>::FromStr(const std::string & aStr);
+template <>  char cStrIO<char>::FromStr(const std::string & aStr, bool ExceptionOnError);
 
 // is it a valid string-int, may be templatized , but not sure very curent use ..
 bool  StringIsIntOk(const std::string & aStr);
@@ -81,71 +89,6 @@ template <>  cPt2dr cStrIO<cPt2dr>::FromStr(const std::string & aStr);
 template <>  std::string cStrIO<cPt2di>::ToStr(const cPt2di & anI);
 template <>  cPt2di cStrIO<cPt2di>::FromStr(const std::string & aStr);
 */
-
-/*
-* Ch.M: Add explicit specialization declarations
-*   Explicit specialization definitions are already in the Tranlation Unit
-* "Serial/cStrIO.cpp" (via several MACROs)
-*   A declaration is needed to avoid that other TUs implicitly instantiate
-* this template as well.
-*
-* NB: "An explicit specialization of a static data member of a template is a
-* definition if the declaration includes an initializer; otherwise, it is a
-* declaration."
-*/
-
-#ifndef _MSC_VER
-template <>  const std::string cStrIO<tU_INT1>::msNameType;
-template <>  const std::string cStrIO<tINT1>::msNameType;
-template <>  const std::string cStrIO<tU_INT2>::msNameType;
-template <>  const std::string cStrIO<tINT2>::msNameType;
-template <>  const std::string cStrIO<tREAL4>::msNameType;
-template <>  const std::string cStrIO<tREAL8>::msNameType;
-//template <>  const std::string cStrIO<char>::msNameType;
-template <>  const std::string cStrIO<bool>::msNameType;
-template <>  const std::string cStrIO<int>::msNameType;
-template <>  const std::string cStrIO<double>::msNameType;
-template <>  const std::string cStrIO<std::string>::msNameType;
-
-template <>  const std::string cStrIO<std::vector<std::vector<std::string>>>::msNameType;
-template <>  const std::string cStrIO<std::vector<std::string>>::msNameType;
-template <>  const std::string cStrIO<std::vector<int>>::msNameType;
-template <>  const std::string cStrIO<std::vector<double>>::msNameType;
-
-template <>  const std::string cStrIO<cPtxd<int,2>>::msNameType;
-template <>  const std::string cStrIO<cPtxd<double,2>>::msNameType;
-template <>  const std::string cStrIO<cPtxd<int,3>>::msNameType;
-template <>  const std::string cStrIO<cPtxd<double,3>>::msNameType;
-
-template <>  const std::string cStrIO<cTplBox<int,2>>::msNameType;
-template <>  const std::string cStrIO<cTplBox<double,2>>::msNameType;
-template <>  const std::string cStrIO<cTplBox<int,3>>::msNameType;
-template <>  const std::string cStrIO<cTplBox<double,3>>::msNameType;
-
-template <>  const std::string cStrIO<eOpAff>::msNameType;
-template <>  const std::string cStrIO<eModeEpipMatch>::msNameType;
-template <>  const std::string cStrIO<eModePaddingEpip>::msNameType;
-template <>  const std::string cStrIO<eModeCaracMatch>::msNameType;
-
-template <>  const std::string cStrIO<eProjPC>::msNameType;
-template <>  const std::string cStrIO<eModeTestPropCov>::msNameType;
-template <>  const std::string cStrIO<eDCTFilters>::msNameType;
-
-template <>  const std::string cStrIO<eTypeSerial>::msNameType;
-template <>  const std::string cStrIO<eTyCodeTarget>::msNameType;
-template <>  const std::string cStrIO<eSysCo>::msNameType;
-template <>  const std::string cStrIO<eMTDIm>::msNameType;
-
-template <>  const std::string cStrIO<eTypeSensor>::msNameType;
-template <>  const std::string cStrIO<eFormatSensor>::msNameType;
-
-template <>  const std::string cStrIO<eTopoObsType>::msNameType;
-template <>  const std::string cStrIO<eTopoObsSetType>::msNameType;
-template <>  const std::string cStrIO<eTopoStOriStat>::msNameType;
-template <>  const std::string cStrIO<eTyClino>::msNameType;
-template <>  const std::string cStrIO<eTyInstr>::msNameType;
-
-#endif
 
 /** These functions offer an"easy" interface to cStrIO, however I think
 *    cStrIO is still usefull when type inference becomes too compliicated
@@ -229,7 +172,7 @@ class  cSpecOneArg2007 : public cMemCheck
         /// Memoize then call type specific V_InitParam
         void InitParam(const std::string & aStr) ;
         virtual void * AdrParam() = 0;    ///< cast to void * of typed adress, used by Application know if init
-        virtual const std::string & NameType() const = 0;  ///< as int, bool, ....
+        virtual std::string NameType() const = 0;  ///< as int, bool, ....
         virtual std::string  NameValue() const = 0;  ///< Used to print def value
 
         virtual void  CheckSize(const std::string &) const = 0;  ///< Used to check size of vect from a parameter like "[4,6]"

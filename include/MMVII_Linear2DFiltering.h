@@ -392,7 +392,58 @@ template <class Type>  class cImGrad
 template<class Type> cImGrad<Type> Deriche(const cDataIm2D<Type> &aImIn,double aAlpha);
 template<class Type> void ComputeDeriche(cImGrad<Type> & aResGrad,const cDataIm2D<Type> & aImIn,double aAlpha);
 
+/**
+ * @brief The cSetIm4SparseDist class
+ *
+ * Theses classes can be used for visualisation values known from a sparse distribution in 2D,
+ * like distribution of tiep/gcp seen in a 2d plane of the sensor.
+ *
+ *    The distribution is computed on a reduced size (due to sparsity, there is no need to maintain the full size),
+ * and at the end, it is convoluted by a gaussian to make it dense.
+ */
 
+
+template <class Type> class cSetIm4SparseDist
+{
+   public :
+     typedef cIm2D<Type>     tIm;
+     typedef cDataIm2D<Type> tDIm;
+
+     cSetIm4SparseDist(const std::vector<std::string> &,const cPt2di& aSzInit,tREAL8 aFactRed);
+     void Add(const cPt2dr& aPt,const std::vector<tREAL8> & aVValues,tREAL8 aWeight=1.0);
+
+     /** Make the weithting and the average dense measure by convoluting, the default size of
+      *  convolution is selected to make it ???
+      *
+      *  This default sigma can be muttiplied if we want result +- smooth
+      */
+     void MakeDense(tREAL8 aMulSig=1.0);
+
+     tIm ImW() const;
+     tIm ImAvg(size_t aKTh) const;
+
+     /// Generate files computed, if not WithLayer : only weighting
+     void GenFiles(const std::string& aDir,const std::string & Pref,bool WithLayer);
+
+     ///  Gen file + MakeDense + GenFile again
+     void SaveDenseSave(const std::string& aDir,const std::string & Pref,bool WithLayebefore=false,bool WithLayerAfter=true);
+
+
+   private :
+
+     void Gen1File(tIm,const std::string& aDir,std::string aLayer,const std::string & Pref);
+
+     bool                      mFiltered;
+     std::vector<std::string>  mNames;       ///< Names of layer
+     size_t                    mNbIm;        ///< Number of images
+     tREAL8                    mNbMeasure;   ///< Number of measures added
+     tREAL8                    mSumW;        ///< Sum of weights
+     cPt2di                    mSzInit;      ///< Initial size of images
+     tREAL8                    mFactRed;     ///< Reduction factor
+     cPt2di                    mSzRed;       ///< Size of reduced images
+     tIm                       mImW;         ///< Image of weights
+     std::vector<tIm>          mIm2Avg;      ///<  Vector of image averaged
+};
 
 };
 

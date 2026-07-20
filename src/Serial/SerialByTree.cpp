@@ -483,7 +483,6 @@ void cJsonSerialTokenParser::CheckOnClose(const cSerialTree & aTree,const std::s
 /*                                                            */
 /*============================================================*/
 
-static bool DEBUG=false;
 
 cSerialTree::cSerialTree(const std::string & aValue,int aDepth,eLexP aLexP,eTAAr aTAAr) :
    mLexP      (aLexP),
@@ -1040,7 +1039,6 @@ cIMakeTreeAr::cIMakeTreeAr(const std::string & aName,eTypeSerial aTypeS)  :
     mTypeS    (aTypeS),
     mError    (false)
 {
-   DEBUG = true;
 
    cSerialFileParser *  aSTP = cSerialFileParser::Alloc(mNameFile,aTypeS);
    cSerialTree aTree(*aSTP);

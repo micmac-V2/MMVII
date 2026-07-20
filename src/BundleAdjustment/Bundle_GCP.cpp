@@ -64,7 +64,7 @@ void cBA_GCP::AddGCP3D(cMes3DDirInfo * aMesDirInfo, cSetMesGnd3D &aSetMesGnd3D, 
 
 void cBA_GCP::AddMes2D(cSetMesPtOf1Im &aSetMesIm, cMes2DDirInfo *aMesDirInfo, cSensorImage* aSensorImage, eLevelCheck OnNonExistP)
 {
-    mMesGCP.AddMes2D(aSetMesIm, aMesDirInfo, aSensorImage, OnNonExistP);
+    mMesGCP.AddMes2D(aSetMesIm, aSensorImage, aMesDirInfo, OnNonExistP);
 }
 
 /* -------------------------------------------------------------- */
@@ -116,6 +116,7 @@ void cMMVII_BundleAdj::OneItere_GCP()
     const std::vector<cSensorImage*> & aVSens   = aSet.VSens() ;
 
     cWeightAv<tREAL8,tREAL8> aWeightedSqRes;
+    cWeightAv<tREAL8,tREAL8> aWeightedSqResDist;
     cWeightAv<tREAL8,tREAL8> aUW_SqRes;
 
     // StdOut() << "GCP " << aVMesGCP.size() << " " << aVMesIm.size() << " " << aVSens.size() << std::endl;
@@ -183,6 +184,7 @@ void cMMVII_BundleAdj::OneItere_GCP()
 
         const std::vector<cPt2dr> & aVPIm  = aVMesIm.at(aKp).VMeasures();
         const std::vector<int> &  aVIndIm  = aVMesIm.at(aKp).VImages();
+        const std::vector<tOptPairR> & aVDistWithSigma  = aVMesIm.at(aKp).VDistWithSigmas();
 
         int aNbImVis  = 0;
         // Parse all image having a measure with this GCP
@@ -192,6 +194,7 @@ void cMMVII_BundleAdj::OneItere_GCP()
             int aIndIm = aVIndIm.at(aKIm);
             cSensorImage * aSens = aVSens.at(aIndIm);
             const cPt2dr & aPIm = aVPIm.at(aKIm);
+            auto & aDistWithSigma = aVDistWithSigma.at(aKIm);
             //StdOut() << "aSensaSensaSens " << aSens->NameImage() << " " << aVIndIm << "\n";
 
             // compute indexe of unknown, if GCp are !UK we have fix index for temporary
@@ -214,26 +217,46 @@ void cMMVII_BundleAdj::OneItere_GCP()
             // Do something only if GCP is visible
             if (aSens->IsVisibleOnImFrame(aPIm) && (aSens->IsVisible(aPGr)))
             {
+                //cPt2dr aPtGrProjected = aSens->Ground2Image(aPGr);  ///TODO : l'un ou l'autre
+                //aSens->FixPtPxLoopAroundPP(aPtGrProjected); // be in the same case as aPIm
                 cPt2dr aResidual = aPIm - aSens->Ground2Image(aPGr);
+                aSens->FixLoopPixelsResiduals(aResidual);
                 tREAL8 aWeightImage =   aGCPIm_Weighter.SingleWOfResidual(aResidual);
+
+                cResidualWeighterExplicit<tREAL8> aWeighter(true, {aWeightImage, aWeightImage});
                 if (aWeightImage==0)
                     continue; // eliminated
                 aNbImVis++;
                 aWeightedSqRes.Add(aWeightImage,SqN2(aResidual));
+
                 aUW_SqRes.Add(1.0,SqN2(aResidual));
                 cCalculator<double> * anEqColin =  aSens->GetEqColinearity();
                 // the "obs" are made of 2 point and, possibily, current rotation (for PC cams)
                 std::vector<double> aVObs = aPIm.ToStdVector();
 
-                aSens->PushOwnObsColinearity(aVObs,aPGr);
+                // will use dist only if this is as cStaticLidar and we have a distance in mesInstr
+                cStaticLidar * aStaticLidar = dynamic_cast<cStaticLidar*>(aSens);
+                if (!aDistWithSigma.has_value())
+                    aStaticLidar = nullptr;
+                if (!aStaticLidar)
+                    aSens->PushOwnObsColinearity(aVObs,aPGr);
+                else
+                {
+                    aWeighter.addSigma(aDistWithSigma.value().second);
+                    tREAL4 aMesDistance = aDistWithSigma.value().first;
+                    if (aMesDistance == 0.)
+                        continue; // eliminated, even if 2D may be used...
+                    aStaticLidar->PushOwnObsColinearityDistance(aVObs,aMesDistance);
+                    aWeightedSqResDist.Add(aStaticLidar->Sigma(),Square(aMesDistance-Norm2(aPGr-aStaticLidar->Center())));
+                }
 
                 if (aGcpUk)  // Case Uknown, we just add the equation
                 {
-                    mSys->R_CalcAndAddObs(anEqColin,aVIndGlob,aVObs,aWeightImage);
+                    mSys->R_CalcAndAddObs(anEqColin,aVIndGlob,aVObs,aWeighter);
                 }
                 else  // Case to subst by schur compl,we accumulate in aStrSubst
                 {
-                    mSys->R_AddEq2Subst(aStrSubst,anEqColin,aVIndGlob,aVObs,aWeightImage);
+                    mSys->R_AddEq2Subst(aStrSubst,anEqColin,aVIndGlob,aVObs,aWeighter);
                 }
             }
         }
@@ -285,6 +308,8 @@ void cMMVII_BundleAdj::OneItere_GCP()
         if (aWeightedSqRes.Nb()!=0)
             StdOut() << "  WeightedGcp=" << std::sqrt(aWeightedSqRes.Average())
                      << "  UWGcp=" << std::sqrt(aUW_SqRes.Average()) ; // getchar();
+        if (aWeightedSqResDist.Nb()>0)
+            StdOut() << "  ResDist=" << std::sqrt(aWeightedSqResDist.Average());
         StdOut() << "  PropVis1Im=" << aNbGCPVis /double(aNbGCP)
                  << "  Avg vis/GCP=" << aAvgVis/double(aNbGCP)
                  << "  Mes used="<<aAvgVis<<" / not used="<<aAvgNonVis

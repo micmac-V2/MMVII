@@ -313,7 +313,10 @@ tProjImAndGrad  cSensorImage::DiffGround2Im(const cPt3dr & aPt) const
 
 
 
-
+void cSensorImage::FixPtPxLoopAroundPP(cPt2dr& aPtPx) const
+{
+    return; // nothing to do in general case
+}
 
 const cPt2di & cSensorImage::Sz() const {return PixelDomain().Sz();}
 
@@ -442,6 +445,15 @@ bool cSensorImage:: PairIsVisible(const cPair2D3D & aPair) const
 {
         return IsVisible(aPair.mP3) && IsVisibleOnImFrame(aPair.mP2) ;
 }
+
+void cSensorImage::FixLoopPixelsInImage(std::vector<cPt2dr> &aVPtInOut) const
+{}
+void cSensorImage::FixLoopPixelsInImage(cPt2dr &aPtInOut) const
+{}
+void cSensorImage::FixLoopPixelsResiduals(cPt2dr &aResPx) const
+{}
+void cSensorImage::FixLoopBundle(cPt2dr &aPtBundle) const
+{}
 
 cPt3dr cSensorImage::Image2PlaneInter(const cPlane3D & aPlane,const cPt2dr & aPIm) const
 {

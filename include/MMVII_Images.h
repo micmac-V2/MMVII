@@ -12,7 +12,6 @@ namespace MMVII
 */
 
 template <class Type>  class cIm2D;
-template <const int Dim> void IncrementPixBoxIteratorGen(cPixBoxIterator<Dim>&);
 
 /**  Class allow to iterate the pixel of an image (in fact a rectangular object) using the
 same syntax than stl iterator => for (auto aP : anIma) ....
@@ -20,19 +19,16 @@ same syntax than stl iterator => for (auto aP : anIma) ....
 template <const int Dim>  class cPixBoxIterator
 {
      public :
-       friend void IncrementPixBoxIteratorGen<Dim>(cPixBoxIterator<Dim>&);
+        friend class cPixBox<Dim>;
 
         typedef cPtxd<int,Dim>        tPt;
         typedef cPixBoxIterator<Dim>  tIter;
         typedef cPixBox<Dim>          tPB;
-        friend class cPixBox<Dim>;
 
         bool operator == (const tIter& aIt2) const {return  mPCur==aIt2.mPCur;}  ///< Equal iff current point are =
         bool operator != (const tIter& aIt2) const {return  mPCur!=aIt2.mPCur;}  ///< !Equal iif not equal ...
-        tPt & operator * () {return mPCur;}         ///< classic operator dereference
-        const tPt & operator * () const {return mPCur;}   ///< classic operator dereference
-        tPt * operator ->() {return &mPCur;}        ///< classic operator dereference
-        const tPt * operator ->() const {return &mPCur;}  ///< classic operator dereference
+        const tPt& operator * () const {return mPCur;}   ///< classic operator dereference (non const version not needed : we always return a const, we cannot allow mPcur to be modified)
+        const tPt * operator ->() const {return &mPCur;}  ///< classic operator dereference, const tPt* : we cannot allow mPcur to be modified
 
         /// standard prefix incrementation
         tIter &  operator ++();
@@ -40,9 +36,9 @@ template <const int Dim>  class cPixBoxIterator
         tIter operator ++(int) { tIter Old(*this); ++(*this); return Old; }
      protected :
 
-        cPixBoxIterator(tPB & aRO,const  tPt & aP0) : mRO (&aRO),mPCur (aP0) {}
+        cPixBoxIterator(const tPB & aRO,const  tPt & aP0) : mRO (&aRO),mPCur (aP0) {}
 
-        tPB * mRO;  ///< The rectangular object
+        const tPB * mRO;  ///< The rectangular object
         tPt             mPCur; ///< The current point
 };
 
@@ -59,22 +55,21 @@ template <const int Dim>  class cPixBoxIterator
 template <const int Dim>  class cPixBox : public cTplBox<int,Dim>
 {
     public :
-
         typedef int                   tScalPt;
         typedef cPtxd<tScalPt,Dim>        tPt;
         typedef cTplBox<tScalPt,Dim>      tBox;
         typedef cPixBoxIterator<Dim> iterator; ///< For auto ...
+        typedef cPixBoxIterator<Dim> const_iterator; ///< iteraror = const_iteraror because cPixBoxIterator never gives access to cPixBox
         static const cPixBox<Dim>    TheEmptyBox;
         //  --- Iterator ----------------
-        iterator &  begin() {return mBegin;}   ///< For auto
-        iterator &  end()   {return mEnd;}   ///< For auto
-        const iterator &  begin() const {return mBegin;}   ///< For auto
-        const iterator &  end()   const {return mEnd;}   ///< For auto
+        iterator begin() {return iterator(*this, this->mP0);}   ///< For auto
+        iterator end()   {return  iterator(*this, CalPEnd(this->mP0, this->mP1));}   ///< For auto
+        const_iterator begin() const {return iterator(*this, this->mP0);}   ///< For auto
+        const_iterator end()   const {return iterator(*this, CalPEnd(this->mP0, this->mP1)); } ///< For auto
         tINT8     IndexeLinear(const tPt &) const; ///< Num of pixel when we iterate
         tPt     FromIndexeLinear(tINT8 ) const; ///< Num of pixel when we iterate
         tINT8   IndexeUnorderedPair(const tPt &,const tPt &) const; ///< create a unique index for pair, AB~BA
-        /// Required by iterators  as they do not copy well becaus of ptr
-        cPixBox(const cPixBox<Dim> &) ;
+
         cPixBox(const tPt & aP0,const tPt & aP1,bool AllowEmpty = false);
         static cPixBox<Dim>  BoxWindow(int aSz); ///<  Box of window around pix !! symetric   [-Sz,+aSz]
         static cPixBox<Dim>  BoxWindow(const tPt &aC,int aSz); ///<  with center
@@ -102,10 +97,15 @@ template <const int Dim>  class cPixBox : public cTplBox<int,Dim>
         }
         // Call SignalAtFrequence with linear index
         bool SignalAtFrequence(const tPt & anIndex,double aFreq) const;
+    private:
+        cPtxd<int,Dim> CalPEnd(const cPtxd<int,Dim> & aP0,const cPtxd<int,Dim> & aP1) const
+        {
+            cPtxd<int,Dim> aRes = aP0;
+            aRes[Dim-1] = aP1[Dim-1] ;
+            return aRes;
+        }
 
-    private :
-        iterator  mBegin; ///< Beging iterator
-        iterator  mEnd;   ///< Ending iterator
+
 };
 
 
@@ -168,14 +168,14 @@ template <const int Dim>  class cBorderPixBoxIterator : public cPixBoxIterator<D
        typedef cPixBoxIterator<Dim>  tPBI;
        typedef cBorderPixBox<Dim>    tBPB;
 
-       cBorderPixBoxIterator(tBPB & ,const  tPt & aP0);
+       cBorderPixBoxIterator(const tBPB & ,const  tPt & aP0);
         /// standard prefix incrementation
        tIter &  operator ++();
         /// Just a "facility" to allow post-fix
-       tIter &  operator ++(int);
+       tIter operator ++(int) { tIter Old(*this); ++(*this); return Old; }
 
    private :
-       tBPB *  mBPB;  ///< Pointer to the border for handling "special" incrementation
+       const tBPB *  mBPB;  ///< Pointer to the border for handling "special" incrementation
 };
 
 ///  Class allowing to iterate on the border itsef
@@ -191,27 +191,33 @@ template <const int Dim>  class cBorderPixBox
 {
    public :
        typedef cBorderPixBoxIterator<Dim>  iterator;
+       typedef cBorderPixBoxIterator<Dim>  const_iterator;
        typedef cPixBox<Dim>          tPB;
        typedef cPtxd<int,Dim>        tPt;
 
        cBorderPixBox(const tPB & aRO,const tPt & aSz) ;
        cBorderPixBox(const tPB & aRO,int aSz) ;
-       cBorderPixBox(const cBorderPixBox<Dim> &);
 
-       iterator &  begin() {return mBegin;}   ///< For auto
-       iterator &  end()   {return mEnd;}   ///< For auto
-       iterator   begin() const  {return mBegin;}   ///< For auto
-       iterator   end()   const  {return mEnd;}   ///< For auto
-       tPB &    PB();
-       void IncrPt(tPt &); ///< Make the incrementation specific to border
+       iterator begin() {return iterator(*this,mPB.P0());}   ///< For auto
+       iterator end()   {return iterator(*this,CalPEnd(mPB.P0(),mPB.P1()));}   ///< For auto
+       const_iterator begin() const  {return iterator(*this,mPB.P0()); }   ///< For auto
+       const_iterator end()   const  {return iterator(*this,CalPEnd(mPB.P0(),mPB.P1()));}   ///< For auto
+       const tPB& PB() const { return mPB; }
+       void IncrPt(tPt &) const; ///< Make the incrementation specific to border
+
    private :
+       cPtxd<int,Dim> CalPEnd(const cPtxd<int,Dim> & aP0,const cPtxd<int,Dim> & aP1) const
+       {
+           cPtxd<int,Dim> aRes = aP0;
+           aRes[Dim-1] = aP1[Dim-1] ;
+           return aRes;
+       }
+
        tPB              mPB; ///< The Pix Box arround the border
        tPt              mSz;  ///< Sz of border
        cTplBox<int,Dim> mBoxInt;  ///< Interior box
        int              mX0;      ///< first X of interior box
        int              mX1;      ///< last X of interior box
-       iterator         mBegin;   ///< memorization of iterator , begin
-       iterator         mEnd;     ///< memorization of iterator , end
 };
 
 
@@ -263,54 +269,41 @@ template <const int Dim>  class cParseBoxInOut
 
 
 /* Iterator allowing to visit rectangles */
-
-template <> inline cPixBoxIterator<1> &  cPixBoxIterator<1>::operator ++()
+/* let the compiler optimizer do its job for small Dim, it is very good at that */
+template <int Dim>
+inline cPixBoxIterator<Dim>& cPixBoxIterator<Dim>::operator++()
 {
-   mPCur.x()++;
-   return *this;
-}
-template <> inline cPixBoxIterator<2> &  cPixBoxIterator<2>::operator ++()
-{
-    // std::cout << "OPPPPPP " << mPCur << " " << mRO->P0() << mRO->P1() << "\n";
-    mPCur.x()++;
-    if (mPCur.x() == mRO->P1().x())
+    static_assert(Dim >= 1, "cPixBoxIterator requires Dim >= 1");
+    for (int aD=0 ; aD<Dim-1 ; aD++)
     {
-        mPCur.x() = mRO->P0().x();
-        mPCur.y()++;
-    }
-
-    return *this;
-}
-template <> inline cPixBoxIterator<3> &  cPixBoxIterator<3>::operator ++()
-{
-    mPCur.x()++;
-    if (mPCur.x() == mRO->P1().x())
-    {
-        mPCur.x() = mRO->P0().x();
-        mPCur.y()++;
-        if (mPCur.y() == mRO->P1().y())
+        if (++mPCur[aD] != mRO->P1()[aD])
         {
-           mPCur.y() = mRO->P0().y();
-           mPCur.z()++;
+            return *this;
         }
+        mPCur[aD] = mRO->P0()[aD];
     }
-
+    ++ mPCur[Dim-1];
     return *this;
 }
 
-// Higher dimension are not often used, and by the way, the gain to inlining and
-// specialization becomes low, so for theses dimension we use the "slower" generic methods
-template <> inline cPixBoxIterator<4> &  cPixBoxIterator<4>::operator ++()
+
+
+template <const int Dim>
+cBorderPixBoxIterator<Dim>& cBorderPixBoxIterator<Dim>::operator ++()
 {
-    IncrementPixBoxIteratorGen(*this);
+    tPBI::operator ++ ();
+    mBPB->IncrPt(tPBI::mPCur);
     return *this;
 }
 
-template <> inline cPixBoxIterator<5> &  cPixBoxIterator<5>::operator ++()
+
+template <const int Dim>  void cBorderPixBox<Dim>::IncrPt(tPt& aP) const
 {
-   IncrementPixBoxIteratorGen(*this);
-   return *this;
+    if ((aP.x() == mX0) && (mBoxInt.Inside(aP)))
+        aP.x() = mX1;
+
 }
+
 
 
 ///  Abstract class allowing to manipulate images independanlty of their type

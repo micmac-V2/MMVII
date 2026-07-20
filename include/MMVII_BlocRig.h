@@ -9,7 +9,7 @@
 #include "MMVII_PCSens.h"
 
 
-
+#if (MAINTAIN_OLD_BLOCK)
 namespace MMVII
 {
 
@@ -292,5 +292,6 @@ class cBlocOfCamera : public cMemCheck
 
 
 };
+#endif
 
 #endif  //  _MMVII_BLOC_RIG_H_

@@ -49,7 +49,7 @@ jobs:
         CC: clang-18
 
     - name: Build MMVII
-      run: cmake --build build -j 4 --target full -- -k
+      run: cmake --build build -j 4 --target full_P2007 -- -k
 
     - name: Run MMVII Tests
       working-directory: ./bin
@@ -105,7 +105,7 @@ jobs:
         version: 5.15
 
     - name: Configure CMake for MMVII
-      run: cmake -S . -B build -G "Visual Studio 18 2026" -A x64 -T v143 -DCMAKE_PREFIX_PATH=C:/Miniconda/envs/test/Library -DvMMVII_BUILD=ON -DMMVII_KEEP_LIBRARY_MMV1=ON -DMMV1_PATH=libelise-win-dev
+      run: cmake -S . -B build -DCMAKE_PREFIX_PATH=C:/Miniconda/envs/test/Library -DvMMVII_BUILD=ON -DMMVII_KEEP_LIBRARY_MMV1=ON -DMMV1_PATH=libelise-win-dev
 
     - name: Build MMVII
       run: cmake --build build --config Release -j 4 --target full
@@ -124,10 +124,10 @@ jobs:
         
         # dll for PROJ, GDAL
         cd /C/Miniconda/envs/test/Library/bin/
-        cp -a archive.dll blosc.dll charset.dll deflate.dll freexl.dll gdal.dll geos.dll geos_c.dll iconv.dll jpeg8.dll ${MMVII_BINDIR}/
+        cp -a archive.dll blosc.dll charset.dll deflate.dll freexl.dll gdal.dll geos.dll geos_c.dll iconv.dll icu*.dll jpeg8.dll ${MMVII_BINDIR}/
         cp -a brotlicommon.dll brotlidec.dll brotlienc.dll hwy.dll jxl.dll jxl_cms.dll jxl_threads.dll muparser.dll ${MMVII_BINDIR}/
         cp -a Lerc.dll libbz2.dll libcrypto-3-x64.dll libcurl.dll libexpat.dll liblzma.dll libminizip.dll libpng16.dll libsharpyuv.dll ${MMVII_BINDIR}/
-        cp -a libssh2.dll libssl-3-x64.dll libwebp.dll libxml2.dll lz4.dll pcre2-8.dll proj_9.dll snappy.dll spatialite.dll ${MMVII_BINDIR}/
+        cp -a libssh2.dll libssl-3-x64.dll libwebp.dll libxml2.dll lz4.dll pcre2-8.dll proj_9.dll psl-*.dll snappy.dll spatialite.dll ${MMVII_BINDIR}/
         cp -a sqlite3.dll tiff.dll xerces-c*.dll zlib.dll zstd.dll ${MMVII_BINDIR}/
         cd $GITHUB_WORKSPACE
 
