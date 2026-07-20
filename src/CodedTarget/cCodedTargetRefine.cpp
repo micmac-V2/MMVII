@@ -398,7 +398,6 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                                                            const cSpecMMVII_Appli& aSpec):
         cMMVII_Appli    (aVArgs, aSpec),
         mPhProj         (*this),
-        mVAugCdT        ({}),
         mIm             (cPt2di(1,1)),
         mDIm            (nullptr),
         mL1Lim          (20),
@@ -436,7 +435,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         //----- if supplied, load coded targets augmentation
         if (!mPhProj.DPGndPt3D().DirInIsNONE() && mPhProj.DPOrient().DirInIsInit())
         {
-            ReadFromFile(mVAugCdT, cAugCdT::NameFile(mPhProj, true));
+            ReadFromFile(mVAugCdT, cAugCdt::NameFile(mPhProj, true));
         }
         //----- single image process
 
@@ -821,7 +820,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 
 /******************************************************************************/
 /*
-* cAppli_CodedTargetRefine
+* cOptCorrelThIm
 */
 /******************************************************************************/
 

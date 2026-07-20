@@ -18,7 +18,7 @@ struct cCdTDetec;
 struct cRansacSol;
 struct cLS10PSol;
 struct cCBParams;
-class cAugCdT;
+class cAugCdt;
 class cCdTDiscr;
 
 typedef cSegment<tREAL8,3> tSeg3dr;
@@ -112,13 +112,13 @@ struct cExtract
 };
 
 /*!
- * @brief The cAugCdT class performs CdT augmentation
+ * @brief The cAugCdt class performs CdT augmentation
  */
-class cAugCdT
+class cAugCdt
 {
 public:
-    cAugCdT(std::string aName, std::shared_ptr<cFullSpecifTarget> aFSpec);
-    cAugCdT();
+    cAugCdt(std::string aName, std::shared_ptr<cFullSpecifTarget> aFSpec);
+    cAugCdt();
     void                Spatialize(tREAL8 aGndInterTol=1e-2);
     cCdTDiscr           Discretize(cSensorCamPC* aCam, bool &isIn) const;
     void                AddExtract(cExtract aExt);
@@ -126,8 +126,7 @@ public:
     void                AddData(const cAuxAr2007& anAux);
     std::vector<cPt3dr> GndCorners() const;
     std::string         Show() const;
-    static std::string  NameFile(const cPhotogrammetricProject & aPhProj, bool Input);
-    bool operator       <(const cAugCdT& aAug) const;
+    bool operator       <(const cAugCdt& aAug) const;
     std::string             mName;
     bool                    mOKAug;
     bool                    mOKInter;
@@ -141,7 +140,24 @@ private:
     std::vector<cExtract>               mVExtracts;
 };
 
-void AddData(const cAuxAr2007& anAux, cAugCdT& anEx);
+void AddData(const cAuxAr2007& anAux, cAugCdt& anEx);
+
+class cSetOfAugCdt
+{
+public:
+    cSetOfAugCdt();
+    void Add(cAugCdt aCdt);
+    bool HasCdtName(std::string);
+    void AddData(const cAuxAr2007& anAux);
+    cAugCdt* AugOfName(std::string aName);
+    std::vector<cAugCdt>& Cdts();
+    static std::string NameFile(const cPhotogrammetricProject& aPhProj, bool aInput);
+private:
+    std::vector<cAugCdt> mVCdt;
+};
+
+void AddData(const cAuxAr2007& anAux, cSetOfAugCdt& aSet);
+
 
 /*!
 * @brief The cCdTDiscr class store and handles all about coded target discretisation

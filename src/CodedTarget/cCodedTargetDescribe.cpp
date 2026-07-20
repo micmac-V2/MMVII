@@ -4,11 +4,79 @@ namespace MMVII
 {
     const std::vector<cPt2dr> SqCorners = {cPt2dr(-1,-1), cPt2dr(1,-1), cPt2dr(1,1), cPt2dr(-1,1)};
 
-    /**************************************************************************/
-    /*
-     * cExtract
-     */
-    /**************************************************************************/
+/******************************************************************************/
+/*
+* cSetOfAugCdt
+*/
+/******************************************************************************/
+
+    cSetOfAugCdt::cSetOfAugCdt():
+        mVCdt({})
+    {
+    }
+
+    void cSetOfAugCdt::Add(cAugCdt aCdt)
+    {
+        mVCdt.push_back(aCdt);
+    }
+
+    bool cSetOfAugCdt::HasCdtName(std::string aName)
+    {
+        bool aRes = false;
+        for (const cAugCdt& aCdt : mVCdt)
+        {
+            if (aCdt.mName == aName)
+            {
+                aRes = true;
+                break;
+            }
+        }
+        return aRes;
+    }
+
+    cAugCdt* cSetOfAugCdt::AugOfName(std::string aName)
+    {
+        cAugCdt* aRes = nullptr;
+        for (cAugCdt& aCdt : mVCdt)
+        {
+            if (aCdt.mName == aName)
+            {
+                aRes = &aCdt;
+            }
+        }
+        return aRes;
+    }
+
+    std::vector<cAugCdt>& cSetOfAugCdt::Cdts()
+    {
+        sort(mVCdt.begin(), mVCdt.end());
+        return mVCdt;
+    }
+
+    std::string cSetOfAugCdt::NameFile(const cPhotogrammetricProject& aPhProj, bool aInput)
+    {
+        return  (aInput ? aPhProj.DPGndPt3D().FullDirIn() : aPhProj.DPGndPt3D().FullDirOut())
+               + "Aug-"
+               +  aPhProj.DPOrient().DirIn()
+               + "."+ cMMVII_Appli::CurrentAppli().TaggedNameDefSerial();
+    }
+
+    void cSetOfAugCdt::AddData(const cAuxAr2007& anAuxParam)
+    {
+        cAuxAr2007 anAux("SetAugCdt",anAuxParam);
+        MMVII::AddData(cAuxAr2007("Augmentations", anAux), mVCdt);
+    }
+
+    void AddData(const cAuxAr2007& anAux, cSetOfAugCdt& aSet)
+    {
+        aSet.AddData(anAux);
+    }
+
+/******************************************************************************/
+/*
+ * cExtract
+ */
+/******************************************************************************/
 
     cExtract::cExtract(const cSensorCamPC *aCam, cSaveExtrEllipe aEll):
         mCam (aCam),
@@ -16,13 +84,13 @@ namespace MMVII
     {
     }
 
-    /**************************************************************************/
-    /*
-     * cAugCdT
-     */
-    /**************************************************************************/
+/******************************************************************************/
+/*
+ * cAugCdt
+ */
+/******************************************************************************/
 
-    cAugCdT::cAugCdT(std::string aName, std::shared_ptr<cFullSpecifTarget> aFSpec):
+    cAugCdt::cAugCdt(std::string aName, std::shared_ptr<cFullSpecifTarget> aFSpec):
         mName (aName),
         mOKAug(false),
         mOKInter (false),
@@ -31,27 +99,27 @@ namespace MMVII
     {
     }
 
-    cAugCdT::cAugCdT():
+    cAugCdt::cAugCdt():
         mFSpec (nullptr)
     {
     }
 
-    bool cAugCdT::operator<(const cAugCdT& aAug) const
+    bool cAugCdt::operator<(const cAugCdt& aAug) const
     {
         return mName < aAug.mName;
     }
 
-    void cAugCdT::AddExtract(cExtract aExt)
+    void cAugCdt::AddExtract(cExtract aExt)
     {
         mVExtracts.push_back(aExt);
     }
 
-    tU_INT1 cAugCdT::NbExtracts() const
+    tU_INT1 cAugCdt::NbExtracts() const
     {
         return mVExtracts.size();
     }
 
-    std::vector<cPt2dr> cAugCdT::Corners() const
+    std::vector<cPt2dr> cAugCdt::Corners() const
     {
         std::vector<cPt2dr> aRes = {};
         const cPt2dr& aC = mCenter;
@@ -59,7 +127,7 @@ namespace MMVII
         return aRes;
     }
 
-    std::vector<cPt3dr> cAugCdT::GndCorners() const
+    std::vector<cPt3dr> cAugCdt::GndCorners() const
     {
         std::vector<cPt3dr> aRes = {};
         for (const auto& aP : Corners())
@@ -69,7 +137,7 @@ namespace MMVII
         return aRes;
     }
 
-    void cAugCdT::Spatialize(tREAL8 aGndInterTol)
+    void cAugCdt::Spatialize(tREAL8 aGndInterTol)
     {
         //----- init reference/ground correspondences
         std::vector<cPt3dr> aVMarks = {}, aVGndPts = {};
@@ -105,7 +173,7 @@ namespace MMVII
         if (mOKInter) mOKAug = true;
     }
 
-    cCdTDiscr cAugCdT::Discretize(cSensorCamPC* aCam, bool& isIn) const
+    cCdTDiscr cAugCdt::Discretize(cSensorCamPC* aCam, bool& isIn) const
     {
         //----- discretization = computing map between CdT theoretical image & glob image
         std::vector<cPt2dr> aVOut;
@@ -120,27 +188,19 @@ namespace MMVII
         return cCdTDiscr(mName, aCam->NameImage(), aAff, true);
     }
 
-    void cAugCdT::AddData(const cAuxAr2007& anAux)
+    void cAugCdt::AddData(const cAuxAr2007& anAux)
     {
         MMVII::AddData(cAuxAr2007("Name", anAux), mName);
         MMVII::AddData(cAuxAr2007("Ref2Gnd", anAux), mRef2Gnd);
         MMVII::AddData(cAuxAr2007("Center", anAux), mCenter);
     }
 
-    void AddData(const cAuxAr2007 &anAux, cAugCdT &anEx)
+    void AddData(const cAuxAr2007 &anAux, cAugCdt &anEx)
     {
         anEx.AddData(anAux);
     }
 
-    std::string cAugCdT::NameFile(const cPhotogrammetricProject& aPhProj, bool Input)
-    {
-        return  (Input ? aPhProj.DPGndPt3D().FullDirIn() : aPhProj.DPGndPt3D().FullDirOut())
-               + "Aug-"
-               +  aPhProj.DPOrient().DirIn()
-               + "."+ cMMVII_Appli::CurrentAppli().TaggedNameDefSerial();
-    }
-
-    std::string cAugCdT::Show() const
+    std::string cAugCdt::Show() const
     {
         return "CdT: " + mName + "\t | "
                + "Mul: " + std::to_string(NbExtracts()) + "\t | "
@@ -165,7 +225,7 @@ namespace MMVII
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
-        void VisuAugCdT(const std::vector<cAugCdT>& aVAugCdT, cSensorCamPC* aCam, std::string StrV="J");
+        void VisuAugCdT(const cSetOfAugCdt aOKAugSet, cSensorCamPC* aCam, std::string StrV="J");
         std::string NameVisu(const std::string & aIm, const std::string & aPref, const std::string aPost);
         cPhotogrammetricProject             mPhProj;
         std::string                         mSpecImIn;
@@ -207,38 +267,28 @@ namespace MMVII
     {
     }
 
-    void cAppli_CodedTargetDescribe::VisuAugCdT(const std::vector<cAugCdT>& aVAugCdT, cSensorCamPC *aCam, std::string StrV)
+    void cAppli_CodedTargetDescribe::VisuAugCdT(cSetOfAugCdt aOKAugSet, cSensorCamPC *aCam, std::string StrV)
     {
         StdOut() << "generation of: " << aCam->NameImage() << " visualization image\n";
         cRGBImage aIm = cRGBImage::FromFile(aCam->NameImage());
         auto aDIm = &aIm;
         aDIm->ResetGray();
-        for (const auto& aAug : aVAugCdT)
+        for (const auto& aAug : aOKAugSet.Cdts())
         {
             if (!aAug.mOKInter) continue;
             std::vector<cPt2dr> aVImP = {};
             auto& aCol = (aAug.mOKInter ? cRGBImage::Red : cRGBImage::Cyan);
-            //tU_INT1 ix = 0;
             for (const auto& aP : aAug.GndCorners())
             {
-                //++ix;
                 auto aImP = aCam->Ground2Image(aP);
                 if (aDIm->InsideBL(aImP))
                 {
                     aDIm->DrawCross(aImP, cPt2dr(1,1), aCol, .5);
-                    //aDIm->DrawFiducial(aImP, cPt2dr(1,1), -1, aCol, .5);
-                    //aDIm->DrawString(std::to_string(ix), cRGBImage::Green, aImP, cPt2dr(1,0));
                 }
-                //aVImP.push_back(aImP);
             }
-            //auto& aC = mFSpec->Center();
-            //auto aImC = aCam->Ground2Image(aAug.mRef2Gnd.Value(cPt3dr(aC.x(), aC.y(), 0)));
-            //if (aDIm->InsideBL(aImC)) aDIm->DrawString(aAug.mName, aCol, aImC, cPt2dr(0.5,0.05));//-> name
-            //aDIm->DrawPolygon(aVImP, cRGBImage::White, .5);//-> border
         }
         std::string aNameV = NameVisu(aCam->NameImage(), "Marks", "");
         StrV == "J" ? aIm.ToJpgFileDeZoom(aNameV, 1, {"QUALITY=90"}) : aIm.ToFile(aNameV);
-
     }
 
     std::string cAppli_CodedTargetDescribe::NameVisu(const std::string & aIm, const std::string & aPref, const std::string aPost)
@@ -255,40 +305,34 @@ namespace MMVII
         std::vector<std::string> aVIm = VectMainSet(0);
         mFSpec = std::shared_ptr<cFullSpecifTarget>(cFullSpecifTarget::CreateFromFile(mFSpecName));
 
-        //----- single image processing: init aVAugCdT
-        std::vector<cAugCdT> aVAugCdT = {};
+        //----- parse augmentation candidates
+        cSetOfAugCdt aAugSet;
         std::vector<std::string> aVNOriIm = {};//-> not oriented images
 
         for (const std::string& aIm : aVIm)
         {
             const cSensorCamPC* aCam = mPhProj.ReadCamPC(aIm, true, true);
-            if (aCam == nullptr)//-> checks if image has been oriented
+            if (aCam == nullptr)//-> false if current image has been oriented
                 {
-                    aVNOriIm.push_back(aIm);
-                    continue;//-> reject image measurements
+                    aVNOriIm.push_back(aIm);//-> measurements not to be used
+                    continue;//-> next image
                 }
 
-            std::vector<cSaveExtrEllipe> aVEll;//-> load saved ellipses extrinsics from target extraction
+            //----- ellipses extrinsics extracted from current image
+            std::vector<cSaveExtrEllipe> aVEll;
             ReadFromFile(aVEll, cSaveExtrEllipe::NameFile(mPhProj, mPhProj.LoadMeasureIm(aIm), true));
 
             for (const cSaveExtrEllipe& aEll : aVEll)
             {
-                bool isOK = false;
-                for (cAugCdT& aCdT : aVAugCdT)//-> look if AugCdT has already been created
+                if (aAugSet.HasCdtName(aEll.mNameCode))//-> corresponding AugCdT already exists
                 {
-                    if (aCdT.mName == aEll.mNameCode)//-> corresponding AugCdT already exists
-                    {
-                        aCdT.AddExtract(cExtract(aCam, aEll));//-> add extraction from current image
-                        isOK = true;
-                        break;
-                    }
-                }
-
-                if (!isOK && !starts_with(aEll.mNameCode, MMVII_NONE))//-> if not found
+                    cAugCdt* aCdt = aAugSet.AugOfName(aEll.mNameCode);
+                    aCdt->AddExtract(cExtract(aCam, aEll));
+                } else if (!starts_with(aEll.mNameCode, MMVII_NONE))//-> not found & not NONE target (=undecoded)
                 {
-                    cAugCdT aCdT(aEll.mNameCode, mFSpec);//-> new AugCdT
-                    aCdT.AddExtract(cExtract(aCam, aEll));//-> add extraction from current image
-                    aVAugCdT.push_back(aCdT);
+                    cAugCdt aCdt(aEll.mNameCode, mFSpec);//-> new AugCdt
+                    aCdt.AddExtract(cExtract(aCam, aEll));
+                    aAugSet.Add(aCdt);
                 }
             }
         }
@@ -298,22 +342,20 @@ namespace MMVII
                 << "--> " << aVNOriIm.size() << '/' << aVIm.size() << '\n'
                 << "-----\n";
 
-        sort(aVAugCdT.begin(), aVAugCdT.end());//-> sort vector on target names
-
         //------ CdT spatialization
-        std::vector<cAugCdT> aVOKAugCdT = {};//-> OK augmented CdT
+        cSetOfAugCdt aOKAugSet;//-> OK augmented CdT
 
-        for (cAugCdT& aCdT : aVAugCdT)
+        for (cAugCdt& aCdT : aAugSet.Cdts())
         {
             if (aCdT.NbExtracts() <= 3) continue;//-> no intersection with < 4 bundles
             aCdT.Spatialize(mGndInterTol);//-> spatial properties computation
-            if (aCdT.mOKAug) aVOKAugCdT.push_back(aCdT);
+            if (aCdT.mOKAug) aOKAugSet.Add(aCdT);
         }
 
         //----- show results & generate visualisation
-        if (mShow) for (const auto& aCdT : aVAugCdT) StdOut() << aCdT.Show();
-        StdOut() << "--> network augmentation: " << aVOKAugCdT.size()
-                 << '/' << aVAugCdT.size() << '\n';
+        if (mShow) for (const auto& aCdT : aAugSet.Cdts()) StdOut() << aCdT.Show();
+        StdOut() << "--> network augmentation: " << aOKAugSet.Cdts().size()
+                 << '/' << aAugSet.Cdts().size() << '\n';
 
         if (mVisu[0] != "")
         {
@@ -322,13 +364,12 @@ namespace MMVII
             {
                 auto aCam = mPhProj.ReadCamPC(aIm, true, true);
                 if (aCam == nullptr) continue;
-                if (aSel.Match(aIm)) VisuAugCdT(aVOKAugCdT, aCam, mVisu[0]);
+                if (aSel.Match(aIm)) VisuAugCdT(aOKAugSet, aCam, mVisu[0]);
             }
         }
 
-
         //----- save result
-        SaveInFile(aVOKAugCdT, cAugCdT::NameFile(mPhProj, false));//-> export to Aug-?.xml
+        SaveInFile(aOKAugSet, cSetOfAugCdt::NameFile(mPhProj, false));//-> export to Aug-?.xml
 
         return EXIT_SUCCESS;
     }
