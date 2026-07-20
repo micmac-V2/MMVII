@@ -261,6 +261,11 @@ bool HeadOrTail()
      return  RandUnif_0_1() > 0.5;
 }
 
+int HeadOrTail_N(int aN)
+{
+    return HeadOrTail() ? -aN : aN;
+}
+
 double RandNormal(double aMean, double aStdDev)
 {
     return cRandGenerator::TheOne()->Normal_0_1()*aStdDev+aMean;
