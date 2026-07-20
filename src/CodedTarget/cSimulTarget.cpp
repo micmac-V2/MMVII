@@ -159,7 +159,8 @@ class cAppliSimulCodeTarget : public cMMVII_Appli
         cPt2dr              mAttenContrast;         ///< min/max amplitude of (random) gray attenuatio,
         cPt2dr              mAttenMul;         ///< min/max Multiplicative attenuation
         cPt2dr              mPropSysLin;      ///< min/max amplitude of (random) linear bias
-        cPt2dr              mAmplWhiteNoise;  ///< min/max amplitude of random white noise
+        //cPt2dr              mAmplWhiteNoise;  ///< min/max amplitude of random white noise
+        tREAL8              mAmplWhiteNoise;  ///< signal to noise ratio
         tREAL8              mAmplHomog;
 
         // =========== Internal param ============
@@ -188,7 +189,8 @@ cAppliSimulCodeTarget::cAppliSimulCodeTarget(const std::vector<std::string> & aV
    mAttenContrast   (0.,0.2),
    mAttenMul        (0.0,0.4),
    mPropSysLin      (0.,0.2),
-   mAmplWhiteNoise  (0.,0.1),
+   //mAmplWhiteNoise  (0.,0.1),
+   mAmplWhiteNoise  (0.),
    mAmplHomog       (0.0),
    mImIn            (cPt2di(1,1)),
    mSpec            (nullptr),
@@ -339,7 +341,6 @@ void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
 
     // [4] -- Do the incrustation of target in  image
     cBox2di aBoxIm = ImageOfBox(aMapT2Im,aDImT.ToR()).Dilate(mSzKernel+2).ToI();
-
     tDIm & aDImIn = mImIn.DIm();
     for (const auto & aPix : cRect2(aBoxIm)) // ressample image, parse image coordinates
     {
@@ -363,10 +364,14 @@ void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
                 }
                 // in cRessampleWeigth =>  Sum(W) is standartized and equals 1, at this step aSomVW
                 // is a "perfect" ressampling, now we add some noise
-
-                aSomVW = aSomVW * (1- mAmplWhiteNoise.y()) + RandInInterval_C(mAmplWhiteNoise) * 128 * aSomW;
-                double aVal = aSomVW + (1-aSomW)*aDImIn.GetV(aPix);
-                aDImIn.SetV(aPix,aVal);
+                //old
+                //aSomVW = aSomVW * (1- mAmplWhiteNoise.y()) + RandInInterval_C(mAmplWhiteNoise) * 128 * aSomW;
+                //double aVal = aSomVW + (1-aSomW)*aDImIn.GetV(aPix);
+                //aDImIn.SetV(aPix,aVal);
+                //new
+                aSomVW = aSomVW + HeadOrTail_N() * RandInInterval(0, mAmplWhiteNoise * 255) * aSomW;
+                tREAL8 aVal = aSomVW + (1-aSomW) * aDImIn.GetV(aPix);
+                aDImIn.SetVTrunc(aPix,aVal);
             }
         }
     }
@@ -391,6 +396,12 @@ bool orderAndAssertInterval01(cPt2dr & interval, const std::string & aIntervalNa
     return true;
 }
 
+bool AssertInterval01(tREAL8& aVal, const std::string & aIntervalName)
+{
+    cPt2dr aInter(0., aVal);
+    return orderAndAssertInterval01(aInter, aIntervalName);
+}
+
 int  cAppliSimulCodeTarget::Exe()
 {
    mPhProj.FinishInit();
@@ -412,7 +423,9 @@ int  cAppliSimulCodeTarget::Exe()
    // check that all intervals are in (0;1]
    if (!orderAndAssertInterval01(mRS.mRatioMinMax, "Ratio"))
        return EXIT_FAILURE;
-   if (!orderAndAssertInterval01(mAmplWhiteNoise, "NoiseAmpl"))
+   //if (!orderAndAssertInterval01(mAmplWhiteNoise, "NoiseAmpl"))
+   //    return EXIT_FAILURE;
+   if (!AssertInterval01(mAmplWhiteNoise, "NoiseAmpl"))
        return EXIT_FAILURE;
    if (!orderAndAssertInterval01(mPropSysLin, "PropLinBias"))
        return EXIT_FAILURE;
