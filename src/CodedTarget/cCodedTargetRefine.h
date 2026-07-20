@@ -33,7 +33,7 @@ namespace MMVII
         //------ members
         std::string                         mFSpecName; //-> full specification file name
         std::unique_ptr<cFullSpecifTarget>  mFSpec;     //-> full specification object
-        std::vector<cAugCdT>                mVAugCdT;    //-> descriptions from Describe
+        cSetOfAugCdt                        mAugSet;    //-> augmented targets set
         std::string                         mGlobImN;   //-> global image name
         tIm                                 mIm;        //-> current image
         tDIm*                               mDIm;       //-> current image data
@@ -47,7 +47,7 @@ namespace MMVII
         //------ methods
         void        BuildDiscr(cCdTDiscr& aDis, bool& isOk);  //-> cCdTDiscr builder
         void        DiscrMapRefine(cCdTDiscr& aDis);                //-> cCdTDiscr CdT2Im mapping refiner
-        cPt2dr        CorrelCropSamp(cCdTDiscr& aDis, bool &isOk);
+        cPt2dr      CorrelCropSamp(cCdTDiscr& aDis, bool &isOk);
         void        Visu(cSetMesPtOf1Im& aSet);
         std::string NameVisu(const std::string & aIm, const std::string & aPref, const std::string aPost);
         };
@@ -92,17 +92,14 @@ namespace MMVII
         tDIm mDIm;
     };
 
-    //template <class Type> class cCdtTr : cCdtIm<Type>
-    //{
-
-    //}
-
-    template <class Type> class cCdtRef : cCdtIm<Type>
+    class cCdtSampler
     {
     public:
-        typedef cAffin2D<class TAff> tAff2d;
-        cCdtRef(std::shared_ptr<cFullSpecifTarget> aFSpec, std::string aName);
-        //cCdtTr Transform(tAff2d aTransfo);
+        typedef cAffin2D<tREAL8> tAff2d;
+        cCdtSampler(std::shared_ptr<cFullSpecifTarget> aFSpec);
+        tIm Sample(std::string aName, tAff2d aRef2GIm, cPixBBox aBox, tIm& aRes, tIm& aMask);
+    private:
+        std::shared_ptr<cFullSpecifTarget> mFSpec;
     };
 
     //cAff2D_r            Descr2Aff(const cCdTDescr& aDes, cSensorCamPC* aCam);//-> converts description to 2d affinity
