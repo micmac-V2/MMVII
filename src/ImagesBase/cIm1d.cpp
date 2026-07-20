@@ -210,7 +210,9 @@ template <class TypeH,class TypeCumul>  cHistoCumul<TypeH,TypeCumul>::cHistoCumu
 template <class TypeH,class TypeCumul> void cHistoCumul<TypeH,TypeCumul>::AddV(const int & aP,const TypeH & aV2Add)
 {
     mHCOk = false;
-    mDH->AddV(aP,aV2Add);
+    mDH->ClipTruncThenAddVal(aP,aV2Add);
+
+    //mDH->AddV(aP,aV2Add);
 }
 
 template <class TypeH,class TypeCumul> void cHistoCumul<TypeH,TypeCumul>::MakeCumul()

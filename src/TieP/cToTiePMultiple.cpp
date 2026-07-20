@@ -514,10 +514,16 @@ cComputeMergeMulTieP::cComputeMergeMulTieP(int aNbTarget,const cComputeMergeMulT
     }
 }
 
-const std::vector<std::list<std::pair<size_t,tPairTiePMult*>>> & cComputeMergeMulTieP::IndexeOfImages()  const
+const std::vector<std::list<std::pair<size_t,tPairTiePMult*>>> & cComputeMergeMulTieP::IndexesOfImages()  const
 {
         return mImageIndexes;
 }
+
+const std::list<std::pair<size_t,tPairTiePMult*>> & cComputeMergeMulTieP::IndexeOf1Image(size_t aKInd) const
+{
+    return mImageIndexes.at(aKInd);
+}
+
 
 void cComputeMergeMulTieP::SetImageIndexe()
 {

@@ -511,7 +511,8 @@ class cComputeMergeMulTieP : public cMemCheck
         //  comptactify each of the point vector
         void Shrink() ;
 
-        const std::vector<std::list<std::pair<size_t,tPairTiePMult*>>> & IndexeOfImages()  const;
+        const std::vector<std::list<std::pair<size_t,tPairTiePMult*>>> & IndexesOfImages()  const;
+        const std::list<std::pair<size_t,tPairTiePMult*>> & IndexeOf1Image(size_t) const;
         void SetImageIndexe();
         /// compute the Ground coordinates
         void SetPGround();

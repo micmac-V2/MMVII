@@ -569,6 +569,14 @@ template <class Type>  class cDataIm1D  : public cDataTypedIm<Type,1>
             aVP += aV2Add;
         }
 
+        // Safe version of AddV, clip the adress and trunc the value
+        void ClipTruncThenAddVal( int  aP,const tBase & aV2Add)
+        {
+            aP = std::max(X0(),std::min(aP,X1()-1));
+            tVal & aVP =   Value(aP);
+            aVP =  tNumTrait<Type>::Trunc(aVP+aV2Add);;
+        }
+
         void  AddVBL(const tREAL8 & aX,const double & aVal)
         {
            tPB::AssertInsideBL(cPt1dr(aX));
@@ -790,6 +798,7 @@ template <class TypeH,class TypeCumul>  class cHistoCumul
          tREAL8              mPopTot;
 
 };
+typedef cHistoCumul<tREAL8,tREAL8> tHistoCumulrr;
 
 class cTabulFonc1D : public cFctrRR
 {

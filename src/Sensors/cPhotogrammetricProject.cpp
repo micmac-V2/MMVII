@@ -1332,9 +1332,7 @@ bool cPhotogrammetricProject::GenReadHomol
             const std::string & aDirIn
         ) const
 {
-   // aSetHCI
     std::string aName = NameTiePIn(aNameIm1,aNameIm2,aDirIn);
-  //  StdOut() << "NH=" << aName << "\n";
     if (!ExistFile(aName))
     {
         aName  = NameTiePIn(aNameIm2,aNameIm1,aDirIn);
