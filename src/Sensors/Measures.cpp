@@ -522,7 +522,17 @@ int cSetMesGndPt::GetNbImMesForPoint(const std::string & aGCPName, bool SVP) con
     else if ((size_t)aKGCP>=mMesImOfPt.size())
         return 0;
     else
-        return mMesImOfPt[aKGCP].VImages().size();
+    {
+        // compute number of total obs (2D + distance if exists)
+        int aNbObs = 0;
+        for (size_t i=0;i<mMesImOfPt[aKGCP].VImages().size();++i)
+        {
+            aNbObs += 2;
+            if (mMesImOfPt[aKGCP].VDistWithSigmas()[i].has_value())
+                aNbObs += 1;
+        }
+        return aNbObs;
+    }
 }
 
 cSetMesGndPt *  cSetMesGndPt::FilterNonEmptyMeasure(int aNbMeasureMin) const

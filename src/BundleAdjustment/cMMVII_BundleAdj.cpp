@@ -858,13 +858,12 @@ bool cMMVII_BundleAdj::CheckGCPConstraints() const
                     aNbTopoElementObs += obs->getMeasures().size();
                 }
             }
-            if (aNbImObs*2+aNbTopoElementObs<3)
+            if (aNbImObs+aNbTopoElementObs<3)
                 aNames += aMesGCP.mNamePt + " ";
         }
     }
     if (aNames.size())
-        MMVII_UserError(eTyUEr::eConstraintsError,
-                          "Not enough observations for points: "+aNames);
+        MMVII_USER_WARNING("Not enough observations for points: "+aNames);
 
     return true;
 }
