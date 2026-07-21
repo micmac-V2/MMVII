@@ -1390,12 +1390,12 @@ void cStaticLidar::FilterIncidence(const cStaticLidarImporter &aSL_importer, tRE
     // gaussian blur of masked image: blur image and mask, for valid pixels, result = blured_im/blured_mask
     auto aRasterDistGauss = mRasterDistance->Dup();
     auto & aRasterDistGaussData = aRasterDistGauss.DIm();
-    ExpFilterOfStdDev(aRasterDistGaussData, 2, 3.);
+    ExpFilterOfStdDev(aRasterDistGaussData, 2, 2.);
 
     //mRasterMask->DIm().ToFile("Mask.tif");
     auto aRasterMaskGauss = Convert((float*)nullptr, mRasterMask->DIm()) * (1./255.);
     auto & aRasterMaskGaussData = aRasterMaskGauss.DIm();
-    ExpFilterOfStdDev(aRasterMaskGaussData, 2, 3.);
+    ExpFilterOfStdDev(aRasterMaskGaussData, 2, 2.);
 
     //aRasterDistGaussData.ToFile("DistGaussData.tif");
     //aRasterMaskGaussData.ToFile("MaskGaussData.tif");
@@ -1512,7 +1512,10 @@ void cStaticLidar::MaskBuffer(const cStaticLidarImporter &aSL_importer, tREAL8 a
         for (int c = 0 ; c < aSL_importer.NbCol(); ++c)
         {
             if (aMaskBufImData.GetV(cPt2di(c, l))==0)
+            {
                 aRasterScoreData.SetV(cPt2di(c, l), 1000.);
+                aMaskImData.SetV(cPt2di(c, l), 0);
+            }
         }
 }
 
@@ -1576,7 +1579,7 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches)
                 mPatchCenters.push_back(aPt);
                 aXStep *= aAvgDist/aRasterDistData.GetV(aPt); // take depth into account
             } else
-                aXStep /= 3.;
+                aXStep /= 9.; // if this pixel has no response, search next closer than normal step
             if (aXStep<2.)
                 aXStep = 2.;
             aX += aXStep;
