@@ -20,7 +20,7 @@ namespace MMVII
         mVCdt.push_back(aCdt);
     }
 
-    bool cSetOfAugCdt::HasCdtName(std::string aName)
+    bool cSetOfAugCdt::NameHasAug(std::string aName)
     {
         bool aRes = false;
         for (const cAugCdt& aCdt : mVCdt)
@@ -34,7 +34,7 @@ namespace MMVII
         return aRes;
     }
 
-    cAugCdt* cSetOfAugCdt::AugOfName(std::string aName)
+    cAugCdt* cSetOfAugCdt::CdtOfName(std::string aName)
     {
         cAugCdt* aRes = nullptr;
         for (cAugCdt& aCdt : mVCdt)
@@ -188,6 +188,31 @@ namespace MMVII
         return cCdTDiscr(mName, aCam->NameImage(), aAff, true);
     }
 
+    tAff2Dr cAugCdt::Ref2GImEstim(cSensorCamPC* aCam) const
+    {
+        //----- Ref2GIm Cdt reference image to global image affinity
+        std::vector<cPt2dr> aVOut;
+        for (const auto& aP : Corners())
+        {
+            aVOut.push_back(aCam->Ground2Image(mRef2Gnd.Value(cPt3dr(aP.x(), aP.y(), 0))));
+        }
+        tREAL8      aRes;
+        tAff2Dr    aAff;
+        aAff = aAff.StdGlobEstimate(Corners(), aVOut, &aRes, nullptr, cParamCtrlOpt::Default());
+        return aAff;
+    }
+
+    std::vector<cPt2dr> cAugCdt::GImCorners(cSensorCamPC* aCam) const
+    {
+        std::vector<cPt2dr> aRes = {};
+        tAff2Dr aRef2Glob = Ref2GImEstim(aCam);
+        for (const auto& aPt : Corners())
+        {
+            aRes.push_back(aRef2Glob.Value(aPt));
+        }
+        return aRes;
+    }
+
     void cAugCdt::AddData(const cAuxAr2007& anAux)
     {
         MMVII::AddData(cAuxAr2007("Name", anAux), mName);
@@ -210,11 +235,11 @@ namespace MMVII
     }
 
 
-    /**************************************************************************/
-    /*
-     * cAppli_CodedTargetDescribe
-     */
-    /**************************************************************************/
+/******************************************************************************/
+/*
+ * cAppli_CodedTargetDescribe
+ */
+/******************************************************************************/
 
     class cAppli_CodedTargetDescribe : public cMMVII_Appli
     {
@@ -324,9 +349,9 @@ namespace MMVII
 
             for (const cSaveExtrEllipe& aEll : aVEll)
             {
-                if (aAugSet.HasCdtName(aEll.mNameCode))//-> corresponding AugCdT already exists
+                if (aAugSet.NameHasAug(aEll.mNameCode))//-> corresponding AugCdT already exists
                 {
-                    cAugCdt* aCdt = aAugSet.AugOfName(aEll.mNameCode);
+                    cAugCdt* aCdt = aAugSet.CdtOfName(aEll.mNameCode);
                     aCdt->AddExtract(cExtract(aCam, aEll));
                 } else if (!starts_with(aEll.mNameCode, MMVII_NONE))//-> not found & not NONE target (=undecoded)
                 {

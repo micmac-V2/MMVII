@@ -112,21 +112,24 @@ struct cExtract
 };
 
 /*!
- * @brief The cAugCdt class performs CdT augmentation
+ * @brief The cAugCdt class performs augmentation operations and store results
  */
 class cAugCdt
 {
 public:
     cAugCdt(std::string aName, std::shared_ptr<cFullSpecifTarget> aFSpec);
     cAugCdt();
-    void                Spatialize(tREAL8 aGndInterTol=1e-2);
+    void                Spatialize(tREAL8 aGndInterTol=1e-2);//-> compute RefToGnd 3d similarity
     cCdTDiscr           Discretize(cSensorCamPC* aCam, bool &isIn) const;
     void                AddExtract(cExtract aExt);
     tU_INT1             NbExtracts() const;
     void                AddData(const cAuxAr2007& anAux);
     std::vector<cPt3dr> GndCorners() const;
+    std::vector<cPt2dr> GImCorners(cSensorCamPC* aCam); const
     std::string         Show() const;
     bool operator       <(const cAugCdt& aAug) const;
+    tAff2Dr Ref2GImEstim(cSensorCamPC* aCam) const;
+    std::vector<cPt2dr> Corners() const;
     std::string             mName;
     bool                    mOKAug;
     bool                    mOKInter;
@@ -134,7 +137,6 @@ public:
     cSimilitud3D<tREAL8>    mRef2Gnd;
 
 private:
-    std::vector<cPt2dr>                 Corners() const;
     cPt2dr                              mCenter;
     std::shared_ptr<cFullSpecifTarget>  mFSpec;
     std::vector<cExtract>               mVExtracts;
@@ -147,9 +149,9 @@ class cSetOfAugCdt
 public:
     cSetOfAugCdt();
     void Add(cAugCdt aCdt);
-    bool HasCdtName(std::string);
+    bool NameHasAug(std::string);
     void AddData(const cAuxAr2007& anAux);
-    cAugCdt* AugOfName(std::string aName);
+    cAugCdt* CdtOfName(std::string aName);
     std::vector<cAugCdt>& Cdts();
     static std::string NameFile(const cPhotogrammetricProject& aPhProj, bool aInput);
 private:

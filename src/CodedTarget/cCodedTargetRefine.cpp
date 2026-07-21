@@ -364,11 +364,50 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 
     std::vector<cCdTDiscr>cSetOfCdTDiscr::CdTDiscretizations() const {return mVDiscr;}
 
-    /**************************************************************************/
-    /*
-     * cAppli_CodedTargetRefine
-     */
-    /**************************************************************************/
+/******************************************************************************/
+/*
+* cAppli_CodedTargetRefine
+*/
+/******************************************************************************/
+
+    class cAppli_CodedTargetRefine : public cMMVII_Appli
+    {
+    public:
+        cAppli_CodedTargetRefine(const std::vector<std::string>& aVArgs,
+                                 const cSpecMMVII_Appli& aSpec);
+    private:
+        //------ MMVII mandatory/usual stuff
+        int Exe() override;
+        cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
+        cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
+        cPhotogrammetricProject mPhProj;
+        std::string mSpecImIn;
+        bool mShow;
+        bool mVisu;
+
+        //------ members
+        std::string                         mFSpecName; //-> full specification file name
+        std::unique_ptr<cFullSpecifTarget>  mFSpec;     //-> full specification object
+        cSetOfAugCdt                        mSetAugCdt;    //-> augmented targets set
+        std::string                         mGImN;   //-> global image name
+        tIm                                 mGIm;        //-> current image
+        tDIm*                               mDGIm;       //-> current image data
+        cSensorCamPC*                       mCam;       //-> current camera
+        cSetMesPtOf1Im                      mSetImMes;  //-> current image measurements
+        //tU_INT1                             mL1Lim;     //-> L1 limit to consider outliers from ransac TF computation
+        int                                 mMaskDil;   //-> inlier mask dilatation (wrt Ref image)
+        cAugCdt* mAugCdt;//-> current augmented coded target when using heuristik correlation
+        std::string mRefine;//-> refine method to choose (corr, lsm)
+        bool mMissedOnly;//-> only refine missed ctd
+
+        //------ methods
+        void        BuildDiscr(cCdTDiscr& aDis, bool& isOk);  //-> cCdTDiscr builder
+        void        DiscrMapRefine(cCdTDiscr& aDis);                //-> cCdTDiscr CdT2Im mapping refiner
+        cPt2dr      CorrelCropSamp(cCdTDiscr& aDis, bool &isOk);
+        void        Visu(cSetMesPtOf1Im& aSet);
+        std::string NameVisu(const std::string & aIm, const std::string & aPref, const std::string aPost);
+        void HeuristCdtLocate();//-> locate target center using correlation
+    };
 
 
     cCollecSpecArg2007& cAppli_CodedTargetRefine::ArgObl(cCollecSpecArg2007& anArgObl)
@@ -398,10 +437,11 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                                                            const cSpecMMVII_Appli& aSpec):
         cMMVII_Appli    (aVArgs, aSpec),
         mPhProj         (*this),
-        mIm             (cPt2di(1,1)),
-        mDIm            (nullptr),
-        mL1Lim          (20),
+        mGIm             (cPt2di(1,1)),
+        mDGIm            (nullptr),
+        //mL1Lim          (20),
         mMaskDil        (0),
+        mAugCdt (nullptr),
         mRefine         (""),
         mMissedOnly     (false)
     {
@@ -410,8 +450,8 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 
     void cAppli_CodedTargetRefine::Visu(cSetMesPtOf1Im& aSet)
     {
-        StdOut() << "generation of: " << mGlobImN << " visualization image\n";
-        cRGBImage aIm = cRGBImage::FromFile(mGlobImN);
+        StdOut() << "generation of: " << mGImN << " visualization image\n";
+        cRGBImage aIm = cRGBImage::FromFile(mGImN);
         auto aDIm = &aIm;
         aDIm->ResetGray();
         for (const auto& aMes : aSet.Measures())
@@ -420,7 +460,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
             aDIm->DrawCross(aMes.mPt, cPt2dr(1,1), aCol, .5);
             aDIm->DrawString(aMes.mNamePt, cRGBImage::White, aMes.mPt, cPt2dr(1,0));
         }
-        std::string aNameV = NameVisu(mGlobImN, "RefMes", "");
+        std::string aNameV = NameVisu(mGImN, "RefMes", "");
         std::string aStrV = "T";
         aStrV == "J" ? aIm.ToJpgFileDeZoom(aNameV, 1, {"QUALITY=90"}) : aIm.ToFile(aNameV);
     }
@@ -435,24 +475,38 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         //----- if supplied, load coded targets augmentation
         if (!mPhProj.DPGndPt3D().DirInIsNONE() && mPhProj.DPOrient().DirInIsInit())
         {
-            ReadFromFile(mVAugCdT, cAugCdt::NameFile(mPhProj, true));
+            ReadFromFile(mSetAugCdt, cSetOfAugCdt::NameFile(mPhProj, true));
         }
-        //----- single image process
 
+        //----- single image process
         for (const auto& aIm : aVIm)
         {
-            mGlobImN = aIm;
-            mIm = tIm::FromFile(mGlobImN);
-            mDIm = &mIm.DIm();
-            cSetOfCdTDiscr aSetOfDiscr(mGlobImN);//-> collection of image CdT discretizations
-            cSetMesPtOf1Im aSet(mGlobImN);//-> to save final image measurements
+            mGImN = aIm;
+            mCam  = mPhProj.ReadCamPC(aIm, true, true);
+            mGIm  = tIm::FromFile(mGImN);
+            mDGIm = &mGIm.DIm();
+            cSetOfCdTDiscr aSetOfDiscr(mGImN);//-> collection of image CdT discretizations
+            cSetMesPtOf1Im aSet(mGImN);//-> to save final image measurements
 
-            if (mShow) StdOut() << "(Im):" << mGlobImN <<'\n';
+            if (mShow) StdOut() << "(Im):" << mGImN <<'\n';
 
             //----- load image measurements obtained from standard image processing
-            mSetImMes   = mPhProj.LoadMeasureIm(mGlobImN);
+            mSetImMes = mPhProj.LoadMeasureIm(mGImN);
             std::vector<cSaveExtrEllipe> aVEll;
             ReadFromFile(aVEll, cSaveExtrEllipe::NameFile(mPhProj, mSetImMes, true));
+
+            //----- parse potentially printed targets
+            for (const auto& aCdt : mFSpec->Encodings())
+            {
+                if (mSetImMes.NameHasMeasure(aCdt.Name()))//-> normally detected
+                {
+                    StdOut() << "wait for further developments...\n";
+                } else if (mSetAugCdt.NameHasAug(aCdt.Name()))//-> if target is augmented
+                {
+                    mAugCdt = mSetAugCdt.CdtOfName(aCdt.Name());
+                    if (mCam != nullptr) HeuristCdtLocate();//-> if camera is oriented
+                }
+            }
 
             for (const auto& aEll : aVEll)
             {
@@ -460,12 +514,12 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                 aSetOfDiscr.Add(cCdTDiscr(aEll.mNameCode, aIm, aEll.mAffIm2Ref.MapInverse()));
             }
             //----- complete with augmentations if provided
-            if (!mVAugCdT.empty() && !mPhProj.DPOrient().DirInIsNONE())//mPhProj.DPOrient().DirInIsNONE()
+            if (!mSetAugCdt.Cdts().empty() && !mPhProj.DPOrient().DirInIsNONE())//mPhProj.DPOrient().DirInIsNONE()
             {
                     cSensorCamPC* aCam = mPhProj.ReadCamPCFromFolder(mPhProj.DPOrient().DirIn(), aIm, true, true);
                 if (aCam != nullptr)
                 {
-                    for (const auto& aAug : mVAugCdT)
+                    for (const auto& aAug : mSetAugCdt.Cdts())
                     {
                         if (aSetOfDiscr.HasCdTName(aAug.mName)) continue;//-> if already provided by ellipse extraction
                         bool isIn = false;//-> is CdT center visible on image
@@ -547,7 +601,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         //----- fails if not all CdT corners are in the image
         for (const auto& aC : aVImCorn)
         {
-            if (!mIm.DIm().Inside(ToI(aC)))
+            if (!mGIm.DIm().Inside(ToI(aC)))
             {
                 StdOut() << aC;
                 if (mShow) StdOut() << "Out!" << '\n';
@@ -565,7 +619,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         aDis.SetCrop(aCrop);
 
         tDIm* aCropDIm = &aDis.Crop().DIm();
-        aCropDIm->CropIn(aDis.Extent().P0ByRef(), mIm.DIm());
+        aCropDIm->CropIn(aDis.Extent().P0ByRef(), mGIm.DIm());
 
         //----- set CdT in/out mask
         tIm aMask = tIm(aDis.Extent().Sz());
@@ -622,12 +676,26 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 
     cPt2dr cAppli_CodedTargetRefine::CorrelCropSamp(cCdTDiscr& aDis, bool& isOk)
     {
-        cOptCorrelThIm<tU_INT1> aOptMap(aDis.Samp().DIm(), *mDIm, aDis.Mask().DIm(), cPixBBox(aDis.Extent()));
+        cOptCorrelThIm<tU_INT1> aOptMap(aDis.Samp().DIm(), *mDGIm, aDis.Mask().DIm(), cPixBBox(aDis.Extent()));
         cOptimByStep aOpt(aOptMap, false, 2.0);
         auto [aVal,aDelta] = aOpt.Optim(ToR(aDis.Extent().P0()), 4, .1);
         if (mShow) StdOut() << "Cdt n°" << aDis.mName << " hcorr=" << aVal << '\n';
         if (aVal >= 0.6) isOk = true;
         return aDelta+ToR(aDis.Extent().Sz())/2.0;
+    }
+
+    void cAppli_CodedTargetRefine::HeuristCdtLocate()
+    {
+        //----- predict target bbox position wrt global image
+        std::vector<cPt2dr> aVCorners = mAugCdt->GImCorners(mCam);
+        for (const auto& aP : aVCorners)
+        {
+            if (!mCam->IsVisibleOnImFrame(aP)) return;
+        }
+        cPixBBox aBBox(aVCorners);
+        //----- save the patch
+        //----- sample reference image to the bbox
+        //----- correlate sampled target and
     }
 
     //----- memory allocation
@@ -648,11 +716,11 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
             __FILE__
             );
 
-    /**************************************************************************/
-    /*
-     * Other useful methods/classes
-     */
-    /**************************************************************************/
+/******************************************************************************/
+/*
+ * Other useful methods/classes
+ */
+/******************************************************************************/
 
     cCBParams::cCBParams()
     {
@@ -865,18 +933,18 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 */
 /******************************************************************************/
 
-    cPixBBox::cPixBBox(std::vector<tPt> aVPts):
-        cPixBox<2>(tPt(0,0), tPt(0,0))
+    cPixBBox::cPixBBox(const std::vector<tPt> aVPts):
+        cPixBox<2>(cPt2di(0,0), cPt2di(0,0))
     {
-        cBoundVals<tINT4> aXB;
-        cBoundVals<tINT4> aYB;
+        cBoundVals<tREAL8> aXB;
+        cBoundVals<tREAL8> aYB;
         for (const auto& aP : aVPts)
         {
             aXB.Add(aP.x());
             aYB.Add(aP.y());
         }
-        mP0 = tPt(aXB.VMin(), aYB.VMin());
-        mP1 = tPt(aXB.VMax(), aYB.VMax());
+        mP0 = cPt2di(aXB.VMin(), aYB.VMin());
+        mP1 = cPt2di(aXB.VMax(), aYB.VMax());
     }
 
     cPixBBox::cPixBBox(cPixBox<2> aBox):
@@ -884,5 +952,26 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
     {
     }
 
-}
+/******************************************************************************/
+/*
+* cPatch
+*/
+/******************************************************************************/
+
+    cPatch::cPatch(tIm& aGlobIm, cPixBBox aGlobBBox):
+        mGIm (aGlobIm),
+        mBBox (aGlobBBox)
+    {
+    }
+
+    tIm cPatch::CropGIm()
+    {
+        tIm aIm(mBBox.Sz());
+        tDIm* aDIm = &aIm.DIm();
+        aDIm->CropIn(mBBox.P0ByRef(), mGIm.DIm());
+        return aIm;
+    }
+
+    }
+
 
