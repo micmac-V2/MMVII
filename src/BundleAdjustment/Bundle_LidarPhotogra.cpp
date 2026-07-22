@@ -1110,6 +1110,17 @@ void cBA_LidarLidarRaster::AddObs()
         //CreateZbuffers(mPhProj, mBA, true, true); // useless for lidarlidar
     }
 
+#ifdef SCANSCANSHOWPATCHES
+    if (mBA.Iter()==0)
+    {
+        for (const auto& aScanA : mVScans)
+            for (const auto& aScanB : mVScans)
+                if (aScanA.mLidarRaster!=aScanB.mLidarRaster)
+                    mMapPatchesRasters.try_emplace(aScanA.mLidarRaster->NameImage()+"_to_"+aScanB.mLidarRaster->NameImage(),
+                                                   aScanA.mLidarRaster->InternalCalib()->SzPix()/SCANSCANSHOWPATCHES,nullptr,eModeInitImage::eMIA_Null);
+    }
+#endif
+
     mLastResidual.Reset();
     mNbUsedPoints = 0;
     mNbUsedObs = 0;
@@ -1184,6 +1195,18 @@ void cBA_LidarLidarRaster::AddObs()
 
         ShowMatrixWithNames(aNbPatchesMat, aVNames, aVNames);
     }
+
+#ifdef SCANSCANSHOWPATCHES
+    if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
+    {
+        for (const auto& [aCpl, aIm] : mMapPatchesRasters)
+        {
+            std::string aPath = mPhProj->DirVisuAppli() + "Patches_iter_" + ToStr(mBA.Iter()) + "_" + aCpl + ".tif";
+            cIm2D<tREAL4> aZoomed = aIm.EnlargeInt(SCANSCANSHOWPATCHES);
+            aZoomed.DIm().ToFile(aPath, {"COMPRESS=DEFLATE"});
+        }
+    }
+#endif
 }
 
 
@@ -1252,6 +1275,12 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             #ifdef SCANSCANDEBUG
             std::cout<<" hidden\n";
             #endif
+
+            #ifdef SCANSCANSHOWPATCHES
+            if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
+                mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
+                    aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, -30); // hidden zbuffer
+            #endif
             continue;
         }
         cDataGenUnTypedIm<2> & aGenDImDist = aScanB->getRasterDistance();
@@ -1272,6 +1301,11 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                 #ifdef SCANSCANDEBUG
                 std::cout<<" not a valid point\n";
                 #endif
+                #ifdef SCANSCANSHOWPATCHES
+                if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
+                    mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
+                        aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, -10); // not valid
+                #endif
                 continue;
             }
             if (aGenDImDist.InsideInterpolator(*mInterp,aPIm,1.0))  // is it sufficiently inside
@@ -1291,6 +1325,11 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                     #ifdef SCANSCANDEBUG
                     std::cout<<"removed W\n";
                     #endif
+                    #ifdef SCANSCANSHOWPATCHES
+                    if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
+                        mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
+                            aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, 10 + fabs(aResidual)); // rejected for residual
+                    #endif
                     continue;
                 }
                 cPt3dr aNormalInstrB = aScanB->Image2NormalInstr(aPIm, *mInterp);
@@ -1301,17 +1340,32 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                     std::cout<<"Removed "<<aPatch.mLPatchesP[0]<<" due to normals: "<<aNormalGndA<<" "<<aNormalGndB
                              <<" "<<acos(Scal(aNormalGndA,aNormalGndB))*180/M_PI<<"deg\n";
                     #endif
+                    #ifdef SCANSCANSHOWPATCHES
+                    if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
+                        mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
+                            aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, -1000 + acos(Scal(aNormalGndA,aNormalGndB))*180/M_PI); // rejected for normal
+                    #endif
                     continue;
                 }
                 #ifdef SCANSCANDEBUG
                 std::cout<<"Patch "<<aPatch.mLPatchesP[0]<<" accepted. Normals: "<<aNormalGndA<<" "<<aNormalGndB
                          <<" "<<acos(Scal(aNormalGndA,aNormalGndB))*180/M_PI<<"deg\n";
                 #endif
+                #ifdef SCANSCANSHOWPATCHES
+                if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
+                    mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
+                        aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, aResidual); // accepted, give residual
+                #endif
                 aAvgRes.Add(1.0,fabs(aResidual));  // compute std deviation
                 aVData.push_back(aData); // memorize the data for this image
             }
         } else {
             //std::cout<<" not visible\n";
+            #ifdef SCANSCANSHOWPATCHES
+            if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
+                mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
+                    aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, -20); // not visible
+            #endif
         }
     }
 

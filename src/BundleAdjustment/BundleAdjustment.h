@@ -521,6 +521,8 @@ protected:
  * Class for adjustment between two lidar scans
  */
 
+// #define SCANSCANSHOWPATCHES 16 // make rasters of patches residuals and rejection for each pair, downscale raster by value
+
 class cBA_LidarLidarRaster: public cBA_LidarBase, public cBA_LidarRaster
 {
 public :
@@ -549,6 +551,10 @@ protected :
          ) override;
 
     tREAL8 mNormalDiffMinCos = cos(15*M_PI/180);
+
+#ifdef SCANSCANSHOWPATCHES
+    std::map<std::string,cIm2D<tREAL4>> mMapPatchesRasters; ///< indexed by "nameA>nameB"
+#endif
 };
 
 
