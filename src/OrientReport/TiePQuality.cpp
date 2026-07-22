@@ -295,7 +295,7 @@ void cAppli_TiePReport::ProcessPly()
     {
         const auto & [aConfig,aValue]  = aPair;
         size_t aNbPts = NbPtsMul(aPair);
-        size_t aNbIm = Multiplicity(aPair);
+        int aNbIm = Multiplicity(aPair);
         for (size_t aKPt=0 ; aKPt<aNbPts ; aKPt++)
         {
             cPt3dr aPGround = aValue.mVPGround.at(aKPt);
