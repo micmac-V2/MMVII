@@ -313,6 +313,7 @@ cBA_LidarPhotograRaster::cBA_LidarPhotograRaster(cPhotogrammetricProject * aPhPr
             mBA.AddStaticLidar(aPtrScan);
             StdOut() << "Add Scan " << aPtrScan->NameImage() << "\n";
             mVScans.push_back({aPtrScan , {}});
+            mIndexesScans[aPtrScan->NameImage()] = mVScans.size()-1;
         }
     }
 
@@ -939,7 +940,7 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
 
     for (auto & aData: aVData)
     {
-        auto aCplId = aData.mScanAName+">"+mBA.VSCPC().at(aData.mKIm)->NameImage();
+        auto aCplId = std::pair(aData.mScanAName, mBA.VSCPC().at(aData.mKIm)->NameImage());
         if (mMapNbUsedPatches.count(aCplId)==0)
             mMapNbUsedPatches[aCplId] = 1;
         else
@@ -1051,6 +1052,7 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
             mBA.AddStaticLidar(aPtrScan);
             StdOut() << "Add Scan " << aPtrScan->NameImage() << "\n";
             mVScans.push_back({aPtrScan , {}});
+            mIndexesScans[aPtrScan->NameImage()] = mVScans.size()-1;
         }
     }
 
@@ -1166,8 +1168,22 @@ void cBA_LidarLidarRaster::AddObs()
         StdOut() << "  * Lid/Lid: no obs\n";
 
     if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
+    {
+        //for (const auto& [aCpl, aNb] : mMapNbUsedPatches)
+        //    StdOut() <<  aCpl << ": " << aNb << " patches\n";
+
+        tDMatR aNbPatchesMat(mVScans.size(),mVScans.size(),eModeInitImage::eMIA_Null);
         for (const auto& [aCpl, aNb] : mMapNbUsedPatches)
-            StdOut() <<  aCpl << ": " << aNb << " patches\n";
+            aNbPatchesMat.SetElem(mIndexesScans.at(aCpl.first),mIndexesScans.at(aCpl.second),aNb);
+        //StdOut() << aNbPatchesMat <<"\n";
+
+        std::vector<std::string> aVNames;
+        for (const auto& aScan : mVScans)
+            aVNames.push_back(SplitString(aScan.mLidarRaster->NameImage(),".").at(0));
+        StdOut() << "Patches visibility (col to row):\n";
+
+        ShowMatrixWithNames(aNbPatchesMat, aVNames, aVNames);
+    }
 }
 
 
@@ -1314,7 +1330,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
 
     for (auto & aData: aVData)
     {
-        auto aCplId = aData.mScanAName+">"+aData.mScanBName;
+        auto aCplId = std::pair(aData.mScanAName,aData.mScanBName);
         if (mMapNbUsedPatches.count(aCplId)==0)
             mMapNbUsedPatches[aCplId] = 1;
         else
