@@ -490,7 +490,7 @@ class cNormPix2Bit
 /*                                                     */
 /* *************************************************** */
 
-/**  A "cNormPix2Bit" where the bits are code in a circle arround the checkboard */
+/**  A "cNormPix2Bit" where the bits are code in a circle around the checkboard */
 
 class cCircNP2B : public  cNormPix2Bit
 {

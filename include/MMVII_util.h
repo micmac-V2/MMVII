@@ -84,7 +84,7 @@ std::string  ToStandardStringIdent(const std::string &);
 std::vector<std::string> SplitString(const std::string & aStr,const std::string & aSpace);
 
 // Si PrivPref  "a" => (aaa,)  (a.b.c)  => (a.b,c)
-void  SplitStringArround(std::string & aBefore,std::string & aAfter,const std::string & aStr,char aSep,bool SVP=false,bool PrivPref=true);
+void  SplitStringAround(std::string & aBefore,std::string & aAfter,const std::string & aStr,char aSep,bool SVP=false,bool PrivPref=true);
 bool IsPrefixed(const std::string & aStr,char aSep='.');
 std::string Prefix(const std::string & aStr,char aSep='.',bool SVP=false,bool PrivPref=true);
 std::string LastPrefix(const std::string & aStr,char aSep='.'); ///< No error:  a=> ""  a.b.c => "a.b"

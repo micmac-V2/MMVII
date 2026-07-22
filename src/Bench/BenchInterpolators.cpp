@@ -545,7 +545,7 @@ tREAL8 CubAppGaussVal(const tREAL8& aV)
  *  Formalisation :
  *
  *      - we have pixel out  Co
- *      - we have an image weighing arround Co  W(P) = BiCub((P-Co)/aSzK)
+ *      - we have an image weighing around Co  W(P) = BiCub((P-Co)/aSzK)
  *      - let S be the support of W(P) we compute the box of M-1(S)
  *
  */
@@ -556,7 +556,7 @@ tREAL8 CubAppGaussVal(const tREAL8& aV)
 
      // [1] compute the box in input image space
      cPt2dr aSzWOut = cPt2dr::PCste(aSzK);  // in target space the sz of weigthing func
-     cBox2dr aBoxOut(aCenterOut-aSzWOut,aCenterOut+aSzWOut); // box arround targt pixel
+     cBox2dr aBoxOut(aCenterOut-aSzWOut,aCenterOut+aSzWOut); // box around targt pixel
      cBox2di aBoxIn =aMapO2IGen.BoxOfCorners(aBoxOut).Dilate(1).ToI();  // Box in Input space (where there is an image)
    //  cBox2di aBoxIn =  ImageOfBox(aMapO2I,aBoxOut).Dilate(1).ToI();
 

@@ -213,7 +213,7 @@ template <const int Dim>  class cBorderPixBox
            return aRes;
        }
 
-       tPB              mPB; ///< The Pix Box arround the border
+       tPB              mPB; ///< The Pix Box around the border
        tPt              mSz;  ///< Sz of border
        cTplBox<int,Dim> mBoxInt;  ///< Interior box
        int              mX0;      ///< first X of interior box

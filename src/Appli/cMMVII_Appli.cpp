@@ -520,7 +520,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
          mDoInternalHelp = CaseSBegin("HE",aArgK);
 
          std::string aName;
-         SplitStringArround(aName,mPatHelp,aArgK,'=',true,false);
+         SplitStringAround(aName,mPatHelp,aArgK,'=',true,false);
       }
   }
 
@@ -574,7 +574,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
           {
              // while '
              std::string aName,aValue;
-             SplitStringArround(aName,aValue,aArgK,'=',true,false);
+             SplitStringAround(aName,aValue,aArgK,'=',true,false);
              int aNbSpecGot=0;
              // Look for spec corresponding to name
              for (const auto  & aSpec : mArgFac.Vec())

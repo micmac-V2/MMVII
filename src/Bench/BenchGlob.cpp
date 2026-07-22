@@ -1047,7 +1047,7 @@ void TestQuat()
     std::vector<tRotR> aBQ{tRotR::Identity()} ;
     for (int aK=0 ; aK< 3; aK++)
     {
-        aBQ.push_back(tRotR::RotArroundKthAxe(aK));
+        aBQ.push_back(tRotR::RotAroundKthAxe(aK));
 
        aBQ.back().Mat().Show();
        StdOut() <<  "=======================\n";

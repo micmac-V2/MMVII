@@ -452,7 +452,7 @@ enum class eModePaddingEpip
    eMPE_NoPad,  // No padding, natural size MicMac V1
    eMPE_PxPos,  // Padding force positive paralax
    eMPE_PxNeg,  // Padding force negative paralax
-   eMPE_SzEq,  //  Centerd padding, size equal
+   eMPE_SzEq,  //  Centered padding, size equal
    eNbVals
 };
 
@@ -570,7 +570,7 @@ enum class eModeCaracMatch
 
 enum class eDCTFilters
 {
-   eSym,       // symetry filters arround pts
+   eSym,       // symetry filters around pts
    eBin,       // binarity of the  histogramm
    eRad,       // radiality of the distribution
    eGrad,      // average  gradient
