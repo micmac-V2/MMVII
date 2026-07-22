@@ -395,10 +395,10 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         cSensorCamPC*                       mCam;       //-> current camera
         cSetMesPtOf1Im                      mSetImMes;  //-> current image measurements
         //tU_INT1                             mL1Lim;     //-> L1 limit to consider outliers from ransac TF computation
-        int                                 mMaskDil;   //-> inlier mask dilatation (wrt Ref image)
+        //int                                 mMaskDil;   //-> inlier mask dilatation (wrt Ref image)
         cAugCdt* mAugCdt;//-> current augmented coded target when using heuristik correlation
-        std::string mRefine;//-> refine method to choose (corr, lsm)
-        bool mMissedOnly;//-> only refine missed ctd
+        //std::string mRefine;//-> refine method to choose (corr, lsm)
+        //bool mMissedOnly;//-> only refine missed ctd
 
         //------ methods
         void        BuildDiscr(cCdTDiscr& aDis, bool& isOk);  //-> cCdTDiscr builder
@@ -406,7 +406,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         cPt2dr      CorrelCropSamp(cCdTDiscr& aDis, bool &isOk);
         void        Visu(cSetMesPtOf1Im& aSet);
         std::string NameVisu(const std::string & aIm, const std::string & aPref, const std::string aPost);
-        void HeuristCdtLocate();//-> locate target center using correlation
+        cPt2dr AugCdtLocate(bool &isOk);//-> locate target center using correlation
     };
 
 
@@ -427,9 +427,9 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                << mPhProj.DPOrient().ArgDirInOpt("OriAug","Absolute orientation -> mandatory if using network augmentation")
                << AOpt2007(mShow,"Show","Show useful details", {eTA2007::HDV})
                << AOpt2007(mVisu,"Visu","Save visualisation of results", {eTA2007::HDV})
-               << AOpt2007(mMaskDil,"MaskDil","Dilate Ref image to filter inliers", {eTA2007::HDV})
-               << AOpt2007(mRefine,"Refine","H-euristik (=cross-correl),G-radient(=LSM)")
-               << AOpt2007(mMissedOnly,"MissedOnly","Only process undetected targets")
+               //<< AOpt2007(mMaskDil,"MaskDil","Dilate Ref image to filter inliers", {eTA2007::HDV})
+               //<< AOpt2007(mRefine,"Refine","H-euristik (=cross-correl),G-radient(=LSM)")
+               //<< AOpt2007(mMissedOnly,"MissedOnly","Only process undetected targets")
             ;
     }
 
@@ -440,10 +440,10 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         mGIm             (cPt2di(1,1)),
         mDGIm            (nullptr),
         //mL1Lim          (20),
-        mMaskDil        (0),
-        mAugCdt (nullptr),
-        mRefine         (""),
-        mMissedOnly     (false)
+        //mMaskDil        (0),
+        mAugCdt (nullptr)
+        //mRefine         (""),
+        //mMissedOnly     (false)
     {
         //
     }
@@ -498,16 +498,22 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
             //----- parse potentially printed targets
             for (const auto& aCdt : mFSpec->Encodings())
             {
+                bool isOk = false;
                 if (mSetImMes.NameHasMeasure(aCdt.Name()))//-> normally detected
                 {
-                    StdOut() << "wait for further developments...\n";
+                    StdOut() << aCdt.Name() << " : already measured\n";
+                    isOk = true;
                 } else if (mSetAugCdt.NameHasAug(aCdt.Name()))//-> if target is augmented
                 {
                     mAugCdt = mSetAugCdt.CdtOfName(aCdt.Name());
-                    if (mCam != nullptr) HeuristCdtLocate();//-> if camera is oriented
+                    if (mCam != nullptr)
+                    {
+                        cPt2dr aMes = AugCdtLocate(isOk);//-> if camera is oriented
+                        if (isOk) StdOut() << aCdt.Name() << " : correlation center at -> " << aMes << "\n";
+                    }
                 }
             }
-
+            /*
             for (const auto& aEll : aVEll)
             {
                 if (starts_with(aEll.mNameCode, MMVII_NONE)) continue;//-> reject undecoded targets
@@ -582,8 +588,9 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                 }
             }
             if (mVisu) Visu(aSet);
+            }*/
             mPhProj.SaveMeasureIm(aSet);
-            }
+        }
         return EXIT_SUCCESS;
     }
 
@@ -654,8 +661,8 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         //tIm aInCBMask = aDis.MaskInCB(true);
         //aDis.SetInlMask(aInCBMask);
 
-        tIm aInCtMask = aDis.MaskInCt(mMaskDil);
-        aDis.SetInlMask(aInCtMask);
+        //tIm aInCtMask = aDis.MaskInCt(mMaskDil);
+        //aDis.SetInlMask(aInCtMask);
 
         //----- least square computation of Samp to Crop 10-params mapping
         mVisu ? aDis.VisuLS10ParamSm2Cr(mPhProj.DirVisuAppli()) : aDis.LS10ParamSm2Cr();
@@ -684,18 +691,50 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         return aDelta+ToR(aDis.Extent().Sz())/2.0;
     }
 
-    void cAppli_CodedTargetRefine::HeuristCdtLocate()
+    /**
+     * @brief cAppli_CodedTargetRefine::HeuristCdtLocate
+     * -> locate center of undected target
+     * 1 - prediction of target appearance in global image
+     *      - estimate target affinity to global image
+     *      - compute target foot print in global image
+     *      - sample foot print from target pattern
+     * 2 - correlation of target predicted image in global image
+     *      - mask definition to remove bbox background
+     *      -
+     */
+
+    cPt2dr cAppli_CodedTargetRefine::AugCdtLocate(bool& isOk)
     {
-        //----- predict target bbox position wrt global image
-        std::vector<cPt2dr> aVCorners = mAugCdt->GImCorners(mCam);
-        for (const auto& aP : aVCorners)
+        //--1-- target reference pattern sampling
+
+        tIm aRef = mAugCdt->RefIm();
+        tAff2Dr aRef2GIm = mAugCdt->Ref2GImEstim(mCam);//-> pattern transformation to global image
+
+        cPixBox<2> aBox = cPixBox<2>::FromVect(mAugCdt->Corners());
+        cSampler aSampler(aRef, aBox, aRef2GIm);
+
+        auto [aTpl, aP0] = aSampler.Sample();//-> P0 is top left corner of template image wrt to global image
+        tDIm* aDTpl = &aTpl.DIm();
+
+        //--2-- template target correlation in global image
+
+        tIm aMask(aDTpl->Sz());//-> mask definition : MaskInV = background
+        tDIm* aDMask = &aMask.DIm();
+        for (const auto& aPx : *aDTpl)
         {
-            if (!mCam->IsVisibleOnImFrame(aP)) return;
+            cPt2di aRefP = ToI(aRef2GIm.Value(ToR(aPx + aP0)));//-> reference pattern pixel
+            tU_INT1 aVal = aRef.DIm().Inside(aRefP) ? MaskOutV : MaskInV;
+            aDMask->SetV(aPx, aVal);
         }
-        cPixBBox aBBox(aVCorners);
-        //----- save the patch
-        //----- sample reference image to the bbox
-        //----- correlate sampled target and
+
+        cPixBox<2> aBBox(aP0, aP0 + aDTpl->Sz());
+        cOptCorrelThIm<tU_INT1> aOptMap(*aDTpl, *mDGIm, *aDMask, aBBox);
+        cOptimByStep aOpt(aOptMap, false, 2.0);
+
+        auto [aVal, aDelta] = aOpt.Optim(ToR(aP0), 4, .1);
+        if (mShow) StdOut() << "Cdt n°" << mAugCdt->mName << " hcorr=" << aVal << '\n';
+        if (aVal >= 0.6) isOk = true;
+        return aDelta + ToR(aDTpl->Sz())/2.0;
     }
 
     //----- memory allocation
@@ -894,7 +933,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 
 
     template <class Type>
-    cOptCorrelThIm<Type>::cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1> &aMaskDIm, cPixBBox aBBox):
+    cOptCorrelThIm<Type>::cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1> &aMaskDIm, cPixBox<2> aBBox):
         mThDIm (aTheorDIm),
         mGDIm (aGlobDIm),
         mDMask (aMaskDIm),
@@ -972,6 +1011,78 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         return aIm;
     }
 
+/******************************************************************************/
+/*
+* cSampler
+*/
+/******************************************************************************/
+
+    cSampler::cSampler(tIm aInIm, cPixBox<2> aInBBox, tAff2Dr aIn2Out):
+        mIm (aInIm),
+        mBBox (aInBBox),
+        mMap (aIn2Out)
+    {
     }
+
+    std::pair<tIm, cPt2di> cSampler::Sample()
+    {
+        //----- set out box from in box transformation
+        cBox2DTransfo aTrans(mBBox, mMap);
+        cPixBox<2> aOBox = aTrans.Transfo();
+        //----- set output image
+        cIm2D<tU_INT1> aOIm(aOBox.Sz());
+        cDataIm2D<tU_INT1>* aDOIm = &mIm.DIm();
+        //----- parse output box and interpolate input image
+        for (const auto& aPx : aOBox)
+        {
+            cRessampleWeigth aRW = cRessampleWeigth::GaussBiCub(ToR(aPx), mMap.MapInverse(), 2);
+            const std::vector<cPt2di>& aVPts = aRW.mVPts;
+            if (!aVPts.empty())
+            {
+                tREAL8 aV = 0;
+                tREAL8 aSW = 0;
+                for (int aK=0; aK<int(aVPts.size()) ; aK++)
+                {
+                    if (mIm.DIm().Inside(aVPts[aK]))
+                    {
+                        double aW = aRW.mVWeight[aK];
+                        aSW += aW;
+                        aV += aW * aDOIm->GetV(aVPts[aK]);
+                    }
+                }
+                aDOIm->SetV(aPx, aV/aSW);
+            }
+        }
+        return {aOIm, aOBox.P0()};
+    }
+/******************************************************************************/
+/*
+* cBoxTransfo
+*/
+/******************************************************************************/
+
+    cBox2DTransfo::cBox2DTransfo(cPixBox<2>& aIBox, tAff2Dr aMap):
+        mIBox(aIBox),
+        mMap(aMap)
+    {
+    }
+
+    cPixBox<2> cBox2DTransfo::Transfo()
+    {
+        //----- I-nput corners transformation to O-utput corners
+        std::vector<cPt2di> aVOCs = {};
+        cPt2di aICs[4];
+        mIBox.Corners(aICs);
+        for (size_t ix=0; ix<mIBox.NbCorners; ++ix)
+        {
+            //----- *! real to int rounding !*
+            cPt2dr aICr = ToR(aICs[ix]);
+            cPt2dr aOCr = mMap.Value(aICr);
+            aVOCs.push_back(ToI(aOCr));
+        }
+        return cPixBox<2>::FromVect(aVOCs);
+    }
+
+}
 
 

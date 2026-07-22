@@ -31,13 +31,13 @@ namespace MMVII
     {
     public:
         typedef  cDataIm2D<Type> tDIm;
-        cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1>& aMaskDIm, cPixBBox aBBox);
+        cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1>& aMaskDIm, cPixBox<2> aBBox);
         cPt1dr Value(const cPt2dr& aPt) const override;//-> correl score from aPt position
     private:
         tDIm& mThDIm;//-> theoretical image of the CdT generated from detected deformation
         tDIm& mGDIm;//-> global image
         tDIm& mDMask;//-> mask for correlation computation
-        cPixBBox mBBox;//-> bbox of predicted cdt wrt global image
+        cPixBox<2> mBBox;//-> bbox of predicted cdt wrt global image
         cPt2dr mP0;//-> initial bbox up corner to compute translation
     };
 
@@ -49,13 +49,12 @@ namespace MMVII
     class cSampler
     {
     public:
-        typedef cAffin2D<tREAL8> tAff2d;
-        cSampler(tIm& aRefIm, tAff2d aRef2Glob, cPixBBox aGlobBBox);
-        tIm Sample();
+        cSampler(tIm aInIm, cPixBox<2> aInBox, tAff2Dr aIn2Out);
+        std::pair<tIm, cPt2di> Sample();
     private:
-        tAff2d mMap;
-        tIm& mRIm;
-        cPixBBox mBBox;
+        tIm mIm;
+        cPixBox<2> mBBox;
+        tAff2Dr mMap;
     };
 
     /**
@@ -85,5 +84,15 @@ namespace MMVII
     private:
         tIm& mGIm;
         cPixBBox mBBox;
+    };
+
+    class cBox2DTransfo
+    {
+    public:
+        cBox2DTransfo(cPixBox<2>& aIBox, tAff2Dr aMap);
+        cPixBox<2> Transfo();
+    private:
+        cPixBox<2>& mIBox;
+        tAff2Dr mMap;
     };
 }

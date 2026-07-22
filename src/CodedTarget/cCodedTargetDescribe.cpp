@@ -119,11 +119,11 @@ namespace MMVII
         return mVExtracts.size();
     }
 
-    std::vector<cPt2dr> cAugCdt::Corners() const
+    std::vector<cPt2di> cAugCdt::Corners() const
     {
-        std::vector<cPt2dr> aRes = {};
+        std::vector<cPt2di> aRes = {};
         const cPt2dr& aC = mCenter;
-        for (const auto& aP : SqCorners) aRes.push_back(aC + cPt2dr(aC.x()*aP.x(), aC.y()*aP.y()));
+        for (const auto& aP : SqCorners) aRes.push_back(ToI(aC + cPt2dr(aC.x()*aP.x(), aC.y()*aP.y())));
         return aRes;
     }
 
@@ -135,6 +135,22 @@ namespace MMVII
             aRes.push_back(mRef2Gnd.Value(cPt3dr(aP.x(), aP.y(), 0)));
         }
         return aRes;
+    }
+
+    std::vector<cPt2dr> cAugCdt::GImCorners(cSensorCamPC* aCam)
+    {
+        std::vector<cPt2dr> aRes = {};
+        tAff2Dr aRef2Glob = Ref2GImEstim(aCam);
+        for (const auto& aPt : Corners())
+        {
+            aRes.push_back(aRef2Glob.Value(ToR(aPt)));
+        }
+        return aRes;
+    }
+
+    tIm cAugCdt::RefIm() const
+    {
+        return mFSpec->OneImTarget(*mFSpec->EncodingFromName(mName));
     }
 
     void cAugCdt::Spatialize(tREAL8 aGndInterTol)
@@ -150,7 +166,7 @@ namespace MMVII
             //----- intersection computation from all images extractions of current CdT
             for (const auto& aExt : mVExtracts)
             {
-                cPt2dr aImP = aExt.mEll.mAffIm2Ref.Inverse(aP);//-> image point
+                cPt2dr aImP = aExt.mEll.mAffIm2Ref.Inverse(ToR(aP));//-> image point
                 aVBundles.push_back(aExt.mCam->Image2Bundle(aImP));//-> camera-to-ground bundle
             }
             cPt3dr aGndP = BundleInters(aVBundles);//-> spatial intersection of bundles
@@ -159,7 +175,7 @@ namespace MMVII
             for (const auto& aExt : mVExtracts)
             {//-> ground distance between back projected ground corner and theoretical coordinates
                 cPt2dr aBackProjP = aExt.mCam->Ground2Image(aGndP);
-                cPt2dr aImP = aExt.mEll.mAffIm2Ref.Inverse(aP);
+                cPt2dr aImP = aExt.mEll.mAffIm2Ref.Inverse(ToR(aP));
                 tREAL8 aPixD = Norm2(aImP - aBackProjP);
                 aStatRes.Add(aExt.mCam->Gen_GroundSamplingDistance(aGndP) * aPixD);
             }
@@ -176,14 +192,15 @@ namespace MMVII
     cCdTDiscr cAugCdt::Discretize(cSensorCamPC* aCam, bool& isIn) const
     {
         //----- discretization = computing map between CdT theoretical image & glob image
-        std::vector<cPt2dr> aVOut;
+        std::vector<cPt2dr> aVOut = {}, aVIn = {};
         for (const auto& aP : Corners())
         {
+            aVIn.push_back(ToR(aP));
             aVOut.push_back(aCam->Ground2Image(mRef2Gnd.Value(cPt3dr(aP.x(), aP.y(), 0))));
         }
         tREAL8      aRes;
         tAff2Dr    aAff;
-        aAff = aAff.StdGlobEstimate(Corners(), aVOut, &aRes, nullptr, cParamCtrlOpt::Default());
+        aAff = aAff.StdGlobEstimate(aVIn, aVOut, &aRes, nullptr, cParamCtrlOpt::Default());
         isIn = aCam->IsVisibleOnImFrame(aAff.Value(mCenter));
         return cCdTDiscr(mName, aCam->NameImage(), aAff, true);
     }
@@ -191,27 +208,18 @@ namespace MMVII
     tAff2Dr cAugCdt::Ref2GImEstim(cSensorCamPC* aCam) const
     {
         //----- Ref2GIm Cdt reference image to global image affinity
-        std::vector<cPt2dr> aVOut;
+        std::vector<cPt2dr> aVOut = {}, aVIn = {};
         for (const auto& aP : Corners())
         {
+            aVIn.push_back(ToR(aP));
             aVOut.push_back(aCam->Ground2Image(mRef2Gnd.Value(cPt3dr(aP.x(), aP.y(), 0))));
         }
-        tREAL8      aRes;
-        tAff2Dr    aAff;
-        aAff = aAff.StdGlobEstimate(Corners(), aVOut, &aRes, nullptr, cParamCtrlOpt::Default());
+        tREAL8 aRes;
+        tAff2Dr aAff;
+        aAff = aAff.StdGlobEstimate(aVIn, aVOut, &aRes, nullptr, cParamCtrlOpt::Default());
         return aAff;
     }
 
-    std::vector<cPt2dr> cAugCdt::GImCorners(cSensorCamPC* aCam) const
-    {
-        std::vector<cPt2dr> aRes = {};
-        tAff2Dr aRef2Glob = Ref2GImEstim(aCam);
-        for (const auto& aPt : Corners())
-        {
-            aRes.push_back(aRef2Glob.Value(aPt));
-        }
-        return aRes;
-    }
 
     void cAugCdt::AddData(const cAuxAr2007& anAux)
     {
@@ -225,7 +233,7 @@ namespace MMVII
         anEx.AddData(anAux);
     }
 
-    std::string cAugCdt::Show() const
+    std::string const cAugCdt::Show() const
     {
         return "CdT: " + mName + "\t | "
                + "Mul: " + std::to_string(NbExtracts()) + "\t | "

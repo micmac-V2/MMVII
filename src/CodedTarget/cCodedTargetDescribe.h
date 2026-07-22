@@ -125,11 +125,12 @@ public:
     tU_INT1             NbExtracts() const;
     void                AddData(const cAuxAr2007& anAux);
     std::vector<cPt3dr> GndCorners() const;
-    std::vector<cPt2dr> GImCorners(cSensorCamPC* aCam); const
+    std::vector<cPt2dr> GImCorners(cSensorCamPC* aCam); const//-> target corners wrt oriented camera frame
     std::string         Show() const;
     bool operator       <(const cAugCdt& aAug) const;
     tAff2Dr Ref2GImEstim(cSensorCamPC* aCam) const;
-    std::vector<cPt2dr> Corners() const;
+    std::vector<cPt2di> Corners() const;
+    tIm RefIm() const;
     std::string             mName;
     bool                    mOKAug;
     bool                    mOKInter;
