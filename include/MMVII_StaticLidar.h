@@ -190,6 +190,8 @@ public :
     static std::string GetIdSuffix();
     static std::string GetIdSuffixRegex();
 
+    cIm2D<tU_INT1> projectIntensityFrom(const cStaticLidar& aFrom) const;
+
     virtual bool DoAddCalibToUk() const override;
 private :
     template <typename TYPE> static void fillRaster(const cStaticLidarImporter & aSL_importer,

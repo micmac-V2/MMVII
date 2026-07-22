@@ -1746,6 +1746,22 @@ void cStaticLidar::MakePatches
     }
 }
 
+cIm2D<tU_INT1> cStaticLidar::projectIntensityFrom(const cStaticLidar& aFrom) const
+{
+    StdOut() << "Reproject " << aFrom.NameImage() << " on " << NameImage() << "\n";
+    cIm2D<tU_INT1> aProj(Sz(),nullptr,eModeInitImage::eMIA_Null);
+    auto & aProjDIm = aProj.DIm();
+    auto & aFromDIm = aFrom.mRasterIntensity->DIm();
+    for (const auto & aP : aProjDIm)
+    {
+        auto aPgnd = Image2Ground(aP);
+        auto aPfrom = aFrom.Ground2Image(aPgnd);
+        if (aFromDIm.InsideBL(aPfrom))
+            aProjDIm.SetV(aP, aFromDIm.GetVBL(aPfrom));
+    }
+    return aProj;
+}
+
 void cStaticLidar::AddData(const  cAuxAr2007 & anAux)
 {
     cSensorCamPC::AddData(anAux);
