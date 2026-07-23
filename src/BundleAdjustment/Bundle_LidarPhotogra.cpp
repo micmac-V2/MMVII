@@ -1112,7 +1112,7 @@ void cBA_LidarLidarRaster::AddObs()
     }
 
 #ifdef SCANSCANSHOWPATCHES
-    if (mBA.Iter()==0)
+    if (mBA.Iter()==mBA.NbMaxIter()-1)
     {
         for (const auto& aScanA : mVScans)
             for (const auto& aScanB : mVScans)
@@ -1198,7 +1198,7 @@ void cBA_LidarLidarRaster::AddObs()
     }
 
 #ifdef SCANSCANSHOWPATCHES
-    if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
+    if (mBA.Iter()==mBA.NbMaxIter()-1)
     {
         for (const auto& [aCpl, aIm] : mMapPatchesRasters)
         {
@@ -1293,7 +1293,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             #endif
 
             #ifdef SCANSCANSHOWPATCHES
-            if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
+            if (mBA.Iter()==mBA.NbMaxIter()-1)
                 mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
                     aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, -30); // hidden zbuffer
             #endif
@@ -1318,7 +1318,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                 std::cout<<" masked point\n";
                 #endif
                 #ifdef SCANSCANSHOWPATCHES
-                if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
+                if (mBA.Iter()==mBA.NbMaxIter()-1)
                     mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
                         aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, -10); // masked
                 #endif
@@ -1342,7 +1342,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                     std::cout<<"removed W\n";
                     #endif
                     #ifdef SCANSCANSHOWPATCHES
-                    if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
+                    if (mBA.Iter()==mBA.NbMaxIter()-1)
                         mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
                             aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, 10 + fabs(aResidual)); // rejected for residual
                     #endif
@@ -1357,7 +1357,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                              <<" "<<acos(Scal(aNormalGndA,aNormalGndB))*180/M_PI<<"deg\n";
                     #endif
                     #ifdef SCANSCANSHOWPATCHES
-                    if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
+                    if (mBA.Iter()==mBA.NbMaxIter()-1)
                         mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
                             aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, -1000 + acos(Scal(aNormalGndA,aNormalGndB))*180/M_PI); // rejected for normal
                     #endif
@@ -1368,7 +1368,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                          <<" "<<acos(Scal(aNormalGndA,aNormalGndB))*180/M_PI<<"deg\n";
                 #endif
                 #ifdef SCANSCANSHOWPATCHES
-                if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
+                if (mBA.Iter()==mBA.NbMaxIter()-1)
                     mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
                         aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, aResidual); // accepted, give residual
                 #endif
@@ -1378,7 +1378,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
         } else {
             //std::cout<<" not visible\n";
             #ifdef SCANSCANSHOWPATCHES
-            if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
+            if (mBA.Iter()==mBA.NbMaxIter()-1)
                 mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
                     aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, -20); // not visible
             #endif
