@@ -11,12 +11,13 @@ namespace MMVII
 //#define EXPORTREPROJLIDAR
 
 cBA_LidarBase::cBA_LidarBase(cPhotogrammetricProject * aPhProj,
-                                     cMMVII_BundleAdj& aBA, const std::vector<std::string>& aParam) :
+                                     cMMVII_BundleAdj& aBA, double aSigma, const std::vector<std::string> & aInterp) :
     mPhProj     (aPhProj),
     mBA         (aBA),                                 // memorize the bundel adj class itself (access to optimizer)
-    mInterp     (nullptr),                             // interpolator see bellow
+    mParamInterpol (aInterp),
+    mInterp     (cDiffInterpolator1D::AllocFromNames(mParamInterpol)),
     mEq         (nullptr),                             // equation of egalisation Lidar/Phgr
-    mWFactor      (NAN),
+    mWFactor      (1/Square(aSigma)),
     mNbUsedPoints (0),
     mNbUsedObs (0)
 {
@@ -26,25 +27,6 @@ cBA_LidarBase::cBA_LidarBase(cPhotogrammetricProject * aPhProj,
 cBA_LidarBase::~cBA_LidarBase()
 {
     delete mInterp;
-}
-
-
-void cBA_LidarBase::init(const std::vector<std::string>& aParam, size_t aWeightParamIndex, size_t aInterpolParamIndex)
-{
-    mWFactor = (1/Square(cStrIO<double>::FromStr(aParam.at(aWeightParamIndex))));
-    //  By default  use tabulation of apodized sinus cardinal
-    mParamInterpol = {"Tabul","1000","SinCApod","10","10"};
-    // if interpolator is not empty
-    if ((aParam.size() >=aInterpolParamIndex+1) && (!aParam.at(aInterpolParamIndex).empty()))
-    {
-        // if specified, take user's param
-        mParamInterpol = Str2VStr(aParam.at(aInterpolParamIndex));
-    }
-
-    // create the interpolator itself
-    mInterp  = cDiffInterpolator1D::AllocFromNames(mParamInterpol);
-    // delete mInterp;
-    // mInterp = cScaledInterpolator::AllocTab(cCubicInterpolator(-0.5),3,1000);
 }
 
 //---------------------------------------------------
@@ -189,14 +171,13 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
 //----------------------------------------------------------
 
 cBA_LidarPhotogra::cBA_LidarPhotogra(cPhotogrammetricProject * aPhProj,
-                                     cMMVII_BundleAdj& aBA, const std::vector<std::string>& aParam) :
-    cBA_LidarBase(aPhProj, aBA, aParam),
-    mModeSim    (Str2E<eImatchCrit>(aParam.at(0))),    // mode of matching
-    mPertRad    (false),
-    mNbPointByPatch (7*7)
+                                     cMMVII_BundleAdj& aBA, eImatchCrit aMode, double aSigma,
+                                     const std::vector<std::string> & aInterp, bool aPertubate, int aNbPtsPerPatch) :
+    cBA_LidarBase(aPhProj, aBA, aSigma, aInterp),
+    mModeSim    (aMode),    // mode of matching
+    mPertRad    (aPertubate),
+    mNbPointByPatch (aNbPtsPerPatch)
 {
-    init(aParam, 2, 3);
-
     // read images before 1st iteration // TODO: read only images that may correspond to scans?
     StdOut() << "Read images...\n";
     for (const auto aPtrCam : aBA.VSCPC())
@@ -233,26 +214,18 @@ void cBA_LidarPhotogra::InitEq(bool aScanPoseUk)
 
 cBA_LidarPhotograTri::cBA_LidarPhotograTri(cPhotogrammetricProject * aPhProj,
                                            cMMVII_BundleAdj& aBA,
-                                           const std::vector<std::string>& aParam) :
-    cBA_LidarPhotogra(aPhProj, aBA, aParam), mTri(nullptr)
+                                           eImatchCrit aMode, const std::string & aPlyFile, double aSigma,
+                                           const std::vector<std::string> & aInterp, bool aPertubate, int aNbPtsPerPatch) :
+    cBA_LidarPhotogra(aPhProj, aBA, aMode, aSigma, aInterp, aPertubate, aNbPtsPerPatch), mTri(nullptr)
 {
     InitEq(false);
 
-    if (aParam.size() >=5)
-    {
-        mPertRad = (aParam.at(4) != "");
-    }
-    if (aParam.size() >=6)
-    {
-        mNbPointByPatch = cStrIO<size_t>::FromStr(aParam.at(5));
-        MMVII_INTERNAL_ASSERT_User((mModeSim!=eImatchCrit::eDifRad) || (mNbPointByPatch==1),
-                                   eTyUEr::eUnClassedError,"Only 1 point per patch in "+ToStr(eImatchCrit::eDifRad)+" mode");
-    }
+    MMVII_INTERNAL_ASSERT_User((mModeSim!=eImatchCrit::eDifRad) || (mNbPointByPatch==1),
+                               eTyUEr::eUnClassedError,"Only 1 point per patch in "+ToStr(eImatchCrit::eDifRad)+" mode");
 
-    std::string aLidarFileName = aParam.at(1);
-    MMVII_INTERNAL_ASSERT_User(UCaseEqual(LastPostfix(aLidarFileName),"ply"),
-                               eTyUEr::eUnClassedError,"Lidar PLY file mandatory in triangulation mode, got \"" + aParam.at(1) + "\"");
-    mTri = new cTriangulation3D<tREAL4>(aLidarFileName);
+    MMVII_INTERNAL_ASSERT_User(UCaseEqual(LastPostfix(aPlyFile),"ply"),
+                               eTyUEr::eUnClassedError,"Lidar PLY file mandatory in triangulation mode, got \"" + aPlyFile + "\"");
+    mTri = new cTriangulation3D<tREAL4>(aPlyFile);
 
     if (mModeSim!=eImatchCrit::eDifRad)
     {
@@ -275,37 +248,17 @@ cBA_LidarPhotograTri::cBA_LidarPhotograTri(cPhotogrammetricProject * aPhProj,
 
 cBA_LidarPhotograRaster::cBA_LidarPhotograRaster(cPhotogrammetricProject * aPhProj,
                                                  cMMVII_BundleAdj& aBA,
-                                                 const std::vector<std::string>& aParam) :
-    cBA_LidarPhotogra(aPhProj, aBA, aParam)
+                                                 eImatchCrit aMode, const std::string & aPatScan, double aSigma,
+                                                 const std::vector<std::string> & aInterp, double aScaleInit, double aScaleFinal,
+                                                 double aThreshold, int aNbPtsPerPatch) :
+    cBA_LidarPhotogra(aPhProj, aBA, aMode, aSigma, aInterp, false, aNbPtsPerPatch),
+    mScaleInit(aScaleInit), mScaleFinal(aScaleFinal)
 {
     InitEq(true);
 
-    mPertRad = false;
-    mScaleInit = 1;
-    mScaleFinal = 1;
-    if (aParam.size() >=5)
-    {
-        mScaleInit = cStrIO<double>::FromStr(aParam[4]);
-    }
-    if (aParam.size() >=6)
-    {
-        mScaleFinal = cStrIO<double>::FromStr(aParam[5]);
-    }
-    if (aParam.size() >=7)
-    {
-        mThresholdInit = cStrIO<double>::FromStr(aParam[6]);
-    }
-    if (aParam.size() >=8)
-    {
-        mNbPointByPatch = cStrIO<size_t>::FromStr(aParam.at(7));
-        MMVII_INTERNAL_ASSERT_User((mModeSim!=eImatchCrit::eDifRad) || (mNbPointByPatch==1),
-                                   eTyUEr::eUnClassedError,"Only 1 point per patch in "+ToStr(eImatchCrit::eDifRad)+" mode");
-    }
+    mThresholdInit = mThresholdFinal = aThreshold;
 
-    // TODO
-    mThresholdFinal = mThresholdInit;
-
-    tNameSelector aSel =   AllocRegex(aParam.at(1));
+    tNameSelector aSel =   AllocRegex(aPatScan);
     for (const auto & aPtrCam : mBA.VSCPC())
     {
         cStaticLidar* aPtrScan = dynamic_cast<cStaticLidar*>(aPtrCam);
@@ -1004,47 +957,22 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWe
 //-------------------------------------------------------------
 
 cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
-                                           cMMVII_BundleAdj& aBA, const std::vector<std::string>& aParam) :
-    cBA_LidarBase(aPhProj, aBA, aParam)
+                                           cMMVII_BundleAdj& aBA, const std::string & aPatScan, double aSigma,
+                                           double aThresholdInit, double aThresholdFinal,
+                                           double aNormalTolDeg, const std::vector<std::string> & aInterp) :
+    cBA_LidarBase(aPhProj, aBA, aSigma, aInterp)
 {
     mEq = EqEqLidarLidar (true,1,true);
-    std::vector<std::string> aParamBis = aParam;
-    // if interpolator is empty, force linear
-    if (aParamBis.size() < 6)
-        aParamBis.resize(6);
-    if (aParamBis.at(2).empty())
-    {
-        aParamBis[2] = "1."; // default threshold init
-    }
-    if (aParamBis.at(3).empty())
-    {
-        aParamBis[3] = "0.1"; // default threshold final
-    }
-    if (aParamBis.at(4).empty())
-    {
-        aParamBis[4] = "15"; // default normal tolerancy degree
-    }
-    if (aParamBis.at(5).empty())
-    {
-        aParamBis[5] = "[Linear]";
-    }
-    init(aParamBis, 1, 5);
 
-    mThresholdInit = cStrIO<double>::FromStr(aParamBis[2]);
-    if (mThresholdInit<0)
-        mThresholdInit = INFINITY;
-    mThresholdFinal = cStrIO<double>::FromStr(aParamBis[3]);
-    if (mThresholdFinal<0)
-        mThresholdFinal = INFINITY;
+    mThresholdInit = (aThresholdInit<0) ? INFINITY : aThresholdInit;
+    mThresholdFinal = (aThresholdFinal<0) ? INFINITY : aThresholdFinal;
 
-    double aNormalTolerancyDeg = cStrIO<double>::FromStr(aParamBis[4]);
-    MMVII_INTERNAL_ASSERT_User((aNormalTolerancyDeg>=0) && (aNormalTolerancyDeg<=180),
-                               eTyUEr::eBadOptParam,"Normal tolerancy must be inside [0,180], got "+ToStr(aNormalTolerancyDeg));
+    MMVII_INTERNAL_ASSERT_User((aNormalTolDeg>=0) && (aNormalTolDeg<=180),
+                               eTyUEr::eBadOptParam,"Normal tolerancy must be inside [0,180], got "+ToStr(aNormalTolDeg));
+    mNormalDiffMinCos = cos(aNormalTolDeg*M_PI/180.);
 
-    mNormalDiffMinCos = cos(aNormalTolerancyDeg*M_PI/180.);
-
-    //read scans files from directory corresponding to pattern in aParam.at(0)
-    tNameSelector aSel =   AllocRegex(aParam.at(0));
+    //read scans files from directory corresponding to pattern in aPatScan
+    tNameSelector aSel =   AllocRegex(aPatScan);
     for (const auto & aPtrCam : mBA.VSCPC())
     {
         cStaticLidar* aPtrScan = dynamic_cast<cStaticLidar*>(aPtrCam);

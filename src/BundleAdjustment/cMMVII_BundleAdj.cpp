@@ -394,16 +394,13 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
             mR8_Sys->SetFrozenFromPat(*aPtrCal,mPatParamFrozenCalib,true);
         }
     }
-    for (const auto & aVPat : mPatternFreeCalib)
+    for (const auto & aPat : mPatternFreeCalib)
     {
-        std::string aPatNameCam = aVPat.at(0);
-        tREAL8 aWeight = cStrIO<tREAL8>::FromStr(GetDef(aVPat,2,std::string("-1.0")));
-        //if (aVPat.size()>=3)
         for (const  auto & aPtrCal : mVPCIC)
         {
-            if (MatchRegex(aPtrCal->Name(),aPatNameCam))
+            if (MatchRegex(aPtrCal->Name(),aPat.PatCal))
             {
-               mR8_Sys->SetFrozenFromPat(*aPtrCal,aVPat.at(1),false,aWeight);
+               mR8_Sys->SetFrozenFromPat(*aPtrCal,aPat.PatParam,false,aPat.Weight);
             }
         }
     }
@@ -568,20 +565,17 @@ void cMMVII_BundleAdj::AddCamPC(cSensorCamPC * aCamPC)
         AddCalib(aCamPC->InternalCalib());
 }
 
-void cMMVII_BundleAdj::AddReferencePoses(const std::vector<std::string> & aVec)
+void cMMVII_BundleAdj::AddReferencePoses(const std::string & aOri, tREAL8 aSigmaTr, tREAL8 aSigmaRot, const std::string & aPatApply)
 {
      MMVII_INTERNAL_ASSERT_tiny(mVSCPC.empty(),"Must Add Ref Pose before any cam");
      AssertPhpAndPhaseAdd();
 
-     mFolderRefCam = aVec.at(0);
+     mFolderRefCam = aOri;
      mDirRefCam  = mPhProj->NewDPIn(eTA2007::Orient,mFolderRefCam);
 
-     mSigmaTrRefCam = cStrIO<tREAL8>::FromStr(aVec.at(1));
-     if (aVec.size() > 2)
-        mSigmaRotRefCam = cStrIO<tREAL8>::FromStr(aVec.at(2));
-
-     if (aVec.size() > 3)
-        mPatternRef =  aVec.at(3);
+     mSigmaTrRefCam = aSigmaTr;
+     mSigmaRotRefCam = aSigmaRot;
+     mPatternRef = aPatApply;
 }
 
 
@@ -633,9 +627,9 @@ void cMMVII_BundleAdj::SetParamFrozenCalib(const std::string & aPattern)
     mPatParamFrozenCalib = aPattern;
 }
 
-void cMMVII_BundleAdj::SetParamFreeCalib(const std::vector<std::vector<std::string>> & aVVPat)
+void cMMVII_BundleAdj::SetParamFreeCalib(const std::vector<cFreeCalibPattern> & aVPat)
 {
-    mPatternFreeCalib = aVVPat;
+    mPatternFreeCalib = aVPat;
 }
 
 void cMMVII_BundleAdj::SetFrozenCenters(const std::string & aPattern)
@@ -943,14 +937,18 @@ void cMMVII_BundleAdj::AddConstrainteRefPose(cSensorCamPC & aCam,cSensorCamPC & 
 /*                 Lidar                    */
 /* ---------------------------------------- */
 
-void cMMVII_BundleAdj::Add1AdjLidarPhotogra(const std::vector<std::string> &aParam)
+void cMMVII_BundleAdj::Add1AdjLidarPhotogra(eImatchCrit aMode, const std::string & aPlyFile, double aSigma,
+                                            const std::vector<std::string> & aInterp, bool aPertubate, int aNbPtsPerPatch)
 {
-    mVBA_Lidar.push_back(new cBA_LidarPhotograTri(mPhProj, *this,aParam));
+    mVBA_Lidar.push_back(new cBA_LidarPhotograTri(mPhProj, *this, aMode, aPlyFile, aSigma, aInterp, aPertubate, aNbPtsPerPatch));
 }
 
-void cMMVII_BundleAdj::Add1AdjLidarPhoto(const std::vector<std::string> &aParam)
+void cMMVII_BundleAdj::Add1AdjLidarPhoto(eImatchCrit aMode, const std::string & aPatScan, double aSigma,
+                                         const std::vector<std::string> & aInterp, double aScaleInit, double aScaleFinal,
+                                         double aThreshold, int aNbPtsPerPatch)
 {
-    mVBA_Lidar.push_back(new cBA_LidarPhotograRaster(mPhProj, *this,aParam));
+    mVBA_Lidar.push_back(new cBA_LidarPhotograRaster(mPhProj, *this, aMode, aPatScan, aSigma, aInterp,
+                                                     aScaleInit, aScaleFinal, aThreshold, aNbPtsPerPatch));
 }
 
 bool cMMVII_BundleAdj::AddStaticLidar(cStaticLidar* aStaticLidar)
@@ -968,9 +966,11 @@ bool cMMVII_BundleAdj::AddStaticLidar(cStaticLidar* aStaticLidar)
 
 const std::unordered_map<std::string, cStaticLidar *> &cMMVII_BundleAdj::MapTSL() const {return mMapTSL;}
 
-void cMMVII_BundleAdj::Add1AdjLidarLidar(const std::vector<std::string> &aParam)
+void cMMVII_BundleAdj::Add1AdjLidarLidar(const std::string & aPatScan, double aSigma, double aThresholdInit,
+                                         double aThresholdFinal, double aNormalTolDeg, const std::vector<std::string> & aInterp)
 {
-    mVBA_LidarLidar.push_back(new cBA_LidarLidarRaster(mPhProj, *this,aParam));
+    mVBA_LidarLidar.push_back(new cBA_LidarLidarRaster(mPhProj, *this, aPatScan, aSigma, aThresholdInit,
+                                                       aThresholdFinal, aNormalTolDeg, aInterp));
 }
 
 
