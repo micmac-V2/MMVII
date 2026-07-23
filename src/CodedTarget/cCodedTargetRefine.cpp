@@ -328,7 +328,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         }
     }
 
-    void cCdTDiscr::SetCB(std::unique_ptr<cFullSpecifTarget>& aFSpec)
+    void cCdTDiscr::SetCB(std::shared_ptr<MMVII::cFullSpecifTarget> &aFSpec)
     {
         cPt2dr aMBW = aFSpec->CornerlEl_BW();//-> middle black to white corner
         cPt2dr aLWB = aFSpec->CornerlEl_WB();//-> lower white to black corner
@@ -387,7 +387,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 
         //------ members
         std::string                         mFSpecName; //-> full specification file name
-        std::unique_ptr<cFullSpecifTarget>  mFSpec;     //-> full specification object
+        std::shared_ptr<cFullSpecifTarget> mFSpec;
         cSetOfAugCdt                        mSetAugCdt;    //-> augmented targets set
         std::string                         mGImN;   //-> global image name
         tIm                                 mGIm;        //-> current image
@@ -471,11 +471,12 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         //----- PhProj primitives
         mPhProj.FinishInit();
         std::vector<std::string> aVIm = VectMainSet(0);
-        mFSpec.reset(cFullSpecifTarget::CreateFromFile(mFSpecName));
+        mFSpec = std::shared_ptr<cFullSpecifTarget>(cFullSpecifTarget::CreateFromFile(mFSpecName));
         //----- if supplied, load coded targets augmentation
         if (!mPhProj.DPGndPt3D().DirInIsNONE() && mPhProj.DPOrient().DirInIsInit())
         {
             ReadFromFile(mSetAugCdt, cSetOfAugCdt::NameFile(mPhProj, true));
+            for (auto& aCdt : mSetAugCdt.Cdts()) aCdt.SetFSpec(mFSpec);
         }
 
         //----- single image process
@@ -488,7 +489,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
             cSetOfCdTDiscr aSetOfDiscr(mGImN);//-> collection of image CdT discretizations
             cSetMesPtOf1Im aSet(mGImN);//-> to save final image measurements
 
-            if (mShow) StdOut() << "(Im):" << mGImN <<'\n';
+            if (mShow) StdOut() << "(Im):" << mGImN << std::endl;
 
             //----- load image measurements obtained from standard image processing
             mSetImMes = mPhProj.LoadMeasureIm(mGImN);
@@ -501,15 +502,16 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                 bool isOk = false;
                 if (mSetImMes.NameHasMeasure(aCdt.Name()))//-> normally detected
                 {
-                    StdOut() << aCdt.Name() << " : already measured\n";
+                    StdOut() << aCdt.Name() << " : already measured\n" << std::endl;
                     isOk = true;
                 } else if (mSetAugCdt.NameHasAug(aCdt.Name()))//-> if target is augmented
                 {
                     mAugCdt = mSetAugCdt.CdtOfName(aCdt.Name());
                     if (mCam != nullptr)
                     {
+                        StdOut() << "correl on " << mAugCdt->mName;
                         cPt2dr aMes = AugCdtLocate(isOk);//-> if camera is oriented
-                        if (isOk) StdOut() << aCdt.Name() << " : correlation center at -> " << aMes << "\n";
+                        if (isOk) StdOut() << aCdt.Name() << " : correlation center at -> " << aMes << "\n" << std::endl;
                     }
                 }
             }
@@ -709,10 +711,9 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 
         tIm aRef = mAugCdt->RefIm();
         tAff2Dr aRef2GIm = mAugCdt->Ref2GImEstim(mCam);//-> pattern transformation to global image
-
         cPixBox<2> aBox = cPixBox<2>::FromVect(mAugCdt->Corners());
-        cSampler aSampler(aRef, aBox, aRef2GIm);
 
+        cSampler aSampler(aRef, aBox, aRef2GIm);
         auto [aTpl, aP0] = aSampler.Sample();//-> P0 is top left corner of template image wrt to global image
         tDIm* aDTpl = &aTpl.DIm();
 
@@ -1047,10 +1048,12 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                     {
                         double aW = aRW.mVWeight[aK];
                         aSW += aW;
-                        aV += aW * aDOIm->GetV(aVPts[aK]);
+                        aV += aW * mIm.DIm().GetV(aVPts[aK]);
+                        StdOut() << aV << "/";
                     }
                 }
-                aDOIm->SetV(aPx, aV/aSW);
+                // << '|' << aSW << "\n";
+                aDOIm->SetV(aPx - aOBox.P0(), aV/aSW);//-> return to ouput image coordinates
             }
         }
         return {aOIm, aOBox.P0()};

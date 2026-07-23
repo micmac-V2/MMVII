@@ -150,8 +150,15 @@ namespace MMVII
 
     tIm cAugCdt::RefIm() const
     {
-        return mFSpec->OneImTarget(*mFSpec->EncodingFromName(mName));
+        tIm aRes(cPt2di(1,1));
+        if (mFSpec != nullptr)
+        {
+            aRes = mFSpec->OneImTarget(*mFSpec->EncodingFromName(mName));
+        }
+        return aRes;
     }
+
+    void cAugCdt::SetFSpec(std::shared_ptr<cFullSpecifTarget> aFSpec) {mFSpec = aFSpec;}
 
     void cAugCdt::Spatialize(tREAL8 aGndInterTol)
     {

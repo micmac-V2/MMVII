@@ -131,6 +131,8 @@ public:
     tAff2Dr Ref2GImEstim(cSensorCamPC* aCam) const;
     std::vector<cPt2di> Corners() const;
     tIm RefIm() const;
+    void SetFSpec(std::shared_ptr<cFullSpecifTarget> aFSpec);
+
     std::string             mName;
     bool                    mOKAug;
     bool                    mOKInter;
@@ -200,7 +202,7 @@ public:
     void                        SetRef(tIm aRef);//-> set reference image (MMVII generated)
     void                        SetCrop(tIm aCrop);//-> set cropped image
     void                        SetWBCenters(const std::vector<cPt2dr>& aV);//-> set w/b CdT bit centers from point vector
-    void                        SetCB(std::unique_ptr<cFullSpecifTarget>& aFSpec);
+    void                        SetCB(std::shared_ptr<cFullSpecifTarget> &aFSpec);
 
     cRect2                      Extent();//-> rectangle extent of CdT in input image
     tIm&                        Mask();//-> i/o binary mask w.r.t samp image coordinates
