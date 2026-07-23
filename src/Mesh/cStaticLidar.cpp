@@ -1537,9 +1537,13 @@ void cStaticLidar::SelectPatchCenters1(int aNbPatches)
     //aRasterScoreData.ToFile("Score.tif");
 }
 
-void cStaticLidar::SelectPatchCenters2(int aNbPatches)
+void cStaticLidar::SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> * aSupMaskDIm)
 {
     MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
+    if (aSupMaskDIm)
+        MMVII_INTERNAL_ASSERT_tiny(
+            aSupMaskDIm->Sz() == InternalCalib()->SzPix(),
+            "Error: Sup mask must have the same size as TSL mask");
     mPatchCenters.clear();
     auto & aRasterMaskData = mRasterMask->DIm();
     /*cResultExtremum aRes;
@@ -1574,7 +1578,7 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches)
             // take lat/long proj into account
             aXStep = fabs(((float)aRasterMaskData.SzX()) / aNbPatchesX / aNbPatchesFactor / cos(aPhi))+1;
             auto aPt = cPt2di(aX, aY);
-            if (aRasterMaskData.GetV(aPt))
+            if (aRasterMaskData.GetV(aPt) && ( (!aSupMaskDIm) || aSupMaskDIm->GetV(aPt)))
             {
                 mPatchCenters.push_back(aPt);
                 aXStep *= aAvgDist/aRasterDistData.GetV(aPt); // take depth into account

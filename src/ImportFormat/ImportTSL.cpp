@@ -879,6 +879,7 @@ private :
     std::string              mPoseXYZFilename;
     std::string              mPoseXYZv4Filename;
     bool                     mSupposeVerticalized; ///< need only 2 GCP for approx init
+    std::string              mSupMaskFilename; ///< a suplementary mask for patch detection
 
     // data
     tPoseR                   mForcedPose;
@@ -907,11 +908,12 @@ cCollecSpecArg2007 & cAppli_InitTSL::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return    anArgOpt
            << AOpt2007(mNbPatches,"NbPatches","Approx nb patches to make",{{eTA2007::HDV}})
-           << AOpt2007(mPoseXYZFilename,"PoseXYZ","Set initial pose from a Comp3D .xyz file",{{eTA2007::HDV, eTA2007::FileAny}})
-           << AOpt2007(mPoseXYZv4Filename,"PoseXYZv4","Set initial pose from a Comp3D v4 .xyz file",{{eTA2007::HDV, eTA2007::FileAny}})
+           << AOpt2007(mPoseXYZFilename,"PoseXYZ","Set initial pose from a Comp3D .xyz file",{{eTA2007::FileAny}})
+           << AOpt2007(mPoseXYZv4Filename,"PoseXYZv4","Set initial pose from a Comp3D v4 .xyz file",{{eTA2007::FileAny}})
            << mPhProj.DPGndPt3D().ArgDirInOpt("GCP3D","GCPs 3D coords")
            << mPhProj.DPGndPt2D().ArgDirInOpt("GCP2D","GCPs 3D coords")
            << AOpt2007(mSupposeVerticalized,"SupposeVerticalized","Initialize supposing verticalized station (only 2 GCP needed)",{{eTA2007::HDV}})
+           << AOpt2007(mSupMaskFilename,"SupMask","Supplementary mask for patch selection",{{eTA2007::FileImage}})
         ;
 }
 
@@ -1155,7 +1157,14 @@ int cAppli_InitTSL::Exe()
         MMVII_INTERNAL_ASSERT_tiny(false, "Needs at least one pose source");
     }
 
-    mLidar->SelectPatchCenters2(mNbPatches);
+    std::unique_ptr<cIm2D<tU_INT1>> aSupMask;
+
+    if (IsInit(&mSupMaskFilename))
+        aSupMask= std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(mSupMaskFilename));
+
+
+    mLidar->SelectPatchCenters2(mNbPatches, &aSupMask->DIm());
+
     mLidar->MakeVisu(mPhProj);
 
     mLidar->ToFile(mPhProj.DPOrient().FullDirOut() + mLidar->NameOriStd());
