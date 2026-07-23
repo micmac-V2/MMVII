@@ -11,8 +11,10 @@ import os
 import json
 import subprocess
 import re
-
-debug=0
+import io
+import contextlib
+import builtins
+import sys
 
 cur_word=sys.argv[1]
 comp_cword=int(sys.argv[2])
@@ -28,29 +30,290 @@ screen_columns=int(os.getenv('COLUMNS','80'))
 sys.stdout.reconfigure(newline="\n")
 
 helpArgPossible=True
+help_printed=False
+completion_prefix=""
+completion_nospace=False
+completion_suffix=""
+structured_completion=False
 
-if debug>1:
-  print ('\n',file=sys.stderr)
-  print (f'1 curword=<{cur_word}>',file=sys.stderr)
-  print (f'2 cword=<{comp_cword}>',file=sys.stderr)
-  print (f'COMP_LINE=<{comp_line}>',file=sys.stderr)
+debug=0
+debug_tty=os.getenv('MMVII_COMPLETION_DEBUG_TTY')
+if debug_tty:
+    sys.stderr = open(debug_tty, "w", buffering=1)
+    debug=1
 
+
+if debug:
+    _original_print = builtins.print
+
+    def print(*args, **kwargs):
+        # Affichage normal sur stdout
+        _original_print(*args, **kwargs)
+        # Même affichage sur stderr
+        kwargs2 = kwargs.copy()
+        kwargs2["file"] = sys.stderr
+        _original_print(*args, **kwargs2)
+
+    def printd(*args, **kwargs):
+        kwargs2 = kwargs.copy()
+        kwargs2["file"] = sys.stderr
+        _original_print(*args, **kwargs2)
+
+    def dbg(*args, **kwargs):
+        kwargs2 = kwargs.copy()
+        kwargs2["file"] = sys.stderr
+        _original_print("DEBUG <<<",file=sys.stderr)
+        _original_print(*args, **kwargs2)
+        _original_print(">>>DEBUG",file=sys.stderr)
+
+def printCompletionOptions(options='') -> None:
+    if structured_completion:
+        options = options.replace('-o filenames','')
+    if completion_nospace:
+        options += ' -o nospace'
+    options += ' -o nosort'
+    #  compopt takes '-o name' pairs and repeating one is meaningless, while the same option
+    #  legitimately comes from two places : an ambiguous value adds '-o nospace' that its
+    #  caller may already have given. Keep each name once, in the order it first appeared
+    names = re.findall(r'-o\s+(\S+)',options)
+    print ("Options:" + ' '.join('-o ' + name for name in dict.fromkeys(names)))
+
+
+def completedValue(value) -> str:
+    return completion_prefix + value + completion_suffix
+
+
+def printCompletedValue(word, matches, hide_brackets=False) -> bool:
+    """Print the completion candidates, return True when the value stays unfinished.
+
+       Readline replaces the whole word by the longest common prefix of the candidates, so a
+       candidate that does not begin with what is already typed truncates the line. They all
+       carry completion_prefix for that reason. When the common prefix adds something, one
+       single candidate is enough : it is inserted, and nothing is listed. A help line already
+       printed forbids that shortcut : being a candidate of its own, it empties the prefix
+       readline computes, so nothing would be inserted and the values would just be hidden.
+    """
+    if len(matches) == 1:
+        print(completedValue(re.sub(r'^=','',matches[0])))
+        return False
+
+    common = os.path.commonprefix(matches)
+    if not help_printed and len(common) > len(word):
+        print(completion_prefix + common)
+        return True
+
+    for w in matches:
+        if hide_brackets:
+            w = w.rstrip('[')
+        print(re.sub(r'^=','',completion_prefix + word + w[len(word):]))
+    return True
+
+
+def hasUnclosedQuote(value) -> bool:
+    quote = None
+    escaped = False
+    for char in value or '':
+        if escaped:
+            escaped = False
+        elif char == '\\':
+            escaped = True
+        elif quote:
+            if char == quote:
+                quote = None
+        elif char in "'\"":
+            quote = char
+    return quote is not None
+
+
+def printFinishedValue(value,quoted_only=False) -> bool:
+    if not completion_suffix or not value:
+        return False
+    if quoted_only and not (comp_line or "").rstrip().endswith(("'","\"")):
+        return False
+    print(completedValue(value))
+    printCompletionOptions()
+    return True
+
+
+def isVectorSpec(spec) -> bool:
+    return bool(spec.get('isVector')) or re.fullmatch(r'(?:std::)?vector<.*>',spec.get('type','')) is not None
+
+
+def vectorElementSpec(spec) -> dict:
+    result = dict(spec)
+    result['isVector'] = False
+    result.pop('vsize',None)
+    vector = re.fullmatch(r'(?:std::)?vector<(.*)>',spec.get('type',''))
+    if vector:
+        result['type'] = vector.group(1)
+        # The help line must keep showing the type of the field, which is a vector : only the
+        # value being completed is one of its elements
+        result['fieldType'] = '[' + vector.group(1) + ',...]'
+    return result
+
+
+def currentListElement(value) -> tuple:
+    if not value.startswith('['):
+        return 'invalid',
+    depth = 0
+    element = 0
+    begin = 1
+    for index,char in enumerate(value[1:],1):
+        if char in '[{(':
+            depth += 1
+        elif char in ']})':
+            if depth == 0:
+                if index == len(value)-1:
+                    return 'complete',
+                return 'invalid',
+            depth -= 1
+        elif char == ',' and depth == 0:
+            element += 1
+            begin = index + 1
+    return 'active',element,value[begin:],value[:begin]
+
+
+def structuredBracketDepth(spec) -> int:
+    depth = 0
+    element_spec = spec
+    while True:
+        if isVectorSpec(element_spec):
+            depth += 1
+            element_spec = vectorElementSpec(element_spec)
+            continue
+        fields = element_spec.get('fields')
+        if fields:
+            depth += 1
+            element_spec = fields[0]
+            continue
+        break
+    return depth
+
+
+def structuredOpeningPrefix(spec) -> str:
+    return '[' * max(0,structuredBracketDepth(spec)-1)
+
+
+def structuredFieldOpening(spec) -> str:
+    # Brackets opening a structured field, empty for a plain one. They are inserted together
+    # with the ',' that reaches the field, so that it does not take one completion more
+    return '[' * structuredBracketDepth(spec)
+
+
+def structuredFieldContext(spec,value,prefix='',top_level=True) -> dict:
+    # A top-level vector argument with CanRepeat can be given as a singleton,
+    # i.e. with one less leading '[' than the fully-bracketed vector form (see
+    # bracket_depth/V_InitParam in MMVII_Tpl_ElemStrToVal.h). When that applies,
+    # delegate entirely to the element type, one bracket level down.
+    if top_level and isVectorSpec(spec) and '##CanRepeat' in (spec.get('semantic') or []):
+        leading = len(value) - len(value.lstrip('['))
+        if not value or leading == structuredBracketDepth(spec)-1:
+            element_spec = vectorElementSpec(spec)
+            element_spec.pop('semantic',None)
+            return structuredFieldContext(element_spec,value,prefix,True)
+    fields = spec.get('fields')
+    if not fields and not isVectorSpec(spec):
+        return {'kind':'field','spec':spec,'value':value,'prefix':prefix,'suffix':'','finish':top_level}
+    if not value:
+        return {'kind':'opening','prefix':prefix+structuredOpeningPrefix(spec)}
+
+    current = currentListElement(value)
+    if current[0] == 'complete':
+        return {'kind':'complete','value':prefix+value}
+    if current[0] != 'active':
+        return {'kind':'invalid'}
+    _,index,field_value,value_prefix = current
+    prefix += value_prefix
+
+    if isVectorSpec(spec):
+        max_elements = parseList(spec.get('vsize'))[1]
+        can_repeat = max_elements is None or index+1 < max_elements
+        element_spec = vectorElementSpec(spec)
+        child = structuredFieldContext(element_spec,field_value,prefix,False)
+        if child['kind'] == 'complete':
+            return {'kind':'hold','value':child['value'],'can_repeat':can_repeat,'finish':top_level}
+        if not element_spec.get('fields') and not isVectorSpec(element_spec) and child['kind'] == 'field' and child['value']:
+            return {'kind':'hold','value':child['prefix']+child['value'],'can_repeat':can_repeat,'finish':top_level}
+        return child
+    if index >= len(fields):
+        return {'kind':'invalid'}
+
+    suffix = ',' if index+1 < len(fields) else ']'
+    finish = top_level and suffix == ']'
+    if suffix == ',':
+        suffix += structuredFieldOpening(fields[index+1])
+    field = fields[index]
+    # A field is structured when it is a nested struct or a vector : both have their own
+    # bracket level, so they must be handled by a recursive call and not as a plain value
+    if field.get('fields') or isVectorSpec(field):
+        child = structuredFieldContext(field,field_value,prefix,False)
+        if child['kind'] == 'complete':
+            return {'kind':'append','value':child['value'],'suffix':suffix,'finish':finish}
+        group = {'fields':fields,'owner':spec.get('name')}
+        child['field_groups'] = [group] + child.get('field_groups',[])
+        return child
+    return {
+        'kind':'field',
+        'spec':field,
+        'value':field_value,
+        'prefix':prefix,
+        'suffix':suffix,
+        'finish':finish,
+        'field_groups':[{'fields':fields,'owner':spec.get('name')}]
+    }
 
 def parseList(s) -> list:
     if not s:
         return [None,None]
     return [int(x) if x!='' else None for x in s[1:-1].split(',')]
 
+def printLineWide(s) -> None:
+    if not s:
+        return
+    global help_printed
+    help_printed = True
+    if isinstance(s, str):
+        s = [s]
+    for line in s:
+        spaces_needed = screen_columns - len(line) % screen_columns - 2
+        print (line + ' ' * spaces_needed)
+
 def print_line(s) -> None:
     if not s:
         return
-    spaces_needed = screen_columns - len(s) % screen_columns - 1
-    print (s + ' ' * spaces_needed)
+    printLineWide(s)
     print(' ')
+
+def print_help_line(s) -> None:
+    printLineWide(s)
+
+def fieldNameType(field) -> str:
+    name = field.get('name','')
+    optional = name.endswith('?')
+    if optional:
+        name = name[:-1]
+    return f"{name}:{field.get('type','')}" + ('?' if optional else '')
+
+
+def structuredHeader(spec,field_groups) -> list:
+    comment = spec.get('comment','structured argument')
+    name = spec.get('name')
+    if isVectorSpec(spec):
+        msg = [f"> Vector of structure : {comment}"]
+    elif name:
+        msg = [f"> Structure for [{name}]: {comment}"]
+    else:
+        msg = [f"> Structure expected : {comment}"]
+    for index,group in enumerate(field_groups):
+        names = ', '.join(fieldNameType(field) for field in group['fields'])
+        owner = '' if index == 0 else group.get('owner')
+        suffix = f" (for {owner})" if owner else ''
+        msg.append(f"> Fields: [{names}]{suffix}")
+    return msg
 
 def printMsgExit(s,code=0) -> None:
     print_line(s)
-    print('Options:-o nosort')
+    printCompletionOptions()
     sys.exit(code)
 
 
@@ -59,27 +322,25 @@ def printHelps(word) -> bool:
         return False
     matches=[w for w in ('help','Help','HELP') if w.startswith(word)]
     if len(matches) == 1:
-        print(re.sub(r'^=','',matches[0]))
+        print(completedValue(re.sub(r'^=','',matches[0])))
         return True
     return False
     
 
-def printFilter(word,words,option='') -> None:
+def printFilter(word,words,option='',hide_brackets=False) -> None:
     word_lower = word.lower()
     matches=[w for w in sorted(words) if w.lower().startswith(word_lower)]
     if len(matches) == 0:
         printHelps(word)
-        print ('Options:-o nosort')
+        printCompletionOptions()
         return
-    elif len(matches) == 1:
-        print(re.sub(r'^=','',matches[0]))
     else:
-        for w in matches:
-            print(re.sub(r'^=','',word + w[len(word):]))
-    print (f"Options:-o nosort {option}")
+        if printCompletedValue(word,matches,hide_brackets):
+            option += " -o nospace"    # an ambiguous value is never finished
+    printCompletionOptions(option)
 
 
-def printFiles(word,extensions=None) -> None:
+def printFiles(word,extensions=None,only_dirs=False) -> None:
     word = os.path.expanduser(word)
     (path,name)=os.path.split(word)
     search_path = path if path != '' else '.'
@@ -94,24 +355,22 @@ def printFiles(word,extensions=None) -> None:
                 try:
                     if file.is_dir():
                         dirs.append(os.path.join(path,file.name))
-                    elif not extensions or "" in extensions or any (file.name.lower().endswith(ext) for ext in extensions):
+                    elif not only_dirs and (not extensions or "" in extensions or any (file.name.lower().endswith(ext) for ext in extensions)):
                         files.append(os.path.join(path,file.name))
                 except PermissionError:
                     pass
     except (FileNotFoundError,PermissionError):
         pass
-
     matches=[w for w in sorted(files)+sorted(dirs) if w.startswith(word)]
     if len(matches) == 0:
+        if printFinishedValue(word,True):
+            return
         printHelps(word)
-        print ('Options:-o nosort')
+        printCompletionOptions()
         return
-    elif len(matches) == 1:
-        print(re.sub(r'^=','',matches[0]))
     else:
-        for w in matches:
-            print(re.sub(r'^=','',word + w[len(word):]))
-    print ('Options:-o nosort -o filenames')
+        printCompletedValue(word,matches)
+    printCompletionOptions('-o filenames')
 
 
 def printDirs(word,path) -> None:
@@ -132,22 +391,69 @@ def printDirs(word,path) -> None:
 
     matches=[w for w in sorted(dirs) if w.startswith(word)]
     if len(matches) == 0:
+        if printFinishedValue(word,True):
+            return
         printHelps(word)
-        print ('Options:-o nosort')
+        printCompletionOptions()
         return
-    elif len(matches) == 1:
-        print(re.sub(r'^=','',matches[0]))
     else:
-        for w in matches:
-            print(re.sub(r'^=','',word + w[len(word):]))
-    print ('Options:-o nosort -o filenames')
+        printCompletedValue(word,matches)
+    printCompletionOptions('-o filenames')
 
 
 
 def printSpecHelp(all_specs, spec, value) -> None:
+    global completion_prefix,completion_nospace,completion_suffix,structured_completion
+    msg=[]
+    vector_header = False
+    is_struct_field = False
+    if spec.get('fields') or isVectorSpec(spec):
+        root_spec = spec
+        structured_completion = True
+        context = structuredFieldContext(spec,value)
+        kind = context['kind']
+        if kind == 'opening':
+            completion_prefix = context['prefix']
+            completion_nospace = True
+            printFilter('',['['],'-o nospace')
+            return
+        if kind == 'field':
+            spec = context['spec']
+            value = context['value']
+            completion_prefix = context['prefix']
+            completion_suffix = context['suffix']
+            completion_nospace = not context['finish']
+            is_struct_field = bool(root_spec.get('fields'))
+            if not value and root_spec.get('fields'):
+                msg += structuredHeader(root_spec,context.get('field_groups',[]))
+            elif not value and isVectorSpec(root_spec):
+                msg.append(f'>Expect <{root_spec["type"].replace("std::","")}>: {root_spec.get("comment","vector argument")}')
+                vector_header = True
+        elif kind == 'append':
+            print(context['value']+context['suffix'])
+            options = '' if context['finish'] else '-o nospace'
+            printCompletionOptions(options)
+            return
+        elif kind == 'hold':
+            if context['can_repeat']:
+                print_help_line(">Expect <separator>: ',' for another value or ']' to close the vector")
+                print(context['value']+',')
+            else:
+                print(context['value']+']')
+                printCompletionOptions('' if context['finish'] else '-o nospace')
+                return
+            print(context['value']+']')
+            printCompletionOptions('-o nospace')
+            return
+        elif kind == 'complete':
+            print(context['value'])
+            printCompletionOptions()
+            return
+        else:
+            return
     atype = spec['type']
     msg_type = atype.replace('std::','')
-    semantic = spec.get('semantic')
+    semantic = list(spec.get('semantic') or [])
     allowed = spec.get('allowed')
     vrange = parseList(spec.get('range'))
     vsize = parseList(spec.get('vsize'))
@@ -157,12 +463,19 @@ def printSpecHelp(all_specs, spec, value) -> None:
     elif atype == 'bool':
         allowed=['True','1','False','0']
 
-    msg=None
-    msg = f'>Expect <{msg_type}>: {spec["comment"]}'
-    if allowed:
-        msg += ' (Value one of [' + ','.join(allowed) + '])'
-    if semantic and debug>0:
-        msg += ' SEMANTIC:{' + ','.join(semantic) + '}'
+    if not vector_header:
+        if is_struct_field:
+            field_name = spec.get('name','')
+            optional = field_name.endswith('?')
+            if optional:
+                field_name = field_name[:-1]
+            msg.append(f'> Current field: {field_name}: {spec.get("fieldType",msg_type)}' + ('?' if optional else '') +
+                       (f' : {spec.get("comment")}' if spec.get("comment") else '') +
+                       (f' [Default: {spec.get("default")}]' if spec.get("default") else ''))
+        else:
+            msg.append(f'>Expect <{msg_type}>: {spec.get("name","structured field")}' +
+                       (f' : {spec.get("comment")}' if spec.get("comment") else '') +
+                       (f' [Default: {spec.get("default")}]' if spec.get("default") else ''))
 
     if vector and vsize[0] and vsize[0]>1:
         if not value:
@@ -183,10 +496,14 @@ def printSpecHelp(all_specs, spec, value) -> None:
         return
         
     if msg_type != 'string':
+        if printFinishedValue(value):
+            return
         if not printHelps(value):
             printMsgExit('')
         return
     if not semantic:
+        if printFinishedValue(value,True):
+            return
         if not printHelps(value):
             printMsgExit('')
         return
@@ -216,7 +533,10 @@ def printSpecHelp(all_specs, spec, value) -> None:
         printFiles(value)
         return
     if "DP" in semantic:
-        print(f"File:compgen -d -o filenames -- '{value}'")
+        if completion_prefix:
+            printFiles(value,only_dirs=True)
+        else:
+            print(f"File:compgen -d -o filenames -- '{value}'")
         return
 
 def readCacheFile(name) -> str:
@@ -256,7 +576,7 @@ def getAllSpecs() -> dict:
     try:
         all_specs=json.loads(output)
     except json.JSONDecodeError as e:
-        if debug>0:
+        if debug:
             print("JSON error: ",e,sys.stderr)
         printMsgExit(">ERROR: Can't get args specification from MMVII.",1)
     return all_specs
@@ -265,7 +585,18 @@ def commandNames(applets) -> None:
     app_names=(a['name'] for a in applets)
     printFilter(cur_word,app_names)
 
+def optionalArgCompletion(spec) -> str:
+    result = spec['name'] + '='
+    if spec.get('fields') or isVectorSpec(spec):
+        context = structuredFieldContext(spec,'')
+        result += context['prefix']
+        if context['kind'] == 'opening':
+            result += '['
+    return result
+
 def main() -> int:
+    if hasUnclosedQuote(comp_line):
+        return 0
     all_specs=getAllSpecs()
     try:
         applets=all_specs['applets']
@@ -294,16 +625,16 @@ def main() -> int:
     arg_split=re.search(r'([-+a-zA-Z0-9_.]+)(=(.*))?',cur_word)
     #  no '='
     if arg_split==None or arg_split.start(2) < 0:
-        normal=sorted((a['name']+'=' for a in applet['optional'] if a['level'] == 'normal'),key=str.lower)
-        tuning=sorted((a['name']+'=' for a in applet['optional'] if a['level'] == 'tuning'),key=str.lower)
-        common=sorted((a['name']+'=' for a in applet['optional'] if a['level'] == 'global'),key=str.lower)
-        printFilter(cur_word,normal+tuning+common,'-o nospace')
+        normal=sorted((optionalArgCompletion(a) for a in applet['optional'] if a['level'] == 'normal'),key=str.lower)
+        tuning=sorted((optionalArgCompletion(a) for a in applet['optional'] if a['level'] == 'tuning'),key=str.lower)
+        common=sorted((optionalArgCompletion(a) for a in applet['optional'] if a['level'] == 'global'),key=str.lower)
+        printFilter(cur_word,normal+tuning+common,'-o nospace',hide_brackets=True)
         return 0
     # got '='
     global helpArgPossible
     helpArgPossible = False
     arg=arg_split.group(1)
-    if arg == 'PatBench':
+    if arg == 'PatBench' or arg == 'PatRefutBench=':
         printPatBench(arg_split.group(3))
         return 0
     specs = [ s for s in applet.get('optional') if s['name'].lower() == arg.lower() ] 
@@ -311,6 +642,7 @@ def main() -> int:
         return 0
     printSpecHelp(all_specs, specs[0], arg_split.group(3))
     return 0
+
 
 
 if __name__ == '__main__':
