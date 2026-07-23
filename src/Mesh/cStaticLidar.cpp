@@ -1755,9 +1755,9 @@ cIm2D<tU_INT1> cStaticLidar::projectIntensityFrom(const cStaticLidar& aFrom) con
     for (const auto & aP : aProjDIm)
     {
         auto aPgnd = Image2Ground(aP);
-        auto aPfrom = aFrom.Ground2Image(aPgnd);
-        if (aFromDIm.InsideBL(aPfrom))
-            aProjDIm.SetV(aP, aFromDIm.GetVBL(aPfrom));
+        auto aPfrom = ToI(aFrom.Ground2Image(aPgnd));
+        if (aFromDIm.Inside(aPfrom))
+            aProjDIm.SetV(aP, aFromDIm.GetV(aPfrom));
     }
     return aProj;
 }

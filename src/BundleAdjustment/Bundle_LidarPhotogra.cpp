@@ -8,6 +8,7 @@ namespace MMVII
 
 //#define NUMPATCHDEBUG 3
 //#define SCANSCANDEBUG 10
+//#define EXPORTREPROJLIDAR
 
 cBA_LidarBase::cBA_LidarBase(cPhotogrammetricProject * aPhProj,
                                      cMMVII_BundleAdj& aBA, const std::vector<std::string>& aParam) :
@@ -1204,6 +1205,21 @@ void cBA_LidarLidarRaster::AddObs()
             std::string aPath = mPhProj->DirVisuAppli() + "Patches_iter_" + ToStr(mBA.Iter()) + "_" + aCpl + ".tif";
             cIm2D<tREAL4> aZoomed = aIm.EnlargeInt(SCANSCANSHOWPATCHES);
             aZoomed.DIm().ToFile(aPath, {"COMPRESS=DEFLATE"});
+        }
+    }
+#endif
+
+#ifdef EXPORTREPROJLIDAR
+    if (mBA.Iter()==mBA.NbMaxIter()-1)
+    {
+        // reproject intensity for scans with common patches
+        for (const auto& [aCpl, aNb] : mMapNbUsedPatches)
+        {
+            std::string aPath = mPhProj->DirVisuAppli() + "Reproj_on_" + aCpl.first + "_intensity_from_" + aCpl.second + ".tif";
+            cStaticLidar* aScanA =  mBA.MapTSL().at(aCpl.first);
+            cStaticLidar* aScanB =  mBA.MapTSL().at(aCpl.second);
+            auto aProjection = aScanA->projectIntensityFrom(*aScanB);
+            aProjection.DIm().ToFile(aPath, {"COMPRESS=DEFLATE"});
         }
     }
 #endif
