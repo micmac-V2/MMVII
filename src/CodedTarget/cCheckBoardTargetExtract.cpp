@@ -110,7 +110,7 @@ cCollecSpecArg2007 & cAppliCheckBoardTargetExtract::ArgOpt(cCollecSpecArg2007 & 
              <<  AOpt2007(mLInitTeta,"LSIT","Length Segment Init, for teta",{eTA2007::HDV})
              <<  AOpt2007(mNbBlur1,"NbB1","Number of blurr with sz1",{eTA2007::HDV})
              <<  AOpt2007(mStrShow,"StrV","String for generate Visu : J-peg(glob)  T-if(glob) L-abels E-llipse N-ums",{eTA2007::HDV})
-             <<  AOpt2007(mRayCalcSym0,"SymRay","Ray arround point for initial computation of symetry",{eTA2007::HDV})
+             <<  AOpt2007(mRayCalcSym0,"SymRay","Ray around point for initial computation of symetry",{eTA2007::HDV})
              <<  AOpt2007(mLInitProl,"LSIP","Length Segment Init, for prolongation",{eTA2007::HDV})
              <<  AOpt2007(mNbMinPtEllipse,"NbMinPtEl","Number minimal of point for ellipse estimation",{eTA2007::HDV})
              <<  AOpt2007(mTryC,"TryC","Try also circle when ellipse fails",{eTA2007::HDV})

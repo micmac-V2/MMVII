@@ -356,7 +356,7 @@ void cAppliProMeshImage::MakeRadiomData(cZBuffer &  aZB)
                          bool isAllOk = true;
                          int aNbOk = 0;
                          cPt3di  aSomCoul(0,0,0);
-                         // Now parse a subgrid arround P0
+                         // Now parse a subgrid around P0
                          // The step on major grid is  1/aNbSample , on minor Grid 1/aNbSample *(1+2*aNbPtsByS)
                          for (int aKx2=-aNbPtsByS; aKx2<=aNbPtsByS ; aKx2++)
                          {

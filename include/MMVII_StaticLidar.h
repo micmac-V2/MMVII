@@ -129,7 +129,8 @@ public :
     virtual void ToFile(const std::string &) const override;
     static std::string RasterIntensityPath(const std::string & aImName); ///< base name should be Station-scan
     static std::string RasterIntensityPath(const cPhotogrammetricProject & aPhProj, const std::string & aImIDName); ///< base name should be Station-scan
-    void FillRasters(const cStaticLidarImporter & aSL_importer, const std::string &aPhProjDirOut, bool saveRasters);
+    void FillRasters(const cStaticLidarImporter & aSL_importer);
+    void SaveRasters(const cStaticLidarImporter & aSL_importer, const std::string &aPhProjDirOut);
     static std::string NameFromId(const std::string &aIdName, bool getOriName);
     static bool IsNameTSL(const std::string &aImageName);
 
@@ -146,7 +147,7 @@ public :
     void FilterDistance(tREAL8 aDistMin, tREAL8 aDistMax);
     void MaskBuffer(const cStaticLidarImporter &aSL_importer, tREAL8 aAngBuffer, const std::string &aPhProjDirOut);
     void SelectPatchCenters1(int aNbPatches);
-    void SelectPatchCenters2(int aNbPatches);
+    void SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> *aSupMaskDIm=nullptr);
     void MakeVisu(const cPhotogrammetricProject & aPhProj) const;     ///< show 8bit dist image with patch centers
     void MakePatches(std::list<cLidarRasterPatch> &aLPatches,
                      const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin,
@@ -167,7 +168,8 @@ public :
     cPt3dr Image2Ground(cPt2dr aRasterPx) const;
     tREAL4 Image2Distance(cPt2dr aRasterPx) const;
 
-    cPt2dr Ground2ImagePrecise(const cPt3dr & aGroundPt) const;
+    cPt2dr Ground2Image(const cPt3dr &aGroundPt) const override;
+    cPt3dr Ground2ImageAndDepth(const cPt3dr &) const override;
 
     void FixPtPxLoopAroundPP(cPt2dr &aPtPx) const override;
 
@@ -188,13 +190,14 @@ public :
     static std::string GetIdSuffix();
     static std::string GetIdSuffixRegex();
 
+    cIm2D<tU_INT1> projectIntensityFrom(const cStaticLidar& aFrom) const;
+
     virtual bool DoAddCalibToUk() const override;
 private :
-    template <typename TYPE> static void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
-                    std::function<TYPE (int)> func); // do not keep image in memory
+    template <typename TYPE> static void fillRaster(const cStaticLidarImporter & aSL_importer,
+                    std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE>> & aIm); // keep image in memory
 
-    template <typename TYPE> static void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
-                    std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE>> & aIm, bool saveRaster); // keep image in memory
+    cPt2dr Ground2ImagePrecise(const cPt3dr & aGroundPt) const;
 
     std::string mStationName;
     std::string mScanName;

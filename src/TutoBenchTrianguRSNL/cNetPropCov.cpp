@@ -48,13 +48,13 @@
        For the simulation to be complete, the ABCD are the transformation of the Pij by a random rotation.
 
        For each sub-ntework we make a global optimiztion and get optimal solution, we memorize
-       this solution and eventually the covariance matrix (this done arround the tag #CCM1 where
+       this solution and eventually the covariance matrix (this done around the tag #CCM1 where
        is called the optimization).  At each iteration we estimate the rotation  R_k
        between two set of coordinates (Pij being curent value in glob, H_k(Pij) being final value in sub) such that:
 
                    R_k(Pij) = H_k(Pij)= hk_ij
 
-       This estimation is done arround the tag #PC1
+       This estimation is done around the tag #PC1
 
                        ==========================================
 
@@ -104,7 +104,7 @@
          Equation (5) correpond to a decomposition of (3) as a sum of square of linear form.  The tag #CCM2
          in the code call the library that make the decomposition.
 
-         The linear form are then used in global least square arround #PC2
+         The linear form are then used in global least square around #PC2
 
 
          The generation of the code, has be done in the class "cNetworConsDistProgCov"

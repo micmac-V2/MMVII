@@ -736,10 +736,10 @@ const std::string  & cSpecOneArg2007::Com() const
     return mCom;
 }
 
-void  cSpecOneArg2007::InitParam(const std::string & aStr)
+void  cSpecOneArg2007::InitParam(const std::string & aStr, bool aFirstInit)
 {
     mValue = aStr;
-    V_InitParam(aStr);
+    V_InitParam(aStr, aFirstInit);
 }
 
 

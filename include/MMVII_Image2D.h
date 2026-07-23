@@ -441,6 +441,8 @@ template <class Type>  class cIm2D
        /// Version allowing to fix the interpolator (called by version above)
        cIm2D<Type>  Scale(const cInterpolator1D &,tREAL8 aFX,tREAL8 aFY=-1) const;
 
+       cIm2D<Type>  EnlargeInt(int aFactor) const; // just duplicate pixels to zoom
+
 
        /** Transposition, needed it once, maybe usefull later */
        cIm2D<Type> Transpose() const;

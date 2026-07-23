@@ -236,7 +236,7 @@ private :
     std::vector<cPt2dr>             mVMeasures;
     std::vector<cMes2DDirInfo*>     mVMesDirInfo;
     std::vector<int>                mVImages;
-    std::vector<tOptPairR> mVDistWithSigmas;
+    std::vector<tOptPairR>          mVDistWithSigmas;
 };
 
 
@@ -271,7 +271,7 @@ class cSetMesGndPt : public cMemCheck
 
             /// suppress mMesGCP & mMesIm with no images measure (eventually can give higher threshold)
             cSetMesGndPt * FilterNonEmptyMeasure(int NbMeasureMin=1) const;
-            int GetNbImMesForPoint(const std::string & aGCPName, bool SVP=false) const;
+            int GetNbImMesForPoint(const std::string & aGCPName, bool SVP=false) const; ///< Number of observations : 2 for 2D, 1 for dist
 
             const cSetMesPtOf1Im  & MesImInitOfName(const std::string &) const;
 
@@ -511,7 +511,8 @@ class cComputeMergeMulTieP : public cMemCheck
         //  comptactify each of the point vector
         void Shrink() ;
 
-        const std::vector<std::list<std::pair<size_t,tPairTiePMult*>>> & IndexeOfImages()  const;
+        const std::vector<std::list<std::pair<size_t,tPairTiePMult*>>> & IndexesOfImages()  const;
+        const std::list<std::pair<size_t,tPairTiePMult*>> & IndexeOf1Image(size_t) const;
         void SetImageIndexe();
         /// compute the Ground coordinates
         void SetPGround();

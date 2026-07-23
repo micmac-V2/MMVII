@@ -520,7 +520,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
          mDoInternalHelp = CaseSBegin("HE",aArgK);
 
          std::string aName;
-         SplitStringArround(aName,mPatHelp,aArgK,'=',true,false);
+         SplitStringAround(aName,mPatHelp,aArgK,'=',true,false);
       }
   }
 
@@ -574,7 +574,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
           {
              // while '
              std::string aName,aValue;
-             SplitStringArround(aName,aValue,aArgK,'=',true,false);
+             SplitStringAround(aName,aValue,aArgK,'=',true,false);
              int aNbSpecGot=0;
              // Look for spec corresponding to name
              for (const auto  & aSpec : mArgFac.Vec())
@@ -681,8 +681,8 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
   //  Initialize the paramaters
   for (size_t aK=0 ; aK<aNbArgTot; aK++)
   {
-       aVSpec[aK]->InitParam(aVValues[aK]);
-       mSetInit.Add(aVSpec[aK]->AdrParam()); ///< Memorize this value was initialized
+      aVSpec[aK]->InitParam(aVValues[aK],! IsInit(aVSpec[aK]->AdrParam()));
+      mSetInit.Add(aVSpec[aK]->AdrParam()); ///< Memorize this value was initialized
   }
   mNbProcAllowed = std::min(mNbProcAllowed,mNbProcSystem); ///< avoid greedy/gluton user
   mMainProcess   = (mLevelCall==0);
@@ -842,7 +842,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
                 // If only 1 file matches the pattern, we replace the pattern in this arg by the matched file
                 // If RunMultiSet is called, the Appli can use this arg name to retrieve the file
                 // (if not doing this, arg will be the pattern (i.e ".*.tif") and the appli will fail to open that)
-                aVSpec.at(aK)->InitParam(UniqueStr(aNum));
+                aVSpec.at(aK)->InitParam(UniqueStr(aNum),true);
             }
          }
          else
@@ -1373,9 +1373,11 @@ void cMMVII_Appli::GenerateHelp()
                 {
                    while ((aCommNum<mArgFac.mVComm.size()) &&(mArgFac.mVComm.at(aCommNum).first==aArgNum) )
                    {
-                      HelpOut() << " ------------------------\n" ;
-                      HelpOut() << "       "<< Color::title << mArgFac.mVComm.at(aCommNum).second << Color::end << "\n" ;
-                      HelpOut() << " ------------------------\n" ;
+                      std::string aDeco1 = "----------------";
+                      std::string aDeco2 = "===";
+                      HelpOut() << Color::title  << aDeco1 << aDeco2 << " ["
+                                << mArgFac.mVComm.at(aCommNum).second
+                                <<  "] " << aDeco2 << aDeco1 << Color::end << "\n" ;
                       aCommNum++;
                    }
                    if (IsTuning && (!TuningMet))
@@ -1425,7 +1427,7 @@ void cMMVII_Appli::GenerateHelp()
           aArgNum++;
       }
    }
-   HelpOut() << "\n";
+   // HelpOut() << "\n";
 
    // Eventually, print samples of "good" uses , only with Help
    if (mDoGlobHelp)
@@ -1433,7 +1435,7 @@ void cMMVII_Appli::GenerateHelp()
        std::vector<std::string> aVS = Samples ();
        if (! aVS.empty())
        {
-          HelpOut() << " ############## ----  EXAMPLES --------- ##########\n" ;
+          HelpOut() << Color::title <<  "       #######  EXAMPLES  ##########\n" << Color::end ;
           for (const auto & aStr : aVS)
           {
               HelpOut() << " - " <<  aStr  << "\n";
@@ -1447,7 +1449,7 @@ void cMMVII_Appli::GenerateHelp()
     if (ExistFile(aPdfFile))
     {
         //  StdOut()  << " PatH=" << mPatHelp << "\n";
-        HelpOut() << "Detailled help for this command in : " << aPdfFile << "\n";
+        HelpOut() <<  Color::title  << " ### Detailled help for this command in : \n" << "    * " << Color::descr << aPdfFile  << Color::end << "\n";
         std::string aPdfOpen = mParamProfile.Get("PdfOpen",std::string());
         //  StdOut() << "HHHHHhh " << aPdfOpen.has_value()  << " UN " << mParamProfile.mUserName << "\n";
         if (aPdfOpen.size() && (mPatHelp=="pdf"))

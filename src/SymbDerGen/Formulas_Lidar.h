@@ -378,9 +378,6 @@ public :
         auto  aFoc   =  aVObs.at(aIndObs++);
         auto  aPP   =  VtoP2AutoIncr(aVObs,&aIndObs);
 
-        cPtxd<tUk,2>  aPtNormIm;
-
-        // aPGround = VtoP3(aVUk,0);
         aPGround = VtoP3AutoIncr(aVUk,&aIndUk);
 
         cPtxd<tUk,3>  aCCcam = VtoP3AutoIncr(aVUk,&aIndUk);
@@ -406,33 +403,6 @@ public :
         auto aResidualDistance = aGndDistance - aDistance;
 
         return {aResidual2D.x(),aResidual2D.y(),aResidualDistance};
-        /*
-        //  extract unknown parameters from vector
-        cPtxd<tUk,3>  aPGround = VtoP3(aVUk,0);
-        cPtxd<tUk,3>  aCCcam   = VtoP3(aVUk,3);
-        cPtxd<tUk,3>  aW       = VtoP3(aVUk,6);
-
-        // obs pixel
-        cPtxd<tUk,2>  aBundle    = VtoP2(aVObs,0);
-        cPtxd<tUk,2>  aPP    = VtoP2(aVObs,0);
-
-        cPtxd<tUk,3>  aVCP = aPGround - aCCcam;     // vector  CenterCam -> PGround
-
-
-        cMatF<tUk> aRotInit (3,3,aVObs,2);
-        cMatF<tUk> aDeltaRot =  cMatF<tUk>::MatAxiator(aW);
-        cPtxd<tUk,3> aPCam =  aDeltaRot * (aRotInit * aVCP);
-        auto aGndDistance  = Norm2(aVCP);
-
-
-        cPtxd<tUk,2>  aBundleProj = VtoP2(cProj_EquiRect::Proj(ToVect(aPCam)));  // project 3D-> bundle
-
-        cPtxd<tUk,2> aResidual = aBundleProj - aBundle;  // compare to mesured bundle
-
-        cPtxd<tUk,2> aResidual2D = aPPix - aPtIm;  // compare to mesured point
-        auto aResidualDistance = aGndDistance - aDistance;
-
-        return {aResidual2D.x(),aResidual2D.y(),aResidualDistance};*/
     }
 
 };

@@ -70,10 +70,10 @@ cAppli_ImportTSL::cAppli_ImportTSL(const std::vector<std::string> & aVArgs,const
     mForceStructured(false), // skip all checks, suppose all the points are present and ordered by col
     mDoVerticalize  (false),
     mForceGreenAsIntensity (false),
-    mIntensityMinMax({0.01,0.99}),
+    mIntensityMinMax({0.03,0.98}),
     mDistanceMinMax ({0.,100.}),
     mIncidenceMin   (0.05),
-    mMaskBufferSteps(2.),
+    mMaskBufferSteps(1.),
     mSigma          (0.001),
     mDecimXY        (1,1),
     mDistNoiseSigma  (0.),
@@ -647,9 +647,12 @@ int cAppli_ImportTSL::Exe()
     fixLineColRasterDirections();
 
     // export intensity image before decimation
+    std::unique_ptr<cIm2D<tU_INT1>> aRasterIntensityFull;
     std::string aRasterIntensityPath = cStaticLidar::RasterIntensityPath(mStationName + "-" + mScanName + cStaticLidar::GetIdSuffix());
-    cStaticLidar::fillRaster<tU_INT1>(mSL_importer, mPhProj.DirStaticLidarRasters(), aRasterIntensityPath,
-                                      [this](int i){return this->mSL_importer.mVectPtsIntens[i]*255;} );
+    cStaticLidar::fillRaster<tU_INT1>(mSL_importer,
+                                      [this](int i){return this->mSL_importer.mVectPtsIntens[i]*255;},
+                                      aRasterIntensityFull );
+    aRasterIntensityFull->DIm().ToFile(mPhProj.DirStaticLidarRasters()+aRasterIntensityPath);
 
     mSL_importer.decimXY(mDecimXY);
     mThetaStepApprox *= mDecimXY.x();
@@ -772,15 +775,17 @@ int cAppli_ImportTSL::Exe()
                           cIsometry3D<tREAL8>({}, cRotation3D<tREAL8>::Identity()),
                           aCalib, mSL_importer.RotInput2Raster(), mSigma);
 
-    aSL_data.FillRasters(mSL_importer, mPhProj.DirStaticLidarRasters(), true);
+    aSL_data.FillRasters(mSL_importer);
 
     aSL_data.FilterIntensity(mSL_importer, mIntensityMinMax[0], mIntensityMinMax[1]);
     aSL_data.FilterDistance(mDistanceMinMax[0], mDistanceMinMax[1]);
-    aSL_data.FilterIncidence(mSL_importer, M_PI/2-mIncidenceMin);
+    if (mIncidenceMin>0)
+        aSL_data.FilterIncidence(mSL_importer, M_PI/2-mIncidenceMin);
     aSL_data.MaskBuffer(mSL_importer, mSL_importer.mPhiStep*mMaskBufferSteps, mPhProj.DirStaticLidarRasters());
     //aSL_data.SelectPatchCenters2(mNbPatches);
     //aSL_data.MakeVisu(mPhProj);
 
+    aSL_data.SaveRasters(mSL_importer, mPhProj.DirStaticLidarRasters());
     aSL_data.ToFile(mPhProj.DirStaticLidarRasters() + aSL_data.NameOriStd());
     mSL_importer.MakeIdImage(aSL_data.NameImage());
 
@@ -874,6 +879,7 @@ private :
     std::string              mPoseXYZFilename;
     std::string              mPoseXYZv4Filename;
     bool                     mSupposeVerticalized; ///< need only 2 GCP for approx init
+    std::string              mSupMaskFilename; ///< a suplementary mask for patch detection
 
     // data
     tPoseR                   mForcedPose;
@@ -902,11 +908,12 @@ cCollecSpecArg2007 & cAppli_InitTSL::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return    anArgOpt
            << AOpt2007(mNbPatches,"NbPatches","Approx nb patches to make",{{eTA2007::HDV}})
-           << AOpt2007(mPoseXYZFilename,"PoseXYZ","Set initial pose from a Comp3D .xyz file",{{eTA2007::HDV, eTA2007::FileAny}})
-           << AOpt2007(mPoseXYZv4Filename,"PoseXYZv4","Set initial pose from a Comp3D v4 .xyz file",{{eTA2007::HDV, eTA2007::FileAny}})
+           << AOpt2007(mPoseXYZFilename,"PoseXYZ","Set initial pose from a Comp3D .xyz file",{{eTA2007::FileAny}})
+           << AOpt2007(mPoseXYZv4Filename,"PoseXYZv4","Set initial pose from a Comp3D v4 .xyz file",{{eTA2007::FileAny}})
            << mPhProj.DPGndPt3D().ArgDirInOpt("GCP3D","GCPs 3D coords")
            << mPhProj.DPGndPt2D().ArgDirInOpt("GCP2D","GCPs 3D coords")
            << AOpt2007(mSupposeVerticalized,"SupposeVerticalized","Initialize supposing verticalized station (only 2 GCP needed)",{{eTA2007::HDV}})
+           << AOpt2007(mSupMaskFilename,"SupMask","Supplementary mask for patch selection",{{eTA2007::FileImage}})
         ;
 }
 
@@ -1150,7 +1157,14 @@ int cAppli_InitTSL::Exe()
         MMVII_INTERNAL_ASSERT_tiny(false, "Needs at least one pose source");
     }
 
-    mLidar->SelectPatchCenters2(mNbPatches);
+    std::unique_ptr<cIm2D<tU_INT1>> aSupMask;
+
+    if (IsInit(&mSupMaskFilename))
+        aSupMask= std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(mSupMaskFilename));
+
+
+    mLidar->SelectPatchCenters2(mNbPatches, &aSupMask->DIm());
+
     mLidar->MakeVisu(mPhProj);
 
     mLidar->ToFile(mPhProj.DPOrient().FullDirOut() + mLidar->NameOriStd());

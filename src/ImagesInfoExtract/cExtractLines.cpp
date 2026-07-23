@@ -273,7 +273,7 @@ template <class Type> void  cExtractCurves<Type>::RefineLineInSpace(cHoughPS & a
     MMVII_INTERNAL_ASSERT_strong(mCalib!=nullptr,"RefineLineInSpace w/o Calib stil to write");
 
 // StdOut() << "RefineLineInSpacellll " << __LINE__ << "\n";
-    //  ------  [1]  compute the point that are inside a "buffer" arround the undist line
+    //  ------  [1]  compute the point that are inside a "buffer" around the undist line
     // --------      Use a connected component algorithm
     cSegment2DCompiled<tREAL8> aSegC (mCalib->ExtenSegUndistIncluded(false,aHPS.Seg()));
 

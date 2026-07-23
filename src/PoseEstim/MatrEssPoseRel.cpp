@@ -353,7 +353,7 @@ cMatEssential::tPose  cMatEssential::ComputePose(const cSetHomogCpleDir & aHom,c
         D =  0 1 0
              0 0 0
 
-        Let "SwXZ" be matrix swaping xz, and "aRot" the rotation arround x, we have :
+        Let "SwXZ" be matrix swaping xz, and "aRot" the rotation around x, we have :
         We can write
             M =  U D tV  =  U (SwXZ SwXZ) D (SwXZ aRot) t(aSwXZ aRot) tV
            =   (U SwXZ)  (SwXZ D SwXZ aRot)  t( V aSwXZ R)

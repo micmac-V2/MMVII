@@ -584,7 +584,7 @@ template <class Type> double cRadFilterCT<Type>::Compute()
 
 
 
-/** This filter caracetrize how an image is symetric arround  each pixel; cpmpute som diff arround
+/** This filter caracetrize how an image is symetric around  each pixel; compute som diff around
  * oposite pixel, normamlized by standard deviation (so contrast invriant)
 */
 

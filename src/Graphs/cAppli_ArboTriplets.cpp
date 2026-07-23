@@ -35,7 +35,7 @@ cNodeArborTriplets::cNodeArborTriplets(cMakeArboTriplet & aMAT ,const t3G3_Tree 
           aWME.Add(anE,anE->AttrSym().mCostTree * aWeight);
       }
 
-      // [2]  split arround best
+      // [2]  split around best
       std::array<t3G3_Tree,2>  a2T;
       aTree.Split(a2T,aWME.IndexExtre());  // split the tree
       aMAT.CostMergeTree() += a2T.at(0).Edges().size() +  a2T.at(1).Edges().size();

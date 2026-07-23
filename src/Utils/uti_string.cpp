@@ -138,7 +138,7 @@ std::vector<std::string>  SplitString(const std::string & aStr,const std::string
 }
 
 
-void  SplitStringArround(std::string & aBefore,std::string & aAfter,const std::string & aStr,char aCharSep,bool SVP,bool PrivPref)
+void  SplitStringAround(std::string & aBefore,std::string & aAfter,const std::string & aStr,char aCharSep,bool SVP,bool PrivPref)
 {
     std::string aStrSep(1,aCharSep);
     std::vector<std::string> aVStr;
@@ -158,7 +158,7 @@ void  SplitStringArround(std::string & aBefore,std::string & aAfter,const std::s
        MMVII_INTERNAL_ASSERT_always
        (
             false,
-              std::string("Cannot split string just in two arround [")+aCharSep
+              std::string("Cannot split string just in two around [")+aCharSep
             + std::string("] nb got=") + ToS(int(aVStr.size()))
             + std::string(" ,input=" ) + aStr
        );
@@ -197,7 +197,7 @@ void  SplitStringArround(std::string & aBefore,std::string & aAfter,const std::s
 std::string Prefix(const std::string & aStr,char aSep,bool SVP,bool PrivPref)
 {
     std::string aBefore,aAfter;
-    SplitStringArround(aBefore,aAfter,aStr,aSep,SVP,PrivPref);
+    SplitStringAround(aBefore,aAfter,aStr,aSep,SVP,PrivPref);
     return aBefore;
 }
 
@@ -209,7 +209,7 @@ std::string LastPrefix(const std::string & aStr,char aSep)
 std::string Postfix(const std::string & aStr,char aSep,bool SVP,bool PrivPref)
 {
     std::string aBefore,aAfter;
-    SplitStringArround(aBefore,aAfter,aStr,aSep,SVP,PrivPref);
+    SplitStringAround(aBefore,aAfter,aStr,aSep,SVP,PrivPref);
     return aAfter;
 }
 
