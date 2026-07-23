@@ -681,8 +681,8 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
   //  Initialize the paramaters
   for (size_t aK=0 ; aK<aNbArgTot; aK++)
   {
-       aVSpec[aK]->InitParam(aVValues[aK]);
-       mSetInit.Add(aVSpec[aK]->AdrParam()); ///< Memorize this value was initialized
+      aVSpec[aK]->InitParam(aVValues[aK],! IsInit(aVSpec[aK]->AdrParam()));
+      mSetInit.Add(aVSpec[aK]->AdrParam()); ///< Memorize this value was initialized
   }
   mNbProcAllowed = std::min(mNbProcAllowed,mNbProcSystem); ///< avoid greedy/gluton user
   mMainProcess   = (mLevelCall==0);
@@ -842,7 +842,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
                 // If only 1 file matches the pattern, we replace the pattern in this arg by the matched file
                 // If RunMultiSet is called, the Appli can use this arg name to retrieve the file
                 // (if not doing this, arg will be the pattern (i.e ".*.tif") and the appli will fail to open that)
-                aVSpec.at(aK)->InitParam(UniqueStr(aNum));
+                aVSpec.at(aK)->InitParam(UniqueStr(aNum),true);
             }
          }
          else

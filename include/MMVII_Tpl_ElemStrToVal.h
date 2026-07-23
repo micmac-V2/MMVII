@@ -242,7 +242,7 @@ template <class Type> class cInstReadOneArgCL2007 : public cSpecOneArg2007
 
 
 
-        void V_InitParam(const std::string & aStr) override
+        void V_InitParam(const std::string & aStr, bool aFirstInit) override
         {
             constexpr int v_depth = vector_depth<Type>::value;          // levels of std::vector<>
 
@@ -253,7 +253,11 @@ template <class Type> class cInstReadOneArgCL2007 : public cSpecOneArg2007
                     mVal.push_back(cStrIO<typename is_vector<Type>::value_type>::FromStr(aStr));
                 } else {                                                // else: push_back all values from the string into the vector
                     auto aVals = cStrIO<Type>::FromStr(aStr);
-                    mVal.insert(mVal.end(), aVals.begin(), aVals.end());
+                    if (aFirstInit || !HasType(eTA2007::CanRepeat)) {
+                        mVal = aVals;
+                    } else {
+                        mVal.insert(mVal.end(), aVals.begin(), aVals.end());
+                    }
                 }
             } else {                                                    // not a vector
                 mVal = cStrIO<Type>::FromStr(aStr);

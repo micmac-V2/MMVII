@@ -170,7 +170,7 @@ class  cSpecOneArg2007 : public cMemCheck
         virtual ~cSpecOneArg2007(); ///< There is already virtual method, so why not add it
 
         /// Memoize then call type specific V_InitParam
-        void InitParam(const std::string & aStr) ;
+        void InitParam(const std::string & aStr, bool aFirstInit) ;
         virtual void * AdrParam() = 0;    ///< cast to void * of typed adress, used by Application know if init
         virtual std::string NameType() const = 0;  ///< as int, bool, ....
         virtual std::string  NameValue() const = 0;  ///< Used to print def value
@@ -195,7 +195,7 @@ class  cSpecOneArg2007 : public cMemCheck
 
      private :
         ///  This action defined in heriting-template class initialize "real" the value from its string value
-         virtual void V_InitParam(const std::string & aStr) = 0;
+         virtual void V_InitParam(const std::string & aStr, bool aFirstInit) = 0;
 
          std::string     mValue;  ///< memorize Value used in init (command parameter)
          std::string     mName; ///< Name for optionnal
