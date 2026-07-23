@@ -518,7 +518,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
       <<  AOpt2007(aDP ,GOP_DirProj,"Project Directory",{eTA2007::DirProject,eTA2007::Global})
       <<  AOpt2007(mParamStdOut,GOP_StdOut,"Redirection of Ouput (+File for terminal and file output, 0File to reset file, "+ MMVII_NONE + " for no out)",aGlob)
 
-      <<  AOpt2007(mProfileName,"Profile","Apply specific user profile for this command",{eTA2007::Global,eTA2007::HDV,eTA2007::Profile})
+      <<  AOpt2007(mProfileName,"Profile","Apply specific user profile for this command",{eTA2007::Global,eTA2007::HDV,{eTA2007::AllowedValues,ToS(GlobProfileNames())}})
 
       <<  AOpt2007(mLevelCall,GIP_LevCall," Level Of Call",aInternal)
       <<  AOpt2007(mKthCall,GIP_KthCall," Ordre Of Call when multiple call",aInternal)
@@ -1204,19 +1204,114 @@ static std::string JsonEscaped(const std::string& s)
     return res;
 }
 
+
+/**  Is a semantic published in the generated specifications ? Those printed by the help, plus
+     the ones the bash completion needs although the help deliberately hides them.
+*/
+static bool IsSemanticInSpec(const eTA2007 & aType)
+{
+    return    (aType < eTA2007::AddCom)
+           || (aType == eTA2007::XmlOfTopTag)
+           || (aType == eTA2007::CanRepeat);   // tells the completion the singleton form is allowed
+}
+
+static void AppendFieldSemantics
+(
+    std::string & aJson,
+    const cSpecOneArg2007& aArg,
+    const std::string & anIndent
+)
+{
+    std::vector<std::string> aSemanticNames;
+    std::vector<std::string> anAllowed;
+    std::string aRange;
+    std::string aVectorSize;
+    bool hasDefault = false;
+
+    for (const auto & aSemantic : aArg.SemPL())
+    {
+        if (IsSemanticInSpec(aSemantic.Type()))
+            aSemanticNames.push_back(E2Str(aSemantic.Type()));
+        if (aSemantic.Type() == eTA2007::AllowedValues)
+            FromS(aSemantic.Aux(),anAllowed);
+        if (aSemantic.Type() == eTA2007::Range)
+            aRange = aSemantic.Aux();
+        if (aSemantic.Type() == eTA2007::ISizeV)
+            aVectorSize = aSemantic.Aux();
+        if (aSemantic.Type() == eTA2007::HDV)
+            hasDefault = true;
+    }
+
+    auto AppendStringArray = [&aJson,&anIndent]
+    (
+        const std::string & aName,
+        const std::vector<std::string> & aValues
+    )
+    {
+        if (aValues.empty())
+            return;
+        aJson += ",\n" + anIndent + "\"" + aName + "\": [";
+        for (size_t aK=0 ; aK<aValues.size() ; ++aK)
+        {
+            if (aK != 0)
+                aJson += ",";
+            aJson += "\"" + JsonEscaped(aValues[aK]) + "\"";
+        }
+        aJson += "]";
+    };
+
+    AppendStringArray("semantic",aSemanticNames);
+    AppendStringArray("allowed",anAllowed);
+    if (!aRange.empty())
+        aJson += ",\n" + anIndent + "\"range\": \"" + JsonEscaped(aRange) + "\"";
+    if (!aVectorSize.empty())
+        aJson += ",\n" + anIndent + "\"vsize\": \"" + JsonEscaped(aVectorSize) + "\"";
+    if (hasDefault)
+        aJson += ",\n" + anIndent + "\"default\": \"" + JsonEscaped(aArg.DefaultNameValue()) + "\"";
+    if (aArg.Com().size())
+        aJson  +=  ",\n" + anIndent + "\"comment\": \"" + JsonEscaped(aArg.Com()) + "\"";
+
+}
+
+static void AppendStructFields
+(
+    std::string & aJson,
+    const tVecArg2007 & aFields,
+    const std::string & anIndent
+)
+{
+    if (aFields.empty())
+        return;
+
+    aJson += ",\n" + anIndent + "\"fields\": [";
+    for (size_t aK=0 ; aK<aFields.size() ; ++aK)
+    {
+        const auto & aField = aFields[aK];
+        if (aK != 0)
+            aJson += ",";
+        aJson += "\n" + anIndent + "  {\n";
+        aJson += anIndent + "    \"name\": \"" + JsonEscaped(aField->Name()) + "\",\n";
+        aJson += anIndent + "    \"type\": \"" + JsonEscaped(aField->NameType()) + "\"";
+        if (aField->IsVector())
+            aJson += ",\n" + anIndent + "    \"isVector\": true";
+        AppendFieldSemantics(aJson,*aField,anIndent+"    ");
+        AppendStructFields(aJson,aField->StructFields(),anIndent+"    ");
+        aJson += "\n" + anIndent + "  }";
+    }
+    aJson += "\n" + anIndent + "]";
+}
+
 void cMMVII_Appli::GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::string& aSpecName, bool aOptional, cGenArgsSpecContext *aArgsSpec)
 {
-    static auto aGlobProfileNames = GlobProfileNames();
-
     if (aOptional)
         aArgsSpec->jsonSpec += "      \"optional\": [";
     else
         aArgsSpec->jsonSpec += "      \"mandatory\": [";
 
     int num = 1;
-    for (const auto & Arg : aSpecArgs.Vec())
+    for (const auto & aArg : aSpecArgs.Vec())
     {
-        if (Arg->HasType(eTA2007::Internal))
+        if (aArg->HasType(eTA2007::Internal))
             continue;
 
         if (num != 1)
@@ -1225,14 +1320,14 @@ void cMMVII_Appli::GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::
         // semantic checks
         std::string argName;
         if (aOptional)
-            argName = Arg->Name();
+            argName = aArg->Name();
         else
             argName = "obl #" + std::to_string(num);
         num++;
 
         std::string fileType,dirType;
         bool hasMPF = false;
-        for (const auto& a : Arg->SemPL()) {
+        for (const auto& a : aArg->SemPL()) {
             if (aArgsSpec->fileTypes.find(a.Type()) != aArgsSpec->fileTypes.end()) {
                 if (fileType.length() != 0)
                    aArgsSpec->errors += "WARNING: " + aSpecName + ": " + argName + ": has " + fileType + " and " + E2Str(a.Type()) + " file semantic.\n";
@@ -1249,9 +1344,9 @@ void cMMVII_Appli::GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::
         if (fileType.length() != 0 && dirType.length() != 0)
             aArgsSpec->errors += "WARNING: " + aSpecName + ": " + argName + ": has " + dirType + " and " + fileType + " semantics.\n";
 
-        if (Arg->IsVector()  && !Arg->HasType(eTA2007::ISizeV))
+        if (aArg->IsVector()  && !aArg->HasType(eTA2007::ISizeV))
             aArgsSpec->errors += "WARNING: " + aSpecName + ": " + argName + ": is a vector with no ISizeV semantic.\n";
-        if (Arg->HasType(eTA2007::FileDirProj) && fileType.length() == 0 && !hasMPF)
+        if (aArg->HasType(eTA2007::FileDirProj) && fileType.length() == 0 && !hasMPF)
             aArgsSpec->errors += "WARNING: " + aSpecName + ": " + argName + ": has FileDirProj semantic with no File type semantic.\n";
 #if 0
 // if no Input/Output/OptionalExist, assume Input
@@ -1267,8 +1362,8 @@ void cMMVII_Appli::GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::
         std::vector<std::string> allowed;
         std::string range;
         std::string vectorSize;
-        for (const auto& a : Arg->SemPL()) {
-            if (a.Type() < eTA2007::AddCom || a.Type() == eTA2007::XmlOfTopTag) {
+        for (const auto& a : aArg->SemPL()) {
+            if (IsSemanticInSpec(a.Type())) {
                 semantic.push_back(E2Str(a.Type()));
             }
             if (a.Type() == eTA2007::AllowedValues) {
@@ -1281,19 +1376,13 @@ void cMMVII_Appli::GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::
                 vectorSize = a.Aux();
             }
         }
-        if (allowed.empty() && Arg->HasType(eTA2007::Profile)) {
-            allowed = aGlobProfileNames;
-        }
-        if (allowed.empty() && Arg->HasType(eTA2007::ProfileKey)) {
-            allowed =  mParamProfile.Keys();
-        }
         aArgsSpec->jsonSpec +=  "\n        {\n";
         if (aOptional) {
-            std::string level = Arg->HasType(eTA2007::Global) ? "global" : Arg->HasType(eTA2007::Tuning) ? "tuning" : "normal";
-            aArgsSpec->jsonSpec +=  "            \"name\": \"" + JsonEscaped(Arg->Name()) + "\",\n";
+            std::string level = aArg->HasType(eTA2007::Global) ? "global" : aArg->HasType(eTA2007::Tuning) ? "tuning" : "normal";
+            aArgsSpec->jsonSpec +=  "            \"name\": \"" + JsonEscaped(aArg->Name()) + "\",\n";
             aArgsSpec->jsonSpec +=  "            \"level\": \"" + level + "\",\n";
         }
-        aArgsSpec->jsonSpec +=  "            \"type\": \"" + JsonEscaped(Arg->NameType()) + "\"";
+        aArgsSpec->jsonSpec +=  "            \"type\": \"" + JsonEscaped(aArg->NameType()) + "\"";
         if (semantic.size()) {
             aArgsSpec->jsonSpec +=  ",\n            \"semantic\": [";
             for (unsigned i=0; i<semantic.size(); i++) {
@@ -1316,10 +1405,11 @@ void cMMVII_Appli::GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::
             aArgsSpec->jsonSpec +=  ",\n            \"range\" : \"" + range + "\"";
         if (vectorSize.size())
             aArgsSpec->jsonSpec +=  ",\n            \"vsize\" : \"" + vectorSize + "\"";
-        if (Arg->HasType((eTA2007::HDV)))
-            aArgsSpec->jsonSpec +=  ",\n            \"default\": \"" + JsonEscaped(Arg->NameValue()) + "\"";
-        if (Arg->Com().size())
-            aArgsSpec->jsonSpec +=  ",\n            \"comment\": \"" + JsonEscaped(Arg->Com()) + "\"";
+        AppendStructFields(aArgsSpec->jsonSpec,aArg->StructFields(),"            ");
+        if (aArg->HasType((eTA2007::HDV)))
+            aArgsSpec->jsonSpec +=  ",\n            \"default\": \"" + JsonEscaped(aArg->DefaultNameValue()) + "\"";
+        if (aArg->Com().size())
+            aArgsSpec->jsonSpec +=  ",\n            \"comment\": \"" + JsonEscaped(aArg->Com()) + "\"";
         aArgsSpec->jsonSpec +=  "\n        }";
     }
     aArgsSpec->jsonSpec +=  "\n      ]";
@@ -1370,6 +1460,45 @@ void cMMVII_Appli::PrintAdditionnalComments(tPtrArg2007 anArg)
    }
 }
 
+static void PrintStructuredFields4Help
+(
+   cMultipleOfs & anOut,
+   const tVecArg2007 & aFields
+)
+{
+   anOut << "[";
+   for (size_t aK=0 ; aK<aFields.size() ; ++aK)
+   {
+      if (aK != 0)
+         anOut << ",";
+      const auto & aField = aFields[aK];
+      const bool isOptional = (!aField->Name().empty()) && (aField->Name().back()=='?');
+      const size_t aNameSize = aField->Name().size() - (isOptional ? 1 : 0);
+      anOut << Color::argument << aField->Name().substr(0,aNameSize) << Color::end;
+      if (isOptional)
+         anOut << Color::warning << "?" << Color::end;
+      if (!aField->StructFields().empty())
+      {
+         anOut << ":";
+         PrintStructuredFields4Help(anOut,aField->StructFields());
+      }
+   }
+   anOut << "]";
+}
+
+static void PrintStructuredFieldsComment4Help
+(
+   cMultipleOfs & anOut,
+   const tPtrArg2007 & anArg
+)
+{
+   if (anArg->StructFields().empty())
+      return;
+   anOut << "    - " << Color::title << "Fields=" << Color::end;
+   PrintStructuredFields4Help(anOut,anArg->StructFields());
+   anOut << "\n";
+}
+
 void cMMVII_Appli::GenerateHelp()
 {
    HelpOut() << "\n";
@@ -1390,7 +1519,8 @@ void cMMVII_Appli::GenerateHelp()
 
    for (const auto & Arg : mArgObl.Vec())
    {
-       HelpOut() << "  * " << Arg->NameType()  << Arg->Name4Help()  << " :: " << Color::descr << Arg->Com() << Color::end << "\n";
+       HelpOut() << "  * " << Arg->NameType() << Arg->Name4Help()  << " :: " << Color::descr << Arg->Com() << Color::end << "\n";
+       PrintStructuredFieldsComment4Help(HelpOut(),Arg);
        PrintAdditionnalComments(Arg);
    }
 
@@ -1452,10 +1582,11 @@ void cMMVII_Appli::GenerateHelp()
                    bool HasDefVal = Arg->HasType(eTA2007::HDV);
                    if (HasDefVal)
                    {
-                      HelpOut() << ", [Default="  << Color::descr << Arg->NameValue() << Color::end << "]";
+                      HelpOut() << ", [Default="  << Color::descr << Arg->DefaultNameValue() << Color::end << "]";
                    }
 
                    HelpOut()  << "\n";
+                   PrintStructuredFieldsComment4Help(HelpOut(),Arg);
 
                    // Check tuning comes at end =  when tuning is reached, we have non standard param
 /*
@@ -1521,7 +1652,7 @@ void cMMVII_Appli::ShowAllParams()
     {
         if (( IsInit(Arg->AdrParam()) ||  Arg->HasType(eTA2007::HDV)) &&  (!Arg->HasType(eTA2007::Global)) )
         {
-            StdOut() << " * " <<  Arg->Name() << "=" <<  Arg->NameValue() << std::endl;
+            StdOut() << " * " <<  Arg->Name() << "=" <<  Arg->DefaultNameValue() << std::endl;
         }
     }
 }
