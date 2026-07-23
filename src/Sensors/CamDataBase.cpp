@@ -273,7 +273,7 @@ cAppli_CreateCalib::cAppli_CreateCalib(const std::vector<std::string> & aVArgs,c
 cCollecSpecArg2007 & cAppli_CreateCalib::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return anArgObl
-              <<  Arg2007(mSpecIm ,"Name of Input File",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
+              <<  Arg2007(mSpecIm ,"Image filename",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
               <<  mPhProj.DPOrient().ArgDirOutMand()
            ;
 }
