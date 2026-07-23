@@ -824,22 +824,26 @@ tREAL4 cStaticLidar::Image2Distance(cPt2dr aRasterPx) const
     return getRasterDistance().GetVBL(aRasterPx);
 }
 
-std::pair<tREAL8,tREAL8> cStaticLidar::AvgDistAndNbValid() const
+std::tuple<tREAL8,tREAL8,tREAL8> cStaticLidar::AvgDistNbValidAndNbNotMasked() const
 {
-    // take mean cubed dist, because less pixels when far
+    // take mean squared or cubed dist?
     tREAL16 aAvg = 0.;
     int aNb = 0;
+    int aNbNotMasked = 0;
     for (int l = 0 ; l < PixelDomain().Sz().y(); l++)
         for (int c = 0 ; c < PixelDomain().Sz().x(); c++)
         {
             auto aDist = getRasterDistance().GetV(cPt2di(c, l));
-            if (IsValidPoint(cPt2dr(c, l)))
+            if (aDist>0)
             {
-                aAvg+=aDist*aDist*aDist;
+                aAvg+=aDist*aDist;//*aDist;
                 ++aNb;
             }
+            if (!IsMaskedPoint(cPt2dr(c, l)))
+                ++aNbNotMasked;
         }
-    return {pow(aAvg/aNb, 1./3.), aNb};
+    //return {pow(aAvg/aNb,1./2.), aNb, aNbNotMasked};
+    return {sqrt(aAvg/aNb), aNb, aNbNotMasked};
 }
 
 
@@ -920,8 +924,7 @@ void cStaticLidar::TriangulateRegular(const std::string & aVisuPath, int aFactor
         {
             aVPt3D.push_back(Image2Ground(cPt2di(c, l))); // or Image2Camera3D
             aVPt2D.push_back(cPt2di(c, l));
-            // aVPtOk.push_back(IsValidPoint(cPt2dr(c, l))); // mask of just dist=0 ?
-            aVPtOk.push_back( getRasterDistance().GetV(cPt2di(c, l))>1e-4 );
+            aVPtOk.push_back(IsValidPoint(cPt2dr(c, l)));
         }
 
     // TODO do not make triangle if any point inside triangle is masked
@@ -1068,11 +1071,20 @@ cDataIm2D<tREAL4> & cStaticLidar::getRasterDistance() const
 
 bool cStaticLidar::IsValidPoint(const cPt2dr &aRasterPx) const
 {
+    MMVII_INTERNAL_ASSERT_tiny(mRasterDistance, "Error: mRasterMask must be computed first");
+    auto & aDistanceImData = mRasterDistance->DIm();
+    return aDistanceImData.InsideBL(aRasterPx)
+           && (aDistanceImData.GetV(cPt2di(aRasterPx.x()+0.5,aRasterPx.y()+0.5))>0);
+}
+
+bool cStaticLidar::IsMaskedPoint(const cPt2dr &aRasterPx) const
+{
     MMVII_INTERNAL_ASSERT_tiny(mRasterMask, "Error: mRasterMask must be computed first");
     auto & aMaskImData = mRasterMask->DIm();
     return aMaskImData.InsideBL(aRasterPx)
-           && (aMaskImData.GetV(cPt2di(aRasterPx.x()+0.5,aRasterPx.y()+0.5))==255.);
+           && (aMaskImData.GetV(cPt2di(aRasterPx.x()+0.5,aRasterPx.y()+0.5))==0);
 }
+
 
 tREAL8 cStaticLidar::Sigma() const
 {
@@ -1552,12 +1564,18 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> * aSup
     mPatchCenters = aRes.mPtsMax;*/
 
     // regular grid
-    auto [aAvgDist, aNbValid] = AvgDistAndNbValid();
+    auto [aAvgDist, aNbValid, aNbNotMasked] = AvgDistNbValidAndNbNotMasked();
+    MMVII_INTERNAL_ASSERT_tiny(
+        aNbNotMasked>0,
+        "Error: all the scan is masked!");
+
     auto & aRasterDistData = mRasterDistance->DIm();
+    aNbPatches = aNbPatches * sqrt(2); // ??
     float aXYratio=((float)aRasterMaskData.SzX())/aRasterMaskData.SzY();
     int aNbPatchesX = sqrt((double)aNbPatches)*sqrt(aXYratio)+1;
     int aNbPatchesY = sqrt((double)aNbPatches)/sqrt(aXYratio)+1;
-    float aNbPatchesFactor = PixelDomain().Sz().x()*PixelDomain().Sz().y()/aNbValid; // a priori search for aNbPatches * aNbPatchesFactor, not 1 to adjust for no return
+    float aNbPatchesFactor = // a priori search for aNbPatches * aNbPatchesFactor, to adjust for no return
+        sqrt(PixelDomain().Sz().x()*PixelDomain().Sz().y()/ ((aNbValid+aNbNotMasked)/2.));
     float aX;
     float aY = float(aRasterMaskData.SzY()) / aNbPatchesY / 2.;
     float aXStep;
@@ -1567,12 +1585,15 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> * aSup
     int aLineCounter = 0;
     float aXdecal = float(aRasterMaskData.SzX()) / aNbPatchesX;
 
-    //std::cout<<"aAvgDist="<<aAvgDist<<" aNbValid="<<aNbValid<<
-    //           " aNbPatchesFactor="<<aNbPatchesFactor<<" aYStep="<<aYStep<<"\n";
+    std::cout<<"aAvgDist="<<aAvgDist<<" aNbValid="<<aNbValid<<
+               " aNbPatchesFactor="<<aNbPatchesFactor<<" aYStep="<<aYStep<<"\n";
     while (aY<aRasterMaskData.SzY())
     {
         aX = aXdecal * ((aLineCounter%2)?1./3.:2./3.);
         auto aPhi = (aY - InternalCalib()->PP().y()) / InternalCalib()->F();
+        float aYStepCurr = aYStep;
+        double aLineAvgDist = 0;
+        int aLineNbPts = 0;
         while (aX<aRasterMaskData.SzX()-aXdecal*1./3.)
         {
             // take lat/long proj into account
@@ -1581,15 +1602,20 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> * aSup
             if (aRasterMaskData.GetV(aPt) && ( (!aSupMaskDIm) || aSupMaskDIm->GetV(aPt)))
             {
                 mPatchCenters.push_back(aPt);
-                aXStep *= aAvgDist/aRasterDistData.GetV(aPt); // take depth into account
+                auto aDist = aRasterDistData.GetV(aPt);
+                aXStep *= aAvgDist/aDist; // take depth into account
+                aLineAvgDist += aDist;//*aDist;
+                aLineNbPts++;
             } else
                 aXStep /= 9.; // if this pixel has no response, search next closer than normal step
             if (aXStep<2.)
                 aXStep = 2.;
             aX += aXStep;
-
         }
-        aY += aYStep;
+        if (aLineNbPts>0)
+            aYStepCurr *= aAvgDist/(aLineAvgDist/aLineNbPts);
+
+        aY += aYStepCurr;
         aLineCounter++;
     }
 
@@ -1605,7 +1631,7 @@ void cStaticLidar::MakeVisu(const cPhotogrammetricProject & aPhProj) const
     MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
     auto & aRasterDistData = mRasterDistance->DIm();
     double aDistMax = 0.;
-    int aPtSize = 1 + mRasterDistance->DIm().SzX()/5000;
+    int aPtSize = 1 + mRasterDistance->DIm().SzX()/4000;
     for (auto & aPt :  aRasterDistData)
     {
         if (aRasterDistData.GetV(aPt)>aDistMax)
@@ -1642,7 +1668,7 @@ void cStaticLidar::MakePatches
         for (size_t i=0; i<mPatchCenters.size(); ++i)
         {
             auto & aCenter = mPatchCenters[i];
-            MMVII_INTERNAL_ASSERT_tiny(IsValidPoint(ToR(aCenter))>0, "Error: patch " + ToStr(aCenter) + " is on a masked area");
+            MMVII_INTERNAL_ASSERT_tiny(IsMaskedPoint(ToR(aCenter))==false, "Error: patch " + ToStr(aCenter) + " is on a masked area");
             auto aCenterR = cPt2dr(aCenter.x(),aCenter.y());
             if (getRasterDistance().InsideInterpolator(aInterp,aCenterR,1.0))  // is it sufficiently inside
             {

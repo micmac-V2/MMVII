@@ -152,7 +152,7 @@ public :
     void MakePatches(std::list<cLidarRasterPatch> &aLPatches,
                      const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin,
                      const cDiffInterpolator1D &aInterp) const;
-    std::pair<tREAL8,tREAL8> AvgDistAndNbValid() const; //< return average dist for valid points, and number of valid points
+    std::tuple<tREAL8,tREAL8,tREAL8> AvgDistNbValidAndNbNotMasked() const; //< return average dist for valid points, number of valid points and number of not-masked points
 
     cPt3dr Image2InputXYZ(cPt2di aRasterPxI) const; // in input frame
     cPt3dr Image2InputXYZ(cPt2dr aRasterPx) const;
@@ -182,7 +182,8 @@ public :
     static std::string Pat2Sup(const std::string & aPatSelect);
 
     cDataIm2D<tREAL4> &getRasterDistance() const;
-    bool IsValidPoint(const cPt2dr &aRasterPx) const;
+    bool IsValidPoint(const cPt2dr &aRasterPx) const; ///< is dist>0
+    bool IsMaskedPoint(const cPt2dr &aRasterPx) const;
     tREAL8 Sigma() const;
     const std::vector<cPt2di> & PatchCenters() const;
 

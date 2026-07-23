@@ -1312,15 +1312,15 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             std::cout<<" projection :"<<aPIm<<"\n";
             #endif
             tREAL8 aDist = Norm2(aPGround-aScanB->Center());
-            if (!aScanB->IsValidPoint(aPIm))
+            if (aScanB->IsMaskedPoint(aPIm))
             {
                 #ifdef SCANSCANDEBUG
-                std::cout<<" not a valid point\n";
+                std::cout<<" masked point\n";
                 #endif
                 #ifdef SCANSCANSHOWPATCHES
                 if ((mBA.Iter()==0)||(mBA.Iter()==mBA.NbMaxIter()-1))
                     mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
-                        aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, -10); // not valid
+                        aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, -10); // masked
                 #endif
                 continue;
             }
