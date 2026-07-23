@@ -100,6 +100,8 @@ class cAppli_TiePReport : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
+        std::vector<std::string>  Samples() const override;
+
 
 
      private :
@@ -120,10 +122,17 @@ class cAppli_TiePReport : public cMMVII_Appli
 
 
 
-             void RegisterStatRes(const cStatRes2D&, const std::string anAggreg);
+             void RegisterStatRes(const std::string & aFile,const cStatRes2D&, const std::string anAggreg);
+             void InitReporStat(const std::string & aFile);
 
              cComputeMergeMulTieP *   mCMTP;
              std::string              mPrefixCSVIma;
+             std::string              mPrefixCSVPairs;
+             std::string              mPrefixCSVCam;
+             std::string              mPrefixCSVGlob;
+
+
+
 
 
              std::string              mPatImRes;       // Pattern for residual images
@@ -131,7 +140,8 @@ class cAppli_TiePReport : public cMMVII_Appli
              tREAL8                   mFactRedIm;      // Reduction factor for residual images
              bool                     mDoImResCalib;   // do we generate residual images by calib
 
-             std::vector<std::string> mParamByPair;
+             std::string              mPatternVFByPair;
+             std::string              mPatternResByPair;
 
              std::vector<tREAL8>      mParamPly;
              cPlyVertices             mPlyFile;
@@ -144,15 +154,22 @@ class cAppli_TiePReport : public cMMVII_Appli
              std::string              mPrefixSave;
 };
 
-void cAppli_TiePReport::RegisterStatRes(const cStatRes2D& aS2D, const std::string anAggreg)
+void cAppli_TiePReport::RegisterStatRes(const std::string & aFile,const cStatRes2D& aS2D, const std::string anAggreg)
 {
    cPt2dr anAvg2 = aS2D.mAvg2d.Average();
    AddStdStatCSV
    (
-      mPrefixCSVIma,anAggreg,aS2D.mStatRes,mPropStat,
+      aFile,anAggreg,aS2D.mStatRes,mPropStat,
       {ToStr(anAvg2.x()),ToStr(anAvg2.y())}
    );
 }
+
+void cAppli_TiePReport::InitReporStat(const std::string & aFile)
+{
+    InitReportCSV(aFile,"csv",false);
+    AddStdHeaderStatCSV(aFile,"Image",mPropStat,{"AvgX","AvgY"});
+}
+
 
 cAppli_TiePReport::cAppli_TiePReport
 (
@@ -170,6 +187,13 @@ cAppli_TiePReport::cAppli_TiePReport
      mMaxHisto     (1e2),
      mHistoRes     (mMaxHisto/mStepHisto)
 {
+}
+
+std::vector<std::string>  cAppli_TiePReport::Samples() const
+{
+    return {
+        " MMVII ReportTieP .*JPG V1 Adjust  ParamPly=[1,4.0] InTieP=V1Dense"
+    }   ;
 }
 
 cCollecSpecArg2007 & cAppli_TiePReport::ArgObl(cCollecSpecArg2007 & anArgObl)
@@ -200,12 +224,14 @@ cCollecSpecArg2007 & cAppli_TiePReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
           << "Parameters by pairs "
           << mPhProj.DPTieP().ArgDirInOpt("","Tie point in pair format for by pair stat/visu")
-          << AOpt2007(mParamByPair,"ByPair","Parameter for detail by pair [TieP,Pat,Ampl?=100,SsRes?=2] ",{{eTA2007::ISizeV,"[2,4]"}})
+          << AOpt2007(mPatternVFByPair,"PairPatFV","Pattern for pairs generatin vector fiels by pair")
+          << AOpt2007(mPatternResByPair,"PairPatRes","Pattern for pairs generating residual images")
 
-          << "3D pamerters"
+
+          << "3D pameters"
           << AOpt2007(mParamPly,"ParamPly","Generate a 3D visualization of ply files [Colored,ExpQual]",{{eTA2007::ISizeV,"[2,2]"}})
 
-          << "General pamerters"
+          << "General pameters"
           << AOpt2007(mPropStat,"Perc","Percentil for stat exp",{eTA2007::HDV})
           << AOpt2007(mPatImFV,"PatImFV","Pattern of  images  where we generat field vector (if any)")
     ;
@@ -216,18 +242,31 @@ cCollecSpecArg2007 & cAppli_TiePReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
 void  cAppli_TiePReport::ProcessOnePair(const std::string & aName1,const std::string& aName2)
 {
+
        cSensorImage* aSens1 = mPhProj.ReadSensor(aName1,true);
        cSensorImage* aSens2 = mPhProj.ReadSensor(aName2,true);
 
-       std::string aDirHom =  mParamByPair.at(0);
+    //   std::string aDirHom =  mParamByPair.at(0);
 
        cSetHomogCpleIm aSetH;
 
-       bool HasHom = mPhProj.GenReadHomol(aSetH,aName1,aName2,aDirHom);
+       bool HasHom = mPhProj.GenReadHomol(aSetH,aName1,aName2);
        if (!HasHom)
            return;
 
+       cStatRes2D aStat;
 
+       for (const auto & aCple : aSetH.SetH())
+       {
+           cPt3dr aPG = aSens1->PInterBundle(aCple,*aSens2);
+           cPt2dr aVect = (aSens1->Ground2Image(aPG)-aCple.mP1) * 2.0;
+
+
+          aStat.AddResidu(aVect);
+       }
+
+       RegisterStatRes(mPrefixCSVPairs,aStat,aName1+"/" + aName2);
+/*
        StdOut()  << "N1N2 " << aName1 << " " << aName2 << " " << aSetH.NbH() << "\n";
        //return;
        tNameSelector aSelIm = AllocRegex(mParamByPair.at(1));
@@ -245,11 +284,14 @@ void  cAppli_TiePReport::ProcessOnePair(const std::string & aName1,const std::st
             aIVF.DrawArrow_P1Vect(aCple.mP1,aVect*2.0);
         }
         aIVF.Save(mPhProj.DirVisuAppli()+"Res_"+LastPrefix(aName1)+"_"+LastPrefix(aName2));
+        */
 }
 
 
 void  cAppli_TiePReport::ProcessByPair()
 {
+    InitReporStat(mPrefixCSVPairs);
+
     for (size_t aKIm1 = 0 ; aKIm1<mSetNames.size() ; aKIm1++)
     {       
         for (size_t aKIm2 = aKIm1+1 ; aKIm2<mSetNames.size() ; aKIm2++)
@@ -343,9 +385,12 @@ void cAppli_TiePReport::ProcessBySingleImage()
    cStatRes2D                                       aStatGlob;
    std::map<std::string,cSetIm4SparseDist<tREAL8>*>  aMapResByCam;
 
+   InitReporStat(mPrefixCSVIma);
+   InitReporStat(mPrefixCSVCam);
+   InitReporStat(mPrefixCSVGlob);
 
-   InitReportCSV(mPrefixCSVIma,"csv",false);   
-   AddStdHeaderStatCSV(mPrefixCSVIma,"Image",mPropStat,{"AvgX","AvgY"});
+   /// InitReportCSV(mPrefixCSVIma,"csv",false);
+   /// AddStdHeaderStatCSV(mPrefixCSVIma,"Image",mPropStat,{"AvgX","AvgY"});
 
    // Parse all images
    for (size_t aKImGlob = 0 ; aKImGlob<mSetNames.size() ; aKImGlob++)
@@ -446,13 +491,13 @@ void cAppli_TiePReport::ProcessBySingleImage()
        }
 
        // Save statistique for this image
-       RegisterStatRes(aStat2,aNameIm);
+       RegisterStatRes(mPrefixCSVIma,aStat2,aNameIm);
    }
 
    for (auto [aNameCam,aStat] : aMapStatByCam)
-      RegisterStatRes(aStat,aNameCam);
+      RegisterStatRes(mPrefixCSVCam,aStat,aNameCam);
 
-    RegisterStatRes(aStatGlob,"Glob");
+    RegisterStatRes(mPrefixCSVGlob,aStatGlob,"Glob");
 
     for (auto [aName,aAvgByCam] : aMapResByCam)
     {
@@ -476,12 +521,25 @@ int cAppli_TiePReport::Exe()
    mCMTP->SetPGround();
 
    mPrefixCSVIma =  "ByImages" ;
+   mPrefixCSVPairs = "ByPairs";
+   mPrefixCSVCam   = "ByCams";
+   mPrefixCSVGlob   = "Glob";
+
 
 
    ProcessBySingleImage();
 
    if ( mPhProj.DPTieP().DirInIsInit())
        ProcessByPair();
+   else
+   {
+       MMVII_INTERNAL_ASSERT_User_UndefE(!IsInit(&mPatternVFByPair),"Pattern field vector without TieP By Pair");
+       MMVII_INTERNAL_ASSERT_User_UndefE(!IsInit(&mPatternResByPair),"Pattern residual without TieP By Pair");
+
+     //  << mPhProj.DPTieP().ArgDirInOpt("","Tie point in pair format for by pair stat/visu")
+     //  << AOpt2007(mPatternVFByPair,"PairPatFV","Pattern for pairs generatin vector fiels by pair")
+     //  << AOpt2007(mPatternResByPair,"PairPatRes","Pattern for pairs generating residual images")
+   }
 
    if (IsInit(&mParamPly))
        ProcessPly();

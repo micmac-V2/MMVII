@@ -1427,7 +1427,7 @@ void cMMVII_Appli::GenerateHelp()
           aArgNum++;
       }
    }
-   HelpOut() << "\n";
+   // HelpOut() << "\n";
 
    // Eventually, print samples of "good" uses , only with Help
    if (mDoGlobHelp)
@@ -1435,7 +1435,7 @@ void cMMVII_Appli::GenerateHelp()
        std::vector<std::string> aVS = Samples ();
        if (! aVS.empty())
        {
-          HelpOut() << " ############## ----  EXAMPLES --------- ##########\n" ;
+          HelpOut() << Color::title <<  "       #######  EXAMPLES  ##########\n" << Color::end ;
           for (const auto & aStr : aVS)
           {
               HelpOut() << " - " <<  aStr  << "\n";
@@ -1449,7 +1449,7 @@ void cMMVII_Appli::GenerateHelp()
     if (ExistFile(aPdfFile))
     {
         //  StdOut()  << " PatH=" << mPatHelp << "\n";
-        HelpOut() << "Detailled help for this command in : " << aPdfFile << "\n";
+        HelpOut() <<  Color::title  << " ### Detailled help for this command in : \n" << "    * " << Color::descr << aPdfFile  << Color::end << "\n";
         std::string aPdfOpen = mParamProfile.Get("PdfOpen",std::string());
         //  StdOut() << "HHHHHhh " << aPdfOpen.has_value()  << " UN " << mParamProfile.mUserName << "\n";
         if (aPdfOpen.size() && (mPatHelp=="pdf"))
