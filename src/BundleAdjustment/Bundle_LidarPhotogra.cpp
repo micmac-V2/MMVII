@@ -19,7 +19,8 @@ cBA_LidarBase::cBA_LidarBase(cPhotogrammetricProject * aPhProj,
     mEq         (nullptr),                             // equation of egalisation Lidar/Phgr
     mWFactor      (1/Square(aSigma)),
     mNbUsedPoints (0),
-    mNbUsedObs (0)
+    mNbUsedObs (0),
+    mNbUsableObs (0)
 {
 
 }
@@ -300,6 +301,7 @@ void cBA_LidarPhotograTri::AddObs()
     mLastResidual.Reset();
     mNbUsedPoints = 0;
     mNbUsedObs = 0;
+    mNbUsableObs = 0;
     cBasicWeighter<tREAL8> aWeighter(mWFactor);
     std::unordered_set<std::string> aNoHiddenPartComputed;
     if (mModeSim==eImatchCrit::eDifRad)
@@ -377,6 +379,7 @@ void cBA_LidarPhotograRaster::AddObs()
     mLastResidual.Reset();
     mNbUsedPoints = 0;
     mNbUsedObs = 0;
+    mNbUsableObs = 0;
 
     // update the interpolator and weighters map
     UpdateInterpolatorScale(mBA);
@@ -1048,13 +1051,15 @@ void cBA_LidarLidarRaster::AddObs()
             for (const auto& aScanB : mVScans)
                 if (aScanA.mLidarRaster!=aScanB.mLidarRaster)
                     mMapPatchesRasters.try_emplace(aScanA.mLidarRaster->NameImage()+"_to_"+aScanB.mLidarRaster->NameImage(),
-                                                   aScanA.mLidarRaster->InternalCalib()->SzPix()/SCANSCANSHOWPATCHES,nullptr,eModeInitImage::eMIA_Null);
+                                                   aScanA.mLidarRaster->InternalCalib()->SzPix()/SCANSCANSHOWPATCHES + cPt2di(1,1),
+                                                   nullptr,eModeInitImage::eMIA_Null);
     }
 #endif
 
     mLastResidual.Reset();
     mNbUsedPoints = 0;
     mNbUsedObs = 0;
+    mNbUsableObs = 0;
 
     // update the weighters map
     UpdateWeightersMap(mBA, mWFactor);
@@ -1101,7 +1106,8 @@ void cBA_LidarLidarRaster::AddObs()
     if (mLastResidual.SW() != 0)
     {
         StdOut() << "  * Lid/Lid Residual dist " << std::sqrt(mLastResidual.Average())
-                 << "m ("<<mVScans.size()<<" scans, "<<mNbUsedObs<<" obs, "<<mNbUsedPoints<<" points)\n";
+                 << "m ("<<mVScans.size()<<" scans, "<<mNbUsedObs<<" obs="<< 100.*mNbUsedObs/mNbUsableObs
+                 <<"%, "<<mNbUsedPoints<<" points)\n";
         //for (auto & aScan:mVScans)
         //    StdOut() << aScan.mLidarRaster->NameImage()<< " " << aScan.mLidarRaster->Center().x() <<
         //         std::setprecision(10) << " " << aScan.mLidarRaster->Center().y()<< " " << aScan.mLidarRaster->Center().z() << "\n";
@@ -1264,6 +1270,10 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
 
                 tREAL8 aValIm = aData.mVGr.at(0).first;   // value of first/central pixel in this image
                 tREAL8 aResidual = aValIm-aDist;
+
+                if (fabs(aResidual)<std::max(0.1,mThresholdInit*20)) // suppose that 10cm is always an error
+                    mNbUsableObs++;
+
                 if (fabs(aResidual)<fabs(aMinResidual))
                     aMinResidual = aResidual;
                 //StdOut() << "UUU  " << ((cStdWeighterResidual*)&aWeighter)->SingleWOfResidual(std::vector<tREAL8>{aResidual})
@@ -1291,7 +1301,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                     #ifdef SCANSCANSHOWPATCHES
                     if (mBA.Iter()==mBA.NbMaxIter()-1)
                         mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
-                            aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, -1000 + acos(Scal(aNormalGndA,aNormalGndB))*180/M_PI); // rejected for normal
+                            aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, -1000 - acos(Scal(aNormalGndA,aNormalGndB))*180/M_PI); // rejected for normal
                     #endif
                     continue;
                 }

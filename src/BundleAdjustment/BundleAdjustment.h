@@ -551,6 +551,7 @@ protected :
     double                         mWFactor;          ///< weight for observations
     size_t                         mNbUsedPoints;   ///< number of lidar used points
     size_t                         mNbUsedObs;      ///< number of lidar obs used
+    size_t                         mNbUsableObs;      ///< number of lidar obs that could have been used (remove widely false)
 
 };
 
