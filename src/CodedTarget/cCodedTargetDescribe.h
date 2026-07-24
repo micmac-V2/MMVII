@@ -19,6 +19,7 @@ struct cRansacSol;
 struct cLS10PSol;
 struct cCBParams;
 class cAugCdt;
+class cAugCdtInCam;
 class cCdTDiscr;
 
 typedef cSegment<tREAL8,3> tSeg3dr;
@@ -132,6 +133,7 @@ public:
     std::vector<cPt2di> Corners() const;
     tIm RefIm() const;
     void SetFSpec(std::shared_ptr<cFullSpecifTarget> aFSpec);
+    cAugCdtInCam InCam(const cSensorCamPC* aCam);
 
     std::string             mName;
     bool                    mOKAug;
@@ -143,6 +145,18 @@ private:
     cPt2dr                              mCenter;
     std::shared_ptr<cFullSpecifTarget>  mFSpec;
     std::vector<cExtract>               mVExtracts;
+};
+
+class cAugCdtInCam : cAugCdt
+{
+public:
+    cAugCdtInCam(const cAugCdt& aAugCdt, const cSensorCamPC* aCam);
+    tAff2Dr mRef2Glob;
+    tU_INT1 Visibility();
+    const std::string Name();
+private:
+    const cSensorCamPC* mCam;
+    const cAugCdt& mCdt;
 };
 
 void AddData(const cAuxAr2007& anAux, cAugCdt& anEx);

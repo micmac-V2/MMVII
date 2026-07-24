@@ -34,10 +34,10 @@ namespace MMVII
         cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1>& aMaskDIm, cPixBox<2> aBBox);
         cPt1dr Value(const cPt2dr& aPt) const override;//-> correl score from aPt position
     private:
-        tDIm& mThDIm;//-> theoretical image of the CdT generated from detected deformation
+        tDIm& mThDIm;//-> theoretical image of the target generated from detected deformation
         tDIm& mGDIm;//-> global image
         tDIm& mDMask;//-> mask for correlation computation
-        cPixBox<2> mBBox;//-> bbox of predicted cdt wrt global image
+        cPixBox<2> mBBox;//-> bbox of predicted target wrt global image
         cPt2dr mP0;//-> initial bbox up corner to compute translation
     };
 
@@ -80,10 +80,25 @@ namespace MMVII
     {
     public:
         cPatch(tIm& aGlobIm, cPixBBox aGlobBBox);
-        tIm CropGIm();
+        tIm Patch();
+        void SaveIm(std::string aDir);
+        cPixBox<2> BBox();
     private:
         tIm& mGIm;
-        cPixBBox mBBox;
+        cPixBox<2> mBBox;
+    };
+
+    class cMaskO2I
+    {
+    public:
+        cMaskO2I(const cPixBox<2>& aOBox, const cPixBox<2>& aIBox, const tAff2Dr& aO2IMap);
+        void SaveAsIm(const std::string& aDir);
+        tIm Im();
+    private:
+        const cPixBox<2>& mOBox;
+        const cPixBox<2>& mIBox;
+        const tAff2Dr& mO2IMap;
+        tIm mIm;
     };
 
     class cBox2DTransfo

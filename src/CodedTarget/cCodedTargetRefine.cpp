@@ -442,7 +442,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         //mL1Lim          (20),
         //mMaskDil        (0),
         mAugCdt (nullptr)
-        //mRefine         (""),
+    //mRefine         (""),
         //mMissedOnly     (false)
     {
         //
@@ -502,7 +502,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                 bool isOk = false;
                 if (mSetImMes.NameHasMeasure(aCdt.Name()))//-> normally detected
                 {
-                    StdOut() << aCdt.Name() << " : already measured\n" << std::endl;
+                    StdOut() << aCdt.Name() << " : already measured\n";
                     isOk = true;
                 } else if (mSetAugCdt.NameHasAug(aCdt.Name()))//-> if target is augmented
                 {
@@ -707,35 +707,41 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 
     cPt2dr cAppli_CodedTargetRefine::AugCdtLocate(bool& isOk)
     {
-        //--1-- target reference pattern sampling
+        cPt2dr aRes(0,0);
 
-        tIm aRef = mAugCdt->RefIm();
-        tAff2Dr aRef2GIm = mAugCdt->Ref2GImEstim(mCam);//-> pattern transformation to global image
-        cPixBox<2> aBox = cPixBox<2>::FromVect(mAugCdt->Corners());
-
-        cSampler aSampler(aRef, aBox, aRef2GIm);
-        auto [aTpl, aP0] = aSampler.Sample();//-> P0 is top left corner of template image wrt to global image
-        tDIm* aDTpl = &aTpl.DIm();
-
-        //--2-- template target correlation in global image
-
-        tIm aMask(aDTpl->Sz());//-> mask definition : MaskInV = background
-        tDIm* aDMask = &aMask.DIm();
-        for (const auto& aPx : *aDTpl)
+        cAugCdtInCam aCdt = mAugCdt->InCam(mCam);
+        if (aCdt.Visibility() == 4)
         {
-            cPt2di aRefP = ToI(aRef2GIm.Value(ToR(aPx + aP0)));//-> reference pattern pixel
-            tU_INT1 aVal = aRef.DIm().Inside(aRefP) ? MaskOutV : MaskInV;
-            aDMask->SetV(aPx, aVal);
+            //--1-- target reference pattern sampling
+
+            tIm aRef = mFSpec->OneImTarget(*mFSpec->EncodingFromName(aCdt.Name()));
+            cPixBox<2> aIBox(aRef.DIm());
+
+            cSampler aSampler(aRef, aIBox, aCdt.mRef2Glob);
+            auto [aTpl, aP0] = aSampler.Sample();//-> P0 is top left corner of template image wrt to global image
+            tDIm* aDTpl = &aTpl.DIm();
+            cPixBox<2> aOBox(aP0, aP0 + aDTpl->Sz());
+            if (mVisu) aDTpl->ToFile(mPhProj.DirVisuAppli() + mAugCdt->mName + "-Samp-" + mGImN);
+
+            //--2-- template target correlation in global image
+
+            cMaskO2I aMask(aOBox, aIBox, aCdt.mRef2Glob.MapInverse());
+            aMask.SaveAsIm(mPhProj.DirVisuAppli() + mAugCdt->mName + "-Mask-" + mGImN);
+
+            cPatch aPatch(mGIm, cPixBox<2>(aP0, aP0 + aDTpl->Sz()));
+            if (mVisu) aPatch.SaveIm(mPhProj.DirVisuAppli() + mAugCdt->mName + "-Patch-" + mGImN);
+
+            cOptCorrelThIm<tU_INT1> aOptMap(*aDTpl, *mDGIm, aMask.Im().DIm(), aPatch.BBox());
+            cOptimByStep aOpt(aOptMap, false, 2.0);
+            auto [aVal, aDelta] = aOpt.Optim(ToR(aP0), 4, .1);
+
+            if (aVal >= 0.6) isOk = true;
+            aRes = aDelta + ToR(aDTpl->Sz())/2.0;
+
+            if (mShow) StdOut() << "Cdt n°" << mAugCdt->mName << " GVcorrel=" << aVal
+                         << " aP0(old/new)=" << aOBox.P0() << '/' << aDelta << '\n';
         }
-
-        cPixBox<2> aBBox(aP0, aP0 + aDTpl->Sz());
-        cOptCorrelThIm<tU_INT1> aOptMap(*aDTpl, *mDGIm, *aDMask, aBBox);
-        cOptimByStep aOpt(aOptMap, false, 2.0);
-
-        auto [aVal, aDelta] = aOpt.Optim(ToR(aP0), 4, .1);
-        if (mShow) StdOut() << "Cdt n°" << mAugCdt->mName << " hcorr=" << aVal << '\n';
-        if (aVal >= 0.6) isOk = true;
-        return aDelta + ToR(aDTpl->Sz())/2.0;
+        return aRes;
     }
 
     //----- memory allocation
@@ -932,7 +938,6 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 */
 /******************************************************************************/
 
-
     template <class Type>
     cOptCorrelThIm<Type>::cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1> &aMaskDIm, cPixBox<2> aBBox):
         mThDIm (aTheorDIm),
@@ -1004,13 +1009,43 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
     {
     }
 
-    tIm cPatch::CropGIm()
+    tIm cPatch::Patch()
     {
         tIm aIm(mBBox.Sz());
         tDIm* aDIm = &aIm.DIm();
         aDIm->CropIn(mBBox.P0ByRef(), mGIm.DIm());
         return aIm;
     }
+
+    void cPatch::SaveIm(std::string aDir)
+    {
+        Patch().DIm().ToFile(aDir);
+    }
+
+    cPixBox<2> cPatch::BBox() {return mBBox;}
+
+/******************************************************************************/
+/*
+* cMaskO2I
+*/
+/******************************************************************************/
+
+    cMaskO2I::cMaskO2I(const cPixBox<2>& aOBox, const cPixBox<2>& aIBox, const tAff2Dr& aO2IMap):
+        mOBox (aOBox),
+        mIBox (aIBox),
+        mO2IMap (aO2IMap),
+        mIm (aOBox.Sz())
+    {
+        for (const auto& aOPx : aOBox)
+        {
+            cPt2di aIPx = ToI(aO2IMap.Value(ToR(aOPx)));
+            tU_INT1 aVal = aIBox.Inside(aIPx) ? MaskOutV : MaskInV;
+            mIm.DIm().SetV(aOPx - aOBox.P0(), aVal);
+        }
+    }
+
+    void cMaskO2I::SaveAsIm(const std::string& aDir) {mIm.DIm().ToFile(aDir);}
+    tIm cMaskO2I::Im() {return mIm;}
 
 /******************************************************************************/
 /*
@@ -1032,28 +1067,30 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         cPixBox<2> aOBox = aTrans.Transfo();
         //----- set output image
         cIm2D<tU_INT1> aOIm(aOBox.Sz());
-        cDataIm2D<tU_INT1>* aDOIm = &mIm.DIm();
+        cDataIm2D<tU_INT1>* aDOIm = &aOIm.DIm();
+        aDOIm->InitCste(MaskInV);
         //----- parse output box and interpolate input image
         for (const auto& aPx : aOBox)
         {
-            cRessampleWeigth aRW = cRessampleWeigth::GaussBiCub(ToR(aPx), mMap.MapInverse(), 2);
-            const std::vector<cPt2di>& aVPts = aRW.mVPts;
-            if (!aVPts.empty())
+            if (mBBox.Inside(ToI(mMap.Inverse(ToR(aPx)))))//-> ensure that the input corresponding pixel actually exists
             {
-                tREAL8 aV = 0;
-                tREAL8 aSW = 0;
-                for (int aK=0; aK<int(aVPts.size()) ; aK++)
+                cRessampleWeigth aRW = cRessampleWeigth::GaussBiCub(ToR(aPx), mMap.MapInverse(), 2);
+                const std::vector<cPt2di>& aVPts = aRW.mVPts;
+                if (!aVPts.empty())
                 {
-                    if (mIm.DIm().Inside(aVPts[aK]))
+                    tREAL8 aV = 0;
+                    tREAL8 aSW = 0;
+                    for (int aK=0; aK<int(aVPts.size()) ; aK++)
                     {
-                        double aW = aRW.mVWeight[aK];
-                        aSW += aW;
-                        aV += aW * mIm.DIm().GetV(aVPts[aK]);
-                        StdOut() << aV << "/";
+                        if (mIm.DIm().Inside(aVPts[aK]))
+                        {
+                            double aW = aRW.mVWeight[aK];
+                            aSW += aW;
+                            aV += aW * mIm.DIm().GetV(aVPts[aK]);
+                        }
                     }
+                    aDOIm->SetV(aPx - aOBox.P0(), aV/aSW);//-> return to ouput image coordinates
                 }
-                // << '|' << aSW << "\n";
-                aDOIm->SetV(aPx - aOBox.P0(), aV/aSW);//-> return to ouput image coordinates
             }
         }
         return {aOIm, aOBox.P0()};

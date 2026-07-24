@@ -191,7 +191,11 @@ namespace MMVII
         return aRes;
     }
 
+    cAugCdtInCam cAugCdt::InCam(const cSensorCamPC* aCam)
+    {
         return cAugCdtInCam(*this, aCam);
+    }
+
     void cAugCdt::SetFSpec(std::shared_ptr<cFullSpecifTarget> aFSpec) {mFSpec = aFSpec;}
 
     void cAugCdt::Spatialize(tREAL8 aGndInterTol)
