@@ -1577,7 +1577,8 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> * aSup
     float aNbPatchesFactor = // a priori search for aNbPatches * aNbPatchesFactor, to adjust for no return
         sqrt(PixelDomain().Sz().x()*PixelDomain().Sz().y()/ ((aNbValid+aNbNotMasked)/2.));
     float aX;
-    float aY = float(aRasterMaskData.SzY()) / aNbPatchesY / 2.;
+    float aY = float(aRasterMaskData.SzY()) / aNbPatchesY / 3.;
+    float aYmax = PixelDomain().Sz().y() - aY - 1;
     float aXStep;
     float aYStep = float(aRasterMaskData.SzY()) / aNbPatchesY / aNbPatchesFactor;
     if (aYStep<1.)
@@ -1587,7 +1588,7 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> * aSup
 
     std::cout<<"aAvgDist="<<aAvgDist<<" aNbValid="<<aNbValid<<
                " aNbPatchesFactor="<<aNbPatchesFactor<<" aYStep="<<aYStep<<"\n";
-    while (aY<aRasterMaskData.SzY())
+    while (aY<aYmax)
     {
         aX = aXdecal * ((aLineCounter%2)?1./3.:2./3.);
         auto aPhi = (aY - InternalCalib()->PP().y()) / InternalCalib()->F();
