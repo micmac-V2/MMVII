@@ -86,6 +86,39 @@ namespace MMVII
 
 /******************************************************************************/
 /*
+* cAugCdtInCam
+*/
+/******************************************************************************/
+
+    cAugCdtInCam::cAugCdtInCam(const cAugCdt& aAugCdt, const cSensorCamPC* aCam):
+        mCam (aCam),
+        mCdt (aAugCdt)
+    {
+        std::vector<cPt2dr> aVOut = {}, aVIn = {};
+        for (const auto& aP : mCdt.Corners())
+        {
+            aVIn.push_back(ToR(aP));
+            aVOut.push_back(mCam->Ground2Image(mCdt.mRef2Gnd.Value(cPt3dr(aP.x(), aP.y(), 0))));
+        }
+        tREAL8 aRes;
+        tAff2Dr aAff;
+        mRef2Glob = aAff.StdGlobEstimate(aVIn, aVOut, &aRes, nullptr, cParamCtrlOpt::Default());
+    }
+
+    tU_INT1 cAugCdtInCam::Visibility()
+    {
+        tU_INT1 aRes = 0;
+        for (const auto& aP : mCdt.Corners())
+        {
+            if (mCam->IsVisibleOnImFrame(mRef2Glob.Value(ToR(aP)))) ++aRes;
+        }
+        return aRes;
+    }
+
+    const std::string cAugCdtInCam::Name() {return mCdt.mName;}
+
+/******************************************************************************/
+/*
  * cAugCdt
  */
 /******************************************************************************/
@@ -158,6 +191,7 @@ namespace MMVII
         return aRes;
     }
 
+        return cAugCdtInCam(*this, aCam);
     void cAugCdt::SetFSpec(std::shared_ptr<cFullSpecifTarget> aFSpec) {mFSpec = aFSpec;}
 
     void cAugCdt::Spatialize(tREAL8 aGndInterTol)
