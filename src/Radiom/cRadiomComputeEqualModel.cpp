@@ -314,7 +314,7 @@ void   cAppliRadiom2ImageSameMod::OneIterationGen(int aDegFroze)
          aAlbedo /= aVecIndMul.size();
 
          tElSys  aW =  1.0 / sqrt(1.0 + Square(aVSigma[aKPMul]/aSigma));  // compute weight with micmac's "magical" formula
-         cResidualWeighter<tElSys> aRW(aW);  // weighter constant
+         cBasicWeighter<tElSys> aRW(aW);  // weighter constant
          aAvgAlb.Add(1.0,aAlbedo);  // accumulate for albedo averaging
 
          // 2.2 -  Add observation
@@ -363,7 +363,7 @@ void   cAppliRadiom2ImageSameMod::OneIterationGen(int aDegFroze)
      if (mWeightStabPolIm>0)
      {
          tElSys  aW =  (aSomWeight/aNbEq) * mWeightStabPolIm;
-         cResidualWeighter<tElSys> aRW(aW);  // weighter constant
+         cBasicWeighter<tElSys> aRW(aW);  // weighter constant
          for (size_t aKPMul=0; aKPMul<mFusIndex.VVIndexes().size(); aKPMul++)
          {
               const auto & aVecIndMul = mFusIndex.VVIndexes().at(aKPMul);

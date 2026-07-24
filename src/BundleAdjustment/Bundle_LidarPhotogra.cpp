@@ -300,7 +300,7 @@ void cBA_LidarPhotograTri::AddObs()
     mLastResidual.Reset();
     mNbUsedPoints = 0;
     mNbUsedObs = 0;
-    cResidualWeighter<tREAL8> aWeighter(mWFactor);
+    cBasicWeighter<tREAL8> aWeighter(mWFactor);
     std::unordered_set<std::string> aNoHiddenPartComputed;
     if (mModeSim==eImatchCrit::eDifRad)
     {
@@ -502,7 +502,7 @@ void cBA_LidarPhotograRaster::SetVUkVObs
 }
 
 
-std::pair<int,tREAL8> cBA_LidarPhotogra::AddPatchDifRad(const cResidualWeighter<tREAL8> &aWeighter,
+std::pair<int,tREAL8> cBA_LidarPhotogra::AddPatchDifRad(const cBasicWeighter<tREAL8> &aWeighter,
      const std::vector<cPt3dr> & aVPatchPtGnd,
      const std::vector<cData1ImLidPhgr> &aVData,
      int aPatchNum)
@@ -539,7 +539,7 @@ std::pair<int,tREAL8> cBA_LidarPhotogra::AddPatchDifRad(const cResidualWeighter<
      return {aVData.size(), Square(aStdDev.StdDev(1e-5))};
 }
 
-std::pair<int, tREAL8> cBA_LidarPhotogra::AddPatchCensus(const cResidualWeighter<tREAL8> & aWeighter,
+std::pair<int, tREAL8> cBA_LidarPhotogra::AddPatchCensus(const cBasicWeighter<tREAL8> & aWeighter,
      const std::vector<cPt3dr> & aVPatchPtGnd,
      const std::vector<cData1ImLidPhgr> &aVData,
      int aPatchNum)
@@ -575,7 +575,7 @@ std::pair<int, tREAL8> cBA_LidarPhotogra::AddPatchCensus(const cResidualWeighter
      return {aVData.size(), NAN};
 }
 
-std::pair<int, tREAL8> cBA_LidarPhotogra::AddPatchCorrel(const cResidualWeighter<tREAL8> &aWeighter,
+std::pair<int, tREAL8> cBA_LidarPhotogra::AddPatchCorrel(const cBasicWeighter<tREAL8> &aWeighter,
      const std::vector<cPt3dr> & aVPatchPtGnd,
      const std::vector<cData1ImLidPhgr> &aVData,
      int aPatchNum)
@@ -667,7 +667,7 @@ std::pair<int, tREAL8> cBA_LidarPhotogra::AddPatchCorrel(const cResidualWeighter
 }
 
 
-void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
+void  cBA_LidarPhotogra::Add1Patch(const cBasicWeighter<tREAL8> &aWeighter,
                                   const std::vector<cPt3dr> & aVPatchPtGnd,
                                   const std::string & aScanName,
                                   const std::unordered_set<std::string> &aHiddenOnImage, int aPatchNum)
@@ -803,7 +803,7 @@ void  cBA_LidarPhotogra::Add1Patch(const cResidualWeighter<tREAL8> &aWeighter,
 //-------------------------------------------------------------
 
 
-std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cResidualWeighter<tREAL8> &aWeighter,
+std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cBasicWeighter<tREAL8> &aWeighter,
      const std::vector<cPt3dr> & aVPatchPtGnd,
      const std::vector<cData1ImLidPhgr> &aVData,
      int aPatchNum)

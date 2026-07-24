@@ -167,7 +167,7 @@ struct cSharedIPParam
  *
  */
 
-class cStdWeighterResidual : public cResidualWeighter<tREAL8>
+class cStdWeighterResidual : public cBasicWeighter<tREAL8>
 {
      public :
          // aThr<0 => dont use
@@ -544,21 +544,21 @@ class cBA_LidarPhotogra: public cBA_LidarBase
     protected :
        void InitEq(bool aScanPoseUk);
 
-        void Add1Patch(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+        void Add1Patch(const cBasicWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
                        const std::string & aScanName, const std::unordered_set<std::string> &aHiddenOnImage,
                        int aPatchNum);
 
        // AddPatch* returns (number of images used, squared mean residual)
        /// Method for adding observations with radiometric differences as similatity criterion
-       std::pair<int, tREAL8> AddPatchDifRad(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+       std::pair<int, tREAL8> AddPatchDifRad(const cBasicWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
                            const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        /// Method for adding observations with Census Coeff as similatity criterion
-       std::pair<int, tREAL8>  AddPatchCensus(const cResidualWeighter<tREAL8> &aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+       std::pair<int, tREAL8>  AddPatchCensus(const cBasicWeighter<tREAL8> &aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
                            const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        /// Method for adding observations with Normalized Centred Coefficent Correlation as similatity criterion
-       virtual std::pair<int, tREAL8>  AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
+       virtual std::pair<int, tREAL8>  AddPatchCorrel(const cBasicWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
                            const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        eImatchCrit                    mModeSim;        ///< type of similarity used
@@ -610,7 +610,7 @@ protected:
     std::vector<cStaticLidarBAData>   mVScans;      ///< vector of raster representations of lidar
     std::map<std::string, int>        mIndexesScans; ///< indexes in mVScans
     std::map<std::string,cIm2D<tREAL4>> mMapZbuf; ///< fusion of all zbuffers for one image/scan B name
-    std::map<std::string,std::unique_ptr<cResidualWeighter<tREAL8>>> mWeightersMap;   ///< map from "nameScanA-nameScanB" to the appropriate weighter
+    std::map<std::string,std::unique_ptr<cBasicWeighter<tREAL8>>> mWeightersMap;   ///< map from "nameScanA-nameScanB" to the appropriate weighter
     tREAL8                            mThresholdInit, mThresholdFinal;   ///< distance where scan points are supposed to be hidden
     std::map<std::pair<std::string,std::string>, int> mMapNbUsedPatches; // indexed by scan/im names (name_a, name_b). Number of patches used for this couple
 };
@@ -635,7 +635,7 @@ public :
     void UpdateInterpolatorScale(const cMMVII_BundleAdj& aBA);
     void UpdateWeightersMap(const cMMVII_BundleAdj &aBA, double aWFactor); // create or update map, on each iteration
 
-    std::pair<int, tREAL8>  AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
+    std::pair<int, tREAL8>  AddPatchCorrel(const cBasicWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
                        const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) override;
 
 protected:

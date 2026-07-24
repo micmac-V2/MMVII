@@ -16,7 +16,7 @@ namespace MMVII
 /* ************************************************************ */
 
 template <class Type>
-  cREAL8_RWAdapt<Type>::cREAL8_RWAdapt(const cResidualWeighter<tREAL8> * aRW) :
+  cREAL8_RWAdapt<Type>::cREAL8_RWAdapt(const cBasicWeighter<tREAL8> * aRW) :
     mRW (aRW)
 {
 }
@@ -37,16 +37,16 @@ template <class Type>  typename cREAL8_RWAdapt<Type>::tStdVect cREAL8_RWAdapt<Ty
 
 /* ************************************************************ */
 /*                                                              */
-/*                cResidualWeighter                             */
+/*                   cBasicWeighter                             */
 /*                                                              */
 /* ************************************************************ */
 
-template <class Type>  cResidualWeighter<Type>::cResidualWeighter(const Type & aVal) :
+template <class Type>  cBasicWeighter<Type>::cBasicWeighter(const Type & aVal) :
     mVal (aVal)
 {
 }
 
-template <class Type>  std::vector<Type>  cResidualWeighter<Type>::WeightOfResidual(const tStdVect & aVResidual) const
+template <class Type>  std::vector<Type>  cBasicWeighter<Type>::WeightOfResidual(const tStdVect & aVResidual) const
 {
         return tStdVect(aVResidual.size(),mVal);
 }
@@ -126,7 +126,7 @@ void cResidualWeighterExplicit<Type>::addWeight(Type aWeight)
 
 #define INSTANTIATE_RESOLSYSNL(TYPE)\
 template class  cREAL8_RWAdapt<TYPE>;\
-template class  cResidualWeighter<TYPE>;\
+template class  cBasicWeighter<TYPE>;\
 template class  cResidualWeighterExplicit<TYPE>;
 
 INSTANTIATE_RESOLSYSNL(tREAL4)
