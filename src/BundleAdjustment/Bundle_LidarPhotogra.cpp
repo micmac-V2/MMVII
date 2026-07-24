@@ -360,7 +360,7 @@ void cBA_LidarPhotograRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, do
     {
         auto &aScanA = aScanDataA.mLidarRaster;
         tREAL8 aSigma = 1.; // TODO use image res for W? aScanA->Sigma() converted with incidence?
-        mWeightersMap[aScanA->NameImage()] = cStdWeighterResidual(sqrt(aWFactor)*aSigma, aTh / 2., aTh, 1);
+        mWeightersMap[aScanA->NameImage()].reset(new cStdWeighterResidual(sqrt(aWFactor)*aSigma, aTh / 2., aTh, 1));
     }
 }
 
@@ -387,11 +387,11 @@ void cBA_LidarPhotograRaster::AddObs()
     {
         for (auto & aScan : mVScans)
         {
-            auto aWeighter = mWeightersMap.at(aScan.mLidarRaster->NameImage());
+            auto & aWeighter = mWeightersMap.at(aScan.mLidarRaster->NameImage());
             int aNbPatch = 0;
             for (const auto& aPatch : aScan.mLPatches)
             {
-                Add1Patch(aWeighter,
+                Add1Patch(*aWeighter,
                           {aScan.mLidarRaster->Image2Ground(*aPatch.mLPatchesP.begin())},
                           aScan.mLidarRaster->NameImage(), aPatch.mHiddenOnImage, aNbPatch);
                 aNbPatch++;
@@ -402,14 +402,14 @@ void cBA_LidarPhotograRaster::AddObs()
     {
         for (auto & aScan : mVScans)
         {
-            auto aWeighter = mWeightersMap.at(aScan.mLidarRaster->NameImage());
+            auto & aWeighter = mWeightersMap.at(aScan.mLidarRaster->NameImage());
             int aNbPatch = 0;
             for (const auto& aPatch : aScan.mLPatches)
             {
                 std::vector<cPt3dr> aVP;
                 for (const auto aPt : aPatch.mLPatchesP)
                     aVP.push_back(aScan.mLidarRaster->Image2Ground(aPt));
-                Add1Patch(aWeighter,aVP,aScan.mLidarRaster->NameImage(), aPatch.mHiddenOnImage, aNbPatch);
+                Add1Patch(*aWeighter,aVP,aScan.mLidarRaster->NameImage(), aPatch.mHiddenOnImage, aNbPatch);
                 aNbPatch++;
             }
         }
@@ -1021,10 +1021,11 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
             auto &aScanB = aScanDataB.mLidarRaster;
             tREAL8 aSigmaAB = sqrt(aScanA->Sigma()*aScanA->Sigma()
                                    +aScanB->Sigma()*aScanB->Sigma());
-            mWeightersMap[aScanA->NameImage()+"-"+aScanB->NameImage()]
+            mWeightersMap[aScanA->NameImage()+"-"+aScanB->NameImage()].reset(
                 //= cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh / 30., aTh, 1); // simulate least L1 with 1/31 of weight before exclusion
                 //= cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh / 9., aTh, 1); // simulate least L1 with 1/10 of weight before exclusion
-                = cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, -1, aTh, 1); // least squares better for final convergence since exclusion methods are efficient
+                new cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, -1, aTh, 1) // least squares better for final convergence since exclusion methods are efficient
+                );
         }
     }
 }
@@ -1264,7 +1265,9 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                 tREAL8 aResidual = aValIm-aDist;
                 if (fabs(aResidual)<fabs(aMinResidual))
                     aMinResidual = aResidual;
-                if (aWeighter.SingleWOfResidual( std::vector<tREAL8>{aResidual})==0.0)
+                //StdOut() << "UUU  " << ((cStdWeighterResidual*)&aWeighter)->SingleWOfResidual(std::vector<tREAL8>{aResidual})
+                //         << " " << aWeighter->WeightOfResidual({aResidual})[0] << std::endl;
+                if (aWeighter->WeightOfResidual({aResidual})[0]==0.0)
                 {
                     #ifdef SCANSCANDEBUG
                     std::cout<<"removed W\n";
@@ -1353,7 +1356,7 @@ void cBA_LidarLidarRaster::AddPatchDist
         std::vector<tREAL8>    aVObs;
         SetVUkVObs (aPGround,&aVIndUk,aVObs,aData,0);
         aSys->CalcAndAddObs(mEq,aVIndUk,aVObs,
-                            mWeightersMap.at(aData.mScanAName+"-"+aData.mScanBName));
+                            *mWeightersMap.at(aData.mScanAName+"-"+aData.mScanBName));
     }
 }
 

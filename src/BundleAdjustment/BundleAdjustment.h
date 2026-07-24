@@ -610,7 +610,7 @@ protected:
     std::vector<cStaticLidarBAData>   mVScans;      ///< vector of raster representations of lidar
     std::map<std::string, int>        mIndexesScans; ///< indexes in mVScans
     std::map<std::string,cIm2D<tREAL4>> mMapZbuf; ///< fusion of all zbuffers for one image/scan B name
-    std::map<std::string,cStdWeighterResidual> mWeightersMap;   ///< map from "nameScanA-nameScanB" to the appropriate weighter
+    std::map<std::string,std::unique_ptr<cResidualWeighter<tREAL8>>> mWeightersMap;   ///< map from "nameScanA-nameScanB" to the appropriate weighter
     tREAL8                            mThresholdInit, mThresholdFinal;   ///< distance where scan points are supposed to be hidden
     std::map<std::pair<std::string,std::string>, int> mMapNbUsedPatches; // indexed by scan/im names (name_a, name_b). Number of patches used for this couple
 };
