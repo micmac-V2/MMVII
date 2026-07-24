@@ -75,6 +75,40 @@ std::vector<tREAL8> cStdWeighterResidual::WeightOfResidual(const tStdVect & aVRe
 }
 
 
+/* ************************************************************************ */
+/*                                                                          */
+/*                        cLinearWeighterResidual                           */
+/*                                                                          */
+/* ************************************************************************ */
+
+cLinearWeighterResidual::cLinearWeighterResidual(tREAL8 aSGlob,tREAL8 aThr1,tREAL8 aThr2) :
+    mWGlob       (1/Square(aSGlob)),
+    mThrs1       (aThr1),
+    mThrs2       (aThr2)
+{
+    if (mThrs1>mThrs2)
+        std::swap(mThrs1, mThrs2);
+}
+
+tREAL8   cLinearWeighterResidual::SingleWOfResidual(tREAL8 aRes) const
+{
+    aRes = fabs(aRes);
+    if (aRes<=mThrs1)
+        return mWGlob;
+    if (aRes>=mThrs2)
+        return 0;
+    return mWGlob*(1-(abs(aRes)-mThrs1)/(mThrs2-mThrs1));
+}
+
+std::vector<tREAL8> cLinearWeighterResidual::WeightOfResidual(const tStdVect & aVResidual) const
+{
+    std::vector<tREAL8> aVW;
+    aVW.reserve(aVResidual.size());
+    for (auto & aRes: aVResidual)
+        aVW.push_back(SingleWOfResidual(aRes));
+    return aVW;
+}
+
 
 /* ************************************************************************ */
 /*                                                                          */

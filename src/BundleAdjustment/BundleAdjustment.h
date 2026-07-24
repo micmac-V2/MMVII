@@ -190,6 +190,33 @@ class cStdWeighterResidual : public cBasicWeighter<tREAL8>
          tREAL8   mExpS2;
 };
 
+
+/**  alternative to cStdWeighterResidual, with the linear formula
+ *
+ *    W(R) =
+ *          0 if R>Thrs2
+ *          mWGlob if R<Thrs1
+ *          linear between mWGlob and 0 if Thrs1<R<Thrs2
+ *    W(R) = (abs(R) > Thrs2) ? 0 : (abs(R) < Thrs1) ? mWGlob : mWGlob*(1-(abs(R)-Thrs1)/(Thrs2-Thrs1))
+ *
+ */
+class cLinearWeighterResidual : public cBasicWeighter<tREAL8>
+{
+public :
+    // aThr<0 => dont use
+    cLinearWeighterResidual(tREAL8 aSGlob,tREAL8 aThr1,tREAL8 aThr2);
+    //cLinearWeighterResidual();
+
+    tREAL8   SingleWOfResidual(tREAL8 aRes) const ;
+    tStdVect WeightOfResidual(const tStdVect &) const override;
+
+private :
+    tREAL8   mWGlob;
+    tREAL8   mThrs1;
+    tREAL8   mThrs2;
+};
+
+
 #if (MAINTAIN_OLD_BLOCK)
 
 // RIGIDBLOC
