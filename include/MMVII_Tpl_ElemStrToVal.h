@@ -1,3 +1,6 @@
+#ifndef  _MMVII_Tpl_ElemStrToVal_H_
+#define  _MMVII_Tpl_ElemStrToVal_H_
+
 #include <map>
 #include "MMVII_enums.h"
 #include "MMVII_Stringifier.h"
@@ -336,3 +339,5 @@ template <>  std::string cStrIO<ETYPE>::msNameType() { return ENAME ;}
 
 
 } // namespace MMVII
+
+#endif // _MMVII_Tpl_ElemStrToVal_H_
