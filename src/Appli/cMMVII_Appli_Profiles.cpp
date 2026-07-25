@@ -134,6 +134,50 @@ static void CheckProfileName(const std::string & aName)
     );
 }
 
+/**  Thrown by cProfileErrorCatcher, caught in this file, never crosses its interface */
+struct cProfileError
+{
+    std::string mMes;
+};
+
+static void ProfileErrorHandler(const std::string & aType,const std::string & aMes,const char *,int)
+{
+    throw cProfileError{aType + " " + aMes};
+}
+
+/**  While such an object is alive, a MMVII error throws a cProfileError instead of aborting.
+     Used to make the profile initialization non fatal : whatever fails (unwriteable directory,
+     corrupted or truncated file, disk full ...) the command must go on with its default values.
+     Reading errors are safe to unwind : the tree of a corrupted file is built in the constructor
+     of the archive, before any cAuxAr2007 exists, and cIMakeTreeAr sets its mError flag before
+     raising, so the destructors running during the unwinding do not raise in their turn.
+*/
+class cProfileErrorCatcher
+{
+   public :
+      cProfileErrorCatcher() :
+          mPrevHandler (MMVVI_Error)   // may be not the default one, i.e. the python API
+      {
+          MMVII_SetErrorHandler(ProfileErrorHandler);
+      }
+      ~cProfileErrorCatcher() {MMVII_SetErrorHandler(mPrevHandler);}
+   private :
+      cProfileErrorCatcher(const cProfileErrorCatcher &) = delete;
+      PtrMMVII_Error_Handler mPrevHandler;
+};
+
+/// Why the profile could not be used, empty if it could; kept for the EditProfile message
+static std::string TheProfileFailure;
+
+/**  To be called before SaveInFile : the tagged archives write the file in their destructor,
+     so a file that cannot be written raises there, where cProfileError cannot be thrown.
+     Opening it here, in append mode so that nothing is lost, raises at a catchable place.
+*/
+static void CheckCanWrite(const std::string & aNameFile)
+{
+    cMMVII_Ofs aOfs(aNameFile,eFileModeOut::AppendText);
+}
+
 /// Values used when no profile at all can be read, they must be valid for any command
 static cParamProfile BuiltInProfile()
 {
@@ -150,6 +194,7 @@ static cParamProfile SyncUserProfile(const std::string & aUserFile,const std::st
     if (! ExistFile(aDefaultFile))
     {                 // Shouldn't happen ...
         aDefaultProfile = BuiltInProfile();
+        CheckCanWrite(aDefaultFile);
         SaveInFile(aDefaultProfile,aDefaultFile);          //  ... create one just in case
     }
     ReadFromFile(aDefaultProfile,aDefaultFile);
@@ -172,6 +217,7 @@ static cParamProfile SyncUserProfile(const std::string & aUserFile,const std::st
     }
     if (aModified)
     {
+        CheckCanWrite(aUserFile);
         SaveInFile(aUserProfile,aUserFile);
     }
     return aUserProfile;
@@ -212,57 +258,97 @@ const std::string TheUserProfilePrefix = "MMVII-profile-";
 
 std::string cMMVII_Appli::GetProfileName()
 {
+    //  Called for each application of the process, also for those allocated by GenArgsSpec :
+    //  once the profile has been diagnosed as unusable, don't restore a directory that would
+    //  make the next applications believe it can be used
+    if (! TheProfileFailure.empty())
+    {
+       mDirUserProfile = "";
+       return "Default";
+    }
     mDirUserProfile = MMVII_UserConfigDir(SVP::Yes);
     if (mDirUserProfile.empty())   // no user config dir, see InitProfile
        return "Default";
-    MakeNameDir(mDirUserProfile);
-//    CreateDirectories(mDirUserProfile,false);
-    const std::string aSelectedProfile = mDirUserProfile + TheSelectedProfileName;
-    cSelectedProfile aSelection;
-    if (!ExistFile(aSelectedProfile))
+    try
     {
-        aSelection.mNameProfile = "Default";
-    } else {
-        ReadFromFile(aSelection,aSelectedProfile);
+        //  Called for every command, even those that never use a profile : a selection file
+        //  that cannot be read must not prevent them from running. InitProfile does the diagnostic.
+        cProfileErrorCatcher aCatchErrors;
+
+        MakeNameDir(mDirUserProfile);
+        const std::string aSelectedProfile = mDirUserProfile + TheSelectedProfileName;
+        cSelectedProfile aSelection;
+        if (!ExistFile(aSelectedProfile))
+        {
+            aSelection.mNameProfile = "Default";
+        } else {
+            ReadFromFile(aSelection,aSelectedProfile);
+        }
+        return aSelection.mNameProfile;
     }
-    return aSelection.mNameProfile;
+    catch (const cProfileError &)
+    {
+        return "Default";
+    }
 }
 
 void cMMVII_Appli::InitProfile()
 {
+    TheProfileFailure = "";
     mDirUserProfile = MMVII_UserConfigDir(SVP::Yes);
     if (mDirUserProfile.empty())
     {
         //  The user configuration directory cannot even be named, typically because HOME is
-        //  not defined.  Nothing can be read from or written to a profile, but the command
-        //  itself must still run, with the built-in values.
-        MMVII_USER_WARNING("Cannot locate the user configuration directory, running with default profile values");
-        mUserProfile = "";
-        mParamProfile = BuiltInProfile();
+        //  not defined
+        TheProfileFailure = "cannot locate the user configuration directory, check the environment (HOME ...)";
     }
     else
     {
-        MakeNameDir(mDirUserProfile);
+        //  A profile name given on the command line is an explicit user choice : an invalid
+        //  one remains a hard error, it is not something to degrade silently
+        if (IsInit(&mProfileName))
+            CheckProfileName(mProfileName);
+        try
+        {
+            //  Any failure below (unwriteable directory, corrupted file, disk full ...) must
+            //  degrade to the built-in values, the command itself has still to run
+            cProfileErrorCatcher aCatchErrors;
 
-        if (! IsInit(&mProfileName)) {
-            CreateDirectories(mDirUserProfile,SVP::No);
+            MakeNameDir(mDirUserProfile);
 
-            const std::string aSelectedProfile = mDirUserProfile + TheSelectedProfileName;
-            if (!ExistFile(aSelectedProfile))
-            {
+            if (! IsInit(&mProfileName)) {
+                CreateDirectories(mDirUserProfile,SVP::No);
+
+                const std::string aSelectedProfile = mDirUserProfile + TheSelectedProfileName;
+                if (!ExistFile(aSelectedProfile))
+                {
+                    cSelectedProfile aSelection;
+                    aSelection.mNameProfile = "Default";
+                    CheckCanWrite(aSelectedProfile);
+                    SaveInFile(aSelection,aSelectedProfile);
+                }
                 cSelectedProfile aSelection;
-                aSelection.mNameProfile = "Default";
-                SaveInFile(aSelection,aSelectedProfile);
+                ReadFromFile(aSelection,aSelectedProfile);
+                mProfileName = aSelection.mNameProfile;
+                CheckProfileName(mProfileName);   // comes from a file, not from the user
             }
-            cSelectedProfile aSelection;
-            ReadFromFile(aSelection,aSelectedProfile);
-            mProfileName = aSelection.mNameProfile;
-        }
-        CheckProfileName(mProfileName);
 
-        mUserProfile = mDirUserProfile + TheUserProfilePrefix + mProfileName + ".xml";
-        const std::string aDefaultProfile = mDirLocalParameters + TheDefaultProfileName;
-        mParamProfile = SyncUserProfile(mUserProfile,aDefaultProfile);
+            mUserProfile = mDirUserProfile + TheUserProfilePrefix + mProfileName + ".xml";
+            const std::string aDefaultProfile = mDirLocalParameters + TheDefaultProfileName;
+            mParamProfile = SyncUserProfile(mUserProfile,aDefaultProfile);
+        }
+        catch (const cProfileError & anError)
+        {
+            TheProfileFailure = anError.mMes;
+        }
+    }
+    if (! TheProfileFailure.empty())
+    {
+        //  Nothing can be read from or written to a profile, run with the built-in values.
+        //  Empty directory marks the profile as unusable, see GlobProfileNames and EditProfile
+        mDirUserProfile = "";
+        mUserProfile = "";
+        mParamProfile = BuiltInProfile();
     }
     mVectNameDefSerial = mParamProfile.Get("VectSerialMode",ToS(eTypeSerial::ecsv));
     mTaggedNameDefSerial = mParamProfile.Get("TaggedSerialMode",ToS(eTypeSerial::exml));
@@ -306,9 +392,9 @@ std::vector<std::string> GlobProfileNames()
     auto aDirUserProfile = cMMVII_Appli::DirUserProfile();
     const std::string aSuffix = ".xml";
     std::vector<std::string> aNames;
-    //  When there is no user configuration directory, no profile file can be enumerated,
-    //  only the default one exists, in memory
-    if (! aDirUserProfile.empty())
+    //  When there is no usable user configuration directory, no profile file can be
+    //  enumerated, only the default one exists, in memory
+    if ((! aDirUserProfile.empty()) && IsDirectory(aDirUserProfile))
     {
         for (const auto & aFile : GetFilesFromDir(aDirUserProfile,AllocRegex(TheUserProfilePrefix+".*\\.xml")))
         {
@@ -446,13 +532,13 @@ cCollecSpecArg2007 & cAppli_EditProfile::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
 int cAppli_EditProfile::Exe()
 {
-    //  Startup can go on with default values when there is no user configuration directory,
-    //  but this command was explicitly called to show or modify a profile : here it is an error
+    //  Startup can go on with default values when the profile is unusable, but this command
+    //  was explicitly called to show or modify a profile : here it is an error
     MMVII_INTERNAL_ASSERT_User
     (
         ! mDirUserProfile.empty(),
         eTyUEr::eUnClassedError,
-        "Cannot locate the user configuration directory, check the environment (HOME ...)"
+        "Cannot use the user profile : " + TheProfileFailure
     );
 
     const bool aCurrent = IsInit(&mCurrent);
