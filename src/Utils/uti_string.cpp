@@ -14,6 +14,7 @@
 
 
 #include <filesystem>
+#include <system_error>
 
 #include "MMVII_Sys.h"
 #include "MMVII_util.h"
@@ -456,27 +457,20 @@ void SkipWhite(const char * & aC)
 
 bool CreateDirectories(const std::string & aDir,bool SVP)
 {
-    bool Ok = fs::create_directories(aDir);
+    //  The error_code overload is required : the throwing overload raises a std::filesystem_error
+    //  which nobody catches, so a failure would terminate the process through std::terminate,
+    //  bypassing the MMVII error handler, even when SVP asked for failure to be accepted.
+    //    - if directory is created, return true, aEc is clear
+    //    - if directory is not created because already existing, return false, aEc is clear
+    //    - if directory is not created because of an error, return false and aEc is set
+    std::error_code aEc;
+    fs::create_directories(aDir,aEc);
 
-    if ((! Ok) && (!SVP))
+    if (aEc && (!SVP))
     {
-        // There is something I dont understand with std::filesystem on error with create_directories,
-        // for me it works but it return false, to solve later ....
-        // Ch. M.: My understanrdfing is :
-        //   - if directory is created, return true
-        //   - if directory not created because already existing, return false
-        //   - if directory not created because of error, exception is throwed
-        //          (use create_directories(aDir, errorCode) to have the noexcept version)
-        if (ExistFile(aDir))
-        {
-            MMVII_INTERNAL_ASSERT_Unresolved(false,"Cannot create directory for arg " + aDir);
-        }
-        else
-        {
-            MMVII_UserError(eTyUEr::eCreateDir,"Cannot create directory for arg " + aDir);
-        }
+        MMVII_UserError(eTyUEr::eCreateDir,"Cannot create directory for arg " + aDir + " : " + aEc.message());
     }
-    return Ok;
+    return ! aEc;
 }
 
 bool RemoveRecurs(const  std::string & aDir,bool ReMkDir,bool SVP)
