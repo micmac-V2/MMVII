@@ -475,19 +475,36 @@ bool CreateDirectories(const std::string & aDir,bool SVP)
 
 bool RemoveRecurs(const  std::string & aDir,bool ReMkDir,bool SVP)
 {
-    fs::remove_all(aDir);
+    //  The error_code overload is required, for the same reason as in CreateDirectories
+    std::error_code aEc;
+    fs::remove_all(aDir,aEc);   //  a non existing directory is not an error
+
+    MMVII_INTERNAL_ASSERT_User
+    (
+         (!aEc) || SVP,
+         eTyUEr::eRemoveFile,
+         "Cannot remove recursively directory for arg " + aDir + " : " + aEc.message()
+    );
     if (ReMkDir)
     {
         bool aRes = CreateDirectories(aDir,SVP);
         return aRes;
     }
-    return true;
+    return ! aEc;
 }
 
 bool RemoveFile(const  std::string & aFile,bool SVP)
 {
-   bool Ok = fs::remove(aFile);
-   MMVII_INTERNAL_ASSERT_User(  Ok||SVP  , eTyUEr::eRemoveFile,"Cannot remove file for arg " + aFile);
+   //  The error_code overload is required, for the same reason as in CreateDirectories
+   std::error_code aEc;
+   bool Ok = fs::remove(aFile,aEc);   //  false with no error if the file did not exist
+
+   MMVII_INTERNAL_ASSERT_User
+   (
+        Ok || SVP,
+        eTyUEr::eRemoveFile,
+        "Cannot remove file for arg " + aFile + (aEc ? (" : " + aEc.message()) : std::string())
+   );
    return Ok;
 }
 
