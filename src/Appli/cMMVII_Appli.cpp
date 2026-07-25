@@ -236,6 +236,7 @@ cMMVII_Appli::~cMMVII_Appli()
    MMVII_INTERNAL_ASSERT_strong(this==TheStackAppli.back(),"check in Appli Destructor");
    TheStackAppli.pop_back();
    mStdCout.Clear();
+   mStdCerr.Clear();   // mFileStdOut is shared with mStdCout, don't keep a reference on it
    // Verifie que tout ce qui a ete alloue a ete desalloue
    // cMemManager::CheckRestoration(mMemStateBegin);
    mMemStateBegin.SetCheckAtDestroy();
@@ -292,6 +293,7 @@ cMMVII_Appli::cMMVII_Appli
    mHasInputV1    (false),
    mHasInputV2    (false),
    mStdCout       (std::cout),
+   mStdCerr       (std::cerr),
    mSeedRand      (msDefSeedRand), // In constructor, don't use virtual, wait ...
    mExtendPattern (true),
    mVSPO          (aVSPO),
@@ -355,6 +357,20 @@ cMultipleOfs & StdStdOut()
 #endif
 }
 
+/// Same as StdStdOut, for error output : always std::cerr
+
+cMultipleOfs & StdStdErr()
+{
+// Dont know why, destruction of static object at end fails on Mac
+#if (THE_MACRO_MMVII_SYS == MMVII_SYS_A)
+   static cMultipleOfs * aPtrMOfs = new cMultipleOfs(std::cerr);
+   return *aPtrMOfs;
+#else
+   static cMultipleOfs aMOfs(std::cerr);
+   return aMOfs;
+#endif
+}
+
 cMultipleOfs& StdOut()
 {
    if (cMMVII_Appli::ExistAppli())
@@ -362,7 +378,12 @@ cMultipleOfs& StdOut()
    return StdStdOut();
 }
 cMultipleOfs& HelpOut() {return StdOut();}
-cMultipleOfs& ErrOut()  {return StdOut();}
+cMultipleOfs& ErrOut()
+{
+   if (cMMVII_Appli::ExistAppli())
+     return cMMVII_Appli::CurrentAppli().ErrOut();
+   return StdStdErr();
+}
 
 
 
@@ -373,8 +394,15 @@ cMultipleOfs &  cMMVII_Appli::NC_StdOut()
       return StdStdOut();
    return mStdCout;
 }
+cMultipleOfs &  cMMVII_Appli::NC_ErrOut()
+{
+   /// Maybe mStdCerr not correctly initialized if we are in constructor or in destructor ?
+   if ((!cMMVII_Appli::ExistAppli()) || msInDstructor)
+      return StdStdErr();
+   return mStdCerr;
+}
 cMultipleOfs &  cMMVII_Appli::HelpOut() {return StdOut();}
-cMultipleOfs &  cMMVII_Appli::ErrOut() {return StdOut();}
+cMultipleOfs &  cMMVII_Appli::ErrOut() {return NC_ErrOut();}
 
 cMultipleOfs &  cMMVII_Appli::StdOut() const
 {
@@ -732,6 +760,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
          }
      }
      // If not on console, supress std:: cout which was in mStdCout
+     //  std::cerr is kept in mStdCerr : redirecting the output must not hide the errors
      if (! aModeFileInMore)
      {
          mStdCout.Clear();
@@ -745,6 +774,12 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
          mFileStdOut->Ofs() << "  begining at : " <<  StrDateCur() << "\n";
          mFileStdOut->Ofs() << "=============================================" << std::endl;
          mStdCout.Add(mFileStdOut->Ofs());
+         //  Same handle in both, so that output and errors are interleaved in their real order
+         mStdCerr.Add(mFileStdOut->Ofs());
+     }
+     else
+     {
+         mStdCerr.Clear();   // no out at all means errors too
      }
   }
 

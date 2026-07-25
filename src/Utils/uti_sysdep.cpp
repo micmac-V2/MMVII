@@ -50,26 +50,26 @@ cMMVII_Warning::cMMVII_Warning
 cMMVII_Warning::~cMMVII_Warning()
 {
     if (mCpt==0) return;
-    // At this step StdOut() may have be destroyed
+    // At this step ErrOut() may have be destroyed, use std::cerr directly
     if (! cMMVII_Appli::WithWarnings()) return;   // else the title was printed without any warning
 
     static bool First=true;
     if (First)
     {
-        std::cout << "\n";
-        std::cout << " -------------- THERE WERE WARNINGS -----------  : \n\n";
+        std::cerr << "\n";
+        std::cerr << " -------------- THERE WERE WARNINGS -----------  : \n\n";
         First=false;
     }
     if (mUser)
     {
-        std::cout <<  " ### USER ##";
+        std::cerr <<  " ### USER ##";
     }
     else
     {
-        std::cout <<  " - INTERNAL -";
+        std::cerr <<  " - INTERNAL -";
     }
-    std::cout << "  Type=" << E2Str(mType);
-    std::cout << "   Nb Warning "<< mCpt << ", for :[" << mMes<<"]\n";
+    std::cerr << "  Type=" << E2Str(mType);
+    std::cerr << "   Nb Warning "<< mCpt << ", for :[" << mMes<<"]\n";
 }
 
 void cMMVII_Warning::Activate()
@@ -80,8 +80,8 @@ void cMMVII_Warning::Activate()
       return;
    if (cMMVII_Appli::WithWarnings())
    {
-       StdOut() << Color::warning << "   - MMVII Warning at line " << Color::end << mLine << " of " << mFile << std::endl;
-       StdOut() << Color::warning << "   - " << mMes <<  Color::end << std::endl;
+       ErrOut() << Color::warning << "   - MMVII Warning at line " << Color::end << mLine << " of " << mFile << std::endl;
+       ErrOut() << Color::warning << "   - " << mMes <<  Color::end << std::endl;
    }
 }
 

@@ -12,6 +12,7 @@ void Default_MMVII_Error(const std::string & aType,const std::string &  aMes,con
     std::cout.flush();
     std::cerr.flush();
     StdOut().SetSilent(false);
+    ErrOut().SetSilent(false);
     StdOut().flush();
     ErrOut() << "\n\n ######################################""\n" << std::endl;
     std::string errorMsg = "Level=[" + aType + "]\n";
@@ -21,7 +22,7 @@ void Default_MMVII_Error(const std::string & aType,const std::string &  aMes,con
     ErrOut() << Color::error << errorMsg << Color::end;
     ErrOut().flush();
 
-    cSpecMMVII_Appli::ShowCmdArgs();        // Writes to std::cout ..
+    cSpecMMVII_Appli::ShowCmdArgs();        // Writes to std::cerr, as the message above
     std::cout.flush();
     std::fflush(nullptr);                   // flush all open files
 
