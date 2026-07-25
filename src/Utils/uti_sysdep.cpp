@@ -50,6 +50,8 @@ cMMVII_Warning::cMMVII_Warning
 cMMVII_Warning::~cMMVII_Warning()
 {
     if (mCpt==0) return;
+    // At this step StdOut() may have be destroyed
+    if (! cMMVII_Appli::WithWarnings()) return;   // else the title was printed without any warning
 
     static bool First=true;
     if (First)
@@ -58,20 +60,16 @@ cMMVII_Warning::~cMMVII_Warning()
         std::cout << " -------------- THERE WERE WARNINGS -----------  : \n\n";
         First=false;
     }
-    // At this step StdOut() may have be destroyed
-    if (cMMVII_Appli::WithWarnings())
+    if (mUser)
     {
-       if (mUser)
-       {
-           std::cout <<  " ### USER ##";
-       }
-       else
-       {
-           std::cout <<  " - INTERNAL -";
-       }
-       std::cout << "  Type=" << E2Str(mType);
-       std::cout << "   Nb Warning "<< mCpt << ", for :[" << mMes<<"]\n";
+        std::cout <<  " ### USER ##";
     }
+    else
+    {
+        std::cout <<  " - INTERNAL -";
+    }
+    std::cout << "  Type=" << E2Str(mType);
+    std::cout << "   Nb Warning "<< mCpt << ", for :[" << mMes<<"]\n";
 }
 
 void cMMVII_Warning::Activate()
@@ -208,16 +206,23 @@ std::string MMVII_CanonicalRootDirFromExec()
    return fs::canonical(selfExec).parent_path().parent_path().generic_string();
 }
 
-static std::string MMVII_RequiredEnv(const char * aName)
+/**  Value of an environment variable required to locate the user profile.
+     With SVP, an undefined variable gives an empty string instead of an error, so that a
+     command can go on with its default values rather than being killed at startup.
+*/
+static std::string MMVII_RequiredEnv(const char * aName,bool aSVP)
 {
     const char * aValue = std::getenv(aName);
+    if ((aValue != nullptr) && (*aValue != '\0'))
+       return aValue;
+
     MMVII_INTERNAL_ASSERT_User
     (
-        (aValue != nullptr) && (*aValue != '\0'),
+        aSVP,
         eTyUEr::eUnClassedError,
         std::string("Environment variable ") + aName + " is required to locate the MMVII user profile"
     );
-    return aValue;
+    return "";
 }
 
 
@@ -245,14 +250,19 @@ static fs::path MMVII_RawSelfExecName()
     return fs::path(buf);
 }
 
-std::string MMVII_UserConfigDir()
+std::string MMVII_UserConfigDir(bool aSVP)
 {
     const char * aXdgConfig = std::getenv("XDG_CONFIG_HOME");
     fs::path aConfigDir;
     if ((aXdgConfig != nullptr) && (*aXdgConfig != '\0') && fs::path(aXdgConfig).is_absolute())
         aConfigDir = aXdgConfig;
     else
-        aConfigDir = fs::path(MMVII_RequiredEnv("HOME")) / ".config";
+    {
+        const std::string aHome = MMVII_RequiredEnv("HOME",aSVP);
+        if (aHome.empty())    //  only reachable with SVP, else the error was raised
+           return "";
+        aConfigDir = fs::path(aHome) / ".config";
+    }
     return (aConfigDir / "MMVII").generic_string();
 }
 
@@ -281,9 +291,12 @@ fs::path MMVII_RawSelfExecName()
     return fs::path(buffer);
 }
 
-std::string MMVII_UserConfigDir()
+std::string MMVII_UserConfigDir(bool aSVP)
 {
-    return (fs::path(MMVII_RequiredEnv("APPDATA")) / "MMVII").generic_string();
+    const std::string aAppData = MMVII_RequiredEnv("APPDATA",aSVP);
+    if (aAppData.empty())    //  only reachable with SVP, else the error was raised
+       return "";
+    return (fs::path(aAppData) / "MMVII").generic_string();
 }
 
 #else
@@ -314,9 +327,12 @@ fs::path MMVII_RawSelfExecName()
     return path;
 }
 
-std::string MMVII_UserConfigDir()
+std::string MMVII_UserConfigDir(bool aSVP)
 {
-    return (fs::path(MMVII_RequiredEnv("HOME")) / "Library" / "Application Support" / "MMVII").generic_string();
+    const std::string aHome = MMVII_RequiredEnv("HOME",aSVP);
+    if (aHome.empty())    //  only reachable with SVP, else the error was raised
+       return "";
+    return (fs::path(aHome) / "Library" / "Application Support" / "MMVII").generic_string();
 }
 
 #endif

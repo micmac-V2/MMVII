@@ -112,7 +112,7 @@ static void SetColors(eModeHelpColor aMode)
 /*                                                      */
 /* ==================================================== */
 
-extern std::string MMVII_UserConfigDir();
+extern std::string MMVII_UserConfigDir(bool aSVP);
 
 struct cSelectedProfile
 {
@@ -134,14 +134,22 @@ static void CheckProfileName(const std::string & aName)
     );
 }
 
+/// Values used when no profile at all can be read, they must be valid for any command
+static cParamProfile BuiltInProfile()
+{
+    cParamProfile aRes;
+    aRes.Set("VectSerialMode",eTypeSerial::ecsv);
+    aRes.Set("TaggedSerialMode",eTypeSerial::exml);
+    aRes.Set("HelpColorMode",eModeHelpColor::Dark);
+    return aRes;
+}
+
 static cParamProfile SyncUserProfile(const std::string & aUserFile,const std::string & aDefaultFile)
 {
     cParamProfile aDefaultProfile;
     if (! ExistFile(aDefaultFile))
     {                 // Shouldn't happen ...
-        aDefaultProfile.Set("VectSerialMode",eTypeSerial::ecsv);
-        aDefaultProfile.Set("TaggedSerialMode",eTypeSerial::exml);
-        aDefaultProfile.Set("HelpColorMode",eModeHelpColor::Dark);
+        aDefaultProfile = BuiltInProfile();
         SaveInFile(aDefaultProfile,aDefaultFile);          //  ... create one just in case
     }
     ReadFromFile(aDefaultProfile,aDefaultFile);
@@ -204,7 +212,9 @@ const std::string TheUserProfilePrefix = "MMVII-profile-";
 
 std::string cMMVII_Appli::GetProfileName()
 {
-    mDirUserProfile = MMVII_UserConfigDir();
+    mDirUserProfile = MMVII_UserConfigDir(SVP::Yes);
+    if (mDirUserProfile.empty())   // no user config dir, see InitProfile
+       return "Default";
     MakeNameDir(mDirUserProfile);
 //    CreateDirectories(mDirUserProfile,false);
     const std::string aSelectedProfile = mDirUserProfile + TheSelectedProfileName;
@@ -220,28 +230,40 @@ std::string cMMVII_Appli::GetProfileName()
 
 void cMMVII_Appli::InitProfile()
 {
-    mDirUserProfile = MMVII_UserConfigDir();
-    MakeNameDir(mDirUserProfile);
-
-    if (! IsInit(&mProfileName)) {
-        CreateDirectories(mDirUserProfile,false);
-
-        const std::string aSelectedProfile = mDirUserProfile + TheSelectedProfileName;
-        if (!ExistFile(aSelectedProfile))
-        {
-            cSelectedProfile aSelection;
-            aSelection.mNameProfile = "Default";
-            SaveInFile(aSelection,aSelectedProfile);
-        }
-        cSelectedProfile aSelection;
-        ReadFromFile(aSelection,aSelectedProfile);
-        mProfileName = aSelection.mNameProfile;
+    mDirUserProfile = MMVII_UserConfigDir(SVP::Yes);
+    if (mDirUserProfile.empty())
+    {
+        //  The user configuration directory cannot even be named, typically because HOME is
+        //  not defined.  Nothing can be read from or written to a profile, but the command
+        //  itself must still run, with the built-in values.
+        MMVII_USER_WARNING("Cannot locate the user configuration directory, running with default profile values");
+        mUserProfile = "";
+        mParamProfile = BuiltInProfile();
     }
-    CheckProfileName(mProfileName);
+    else
+    {
+        MakeNameDir(mDirUserProfile);
 
-    mUserProfile = mDirUserProfile + TheUserProfilePrefix + mProfileName + ".xml";
-    const std::string aDefaultProfile = mDirLocalParameters + TheDefaultProfileName;
-    mParamProfile = SyncUserProfile(mUserProfile,aDefaultProfile);
+        if (! IsInit(&mProfileName)) {
+            CreateDirectories(mDirUserProfile,SVP::No);
+
+            const std::string aSelectedProfile = mDirUserProfile + TheSelectedProfileName;
+            if (!ExistFile(aSelectedProfile))
+            {
+                cSelectedProfile aSelection;
+                aSelection.mNameProfile = "Default";
+                SaveInFile(aSelection,aSelectedProfile);
+            }
+            cSelectedProfile aSelection;
+            ReadFromFile(aSelection,aSelectedProfile);
+            mProfileName = aSelection.mNameProfile;
+        }
+        CheckProfileName(mProfileName);
+
+        mUserProfile = mDirUserProfile + TheUserProfilePrefix + mProfileName + ".xml";
+        const std::string aDefaultProfile = mDirLocalParameters + TheDefaultProfileName;
+        mParamProfile = SyncUserProfile(mUserProfile,aDefaultProfile);
+    }
     mVectNameDefSerial = mParamProfile.Get("VectSerialMode",ToS(eTypeSerial::ecsv));
     mTaggedNameDefSerial = mParamProfile.Get("TaggedSerialMode",ToS(eTypeSerial::exml));
     if (mParamProfile.HasKey("HelpColorMode")) {
@@ -284,16 +306,21 @@ std::vector<std::string> GlobProfileNames()
     auto aDirUserProfile = cMMVII_Appli::DirUserProfile();
     const std::string aSuffix = ".xml";
     std::vector<std::string> aNames;
-    for (const auto & aFile : GetFilesFromDir(aDirUserProfile,AllocRegex(TheUserProfilePrefix+".*\\.xml")))
+    //  When there is no user configuration directory, no profile file can be enumerated,
+    //  only the default one exists, in memory
+    if (! aDirUserProfile.empty())
     {
-        aNames.push_back
-        (
-            aFile.substr
+        for (const auto & aFile : GetFilesFromDir(aDirUserProfile,AllocRegex(TheUserProfilePrefix+".*\\.xml")))
+        {
+            aNames.push_back
             (
-                TheUserProfilePrefix.size(),
-                aFile.size()-TheUserProfilePrefix.size()-aSuffix.size()
-            )
-        );
+                aFile.substr
+                (
+                    TheUserProfilePrefix.size(),
+                    aFile.size()-TheUserProfilePrefix.size()-aSuffix.size()
+                )
+            );
+        }
     }
     if (aNames.empty())
     {
@@ -419,6 +446,15 @@ cCollecSpecArg2007 & cAppli_EditProfile::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
 int cAppli_EditProfile::Exe()
 {
+    //  Startup can go on with default values when there is no user configuration directory,
+    //  but this command was explicitly called to show or modify a profile : here it is an error
+    MMVII_INTERNAL_ASSERT_User
+    (
+        ! mDirUserProfile.empty(),
+        eTyUEr::eUnClassedError,
+        "Cannot locate the user configuration directory, check the environment (HOME ...)"
+    );
+
     const bool aCurrent = IsInit(&mCurrent);
     const bool aHasModification = aCurrent || IsInit(&mKeyVal) || IsInit(&mDelKey);
 
