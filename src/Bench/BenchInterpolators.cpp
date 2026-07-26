@@ -325,11 +325,45 @@ void BenchIntrinsiqMMVIIInterpol(const cInterpolator1D & anInt,tREAL8 anExp)
 
 void Bench_cMultiScaledInterpolator();
 
+/**  Test the registry of interpolators : each declared interpolator must be allocatable from
+ *  the example values of its own specification, and the names it publishes must be re-readable.
+ *  Being driven by the registry, this test covers any interpolator added later.
+ */
+void Bench_InterpolRegistry()
+{
+     for (const auto & aSpec : cInterpolSpec::VecAll())
+     {
+         //  the expression of this interpolator : its name, the example value of each of its
+         //  parameters, and, when it wraps another one, an arbitrary leaf to be wrapped
+         std::vector<std::string> aVNames {aSpec->Name()};
+         for (const auto & aParam : aSpec->Params())
+             aVNames.push_back(aParam.mExample);
+         if (aSpec->HasSubInterpol())
+         {
+             aVNames.push_back(cCubicInterpolator::TheNameInterpol);
+             aVNames.push_back("-0.5");
+         }
+
+         cInterpolator1D * anInt = cInterpolator1D::AllocFromNames(aVNames);
+         MMVII_INTERNAL_ASSERT_bench(anInt!=nullptr,"Interpol registry : allocation of " + aSpec->Name());
+         MMVII_INTERNAL_ASSERT_bench(anInt->SzKernel()>0,"Interpol registry : kernel size of " + aSpec->Name());
+
+         //  VNames() is the textual form of the interpolator, it must give back the same object
+         cInterpolator1D * aReRead = cInterpolator1D::AllocFromNames(anInt->VNames());
+         MMVII_INTERNAL_ASSERT_bench(aReRead->VNames()==anInt->VNames(),
+                                     "Interpol registry : names round trip of " + aSpec->Name());
+         MMVII_INTERNAL_ASSERT_bench(std::abs(aReRead->Weight(0.3)-anInt->Weight(0.3))<1e-8,
+                                     "Interpol registry : weight round trip of " + aSpec->Name());
+         delete aReRead;
+         delete anInt;
+     }
+}
 
 void  BenchInterpol(cParamExeBench & aParam)
 {
      if (! aParam.NewBench("Interpol")) return;
 
+     Bench_InterpolRegistry();
 
      Bench_cMultiScaledInterpolator();
 
