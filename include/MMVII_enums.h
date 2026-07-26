@@ -760,30 +760,31 @@ Serial/uti_e2string.cpp:TPL_ENUM_2_STRING
 // class used to make more explicit names of boolean parameters => To Replace by enum later which will be
 // safer (would detect swap) , but require more re-engenerin
 
-class DelAuto
+template<typename Tag>
+class NamedBoolean
 {
-   public :
-      static constexpr bool Yes = true;
-      static constexpr bool No  = false;
+public:
+    operator bool() const { return mValue; }
+protected:
+    explicit NamedBoolean(bool aValue) : mValue(aValue) {}
+private:
+    bool mValue;
 };
-class SVP
-{
-   public :
-      static constexpr bool Yes = true;
-      static constexpr bool No  = false;
-};
-class eAllowEmpty
-{
-   public :
-      static constexpr bool Yes = true;
-      static constexpr bool No  = false;
-};
-class IO
-{
-   public :
-      static constexpr bool In = true;
-      static constexpr bool Out  = false;
-};
+
+
+#define DEFINE_NAMED_BOOLEAN(Name,TRUE,FALSE) \
+struct Name : NamedBoolean<Name> { \
+    using NamedBoolean<Name>::NamedBoolean; \
+    static const Name TRUE; \
+    static const Name FALSE; \
+}; \
+inline const Name Name::TRUE{true}; \
+inline const Name Name::FALSE{false};
+
+DEFINE_NAMED_BOOLEAN(DelAuto,Yes,No)
+DEFINE_NAMED_BOOLEAN(SVP,Yes,No)
+DEFINE_NAMED_BOOLEAN(eAllowEmpty,Yes,No)
+DEFINE_NAMED_BOOLEAN(IO,In,Out)
 
 
 };
