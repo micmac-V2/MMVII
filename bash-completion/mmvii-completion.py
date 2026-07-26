@@ -75,7 +75,7 @@ def completedValue(value) -> str:
     return completion_prefix + value + completion_suffix
 
 
-def printCompletedValue(word, matches, hide_brackets=False) -> bool:
+def printCompletedValue(word, matches, hide_brackets=False, suffixes=None) -> bool:
     """Print the completion candidates, return True when the value stays unfinished.
 
        Readline replaces the whole word by the longest common prefix of the candidates, so a
@@ -86,7 +86,13 @@ def printCompletedValue(word, matches, hide_brackets=False) -> bool:
        readline computes, so nothing would be inserted and the values would just be hidden.
     """
     if len(matches) == 1:
-        print(completedValue(re.sub(r'^=','',matches[0])))
+        match = re.sub(r'^=','',matches[0])
+        #  suffixes : the separator that follows depends on the value itself, as for the name of
+        #  an interpolator, which is followed by ',' or by the closing of the expression
+        if suffixes and (match in suffixes):
+            print(completion_prefix + match + suffixes[match])
+        else:
+            print(completedValue(match))
         return False
 
     common = os.path.commonprefix(matches)
@@ -125,6 +131,75 @@ def printFinishedValue(value,quoted_only=False) -> bool:
     print(completedValue(value))
     printCompletionOptions()
     return True
+
+
+#  The interpolators declared by MMVII, read from the "config" section of GenArgsSpec.
+#  An argument having the "Interpol" semantic is a flat prefixed expression of this language,
+#  so its completion is driven by these specifications and never by a duplicated list
+theInterpolatorList = []
+theInterpolators = {}
+
+
+def isInterpolSpec(spec) -> bool:
+    return 'Interpol' in (spec.get('semantic') or [])
+
+
+def listElements(value) -> list:
+    """The elements of a bracketed list, the last one being the one under edition"""
+    if not value.startswith('['):
+        return []
+    result = []
+    depth = 0
+    begin = 1
+    end = len(value)
+    for index,char in enumerate(value[1:],1):
+        if char in '[{(':
+            depth += 1
+        elif char in ']})':
+            if depth == 0:
+                end = index
+                break
+            depth -= 1
+        elif char == ',' and depth == 0:
+            result.append(value[begin:index])
+            begin = index + 1
+    result.append(value[begin:end])
+    return result
+
+
+def interpolRoles(elements) -> tuple:
+    """Role of each position of the expression, given the elements already typed : ('name',) or
+       ('param',interpolator,parameter). Same walk as cInterpolator1D::AllocFromNames : a name,
+       its parameters, then the interpolator it wraps. Stops as soon as a name is missing or
+       unknown; the second result tells whether the expression is closed at that length."""
+    roles = []
+    pending = 1
+    while pending > 0:
+        position = len(roles)
+        roles.append(('name',))
+        if position >= len(elements):
+            return roles,False
+        interpol = theInterpolators.get(elements[position])
+        if interpol is None:
+            return roles,False
+        pending -= 1
+        for param in interpol['params']:
+            roles.append(('param',interpol,param))
+        if interpol['subInterpol']:
+            pending += 1
+    return roles,True
+
+
+def interpolElementSpec(role) -> dict:
+    if role[0] == 'name':
+        #  the names themselves are the completion values, no need to describe them one by one
+        return {'name':'Interpolator','type':'string','comment':'name of the interpolator',
+                'allowed':[interpol['name'] for interpol in theInterpolatorList],
+                'interpolElement':True}
+    _,interpol,param = role
+    return {'name':interpol['name'] + '.' + param['name'],'type':param['type'],
+            'interpolElement':True,
+            'comment':param['comment'] + ' (e.g. ' + param['example'] + ')'}
 
 
 def isVectorSpec(spec) -> bool:
@@ -192,7 +267,7 @@ def structuredFieldOpening(spec) -> str:
     return '[' * structuredBracketDepth(spec)
 
 
-def structuredFieldContext(spec,value,prefix='',top_level=True) -> dict:
+def structuredFieldContext(spec,value,prefix='',top_level=True,close_suffix='') -> dict:
     # A top-level vector argument with CanRepeat can be given as a singleton,
     # i.e. with one less leading '[' than the fully-bracketed vector form (see
     # bracket_depth/V_InitParam in MMVII_Tpl_ElemStrToVal.h). When that applies,
@@ -221,11 +296,37 @@ def structuredFieldContext(spec,value,prefix='',top_level=True) -> dict:
         max_elements = parseList(spec.get('vsize'))[1]
         can_repeat = max_elements is None or index+1 < max_elements
         element_spec = vectorElementSpec(spec)
+        completing_name = False
+        must_repeat = False
+        if isInterpolSpec(spec):
+            elements = listElements(value)
+            roles,_ = interpolRoles(elements[:index])
+            if index >= len(roles):        # nothing more is expected by the grammar
+                return {'kind':'invalid'}
+            element_spec = interpolElementSpec(roles[index])
+            completing_name = roles[index][0] == 'name'
+            if completing_name:
+                #  what follows a name depends on the name itself : ',' when the grammar expects
+                #  more, else the closing of the expression and of the level that contains it
+                element_spec['allowedSuffix'] = {
+                    name : (',' if len(interpolRoles(elements[:index]+[name])[0]) > index+1
+                                else ']' + close_suffix)
+                    for name in theInterpolators
+                }
+            #  once the current element is known, the grammar says whether another one is
+            #  required (only ','), or whether the expression is closed (only ']')
+            roles,closed = interpolRoles(elements[:index] + [field_value])
+            must_repeat = len(roles) > index+1
+            can_repeat = must_repeat or not (closed and len(roles) == index+1)
         child = structuredFieldContext(element_spec,field_value,prefix,False)
         if child['kind'] == 'complete':
-            return {'kind':'hold','value':child['value'],'can_repeat':can_repeat,'finish':top_level}
+            return {'kind':'hold','value':child['value'],'can_repeat':can_repeat,
+                    'must_repeat':must_repeat,'finish':top_level,'close_suffix':close_suffix}
+        if completing_name and (field_value not in theInterpolators):
+            return child                   # let the name be completed before offering a separator
         if not element_spec.get('fields') and not isVectorSpec(element_spec) and child['kind'] == 'field' and child['value']:
-            return {'kind':'hold','value':child['prefix']+child['value'],'can_repeat':can_repeat,'finish':top_level}
+            return {'kind':'hold','value':child['prefix']+child['value'],'can_repeat':can_repeat,
+                    'must_repeat':must_repeat,'finish':top_level,'close_suffix':close_suffix}
         return child
     if index >= len(fields):
         return {'kind':'invalid'}
@@ -238,9 +339,11 @@ def structuredFieldContext(spec,value,prefix='',top_level=True) -> dict:
     # A field is structured when it is a nested struct or a vector : both have their own
     # bracket level, so they must be handled by a recursive call and not as a plain value
     if field.get('fields') or isVectorSpec(field):
-        child = structuredFieldContext(field,field_value,prefix,False)
+        child = structuredFieldContext(field,field_value,prefix,False,suffix)
         if child['kind'] == 'complete':
             return {'kind':'append','value':child['value'],'suffix':suffix,'finish':finish}
+        if (child['kind'] == 'hold') and (not child['can_repeat']):
+            child['finish'] = finish       # closing the field also closes or separates the level
         group = {'fields':fields,'owner':spec.get('name')}
         child['field_groups'] = [group] + child.get('field_groups',[])
         return child
@@ -319,7 +422,7 @@ def printHelps(word) -> bool:
     return False
     
 
-def printFilter(word,words,option='',hide_brackets=False) -> None:
+def printFilter(word,words,option='',hide_brackets=False,suffixes=None) -> None:
     word_lower = word.lower()
     matches=[w for w in sorted(words) if w.lower().startswith(word_lower)]
     if len(matches) == 0:
@@ -327,8 +430,12 @@ def printFilter(word,words,option='',hide_brackets=False) -> None:
         printCompletionOptions()
         return
     else:
-        if printCompletedValue(word,matches,hide_brackets):
+        if printCompletedValue(word,matches,hide_brackets,suffixes):
             option += " -o nospace"    # an ambiguous value is never finished
+    if suffixes and len(matches)==1:
+        #  the value is finished when its own suffix closes it, whatever the spec said
+        global completion_nospace
+        completion_nospace = not suffixes.get(matches[0],'').endswith(']')
     printCompletionOptions(option)
 
 
@@ -418,7 +525,7 @@ def printSpecHelp(all_specs, spec, value) -> None:
             is_struct_field = bool(root_spec.get('fields'))
             if not value and root_spec.get('fields'):
                 msg += structuredHeader(root_spec,context.get('field_groups',[]))
-            elif not value and isVectorSpec(root_spec):
+            elif not value and isVectorSpec(root_spec) and not spec.get('interpolElement'):
                 msg.append(f'>Expect <{root_spec["type"].replace("std::","")}>: {root_spec.get("comment","vector argument")}')
                 vector_header = True
         elif kind == 'append':
@@ -427,11 +534,17 @@ def printSpecHelp(all_specs, spec, value) -> None:
             printCompletionOptions(options)
             return
         elif kind == 'hold':
+            if context.get('must_repeat'):
+                #  only ',' is possible : print it alone, a help line would be one more completion
+                #  candidate and bash would list them instead of inserting the separator
+                print(context['value']+',')
+                printCompletionOptions('-o nospace')
+                return
             if context['can_repeat']:
                 print_help_line(">Expect <separator>: ',' for another value or ']' to close the vector")
                 print(context['value']+',')
             else:
-                print(context['value']+']')
+                print(context['value']+']'+context.get('close_suffix',''))
                 printCompletionOptions('' if context['finish'] else '-o nospace')
                 return
             print(context['value']+']')
@@ -484,7 +597,7 @@ def printSpecHelp(all_specs, spec, value) -> None:
         return
 
     if allowed:
-        printFilter(value,allowed)
+        printFilter(value,allowed,suffixes=spec.get('allowedSuffix'))
         return
         
     if msg_type != 'string':
@@ -590,6 +703,9 @@ def main() -> int:
     if hasUnclosedQuote(comp_line):
         return 0
     all_specs=getAllSpecs()
+    global theInterpolatorList,theInterpolators
+    theInterpolatorList = (all_specs.get('config') or {}).get('interpolators') or []
+    theInterpolators = {interpol['name']:interpol for interpol in theInterpolatorList}
     try:
         applets=all_specs['applets']
     except:
