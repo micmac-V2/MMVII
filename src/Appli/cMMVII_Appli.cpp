@@ -439,6 +439,14 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
 
   mSeedRand = DefSeedRand();
   mProfileName = GetProfileName();
+
+  //  The colors of the messages are chosen by the profile, so it must be loaded before the
+  //  arguments are parsed, else the parsing itself, its errors included, would print without
+  //  any color. Only the first appli of the process does it, the profile is process-global.
+  //  A "Profile=" on the command line is known only after the parsing, and is honored there.
+  if (mMainAppliInsideP)
+     InitProfile();
+
   cCollecSpecArg2007 & anArgObl = ArgObl(mArgObl); // Call virtual method
   cCollecSpecArg2007 & anArgFac = ArgOpt(mArgFac); // Call virtual method
 
@@ -554,8 +562,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
 
   if (mModeHelp)
   {
-      // MPD profile required in mode help
-      InitProfile();
+      // The profile, required in mode help, was loaded before the parsing
       GenerateHelp();
       return;
   }
@@ -648,7 +655,6 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
       if (aNbArgGot==0)
       {
          mModeHelp = true;  // else Exe() will be executed !!
-         InitProfile();
          GenerateHelp();
          return;
       }
@@ -927,7 +933,9 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
      mSeedRand =  std::chrono::system_clock::to_time_t(mT0);
   }
 
-  if (mMainAppliInsideP)
+  //  The profile was loaded before the parsing, reload it only when the user explicitly asked
+  //  for another one, which could not be known then
+  if (mMainAppliInsideP && IsInit(&mProfileName))
   {
       InitProfile();
   }
