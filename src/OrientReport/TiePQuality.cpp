@@ -14,34 +14,32 @@
 namespace MMVII
 {
 
+/* *********************************************************** */
+/*                                                             */
+/*                       cImageVectorField                     */
+/*                                                             */
+/* *********************************************************** */
 
-class cImageVectorField
-{
-   public :
-     cImageVectorField(const std::string & aNameIm,const std::vector<tREAL8> &aVParams);
-     cRGBImage  Im() const;
-     void DrawArrow_P1P2(const cPt2dr & aP1,const cPt2dr& aP2);
-     void DrawArrow_P1Vect(const cPt2dr & aP1,const cPt2dr& aVect);
 
-     static const std::vector<tREAL8> &DefParam();
-     void Save(const std::string &) ;
-   private :
-     std::string   mNameIm;
-     cRGBImage     mIm;
-     tREAL8        mAmpl;
-     tREAL8        mWidth;
-     tREAL8        mRay;
-     tREAL8        mDeZoom;
-     bool          mJPeg;
-     cPt3di        mColorArrow;
-     cPt3di        mColorCircle;
-};
 
 void cImageVectorField::Save(const std::string & aName)
 {
-  mIm.ToFileDeZoom(LastPrefix(aName)+".tif",mDeZoom);
+  mIm.ToFileDeZoom(aName+".tif",mDeZoom);
 }
 
+
+
+tPtrArg2007  cImageVectorField::ArgOpt(cCollecSpecArg2007 & anArgOpt,std::vector<tREAL8>  & aParamsFV)
+{
+
+    return    AOpt2007
+             (
+                 aParamsFV,
+                 "ParamFV",
+                 "Parameters for field of vectors [Ampl,Width?,Ray?,Zoom?,Jpeg?]",
+                 {{eTA2007::HDV},{eTA2007::ISizeV,"[1,5]"}}
+             );
+}
 
 
 cImageVectorField::cImageVectorField(const std::string & aNameIm,const  std::vector<tREAL8> &aVParams) :
@@ -74,6 +72,16 @@ void cImageVectorField::DrawArrow_P1Vect(const cPt2dr & aP1,const cPt2dr& aVect)
 void cImageVectorField::DrawArrow_P1P2(const cPt2dr & aP1,const cPt2dr& aP2)
 {
     DrawArrow_P1Vect(aP1,aP2-aP1);
+}
+
+void cImageVectorField::DrawPointsRemarq(const cPt2dr& aPt,const cPt3di & aCoul,const std::vector<tREAL8>& aVRay)
+{
+    for (const auto & aRay : aVRay)
+        mIm.DrawCircle(aCoul,aPt,aRay);
+}
+void cImageVectorField::DrawPointsRemarq(const cPt2dr&aPt)
+{
+    DrawPointsRemarq(aPt,mColorCircle,{2.0,30.0,32.0,34.0});
 }
 
 //==============================================
@@ -192,7 +200,8 @@ cAppli_TiePReport::cAppli_TiePReport
 std::vector<std::string>  cAppli_TiePReport::Samples() const
 {
     return {
-        " MMVII ReportTieP .*JPG V1 Adjust  ParamPly=[1,4.0] InTieP=V1Dense"
+        "MMVII ReportTieP .*JPG V1 Adjust  ParamPly=[1,4.0]",
+        "MMVII ReportTieP IMG_03.*JPG V1Dense Adjust InTieP=V1Dense  PairPatRes=IMG_035[0-3].JPG  PairPatFV=IMG_035[1-2].JPG"
     }   ;
 }
 
@@ -213,13 +222,7 @@ cCollecSpecArg2007 & cAppli_TiePReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
           <<  "Parameters for per/image stas/visu"
           << AOpt2007(mPatImRes,"PatImRes","Pattern of  images  where we generat residual (if any)")
-          << AOpt2007
-             (
-                 mParamsFV,
-                 "ParamFV",
-                 "Parameters for field of vectors [Ampl,Width?,Ray?,Zoom?,Jpeg?]",
-                 {{eTA2007::HDV},{eTA2007::ISizeV,"[1,5]"}}
-             )
+          << AOpt2007(mPatImFV,"PatImFV","Pattern of  images  where we generat field vector (if any)")
           << AOpt2007(mDoImResCalib,"DoImResCalib","Do we generate images of residual by calibration ?",{eTA2007::HDV})
 
           << "Parameters by pairs "
@@ -228,12 +231,22 @@ cCollecSpecArg2007 & cAppli_TiePReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
           << AOpt2007(mPatternResByPair,"PairPatRes","Pattern for pairs generating residual images")
 
 
+
+
+          << "General pameters (for per-images and pairs)"
+          << AOpt2007(mPropStat,"Perc","Percentil for stat exp",{eTA2007::HDV})
+          << cImageVectorField::ArgOpt(anArgOpt,mParamsFV)
+             /*
+          << AOpt2007
+             (
+                 mParamsFV,
+                 "ParamFV",
+                 "Parameters for field of vectors [Ampl,Width?,Ray?,Zoom?,Jpeg?]",
+                 {{eTA2007::HDV},{eTA2007::ISizeV,"[1,5]"}}
+             )*/
+
           << "3D pameters"
           << AOpt2007(mParamPly,"ParamPly","Generate a 3D visualization of ply files [Colored,ExpQual]",{{eTA2007::ISizeV,"[2,2]"}})
-
-          << "General pameters"
-          << AOpt2007(mPropStat,"Perc","Percentil for stat exp",{eTA2007::HDV})
-          << AOpt2007(mPatImFV,"PatImFV","Pattern of  images  where we generat field vector (if any)")
     ;
 }
 
@@ -254,6 +267,17 @@ void  cAppli_TiePReport::ProcessOnePair(const std::string & aName1,const std::st
        if (!HasHom)
            return;
 
+       cImageVectorField * aIVF = nullptr;
+       if (IsInit(&mPatternVFByPair) && (MatchRegex(aName1,mPatternVFByPair)) && (MatchRegex(aName2,mPatternVFByPair)))
+          aIVF = new cImageVectorField(aName1,mParamsFV);
+
+       cSetIm4SparseDist<tREAL8>* aImAvg = nullptr;
+       if (IsInit(&mPatternResByPair)  && (MatchRegex(aName1,mPatternResByPair)) && (MatchRegex(aName2,mPatternResByPair)))
+       {
+           aImAvg = new cSetIm4SparseDist<tREAL8>({"N2","x","y"},aSens1->Sz(),mFactRedIm);
+       }
+
+
        cStatRes2D aStat;
 
        for (const auto & aCple : aSetH.SetH())
@@ -261,30 +285,26 @@ void  cAppli_TiePReport::ProcessOnePair(const std::string & aName1,const std::st
            cPt3dr aPG = aSens1->PInterBundle(aCple,*aSens2);
            cPt2dr aVect = (aSens1->Ground2Image(aPG)-aCple.mP1) * 2.0;
 
-
+           if (aIVF)
+               aIVF->DrawArrow_P1Vect(aCple.mP1,aVect);
+           if (aImAvg)
+               aImAvg->Add(aCple.mP1,{Norm2(aVect),aVect.x(),aVect.y()});
           aStat.AddResidu(aVect);
+
        }
 
        RegisterStatRes(mPrefixCSVPairs,aStat,aName1+"/" + aName2);
-/*
-       StdOut()  << "N1N2 " << aName1 << " " << aName2 << " " << aSetH.NbH() << "\n";
-       //return;
-       tNameSelector aSelIm = AllocRegex(mParamByPair.at(1));
+       if ( aIVF)
+       {
+          aIVF->Save(mPhProj.DirVisuAppli() + "PairIVF-"+aName1+"-"+aName2 + ".tif");
+          delete aIVF;
+       }
+       if (aImAvg)
+       {
+           aImAvg->SaveDenseSave(mPhProj.DirVisuAppli(),"PairRes-"+aName1+"-"+aName2+".tif");
+           delete aImAvg;
+       }
 
-       if (! (aSelIm.Match(aName1) && aSelIm.Match(aName2)))
-          return;
-       cImageVectorField aIVF(aName1,mParamsFV);
-
-
-        for (const auto & aCple : aSetH.SetH())
-        {
-            cPt3dr aPG = aSens1->PInterBundle(aCple,*aSens2);
-            cPt2dr aVect = aSens1->Ground2Image(aPG)-aCple.mP1;
-
-            aIVF.DrawArrow_P1Vect(aCple.mP1,aVect*2.0);
-        }
-        aIVF.Save(mPhProj.DirVisuAppli()+"Res_"+LastPrefix(aName1)+"_"+LastPrefix(aName2));
-        */
 }
 
 
@@ -421,6 +441,8 @@ void cAppli_TiePReport::ProcessBySingleImage()
           aIVF = new cImageVectorField(aNameIm,mParamsFV);
        }
 
+      // StdOut() << "PATFV " << aNameIm << " " << aIVF << "\n";
+
        // ---------  Data for images of residual per camera ------------------
        std::string aNameCamera;
        cSetIm4SparseDist<tREAL8>* aImAvgCamera = nullptr;
@@ -486,7 +508,8 @@ void cAppli_TiePReport::ProcessBySingleImage()
        // Eventutaly, write and clear images of vector's field
        if (aIVF)
        {
-           aIVF->Save(mPhProj.DirVisuAppli()+"Res_"+LastPrefix(aNameIm));
+           StdOut()  << " SAVEFV "  << (mPhProj.DirVisuAppli()+"ResVF_"+LastPrefix(aNameIm)) << "\n";
+            aIVF->Save(mPhProj.DirVisuAppli()+"ResVF_"+LastPrefix(aNameIm));
            delete aIVF;
        }
 
@@ -513,6 +536,7 @@ int cAppli_TiePReport::Exe()
 
    mPrefixSave = mPhProj.DPOrient().DirIn() + "_" + mPhProj.DPMulTieP().DirIn();
    SetReportSubDir(mPrefixSave);
+   mPhProj.SetVisuSubDir(mPrefixSave);
 
 
    mSetNames = VectMainSet(0);

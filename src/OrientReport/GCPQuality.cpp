@@ -67,6 +67,7 @@ template <class Type> void cSetIm4SparseDist<Type>::MakeDense(tREAL8 aMulSigma)
     mFiltered = true;
     //  S^2 * aNbPtsTot = Sz.x() * Sz.y()
     tREAL8 aSigma = std::sqrt(mImW.DIm().NbElem() / tREAL8(mNbMeasure)) * aMulSigma;
+    aSigma = std::sqrt(Square(aSigma)+Square(1.0));
     mImW = mImW.GaussFilter(aSigma);
 
     SetMaxCsteInPlace(mImW.DIm(),mImW.DIm(),Type(1e-10));
@@ -138,7 +139,7 @@ class cAppli_CGPReport : public cMMVII_Appli
 {
      public :
 
-        cAppli_CGPReport(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli &,bool IsGCP);
+        cAppli_CGPReport(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli &);
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
@@ -158,11 +159,9 @@ class cAppli_CGPReport : public cMMVII_Appli
 
         std::string              mSpecImIn;   ///  Pattern of xml file
         cPhotogrammetricProject  mPhProj;
-        bool                     mIsGCP;  /// GCP vs Tie Point
 
         std::vector<double>      mGeomFiedlVec;
         tREAL8                   mFactRed; ///< Reduction factor
-        tREAL8                   mExag;    ///< Exageration factor
         std::vector<int>         mPropStat;
 
         std::string              mPrefixReport;
@@ -177,26 +176,27 @@ class cAppli_CGPReport : public cMMVII_Appli
 
         double                   mMarginMiss;  ///  Margin for counting missing targets
         std::string              mSuffixReportSubDir; // additional name for report subdir
-        std::string               mFilterName;  // pattern to filter names of GCP
-        std::string               mFilterAdd;  // pattern to filter GCP by additional info
+        std::string              mFilterName;  // pattern to filter names of GCP
+        std::string              mFilterAdd;  // pattern to filter GCP by additional info
+
+        std::vector<tREAL8>     mParamVF;
+        std::string             mPatternParamIVF;
 };
 
 cAppli_CGPReport::cAppli_CGPReport
 (
      const std::vector<std::string> &  aVArgs,
-     const cSpecMMVII_Appli & aSpec,
-     bool                     isGCP
+     const cSpecMMVII_Appli & aSpec
 ) :
      cMMVII_Appli  (aVArgs,aSpec),
      mPhProj       (*this),
-     mIsGCP        (isGCP),
      mFactRed      (100.0),
-     mExag         (1.0),
      mPropStat     ({50,75}),
      mMarginMiss   (50.0),
      mSuffixReportSubDir (""),
      mFilterName         (""),
-     mFilterAdd          ("")
+     mFilterAdd          (""),
+     mParamVF            (cImageVectorField::DefParam())
 {
 }
 
@@ -204,37 +204,27 @@ cAppli_CGPReport::cAppli_CGPReport
 
 cCollecSpecArg2007 & cAppli_CGPReport::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
-      anArgObl << Arg2007(mSpecImIn,"Pattern/file for images",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}});
-      if (mIsGCP)
-          anArgObl << mPhProj.DPGndPt3D().ArgDirInMand()
-                   << mPhProj.DPGndPt2D().ArgDirInMand();
-      else
-          anArgObl << mPhProj.DPTieP().ArgDirInMand();
-      anArgObl <<  mPhProj.DPOrient().ArgDirInMand();
-      return anArgObl;
+    return anArgObl
+                << Arg2007(mSpecImIn,"Pattern/file for images",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
+                << mPhProj.DPGndPt3D().ArgDirInMand()
+                << mPhProj.DPGndPt2D().ArgDirInMand()
+                << mPhProj.DPOrient().ArgDirInMand();
 }
 
 cCollecSpecArg2007 & cAppli_CGPReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
+    return anArgOpt
+                << AOpt2007(mPropStat,"Perc","Percentil for stat exp",{eTA2007::HDV})
+                << AOpt2007(mGeomFiedlVec,"GFV","Geom Fiel Vect for visu [Mul,Witdh,Ray,Zoom?=2,JPeg?=1]",{{eTA2007::ISizeV,"[3,5]"}})
+                << AOpt2007(mMarginMiss,"MargMiss","Margin to border for counting missed target",{eTA2007::HDV})
+                << AOpt2007(mSuffixReportSubDir, "Suffix", "Suffix to report subdirectory name")
+                << AOpt2007(mFilterName, "Filter", "Pattern to filter GCP by name")
+                << AOpt2007(mFilterAdd, "FilterAdd", "Pattern to filter GCP by additional info")
+                << AOpt2007(mFactRed, "RedFact", "Factor of reduction for sensor images (dist & bias)",{eTA2007::HDV})
+                << cImageVectorField::ArgOpt(anArgOpt,mParamVF)
+                <<  AOpt2007( mPatternParamIVF,"PatImFV","Pattern of  images  where we generat field vector (if any)")
+            ;
 
-    auto & aRes =  anArgOpt
-                << AOpt2007(mPropStat,"Perc","Percentil for stat exp",{eTA2007::HDV});
-
-    if (mIsGCP)
-       return aRes << AOpt2007(mGeomFiedlVec,"GFV","Geom Fiel Vect for visu [Mul,Witdh,Ray,Zoom?=2,JPeg?=1]",{{eTA2007::ISizeV,"[3,5]"}})
-                   << AOpt2007(mMarginMiss,"MargMiss","Margin to border for counting missed target",{eTA2007::HDV})
-                   << AOpt2007(mSuffixReportSubDir, "Suffix", "Suffix to report subdirectory name")
-                   << AOpt2007(mFilterName, "Filter", "Pattern to filter GCP by name")
-                   << AOpt2007(mFilterAdd, "FilterAdd", "Pattern to filter GCP by additional info")
-                   << AOpt2007(mFactRed, "RedFact", "Factor of reduction for sensor images (dist & bias)",{eTA2007::HDV})
-                   << AOpt2007(mExag, "Exga", "Factor of exageration for sensor bias image",{eTA2007::HDV})
-       ;
-    else
-    {
-
-    }
-
-    return aRes;
 }
 
 std::vector<std::string>  cAppli_CGPReport::Samples() const
@@ -261,32 +251,25 @@ void cAppli_CGPReport::MakeOneIm(const std::string & aNameIm)
     cSensorImage*  aCam = mPhProj.ReadSensor(aNameIm,true,false);
 
     mPhProj.LoadIm(aSetMes,aNameIm,nullptr,aCam);
+
     const cSetMesPtOf1Im  &  aSetMesIm = aSetMes.MesImInitOfName(aNameIm);
 
 
-
-    cRGBImage aImaFieldRes(cPt2di(1,1));
-
-    // ----- Initialise the RGB Background && print the array of residual --------------
-    if (IsInit(&mGeomFiedlVec))
+    cImageVectorField * aIVF = nullptr;
+    if (IsInit(&mPatternParamIVF) && MatchRegex(aNameIm,mPatternParamIVF))
     {
-         tREAL8 aMul    = mGeomFiedlVec.at(0);
-         tREAL8 aWitdh  = mGeomFiedlVec.at(1);
-         tREAL8 aRay    = mGeomFiedlVec.at(2);
-         aImaFieldRes =  cRGBImage::FromFile(aNameIm);
-
-         //  [Mul,Witdh,Ray]
-         for (const auto & aMes : aSetMesIm.Measures())
-         {
-             cPt2dr aP2 = aMes.mPt;
-             cPt3dr aPGr = aSetMes.MesGCPOfName(aMes.mNamePt).mPt;
-             cPt2dr aProj = aCam->Ground2Image(aPGr);
-             cPt2dr  aVec = (aP2-aProj);
-
-             aImaFieldRes.DrawCircle(cRGBImage::Green,aP2,aRay);
-             aImaFieldRes.DrawLine(aP2,aP2+aVec*aMul,cRGBImage::Red,aWitdh);
-         }
-
+        aIVF = new cImageVectorField(aNameIm,mParamVF);
+       for (const auto & aMes : aSetMesIm.Measures())
+        {
+            cPt2dr aP2 = aMes.mPt;
+            cPt3dr aPGr = aSetMes.MesGCPOfName(aMes.mNamePt).mPt;
+            cPt2dr aProj = aCam->Ground2Image(aPGr);
+            if (Norm2(aProj-aP2)>10)
+            {
+                StdOut() << aP2 << aProj << "\n";
+                 aIVF->Im().DrawLine(aP2,aProj,cRGBImage::Red);
+            }
+        }
     }
 
     // ------------ Generate the csv for residual : individual && aggregated by image -------------------
@@ -322,38 +305,46 @@ void cAppli_CGPReport::MakeOneIm(const std::string & aNameIm)
 
     for (const auto & aGCP : aSetMes.MesGCP())
     {
-        if (aCam->IsVisible(aGCP.mPt))
+        if (starts_with(aGCP.mNamePt,"SL"))
         {
-           cPt2dr aPIm = aCam->Ground2Image(aGCP.mPt);
-           tREAL8 aDeg = aCam->DegreeVisibilityOnImFrame(aPIm);
-           if ((aDeg> mMarginMiss) && (!aSetMesIm.NameHasMeasure(aGCP.mNamePt)))
-           {
-              AddOneReportCSV(mNameReportMissed,{aNameIm,aGCP.mNamePt,ToStr(aPIm.x()),ToStr(aPIm.y())});
-              if (IsInit(&mGeomFiedlVec))
-              {
-                    for (const auto aRay : {2.0,30.0,32.0,34.0})
-                        aImaFieldRes.DrawCircle(cRGBImage::Red,aPIm,aRay);
-              }
-           }
-            if (LevelCall()==0)
-               StdOut() << "VISIBLE " << aGCP.mNamePt << std::endl;
+            AddOneReportCSV(mNameReportMissed,{aNameIm,aGCP.mNamePt,"UnObservable","XXX","XXX"});
         }
         else
         {
-            if (LevelCall()==0)
-               StdOut() << "### UNVISIBLE " << aGCP.mNamePt << std::endl;
+            if (aCam->IsVisible(aGCP.mPt))
+            {
+               cPt2dr aPIm = aCam->Ground2Image(aGCP.mPt);
+               tREAL8 aDeg = aCam->DegreeVisibilityOnImFrame(aPIm);
+               if (!aSetMesIm.NameHasMeasure(aGCP.mNamePt))
+               {
+                  if (aDeg> mMarginMiss)
+                  {
+                      AddOneReportCSV(mNameReportMissed,{aNameIm,aGCP.mNamePt,"UnDetected",ToStr(aPIm.x()),ToStr(aPIm.y())});
+
+                      if (aIVF)
+                      {
+                          aIVF->DrawPointsRemarq(aPIm);
+                      }
+                  }
+                  else
+                      AddOneReportCSV(mNameReportMissed,{aNameIm,aGCP.mNamePt,"Margin",ToStr(aPIm.x()),ToStr(aPIm.y())});
+               }
+               else
+               {
+                   cPt2dr aP2 = aSetMesIm.MeasuresOfName(aGCP.mNamePt).mPt;
+                   cPt2dr aProj = aCam->Ground2Image(aGCP.mPt);
+                   if (aIVF)
+                      aIVF->DrawArrow_P1P2(aP2,aProj);
+               }
+            }
+            else
+            {
+                AddOneReportCSV(mNameReportMissed,{aNameIm,aGCP.mNamePt,"ProjOutImage","XXX","XXX"});
+            }
         }
-    }
-
-    if (IsInit(&mGeomFiedlVec))
-    {
-        int aDeZoom    = round_ni(GetDef(mGeomFiedlVec,3,2.0));
-        if (GetDef(mGeomFiedlVec,4,1.0))
-            aImaFieldRes.ToJpgFileDeZoom(mPhProj.DirVisuAppli() + "FieldRes-"+aNameIm,aDeZoom);
-        else
-           aImaFieldRes.ToFileDeZoom(mPhProj.DirVisuAppli() + "FieldRes-"+LastPrefix(aNameIm)+".tif",aDeZoom);
 
     }
+
 
     auto aMesX = (aAvg2d.SW()>0.) ? ToStr(aAvg2d.Average().x()) : "XXX";
     auto aMesY = (aAvg2d.SW()>0.) ? ToStr(aAvg2d.Average().y()) : "XXX";
@@ -364,6 +355,11 @@ void cAppli_CGPReport::MakeOneIm(const std::string & aNameIm)
        {aMesX, aMesY, aMesD}
     );
 
+    if (aIVF)
+    {
+        aIVF->Save(mPhProj.DirVisuAppli()+LastPrefix(aNameIm));
+        delete aIVF;
+    }
 }
 
 
@@ -453,8 +449,6 @@ void cAppli_CGPReport::ReportsByCam()
                cPt2dr aP2 = aPair.mP2;
                cPt2dr aRes = (aCam->Ground2Image(aPair.mP3) - aP2) ;
                aStat.Add(Norm2(aRes));
-
-               aRes = aRes *mExag;
                aImAvg.Add(aP2,aRes.ToStdVector());
            }
        }
@@ -497,7 +491,7 @@ int cAppli_CGPReport::Exe()
    {
        AddStdHeaderStatCSV(mNameReportIm,"Image",mPropStat,{"AvgX","AvgY","AvgD"});
        AddOneReportCSV(mNameReportDetail,{"Image","GCP","Err","Dx","Dy","Ddist"});
-       AddOneReportCSV(mNameReportMissed,{"Image","GCP","XTh","YTh"});
+       AddOneReportCSV(mNameReportMissed,{"Image","GCP","Natrue","XTh","YTh"});
    }
 
    // --------- If a pattern was used, run in // by a recall to itself  0->Param 0->Set  -------------
@@ -509,19 +503,17 @@ int cAppli_CGPReport::Exe()
       // Do the stat that agregate by Cam/GCP
       // N.B. this is not called when you have a single image; but it's not realy a pb (?)
       // because it would be equal to Image/Detail ...
-      if (mIsGCP)
-      {
-          ReportsByGCP();
-          ReportsByCam();
-      }
+
+       ReportsByGCP();
+       ReportsByCam();
+
 
       return aRes;
    }
 
-   if (mIsGCP)
-   {
-      MakeOneIm(FileOfPath(mSpecImIn,false));
-   }
+
+    MakeOneIm(FileOfPath(mSpecImIn,false));
+
 
    return EXIT_SUCCESS;
 }
@@ -536,7 +528,7 @@ int cAppli_CGPReport::Exe()
 
 tMMVII_UnikPApli Alloc_CGPReport(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
 {
-   return tMMVII_UnikPApli(new cAppli_CGPReport(aVArgs,aSpec,true));
+   return tMMVII_UnikPApli(new cAppli_CGPReport(aVArgs,aSpec));
 }
 
 cSpecMMVII_Appli  TheSpec_CGPReport
@@ -551,24 +543,6 @@ cSpecMMVII_Appli  TheSpec_CGPReport
 );
 
 
-/*
-
-tMMVII_UnikPApli Alloc_TiePReport(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
-{
-   return tMMVII_UnikPApli(new cAppli_CGPReport(aVArgs,aSpec,false));
-}
-
-cSpecMMVII_Appli  TheSpec_TiePReport
-(
-     "ReportTieP",
-      Alloc_TiePReport,
-      "Reports on TieP projection",
-      {eApF::TieP,eApF::Ori},
-      {eApDT::TieP,eApDT::Orient},
-      {eApDT::Image,eApDT::Xml},
-      __FILE__
-);
-*/
 
 }; // MMVII
 

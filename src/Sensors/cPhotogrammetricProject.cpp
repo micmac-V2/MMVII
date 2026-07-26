@@ -380,7 +380,8 @@ void cPhotogrammetricProject::FinishInit()
 
     mDirPhp   = mFolderProject + MMVII_DirPhp + StringDirSeparator();
     mDirVisu  = mDirPhp + "VISU" + StringDirSeparator();
-    mDirVisuAppli  = mDirVisu + mAppli.Specs().Name()  + StringDirSeparator();
+    mDirVisuAppliInit  = mDirVisu + mAppli.Specs().Name()  + StringDirSeparator();
+    mDirVisuAppliFinal = mDirVisuAppliInit;
     mDirStaticLidarRasters = mDirPhp + "StaticLidarRasters" + StringDirSeparator();
     mDirSysCo = mDirPhp + E2Str(eTA2007::SysCo) + StringDirSeparator();
     mDirImportInitOri =  mDirPhp + "InitialOrientations" + StringDirSeparator();
@@ -388,7 +389,7 @@ void cPhotogrammetricProject::FinishInit()
     if (mAppli.LevelCall()==0)
     {
         CreateDirectories(mDirVisu,false);
-        CreateDirectories(mDirVisuAppli,false);
+        CreateDirectories(mDirVisuAppliInit,false);
         CreateDirectories(mDirSysCo,false);
         CreateDirectories(mDirImportInitOri,false);
         CreateDirectories(mDirStaticLidarRasters,false);
@@ -541,8 +542,14 @@ const cDirsPhProj &   cPhotogrammetricProject::DPTopoMes() const {return mDPTopo
 
 const std::string &   cPhotogrammetricProject::DirPhp() const   {return mDirPhp;}
 const std::string &   cPhotogrammetricProject::DirVisu() const  {return mDirVisu;}
-const std::string &   cPhotogrammetricProject::DirVisuAppli() const  {return mDirVisuAppli;}
+const std::string &   cPhotogrammetricProject::DirVisuAppli() const  {return mDirVisuAppliFinal;}
 const std::string &   cPhotogrammetricProject::DirStaticLidarRasters() const  {return mDirStaticLidarRasters;}
+
+void cPhotogrammetricProject::SetVisuSubDir(const std::string & aDir)
+{
+    mDirVisuAppliFinal = mDirVisuAppliInit + aDir + StringDirSeparator();
+    CreateDirectories(mDirVisuAppliFinal,true);
+}
 
 const cDirsPhProj &   cPhotogrammetricProject::DPOriRel() const {return mDPOriRel;}
 
@@ -1030,7 +1037,9 @@ void cPhotogrammetricProject::LoadGCP3D(cSetMesGndPt& aSetMes,cMes3DDirInfo * aM
        cSetMesGnd3D aMesGCP3D = cSetMesGnd3D::FromFile(aNameFile);
        if ( (!aFiltrNameGCP.empty()) || (!aFiltrAdditionalInfoGCP.empty()) )
           aMesGCP3D = aMesGCP3D.Filter(aFiltrNameGCP, aFiltrAdditionalInfoGCP);
+
        aSetMes.AddMes3D(aMesGCP3D, aMesDirInfo);
+
    }
 }
 
