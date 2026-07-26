@@ -91,7 +91,7 @@ struct cLidarPhotograParam
         Mode,FieldSem({eTA2007::AddCom,"Similarity criterion used to compare Lidar and image"}),
         PlyFile,FieldSem({eTA2007::FileCloud,{eTA2007::AddCom,"Lidar point cloud"}}),
         Sigma,FieldSem({eTA2007::AddCom,"Sigma factor"}),
-        Interp,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Interpolator used to sample images"}}),
+        Interp,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Interpolator used to sample images"}}),
         Pertubate,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Perturbate radiometry (simulation/test)"}}),
         NbPtsPerPatch,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Approximate number of points per patch"}})
         )
@@ -111,7 +111,7 @@ struct cLidarPhotoParam
         Mode,FieldSem({eTA2007::AddCom,"Similarity criterion used to compare Lidar and image"}),
         PatScan,FieldSem({eTA2007::AddCom,"Pattern of scan names to use"}),
         Sigma,FieldSem({eTA2007::AddCom,"Sigma factor"}),
-        Interp,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Interpolator used to sample images"}}),
+        Interp,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Interpolator used to sample images"}}),
         ScaleInit,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Interpolator scale at first iteration"}}),
         ScaleFinal,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Interpolator scale at last iteration"}}),
         Threshold,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold for hidden points, <0 = no threshold"}}),
@@ -133,7 +133,7 @@ struct cLidarLidarParam
         ThresholdInit,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold at first iteration, <0 = infinite"}}),
         ThresholdFinal,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold at last iteration, <0 = infinite"}}),
         NormalTolDeg,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Max normal angle tolerance (degrees)"}}),
-        Interp,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Interpolator used to sample scans"}})
+        Interp,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Interpolator used to sample scans"}})
         )
 };
 

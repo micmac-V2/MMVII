@@ -63,6 +63,7 @@ enum class eTA2007
                 Output,        ///< Is this parameter used as output/write
                 OptionalExist, ///< if given, the file (image or other) can be unexisting (interface mut allow seizing "at hand")
                 PatParamCalib, ///< It's a pattern for parameter of calibration
+                Interpol,      ///< Parameter is an interpolator, see cInterpolSpec
             // !!!!! AddCom must be last UNPRINTED  !!! because of test in Name4Help()
                 AddCom,        ///< Not an attribute, used to embed additionnal comment in Help mode
                 AllowedValues, ///< String of possible values for enums type, automagically added for args of enum type

@@ -124,6 +124,23 @@ cInterpolator1D * cInterpolSpec::Alloc(const cInterpolParams & aParams,const cIn
     return aRes;
 }
 
+std::vector<tSemA2007> InterpolArgSem()
+{
+    std::vector<tSemA2007> aRes {eTA2007::Interpol};
+    aRes.push_back({eTA2007::AddCom,"Interpolator, one of " + cInterpolSpec::StrAllNames()
+                                    + ", followed by its parameters"});
+    for (const auto & aSpec : cInterpolSpec::VecAll())
+    {
+        std::string aLine = "  " + aSpec->Name();
+        for (const auto & aParam : aSpec->Params())
+            aLine += "," + aParam.mName + ":" + aParam.mType;
+        if (aSpec->HasSubInterpol())
+           aLine += ",<interpolator>";
+        aRes.push_back({eTA2007::AddCom,aLine + " : " + aSpec->Comment()});
+    }
+    return aRes;
+}
+
 /* *************************************************** */
 /*                                                     */
 /*           cInterpolator1D                           */

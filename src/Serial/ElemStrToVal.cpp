@@ -126,6 +126,7 @@ template<> cE2Str<eTA2007>::tMapE2Str cE2Str<eTA2007>::mE2S
                 {eTA2007::Output,"Out"},
                 {eTA2007::OptionalExist,"OptEx"},
                 {eTA2007::PatParamCalib,"ParamCalib"},
+                {eTA2007::Interpol,"Interpol"},
                 {eTA2007::AddCom,"AddCom"},
                 {eTA2007::AllowedValues,"Allowed"},
                 {eTA2007::Internal,"##Intern"},

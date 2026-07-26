@@ -131,6 +131,12 @@ class cInterpolSpec
         tAllocWrapper                   mAllocWrapper;
 };
 
+/**  Semantics of a command line argument that is an interpolator : the semantic itself, plus the
+     description of the language as additionnal comments, generated from the registry so that
+     help and completion cannot drift from the interpolators actually declared.
+*/
+std::vector<tSemA2007> InterpolArgSem();
+
 /**  Virtual Base class for  all interpolator */
 
 class cInterpolator1D : public cMemCheck
