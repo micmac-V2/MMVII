@@ -1,6 +1,8 @@
 #ifndef  _MMVII_BUNDLEADJUSTMENT_H_
 #define  _MMVII_BUNDLEADJUSTMENT_H_
 
+#include <unordered_map>
+
 #include "MMVII_PCSens.h"
 #include "MMVII_MMV1Compat.h"
 #include "MMVII_DeclareCste.h"

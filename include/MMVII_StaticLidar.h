@@ -1,6 +1,8 @@
 #ifndef  _MMVII_STATICLIDAR_H_
 #define  _MMVII_STATICLIDAR_H_
 
+#include <functional>
+
 #include "MMVII_2Include_Serial_Tpl.h"
 #include "MMVII_Geom3D.h"
 #include "MMVII_PCSens.h"
