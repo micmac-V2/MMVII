@@ -38,11 +38,6 @@ template<> cE2Str<eModeHelpColor>::tMapE2Str cE2Str<eModeHelpColor>::mE2S
 MACRO_INSTANTIATE_STRIO_ENUM(eModeHelpColor,"ModeHelpColor")
 
 
-// TODOCM: Supprimer std:: de std::vector dans HElp ?
-// TODOCM: SetColors() ou executer ? Apres Profile ?  Attention au InitProfile dans GenerateHelp Et dans main() pour help general ?
-// TODOCM: profile : possibilite check values ...
-
-
 Color Color::command;
 Color Color::argument;
 Color Color::title;
@@ -501,7 +496,7 @@ private:
 
 using tMapProfileValidator = std::map<std::string,cValidator>;
 
-static const tMapProfileValidator & MapProfileKeyValidator()
+static const tMapProfileValidator & MapProfileValidator()
 {
     static const tMapProfileValidator TheMap
     {
@@ -514,6 +509,45 @@ static const tMapProfileValidator & MapProfileKeyValidator()
     return TheMap;
 }
 
+
+template <typename K, typename V>
+std::vector<K> MapKeys(const std::map<K,V>& aMap)
+{
+    static const std::vector<K> TheKeys = [&aMap]
+    {
+        std::vector<K> keys;
+        for (const auto& [key, _] : aMap)
+        {
+            keys.push_back(key);
+        }
+        return keys;
+    }();
+    return TheKeys;
+}
+
+template<typename K, typename V>
+std::string MapKeysToS(const std::map<K,V>& aMap)
+{
+    static const std::string TheKeys = [&aMap]
+    {
+        std::vector<std::string> keys;
+        for (const auto& [key, _] : aMap)
+        {
+            keys.push_back(ToS(key));
+        }
+        return ToS(keys);
+    }();
+    return TheKeys;
+}
+
+
+struct cKeyVal{
+    std::string Key;
+    std::string Val;
+    ARG2007_STRUCT_FIELDS(Key,FieldSem({eTA2007::AllowedValues,MapKeysToS(MapProfileValidator())}),Val);
+};
+
+
 class cAppli_EditProfile : public cMMVII_Appli
 {
      public :
@@ -524,7 +558,7 @@ class cAppli_EditProfile : public cMMVII_Appli
 
      private :
          std::string     mCurrent;
-         std::vector<std::string>   mKeyVal;
+         cKeyVal mKeyVal;
          std::string   mDelKey;
 };
 
@@ -543,9 +577,9 @@ cCollecSpecArg2007 & cAppli_EditProfile::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
    return
       anArgOpt
-        << AOpt2007(mCurrent,"SetCurrent","Name of the profile to make current",{eTA2007::Profile})
-        << AOpt2007(mKeyVal,"KeyVal","Set Value to Key: [Key,Value]",{{eTA2007::ISizeV,"[2,2]"}})
-        << AOpt2007(mDelKey,"DelKey","Delete Key",{eTA2007::ProfileKey})
+        << AOpt2007(mCurrent,"SetCurrent","Name of the profile to make current",{{eTA2007::AllowedValues,ToS(GlobProfileNames())}})
+        << AOpt2007(mKeyVal,"KeyVal","Set Value to Key: [Key,Value]")
+        << AOpt2007(mDelKey,"DelKey","Delete Key",{{eTA2007::AllowedValues,ToS(mParamProfile.Keys())}})
    ;
 }
 
@@ -576,10 +610,9 @@ int cAppli_EditProfile::Exe()
         StdOut() << "Current profile path is " << mUserProfile << "\n";
         StdOut() << "Profile values:\n";
 
-        for (const auto & [aKey,aValidator] : MapProfileKeyValidator())
+        for (const auto & [aKey , _] : MapProfileValidator())
         {
-            (void) aValidator;
-            std::string aVal ="";
+            std::string aVal = "";
             if ( mParamProfile.HasKey(aKey))
                 aVal =  mParamProfile.Get(aKey,std::string("<Missing>"));
             StdOut() << "  " << aKey << "= \"" <<  aVal  << "\"\n";
@@ -594,28 +627,25 @@ int cAppli_EditProfile::Exe()
 
     if (IsInit(&mKeyVal))
     {
-        const auto& aKey = mKeyVal[0];
-        const auto & aMapValidator = MapProfileKeyValidator();
-        const auto aItValidator = aMapValidator.find(aKey);
+        const auto & aMapValidator = MapProfileValidator();
+        const auto aItValidator = aMapValidator.find(mKeyVal.Key);
 
         if (aItValidator != aMapValidator.end())
         {
-            const auto& aVal = mKeyVal[1];
-
             auto& aValidator = aItValidator->second;
             MMVII_INTERNAL_ASSERT_User
             (
-                aItValidator->second(aVal),
+                aItValidator->second(mKeyVal.Val),
                 eTyUEr::eBadOptParam,
-                "Invalid value [" + aVal + "] for profile key [" + aKey
+                "Invalid value [" + mKeyVal.Val + "] for profile key [" + mKeyVal.Key
                     + "], expecting " + ( aValidator.Allowed().empty() ? ("type " + aValidator.TypeName()) : aValidator.Allowed() )
             );
-            StdOut() << "Setting profile key '" << aKey << "' to value '" << aVal << "'\n";
-            aParam.Set(aKey, aVal);
+            StdOut() << "Setting profile key '" << mKeyVal.Key << "' to value '" << mKeyVal.Val << "'\n";
+            aParam.Set(mKeyVal.Key, mKeyVal.Val);
         }
         else
         {
-            MMVII_USER_WARNING("Unknown profile key: " + aKey);
+            MMVII_USER_WARNING("Unknown profile key: " + mKeyVal.Key);
             StdOut() << "--------- Allowed values -------------\n";
             for (const auto & [aKeyAllowed,aValidator] : aMapValidator)
             {

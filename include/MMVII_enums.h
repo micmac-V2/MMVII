@@ -59,8 +59,6 @@ enum class eTA2007
                 StaticLidar,   ///< Static Lidar
                 Topo,          ///< Topo
                 SysCo,         ///< System coord
-                Profile,       ///< User profile name
-                ProfileKey,    ///< Key for user profile
                 Input,         ///< Is this parameter used as input/read
                 Output,        ///< Is this parameter used as output/write
                 OptionalExist, ///< if given, the file (image or other) can be unexisting (interface mut allow seizing "at hand")
