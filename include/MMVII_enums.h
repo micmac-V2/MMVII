@@ -443,6 +443,15 @@ enum class eModeSSR
       eNbVals
 };
 
+/** Mode  for target distance estimation */
+
+enum class eTargetDistanceEstim
+{
+    eNoDist,       // no distance
+    eRawDist,      // use direct distance
+    ePlaneEstim,   // estimate a plane then get distance to plane
+    eNbVals
+};
 
 /** Mode "Padding" callable in DenseMatchEpipGen */
 

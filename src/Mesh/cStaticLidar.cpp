@@ -704,7 +704,8 @@ cStaticLidar::cStaticLidar(const std::string & aNameFile, const std::string & aS
     mAreRastersReady(false),
     mSigma(aSigma),
     mRotInput2Raster(aRotInput2Raster),
-    mTriangulation(nullptr)
+    mTriangulation(nullptr),
+    mLinearInterpolator(cDiffInterpolator1D::AllocFromNames({"Linear"}))
 {
 }
 
@@ -712,6 +713,8 @@ cStaticLidar::~cStaticLidar()
 {
     if (mTriangulation)
         delete mTriangulation;
+    if (mLinearInterpolator)
+        delete mLinearInterpolator;
 }
 
 std::string cStaticLidar::GetIdSuffix()
@@ -727,6 +730,39 @@ std::string cStaticLidar::GetIdSuffixRegex()
 bool cStaticLidar::DoAddCalibToUk() const
 {
     return false; // F and PP fixed on lidar for now
+}
+
+cDiffInterpolator1D * cStaticLidar::getLineraInterpolator() const
+{
+    return mLinearInterpolator;
+}
+
+std::tuple<double, double, cPt3dr> cStaticLidar::getDistSigmaNormalPlane(cPt2dr aCenter, const cPixBox<2> & aPixBox) const
+{
+    //static std::pair<cPlane3D,tREAL8> LSQEstimate(const std::vector<cPt3dr> & aP0,const std::vector<tREAL8>* =nullptr);
+    std::vector<cPt3dr> aVPtCam;
+    for (const auto & aPt : aPixBox)
+    {
+        if (IsValidPoint(aPt))
+            aVPtCam.push_back(Image2Camera3D(aPt));
+    }
+    if (aVPtCam.empty() || (!IsValidPoint(aCenter)))
+        return std::make_tuple(NAN,NAN,cPt3dr::Dummy());
+
+    if (IsValidPoint(aCenter) && (aVPtCam.size()<3))
+    {
+        return std::make_tuple(Image2Distance(aCenter), Sigma(),
+                               Pose().Rot().Value(Image2NormalInstr(aCenter,*getLineraInterpolator())));
+    }
+
+    std::cout<<"Box "<<aPixBox<<" => "<<aPixBox.Sz().x()*aPixBox.Sz().y()
+              <<" usable "<<aVPtCam.size()<<" "<<(100.*aVPtCam.size())/(aPixBox.Sz().x()*aPixBox.Sz().y())<<"%\n";
+    auto [aPlane3D, aRes] = cPlane3D::LSQEstimate(aVPtCam,nullptr);
+    auto anInter = aPlane3D.Inter({0,0,0}, Image2Camera3D(aCenter));
+    auto aDist = Norm2(anInter);
+    auto aNormaleGnd = Pose().Rot().Value(aPlane3D.AxeK());
+
+    return std::make_tuple(aDist, (aRes+Sigma())/2., aNormaleGnd);
 }
 
 void cStaticLidar::Show() const
@@ -1090,6 +1126,15 @@ bool cStaticLidar::IsValidPoint(const cPt2dr &aRasterPx) const
     return aDistanceImData.InsideBL(aRasterPx)
            && (aDistanceImData.GetV(cPt2di(aRasterPx.x()+0.5,aRasterPx.y()+0.5))>0);
 }
+
+bool cStaticLidar::IsValidPoint(const cPt2di &aRasterPx) const
+{
+    MMVII_INTERNAL_ASSERT_tiny(mRasterDistance, "Error: mRasterMask must be computed first");
+    auto & aDistanceImData = mRasterDistance->DIm();
+    return aDistanceImData.Inside(aRasterPx)
+           && (aDistanceImData.GetV(aRasterPx)>0);
+}
+
 
 bool cStaticLidar::IsMaskedPoint(const cPt2dr &aRasterPx) const
 {

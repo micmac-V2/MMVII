@@ -66,6 +66,7 @@ cAppliCheckBoardTargetExtract::cAppliCheckBoardTargetExtract(const std::vector<s
    mTryC             (false),
    mStepHeuristikRefinePos    (-1),
    mStepGradRefinePos (1e-4),
+   mModeDistance     (eTargetDistanceEstim::ePlaneEstim),
    mZoomVisuDetec    (9),
    mDefSzVisDetec    (150),
    mSpecif           (nullptr),
@@ -115,6 +116,7 @@ cCollecSpecArg2007 & cAppliCheckBoardTargetExtract::ArgOpt(cCollecSpecArg2007 & 
              <<  AOpt2007(mNbMinPtEllipse,"NbMinPtEl","Number minimal of point for ellipse estimation",{eTA2007::HDV})
              <<  AOpt2007(mTryC,"TryC","Try also circle when ellipse fails",{eTA2007::HDV})
              <<  AOpt2007(mStepHeuristikRefinePos,"HeuristikStepRefinePos","Step Gradient-Refine final position with SinC interpol & over sampling (<0 : no refine)",{eTA2007::HDV,eTA2007::Tuning})
+             <<  AOpt2007(mModeDistance,"ModeDist","With TSL, how to estimate target distance",{eTA2007::HDV})
 
              <<  AOpt2007(mStepGradRefinePos,"GradStepRefinePos","Step Gradient-Refine final position with SinC interpol & over sampling (<0 : no refine)",{eTA2007::HDV})
              <<  AOpt2007(mScales,"Scales","Diff scales of compute (! 0.5 means bigger)",{eTA2007::HDV})
@@ -588,17 +590,43 @@ void  cAppliCheckBoardTargetExtract::DoExport()
              std::string aCode = aCdtM.Code()->Name() ;
              cMesIm1Pt aMesIm(aCdtM.mC0,aCode,1.0);
              aMesIm.mPt = MulCByC(aMesIm.mPt, aImFactor);
-             if (aLidar)
-                 aMesIm.mDistWithSigma.emplace(
-                     aLidar->Image2Distance(aMesIm.mPt),
-                     aLidar->Sigma() );
-             aSetM.AddMeasure(aMesIm);
-             Tpl_AddOneObjReportCSV(*this,mIdExportCSV,aMesIm);
 
              cEllipse anEl = aCdtM.Ell().Scale(aCdtM.mScaleDetec);
              cSaveExtrEllipe aSEE(anEl,aCdtM.mBlack,aCdtM.mWhite,aCode);
              aSEE.mAffIm2Ref = aCdtM.AffImZ1ToMod();
              aVSavE.push_back(aSEE);
+
+
+             if (aLidar)
+             {
+                 switch (mModeDistance) {
+                 case eTargetDistanceEstim::eRawDist:
+                     aMesIm.mDistWithSigma.emplace( aLidar->Image2Distance(aMesIm.mPt), aLidar->Sigma() );
+                     break;
+                 case eTargetDistanceEstim::ePlaneEstim:
+                 {
+                     auto aEllipseBBox = anEl.GetBoundingBox();
+                     std::cout<< "Ellipse " << aCdtM.Code()->Name() << " "
+                               << anEl.LGa() * anEl.VGa() << " " << anEl.LSa() * anEl.VSa() <<"\n";
+                     auto [aD,aS,aN] = aLidar->getDistSigmaNormalPlane(anEl.Center(),aEllipseBBox);
+                     std::cout<< "Diff " << aCdtM.Code()->Name() << " " << aD - aLidar->Image2Distance(aMesIm.mPt)<<"    "<<
+                         aLidar->Image2Distance(aMesIm.mPt)<< " " <<
+                         aLidar->Image2NormalInstr(anEl.Center(), *aLidar->getLineraInterpolator()) << " => "
+                               << aD <<" " << aS << " " << aN<<"\n";
+
+                     aMesIm.mDistWithSigma.emplace( aD, aS );
+                     break;
+                 }
+                 case eTargetDistanceEstim::eNoDist:
+                 case eTargetDistanceEstim::eNbVals:
+                     break;
+                 }
+
+
+             }
+             aSetM.AddMeasure(aMesIm);
+             Tpl_AddOneObjReportCSV(*this,mIdExportCSV,aMesIm);
+
              //  cSaveExtrEllipe anESave(*anEE,aCode);
          }
      }

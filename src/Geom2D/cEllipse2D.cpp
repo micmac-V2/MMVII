@@ -401,6 +401,13 @@ tREAL8 cEllipse::NonEuclidDist(const cPt2dr& aP) const
     return Norm2(aP-ProjNonEuclOnEllipse(aP));
 }
 
+
+cPixBox<2> cEllipse::GetBoundingBox() const
+{
+    std::vector<cPt2dr> aVPts = {Center()+LGa()*VGa(), Center()-LGa()*VGa(), Center()+LSa()*VSa(), Center()-LSa()*VSa()};
+    return cPixBox<2>(cTplBox<tREAL8,2>::FromVect(aVPts,true).ToI());
+}
+
           // ===================   BENCH ============================
          
 void cEllipse::BenchEllispe()

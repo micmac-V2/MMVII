@@ -186,6 +186,7 @@ public :
 
     cDataIm2D<tREAL4> &getRasterDistance() const;
     bool IsValidPoint(const cPt2dr &aRasterPx) const; ///< is dist>0
+    bool IsValidPoint(const cPt2di &aRasterPx) const; ///< is dist>0
     bool IsMaskedPoint(const cPt2dr &aRasterPx) const;
     tREAL8 Sigma() const;
     const std::vector<cPt2di> & PatchCenters() const;
@@ -197,6 +198,11 @@ public :
     cIm2D<tU_INT1> projectIntensityFrom(const cStaticLidar& aFrom) const;
 
     virtual bool DoAddCalibToUk() const override;
+
+    cDiffInterpolator1D * getLineraInterpolator() const;
+
+    std::tuple<double, double, cPt3dr> getDistSigmaNormalPlane(cPt2dr aCenter, const cPixBox<2> &aPixBox) const; ///< Adjust a plane on defined points
+
 private :
     template <typename TYPE> static void fillRaster(const cStaticLidarImporter & aSL_importer,
                     std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE>> & aIm); // keep image in memory
@@ -234,6 +240,8 @@ private :
     cRotation3D<tREAL8> mRotInput2Raster; //< to go from z vertical to z view direction of PP, and make PPx in center
     // triangulation for patches selection
     cTriangulation3D<tREAL8> * mTriangulation; ///< triangulation of the raster, for zbuffer
+
+    cDiffInterpolator1D * mLinearInterpolator;
 };
 
 template <typename TYPE>
