@@ -4,11 +4,22 @@ on:
   push:
     branches:
       - 'main'
+      # Branches allowed to publish a Docker image, tagged after the branch.
+      # '*' does not match '/', so a branch reaching here has no '/' in its name.
+      - 'docker-*'
 
 jobs:
   build_linux:
     if: true
     runs-on: ubuntu-latest
+
+    # The Docker image is published on GHCR, which needs no secret: the built-in
+    # GITHUB_TOKEN is enough. But that token is read-only by default on many
+    # repositories, and this block *replaces* the defaults for the job, so it must
+    # also grant what the release steps below already rely on (contents: write).
+    permissions:
+      contents: write
+      packages: write
 
     steps:
     - uses: actions/checkout@v6
@@ -68,6 +79,101 @@ jobs:
         path: |
           bin/libP2007.a
           bin/MMVII
+
+    # ------------------------------------------------------------------
+    # Docker image containing the MMVII just built and tested above
+    # ------------------------------------------------------------------
+
+    - name: Name of the MMVII Docker image
+      # ghcr.io/<owner>/<name>, and Docker refuses anything but lowercase in the name
+      # while github.repository may hold uppercase (MMVII, cm-MMVII): hence the tr.
+      # Deriving the name from the repository also means a fork publishes in its own
+      # namespace and can never overwrite another image.
+      #
+      # The image is named mmvii, suffixed by the branch for a docker-xxxx branch, and
+      # prefixed by whatever the repository name carries besides MMVII when it is not
+      # the MMVII repository itself:
+      #     micmac-v2/MMVII     main        -> mmvii
+      #     micmac-v2/MMVII     docker-cm   -> mmvii-cm
+      #     micmac-v2/cm-MMVII  docker-cm   -> cm-mmvii-cm
+      # Every part is reduced to lowercase alphanumerics separated by '-', which is
+      # always a valid name, branch names being far more permissive.
+      run: |
+        NAME=$(printf '%s' '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+        OWNER=${NAME%%/*}
+        REPO=${NAME#*/}
+        PREFIX=$(printf '%s' "$REPO" | sed -e 's/mmvii//g' -e 's/[^a-z0-9]\+/-/g' -e 's/^-//' -e 's/-$//')
+        REF='${{ github.ref_name }}'
+        if [ "$REF" = main ]; then
+          SUFFIX=""
+        else
+          SUFFIX=$(printf '%s' "${REF#docker-}" | tr '[:upper:]' '[:lower:]' \
+                     | sed -e 's/[^a-z0-9]\+/-/g' -e 's/^-//' -e 's/-$//')
+        fi
+        IMAGE=mmvii
+        if [ -n "$PREFIX" ]; then IMAGE="$PREFIX-$IMAGE" ; fi
+        if [ -n "$SUFFIX" ]; then IMAGE="$IMAGE-$SUFFIX" ; fi
+        echo "DOCKER_IMAGE=ghcr.io/$OWNER/$IMAGE" >> "$GITHUB_ENV"
+
+    - name: Stage the files of the Docker image
+      run: |
+        rm -rf docker-context
+        mkdir -p docker-context/MMVII/bin
+        cp bin/MMVII docker-context/MMVII/bin/
+        # Debug symbols are useless in the image and weigh a lot: only the copy
+        # given to Docker is stripped, the uploaded artifact keeps them.
+        strip docker-context/MMVII/bin/MMVII
+        # MMVII locates its data relatively to its own executable: keep bin/ and
+        # these directories siblings (cf .github/docker/Dockerfile).
+        cp -a MMVII-RessourceDir MMVII-LocalParameters MMVII-TestDir bash-completion docker-context/MMVII/
+        rm -rf docker-context/MMVII/MMVII-TestDir/Tmp
+        cp .github/docker/Dockerfile docker-context/
+        # Runtime packages, derived from the very binary being packaged instead of
+        # being hard-coded: the image then follows the libraries MMVII was actually
+        # linked against, whatever the Ubuntu release and whichever compiler was
+        # used. ldd gives the resolved paths, realpath canonicalises them (ldd
+        # prints /lib/..., dpkg indexes /usr/lib/...) and dpkg -S names the owners.
+        # Left strict on purpose: a library owned by no package fails the job here,
+        # rather than yielding an image whose MMVII cannot start.
+        ldd bin/MMVII \
+            | awk '{ if ($3 ~ /^\//) print $3 ; else if ($1 ~ /^\//) print $1 }' \
+            | xargs -r realpath -e \
+            | sort -u \
+            | xargs -r dpkg -S \
+            | cut -d: -f1 \
+            | sort -u > docker-context/runtime-packages.txt
+        echo "Runtime packages of the image:" ; cat docker-context/runtime-packages.txt
+
+    - name: Build the MMVII Docker image
+      # The source label is overridden here so that the package is linked to the
+      # repository that publishes it, whichever it is; the Dockerfile keeps the
+      # official repository as the default for a manual build.
+      run: |
+        # The binary is dynamically linked: the base image must be the release of
+        # the runner that built it, whatever ubuntu-latest points to that day.
+        . /etc/os-release
+        docker build \
+            --build-arg UBUNTU_VERSION="$VERSION_ID" \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            --tag "$DOCKER_IMAGE:latest" \
+            docker-context
+
+    - name: Run MMVII Tests in the Docker image
+      run: docker run --rm "$DOCKER_IMAGE:latest" MMVII Bench 1
+
+    - name: Log in to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    # A package pushed by a workflow is private by default: making it public is a
+    # one-off manual step in the package settings. It is linked to its repository
+    # by the source label set at build time above.
+    - name: Push the MMVII Docker image to GHCR
+      # Only 'latest', so that a new build replaces the previous image
+      run: docker push "$DOCKER_IMAGE:latest"
 
 
   build_win:
