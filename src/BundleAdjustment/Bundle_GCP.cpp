@@ -217,13 +217,6 @@ void cMMVII_BundleAdj::OneItere_GCP()
             // Do something only if GCP is visible
             if (aSens->IsVisibleOnImFrame(aPIm) && (aSens->IsVisible(aPGr)))
             {
-                cStaticLidar * aStaticLidar = dynamic_cast<cStaticLidar*>(aSens);
-                if (aStaticLidar)
-                {
-                    // read rasters to be able to use Ground2ImagePrecise()
-                    aStaticLidar->ReadRasters(mPhProj->DirStaticLidarRasters());
-                }
-
                 //cPt2dr aPtGrProjected = aSens->Ground2Image(aPGr);  ///TODO : l'un ou l'autre
                 //aSens->FixPtPxLoopAroundPP(aPtGrProjected); // be in the same case as aPIm
                 cPt2dr aResidual = aPIm - aSens->Ground2Image(aPGr);
@@ -242,6 +235,7 @@ void cMMVII_BundleAdj::OneItere_GCP()
                 std::vector<double> aVObs = aPIm.ToStdVector();
 
                 // will use dist only if this is as cStaticLidar and we have a distance in mesInstr
+                cStaticLidar * aStaticLidar = dynamic_cast<cStaticLidar*>(aSens);
                 if (!aDistWithSigma.has_value())
                     aStaticLidar = nullptr;
                 if (!aStaticLidar)

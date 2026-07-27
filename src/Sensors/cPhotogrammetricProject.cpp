@@ -1131,6 +1131,14 @@ void cPhotogrammetricProject::LoadIm(cSetMesGndPt& aSetMes, const std::string & 
       //  StdOut() << "LoadImLoadIm " << aNameIm << "\n";
    cSetMesPtOf1Im  aSetIm = LoadMeasureIm(aNameIm, true, SVP);
    aSetMes.AddMes2D(aSetIm,aSIm,aMesDirInfo);
+
+   // with mes 2d, we certainly will need ground2image
+   cStaticLidar * aStaticLidar = dynamic_cast<cStaticLidar*>(aSIm);
+   if (aStaticLidar)
+   {
+       // read rasters to be able to use Ground2ImagePrecise()
+       aStaticLidar->ReadRasters(DirStaticLidarRasters());
+   }
 }
 
 void cPhotogrammetricProject::LoadImFromFolder

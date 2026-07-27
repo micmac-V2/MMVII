@@ -824,6 +824,20 @@ tREAL4 cStaticLidar::Image2Distance(cPt2dr aRasterPx) const
     return getRasterDistance().GetVBL(aRasterPx);
 }
 
+cPt3dr cStaticLidar::ImageAndDepth2Ground(const cPt3dr & aPIm3) const
+{
+    cPt3dr aCam3DPt = Image2Camera3D(Proj(aPIm3));
+    auto aPtCamNorm = Norm2(aCam3DPt);
+    if (aPtCamNorm>0)
+    {
+        // can use rasters
+        cPt3dr aCam3DPtDist = aCam3DPt/aPtCamNorm * aPIm3.z();
+        return Pose().Value(aCam3DPtDist);
+    } else {
+        return cSensorCamPC::ImageAndDepth2Ground(aPIm3);
+    }
+}
+
 std::tuple<tREAL8,tREAL8,tREAL8> cStaticLidar::AvgDistNbValidAndNbNotMasked() const
 {
     // take mean squared or cubed dist?

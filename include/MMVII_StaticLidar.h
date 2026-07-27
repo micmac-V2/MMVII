@@ -169,6 +169,7 @@ public :
     cPt3dr Image2Ground(const cPt2di &aRasterPxI) const;
     cPt3dr Image2Ground(cPt2dr aRasterPx) const;
     tREAL4 Image2Distance(cPt2dr aRasterPx) const;
+    cPt3dr ImageAndDepth2Ground(const cPt3dr & ) const override;
 
     cPt2dr Ground2Image(const cPt3dr &aGroundPt) const override;
     cPt3dr Ground2ImageAndDepth(const cPt3dr &) const override;
@@ -249,6 +250,8 @@ template <typename TYPE>
 {
     cPt3dr aPtCam3D = Image2Camera3D(aRasterPx);
     tREAL8 aDist = Norm2(aPtCam3D);
+    if (aDist==0)
+        return {0.,0.,0.}; // InternalCalib()->Value() will make an error
     cPt2dr aPx = InternalCalib()->Value(aPtCam3D);
     cPt2dr aDir = (aPx - InternalCalib()->PP()) / InternalCalib()->F();
     if (aDir.x()<-M_PI)

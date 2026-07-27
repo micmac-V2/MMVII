@@ -284,11 +284,11 @@ void cAppli_CGPReport::MakeOneIm(const std::string & aNameIm)
         cPt3dr aPGr = aSetMes.MesGCPOfName(aMes.mNamePt).mPt;
         cPt2dr aProj = aCam->Ground2Image(aPGr);
         cPt2dr  aVec = (aP2-aProj);
+        aCam->FixLoopPixelsResiduals(aVec);
         std::string aResDist3DStr = "XXX";
         cStaticLidar * aStaticLidar = dynamic_cast<cStaticLidar*>(aCam);
         if (aStaticLidar)
         {
-            aStaticLidar->ReadRasters(mPhProj.DirStaticLidarRasters());
             tREAL8 aMesDistance = aStaticLidar->Image2Distance(aP2);
             tREAL8 aResDist3D = aMesDistance - Norm2(aPGr-aStaticLidar->Center());
             aResDist3DStr = ToStr(aResDist3D);
