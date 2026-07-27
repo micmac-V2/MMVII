@@ -90,6 +90,29 @@ bool cAppli_EditSet::AcceptEmptySet(int) const
     return (mOp==eOpAff::eReset); //accept empty set only if operator is =0
 }
 
+/**  Working directory of the EditSet and EditRel benches.
+
+     Both run the command on a main file and a pattern; the pattern is expanded in the
+     project directory, which is the directory of that main file. So the files being
+     related must sit next to it. They are therefore copied once, from the versioned
+     input directory to the temporary one, and the benches write only there -- the
+     MMVII installation may well be read only, as it is in a container image.
+*/
+static std::string DirBenchEditSetRel()
+{
+    static std::string aDirBench;
+    if (aDirBench.empty())
+    {
+        cMMVII_Appli & anAp = cMMVII_Appli::CurrentAppli();
+        aDirBench = anAp.TmpDirTestMMVII() + "EditSetRel" + StringDirSeparator();
+        CreateDirectories(aDirBench,false);
+        std::string aDirIn = anAp.InputDirTestMMVII() + "Files/" ;
+        for (const auto & aName : GetFilesFromDir(aDirIn,AllocRegex("F[0-9]*\\.txt")))
+            CopyFile(aDirIn+aName,aDirBench+aName);
+    }
+    return aDirBench;
+}
+
 static void OneBenchEditSet
     (
         int aNumTest,                // Change test condition
@@ -109,7 +132,7 @@ static void OneBenchEditSet
 #endif
 
     cMMVII_Appli &  anAp = cMMVII_Appli::CurrentAppli();
-    std::string aDirI = anAp.InputDirTestMMVII() + "Files/" ;
+    std::string aDirI = DirBenchEditSetRel();
     std::string aDirT = anAp.TmpDirTestMMVII()  ;
 
     std::string anExt = (aRealNumOut==2) ? anAp.TaggedNameDefSerial() : "xml";
@@ -584,7 +607,7 @@ void OneBenchEditRel
     )
 {
     cMMVII_Appli &  anAp = cMMVII_Appli::CurrentAppli();
-    std::string aDirI = anAp.InputDirTestMMVII() + "Files/" ;
+    std::string aDirI = DirBenchEditSetRel();
     std::string aNameFullFime = aDirI + aNameFile ;
     anAp.ExeCallMMVII
     (
@@ -610,7 +633,8 @@ void OneBenchEditRel
 int cAppli_EditRel::ExecuteBench(cParamExeBench &)
 {
    cMMVII_Appli &  anAp = cMMVII_Appli::CurrentAppli();
-   std::string aDirI = anAp.InputDirTestMMVII() + "Files/" ;
+
+   std::string aDirI = DirBenchEditSetRel();
 
    std::string  anExt = TaggedNameDefSerial();
    std::string aNameRT = "RelTest." + anExt;

@@ -525,7 +525,7 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
         Bench_SetI(aParam); // Bench manip on set of integers
 
            // Check read/write of object usign serialization
-        BenchSerialization(aParam,DirTestMMVII()+"Tmp/",DirTestMMVII()+"Input/");
+        BenchSerialization(aParam,TmpDirTestMMVII(),InputDirTestMMVII());
         //====  MORE CONSISTENT BENCH
 
         BenchPly(aParam);

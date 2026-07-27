@@ -10,6 +10,8 @@
 namespace MMVII
 {
 
+extern std::string MMVII_SysTempDir();   ///< defined in uti_sysdep.cpp
+
 cAppliBenchAnswer cMMVII_Appli::BenchAnswer() const
 {
    return cAppliBenchAnswer(false,0.0);
@@ -329,7 +331,11 @@ void cMMVII_Appli::InitMMVIIDirs(const std::string& aMMVIIDir)
     mDirRessourcesMMVII      = mDirMicMacv2 + MMVIIRessourcesDir;
     mDirHelpByCmd            = mDirRessourcesMMVII+ MMVIIHelpByCmdDir;
     mDirLocalParameters      = mDirMicMacv2 + MMVIILocalParametersDir;
-    mTmpDirTestMMVII   = mDirTestMMVII + "Tmp" + StringDirSeparator();
+    //  The temporary files of the benches are put outside the MMVII installation,
+    //  which may well be read only : multi user install or a container
+    mTmpDirTestMMVII   = MMVII_SysTempDir();
+    MakeNameDir(mTmpDirTestMMVII);
+    mTmpDirTestMMVII  += MMVIITestDir;
     mInputDirTestMMVII = mDirTestMMVII + "Input" + StringDirSeparator();
 }
 
@@ -1695,7 +1701,18 @@ std::string cMMVII_Appli::mTaggedNameDefSerial;
 std::string cMMVII_Appli::mMMV1Bin = "mm3d";
 
               // static Accessors
-const std::string & cMMVII_Appli::TmpDirTestMMVII()   {return mTmpDirTestMMVII;}
+const std::string & cMMVII_Appli::TmpDirTestMMVII()
+{
+   //  Created on demand : it lives in the system temporary directory, so it may well
+   //  not exist yet, and only the benches and TestRecall ever need it
+   static bool aFirstCall = true;
+   if (aFirstCall)
+   {
+      aFirstCall = false;
+      CreateDirectories(mTmpDirTestMMVII,SVP::No);
+   }
+   return mTmpDirTestMMVII;
+}
 const std::string & cMMVII_Appli::InputDirTestMMVII() {return mInputDirTestMMVII;}
 const std::string & cMMVII_Appli::TopDirMMVII()       {return mTopDirMMVII;}
 const std::string & cMMVII_Appli::DirBinMMVII()       {return mDirBinMMVII; }

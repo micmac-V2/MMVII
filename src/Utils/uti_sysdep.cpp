@@ -4,6 +4,7 @@
 #include "MMVII_2Include_Serial_Tpl.h"
 
 #include <filesystem>
+#include <system_error>
 #include <cstdlib>
 #include <string>
 #include <mutex>
@@ -336,5 +337,23 @@ std::string MMVII_UserConfigDir(bool aSVP)
 }
 
 #endif
+
+/**  Standard temporary directory of the system : TMPDIR and its friends under unix,
+     TMP/TEMP under windows, /tmp as a last resort. std::filesystem gives it portably,
+     but its throwing overload would bypass the MMVII error handler, hence error_code.
+     Degrades to the current directory rather than failing, as the user profile does.
+*/
+std::string MMVII_SysTempDir()
+{
+    std::error_code aEc;
+    fs::path aDir = fs::temp_directory_path(aEc);
+    if (aEc)
+    {
+        MMVII_USER_WARNING("No system temporary directory (" + aEc.message() + "), using the current one");
+        aDir = ".";
+    }
+    return aDir.generic_string();
+}
+
 } // Namespace MMVII
 
