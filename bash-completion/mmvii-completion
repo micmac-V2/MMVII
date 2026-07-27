@@ -5,7 +5,7 @@ _mmvii_completion()
   export COMP_LINE COLUMNS
   local cur cword
   _get_comp_words_by_ref -n = cur cword
-  local RESULT="$(python -  "$cur" "$cword" <<'EOT'
+  local RESULT="$(${_MMVII_COMPLETION_INTERPRETER} -  "$cur" "$cword" <<'EOT'
 import sys
 import os
 import json
@@ -314,5 +314,17 @@ EOT
   fi
 }
 
-complete -F _mmvii_completion MMVII MMVII.exe mmvii mmvii.exe
+# Resolve the interpreter once, here, and not on each completion: Ubuntu has provided
+# no "python" at all since 20.04 unless python-is-python3 is installed, while on Windows
+# only "python" exists, and it may be a python2 unable to run the completion script.
+_MMVII_COMPLETION_INTERPRETER=
+if command -v python3 > /dev/null 2>&1 ; then
+  _MMVII_COMPLETION_INTERPRETER=python3
+elif command -v python > /dev/null 2>&1 && python -c 'import sys ; sys.exit(sys.version_info[0] < 3)' > /dev/null 2>&1 ; then
+  _MMVII_COMPLETION_INTERPRETER=python
+fi
+
+if [ -n "${_MMVII_COMPLETION_INTERPRETER}" ] ; then
+  complete -F _mmvii_completion MMVII MMVII.exe mmvii mmvii.exe
+fi
 
