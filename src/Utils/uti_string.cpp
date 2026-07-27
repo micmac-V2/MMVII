@@ -497,15 +497,15 @@ bool RemoveFile(const  std::string & aFile,bool SVP)
 {
    //  The error_code overload is required, for the same reason as in CreateDirectories
    std::error_code aEc;
-   bool Ok = fs::remove(aFile,aEc);   //  false with no error if the file did not exist
+   fs::remove(aFile,aEc);   //  a non existing file is not an error : it just has nothing to remove
 
    MMVII_INTERNAL_ASSERT_User
    (
-        Ok || SVP,
+        (!aEc) || SVP,
         eTyUEr::eRemoveFile,
-        "Cannot remove file for arg " + aFile + (aEc ? (" : " + aEc.message()) : std::string())
+        "Cannot remove file for arg " + aFile + " : " + aEc.message()
    );
-   return Ok;
+   return ! aEc;
 }
 
 /** remove a pattern of file */
