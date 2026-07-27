@@ -16,6 +16,7 @@ cBA_LidarBase::cBA_LidarBase(cPhotogrammetricProject * aPhProj,
     mBA         (aBA),                                 // memorize the bundel adj class itself (access to optimizer)
     mParamInterpol (aInterp),
     mInterp     (cDiffInterpolator1D::AllocFromNames(mParamInterpol)),
+    mInterpLin  (cDiffInterpolator1D::AllocFromNames({"Linear"})),
     mEq         (nullptr),                             // equation of egalisation Lidar/Phgr
     mWFactor      (1/Square(aSigma)),
     mNbUsedPoints (0),
@@ -28,6 +29,7 @@ cBA_LidarBase::cBA_LidarBase(cPhotogrammetricProject * aPhProj,
 cBA_LidarBase::~cBA_LidarBase()
 {
     delete mInterp;
+    delete mInterpLin;
 }
 
 //---------------------------------------------------
@@ -1262,7 +1264,8 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             }
             if (aGenDImDist.InsideInterpolator(*mInterp,aPIm,1.0))  // is it sufficiently inside
             {
-                auto aVGr = aGenDImDist.GetValueAndGradInterpol(*mInterp,aPIm); // extract pair Value/Grad of image
+                auto aVGr = aGenDImDist.GetValueAndGradInterpol(*mInterpLin,aPIm); // extract pair Value/Grad of image
+
                 aData.mVGr = {aVGr};
                 #ifdef SCANSCANDEBUG
                 std::cout<<aPIm<<" GetValueAndGradInterpol: "<<aVGr.first<<" "<<aVGr.second.x()*1940<<" "<<aVGr.second.y()*1940<<"\n";

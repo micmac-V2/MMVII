@@ -546,6 +546,7 @@ protected :
     cMMVII_BundleAdj&              mBA;             ///< The global bundle adj structure
     std::vector<std::string>       mParamInterpol;  ///< the interpol parameters, to be able to modify it
     cDiffInterpolator1D *          mInterp;         ///< Interpolator, used to extract  Value & Grad of images
+    cDiffInterpolator1D *          mInterpLin;      ///< Linar interpolator for global usage
     cCalculator<double>  *         mEq;      ///< Calculator used for constrain the pose from image obs
     cWeightAv<tREAL8,tREAL8>       mLastResidual;   ///< Accumulate the radiometric residual
     double                         mWFactor;          ///< weight for observations
