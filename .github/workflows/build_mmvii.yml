@@ -59,7 +59,7 @@ jobs:
 
     - name: Upload MMVII documentaion
       if: github.ref_name == 'main'
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
           name: 'MMVII Documentation - Latest'
           tag_name: MMVII_Documentation
@@ -182,7 +182,7 @@ jobs:
       run: docker run --rm "$DOCKER_IMAGE:latest" MMVII Bench 1
 
     - name: Log in to GHCR
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
@@ -208,17 +208,24 @@ jobs:
 
     - name: Generate token to download libelise.a
       id: app-token
-      uses: tibdex/github-app-token@v2
+      # Replaces tibdex/github-app-token, archived since 2025-07 and left on node 20.
+      # Beware: unlike it, this action scopes the token to the *current* repository
+      # when owner and repositories are omitted, which would not give access to
+      # libelise-win-dev. Hence the two lines below, naming the repository cloned by
+      # the next step -- keep them in step with it.
+      uses: actions/create-github-app-token@v3
       with:
-        app_id: ${{ secrets.LIBELISE_APP_ID }}
-        private_key: ${{ secrets.LIBELISE_APP_PRIVATE_KEY }}
+        app-id: ${{ secrets.LIBELISE_APP_ID }}
+        private-key: ${{ secrets.LIBELISE_APP_PRIVATE_KEY }}
+        owner: micmac-V2
+        repositories: libelise-win-dev
 
     - name: Download libelise.a
       run: |
           git clone https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/micmac-V2/libelise-win-dev.git
 
     - name: Install Miniconda 
-      uses: conda-incubator/setup-miniconda@v3
+      uses: conda-incubator/setup-miniconda@v4
       with:
          auto-update-conda: true
          conda-remove-defaults: true
@@ -278,7 +285,7 @@ jobs:
       run: gh release delete Windows_MMVII_build -y --cleanup-tag
 
     - name: Upload binaries to release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         name: 'Windows MMVII build - Latest'
         tag_name: Windows_MMVII_build
@@ -321,7 +328,7 @@ jobs:
 
     - name: Install Miniconda 
       if: runner.os == 'Windows'
-      uses: conda-incubator/setup-miniconda@v3
+      uses: conda-incubator/setup-miniconda@v4
       with:
          auto-update-conda: true
 
@@ -415,7 +422,7 @@ jobs:
       run: python ex_test.py
 
     - name: Upload MMVII apipy
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
           name: 'MMVII Python API - Latest'
           tag_name: MMVII_APIPY
