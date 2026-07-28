@@ -452,6 +452,14 @@ template <class Type>  class cIm2D
        tDIM *                mPIm;   ///< raw pointer on mSPtr, a bit faster to store it ?
 };
 
+/** A rather specific case of optimzation the optimal affectation problem
+ *  using "Hungarian's algorithm". Given a square matrix C of cost , find the
+ *  permutation P that minimize :
+ *      Sum C(i,P(i))
+ *  If the matrix has size NxN, computation time is O(N^3).
+ */
+cIm1D<tINT4> OptAffect_HongrAlgo(cIm2D<tINT4>)  ;
+
 
 /**  Mother Class for application that parse an image in small blocs
 

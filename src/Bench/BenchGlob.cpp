@@ -609,6 +609,7 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
         BenchL1Solver(aParam);
         Bench_MatEss(aParam);
         Bench_SpatialIndex(aParam);
+        Bench_AlgoHongrois(aParam);
         Bench_ToHomMult(aParam);
         BenchLinearConstr(aParam);
 
