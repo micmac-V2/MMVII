@@ -120,8 +120,8 @@ void OneBench_AlgoHongrois(int aNb)
 
 void Bench_AlgoHongrois(cParamExeBench & aParam)
 {
-    StdOut() << "Bench_AlgoHongroisssss\n";
     if (! aParam.NewBench("AlgoHongrois")) return;
+    StdOut() << "Bench_AlgoHongroisssss\n";
 
     MMVII_INTERNAL_ASSERT_bench( iFactorial(4)==24, "Factorial 4");
     MMVII_INTERNAL_ASSERT_bench( iFactorial(5)==120,"Factorial 5");
