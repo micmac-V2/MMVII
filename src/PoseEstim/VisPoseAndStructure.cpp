@@ -25,7 +25,7 @@ cAppli_VisuPoseStr3D::cAppli_VisuPoseStr3D(const std::vector<std::string> & aVAr
     mBinary         (true),
     mWithRGB        (true),
     mWithAvgRGB     (false),
-    mTopoLineSpacing(0.1)
+    mTopoLineSpacing(0.05)
 {
 }
 
@@ -177,7 +177,7 @@ void cAppli_VisuPoseStr3D::HandleGCP2D(
     {
         for (auto const &point : Val(points).mVPGround)
         {
-            aPlyverts.Draw3DCrossAsVert(point, {1., 0.2, 0.2});
+            aPlyverts.Draw3DCrossAsVert(point, {1., 0.2, 0.2}, mCamScale * 3, 0.01);
         }
     }
 }
@@ -199,7 +199,7 @@ void cAppli_VisuPoseStr3D::HandleGCP3D(
 
     for (auto & aMesGCP: aSetMes.MesGCP())
     {
-        aPlyverts.Draw3DPlusAsVert(aMesGCP.mPt, {0.,0.2,1.});
+        aPlyverts.Draw3DPlusAsVert(aMesGCP.mPt, {0.,0.2,1.}, mCamScale * 3, 0.01);
     }
 
     if (!mPhProj.DPTopoMes().DirInIsInit()) return;
