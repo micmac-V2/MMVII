@@ -589,6 +589,10 @@ tINT4 HCF(tINT4 a,tINT4 b); ///< = PGCD = Highest Common Factor
 tREAL8   rBinomialCoeff(int aK,int aN);
 tU_INT8  liBinomialCoeff(int aK,int aN);
 tU_INT4  iBinomialCoeff(int aK,int aN);
+tREAL8 rFactorial(int aN);
+int iFactorial(int aN);
+
+
 /** ****************  cDecomposPAdikVar *************
 
  P-adik decomposition
