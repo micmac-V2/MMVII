@@ -137,12 +137,26 @@ static void CheckProfileName(const std::string & aName)
 /**  Thrown by cProfileErrorCatcher, caught in this file, never crosses its interface */
 struct cProfileError
 {
+    std::string mType;
     std::string mMes;
 };
 
 static void ProfileErrorHandler(const std::string & aType,const std::string & aMes,const char *,int)
 {
-    throw cProfileError{aType + " " + aMes};
+    throw cProfileError{aType,aMes};
+}
+
+/**  Could the profile not be *reached*, as opposed to not be understood ?  Being unable to
+     create the directory or to open the file is an ordinary situation -- a read only home, a
+     first run on a system where nothing may be written -- which must stay silent. An
+     unusable content is different: the file is there, the user believes their settings
+     apply, and they silently do not; that one deserves a warning.
+     Built with E2Str so that renaming an enumerator cannot silently break the test.
+*/
+static bool IsUnreachableProfile(const std::string & aTypeOfError)
+{
+    return    (aTypeOfError == "UserEr:" + E2Str(eTyUEr::eOpenFile))
+           || (aTypeOfError == "UserEr:" + E2Str(eTyUEr::eCreateDir));
 }
 
 /**  While such an object is alive, a MMVII error throws a cProfileError instead of aborting.
@@ -295,6 +309,8 @@ std::string cMMVII_Appli::GetProfileName()
 void cMMVII_Appli::InitProfile()
 {
     TheProfileFailure = "";
+    //  A profile that cannot even be located or reached is not worth a warning, see below
+    bool aProfileIsUnusable = false;
     mDirUserProfile = MMVII_UserConfigDir(SVP::Yes);
     if (mDirUserProfile.empty())
     {
@@ -339,13 +355,18 @@ void cMMVII_Appli::InitProfile()
         }
         catch (const cProfileError & anError)
         {
-            TheProfileFailure = anError.mMes;
+            TheProfileFailure = anError.mType + " " + anError.mMes;
+            aProfileIsUnusable = ! IsUnreachableProfile(anError.mType);
         }
     }
     if (! TheProfileFailure.empty())
     {
         //  Nothing can be read from or written to a profile, run with the built-in values.
         //  Empty directory marks the profile as unusable, see GlobProfileNames and EditProfile
+        //  Warn only when a profile exists but cannot be understood : the user thinks their
+        //  settings apply, and they do not. Not being able to reach one stays silent.
+        if (aProfileIsUnusable)
+           MMVII_USER_WARNING("Invalid user profile, running with the built-in values : " + TheProfileFailure);
         mDirUserProfile = "";
         mUserProfile = "";
         mParamProfile = BuiltInProfile();
