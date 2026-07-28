@@ -23,10 +23,21 @@
 # Usage: the container runs a shell, so that a whole session of MMVII commands
 # costs one container instead of one per command, and so that the completion is
 # available. Giving a command line runs it directly instead.
-#     docker run --rm -it -v "$PWD:/data" <image>          # a shell, with completion
 #     docker run --rm <image> MMVII                        # list the MMVII commands
 #     docker run --rm <image> MMVII Bench 1                # run the benches
-#     docker run --rm -v "$PWD:/data" <image> MMVII <cmd> <args>   # a single command
+#
+# Working on the files of the user needs three things, and --user is not a detail:
+# without it the container runs as the uid below, which cannot write in a bind mount
+# unless the host account happens to have that same uid, and MMVII dies on its log
+# file. Mounting under the *host* paths then makes an absolute path designate the same
+# file on both sides. See README.md, which documents this for the user.
+#     docker run --rm -it --user "$(id -u):$(id -g)" -e HOME="$HOME" \
+#         -v "$HOME:$HOME" -v "$PWD:$PWD" -w "$PWD" <image> [MMVII <cmd> <args>]
+#
+# Singularity/Apptainer needs none of that -- it runs as the invoking user and binds
+# the current and home directories itself:
+#     singularity run mmvii.sif                            # a shell, with completion
+#     singularity run mmvii.sif MMVII <cmd> <args>         # a single command
 
 ARG UBUNTU_VERSION=24.04
 FROM ubuntu:${UBUNTU_VERSION}
@@ -78,13 +89,35 @@ RUN userdel --remove ubuntu \
 
 # MMVII deduces the root of its installation from the canonical path of its own
 # executable (<directory of the executable>/..), so this layout is a contract:
-# bin/ and the data directories must remain siblings. MMVII also writes inside
-# its own tree (MMVII-TestDir/Tmp/ for the benches), hence the ownership.
-COPY --chown=mmvii:mmvii MMVII /opt/MMVII
+# bin/ and the data directories must remain siblings.
+#
+# Left owned by root, hence read only for the user running the container. Nothing
+# writes in the installation: the benches work in the system temporary directory and
+# the profile under $HOME. The only exception, EditCamDataBase asked for its LocalMVVI
+# or GlobalMMVII database, cannot work here and could not anyway: this image is also
+# meant to be converted to a Singularity/Apptainer SIF, whose filesystem is read only
+# and which runs as the invoking user, so no ownership inside the image would help.
+# Being root owned makes that constraint explicit under Docker too, and turns a
+# regression writing in the installation into a visible failure -- the image build
+# runs MMVII after USER mmvii below, and the CI runs the benches in the container.
+COPY MMVII /opt/MMVII
 
 # Resolving the symlink gives back /opt/MMVII/bin/MMVII, so the installation
 # root is still found when MMVII is invoked by its short name.
 RUN ln -s /opt/MMVII/bin/MMVII /usr/local/bin/MMVII
+
+# Gives the *host* shell an MMVII command and its completion, without installing
+# anything there. Run without argument, it prints the command the user has to type;
+# it serves Docker and Singularity/Apptainer, detecting which one runs it.
+RUN ln -s /opt/MMVII/bash-completion/mmvii-bash-init /usr/local/bin/mmvii-bash-init
+
+# Name under which this image is published, the only way mmvii-bash-init can name it
+# in the MMVII function it generates: a Docker container cannot know the image it started
+# from, its hostname being the container id. Singularity/Apptainer needs nothing here,
+# the path of the SIF being exposed in the container. Empty for a manual build, which
+# then falls back on an argument or on a placeholder.
+ARG MMVII_IMAGE=
+ENV MMVII_IMAGE=${MMVII_IMAGE}
 
 # Command completion for an interactive shell. The generated mmvii-completion is
 # self-contained -- make_completion.sh inlines the python script in it as a here

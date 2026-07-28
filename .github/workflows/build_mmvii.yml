@@ -6,6 +6,12 @@ on:
       - 'main'
       # Branches allowed to publish a Docker image, tagged after the branch.
       # '*' does not match '/', so a branch reaching here has no '/' in its name.
+      #
+      # Such a branch builds the image and nothing else: the Windows and Python API
+      # jobs, the documentation and every release step are restricted to main, by an
+      # 'if' repeated on each of them. It has to be repeated because a job-level 'if'
+      # sees only the github, needs, vars and inputs contexts -- not env -- so the
+      # condition cannot be factored into a workflow-level variable.
       - 'docker-*'
 
 jobs:
@@ -24,27 +30,35 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
-    - name: Install Qt and clang
+    - name: Install clang
+      # No Qt: vMMVII is the only thing needing it, and it is not built here.
+      # vMMVII_BUILD defaults to OFF and this job does not turn it on, so CMake
+      # never even looks for Qt -- its find_package calls sit inside that option's
+      # branch. Only the Windows job builds vMMVII, with its own Qt 5.15 install.
       run: |
         sudo apt update
-        sudo apt install qtbase5-dev clang-18 libomp-18-dev
+        sudo apt install clang-18 libomp-18-dev
 
     - name: Install libproj and libgdal
       run: sudo apt install libproj-dev proj-data libgdal-dev
 
     - name: Install pdflatex
+      if: github.ref_name == 'main'
       run: sudo apt install texlive-latex-base texlive-latex-extra texlive-fonts-recommended texlive-fonts-extra texlive-science
 
     - name: Build MMVII documentation
+      if: github.ref_name == 'main'
       run: make -C Doc a4
 
     - name: Remove previous MMVII documentation release
+      if: github.ref_name == 'main'
       env:
          GH_TOKEN: ${{ github.token }}
       continue-on-error: true
       run: gh release delete MMVII_Documentation -y --cleanup-tag
 
     - name: Upload MMVII documentaion
+      if: github.ref_name == 'main'
       uses: softprops/action-gh-release@v2
       with:
           name: 'MMVII Documentation - Latest'
@@ -67,12 +81,17 @@ jobs:
       run: ./MMVII Bench 1
 
     - name: Remove previous MMVII ApiPy release
+      if: github.ref_name == 'main'
       env:
          GH_TOKEN: ${{ github.token }}
       continue-on-error: true
       run: gh release delete MMVII_APIPY -y --cleanup-tag
 
     - name: Upload build artifacts
+      # Consumed by build_apipy alone, which does not run on a docker-* branch.
+      # The Docker steps below do not use it either: they take bin/MMVII straight
+      # from the workspace. Several hundred megabytes, so not uploaded for nothing.
+      if: github.ref_name == 'main'
       uses: actions/upload-artifact@v6
       with:
         name: linux-build-artifacts
@@ -154,6 +173,7 @@ jobs:
         . /etc/os-release
         docker build \
             --build-arg UBUNTU_VERSION="$VERSION_ID" \
+            --build-arg MMVII_IMAGE="$DOCKER_IMAGE:latest" \
             --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
             --tag "$DOCKER_IMAGE:latest" \
             docker-context
@@ -177,7 +197,10 @@ jobs:
 
 
   build_win:
-    if: true
+    # Nothing to do with the Docker image, which is a Linux one: skipped on a
+    # docker-* branch. That also spares it the libelise app token, which a fork
+    # testing an image has no reason to hold.
+    if: github.ref_name == 'main'
     runs-on: windows-latest
 
     steps:
@@ -272,6 +295,8 @@ jobs:
           MMVII/bin/MMVII.exe
 
   build_apipy:
+    # Skipped on a docker-* branch: the Python API is not part of the image.
+    if: github.ref_name == 'main'
     needs: [build_linux] #[build_linux, build_win]
     strategy:
       fail-fast: false

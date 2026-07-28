@@ -5,7 +5,7 @@ _mmvii_completion()
   export COMP_LINE COLUMNS
   local cur cword
   _get_comp_words_by_ref -n = cur cword
-  local RESULT="$(${_MMVII_COMPLETION_INTERPRETER} -  "$cur" "$cword" <<'EOT'
+  local RESULT="$(${_MMVII_COMPLETION_INTERPRETER} -  "$cur" "$cword" "${_MMVII_COMPLETION_CACHE}" <<'EOT'
 import sys
 import os
 import json
@@ -16,6 +16,11 @@ debug=0
 
 cur_word=sys.argv[1]
 comp_cword=int(sys.argv[2])
+#  Optional: a directory holding the output of the two MMVII calls this script would
+#  otherwise make, under the names read by readCacheFile below. It is what lets the
+#  completion work where MMVII cannot be run, typically a host completing an MMVII
+#  that only exists inside a container.
+cache_dir=sys.argv[3] if len(sys.argv)>3 else None
 comp_line=os.getenv('COMP_LINE')
 screen_columns=int(os.getenv('COLUMNS','80'))
 
@@ -214,24 +219,42 @@ def printSpecHelp(all_specs, spec, value) -> None:
         print(f"File:compgen -d -o filenames -- '{value}'")
         return
 
-def printPatBench(arg) -> None:
+def readCacheFile(name) -> str:
+    """ Content of a file of cache_dir, standing for the output of an MMVII call """
     try:
-        result=subprocess.run(['MMVII','Bench','1','PatBench=XXX'],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
-    except:
-        printMsgExit('>ERROR: MMVII not found.',1)
+        with open(os.path.join(cache_dir,name)) as f:
+            return f.read()
+    except OSError:
+        printMsgExit(f">ERROR: can't read {name} in {cache_dir}.",1)
 
-    benches=re.findall(r'^\s*[-#]\s*(\S+)', result.stdout, flags=re.MULTILINE)
+
+def printPatBench(arg) -> None:
+    if cache_dir:
+        output=readCacheFile('BenchNames.txt')
+    else:
+        try:
+            result=subprocess.run(['MMVII','Bench','1','PatBench=XXX'],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
+        except:
+            printMsgExit('>ERROR: MMVII not found.',1)
+        output=result.stdout
+
+    benches=re.findall(r'^\s*[-#]\s*(\S+)', output, flags=re.MULTILINE)
     benches.append("XXX")
     printFilter(arg,benches)
 
 
 def getAllSpecs() -> dict:
+    #  Holds the command list too, under 'applets': there is no separate source for it
+    if cache_dir:
+        output=readCacheFile('GenArgsSpec.json')
+    else:
+        try:
+            result=subprocess.run(['MMVII','GenArgsSpec'],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
+        except:
+            printMsgExit('>ERROR: MMVII not found.',1)
+        output=result.stdout
     try:
-        result=subprocess.run(['MMVII','GenArgsSpec'],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
-    except:
-        printMsgExit('>ERROR: MMVII not found.',1)
-    try:
-        all_specs=json.loads(result.stdout)
+        all_specs=json.loads(output)
     except json.JSONDecodeError as e:
         if debug>0:
             print("JSON error: ",e,sys.stderr)
@@ -323,6 +346,13 @@ if command -v python3 > /dev/null 2>&1 ; then
 elif command -v python > /dev/null 2>&1 && python -c 'import sys ; sys.exit(sys.version_info[0] < 3)' > /dev/null 2>&1 ; then
   _MMVII_COMPLETION_INTERPRETER=python
 fi
+
+# Directory holding the output of the MMVII calls the completion would otherwise make,
+# so that it can complete without running MMVII at all. Left empty here: MMVII is on the
+# PATH in a normal installation. It is set by whoever sources this file in a context
+# where MMVII cannot be run -- the init script of the container image, which fills that
+# directory on the host and points this variable at it.
+: ${_MMVII_COMPLETION_CACHE:=}
 
 if [ -n "${_MMVII_COMPLETION_INTERPRETER}" ] ; then
   complete -F _mmvii_completion MMVII MMVII.exe mmvii mmvii.exe
