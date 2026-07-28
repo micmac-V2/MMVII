@@ -146,6 +146,19 @@ struct cParamFixGauge
     )
 };
 
+///  One entry of the "SharedIP" command-line argument : the intrinsic parameters matching
+///  PatParam are shared by all the calibrations matching PatCal.  Replaces a flat vector
+///  read two by two, so the pairing is now carried by the type.
+struct cSharedIPParam
+{
+    std::string PatCal;     ///< Pattern on calibration name
+    std::string PatParam;   ///< Pattern on parameter name
+    ARG2007_STRUCT_FIELDS (
+        PatCal,  FieldSem({eTA2007::AddCom,"Pattern on calibration name"}),
+        PatParam,FieldSem({eTA2007::AddCom,"Pattern on parameter name"})
+    )
+};
+
 /**  "Standard" weighting classes, used the following formula
  *
  *    W(R) =
@@ -797,7 +810,7 @@ class cMMVII_BundleAdj
           void SetFrozenCenters(const std::string & aPattern);
           void SetFrozenOrients(const std::string & aPattern);
           void SetFrozenClinos(const std::string & aPattern);
-          void SetSharedIntrinsicParams(const std::vector<std::string> &);
+          void SetSharedIntrinsicParams(const std::vector<cSharedIPParam> &);
            
           void SetGaugeRelPause(const cParamFixGauge &);
          // void SetGaugeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
@@ -902,7 +915,7 @@ class cMMVII_BundleAdj
           std::string  mPatFrozenOrient;      /// Pattern for name of pose with frozen centers
           std::string  mPatFrozenClinos;      /// Pattern for name of clino with frozen boresight
 
-          std::vector<std::string>  mVPatShared;
+          std::vector<cSharedIPParam>  mVPatShared;
 
           std::vector<int>          mTiePShowPerMil;
 

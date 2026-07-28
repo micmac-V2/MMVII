@@ -647,7 +647,7 @@ void cMMVII_BundleAdj::SetFrozenClinos(const std::string & aPattern)
     mPatFrozenClinos = aPattern;
 }
 
-void cMMVII_BundleAdj::SetSharedIntrinsicParams(const std::vector<std::string> & aVParams)
+void cMMVII_BundleAdj::SetSharedIntrinsicParams(const std::vector<cSharedIPParam> & aVParams)
 {
     mVPatShared = aVParams;
 }
@@ -656,11 +656,10 @@ typedef std::tuple<int,std::string,tREAL8 *> tISRP;
 
 void cMMVII_BundleAdj::CompileSharedIntrinsicParams(bool ForAvg)
 {
-    MMVII_INTERNAL_ASSERT_tiny((mVPatShared.size()%2)==0,"Expected even size for shared intrinsic params");
     bool  Show = ForAvg;
 
     // Parse the pair Pattern Name Cam / Pattern Name Params
-    for (size_t aKPat=0 ; aKPat<mVPatShared.size() ; aKPat+=2)
+    for (const auto & aPatShared : mVPatShared)
     {
         std::map<std::string,std::vector<int>> aMapSharedIndexes; // store the shared index of a given param name
         std::map<std::string,std::vector<std::string>> aMapNames; // store the sharing as name, for show
@@ -668,10 +667,10 @@ void cMMVII_BundleAdj::CompileSharedIntrinsicParams(bool ForAvg)
         // Parse the calib and select those which name match the pattern name cam
         for (auto  aPtrCal : mVPCIC)
         {
-            if (MatchRegex(aPtrCal->Name(),mVPatShared[aKPat]))
+            if (MatchRegex(aPtrCal->Name(),aPatShared.PatCal))
             {
                 // Extract information on parameter macthing the pattern of params
-                cGetAdrInfoParam<tREAL8>  aGIP(mVPatShared[aKPat+1],*aPtrCal,false);
+                cGetAdrInfoParam<tREAL8>  aGIP(aPatShared.PatParam,*aPtrCal,false);
                 for (size_t aKParam=0 ; aKParam<aGIP.VAdrs().size() ; aKParam++)
                 {
                     tREAL8 * aAdr                 = aGIP.VAdrs().at(aKParam);
@@ -689,8 +688,8 @@ void cMMVII_BundleAdj::CompileSharedIntrinsicParams(bool ForAvg)
         if (Show)
         {
                 StdOut()  << "=========== Shared params for"
-                          << " PatName ={" << mVPatShared[aKPat] << "}"
-                          << " PatCal={" << mVPatShared[aKPat+1] << "}"
+                          << " PatCal={" << aPatShared.PatCal << "}"
+                          << " PatParam={" << aPatShared.PatParam << "}"
                           << " ============ " << std::endl;
         }
         for (const auto & [aNamePar,aVTuple] : aMapValues)
@@ -724,8 +723,8 @@ void cMMVII_BundleAdj::CompileSharedIntrinsicParams(bool ForAvg)
            if (Show)
            {
                 StdOut()  << "=========== Shared params for"
-                          << " PatName ={" << mVPatShared[aKPat] << "}"
-                          << " PatCal={" << mVPatShared[aKPat+1] << "}"
+                          << " PatCal={" << aPatShared.PatCal << "}"
+                          << " PatParam={" << aPatShared.PatParam << "}"
                           << " ============ " << std::endl;
                 for (const auto & [aNamePar,aVNameCam] : aMapNames)
                 {

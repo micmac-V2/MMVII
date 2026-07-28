@@ -268,7 +268,7 @@ class cAppliBundlAdj : public cMMVII_Appli
         cPoseViscParam            mViscPose;
         tREAL8                    mLVM;  ///< Levenberk Markard
         bool                      mMeasureAdded ;
-        std::vector<std::string>  mVSharedIP;  ///< Vector for shared intrinsic param
+        std::vector<cSharedIPParam>  mVSharedIP;  ///< Vector for shared intrinsic param
         bool                      mShow_Cond; ///< compute and show system condition number
         std::vector<std::string>  mParamShow_UK_UC;
         std::string               mPostFixReport;
@@ -310,7 +310,7 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
           anArgOpt
      // << AOpt2007(mDataDir,"DataDir","Default data directories ",{eTA2007::HDV})
       << AOpt2007(mParamRefOri,"RefOri","Reference orientation")
-      << AOpt2007(mVSharedIP,"SharedIP","Shared intrinc parmaters [Pat1Cam,Pat1Par,Pat2Cam...] ",{{eTA2007::ISizeV,"[2,20]"}})
+      << AOpt2007(mVSharedIP,"SharedIP","Shared intrinsic parameters",{eTA2007::CanRepeat})
       << AOpt2007(mPostFixReport,NameParamPostFixReport(),CommentParamPostFixReport())
       << AOpt2007(mParamLine,"AdjLine3D","Parameter for line Adjustment")
 
