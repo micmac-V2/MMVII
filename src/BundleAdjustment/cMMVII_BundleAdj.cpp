@@ -758,23 +758,24 @@ int cMMVII_BundleAdj::IndexOfPCPose(const std::string &aNameIm,bool SVP ) const
     return -1;
 }
 
-void cMMVII_BundleAdj::SetGaugeRelPause(const std::vector<std::string> & aVNames)
+void cMMVII_BundleAdj::SetGaugeRelPause(const cParamFixGauge & aParam)
 {
 
     cWhichMax<cPt3di,tREAL8> aWMaxInd;
 
-    bool aN1Fix =    aVNames.size()>=1;
-    bool aN2Fix =    aVNames.size()>=2;
-    bool aCoordFix = aVNames.size()>=3;
+    //  an empty field means "not fixed" : the system then chooses it
+    const std::string & aN1 = aParam.MainIm;
+    const std::string & aN2 = aParam.SecIm;
 
-    std::string aN1 = aN1Fix ? aVNames.at(0) : "";
-    std::string aN2 = aN2Fix ? aVNames.at(1) : "";
+    bool aN1Fix =    ! aN1.empty();
+    bool aN2Fix =    ! aN2.empty();
+    bool aCoordFix = ! aParam.Coord.empty();
 
     std::vector<std::string> aVCoord{"x","y","z"};
     int aKCoord = -1;
     if (aCoordFix)
     {
-        auto anIter = std::find(aVCoord.begin(),aVCoord.end(),aVNames.at(2));
+        auto anIter = std::find(aVCoord.begin(),aVCoord.end(),aParam.Coord);
         MMVII_INTERNAL_ASSERT_always(anIter!=aVCoord.end(),"SetGaugeRelPause bad coord");
         aKCoord = anIter - aVCoord.begin();
     }

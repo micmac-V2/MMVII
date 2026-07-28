@@ -129,6 +129,23 @@ struct cParamClinoBOI
     )
 };
 
+///  Parameters of the "FixGauge" command-line argument : which pair of poses and which
+///  coordinate fix the gauge of a purely relative orientation.  An empty field means
+///  "not fixed", the system then choosing the pair/coordinate maximizing the base.
+///  MMVII_NONE in MainIm disables the gauge altogether; it is tested by the caller,
+///  before this structure reaches cMMVII_BundleAdj::SetGaugeRelPause.
+struct cParamFixGauge
+{
+    std::string MainIm = "";   ///< Main image      ("" -> free, MMVII_NONE -> no gauge at all)
+    std::string SecIm  = "";   ///< Secondary image ("" -> free)
+    std::string Coord  = "";   ///< Coordinate in x,y,z ("" -> free)
+    ARG2007_STRUCT_FIELDS (
+        MainIm,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Main image (def=free), or "+MMVII_NONE+" to have no gauge at all"}}),
+        SecIm, FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Secondary image (def=free)"}}),
+        Coord, FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Coordinate (def=free)"},{eTA2007::AllowedValues,"[x,y,z]"}})
+    )
+};
+
 /**  "Standard" weighting classes, used the following formula
  *
  *    W(R) =
@@ -782,7 +799,7 @@ class cMMVII_BundleAdj
           void SetFrozenClinos(const std::string & aPattern);
           void SetSharedIntrinsicParams(const std::vector<std::string> &);
            
-          void SetGaugeRelPause(const std::vector<std::string> &);
+          void SetGaugeRelPause(const cParamFixGauge &);
          // void SetGaugeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
 
           void AddPoseViscosity();

@@ -261,7 +261,7 @@ class cAppliBundlAdj : public cMMVII_Appli
 
         std::string               mPatParamFrozCalib;
         std::vector<cFreeCalibParam>  mVVParFreeCalib;
-        std::vector<std::string>  mParamGaugeRel;
+        cParamFixGauge            mParamGaugeRel;
         std::string               mPatFrosenCenters;
         std::string               mPatFrosenOrient;
         std::string               mPatFrosenClino;
@@ -342,7 +342,7 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mPatFrosenCenters,"PatFzCenters","Pattern of images for freezing center of poses")
       << AOpt2007(mPatFrosenOrient,"PatFzOrient","Pattern of images for freezing orientation of poses")
       << AOpt2007(mPatFrosenClino,"PatFzClino","Pattern of clinometers for freezing boresight")
-      << AOpt2007(mParamGaugeRel,"FixGauge","Param for gauge in pure relative [MainIm?,SecIm?,Coord in x,y,z?]",{{eTA2007::ISizeV,"[0,3]"}})
+      << AOpt2007(mParamGaugeRel,"FixGauge","Param for gauge in pure relative")
 
 
            << "Computation"
@@ -537,7 +537,7 @@ int cAppliBundlAdj::Exe()
         AddOneSetTieP(aTieP.Folder, aTieP.Sigma, aTieP.SigmaAttenuation, aTieP.Threshold, aTieP.Exponent);
 
     bool hasGauge = IsInit(&mParamGaugeRel);
-    bool forceNoGauge =   (!mParamGaugeRel.empty()) && (mParamGaugeRel.at(0)==MMVII_NONE);
+    bool forceNoGauge =   (mParamGaugeRel.MainIm==MMVII_NONE);
     if ((!hasConstrOriPC) && (!hasGauge) && (mBA.NbCamPC()!=0) && (!forceNoGauge))
     {
             MMVII_USER_TYPED_WARNING(eTyUEr::eForceGauge,"Gauge in pure relative pause not specified, added by system");
