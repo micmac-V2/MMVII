@@ -54,17 +54,20 @@ else
 fi
 
 if [ "${1:-}" != "--emit" ] ; then
-    #  Show mode: the command to type.
-    echo "To give this shell the MMVII command and its completion, type:"
-    echo
+    #  Show mode: the command to type. Every line but the command itself is a shell
+    #  comment, so that sourcing this output by mistake -- forgetting --emit is easy,
+    #  the two modes differing by one word -- does the right thing instead of trying to
+    #  run the prose as commands.
+    echo "# To give this shell the MMVII command and its completion, type:"
+    echo "#"
     echo "    source <($RUN_IMAGE mmvii-bash-init --emit)"
-    echo
+    echo "#"
     if [ "$IMAGE" = '<image>' ] ; then
-        echo "Replace <image> by the image this container was started from: Docker does"
-        echo "not expose it, and this image was built without MMVII_IMAGE."
-        echo
+        echo "# Replace <image> by the image this container was started from: Docker does"
+        echo "# not expose it, and this image was built without MMVII_IMAGE."
+        echo "#"
     fi
-    echo "MMVII then runs the container, and works in the current directory."
+    echo "# MMVII then runs the container, and works in the current directory."
     exit 0
 fi
 
@@ -78,7 +81,7 @@ mkdir -p "$_MMVII_COMPLETION_CACHE"
 __MMVII_INIT_HEAD__
 
 echo "cat > \"\$_MMVII_COMPLETION_CACHE/GenArgsSpec.json\" <<'__MMVII_SPECS__'"
-MMVII GenArgsSpec
+MMVII GenArgsSpec Quiet=true
 echo "__MMVII_SPECS__"
 
 echo "cat > \"\$_MMVII_COMPLETION_CACHE/BenchNames.txt\" <<'__MMVII_BENCHES__'"

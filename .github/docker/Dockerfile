@@ -137,8 +137,12 @@ ENV HOME=/home/mmvii
 RUN ! ldd /opt/MMVII/bin/MMVII | grep 'not found'
 
 # Smoke test: lists the available commands. It also creates the user profile
-# (~/.config/MMVII) now, so that no first-run write is needed later.
-RUN MMVII > /dev/null
+# (~/.config/MMVII) now, so that no first-run write is needed later -- that one is
+# kept. What it leaves in the working directory is not: MMVII writes its log file and
+# its temporary directory there, and they would be baked into the published image,
+# showing up in the user's own directory whenever /data is not mounted over.
+RUN MMVII > /dev/null \
+ && find /data -mindepth 1 -delete
 
 # A command line given to docker run replaces this CMD and is executed as is, so
 # both a shell session and a one-shot "docker run <image> MMVII <cmd>" work. An
