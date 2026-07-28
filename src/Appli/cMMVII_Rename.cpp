@@ -469,7 +469,7 @@ int cAppli_Rename::Exe()
             std::string aIn= DirProject() + aVecIn.at(0);
             std::string aDirOut = DirOfPath(aOut,false);
             if ( ExistFile(aDirOut))
-                CreateDirectories(aDirOut,false);
+                CreateDirectories(aDirOut);
           //  StdOut() << "DIOOOO=" << aDirOut  << " " << ExistFile(aDirOut) << "\n";
             if (mByLink)
             {

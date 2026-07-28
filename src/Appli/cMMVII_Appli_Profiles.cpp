@@ -317,7 +317,7 @@ void cMMVII_Appli::InitProfile()
             MakeNameDir(mDirUserProfile);
 
             if (! IsInit(&mProfileName)) {
-                CreateDirectories(mDirUserProfile,SVP::No);
+                CreateDirectories(mDirUserProfile);
 
                 const std::string aSelectedProfile = mDirUserProfile + TheSelectedProfileName;
                 if (!ExistFile(aSelectedProfile))

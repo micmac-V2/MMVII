@@ -82,7 +82,7 @@ int cAppli_EpipResampling::Exe()
     {
         aOutDir += "/";
     }
-    CreateDirectories(aOutDir,false);
+    CreateDirectories(aOutDir);
     const cInterpolator1D* aInterp = cDiffInterpolator1D::AllocFromNames(mInterpol);
 
 

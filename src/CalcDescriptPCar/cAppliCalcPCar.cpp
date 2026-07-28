@@ -326,7 +326,7 @@ int cAppliCalcDescPCar::Exe()
       }
    }
 */
-   CreateDirectories(PrefixPCar(mNameIm,""),true);
+   CreateDirectories(PrefixPCar(mNameIm,""));
    mPrefixOut = PrefixPCarOut(mNameIm);
 
    // Single image, do the job ...

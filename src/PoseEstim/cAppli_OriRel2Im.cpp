@@ -1190,7 +1190,7 @@ void cAppli_OriRelPairOfIm::Generate5Pts(const tPoseR& aPoseR)
     }
 
     std::string aDirPath = mPhProj.DPTieP().FullDirOut() + mIm1 + "/";
-    CreateDirectories(aDirPath,true);
+    CreateDirectories(aDirPath);
     aCpleH5Pts.ToFile( aDirPath + mIm2 + ".csv");
 
 

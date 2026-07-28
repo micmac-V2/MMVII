@@ -1111,21 +1111,21 @@ void cMMVII_Appli::InitProject()
 {
    // Create Dir for tmp file, process etc ...
    std::string aDir = mDirProject+TmpMMVIIDirGlob;
-   CreateDirectories(aDir,true);
+   CreateDirectories(aDir);
 
    // Create Dir for Caracteristic point, if Appli output them
    if (HasSharedSPO(eSharedPO::eSPO_CarPO))
    {
-      CreateDirectories(mDirProject +TmpMMVIIDirPCar,true);
+      CreateDirectories(mDirProject +TmpMMVIIDirPCar);
    }
 
    aDir += TmpMMVIIProcSubDir;
-   CreateDirectories(aDir,true);
+   CreateDirectories(aDir);
 
    if (! mModeHelp)
    {
       aDir += mPrefixNameAppli;
-      CreateDirectories(aDir,true);
+      CreateDirectories(aDir);
       LogCommandIn(mFileLogTop,true);
    }
 }
@@ -1709,7 +1709,7 @@ const std::string & cMMVII_Appli::TmpDirTestMMVII()
    if (aFirstCall)
    {
       aFirstCall = false;
-      CreateDirectories(mTmpDirTestMMVII,SVP::No);
+      CreateDirectories(mTmpDirTestMMVII);
    }
    return mTmpDirTestMMVII;
 }

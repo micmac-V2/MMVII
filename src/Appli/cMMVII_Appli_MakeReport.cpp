@@ -27,7 +27,7 @@ void cMMVII_Appli::SetReportSubDir(const std::string & aSubDir)
 
 void  cMMVII_Appli::SetReportRedir(const std::string &anId,const std::string & aNewDir)
 {
-    CreateDirectories(aNewDir,false);
+    CreateDirectories(aNewDir);
     mMapAttrReport[anId].mDirRedirect  = aNewDir;
 }
 
@@ -57,10 +57,10 @@ void  cMMVII_Appli::InitReportCSV
 
     if ((LevelCall()==0) || (!IsMul))
     {
-         CreateDirectories(DirReport(),true);
+         CreateDirectories(DirReport());
          anAttr.mFile = DirReport()+anId + "." + aPost;
          if (IsMul)
-            CreateDirectories(DirSubPReport(anId),true);
+            CreateDirectories(DirSubPReport(anId));
     }
     else if (LevelCall()==1)
     {
@@ -212,7 +212,7 @@ void  cMMVII_Appli::DoMergeReport()
                         }
                      }
                  }
-                 RemoveRecurs(DirSubPReport(anId),false,false);
+                 RemoveRecurs(DirSubPReport(anId),false);
 
              }
              OnCloseReport(aNbLines,anId,anAttr.mFile);

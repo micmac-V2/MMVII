@@ -105,7 +105,7 @@ static std::string DirBenchEditSetRel()
     {
         cMMVII_Appli & anAp = cMMVII_Appli::CurrentAppli();
         aDirBench = anAp.TmpDirTestMMVII() + "EditSetRel" + StringDirSeparator();
-        CreateDirectories(aDirBench,false);
+        CreateDirectories(aDirBench);
         std::string aDirIn = anAp.InputDirTestMMVII() + "Files/" ;
         for (const auto & aName : GetFilesFromDir(aDirIn,AllocRegex("F[0-9]*\\.txt")))
             CopyFile(aDirIn+aName,aDirBench+aName);
@@ -156,7 +156,7 @@ static void OneBenchEditSet
     else
     {
        // First time, file may subsist from an old crash
-       RemoveFile(aDirI+Input,true);
+       RemoveFile(aDirI+Input);
     }
 
 
@@ -205,7 +205,7 @@ static void OneBenchEditSet
     );
 
     if (InitInput)
-       RemoveFile(aDirI+Input,false);
+       RemoveFile(aDirI+Input);
    
    for (int aK=0 ; aK<10 ; aK++)
    {

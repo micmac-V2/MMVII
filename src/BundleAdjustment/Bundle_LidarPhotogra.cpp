@@ -73,7 +73,7 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
     }
 
     std::string aVisuDir = aPhProj->DirVisuAppli()+aPhProj->DPOrient().DirIn() + "/";
-    CreateDirectories(aVisuDir, true);
+    CreateDirectories(aVisuDir);
     for (auto & aCam: aVImages)
     {
         int aMarginInsideImage = 1;

@@ -475,8 +475,8 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
    }
 
    // Begin with purging directory
-   CreateDirectories(TmpDirTestMMVII(),true );
-   RemoveRecurs(TmpDirTestMMVII(),true,false);
+   CreateDirectories(TmpDirTestMMVII());
+   RemoveRecurs(TmpDirTestMMVII(),true);
 
 
    {
@@ -644,7 +644,7 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
 
 
         // We clean the temporary files created
-   RemoveRecurs(TmpDirTestMMVII(),true,false);
+   RemoveRecurs(TmpDirTestMMVII(),true);
 
 
    ResetToFileIfFirstime<cPerspCamIntrCalib>();
@@ -688,11 +688,11 @@ void cAppli_MMVII_Bench::BenchFiles(cParamExeBench & aParam)
    MMVII_INTERNAL_ASSERT_always(ExistFile(aNameFile),"BenchFiles");
 
    // CreateFile(aTDir+"a/b/c/toto.txt"); Do not work directly
-   CreateDirectories(aTDir+"a/b/c/",false);
+   CreateDirectories(aTDir+"a/b/c/");
    CreateFile(aTDir+"a/b/c/toto.txt"); // Now it works
 
 
-   RemoveRecurs(TmpDirTestMMVII(),true,false);
+   RemoveRecurs(TmpDirTestMMVII(),true);
 
    aParam.EndBench();
 }

@@ -115,9 +115,9 @@ std::string ToLower(const std::string &  aStr);  ///< return lower case version
 bool UCaseEqual(const std::string & ,const std::string & ); ///< Case unsensitive equality
 bool UCaseBegin(const char * aBegin,const char * aStr); ///< Is aBegin the case UN-sensitive premisse of aStr ?
 bool UCaseMember(const std::vector<std::string> & aVec,const std::string & aName); ///< is Name meber of vec, insensitive way
-bool CreateDirectories(const std::string & aDir,bool SVP); ///< Create dir, recurs ?
-bool RemoveRecurs(const  std::string & aDir,bool ReMkDir,bool SVP); ///< Purge recursively the directory
-bool RemoveFile(const  std::string & aDir,bool SVP); ///< Remove file
+bool CreateDirectories(const std::string & aDir,bool aSVP=SVP::No); ///< Create dir, recurs ?
+bool RemoveRecurs(const  std::string & aDir,bool ReMkDir,bool aSVP=SVP::No); ///< Purge recursively the directory
+bool RemoveFile(const  std::string & aDir,bool aSVP=SVP::No); ///< Remove file
 void RenameFiles(const std::string & anOldName, const std::string & aNewName); ///< Move/Rename
 void CopyFile(const std::string & aName,const std::string & aDest);
 void CopyPatternFile(const std::string & aDirIn,const std::string & aPattern,const std::string & aDirOut);

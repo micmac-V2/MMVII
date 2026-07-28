@@ -270,7 +270,7 @@ int cAppli_ReduceVideo::Exe()
                          {
                              std::string aNameUnReduc =  mPrefixUnRed + LastPrefix(aNameInit) + mPostFRes;
                              RenameFiles(aFullN0         ,aCurDir+aNameUnReduc);
-                             RemoveFile(aCurDir+aNameTmp,false);
+                             RemoveFile(aCurDir+aNameTmp);
                              // aNameDone  =     mPrefixRed + LastPrefix(aNameInit) + "-DONE-00."+ LastPostfix(aNameInit) ;
                              // std::swap(aNameReduc,aNameReduc);
                          }

@@ -455,25 +455,25 @@ void SkipWhite(const char * & aC)
 }
 
 
-bool CreateDirectories(const std::string & aDir,bool SVP)
+bool CreateDirectories(const std::string & aDir,bool aSVP)
 {
     //  The error_code overload is required : the throwing overload raises a std::filesystem_error
     //  which nobody catches, so a failure would terminate the process through std::terminate,
-    //  bypassing the MMVII error handler, even when SVP asked for failure to be accepted.
+    //  bypassing the MMVII error handler, even when aSVP asked for failure to be accepted.
     //    - if directory is created, return true, aEc is clear
     //    - if directory is not created because already existing, return false, aEc is clear
     //    - if directory is not created because of an error, return false and aEc is set
     std::error_code aEc;
     fs::create_directories(aDir,aEc);
 
-    if (aEc && (!SVP))
+    if (aEc && (!aSVP))
     {
         MMVII_UserError(eTyUEr::eCreateDir,"Cannot create directory for arg " + aDir + " : " + aEc.message());
     }
     return ! aEc;
 }
 
-bool RemoveRecurs(const  std::string & aDir,bool ReMkDir,bool SVP)
+bool RemoveRecurs(const  std::string & aDir,bool ReMkDir,bool aSVP)
 {
     //  The error_code overload is required, for the same reason as in CreateDirectories
     std::error_code aEc;
@@ -481,19 +481,19 @@ bool RemoveRecurs(const  std::string & aDir,bool ReMkDir,bool SVP)
 
     MMVII_INTERNAL_ASSERT_User
     (
-         (!aEc) || SVP,
+         (!aEc) || aSVP,
          eTyUEr::eRemoveFile,
          "Cannot remove recursively directory for arg " + aDir + " : " + aEc.message()
     );
     if (ReMkDir)
     {
-        bool aRes = CreateDirectories(aDir,SVP);
+        bool aRes = CreateDirectories(aDir,aSVP);
         return aRes;
     }
     return ! aEc;
 }
 
-bool RemoveFile(const  std::string & aFile,bool SVP)
+bool RemoveFile(const  std::string & aFile,bool aSVP)
 {
    //  The error_code overload is required, for the same reason as in CreateDirectories
    std::error_code aEc;
@@ -501,7 +501,7 @@ bool RemoveFile(const  std::string & aFile,bool SVP)
 
    MMVII_INTERNAL_ASSERT_User
    (
-        (!aEc) || SVP,
+        (!aEc) || aSVP,
         eTyUEr::eRemoveFile,
         "Cannot remove file for arg " + aFile + " : " + aEc.message()
    );
@@ -558,16 +558,16 @@ void ActionDir(const std::string & aName,eModeCreateDir aMode)
       break;
 
       case eModeCreateDir::CreateIfNew :
-           CreateDirectories(aName,false);
+           CreateDirectories(aName);
       break;
 
       case eModeCreateDir::CreatePurge :
-           RemoveRecurs(aName,true,false);
+           RemoveRecurs(aName,true);
       break;
 
       case eModeCreateDir::ErrorIfExist :
            MMVII_INTERNAL_ASSERT_strong(!ExistFile(aName),"File was not expected to exist:" + aName);
-           CreateDirectories(aName,false);
+           CreateDirectories(aName);
       break;
 
       case eModeCreateDir::eNbVals : break;  // Because warning
