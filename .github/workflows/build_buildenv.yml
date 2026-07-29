@@ -1,0 +1,126 @@
+name: Build MMVII build environment image
+
+# Publishes the image that *builds* MMVII, next to the runtime image published by
+# build_mmvii.yml and in the same GHCR namespace. It carries no MMVII binary, so it
+# does not depend on a build having succeeded, and it must not be rebuilt on every
+# push: the trigger is the Dockerfile itself, on main only.
+#
+# 'branches' and 'paths' are ANDed, so a change to the Dockerfile on any other branch
+# builds nothing. workflow_dispatch is what solves the chicken and egg -- the image has
+# to exist before anyone can use it, and the first publication cannot come from a change
+# to a file that is already committed.
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+      - 'Dockerfile'
+  workflow_dispatch:
+
+jobs:
+  build_buildenv:
+    runs-on: ubuntu-latest
+
+    # GHCR needs no secret, the built-in GITHUB_TOKEN is enough, but it is read-only
+    # by default on many repositories. This block replaces the defaults for the job:
+    # nothing else is needed here, no release step being involved.
+    permissions:
+      packages: write
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Name of the build environment image
+      # Same derivation as the runtime image in build_mmvii.yml, so that both images
+      # sit in the same namespace and a fork can never overwrite the official one.
+      # No branch suffix: this workflow only ever runs on main.
+      #     micmac-v2/MMVII     -> ghcr.io/micmac-v2/build-mmvii
+      #     micmac-v2/cm-MMVII  -> ghcr.io/micmac-v2/cm-build-mmvii
+      # Docker refuses anything but lowercase in an image name while github.repository
+      # may hold uppercase (MMVII, cm-MMVII), hence the tr.
+      run: |
+        NAME=$(printf '%s' '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+        OWNER=${NAME%%/*}
+        REPO=${NAME#*/}
+        PREFIX=$(printf '%s' "$REPO" | sed -e 's/mmvii//g' -e 's/[^a-z0-9]\+/-/g' -e 's/^-//' -e 's/-$//')
+        IMAGE=build-mmvii
+        if [ -n "$PREFIX" ]; then IMAGE="$PREFIX-$IMAGE" ; fi
+        echo "BUILDENV_IMAGE=ghcr.io/$OWNER/$IMAGE" >> "$GITHUB_ENV"
+
+    - name: Build the image
+      # Reading the Dockerfile on stdin gives an *empty* build context: this image
+      # copies nothing from the repository, so there is no reason to send it several
+      # hundred megabytes (MMVII-TestDir alone is 19 MB, .git far more). Adding a COPY
+      # from the repository to the Dockerfile would break this line, visibly.
+      #
+      # The source label is set here rather than in the Dockerfile so that the package
+      # is attached to the repository that actually publishes it, whichever it is.
+      run: |
+        docker build \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            --tag "$BUILDENV_IMAGE:latest" \
+            - < Dockerfile
+
+    - name: Build MMVII in the image
+      # The point of the image, so it is tested rather than assumed, on the checkout
+      # of the very commit that changed the Dockerfile: a missing or mismatched build
+      # dependency fails here instead of being discovered by the first user who pulls
+      # the image.
+      #
+      # No --user on purpose: this also checks that the entry point drops root by
+      # itself and writes with the uid owning the workspace. Without that, the build
+      # would leave root-owned build/, bin/ and src/GeneratedCodes/ behind, which the
+      # checkout of the next run could not clean -- the step after this one verifies
+      # exactly that.
+      #
+      # clang-18, as build_mmvii.yml does: what the image produces is meant to match
+      # what the CI produces. g++ is the other supported compiler of the image and is
+      # not exercised here, a second full build being too expensive for what it adds.
+      run: |
+        docker run --rm -e CC=clang-18 -e CXX=clang++-18 \
+            -v "$PWD:$PWD" -w "$PWD" "$BUILDENV_IMAGE:latest" mmvii-build
+
+    - name: Check that the image wrote nothing as root
+      run: |
+        if find bin build src/GeneratedCodes -user 0 -print -quit | grep -q . ; then
+            echo "::error::the image left root-owned files in the workspace"
+            find bin build src/GeneratedCodes -user 0 -ls | head
+            exit 1
+        fi
+        echo "no root-owned file in the workspace"
+
+    - name: Run MMVII Tests
+      working-directory: ./bin
+      run: ./MMVII Bench 1
+
+    - name: Build MMVII documentation in the image
+      # The other half of what this image is for: the texlive set it installs is only
+      # proved sufficient by actually producing the PDF.
+      run: docker run --rm -v "$PWD:$PWD" -w "$PWD" "$BUILDENV_IMAGE:latest" make -C Doc a4
+
+    - name: Build the Python API in the image
+      # apib11 is built separately, against the MMVII built above, and links two
+      # archives: libE57Format.a and libP2007.a. The latter is the reason the P2007
+      # target is asked for here -- the build above stops at "full", which does not
+      # produce it, MMVII linking the object files directly and ar being slow.
+      # Checked here so that the python3/pybind11/doxygen packages of the image are
+      # not merely installed but known to be sufficient.
+      run: |
+        docker run --rm -v "$PWD:$PWD" -w "$PWD" "$BUILDENV_IMAGE:latest" \
+            cmake --build build -j 4 --target E57Format P2007
+        docker run --rm -v "$PWD:$PWD" -w "$PWD/apib11" "$BUILDENV_IMAGE:latest" \
+            pip wheel . --no-deps -w dist/
+        ls -l apib11/dist/
+
+    - name: Log in to GHCR
+      uses: docker/login-action@v4
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    # Only 'latest', so that a new build replaces the previous image. The package
+    # inherits the visibility of the repository on this organisation; it is linked to
+    # it by the source label set at build time above.
+    - name: Push the image to GHCR
+      run: docker push "$BUILDENV_IMAGE:latest"

@@ -54,6 +54,7 @@ Compilation procedure is described below for:
 - **[Linux Ubuntu distribution](#linux-ubuntu-distribution)**
 - **[Windows](#windows)**
 - **[Mac](#mac)**
+- **[a container image](#building-in-a-container-image)**, which installs no dependency on your machine
 
 
 
@@ -163,6 +164,34 @@ Compilation procedure is described below for:
     MMVII Bench 1
 	```
 Bench passes if it does not end with a fatal error block.
+
+## Building in a container image
+
+A second image, distinct from the one that *runs* MMVII, carries the whole build
+toolchain — g++ and clang-18, PROJ, GDAL, Xerces, pybind11 and the LaTeX set — and no
+MMVII: it compiles the sources you give it, so nothing has to be installed on your
+machine.
+
+```sh
+docker pull ghcr.io/micmac-v2/build-mmvii
+cd <your MMVII source directory>
+docker run --rm -it -v "$PWD:$PWD" -w "$PWD" ghcr.io/micmac-v2/build-mmvii
+```
+
+That opens a shell in your own source directory, where `cmake`, `ninja`,
+`make -C Doc a4` and `pip wheel` work exactly as described above. The single command
+`mmvii-build` does the whole `full` cycle, and takes its compiler from `CC` and `CXX`:
+
+```sh
+docker run --rm -e CC=clang-18 -e CXX=clang++-18 \
+	-v "$PWD:$PWD" -w "$PWD" ghcr.io/micmac-v2/build-mmvii mmvii-build
+```
+
+As for the MMVII image, `--user` is optional and `-w` is what makes the container adopt
+your identity, so the build products (`bin/`, `build/`, `src/GeneratedCodes/`) belong to
+you and never to root. The ccache of the build lives in `<build directory>/ccache`. The
+image converts to a Singularity/Apptainer image as well; use `singularity run` there
+rather than `exec`, so that the entry point applies.
 
 ## Additionnal notes
 ### Compilation details
