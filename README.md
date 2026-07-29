@@ -266,11 +266,16 @@ docker run --rm -it \
 	ghcr.io/micmac-v2/mmvii MMVII <command> <arguments>
 ```
 
-`--user` is not optional: without it the container runs under an account of its own,
-which cannot write in your directories unless your own account happens to have the same
-user id, and MMVII fails as soon as it writes its log file. Mounting the directories
-under **the same paths as on the host** means an absolute path designates the same file
-on both sides.
+`--user` is optional: given none, the container drops root immediately and adopts the
+owner of the directory named by `-w`, so it writes your files as you and never runs your
+command as root. `-w "$PWD"` is what carries that identity — without it the container
+starts in a directory of its own and falls back to an account that cannot write in your
+files, and MMVII fails as soon as it writes its log file. Passing `--user` explicitly
+remains valid, and is what the `MMVII` shell function of the next section does. Mounting
+`$HOME` and passing `HOME` is what keeps your MMVII profile from one container to the
+next; without them MMVII works in a temporary home, with its default settings. Mounting
+the directories under **the same paths as on the host** means an absolute path
+designates the same file on both sides.
 
 That command line is too long to type repeatedly: see
 [Command completion in your own shell](#command-completion-in-your-own-shell), which
