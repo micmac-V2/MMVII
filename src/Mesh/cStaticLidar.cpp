@@ -760,9 +760,9 @@ std::tuple<double, double, cPt3dr> cStaticLidar::getDistSigmaNormalPlane(cPt2dr 
     auto [aPlane3D, aRes] = cPlane3D::LSQEstimate(aVPtCam,nullptr);
     auto anInter = aPlane3D.Inter({0,0,0}, Image2Camera3D(aCenter));
     auto aDist = Norm2(anInter);
-    auto aNormaleGnd = Pose().Rot().Value(aPlane3D.AxeK());
+    auto aNormalGnd = Pose().Rot().Value(aPlane3D.AxeK());
 
-    return std::make_tuple(aDist, (aRes+Sigma())/2., aNormaleGnd);
+    return std::make_tuple(aDist, (aRes+Sigma())/2., aNormalGnd);
 }
 
 void cStaticLidar::Show() const

@@ -60,7 +60,7 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
     for (auto & aCam: aVImages)
     {
         int aMarginInsideImage = 1;
-        tREAL4 aDistTolerancy = 0.2; // for overlapping walls with incorrect pose
+        tREAL4 aDistTolerance = 0.2; // for overlapping walls with incorrect pose
         std::string aImName = aCam->NameImage();
         //std::cout<<"Visibility "<<aImName<<"\n";
         // create all z buffers
@@ -135,14 +135,14 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
                 cPt3dr aPtGround = aScanDataA.mLidarRaster->Image2Ground(aPtScan);
                 cPt2dr aPtImage = aCam->Ground2Image(aPtGround);
                 cPt3dr aPtCam3D = aCam->Pt_W2L(aPtGround);
-                tREAL4 aDistWithTolerancy = aZbufWithDist ?
-                                            -(Norm2(aPtGround - aCam->Center()) - aDistTolerancy) :
-                                            -(aPtCam3D.z() - aDistTolerancy);
+                tREAL4 aDistWithTolerance = aZbufWithDist ?
+                                            -(Norm2(aPtGround - aCam->Center()) - aDistTolerance) :
+                                            -(aPtCam3D.z() - aDistTolerance);
                 bool aIsUsablePt = true;
 
                 //std::cout<<"  patch "<<aPatch.mId<<": "<<aPtScan<<" "<<aPtGround<<": in "<<aImName<<" "
                 //          <<aPtImage<<": dist "<<Norm2(aPtGround - aCam->Center())
-                //           <<" dz "<<aPtCam3D.z()<<"  final with tolerancy: "<<aDistWithTolerancy<<"\n";
+                //           <<" dz "<<aPtCam3D.z()<<"  final with tolerance: "<<aDistWithTolerance<<"\n";
 
                 auto & aZbufIm = mMapZbuf.at(aImName).DIm();
                 if (!aZbufIm.InsideBL(aPtImage))
@@ -153,7 +153,7 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
                 } else {
                     auto aZbufVal = aZbufIm.GetVBL(aPtImage);
                     //std::cout<<"      zbuffer "<<aZbufVal<<"\n";
-                    if ((aZbufVal > -1e9) && (aZbufVal > aDistWithTolerancy))
+                    if ((aZbufVal > -1e9) && (aZbufVal > aDistWithTolerance))
                     {
                         //std::cout<<"      hidden\n";
                         aIsUsablePt = false;
@@ -971,7 +971,7 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
     mThresholdFinal = (aThresholdFinal<0) ? INFINITY : aThresholdFinal;
 
     MMVII_INTERNAL_ASSERT_User((aNormalTolDeg>=0) && (aNormalTolDeg<=180),
-                               eTyUEr::eBadOptParam,"Normal tolerancy must be inside [0,180], got "+ToStr(aNormalTolDeg));
+                               eTyUEr::eBadOptParam,"Normal tolerance must be inside [0,180], got "+ToStr(aNormalTolDeg));
     mNormalDiffMinCos = cos(aNormalTolDeg*M_PI/180.);
 
     //read scans files from directory corresponding to pattern in aPatScan
