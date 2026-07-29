@@ -131,7 +131,6 @@ class cAppli_CheckGCPDist : public cMMVII_Appli
         int                      mNbMinResec;   ///<  minimal number of point for space resection
         tREAL8                   mMinLineResec;  ///< minimal value for non linearity
         std::string              mPrefSave;
-        std::vector<double>      mVSpecCernPanel;
         cPerspCamIntrCalib *     mCalib;
         tREAL8                   mThresholdHomog; ///< Thresholds for homograhic fitting on Z0 && Z1
         std::string              mCurNameIm;
@@ -189,8 +188,6 @@ cCollecSpecArg2007 & cAppli_CheckGCPDist::ArgOpt(cCollecSpecArg2007 & anArgOpt)
               << AOpt2007(mNbMinResec,"NbMinResec","Number minimal of point for space resection",{eTA2007::HDV})
               << AOpt2007(mMinLineResec,"MinLineResec","Mimimal linearity index of space resection",{eTA2007::HDV})
               << AOpt2007(mPrefSave,"PrefSave","Prefix for saved files",{eTA2007::HDV})
-              << AOpt2007(mVSpecCernPanel,"SpecCernPan","[H0 H1 Delta Nb Tile Dx Dy] : spec CERN for 11P",
-                          {{eTA2007::ISizeV,"[8,8]"}})
               << AOpt2007(mGenSpecCERN,"GenarateSpecfifCERNPannel","for editing to a usable value",{eTA2007::HDV})
               << mPhProj.DPGndPt2D().ArgDirOutOpt("DirFiltered","Directory for filtered point")
               << mPhProj.DPOrient().ArgDirInOpt("Calib","Internal calibration folder is any")
