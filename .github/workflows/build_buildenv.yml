@@ -90,8 +90,12 @@ jobs:
         echo "no root-owned file in the workspace"
 
     - name: Run MMVII Tests
-      working-directory: ./bin
-      run: ./MMVII Bench 1
+      # In the container, and not on the runner as build_mmvii.yml does: the binary was
+      # built here against the libraries of the image, and the runner has none of them.
+      # Run on the runner it dies with "libomp.so.5: cannot open shared object file".
+      run: |
+        docker run --rm -v "$PWD:$PWD" -w "$PWD/bin" \
+            "$BUILDENV_IMAGE:latest" ./MMVII Bench 1
 
     - name: Build MMVII documentation in the image
       # The other half of what this image is for: the texlive set it installs is only
