@@ -1,8 +1,87 @@
 #include "ArboTriplets.h"
 
+// DEBUG ONLY - see the anonymous namespace below
+#define MMVII_DBG_HSFM_SAVE_MERGE 1
+
+
 namespace MMVII
 {
-   // mNbTriAnchor mNbTreeGlob mNbTree2Split
+
+#if MMVII_DBG_HSFM_SAVE_MERGE
+namespace
+{
+/// save nodes of depth (root=0)
+static constexpr int TheDbgMergeMaxDepth = 2;
+/// prefix for created intermediary poses
+static const std::string TheDbgMergePrefix = "DbgMerge_";
+
+struct DbgMergeSnapshot
+{
+    std::string mName;
+    std::vector<cSolLocNode> mLocSols;
+};
+
+std::mutex TheDbgMergeMutex;
+std::vector<DbgMergeSnapshot> TheDbgMergeSnaps;
+
+/// memorize the copy of camera poses (run from the thread worker)
+void DbgMemoMergeSols(const std::string& aName, const std::vector<cSolLocNode>& aLocSols)
+{
+    MMVII_INTERNAL_ASSERT_strong(!aName.empty(),"DbgMemoMergeSol : empty folder name");
+
+    DbgMergeSnapshot aSnap;
+    aSnap.mName = aName;
+    aSnap.mLocSols.reserve(aLocSols.size());
+
+    // duplicate
+    for (const auto& aSol : aLocSols)
+    {
+        aSnap.mLocSols.push_back(cSolLocNode(tPoseR(aSol.mPose.Tr(),
+                                                    tRotR(aSol.mPose.Rot().Mat().Dup(),false)),aSol.mNumPose));
+        std::lock_guard<std::mutex> aLock(TheDbgMergeMutex);
+
+    }
+    {
+        std::lock_guard<std::mutex> aLock(TheDbgMergeMutex);
+        TheDbgMergeSnaps.push_back(std::move(aSnap));
+    }
+
+}
+
+/// function that does the writing to disk (call in monothread)
+void DbgFlushMergeSol(cMakeArboTriplet& aPMAT)
+{
+    ASSERT_NO_MUTI_THREAD();
+
+    /// read photogrammetric project from memory
+    cPhotogrammetricProject* aPhP = dynamic_cast<cPhotogrammetricProject*>(&(aPMAT.PhProj()));
+    if (aPhP==nullptr) return;
+
+    std::sort(TheDbgMergeSnaps.begin(), TheDbgMergeSnaps.end(), [](const DbgMergeSnapshot& aS1, const DbgMergeSnapshot& aS2)
+              {
+                  return aS1.mName < aS2.mName;
+              });
+
+    StdOut() << "Saving merge snapshots to disk (" << TheDbgMergeSnaps.size() << " snapshots)\n";
+
+    for (const auto & aSnap : TheDbgMergeSnaps)
+    {
+        std::string aFullDir = aPhP->DPOrient().ComputeFullDir(aSnap.mName);
+        CreateDirectories(aFullDir,true);
+
+        for (const auto & aSol : aSnap.mLocSols)
+        {
+            std::string aNameIm = aPMAT.MapI2Str(aSol.mNumPose);
+            cSensorCamPC aCam(aNameIm,aSol.mPose,aPMAT.InternalCalibFromNameImage(aNameIm));
+            aCam.ToFile(aFullDir + aCam.NameOriStd());
+
+        }
+        StdOut() << "   * " << aSnap.mName << " : " << aSnap.mLocSols.size() << " poses" << std::endl;
+    }
+    TheDbgMergeSnaps.clear();
+}
+}
+#endif //
 
 /* ********************************************************* */
 /*                                                           */
@@ -946,9 +1025,16 @@ void cNodeArborTriplets::MergeChildrenSol()
          mLocSols.push_back(cSolLocNode(aPoseInS0,aSol1.mNumPose));
      }
 
-     //aN0.SaveGlobSol("Child0Init");
-     //aN1.SaveGlobSol("Child1Init");
-     //SaveGlobSol("Init");
+#if MMVII_DBG_HSFM_SAVE_MERGE
+     if (mDepth <= TheDbgMergeMaxDepth)
+     {
+        // identify the node by its depth + its smallest triplet number
+        int aKTMin = std::numeric_limits<int>::max();
+        for (const auto & aVT : mTree.Vertices())
+            aKTMin = std::min(aKTMin,aVT->Attr().mKT);
+        DbgMemoMergeSols(TheDbgMergePrefix+"_D"+ToStr(mDepth)+"_T"+ToStr(aKTMin),mLocSols);
+     }
+#endif
 
      // refine the solution with BA
      if (mPMAT->TPtsStruct() !=nullptr)
@@ -1651,12 +1737,9 @@ void cMakeArboTriplet::ComputeArbor()
    mArbor = new cNodeArborTriplets(*this,aTreeKernel,0);
    if (mCfg.mVerbose) StdOut() << "CostMerge " << mCostMergeTree << "\n";
 
-   //mArbor->ComputeResursiveSolution();
-
    mArbor->DoTerminalNode();
 
-   //StdOut() << "END DoTerminalNode" << std::endl;
-   //
+   // multi-thread processing of the tree
    cMemManager::SetActiveMemoryCount(false);
    mAppli.SetMultiThread(true);
    TreeThreads<cNodeArborTriplets*> tp;
@@ -1664,8 +1747,9 @@ void cMakeArboTriplet::ComputeArbor()
    mAppli.SetMultiThread(false);
    cMemManager::SetActiveMemoryCount(true);
 
-   //StdOut() << "END Exec" << std::endl;
-
+#if MMVII_DBG_HSFM_SAVE_MERGE
+    DbgFlushMergeSol(*this);
+#endif
 
 }
 
