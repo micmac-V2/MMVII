@@ -1163,7 +1163,7 @@ int cAppli_InitTSL::Exe()
         aSupMask= std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(mSupMaskFilename));
 
 
-    mLidar->SelectPatchCenters2(mNbPatches, &aSupMask->DIm());
+    mLidar->SelectPatchCenters2(mNbPatches, aSupMask?&aSupMask->DIm():nullptr);
 
     mLidar->MakeVisu(mPhProj);
 

@@ -1,3 +1,4 @@
+#include "MMVII_Interpolators.h"
 #include "cMMVII_Appli.h"
 #include "MMVII_DeclareCste.h"
 #include "MMVII_GenArgsSpec.h"
@@ -211,7 +212,35 @@ int cAppli_GenArgsSpec::Exe()
         }
         mArgsSpecs.jsonSpec += "\n      ]" ;
     }
-    mArgsSpecs.jsonSpec += "\n    }\n" ;  // Extensions
+    mArgsSpecs.jsonSpec += "\n    },\n" ;  // Extensions
+
+    //  The interpolators, so that help and completion of an argument having the "Interpol"
+    //  semantic are driven by the registry rather than by a duplicated list
+    mArgsSpecs.jsonSpec += "    \"interpolators\": [" ;
+    first = true;
+    for (const auto & aSpec : cInterpolSpec::VecAll())
+    {
+        if (! first)
+            mArgsSpecs.jsonSpec += ",";
+        first = false;
+        mArgsSpecs.jsonSpec += "\n      {\"name\":\"" + aSpec->Name() + "\"";
+        mArgsSpecs.jsonSpec += ",\"comment\":\"" + aSpec->Comment() + "\"";
+        mArgsSpecs.jsonSpec += ",\"subInterpol\":" + std::string(aSpec->HasSubInterpol() ? "true" : "false");
+        mArgsSpecs.jsonSpec += ",\"params\":[";
+        bool firstParam = true;
+        for (const auto & aParam : aSpec->Params())
+        {
+            if (! firstParam)
+                mArgsSpecs.jsonSpec += ",";
+            firstParam = false;
+            mArgsSpecs.jsonSpec += "{\"name\":\"" + aParam.mName + "\"";
+            mArgsSpecs.jsonSpec += ",\"type\":\"" + aParam.mType + "\"";
+            mArgsSpecs.jsonSpec += ",\"comment\":\"" + aParam.mComment + "\"";
+            mArgsSpecs.jsonSpec += ",\"example\":\"" + aParam.mExample + "\"}";
+        }
+        mArgsSpecs.jsonSpec += "]}";
+    }
+    mArgsSpecs.jsonSpec += "\n    ]\n" ;
     mArgsSpecs.jsonSpec += "  },\n" ;     // Config
 
     mArgsSpecs.jsonSpec += "  \"applets\": [\n";

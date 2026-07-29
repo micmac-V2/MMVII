@@ -12,6 +12,10 @@
 		- [Compilation with MicMac V1 API](#compilation-with-micmac-v1-api)
 		- [Graphical User Interface vMMVII](#graphical-user-interface-vmmvii)
 - [Installation from binary (Windows only)](#installation-from-binary-windows-only)
+- [Running MMVII from a container image](#running-mmvii-from-a-container-image)
+	- [Docker](#docker)
+	- [Singularity / Apptainer](#singularity--apptainer)
+	- [Command completion in your own shell](#command-completion-in-your-own-shell)
 - [Run a test](#run-a-test)
 - [Documentation](#documentation)
 - [MMVII Command Completion](#mmvii-command-completion)
@@ -221,12 +225,145 @@ The main executable will be  **c:\pgms\MMV2\bin\MMVII.EXE**. There is a graphica
 You can add the MMVI\bin path (in this example, c:\pgms\MMVII\bin) to your environment PATH variable.
 
 
+# Running MMVII from a container image
+
+A ready-to-use image containing a compiled **MMVII** is published for each version of
+the `main` branch:
+
+```
+ghcr.io/micmac-v2/mmvii:latest
+```
+
+Nothing has to be compiled or installed: the image carries MMVII, its data directories
+and all its libraries. It is a **Linux x86-64** image; on Windows and macOS it runs
+through Docker Desktop.
+
+The image is built for Docker, and converts to a Singularity/Apptainer image without
+any change. 
+
+## Docker
+
+Get the image:
+
+```sh
+docker pull ghcr.io/micmac-v2/mmvii
+```
+
+Commands that need no data of yours require nothing else:
+
+```sh
+docker run --rm ghcr.io/micmac-v2/mmvii MMVII            # list the MMVII commands
+docker run --rm ghcr.io/micmac-v2/mmvii MMVII Bench 1    # run the self tests
+```
+
+To work on **your own files**, the container must see them, run as **you**, and start
+in the current directory:
+
+```sh
+docker run --rm -it \
+	--user "$(id -u):$(id -g)" -e HOME="$HOME" \
+	-v "$HOME:$HOME" -v "$PWD:$PWD" -w "$PWD" \
+	ghcr.io/micmac-v2/mmvii MMVII <command> <arguments>
+```
+
+`--user` is not optional: without it the container runs under an account of its own,
+which cannot write in your directories unless your own account happens to have the same
+user id, and MMVII fails as soon as it writes its log file. Mounting the directories
+under **the same paths as on the host** means an absolute path designates the same file
+on both sides.
+
+That command line is too long to type repeatedly: see
+[Command completion in your own shell](#command-completion-in-your-own-shell), which
+turns it into a plain short `MMVII` command.
+
+Without a command, the image opens an interactive **bash session, with the MMVII
+command completion already enabled** — useful to chain several commands at the cost of
+a single container:
+
+```sh
+docker run --rm -it \
+	--user "$(id -u):$(id -g)" -e HOME="$HOME" \
+	-v "$HOME:$HOME" -v "$PWD:$PWD" -w "$PWD" \
+	ghcr.io/micmac-v2/mmvii
+```
+
+The prompt of that session displays `I have no name!`, because your user id is unknown
+inside the image; this is only cosmetic.
+
+## Singularity / Apptainer
+
+Build the image once, from the published Docker image (replace `singularity` with
+`apptainer` throughout if that is what you use):
+
+```sh
+singularity build mmvii.sif docker://ghcr.io/micmac-v2/mmvii:latest
+```
+
+Then run MMVII, from any directory:
+
+```sh
+singularity exec mmvii.sif MMVII            # list the MMVII commands
+singularity exec mmvii.sif MMVII Bench 1    # run the self tests
+singularity exec mmvii.sif MMVII <command> <arguments>
+```
+
+**Nothing has to be mounted and no user option is needed**: Singularity/Apptainer runs
+as you, keeps the current directory and makes your home directory available, so paths
+already designate the same files inside and outside. This is also why the read-only
+image is enough — an image file is read only by construction.
+
+Without a command, the image opens an interactive **bash session, with the MMVII
+command completion already enabled**:
+
+```sh
+singularity run mmvii.sif
+```
+
+Use `run` and not `singularity shell`, which starts a bash that does not read its
+initialisation files, and therefore has no completion.
+
+## Command completion in your own shell
+
+Optionally, `mmvii-bash-init` sets up your **own** bash — outside any container — so
+that you no longer have to type a `docker run` or `singularity exec` command line. It:
+
+- defines an **`MMVII` command**, which runs the container on the current directory,
+	so that `MMVII Bench 1` or `MMVII <command> <arguments>` are enough;
+- enables the **`<TAB>` command completion** of MMVII, on command names, argument
+	names and argument values, exactly as if MMVII were installed on your system.
+
+Nothing is installed on your system. Ask the image for the command to type:
+
+```sh
+docker run --rm ghcr.io/micmac-v2/mmvii mmvii-bash-init
+singularity exec mmvii.sif mmvii-bash-init
+```
+
+It prints the command, which you then type — one line, with the image it came from
+already filled in:
+
+```sh
+source <(docker run --rm ghcr.io/micmac-v2/mmvii mmvii-bash-init --emit)
+source <(singularity exec mmvii.sif mmvii-bash-init --emit)
+```
+
+You can put that line in your `${HOME}/.bashrc` so that every new terminal is set up;
+each one then starts one container, which takes about a second. Run it again after
+updating the image, so that the completion follows the new version.
+
+`MMVII` is defined as an exported bash function, so it is also available in the **bash
+scripts** started from that shell, without their having to set anything up. It is not
+available to a `/bin/sh` script, nor to a program calling `MMVII` directly; those must
+use the full `docker run` or `singularity exec` command.
+
 # Run a test
 - In a terminal type:
 	```sh
 	MMVII Bench 1
 	```
-There may be a lot of cryptic messages and some **"##   - Nb Warning "** at the end, but the test passed if execution **does not** end with a message of the form:
+There may be a lot of cryptic messages and some **"##   - Nb Warning "** at the end,
+ but the test passed if execution displays "Bench is successful." near the end and
+ specifically  **does not** end with a message of the form:
 ```
 	######################################
 	Level=[UserEr:xxxxxxx]
@@ -273,13 +410,18 @@ You can build documentation from sources if you have installed the MMVII sources
 # MMVII Command Completion
 You can enable command completion for **MMVII** in Linux Bash, which simplifies the use of **MMVII** commands.
 
+This section describes the completion for an MMVII **installed on your system**. If you
+use the container image instead, the completion is already enabled inside it, and one
+command enables it in your own shell: see
+**[Running MMVII from a container image](#running-mmvii-from-a-container-image)**.
+
 **Requirements:**
 - `bash-completion`
-- `python-is-python3`
+- `python3`
 
 These are typically installed by default on Ubuntu. If not, you can install them using:
 	```bash
-	sudo apt install bash-completion python-is-python3`
+	sudo apt install bash-completion python3
 	```
 
 **Configuration:**

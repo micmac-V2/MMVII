@@ -38,11 +38,6 @@ template<> cE2Str<eModeHelpColor>::tMapE2Str cE2Str<eModeHelpColor>::mE2S
 MACRO_INSTANTIATE_STRIO_ENUM(eModeHelpColor,"ModeHelpColor")
 
 
-// TODOCM: Supprimer std:: de std::vector dans HElp ?
-// TODOCM: SetColors() ou executer ? Apres Profile ?  Attention au InitProfile dans GenerateHelp Et dans main() pour help general ?
-// TODOCM: profile : possibilite check values ...
-
-
 Color Color::command;
 Color Color::argument;
 Color Color::title;
@@ -112,7 +107,7 @@ static void SetColors(eModeHelpColor aMode)
 /*                                                      */
 /* ==================================================== */
 
-extern std::string MMVII_UserConfigDir();
+extern std::string MMVII_UserConfigDir(bool aSVP);
 
 struct cSelectedProfile
 {
@@ -134,14 +129,81 @@ static void CheckProfileName(const std::string & aName)
     );
 }
 
+/**  Thrown by cProfileErrorCatcher, caught in this file, never crosses its interface */
+struct cProfileError
+{
+    std::string mType;
+    std::string mMes;
+};
+
+static void ProfileErrorHandler(const std::string & aType,const std::string & aMes,const char *,int)
+{
+    throw cProfileError{aType,aMes};
+}
+
+/**  Could the profile not be *reached*, as opposed to not be understood ?  Being unable to
+     create the directory or to open the file is an ordinary situation -- a read only home, a
+     first run on a system where nothing may be written -- which must stay silent. An
+     unusable content is different: the file is there, the user believes their settings
+     apply, and they silently do not; that one deserves a warning.
+     Built with E2Str so that renaming an enumerator cannot silently break the test.
+*/
+static bool IsUnreachableProfile(const std::string & aTypeOfError)
+{
+    return    (aTypeOfError == "UserEr:" + E2Str(eTyUEr::eOpenFile))
+           || (aTypeOfError == "UserEr:" + E2Str(eTyUEr::eCreateDir));
+}
+
+/**  While such an object is alive, a MMVII error throws a cProfileError instead of aborting.
+     Used to make the profile initialization non fatal : whatever fails (unwriteable directory,
+     corrupted or truncated file, disk full ...) the command must go on with its default values.
+     Reading errors are safe to unwind : the tree of a corrupted file is built in the constructor
+     of the archive, before any cAuxAr2007 exists, and cIMakeTreeAr sets its mError flag before
+     raising, so the destructors running during the unwinding do not raise in their turn.
+*/
+class cProfileErrorCatcher
+{
+   public :
+      cProfileErrorCatcher() :
+          mPrevHandler (MMVVI_Error)   // may be not the default one, i.e. the python API
+      {
+          MMVII_SetErrorHandler(ProfileErrorHandler);
+      }
+      ~cProfileErrorCatcher() {MMVII_SetErrorHandler(mPrevHandler);}
+   private :
+      cProfileErrorCatcher(const cProfileErrorCatcher &) = delete;
+      PtrMMVII_Error_Handler mPrevHandler;
+};
+
+/// Why the profile could not be used, empty if it could; kept for the EditProfile message
+static std::string TheProfileFailure;
+
+/**  To be called before SaveInFile : the tagged archives write the file in their destructor,
+     so a file that cannot be written raises there, where cProfileError cannot be thrown.
+     Opening it here, in append mode so that nothing is lost, raises at a catchable place.
+*/
+static void CheckCanWrite(const std::string & aNameFile)
+{
+    cMMVII_Ofs aOfs(aNameFile,eFileModeOut::AppendText);
+}
+
+/// Values used when no profile at all can be read, they must be valid for any command
+static cParamProfile BuiltInProfile()
+{
+    cParamProfile aRes;
+    aRes.Set("VectSerialMode",eTypeSerial::ecsv);
+    aRes.Set("TaggedSerialMode",eTypeSerial::exml);
+    aRes.Set("HelpColorMode",eModeHelpColor::Dark);
+    return aRes;
+}
+
 static cParamProfile SyncUserProfile(const std::string & aUserFile,const std::string & aDefaultFile)
 {
     cParamProfile aDefaultProfile;
     if (! ExistFile(aDefaultFile))
     {                 // Shouldn't happen ...
-        aDefaultProfile.Set("VectSerialMode",eTypeSerial::ecsv);
-        aDefaultProfile.Set("TaggedSerialMode",eTypeSerial::exml);
-        aDefaultProfile.Set("HelpColorMode",eModeHelpColor::Dark);
+        aDefaultProfile = BuiltInProfile();
+        CheckCanWrite(aDefaultFile);
         SaveInFile(aDefaultProfile,aDefaultFile);          //  ... create one just in case
     }
     ReadFromFile(aDefaultProfile,aDefaultFile);
@@ -164,6 +226,7 @@ static cParamProfile SyncUserProfile(const std::string & aUserFile,const std::st
     }
     if (aModified)
     {
+        CheckCanWrite(aUserFile);
         SaveInFile(aUserProfile,aUserFile);
     }
     return aUserProfile;
@@ -204,44 +267,105 @@ const std::string TheUserProfilePrefix = "MMVII-profile-";
 
 std::string cMMVII_Appli::GetProfileName()
 {
-    mDirUserProfile = MMVII_UserConfigDir();
-    MakeNameDir(mDirUserProfile);
-//    CreateDirectories(mDirUserProfile,false);
-    const std::string aSelectedProfile = mDirUserProfile + TheSelectedProfileName;
-    cSelectedProfile aSelection;
-    if (!ExistFile(aSelectedProfile))
+    //  Called for each application of the process, also for those allocated by GenArgsSpec :
+    //  once the profile has been diagnosed as unusable, don't restore a directory that would
+    //  make the next applications believe it can be used
+    if (! TheProfileFailure.empty())
     {
-        aSelection.mNameProfile = "Default";
-    } else {
-        ReadFromFile(aSelection,aSelectedProfile);
+       mDirUserProfile = "";
+       return "Default";
     }
-    return aSelection.mNameProfile;
+    mDirUserProfile = MMVII_UserConfigDir(SVP::Yes);
+    if (mDirUserProfile.empty())   // no user config dir, see InitProfile
+       return "Default";
+    try
+    {
+        //  Called for every command, even those that never use a profile : a selection file
+        //  that cannot be read must not prevent them from running. InitProfile does the diagnostic.
+        cProfileErrorCatcher aCatchErrors;
+
+        MakeNameDir(mDirUserProfile);
+        const std::string aSelectedProfile = mDirUserProfile + TheSelectedProfileName;
+        cSelectedProfile aSelection;
+        if (!ExistFile(aSelectedProfile))
+        {
+            aSelection.mNameProfile = "Default";
+        } else {
+            ReadFromFile(aSelection,aSelectedProfile);
+        }
+        return aSelection.mNameProfile;
+    }
+    catch (const cProfileError &)
+    {
+        return "Default";
+    }
 }
 
 void cMMVII_Appli::InitProfile()
 {
-    mDirUserProfile = MMVII_UserConfigDir();
-    MakeNameDir(mDirUserProfile);
-
-    if (! IsInit(&mProfileName)) {
-        CreateDirectories(mDirUserProfile,false);
-
-        const std::string aSelectedProfile = mDirUserProfile + TheSelectedProfileName;
-        if (!ExistFile(aSelectedProfile))
-        {
-            cSelectedProfile aSelection;
-            aSelection.mNameProfile = "Default";
-            SaveInFile(aSelection,aSelectedProfile);
-        }
-        cSelectedProfile aSelection;
-        ReadFromFile(aSelection,aSelectedProfile);
-        mProfileName = aSelection.mNameProfile;
+    TheProfileFailure = "";
+    //  A profile that cannot even be located or reached is not worth a warning, see below
+    bool aProfileIsUnusable = false;
+    mDirUserProfile = MMVII_UserConfigDir(SVP::Yes);
+    if (mDirUserProfile.empty())
+    {
+        //  The user configuration directory cannot even be named, typically because HOME is
+        //  not defined
+        TheProfileFailure = "cannot locate the user configuration directory, check the environment (HOME ...)";
     }
-    CheckProfileName(mProfileName);
+    else
+    {
+        //  A profile name given on the command line is an explicit user choice : an invalid
+        //  one remains a hard error, it is not something to degrade silently
+        if (IsInit(&mProfileName))
+            CheckProfileName(mProfileName);
+        try
+        {
+            //  Any failure below (unwriteable directory, corrupted file, disk full ...) must
+            //  degrade to the built-in values, the command itself has still to run
+            cProfileErrorCatcher aCatchErrors;
 
-    mUserProfile = mDirUserProfile + TheUserProfilePrefix + mProfileName + ".xml";
-    const std::string aDefaultProfile = mDirLocalParameters + TheDefaultProfileName;
-    mParamProfile = SyncUserProfile(mUserProfile,aDefaultProfile);
+            MakeNameDir(mDirUserProfile);
+
+            if (! IsInit(&mProfileName)) {
+                CreateDirectories(mDirUserProfile);
+
+                const std::string aSelectedProfile = mDirUserProfile + TheSelectedProfileName;
+                if (!ExistFile(aSelectedProfile))
+                {
+                    cSelectedProfile aSelection;
+                    aSelection.mNameProfile = "Default";
+                    CheckCanWrite(aSelectedProfile);
+                    SaveInFile(aSelection,aSelectedProfile);
+                }
+                cSelectedProfile aSelection;
+                ReadFromFile(aSelection,aSelectedProfile);
+                mProfileName = aSelection.mNameProfile;
+                CheckProfileName(mProfileName);   // comes from a file, not from the user
+            }
+
+            mUserProfile = mDirUserProfile + TheUserProfilePrefix + mProfileName + ".xml";
+            const std::string aDefaultProfile = mDirLocalParameters + TheDefaultProfileName;
+            mParamProfile = SyncUserProfile(mUserProfile,aDefaultProfile);
+        }
+        catch (const cProfileError & anError)
+        {
+            TheProfileFailure = anError.mType + " " + anError.mMes;
+            aProfileIsUnusable = ! IsUnreachableProfile(anError.mType);
+        }
+    }
+    if (! TheProfileFailure.empty())
+    {
+        //  Nothing can be read from or written to a profile, run with the built-in values.
+        //  Empty directory marks the profile as unusable, see GlobProfileNames and EditProfile
+        //  Warn only when a profile exists but cannot be understood : the user thinks their
+        //  settings apply, and they do not. Not being able to reach one stays silent.
+        if (aProfileIsUnusable)
+           MMVII_USER_WARNING("Invalid user profile, running with the built-in values : " + TheProfileFailure);
+        mDirUserProfile = "";
+        mUserProfile = "";
+        mParamProfile = BuiltInProfile();
+    }
     mVectNameDefSerial = mParamProfile.Get("VectSerialMode",ToS(eTypeSerial::ecsv));
     mTaggedNameDefSerial = mParamProfile.Get("TaggedSerialMode",ToS(eTypeSerial::exml));
     if (mParamProfile.HasKey("HelpColorMode")) {
@@ -284,16 +408,21 @@ std::vector<std::string> GlobProfileNames()
     auto aDirUserProfile = cMMVII_Appli::DirUserProfile();
     const std::string aSuffix = ".xml";
     std::vector<std::string> aNames;
-    for (const auto & aFile : GetFilesFromDir(aDirUserProfile,AllocRegex(TheUserProfilePrefix+".*\\.xml")))
+    //  When there is no usable user configuration directory, no profile file can be
+    //  enumerated, only the default one exists, in memory
+    if ((! aDirUserProfile.empty()) && IsDirectory(aDirUserProfile))
     {
-        aNames.push_back
-        (
-            aFile.substr
+        for (const auto & aFile : GetFilesFromDir(aDirUserProfile,AllocRegex(TheUserProfilePrefix+".*\\.xml")))
+        {
+            aNames.push_back
             (
-                TheUserProfilePrefix.size(),
-                aFile.size()-TheUserProfilePrefix.size()-aSuffix.size()
-            )
-        );
+                aFile.substr
+                (
+                    TheUserProfilePrefix.size(),
+                    aFile.size()-TheUserProfilePrefix.size()-aSuffix.size()
+                )
+            );
+        }
     }
     if (aNames.empty())
     {
@@ -367,7 +496,7 @@ private:
 
 using tMapProfileValidator = std::map<std::string,cValidator>;
 
-static const tMapProfileValidator & MapProfileKeyValidator()
+static const tMapProfileValidator & MapProfileValidator()
 {
     static const tMapProfileValidator TheMap
     {
@@ -380,6 +509,45 @@ static const tMapProfileValidator & MapProfileKeyValidator()
     return TheMap;
 }
 
+
+template <typename K, typename V>
+std::vector<K> MapKeys(const std::map<K,V>& aMap)
+{
+    static const std::vector<K> TheKeys = [&aMap]
+    {
+        std::vector<K> keys;
+        for (const auto& [key, _] : aMap)
+        {
+            keys.push_back(key);
+        }
+        return keys;
+    }();
+    return TheKeys;
+}
+
+template<typename K, typename V>
+std::string MapKeysToS(const std::map<K,V>& aMap)
+{
+    static const std::string TheKeys = [&aMap]
+    {
+        std::vector<std::string> keys;
+        for (const auto& [key, _] : aMap)
+        {
+            keys.push_back(ToS(key));
+        }
+        return ToS(keys);
+    }();
+    return TheKeys;
+}
+
+
+struct cKeyVal{
+    std::string Key;
+    std::string Val;
+    ARG2007_STRUCT_FIELDS(Key,FieldSem({eTA2007::AllowedValues,MapKeysToS(MapProfileValidator())}),Val);
+};
+
+
 class cAppli_EditProfile : public cMMVII_Appli
 {
      public :
@@ -390,7 +558,7 @@ class cAppli_EditProfile : public cMMVII_Appli
 
      private :
          std::string     mCurrent;
-         std::vector<std::string>   mKeyVal;
+         cKeyVal mKeyVal;
          std::string   mDelKey;
 };
 
@@ -409,9 +577,9 @@ cCollecSpecArg2007 & cAppli_EditProfile::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
    return
       anArgOpt
-        << AOpt2007(mCurrent,"SetCurrent","Name of the profile to make current",{eTA2007::Profile})
-        << AOpt2007(mKeyVal,"KeyVal","Set Value to Key: [Key,Value]",{{eTA2007::ISizeV,"[2,2]"}})
-        << AOpt2007(mDelKey,"DelKey","Delete Key",{eTA2007::ProfileKey})
+        << AOpt2007(mCurrent,"SetCurrent","Name of the profile to make current",{{eTA2007::AllowedValues,ToS(GlobProfileNames())}})
+        << AOpt2007(mKeyVal,"KeyVal","Set Value to Key: [Key,Value]")
+        << AOpt2007(mDelKey,"DelKey","Delete Key",{{eTA2007::AllowedValues,ToS(mParamProfile.Keys())}})
    ;
 }
 
@@ -419,6 +587,15 @@ cCollecSpecArg2007 & cAppli_EditProfile::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
 int cAppli_EditProfile::Exe()
 {
+    //  Startup can go on with default values when the profile is unusable, but this command
+    //  was explicitly called to show or modify a profile : here it is an error
+    MMVII_INTERNAL_ASSERT_User
+    (
+        ! mDirUserProfile.empty(),
+        eTyUEr::eUnClassedError,
+        "Cannot use the user profile : " + TheProfileFailure
+    );
+
     const bool aCurrent = IsInit(&mCurrent);
     const bool aHasModification = aCurrent || IsInit(&mKeyVal) || IsInit(&mDelKey);
 
@@ -433,10 +610,9 @@ int cAppli_EditProfile::Exe()
         StdOut() << "Current profile path is " << mUserProfile << "\n";
         StdOut() << "Profile values:\n";
 
-        for (const auto & [aKey,aValidator] : MapProfileKeyValidator())
+        for (const auto & [aKey , _] : MapProfileValidator())
         {
-            (void) aValidator;
-            std::string aVal ="";
+            std::string aVal = "";
             if ( mParamProfile.HasKey(aKey))
                 aVal =  mParamProfile.Get(aKey,std::string("<Missing>"));
             StdOut() << "  " << aKey << "= \"" <<  aVal  << "\"\n";
@@ -451,28 +627,25 @@ int cAppli_EditProfile::Exe()
 
     if (IsInit(&mKeyVal))
     {
-        const auto& aKey = mKeyVal[0];
-        const auto & aMapValidator = MapProfileKeyValidator();
-        const auto aItValidator = aMapValidator.find(aKey);
+        const auto & aMapValidator = MapProfileValidator();
+        const auto aItValidator = aMapValidator.find(mKeyVal.Key);
 
         if (aItValidator != aMapValidator.end())
         {
-            const auto& aVal = mKeyVal[1];
-
             auto& aValidator = aItValidator->second;
             MMVII_INTERNAL_ASSERT_User
             (
-                aItValidator->second(aVal),
+                aItValidator->second(mKeyVal.Val),
                 eTyUEr::eBadOptParam,
-                "Invalid value [" + aVal + "] for profile key [" + aKey
+                "Invalid value [" + mKeyVal.Val + "] for profile key [" + mKeyVal.Key
                     + "], expecting " + ( aValidator.Allowed().empty() ? ("type " + aValidator.TypeName()) : aValidator.Allowed() )
             );
-            StdOut() << "Setting profile key '" << aKey << "' to value '" << aVal << "'\n";
-            aParam.Set(aKey, aVal);
+            StdOut() << "Setting profile key '" << mKeyVal.Key << "' to value '" << mKeyVal.Val << "'\n";
+            aParam.Set(mKeyVal.Key, mKeyVal.Val);
         }
         else
         {
-            MMVII_USER_WARNING("Unknown profile key: " + aKey);
+            MMVII_USER_WARNING("Unknown profile key: " + mKeyVal.Key);
             StdOut() << "--------- Allowed values -------------\n";
             for (const auto & [aKeyAllowed,aValidator] : aMapValidator)
             {

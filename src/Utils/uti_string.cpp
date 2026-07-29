@@ -14,6 +14,7 @@
 
 
 #include <filesystem>
+#include <system_error>
 
 #include "MMVII_Sys.h"
 #include "MMVII_util.h"
@@ -454,47 +455,57 @@ void SkipWhite(const char * & aC)
 }
 
 
-bool CreateDirectories(const std::string & aDir,bool SVP)
+bool CreateDirectories(const std::string & aDir,bool aSVP)
 {
-    bool Ok = fs::create_directories(aDir);
+    //  The error_code overload is required : the throwing overload raises a std::filesystem_error
+    //  which nobody catches, so a failure would terminate the process through std::terminate,
+    //  bypassing the MMVII error handler, even when aSVP asked for failure to be accepted.
+    //    - if directory is created, return true, aEc is clear
+    //    - if directory is not created because already existing, return false, aEc is clear
+    //    - if directory is not created because of an error, return false and aEc is set
+    std::error_code aEc;
+    fs::create_directories(aDir,aEc);
 
-    if ((! Ok) && (!SVP))
+    if (aEc && (!aSVP))
     {
-        // There is something I dont understand with std::filesystem on error with create_directories,
-        // for me it works but it return false, to solve later ....
-        // Ch. M.: My understanrdfing is :
-        //   - if directory is created, return true
-        //   - if directory not created because already existing, return false
-        //   - if directory not created because of error, exception is throwed
-        //          (use create_directories(aDir, errorCode) to have the noexcept version)
-        if (ExistFile(aDir))
-        {
-            MMVII_INTERNAL_ASSERT_Unresolved(false,"Cannot create directory for arg " + aDir);
-        }
-        else
-        {
-            MMVII_UserError(eTyUEr::eCreateDir,"Cannot create directory for arg " + aDir);
-        }
+        MMVII_UserError(eTyUEr::eCreateDir,"Cannot create directory for arg " + aDir + " : " + aEc.message());
     }
-    return Ok;
+    return ! aEc;
 }
 
-bool RemoveRecurs(const  std::string & aDir,bool ReMkDir,bool SVP)
+bool RemoveRecurs(const  std::string & aDir,bool ReMkDir,bool aSVP)
 {
-    fs::remove_all(aDir);
+    //  The error_code overload is required, for the same reason as in CreateDirectories
+    std::error_code aEc;
+    fs::remove_all(aDir,aEc);   //  a non existing directory is not an error
+
+    MMVII_INTERNAL_ASSERT_User
+    (
+         (!aEc) || aSVP,
+         eTyUEr::eRemoveFile,
+         "Cannot remove recursively directory for arg " + aDir + " : " + aEc.message()
+    );
     if (ReMkDir)
     {
-        bool aRes = CreateDirectories(aDir,SVP);
+        bool aRes = CreateDirectories(aDir,aSVP);
         return aRes;
     }
-    return true;
+    return ! aEc;
 }
 
-bool RemoveFile(const  std::string & aFile,bool SVP)
+bool RemoveFile(const  std::string & aFile,bool aSVP)
 {
-   bool Ok = fs::remove(aFile);
-   MMVII_INTERNAL_ASSERT_User(  Ok||SVP  , eTyUEr::eRemoveFile,"Cannot remove file for arg " + aFile);
-   return Ok;
+   //  The error_code overload is required, for the same reason as in CreateDirectories
+   std::error_code aEc;
+   fs::remove(aFile,aEc);   //  a non existing file is not an error : it just has nothing to remove
+
+   MMVII_INTERNAL_ASSERT_User
+   (
+        (!aEc) || aSVP,
+        eTyUEr::eRemoveFile,
+        "Cannot remove file for arg " + aFile + " : " + aEc.message()
+   );
+   return ! aEc;
 }
 
 /** remove a pattern of file */
@@ -547,16 +558,16 @@ void ActionDir(const std::string & aName,eModeCreateDir aMode)
       break;
 
       case eModeCreateDir::CreateIfNew :
-           CreateDirectories(aName,false);
+           CreateDirectories(aName);
       break;
 
       case eModeCreateDir::CreatePurge :
-           RemoveRecurs(aName,true,false);
+           RemoveRecurs(aName,true);
       break;
 
       case eModeCreateDir::ErrorIfExist :
            MMVII_INTERNAL_ASSERT_strong(!ExistFile(aName),"File was not expected to exist:" + aName);
-           CreateDirectories(aName,false);
+           CreateDirectories(aName);
       break;
 
       case eModeCreateDir::eNbVals : break;  // Because warning

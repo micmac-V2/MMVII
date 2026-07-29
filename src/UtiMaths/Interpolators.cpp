@@ -18,6 +18,131 @@ tREAL8 IntegrLinear(tREAL8 aX)
 
 /* *************************************************** */
 /*                                                     */
+/*           cInterpolParams / cInterpolSpec           */
+/*                                                     */
+/* *************************************************** */
+
+cInterpolParams::cInterpolParams(const std::vector<std::string> & aVals) :
+    mVals (aVals)
+{
+}
+
+template <class Type> Type cInterpolParams::Get(size_t aK) const
+{
+    return cStrIO<Type>::FromStr(mVals.at(aK));
+}
+
+const std::vector<std::string> & cInterpolParams::Vals() const {return mVals;}
+
+template int    cInterpolParams::Get<int>(size_t) const;
+template tREAL8 cInterpolParams::Get<tREAL8>(size_t) const;
+
+//  Registry of the declared interpolators. A function local static, so that it is created before
+//  its first use whatever the order of the static initializations of the specifications
+static std::vector<const cInterpolSpec*> & TheVecInterpolSpec()
+{
+    static std::vector<const cInterpolSpec*> TheOnlyOne;
+    return TheOnlyOne;
+}
+
+cInterpolSpec::cInterpolSpec
+(
+    const std::string & aName,const std::string & aComment,
+    const std::vector<cInterpolParamSpec> & aParams,tAllocLeaf anAlloc
+) :
+    mName (aName), mComment (aComment), mParams (aParams),
+    mAllocLeaf (anAlloc), mAllocWrapper (nullptr)
+{
+    TheVecInterpolSpec().push_back(this);
+}
+
+cInterpolSpec::cInterpolSpec
+(
+    const std::string & aName,const std::string & aComment,
+    const std::vector<cInterpolParamSpec> & aParams,tAllocWrapper anAlloc
+) :
+    mName (aName), mComment (aComment), mParams (aParams),
+    mAllocLeaf (nullptr), mAllocWrapper (anAlloc)
+{
+    TheVecInterpolSpec().push_back(this);
+}
+
+const std::string & cInterpolSpec::Name() const    {return mName;}
+const std::string & cInterpolSpec::Comment() const {return mComment;}
+const std::vector<cInterpolParamSpec> & cInterpolSpec::Params() const {return mParams;}
+bool cInterpolSpec::HasSubInterpol() const  {return mAllocWrapper != nullptr;}
+
+const std::vector<const cInterpolSpec*> & cInterpolSpec::VecAll()
+{
+    static bool Sorted = false;
+    if (! Sorted)
+    {
+        //  sorted by name, as everything that is printed or generated must be deterministic
+        std::sort
+        (
+            TheVecInterpolSpec().begin(),TheVecInterpolSpec().end(),
+            [](const cInterpolSpec * aS1,const cInterpolSpec * aS2) {return aS1->Name() < aS2->Name();}
+        );
+        Sorted = true;
+    }
+    return TheVecInterpolSpec();
+}
+
+const cInterpolSpec * cInterpolSpec::OfName(const std::string & aName,bool aSVP)
+{
+    for (const auto & aSpec : VecAll())
+        if (aSpec->Name() == aName)
+           return aSpec;
+
+    if (! aSVP)
+       MMVII_UnclasseUsEr("Unknown interpolator [" + aName + "], expecting one of " + StrAllNames());
+    return nullptr;
+}
+
+std::string cInterpolSpec::StrAllNames()
+{
+    std::string aRes;
+    for (const auto & aSpec : VecAll())
+        aRes += (aRes.empty() ? "[" : ",") + aSpec->Name();
+    return aRes + "]";
+}
+
+cInterpolator1D * cInterpolSpec::Alloc(const cInterpolParams & aParams,const cInterpolator1D * aSub) const
+{
+    cInterpolator1D * aRes = mAllocWrapper ? mAllocWrapper(aParams,*aSub) : mAllocLeaf(aParams);
+
+    //  The names of the result are exactly the expression that produced it, so that VNames() can
+    //  always be read back by AllocFromNames. Required for "Scale", which allocates a tabulated
+    //  interpolator and would otherwise publish the names of that composition, with an arity
+    //  that does not match its own specification.
+    std::vector<std::string> aVNames {mName};
+    AppendIn(aVNames,aParams.Vals());
+    if (aSub)
+       AppendIn(aVNames,aSub->VNames());
+    aRes->SetVNames(aVNames);
+
+    return aRes;
+}
+
+std::vector<tSemA2007> InterpolArgSem()
+{
+    std::vector<tSemA2007> aRes {eTA2007::Interpol};
+    aRes.push_back({eTA2007::AddCom,"Interpolator, one of " + cInterpolSpec::StrAllNames()
+                                    + ", followed by its parameters"});
+    for (const auto & aSpec : cInterpolSpec::VecAll())
+    {
+        std::string aLine = "  " + aSpec->Name();
+        for (const auto & aParam : aSpec->Params())
+            aLine += "," + aParam.mName + ":" + aParam.mType;
+        if (aSpec->HasSubInterpol())
+           aLine += ",<interpolator>";
+        aRes.push_back({eTA2007::AddCom,aLine + " : " + aSpec->Comment()});
+    }
+    return aRes;
+}
+
+/* *************************************************** */
+/*                                                     */
 /*           cInterpolator1D                           */
 /*                                                     */
 /* *************************************************** */
@@ -37,6 +162,11 @@ const std::vector<std::string> & cInterpolator1D::VNames() const {return mVNames
 cInterpolator1D *  cInterpolator1D::TabulatedInterp(const cInterpolator1D & anInt,int aNbTabul,bool BilinInterp)
 {
         return new cTabulatedInterpolator(anInt,aNbTabul,BilinInterp);
+}
+
+void  cInterpolator1D::SetVNames(const std::vector<std::string> & aVNames)
+{
+      mVNames = aVNames;
 }
 
 void  cInterpolator1D::SetSzKernel(tREAL8  aSzK)
@@ -62,82 +192,59 @@ std::pair<tREAL8,tREAL8>   cDiffInterpolator1D::WAndDiff(tREAL8  anX) const
     return std::pair<tREAL8,tREAL8> (Weight(anX),DiffWeight(anX));
 }
 
-const std::string & cDiffInterpolator1D::Get(const std::vector<std::string> & aVName,size_t aK0)
+cInterpolator1D * cInterpolator1D::AllocFromNames(const std::vector<std::string> & aVName,size_t & aK)
 {
-    if (aK0>=aVName.size())
-    {
-        StdOut() << "while parsing " << aVName << "\n";
-        MMVII_UnclasseUsEr("Coulnd extract elem " + ToStr(aK0) +" while parsing interpolator vect-string");
-    }
-    return aVName.at(aK0);
+     if (aK >= aVName.size())
+        MMVII_UnclasseUsEr("Missing interpolator name while parsing " + ToStr(aVName)
+                           + ", expecting one of " + cInterpolSpec::StrAllNames());
+
+     const cInterpolSpec & aSpec = *cInterpolSpec::OfName(aVName.at(aK),false);
+     aK++;
+
+     //  the parameters of the interpolator, then, for a wrapper, the interpolator it wraps
+     const size_t aNbP = aSpec.Params().size();
+     if ((aK+aNbP) > aVName.size())
+        MMVII_UnclasseUsEr("Interpolator [" + aSpec.Name() + "] expects " + ToStr(int(aNbP))
+                           + " parameter(s), got only " + ToStr(int(aVName.size()-aK)));
+     cInterpolParams aParams(std::vector<std::string>(aVName.begin()+aK,aVName.begin()+aK+aNbP));
+     aK += aNbP;
+
+     if (! aSpec.HasSubInterpol())
+        return aSpec.Alloc(aParams,nullptr);
+
+     //  the wrapper does not own its sub interpolator, it is destroyed here
+     cInterpolator1D * aSub = AllocFromNames(aVName,aK);
+     cInterpolator1D * aRes = aSpec.Alloc(aParams,aSub);
+     delete aSub;
+     return aRes;
 }
 
-void cDiffInterpolator1D::AssertEndParse(const std::vector<std::string> & aVName,size_t aK0)
+cInterpolator1D * cInterpolator1D::AllocFromNames(const std::vector<std::string> & aVName)
 {
-    if ((aK0+1) != aVName.size())
-        MMVII_UnclasseUsEr("Too many string in parsing interpolator vect-string");
+     size_t aK=0;
+     cInterpolator1D * aRes = AllocFromNames(aVName,aK);
+     if (aK != aVName.size())
+     {
+        delete aRes;
+        MMVII_UnclasseUsEr("Too many strings while parsing interpolator " + ToStr(aVName));
+     }
+     return aRes;
 }
-
 
 cDiffInterpolator1D * cDiffInterpolator1D::AllocFromNames(const std::vector<std::string> & aVName)
 {
-        return AllocFromNames(aVName,0);
-}
-
-cDiffInterpolator1D * cDiffInterpolator1D::AllocFromNames(const std::vector<std::string> & aVName,size_t aK)
-{
-     const std::string & aN0 = Get(aVName,aK);
-     if (aN0== cTabulatedDiffInterpolator::TheNameInterpol)
+     cInterpolator1D * aRes = cInterpolator1D::AllocFromNames(aVName);
+     //  the language allows interpolators that are not differentiable, they become differentiable
+     //  once tabulated; here the caller requires the derivatives
+     cDiffInterpolator1D * aDiff = dynamic_cast<cDiffInterpolator1D*>(aRes);
+     if (aDiff==nullptr)
      {
-         int aNbTabul =  cStrIO<int>::FromStr(Get(aVName,aK+1));
-         cDiffInterpolator1D * anInt = AllocFromNames(aVName,aK+2);
-         cTabulatedDiffInterpolator * aRes = new cTabulatedDiffInterpolator(*anInt,aNbTabul);
-         delete anInt;
-         return aRes;
+        const std::string aName = aRes->VNames().empty() ? std::string("?") : aRes->VNames().at(0);
+        delete aRes;
+        MMVII_UnclasseUsEr("Interpolator [" + aName + "] is not differentiable, tabulate it with ["
+                           + cTabulatedDiffInterpolator::TheNameInterpol + "]");
      }
-     if (aN0== cScaledInterpolator::TheNameInterpol)
-     {
-         tREAL8 aScale =  cStrIO<tREAL8>::FromStr(Get(aVName,aK+1));
-         int aNbTabul =  cStrIO<int>::FromStr(Get(aVName,aK+2));
-         cDiffInterpolator1D * anInt = AllocFromNames(aVName,aK+3);
-         cTabulatedDiffInterpolator *  aRes = cScaledInterpolator::AllocTab(*anInt,aScale,aNbTabul) ;
-         delete anInt;
-         return aRes;
-     }
-     if (aN0== cLinearInterpolator::TheNameInterpol)
-     {
-         AssertEndParse(aVName,aK);
-         return new cLinearInterpolator;
-     }
-     if (aN0== cMMVII2Inperpol::TheNameInterpol)
-     {
-         AssertEndParse(aVName,aK);
-         return new cMMVII2Inperpol;
-     }
-
-     if (aN0== cCubicInterpolator::TheNameInterpol)
-     {
-         tREAL8 aParam =  cStrIO<tREAL8>::FromStr(Get(aVName,aK+1));
-         AssertEndParse(aVName,aK+1);
-         return new cCubicInterpolator(aParam);
-     }
-     if (aN0== cMMVIIKInterpol::TheNameInterpol)
-     {
-         tREAL8 aParam =  cStrIO<tREAL8>::FromStr(Get(aVName,aK+1));
-         AssertEndParse(aVName,aK+1);
-         return new cMMVIIKInterpol(aParam);
-     }
-     if (aN0== cSinCApodInterpolator::TheNameInterpol)
-     {
-         tREAL8 aSzK    =  cStrIO<tREAL8>::FromStr(Get(aVName,aK+1));
-         tREAL8 aSzApod =  cStrIO<tREAL8>::FromStr(Get(aVName,aK+2));
-         AssertEndParse(aVName,aK+2);
-         return new cSinCApodInterpolator(aSzK,aSzApod);
-     }
-
-
-     MMVII_UnclasseUsEr("Cannot interpret [" + aN0 + "] while  parsing interpolator vect-string");
-     return nullptr;
+     return aDiff;
 }
 
 
@@ -180,6 +287,14 @@ tREAL8  cLinearInterpolator::Weight(tREAL8  anX) const
 
 const std::string cLinearInterpolator::TheNameInterpol="Linear";
 
+static cInterpolSpec TheSpec_Linear
+(
+    cLinearInterpolator::TheNameInterpol,"Linear interpolation, kernel of size 1",
+    {},
+    [](const cInterpolParams &) -> cInterpolator1D * {return new cLinearInterpolator;}
+);
+
+
 tREAL8  cLinearInterpolator::DiffWeight(tREAL8  anX) const
 {
      if (anX<-1)  return 0.0;
@@ -204,6 +319,14 @@ cCubicInterpolator::cCubicInterpolator(tREAL8 aParam) :
 }
 
 const std::string cCubicInterpolator::TheNameInterpol="Cubic";
+
+static cInterpolSpec TheSpec_Cubic
+(
+    cCubicInterpolator::TheNameInterpol,"Cubic kernel, parametrized by its derivative in 1",
+    { {"A","double","Derivative in 1, 0 gives a kernel of size 1, else of size 2","-0.5"} },
+    [](const cInterpolParams & aP) -> cInterpolator1D * {return new cCubicInterpolator(aP.Get<tREAL8>(0));}
+);
+
 
 tREAL8  cCubicInterpolator::Weight(tREAL8  x) const
 {
@@ -298,6 +421,18 @@ tREAL8  cSinCApodInterpolator::Weight(tREAL8  anX) const
 
 const std::string cSinCApodInterpolator::TheNameInterpol = "SinCApod";
 
+static cInterpolSpec TheSpec_SinCApod
+(
+    cSinCApodInterpolator::TheNameInterpol,"Apodized cardinal sinus, to be tabulated",
+    {
+        {"SzSinC","double","Size of the window using the full cardinal sinus","10"},
+        {"SzApod","double","Size of the window of smooth transition to 0","10"}
+    },
+    [](const cInterpolParams & aP) -> cInterpolator1D *
+        {return new cSinCApodInterpolator(aP.Get<tREAL8>(0),aP.Get<tREAL8>(1));}
+);
+
+
 /* *************************************************** */
 /*                                                     */
 /*           cMMVII2Inperpol                           */
@@ -364,6 +499,14 @@ cMMVII2Inperpol::cMMVII2Inperpol():
 
 const std::string cMMVII2Inperpol::TheNameInterpol = "MMVII";
 
+static cInterpolSpec TheSpec_MMVII
+(
+    cMMVII2Inperpol::TheNameInterpol,"MMVII kernel, same as MMVIIK with exponent 2",
+    {},
+    [](const cInterpolParams &) -> cInterpolator1D * {return new cMMVII2Inperpol;}
+);
+
+
 tREAL8  cMMVII2Inperpol::Weight(tREAL8  anX) const
 {
     anX = std::abs(anX) ;
@@ -399,6 +542,14 @@ cMMVIIKInterpol::cMMVIIKInterpol(tREAL8 anExp) :
 }
 
 const std::string cMMVIIKInterpol::TheNameInterpol = "MMVIIK";
+
+static cInterpolSpec TheSpec_MMVIIK
+(
+    cMMVIIKInterpol::TheNameInterpol,"MMVII kernel of given exponent, slow, to be tabulated",
+    { {"Exp","double","Exponent of the spreading of the distribution","2"} },
+    [](const cInterpolParams & aP) -> cInterpolator1D * {return new cMMVIIKInterpol(aP.Get<tREAL8>(0));}
+);
+
 
 tREAL8  cMMVIIKInterpol::DiffWeight(tREAL8  anX) const
 {
@@ -619,6 +770,15 @@ cTabulatedDiffInterpolator::cTabulatedDiffInterpolator(cInterpolator1D * anInt,i
 
 const std::string cTabulatedDiffInterpolator::TheNameInterpol = "Tabul";
 
+static cInterpolSpec TheSpec_Tabul
+(
+    cTabulatedDiffInterpolator::TheNameInterpol,"Tabulate the interpolator that follows",
+    { {"NbTabul","int","Number of tabulated values by unity of the kernel","1000"} },
+    [](const cInterpolParams & aP,const cInterpolator1D & aSub) -> cInterpolator1D *
+        {return new cTabulatedDiffInterpolator(aSub,aP.Get<int>(0));}
+);
+
+
 // just call the weight of tabulated values
 tREAL8  cTabulatedDiffInterpolator::Weight(tREAL8  anX) const
 {
@@ -695,6 +855,18 @@ cScaledInterpolator::cScaledInterpolator
 }
 
 const std::string cScaledInterpolator::TheNameInterpol("Scale");
+
+static cInterpolSpec TheSpec_Scale
+(
+    cScaledInterpolator::TheNameInterpol,"Tabulate a scaled version of the interpolator that follows",
+    {
+        {"Scale","double","Scaling factor of the kernel","2"},
+        {"NbTabul","int","Number of tabulated values by unity of the kernel","1000"}
+    },
+    [](const cInterpolParams & aP,const cInterpolator1D & aSub) -> cInterpolator1D *
+        {return cScaledInterpolator::AllocTab(aSub,aP.Get<tREAL8>(0),aP.Get<int>(1));}
+);
+
 
 
 cScaledInterpolator::~cScaledInterpolator()

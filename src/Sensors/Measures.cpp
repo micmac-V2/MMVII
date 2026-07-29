@@ -436,6 +436,7 @@ cPt3dr  cSetMesGndPt::BundleInter(const cMultipleImPt & aMPT) const
 
 void cSetMesGndPt::AddMes2D(const cSetMesPtOf1Im & aSetMesIm, cSensorImage *aSens, MMVII::cMes2DDirInfo *aMesDirInfo, eLevelCheck aOnNonExistGCP)
 {
+
     //  Are we beginning  the  image measurement phase
     {
         if (! mPhaseGCPFinished)
@@ -458,6 +459,8 @@ void cSetMesGndPt::AddMes2D(const cSetMesPtOf1Im & aSetMesIm, cSensorImage *aSen
         MMVII_INTERNAL_ASSERT_tiny(aNumIm<int(mMesImInit.size()),"Incoherence in cSetMesImGCP::AddMes2D");
         MMVII_INTERNAL_ASSERT_tiny(mVSens.at(aNumIm) == aSens,"Variable sensor in cSetMesImGCP::AddMes2D");
     }
+
+
 
     for (auto & aMesIni : aSetMesIm.Measures())
     {
@@ -482,6 +485,7 @@ void cSetMesGndPt::AddMes2D(const cSetMesPtOf1Im & aSetMesIm, cSensorImage *aSen
             }
         }
     }
+
 }
 
 const std::vector<cMes1Gnd3D> &        cSetMesGndPt::MesGCP()    const  {return mMesGCP3D; }

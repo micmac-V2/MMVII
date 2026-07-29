@@ -351,7 +351,7 @@ class cParamCallSys
 
 cMultipleOfs& StdOut(); /// Call the ostream of cMMVII_Appli if exist (else std::cout)
 cMultipleOfs& HelpOut();
-cMultipleOfs& ErrOut();
+cMultipleOfs& ErrOut();  /// Same model as StdOut, but on std::cerr, and never silenced
 
 
 /// Mother class of all appli
@@ -664,6 +664,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
     private :
         // not very clean, but mutable dont seem enough
         cMultipleOfs & NC_StdOut();
+        cMultipleOfs & NC_ErrOut();
 
         cMMVII_Appli(const cMMVII_Appli&) = delete ; ///< New C++11 feature , forbid copy
         cMMVII_Appli & operator = (const cMMVII_Appli&) = delete ; ///< New C++11 feature , forbid copy
@@ -752,6 +753,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         // For controling output
         std::unique_ptr<cMMVII_Ofs>               mFileStdOut;  ///< Redirection of std output
         cMultipleOfs                              mStdCout;     ///< Standard Ouput (File,Console, both or none)
+        cMultipleOfs                              mStdCerr;     ///< Error Ouput, console and, if any, same file as mStdCout
         std::string                               mParamStdOut; ///< Users value
         int                                       mSeedRand;    ///< Seed for random generator
         std::map<std::string,std::string>         mMapAppliSpecParam; ///< Mat created from mVecAppliSpecParam

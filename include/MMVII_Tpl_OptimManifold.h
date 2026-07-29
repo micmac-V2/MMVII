@@ -1,3 +1,6 @@
+#ifndef  _MMVII_Tpl_OptimManifold_H_
+#define  _MMVII_Tpl_OptimManifold_H_
+
 #include "MMVII_HeuristikOpt.h"
 #include "MMVII_Mappings.h"
 
@@ -432,3 +435,4 @@ template <class tParamManif> class cTplOptDisc_OnManifold : public cDataMapping<
 
 };
 
+#endif  //  _MMVII_Tpl_OptimManifold_H_

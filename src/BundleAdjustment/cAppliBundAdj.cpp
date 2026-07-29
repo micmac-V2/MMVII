@@ -1,4 +1,4 @@
-#include "BundleAdjustment.h"
+#include "BundleAdjustment.h"  // also pulls MMVII_Tpl_ElemStrToVal.h (for ARG2007_STRUCT_FIELDS)
 
 /**
    \file cAppliBundAdj.cpp
@@ -47,6 +47,174 @@
 namespace MMVII
 {
 
+struct cGCP3D
+{
+    std::string GCPDir;
+    double Sigma;
+    std::string OutDir="";
+    double ExportSigma = 0;
+
+    ARG2007_STRUCT_FIELDS (
+        GCPDir,FieldSem({{eTA2007::AddCom,"World coord GCP dir"},eTA2007::ObjCoordWorld}),
+        Sigma,FieldSem({{eTA2007::AddCom,"Sigma factor SG=0 fix, SG<0 schurr elim, SG>0"},eTA2007::ObjCoordWorld}),
+        OutDir,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Optional output dir"}}),
+        ExportSigma,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Optional compensated sigma"}})
+    )
+};
+
+struct cGCP2D
+{
+    std::string GCPDir;
+    double Sigma;
+    double SigmaAttenuation=-1;
+    double Threshold=-1;
+    double Exponent=1;
+
+    ARG2007_STRUCT_FIELDS (
+        GCPDir,FieldSem({{eTA2007::AddCom,"Image coords GCP dir"},eTA2007::ObjMesInstr}),
+        Sigma,FieldSem({eTA2007::AddCom,"Sigma factor"}),
+        SigmaAttenuation,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Optional Sigma attenuation"}}),
+        Threshold,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Optional Sigma threshold"}}),
+        Exponent,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Optional Sigma exponent"}})
+        )
+};
+
+struct cLidarPhotograParam
+{
+    eImatchCrit Mode;
+    std::string PlyFile;
+    double Sigma;
+    std::vector<std::string> Interp = {"Tabul","1000","SinCApod","10","10"};
+    bool Pertubate = false;
+    int NbPtsPerPatch = 49;
+    ARG2007_STRUCT_FIELDS (
+        Mode,FieldSem({eTA2007::AddCom,"Similarity criterion used to compare Lidar and image"}),
+        PlyFile,FieldSem({eTA2007::FileCloud,{eTA2007::AddCom,"Lidar point cloud"}}),
+        Sigma,FieldSem({eTA2007::AddCom,"Sigma factor"}),
+        Interp,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Interpolator used to sample images"}}),
+        Pertubate,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Perturbate radiometry (simulation/test)"}}),
+        NbPtsPerPatch,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Approximate number of points per patch"}})
+        )
+};
+
+struct cLidarPhotoParam
+{
+    eImatchCrit Mode;
+    std::string PatScan;
+    double Sigma;
+    std::vector<std::string> Interp = {"Tabul","1000","SinCApod","10","10"};
+    double ScaleInit = 1;
+    double ScaleFinal = 1;
+    double Threshold = -1;
+    int NbPtsPerPatch = 49;
+    ARG2007_STRUCT_FIELDS (
+        Mode,FieldSem({eTA2007::AddCom,"Similarity criterion used to compare Lidar and image"}),
+        PatScan,FieldSem({eTA2007::AddCom,"Pattern of scan names to use"}),
+        Sigma,FieldSem({eTA2007::AddCom,"Sigma factor"}),
+        Interp,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Interpolator used to sample images"}}),
+        ScaleInit,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Interpolator scale at first iteration"}}),
+        ScaleFinal,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Interpolator scale at last iteration"}}),
+        Threshold,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold for hidden points, <0 = no threshold"}}),
+        NbPtsPerPatch,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Approximate number of points per patch"}})
+        )
+};
+
+struct cLidarLidarParam
+{
+    std::string PatScan;
+    double Sigma;
+    double ThresholdInit = 1;
+    double ThresholdFinal = 0.1;
+    double NormalTolDeg = 15;
+    std::vector<std::string> Interp = {"Linear"};
+    ARG2007_STRUCT_FIELDS (
+        PatScan,FieldSem({eTA2007::AddCom,"Pattern of scan names to use"}),
+        Sigma,FieldSem({eTA2007::AddCom,"Sigma factor"}),
+        ThresholdInit,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold at first iteration, <0 = infinite"}}),
+        ThresholdFinal,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold at last iteration, <0 = infinite"}}),
+        NormalTolDeg,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Max normal angle tolerance (degrees)"}}),
+        Interp,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Interpolator used to sample scans"}})
+        )
+};
+
+struct cAddTieP
+{
+    std::string Folder;
+    double Sigma;
+    double SigmaAttenuation=-1;
+    double Threshold=-1;
+    double Exponent=1;
+    ARG2007_STRUCT_FIELDS (
+        Folder,FieldSem({{eTA2007::AddCom,"Tie points folder"},eTA2007::MulTieP}),
+        Sigma,FieldSem({eTA2007::AddCom,"Sigma factor"}),
+        SigmaAttenuation,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Optional Sigma attenuation"}}),
+        Threshold,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Optional Sigma threshold"}}),
+        Exponent,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Optional Sigma exponent"}})
+        )
+};
+
+struct cTiePWeightParam
+{
+    double Sigma;
+    double SigmaAttenuation=-1;
+    double Threshold=-1;
+    double Exponent=1;
+    ARG2007_STRUCT_FIELDS (
+        Sigma,FieldSem({eTA2007::AddCom,"Sigma factor"}),
+        SigmaAttenuation,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Optional Sigma attenuation"}}),
+        Threshold,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Optional Sigma threshold"}}),
+        Exponent,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Optional Sigma exponent"}})
+        )
+};
+
+struct cFreeCalibParam
+{
+    std::string PatCal;
+    std::string PatParam;
+    double Weight=-1;
+    ARG2007_STRUCT_FIELDS (
+        PatCal,FieldSem({eTA2007::AddCom,"Pattern on calibration name"}),
+        PatParam,FieldSem({eTA2007::AddCom,"Pattern on parameter name"}),
+        Weight,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Optional weight, <0 = hard constraint"}})
+        )
+};
+
+struct cRefOriParam
+{
+    std::string Ori;
+    double SigmaTr;
+    double SigmaRot=-1;
+    std::string PatApply=".*";
+    ARG2007_STRUCT_FIELDS (
+        Ori,FieldSem({{eTA2007::AddCom,"Reference orientation folder"},eTA2007::Orient}),
+        SigmaTr,FieldSem({eTA2007::AddCom,"Sigma on translation"}),
+        SigmaRot,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Optional sigma on rotation"}}),
+        PatApply,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Pattern of images to apply constraint"}})
+        )
+};
+
+struct cAdjLine3DParam
+{
+    std::string Folder;
+    double SigmaIm;
+    int NbPtsSampl;
+    ARG2007_STRUCT_FIELDS (
+        Folder,FieldSem({eTA2007::AddCom,"Folder for 3D lines"}),
+        SigmaIm,FieldSem({eTA2007::AddCom,"Sigma in image"}),
+        NbPtsSampl,FieldSem({eTA2007::AddCom,"Number of sampled points"})
+        )
+};
+
+struct cPoseViscParam
+{
+    double SigmaCenter;
+    double SigmaRot;
+    ARG2007_STRUCT_FIELDS (
+        SigmaCenter,FieldSem({eTA2007::AddCom,"Sigma viscosity on center"}),
+        SigmaRot,FieldSem({eTA2007::AddCom,"Sigma viscosity on rotation"})
+        )
+};
+
    /* ********************************************************** */
    /*                                                            */
    /*                 cAppliBundlAdj                             */
@@ -62,11 +230,10 @@ class cAppliBundlAdj : public cMMVII_Appli
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
      private :
         bool AcceptEmptySet(int aK) const override {return ((aK==0)&&(mSpecImIn==MMVII_NONE));}
-        std::vector<tREAL8>  ConvParamStandard(const std::vector<std::string> &,size_t aSzMin,size_t aSzMax) ;
 
         void  AddOneSetGCP3D(const std::string & aFolderIn, const std::string &aFolderOut, tREAL8 aWFactor, bool aDoExportSigmas); // aFolderOut="" if no out
-        void  AddOneSetGCP2D(const std::vector<std::string> & aVParStd);
-        void  AddOneSetTieP(const std::vector<std::string> & aParam);
+        void  AddOneSetGCP2D(const cGCP2D & aGCP2D);
+        void  AddOneSetTieP(const std::string & aFolder, double aSigma, double aSigmaAttenuation, double aThreshold, double aExponent);
 
         std::string               mSpecImIn;
 
@@ -75,39 +242,37 @@ class cAppliBundlAdj : public cMMVII_Appli
         cPhotogrammetricProject   mPhProj;
         cMMVII_BundleAdj          mBA;
 
-        std::vector<std::vector<std::string>>  mGCP3D; // gcp ground coords with sigma factor and optional output dir
-        std::vector<std::vector<std::string>>  mGCP2D; // gcp image coords with weight
+        std::vector<cGCP3D>       mGCP3D; // gcp ground coords with sigma factor and optional output dir
+        std::vector<cGCP2D>       mGCP2D; // gcp image coords with weight
         std::string               mGCPFilter;  // pattern to filter names of GCP
         std::string               mGCPFilterAdd;  // pattern to filter GCP by additional info
-        std::vector<std::string>  mTiePWeight;
-        std::vector<std::vector<std::string>>  mAddTieP; // In case there is multiple GCP Set
+        cTiePWeightParam          mTiePWeight;
+        std::vector<cAddTieP>     mAddTieP; // In case there is multiple GCP Set
         std::vector<int>          mTiepShowPerMil;
-        std::vector<double>       mBRSigma; // RIGIDBLOC
-        std::vector<double>       mBRSigma_Rat; // RIGIDBLOC
-        std::vector<std::string>  mParamRefOri;  // Force Poses to be +- equals to this reference
+        cRefOriParam              mParamRefOri;  // Force Poses to be +- equals to this reference
 
-        std::vector<std::vector<std::string>>  mParamLidarPhgr; // parameters for photogra/lidar adj via triangulation
-        std::vector<std::vector<std::string>>  mParamLidarPhoto; // parameters for photogra/lidar adj via rasterization
-        std::vector<std::vector<std::string>>  mParamLidarLidar; // parameters for lidar-lidar adj
+        std::vector<cLidarPhotograParam>  mParamLidarPhgr; // parameters for photogra/lidar adj via triangulation
+        std::vector<cLidarPhotoParam>     mParamLidarPhoto; // parameters for photogra/lidar adj via rasterization
+        std::vector<cLidarLidarParam>     mParamLidarLidar; // parameters for lidar-lidar adj
 
         int                       mNbIter;
 
         std::string               mPatParamFrozCalib;
-        std::vector<std::vector<std::string>>  mVVParFreeCalib;
-        std::vector<std::string>  mParamGaugeRel;
+        std::vector<cFreeCalibParam>  mVVParFreeCalib;
+        cParamFixGauge            mParamGaugeRel;
         std::string               mPatFrosenCenters;
         std::string               mPatFrosenOrient;
         std::string               mPatFrosenClino;
-        std::vector<tREAL8>       mViscPose;
+        cPoseViscParam            mViscPose;
         tREAL8                    mLVM;  ///< Levenberk Markard
         bool                      mMeasureAdded ;
-        std::vector<std::string>  mVSharedIP;  ///< Vector for shared intrinsic param
+        std::vector<cSharedIPParam>  mVSharedIP;  ///< Vector for shared intrinsic param
         bool                      mShow_Cond; ///< compute and show system condition number
         std::vector<std::string>  mParamShow_UK_UC;
         std::string               mPostFixReport;
-        std::vector<std::string>  mParamLine;
-        std::vector<std::vector<std::string>> mParamBOI;  //< Param for bloc of instrum
-         std::vector<std::vector<std::string>> mParamBOIClino;
+        cAdjLine3DParam           mParamLine;
+        cParamBOI                 mParamBOI;  //< Param for bloc of instrum
+        cParamClinoBOI            mParamBOIClino;  //< Param for clino of bloc of instrum
          /// For tuning other options, like LVM, we may want to omit the check on measure
          bool                     mCheckMeasureAdded;
 };
@@ -139,14 +304,13 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgObl(cCollecSpecArg2007 & anArgObl)
 
 cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
-    
     return
           anArgOpt
      // << AOpt2007(mDataDir,"DataDir","Default data directories ",{eTA2007::HDV})
-      << AOpt2007(mParamRefOri,"RefOri","Reference orientation [Ori,SimgaTr,SigmaRot?,PatApply?]",{{eTA2007::ISizeV,"[2,4]"}})
-      << AOpt2007(mVSharedIP,"SharedIP","Shared intrinc parmaters [Pat1Cam,Pat1Par,Pat2Cam...] ",{{eTA2007::ISizeV,"[2,20]"}})
+      << AOpt2007(mParamRefOri,"RefOri","Reference orientation")
+      << AOpt2007(mVSharedIP,"SharedIP","Shared intrinsic parameters",{eTA2007::CanRepeat})
       << AOpt2007(mPostFixReport,NameParamPostFixReport(),CommentParamPostFixReport())
-      << AOpt2007(mParamLine,"AdjLine3D","Parameter for line Adjustment [Folder,SigmaIm,NbPtsSampl]",{{eTA2007::ISizeV,"[3,3]"}})
+      << AOpt2007(mParamLine,"AdjLine3D","Parameter for line Adjustment")
 
            << "Topo"
       << mPhProj.DPTopoMes().ArgDirInOpt("TopoDirIn","Dir for Topo measures") //  TOPO
@@ -155,34 +319,34 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << "Clino"
       << mPhProj.DPMeasuresClino().ArgDirInOpt()
            << "GCPs"
-      << AOpt2007 ( mGCP3D, "GCP3D", "GCP ground coords and sigma factor, SG=0 fix, SG<0 schurr elim, SG>0 and optional output dir with optional compensated sigma [[Folder,SigG,FOut?,ExportSigma?=0],...]]",{eTA2007::CanRepeat})
-      << AOpt2007 ( mGCP2D, "GCP2D", "GCP image coords and sigma factor and optional attenuation, threshold and exponent [[Folder,SigI,SigAt?=-1,Thrs?=-1,Exp?=1]...]",{eTA2007::CanRepeat})
+      << AOpt2007 ( mGCP3D, "GCP3D", "GCP ground",{eTA2007::CanRepeat})
+      << AOpt2007 ( mGCP2D, "GCP2D", "GCP image",{eTA2007::CanRepeat})
       << AOpt2007(mGCPFilter,"GCPFilter","Pattern to filter GCP by name")
       << AOpt2007(mGCPFilterAdd,"GCPFilterAdd","Pattern to filter GCP by additional info")
            << "Tie points"
       << mPhProj.DPMulTieP().ArgDirInOpt("TPDir","Dir for Tie Points if != DataDir")
-      << AOpt2007(mTiePWeight,"TiePWeight","Tie point weighting [Sig0,SigAtt?=-1,Thrs?=-1,Exp?=1]",{{eTA2007::ISizeV,"[1,4]"}})
-      << AOpt2007(mAddTieP,"AddTieP","For additional TieP, [[Folder,SigG...],[Folder,...]] ")
+      << AOpt2007(mTiePWeight,"TiePWeight","Tie point weighting")
+      << AOpt2007(mAddTieP,"AddTieP","For additional TieP",{eTA2007::CanRepeat})
       << AOpt2007(mTiepShowPerMil,"TiePShowPerMil","Per/1000 for printing residual, for ex [500] -> show median ",{eTA2007::HDV})
 
 
            << "Lidar"
-      << AOpt2007(mParamLidarPhgr,"LidarPhotogra","Paramaters for Lidar/Phgr adj via triangulation [[Mode,Ply,Sigma,Interp?,Perturbate?,NbPtsPerPatch=32]*]")
-      << AOpt2007(mParamLidarPhoto,"LidarPhoto","Paramaters for Lidar/Phgr adj via rasterisation [[Mode,PatScan,Sigma,Interp?,ScaleInit?=1,ScaleFinal?=1,Thrs?=-1,NbPtsPerPatch?=49]*]")
-      << AOpt2007(mParamLidarLidar,"LidarLidar","Paramaters for Lidar/Lidar adj via rasterisation [[PatScan,Sigma,ThrsInit?=1,ThrsFinal?=0.1,NormalTolDeg?=15,Interp?=[Linear]]]")
+      << AOpt2007 ( mParamLidarPhgr,  "LidarPhotogra", "Lidar/Phgr adj via triangulation",  {eTA2007::CanRepeat})
+      << AOpt2007 ( mParamLidarPhoto, "LidarPhoto",    "Lidar/Phgr adj via rasterisation",  {eTA2007::CanRepeat})
+      << AOpt2007 ( mParamLidarLidar, "LidarLidar",    "Lidar/Lidar adj via rasterisation", {eTA2007::CanRepeat})
            << "Freeze"
       << AOpt2007(mPatParamFrozCalib,"PPFzCal","Pattern for freezing internal calibration parameters")
-      << AOpt2007(mVVParFreeCalib,"PPFreeCal","Pattern for free internal calibration parameters [[PatCal1,PatParam1],[PatCal2,PatParam2] ...] ")
+      << AOpt2007(mVVParFreeCalib,"PPFreeCal","Pattern for free internal calibration parameters",{eTA2007::CanRepeat})
       << AOpt2007(mPatFrosenCenters,"PatFzCenters","Pattern of images for freezing center of poses")
       << AOpt2007(mPatFrosenOrient,"PatFzOrient","Pattern of images for freezing orientation of poses")
       << AOpt2007(mPatFrosenClino,"PatFzClino","Pattern of clinometers for freezing boresight")
-      << AOpt2007(mParamGaugeRel,"FixGauge","Param for gauge in pure relative [MainIm?,SecIm?,Coord in x,y,z?]",{{eTA2007::ISizeV,"[0,3]"}})
+      << AOpt2007(mParamGaugeRel,"FixGauge","Param for gauge in pure relative")
 
 
            << "Computation"
       << AOpt2007(mNbIter,"NbIter","Number of iterations",{eTA2007::HDV})
       << AOpt2007(mLVM,"LVM","Levenberg–Marquardt parameter (to have better conditioning of least squares)",{eTA2007::HDV})
-      << AOpt2007(mViscPose,"PoseVisc","Sigma viscosity on pose [SigmaCenter,SigmaRot]",{{eTA2007::ISizeV,"[2,2]"}})
+      << AOpt2007(mViscPose,"PoseVisc","Sigma viscosity on pose")
       << AOpt2007(mShow_Cond,"Cond","Compute and show system condition number",{eTA2007::HDV})
       << AOpt2007(mParamShow_UK_UC,"UC_UK","Param for uncertainty & Show names of unknowns (tuning)")
 
@@ -190,22 +354,17 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
 
            << "Blocks"
-      << AOpt2007(mBRSigma,"BRW","Bloc Rigid Weighting [SigmaCenter,SigmaRot]",{{eTA2007::ISizeV,"[2,2]"}})  // RIGIDBLOC
-      << AOpt2007(mBRSigma_Rat,"BRW_Rat","Rattachment fo Bloc Rigid Weighting [SigmaCenter,SigmaRot]",{{eTA2007::ISizeV,"[2,2]"}})  // RIGIDBLOC
       << AOpt2007
          (
              mParamBOI,
              "BOI",
-             "Bloc of Instr [[Bloc?,RelSigTrPair?=1.0,RelSigRotPair?=1.0,SaveSig?=1,RelSig?=true]"
-                            ",[GjTr?,GjRot?],[RelSigTrCur,RelSigRotCur]?]",
-             {{eTA2007::ISizeV,"[2,3]"}}
+             "Bloc of Instr : [Pair-params],[Gauge-params],[Cur-rattach]?"
           )
       << AOpt2007
          (
              mParamBOIClino,
              "ClinoBOI",
-             "Clino parameter [[Bloc?,RelSigmaAngle?,RelCstrOrthog?][VertFree?,OkNewTs?][DegFree0?,DegFree1?...]]",
-             {{eTA2007::ISizeV,"[1,3]"}}
+             "Clino parameter"
           )
       << mPhProj.DPBlockInstr().ArgDirInOpt()
       << mPhProj.DPBlockInstr().ArgDirOutOpt()
@@ -215,21 +374,6 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 }
 
 
-
-std::vector<tREAL8>  cAppliBundlAdj::ConvParamStandard(const std::vector<std::string> & aVParStd,size_t aSzMin,size_t aSzMax)
-{
-    if ((aVParStd.size() <aSzMin) || (aVParStd.size() >aSzMax))
-    {
-        MMVII_UnclasseUsEr("Bad size of AddOneSetGCP/TieP, exp in ["+ToStr(aSzMin)+","+ToStr(aSzMax)+"] got : " + ToStr(aVParStd.size()));
-    }
-    mMeasureAdded = true;  // to avoid message corresponding to trivial error
-
-    std::vector<tREAL8>  aRes;  // then weight must be converted from string to double
-    for (size_t aK=1 ; aK<aVParStd.size() ; aK++)
-        aRes.push_back(cStrIO<double>::FromStr(aVParStd.at(aK)));
-
-    return aRes;
-}
 
 void  cAppliBundlAdj::AddOneSetGCP3D(const std::string & aFolderIn, const std::string & aFolderOut, tREAL8 aWFactor, bool aDoExportSigmas)
 {
@@ -242,10 +386,11 @@ void  cAppliBundlAdj::AddOneSetGCP3D(const std::string & aFolderIn, const std::s
 
 
 // VParam standar is done from  Folder +  weight of size [1,4]
-void  cAppliBundlAdj::AddOneSetGCP2D(const std::vector<std::string> & aVParStd)
+void  cAppliBundlAdj::AddOneSetGCP2D(const cGCP2D & aGCP2D)
 {
-    std::string aFolderIn = aVParStd.at(0);  // folder
-    std::vector<tREAL8>  aGCPW = ConvParamStandard(aVParStd,2,5);
+    mMeasureAdded = true;
+    std::string aFolderIn = aGCP2D.GCPDir;  // folder
+    std::vector<tREAL8>  aGCPW = {aGCP2D.Sigma, aGCP2D.SigmaAttenuation,aGCP2D.Threshold, aGCP2D.Exponent};
     cMes2DDirInfo * aMesDirInfo = cMes2DDirInfo::addMes2DDirInfo(mBA.getGCP() ,aFolderIn, cStdWeighterResidual(aGCPW,0));
     for (const auto  & aSens : mBA.VSIm())
     {
@@ -255,10 +400,10 @@ void  cAppliBundlAdj::AddOneSetGCP2D(const std::vector<std::string> & aVParStd)
 }
 
 
-void  cAppliBundlAdj::AddOneSetTieP(const std::vector<std::string> & aVParStd)
+void  cAppliBundlAdj::AddOneSetTieP(const std::string & aFolder, double aSigma, double aSigmaAttenuation, double aThreshold, double aExponent)
 {
-    std::string aFolder = aVParStd.at(0);  // folder
-    std::vector<tREAL8>  aTiePW = ConvParamStandard(aVParStd,2,5);
+    mMeasureAdded = true;
+    std::vector<tREAL8>  aTiePW = {aSigma, aSigmaAttenuation, aThreshold, aExponent};
     cStdWeighterResidual aWeighter(aTiePW,0);
     mBA.AddMTieP(aFolder,AllocStdFromMTPFromFolder(aFolder,VectMainSet(0),mPhProj,false,true,false),aWeighter);
 }
@@ -299,7 +444,7 @@ int cAppliBundlAdj::Exe()
     if (IsInit(&mParamRefOri))
     {
         hasConstrOriPC = true;
-        mBA.AddReferencePoses(mParamRefOri);
+        mBA.AddReferencePoses(mParamRefOri.Ori, mParamRefOri.SigmaTr, mParamRefOri.SigmaRot, mParamRefOri.PatApply);
     }
 
     //   ========== [1]   Read unkowns of bundle  =============================
@@ -316,7 +461,10 @@ int cAppliBundlAdj::Exe()
     }
     if (IsInit(&mVVParFreeCalib))
     {
-        mBA.SetParamFreeCalib(mVVParFreeCalib);
+        std::vector<cFreeCalibPattern> aVPat;
+        for (const auto & aParam : mVVParFreeCalib)
+            aVPat.push_back({aParam.PatCal, aParam.PatParam, aParam.Weight});
+        mBA.SetParamFreeCalib(aVPat);
     }
 
     if (IsInit(&mPatFrosenCenters))
@@ -334,7 +482,7 @@ int cAppliBundlAdj::Exe()
     if (IsInit(&mViscPose))
     {
         hasConstrOriPC = true;
-        mBA.SetViscosity(mViscPose.at(0),mViscPose.at(1));
+        mBA.SetViscosity(mViscPose.SigmaCenter,mViscPose.SigmaRot);
     }
 
     if (IsInit(&mVSharedIP))
@@ -342,19 +490,15 @@ int cAppliBundlAdj::Exe()
         mBA.SetSharedIntrinsicParams(mVSharedIP);
     }
 
-    for (const auto& aVStrGCP : mGCP3D)
+    for (const auto& aGCP3D : mGCP3D)
     {
         hasConstrOriPC = true;
 
-        // expected: [Folder,SigG,FOut?]
-        if ((aVStrGCP.size() <2) || (aVStrGCP.size() >4))
-        {
-            MMVII_UnclasseUsEr("Bad size of GCP3D, exp in [2,4] got : " + ToStr(aVStrGCP.size()));
-        }
-        AddOneSetGCP3D(aVStrGCP[0],
-                      aVStrGCP.size()>2?aVStrGCP[2]:"",
-                      cStrIO<double>::FromStr(aVStrGCP[1]),
-                      aVStrGCP.size()>3?cStrIO<bool>::FromStr(aVStrGCP[3]):false);
+        AddOneSetGCP3D(aGCP3D.GCPDir,
+                       aGCP3D.OutDir,
+                       aGCP3D.Sigma,
+                       aGCP3D.ExportSigma
+                      );
     }
 
     if (mPhProj.DPTopoMes().DirInIsInit())
@@ -363,10 +507,10 @@ int cAppliBundlAdj::Exe()
         mBA.AddTopo();
     }
 
-    for (const auto& aVStrGCP : mGCP2D)
+    for (const auto& aGCP2D : mGCP2D)
     {
         // expected: [Folder,SigI,SigAt?=-1,Thrs?=-1,Exp?=1]
-        AddOneSetGCP2D(aVStrGCP);
+        AddOneSetGCP2D(aGCP2D);
     }
 
     if (mGCP2D.empty())
@@ -380,18 +524,17 @@ int cAppliBundlAdj::Exe()
 
     if (IsInit(&mTiePWeight))
     {
-        std::vector<std::string>  aVParamTieP{mPhProj.DPMulTieP().DirIn()};
-        AppendIn(aVParamTieP,mTiePWeight);
-        AddOneSetTieP(aVParamTieP);
+        AddOneSetTieP(mPhProj.DPMulTieP().DirIn(), mTiePWeight.Sigma, mTiePWeight.SigmaAttenuation,
+                      mTiePWeight.Threshold, mTiePWeight.Exponent);
     }
 
     mBA.SetTiePShowPerMil(mTiepShowPerMil);
     // Add  the potential suplementary TieP
     for (const auto& aTieP : mAddTieP)
-        AddOneSetTieP(aTieP);
+        AddOneSetTieP(aTieP.Folder, aTieP.Sigma, aTieP.SigmaAttenuation, aTieP.Threshold, aTieP.Exponent);
 
     bool hasGauge = IsInit(&mParamGaugeRel);
-    bool forceNoGauge =   (!mParamGaugeRel.empty()) && (mParamGaugeRel.at(0)==MMVII_NONE);
+    bool forceNoGauge =   (mParamGaugeRel.MainIm==MMVII_NONE);
     if ((!hasConstrOriPC) && (!hasGauge) && (mBA.NbCamPC()!=0) && (!forceNoGauge))
     {
             MMVII_USER_TYPED_WARNING(eTyUEr::eForceGauge,"Gauge in pure relative pause not specified, added by system");
@@ -406,7 +549,7 @@ int cAppliBundlAdj::Exe()
 
     if (IsInit(&mParamLine))
     {
-        mBA.AddLineAdjust(mParamLine);
+        mBA.AddLineAdjust(mParamLine.Folder, mParamLine.SigmaIm, mParamLine.NbPtsSampl);
     }
 
     if (IsInit(&mParamBOI))
@@ -428,23 +571,23 @@ int cAppliBundlAdj::Exe()
     
     for (const auto & aParam : mParamLidarPhgr)
     {
-        MMVII_INTERNAL_ASSERT_User(aParam.size()>=3,eTyUEr::eUnClassedError,"Not enough parameters for LidarPhotogra");
         mMeasureAdded = true;
-        mBA.Add1AdjLidarPhotogra(aParam);
+        mBA.Add1AdjLidarPhotogra(aParam.Mode, aParam.PlyFile, aParam.Sigma, aParam.Interp,
+                                 aParam.Pertubate, aParam.NbPtsPerPatch);
     }
 
     for (const auto & aParam : mParamLidarPhoto)
     {
-        MMVII_INTERNAL_ASSERT_User(aParam.size()>=3,eTyUEr::eUnClassedError,"Not enough parameters for LidarPhoto");
         mMeasureAdded = true;
-        mBA.Add1AdjLidarPhoto(aParam);
+        mBA.Add1AdjLidarPhoto(aParam.Mode, aParam.PatScan, aParam.Sigma, aParam.Interp,
+                              aParam.ScaleInit, aParam.ScaleFinal, aParam.Threshold, aParam.NbPtsPerPatch);
     }
 
     for (const auto & aParam : mParamLidarLidar)
     {
-        MMVII_INTERNAL_ASSERT_User(aParam.size()>=2,eTyUEr::eUnClassedError,"Not enough parameters for LidarLidar");
         mMeasureAdded = true;
-        mBA.Add1AdjLidarLidar(aParam);
+        mBA.Add1AdjLidarLidar(aParam.PatScan, aParam.Sigma, aParam.ThresholdInit,
+                              aParam.ThresholdFinal, aParam.NormalTolDeg, aParam.Interp);
     }
 
     if (mCheckMeasureAdded)

@@ -626,6 +626,8 @@ class cPhotogrammetricProject : public cIPhProj
           const std::string &   DirPhp() const;   ///< Accessor
           const std::string &   DirVisu() const;   ///< Accessor
           const std::string &   DirVisuAppli() const;   ///< Accessor
+          ///         If we want to create a subdir inside the visu, to have visu splited
+          void SetVisuSubDir(const std::string &);
           const std::string &   DirSysCo() const;   ///< Accessor
       const std::string &   DirStaticLidarRasters() const;   ///< Accessor
           tPtrArg2007           ArgChSys(bool DefaultUndefined=false);
@@ -996,7 +998,9 @@ class cPhotogrammetricProject : public cIPhProj
 
           std::string     mDirPhp;
           std::string     mDirVisu;
-          std::string     mDirVisuAppli;
+          std::string     mDirVisuAppliInit;
+          std::string     mDirVisuAppliFinal;
+
       std::string     mDirStaticLidarRasters;
 
           std::string     mDirSysCo;        /// Folder where are stored System of coordinates

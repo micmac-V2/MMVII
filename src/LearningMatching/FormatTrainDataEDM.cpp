@@ -128,7 +128,7 @@ void cMDLB_AppliFormatTDEDM::MakePxSym(const std::string & aDir,int aK)
   int aDef = aSign * -10000;
   cParamCallSys aComPx(MMV1Bin(),"Nikrup","* " + ToStr(aSign) + " F1F2BN " + aTmp +" "+ ToStr(aDef),NamePx(aK));
   GlobSysCall(aComPx);
-  RemoveFile(aTmp,false);
+  RemoveFile(aTmp);
 }
 
 cIm2D<tU_INT1> cMDLB_AppliFormatTDEDM::ComputeAR(double aAmpl,int aK)
@@ -190,7 +190,7 @@ void  cMDLB_AppliFormatTDEDM::MakeMaskAR(double aPixThresh,int aK)
         NameMasq(aK),"Type=u_int1"
         );
     GlobSysCall(aComMasq);
-    RemoveFile(aTmpAR,false);
+    RemoveFile(aTmpAR);
 }
 
 int cMDLB_AppliFormatTDEDM::Exe()
@@ -435,7 +435,7 @@ int cWT_AppliFormatTDEDM::Exe()
        cParamCallSys  aComMasq(MMV1Bin(),"Nikrup","* 255 !=  " + aTmpPx + " 0",NameMasq1(aPref),"Type=u_int1");
        GlobSysCall(aComMasq);
 
-       RemoveFile(aTmpPx,false);
+       RemoveFile(aTmpPx);
     }
 
    return EXIT_SUCCESS;

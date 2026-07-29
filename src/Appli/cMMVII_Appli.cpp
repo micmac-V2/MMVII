@@ -10,6 +10,8 @@
 namespace MMVII
 {
 
+extern std::string MMVII_SysTempDir();   ///< defined in uti_sysdep.cpp
+
 cAppliBenchAnswer cMMVII_Appli::BenchAnswer() const
 {
    return cAppliBenchAnswer(false,0.0);
@@ -236,6 +238,7 @@ cMMVII_Appli::~cMMVII_Appli()
    MMVII_INTERNAL_ASSERT_strong(this==TheStackAppli.back(),"check in Appli Destructor");
    TheStackAppli.pop_back();
    mStdCout.Clear();
+   mStdCerr.Clear();   // mFileStdOut is shared with mStdCout, don't keep a reference on it
    // Verifie que tout ce qui a ete alloue a ete desalloue
    // cMemManager::CheckRestoration(mMemStateBegin);
    mMemStateBegin.SetCheckAtDestroy();
@@ -292,6 +295,7 @@ cMMVII_Appli::cMMVII_Appli
    mHasInputV1    (false),
    mHasInputV2    (false),
    mStdCout       (std::cout),
+   mStdCerr       (std::cerr),
    mSeedRand      (msDefSeedRand), // In constructor, don't use virtual, wait ...
    mExtendPattern (true),
    mVSPO          (aVSPO),
@@ -327,7 +331,11 @@ void cMMVII_Appli::InitMMVIIDirs(const std::string& aMMVIIDir)
     mDirRessourcesMMVII      = mDirMicMacv2 + MMVIIRessourcesDir;
     mDirHelpByCmd            = mDirRessourcesMMVII+ MMVIIHelpByCmdDir;
     mDirLocalParameters      = mDirMicMacv2 + MMVIILocalParametersDir;
-    mTmpDirTestMMVII   = mDirTestMMVII + "Tmp" + StringDirSeparator();
+    //  The temporary files of the benches are put outside the MMVII installation,
+    //  which may well be read only : multi user install or a container
+    mTmpDirTestMMVII   = MMVII_SysTempDir();
+    MakeNameDir(mTmpDirTestMMVII);
+    mTmpDirTestMMVII  += MMVIITestDir;
     mInputDirTestMMVII = mDirTestMMVII + "Input" + StringDirSeparator();
 }
 
@@ -355,6 +363,20 @@ cMultipleOfs & StdStdOut()
 #endif
 }
 
+/// Same as StdStdOut, for error output : always std::cerr
+
+cMultipleOfs & StdStdErr()
+{
+// Dont know why, destruction of static object at end fails on Mac
+#if (THE_MACRO_MMVII_SYS == MMVII_SYS_A)
+   static cMultipleOfs * aPtrMOfs = new cMultipleOfs(std::cerr);
+   return *aPtrMOfs;
+#else
+   static cMultipleOfs aMOfs(std::cerr);
+   return aMOfs;
+#endif
+}
+
 cMultipleOfs& StdOut()
 {
    if (cMMVII_Appli::ExistAppli())
@@ -362,7 +384,12 @@ cMultipleOfs& StdOut()
    return StdStdOut();
 }
 cMultipleOfs& HelpOut() {return StdOut();}
-cMultipleOfs& ErrOut()  {return StdOut();}
+cMultipleOfs& ErrOut()
+{
+   if (cMMVII_Appli::ExistAppli())
+     return cMMVII_Appli::CurrentAppli().ErrOut();
+   return StdStdErr();
+}
 
 
 
@@ -373,8 +400,15 @@ cMultipleOfs &  cMMVII_Appli::NC_StdOut()
       return StdStdOut();
    return mStdCout;
 }
+cMultipleOfs &  cMMVII_Appli::NC_ErrOut()
+{
+   /// Maybe mStdCerr not correctly initialized if we are in constructor or in destructor ?
+   if ((!cMMVII_Appli::ExistAppli()) || msInDstructor)
+      return StdStdErr();
+   return mStdCerr;
+}
 cMultipleOfs &  cMMVII_Appli::HelpOut() {return StdOut();}
-cMultipleOfs &  cMMVII_Appli::ErrOut() {return StdOut();}
+cMultipleOfs &  cMMVII_Appli::ErrOut() {return NC_ErrOut();}
 
 cMultipleOfs &  cMMVII_Appli::StdOut() const
 {
@@ -411,6 +445,14 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
 
   mSeedRand = DefSeedRand();
   mProfileName = GetProfileName();
+
+  //  The colors of the messages are chosen by the profile, so it must be loaded before the
+  //  arguments are parsed, else the parsing itself, its errors included, would print without
+  //  any color. Only the first appli of the process does it, the profile is process-global.
+  //  A "Profile=" on the command line is known only after the parsing, and is honored there.
+  if (mMainAppliInsideP)
+     InitProfile();
+
   cCollecSpecArg2007 & anArgObl = ArgObl(mArgObl); // Call virtual method
   cCollecSpecArg2007 & anArgFac = ArgOpt(mArgFac); // Call virtual method
 
@@ -476,7 +518,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
       <<  AOpt2007(aDP ,GOP_DirProj,"Project Directory",{eTA2007::DirProject,eTA2007::Global})
       <<  AOpt2007(mParamStdOut,GOP_StdOut,"Redirection of Ouput (+File for terminal and file output, 0File to reset file, "+ MMVII_NONE + " for no out)",aGlob)
 
-      <<  AOpt2007(mProfileName,"Profile","Apply specific user profile for this command",{eTA2007::Global,eTA2007::HDV,eTA2007::Profile})
+      <<  AOpt2007(mProfileName,"Profile","Apply specific user profile for this command",{eTA2007::Global,eTA2007::HDV,{eTA2007::AllowedValues,ToS(GlobProfileNames())}})
 
       <<  AOpt2007(mLevelCall,GIP_LevCall," Level Of Call",aInternal)
       <<  AOpt2007(mKthCall,GIP_KthCall," Ordre Of Call when multiple call",aInternal)
@@ -526,8 +568,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
 
   if (mModeHelp)
   {
-      // MPD profile required in mode help
-      InitProfile();
+      // The profile, required in mode help, was loaded before the parsing
       GenerateHelp();
       return;
   }
@@ -620,7 +661,6 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
       if (aNbArgGot==0)
       {
          mModeHelp = true;  // else Exe() will be executed !!
-         InitProfile();
          GenerateHelp();
          return;
       }
@@ -732,6 +772,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
          }
      }
      // If not on console, supress std:: cout which was in mStdCout
+     //  std::cerr is kept in mStdCerr : redirecting the output must not hide the errors
      if (! aModeFileInMore)
      {
          mStdCout.Clear();
@@ -745,6 +786,12 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
          mFileStdOut->Ofs() << "  begining at : " <<  StrDateCur() << "\n";
          mFileStdOut->Ofs() << "=============================================" << std::endl;
          mStdCout.Add(mFileStdOut->Ofs());
+         //  Same handle in both, so that output and errors are interleaved in their real order
+         mStdCerr.Add(mFileStdOut->Ofs());
+     }
+     else
+     {
+         mStdCerr.Clear();   // no out at all means errors too
      }
   }
 
@@ -892,7 +939,9 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
      mSeedRand =  std::chrono::system_clock::to_time_t(mT0);
   }
 
-  if (mMainAppliInsideP)
+  //  The profile was loaded before the parsing, reload it only when the user explicitly asked
+  //  for another one, which could not be known then
+  if (mMainAppliInsideP && IsInit(&mProfileName))
   {
       InitProfile();
   }
@@ -1062,21 +1111,21 @@ void cMMVII_Appli::InitProject()
 {
    // Create Dir for tmp file, process etc ...
    std::string aDir = mDirProject+TmpMMVIIDirGlob;
-   CreateDirectories(aDir,true);
+   CreateDirectories(aDir);
 
    // Create Dir for Caracteristic point, if Appli output them
    if (HasSharedSPO(eSharedPO::eSPO_CarPO))
    {
-      CreateDirectories(mDirProject +TmpMMVIIDirPCar,true);
+      CreateDirectories(mDirProject +TmpMMVIIDirPCar);
    }
 
    aDir += TmpMMVIIProcSubDir;
-   CreateDirectories(aDir,true);
+   CreateDirectories(aDir);
 
    if (! mModeHelp)
    {
       aDir += mPrefixNameAppli;
-      CreateDirectories(aDir,true);
+      CreateDirectories(aDir);
       LogCommandIn(mFileLogTop,true);
    }
 }
@@ -1155,19 +1204,114 @@ static std::string JsonEscaped(const std::string& s)
     return res;
 }
 
+
+/**  Is a semantic published in the generated specifications ? Those printed by the help, plus
+     the ones the bash completion needs although the help deliberately hides them.
+*/
+static bool IsSemanticInSpec(const eTA2007 & aType)
+{
+    return    (aType < eTA2007::AddCom)
+           || (aType == eTA2007::XmlOfTopTag)
+           || (aType == eTA2007::CanRepeat);   // tells the completion the singleton form is allowed
+}
+
+static void AppendFieldSemantics
+(
+    std::string & aJson,
+    const cSpecOneArg2007& aArg,
+    const std::string & anIndent
+)
+{
+    std::vector<std::string> aSemanticNames;
+    std::vector<std::string> anAllowed;
+    std::string aRange;
+    std::string aVectorSize;
+    bool hasDefault = false;
+
+    for (const auto & aSemantic : aArg.SemPL())
+    {
+        if (IsSemanticInSpec(aSemantic.Type()))
+            aSemanticNames.push_back(E2Str(aSemantic.Type()));
+        if (aSemantic.Type() == eTA2007::AllowedValues)
+            FromS(aSemantic.Aux(),anAllowed);
+        if (aSemantic.Type() == eTA2007::Range)
+            aRange = aSemantic.Aux();
+        if (aSemantic.Type() == eTA2007::ISizeV)
+            aVectorSize = aSemantic.Aux();
+        if (aSemantic.Type() == eTA2007::HDV)
+            hasDefault = true;
+    }
+
+    auto AppendStringArray = [&aJson,&anIndent]
+    (
+        const std::string & aName,
+        const std::vector<std::string> & aValues
+    )
+    {
+        if (aValues.empty())
+            return;
+        aJson += ",\n" + anIndent + "\"" + aName + "\": [";
+        for (size_t aK=0 ; aK<aValues.size() ; ++aK)
+        {
+            if (aK != 0)
+                aJson += ",";
+            aJson += "\"" + JsonEscaped(aValues[aK]) + "\"";
+        }
+        aJson += "]";
+    };
+
+    AppendStringArray("semantic",aSemanticNames);
+    AppendStringArray("allowed",anAllowed);
+    if (!aRange.empty())
+        aJson += ",\n" + anIndent + "\"range\": \"" + JsonEscaped(aRange) + "\"";
+    if (!aVectorSize.empty())
+        aJson += ",\n" + anIndent + "\"vsize\": \"" + JsonEscaped(aVectorSize) + "\"";
+    if (hasDefault)
+        aJson += ",\n" + anIndent + "\"default\": \"" + JsonEscaped(aArg.DefaultNameValue()) + "\"";
+    if (aArg.Com().size())
+        aJson  +=  ",\n" + anIndent + "\"comment\": \"" + JsonEscaped(aArg.Com()) + "\"";
+
+}
+
+static void AppendStructFields
+(
+    std::string & aJson,
+    const tVecArg2007 & aFields,
+    const std::string & anIndent
+)
+{
+    if (aFields.empty())
+        return;
+
+    aJson += ",\n" + anIndent + "\"fields\": [";
+    for (size_t aK=0 ; aK<aFields.size() ; ++aK)
+    {
+        const auto & aField = aFields[aK];
+        if (aK != 0)
+            aJson += ",";
+        aJson += "\n" + anIndent + "  {\n";
+        aJson += anIndent + "    \"name\": \"" + JsonEscaped(aField->Name()) + "\",\n";
+        aJson += anIndent + "    \"type\": \"" + JsonEscaped(aField->NameType()) + "\"";
+        if (aField->IsVector())
+            aJson += ",\n" + anIndent + "    \"isVector\": true";
+        AppendFieldSemantics(aJson,*aField,anIndent+"    ");
+        AppendStructFields(aJson,aField->StructFields(),anIndent+"    ");
+        aJson += "\n" + anIndent + "  }";
+    }
+    aJson += "\n" + anIndent + "]";
+}
+
 void cMMVII_Appli::GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::string& aSpecName, bool aOptional, cGenArgsSpecContext *aArgsSpec)
 {
-    static auto aGlobProfileNames = GlobProfileNames();
-
     if (aOptional)
         aArgsSpec->jsonSpec += "      \"optional\": [";
     else
         aArgsSpec->jsonSpec += "      \"mandatory\": [";
 
     int num = 1;
-    for (const auto & Arg : aSpecArgs.Vec())
+    for (const auto & aArg : aSpecArgs.Vec())
     {
-        if (Arg->HasType(eTA2007::Internal))
+        if (aArg->HasType(eTA2007::Internal))
             continue;
 
         if (num != 1)
@@ -1176,14 +1320,14 @@ void cMMVII_Appli::GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::
         // semantic checks
         std::string argName;
         if (aOptional)
-            argName = Arg->Name();
+            argName = aArg->Name();
         else
             argName = "obl #" + std::to_string(num);
         num++;
 
         std::string fileType,dirType;
         bool hasMPF = false;
-        for (const auto& a : Arg->SemPL()) {
+        for (const auto& a : aArg->SemPL()) {
             if (aArgsSpec->fileTypes.find(a.Type()) != aArgsSpec->fileTypes.end()) {
                 if (fileType.length() != 0)
                    aArgsSpec->errors += "WARNING: " + aSpecName + ": " + argName + ": has " + fileType + " and " + E2Str(a.Type()) + " file semantic.\n";
@@ -1200,9 +1344,9 @@ void cMMVII_Appli::GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::
         if (fileType.length() != 0 && dirType.length() != 0)
             aArgsSpec->errors += "WARNING: " + aSpecName + ": " + argName + ": has " + dirType + " and " + fileType + " semantics.\n";
 
-        if (Arg->IsVector()  && !Arg->HasType(eTA2007::ISizeV))
+        if (aArg->IsVector()  && !aArg->HasType(eTA2007::ISizeV))
             aArgsSpec->errors += "WARNING: " + aSpecName + ": " + argName + ": is a vector with no ISizeV semantic.\n";
-        if (Arg->HasType(eTA2007::FileDirProj) && fileType.length() == 0 && !hasMPF)
+        if (aArg->HasType(eTA2007::FileDirProj) && fileType.length() == 0 && !hasMPF)
             aArgsSpec->errors += "WARNING: " + aSpecName + ": " + argName + ": has FileDirProj semantic with no File type semantic.\n";
 #if 0
 // if no Input/Output/OptionalExist, assume Input
@@ -1218,8 +1362,8 @@ void cMMVII_Appli::GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::
         std::vector<std::string> allowed;
         std::string range;
         std::string vectorSize;
-        for (const auto& a : Arg->SemPL()) {
-            if (a.Type() < eTA2007::AddCom || a.Type() == eTA2007::XmlOfTopTag) {
+        for (const auto& a : aArg->SemPL()) {
+            if (IsSemanticInSpec(a.Type())) {
                 semantic.push_back(E2Str(a.Type()));
             }
             if (a.Type() == eTA2007::AllowedValues) {
@@ -1232,19 +1376,13 @@ void cMMVII_Appli::GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::
                 vectorSize = a.Aux();
             }
         }
-        if (allowed.empty() && Arg->HasType(eTA2007::Profile)) {
-            allowed = aGlobProfileNames;
-        }
-        if (allowed.empty() && Arg->HasType(eTA2007::ProfileKey)) {
-            allowed =  mParamProfile.Keys();
-        }
         aArgsSpec->jsonSpec +=  "\n        {\n";
         if (aOptional) {
-            std::string level = Arg->HasType(eTA2007::Global) ? "global" : Arg->HasType(eTA2007::Tuning) ? "tuning" : "normal";
-            aArgsSpec->jsonSpec +=  "            \"name\": \"" + JsonEscaped(Arg->Name()) + "\",\n";
+            std::string level = aArg->HasType(eTA2007::Global) ? "global" : aArg->HasType(eTA2007::Tuning) ? "tuning" : "normal";
+            aArgsSpec->jsonSpec +=  "            \"name\": \"" + JsonEscaped(aArg->Name()) + "\",\n";
             aArgsSpec->jsonSpec +=  "            \"level\": \"" + level + "\",\n";
         }
-        aArgsSpec->jsonSpec +=  "            \"type\": \"" + JsonEscaped(Arg->NameType()) + "\"";
+        aArgsSpec->jsonSpec +=  "            \"type\": \"" + JsonEscaped(aArg->NameType()) + "\"";
         if (semantic.size()) {
             aArgsSpec->jsonSpec +=  ",\n            \"semantic\": [";
             for (unsigned i=0; i<semantic.size(); i++) {
@@ -1267,10 +1405,11 @@ void cMMVII_Appli::GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::
             aArgsSpec->jsonSpec +=  ",\n            \"range\" : \"" + range + "\"";
         if (vectorSize.size())
             aArgsSpec->jsonSpec +=  ",\n            \"vsize\" : \"" + vectorSize + "\"";
-        if (Arg->HasType((eTA2007::HDV)))
-            aArgsSpec->jsonSpec +=  ",\n            \"default\": \"" + JsonEscaped(Arg->NameValue()) + "\"";
-        if (Arg->Com().size())
-            aArgsSpec->jsonSpec +=  ",\n            \"comment\": \"" + JsonEscaped(Arg->Com()) + "\"";
+        AppendStructFields(aArgsSpec->jsonSpec,aArg->StructFields(),"            ");
+        if (aArg->HasType((eTA2007::HDV)))
+            aArgsSpec->jsonSpec +=  ",\n            \"default\": \"" + JsonEscaped(aArg->DefaultNameValue()) + "\"";
+        if (aArg->Com().size())
+            aArgsSpec->jsonSpec +=  ",\n            \"comment\": \"" + JsonEscaped(aArg->Com()) + "\"";
         aArgsSpec->jsonSpec +=  "\n        }";
     }
     aArgsSpec->jsonSpec +=  "\n      ]";
@@ -1321,6 +1460,45 @@ void cMMVII_Appli::PrintAdditionnalComments(tPtrArg2007 anArg)
    }
 }
 
+static void PrintStructuredFields4Help
+(
+   cMultipleOfs & anOut,
+   const tVecArg2007 & aFields
+)
+{
+   anOut << "[";
+   for (size_t aK=0 ; aK<aFields.size() ; ++aK)
+   {
+      if (aK != 0)
+         anOut << ",";
+      const auto & aField = aFields[aK];
+      const bool isOptional = (!aField->Name().empty()) && (aField->Name().back()=='?');
+      const size_t aNameSize = aField->Name().size() - (isOptional ? 1 : 0);
+      anOut << Color::argument << aField->Name().substr(0,aNameSize) << Color::end;
+      if (isOptional)
+         anOut << Color::warning << "?" << Color::end;
+      if (!aField->StructFields().empty())
+      {
+         anOut << ":";
+         PrintStructuredFields4Help(anOut,aField->StructFields());
+      }
+   }
+   anOut << "]";
+}
+
+static void PrintStructuredFieldsComment4Help
+(
+   cMultipleOfs & anOut,
+   const tPtrArg2007 & anArg
+)
+{
+   if (anArg->StructFields().empty())
+      return;
+   anOut << "    - " << Color::title << "Fields=" << Color::end;
+   PrintStructuredFields4Help(anOut,anArg->StructFields());
+   anOut << "\n";
+}
+
 void cMMVII_Appli::GenerateHelp()
 {
    HelpOut() << "\n";
@@ -1341,7 +1519,8 @@ void cMMVII_Appli::GenerateHelp()
 
    for (const auto & Arg : mArgObl.Vec())
    {
-       HelpOut() << "  * " << Arg->NameType()  << Arg->Name4Help()  << " :: " << Color::descr << Arg->Com() << Color::end << "\n";
+       HelpOut() << "  * " << Arg->NameType() << Arg->Name4Help()  << " :: " << Color::descr << Arg->Com() << Color::end << "\n";
+       PrintStructuredFieldsComment4Help(HelpOut(),Arg);
        PrintAdditionnalComments(Arg);
    }
 
@@ -1403,10 +1582,11 @@ void cMMVII_Appli::GenerateHelp()
                    bool HasDefVal = Arg->HasType(eTA2007::HDV);
                    if (HasDefVal)
                    {
-                      HelpOut() << ", [Default="  << Color::descr << Arg->NameValue() << Color::end << "]";
+                      HelpOut() << ", [Default="  << Color::descr << Arg->DefaultNameValue() << Color::end << "]";
                    }
 
                    HelpOut()  << "\n";
+                   PrintStructuredFieldsComment4Help(HelpOut(),Arg);
 
                    // Check tuning comes at end =  when tuning is reached, we have non standard param
 /*
@@ -1472,7 +1652,7 @@ void cMMVII_Appli::ShowAllParams()
     {
         if (( IsInit(Arg->AdrParam()) ||  Arg->HasType(eTA2007::HDV)) &&  (!Arg->HasType(eTA2007::Global)) )
         {
-            StdOut() << " * " <<  Arg->Name() << "=" <<  Arg->NameValue() << std::endl;
+            StdOut() << " * " <<  Arg->Name() << "=" <<  Arg->DefaultNameValue() << std::endl;
         }
     }
 }
@@ -1652,7 +1832,18 @@ std::string cMMVII_Appli::mTaggedNameDefSerial;
 std::string cMMVII_Appli::mMMV1Bin = "mm3d";
 
               // static Accessors
-const std::string & cMMVII_Appli::TmpDirTestMMVII()   {return mTmpDirTestMMVII;}
+const std::string & cMMVII_Appli::TmpDirTestMMVII()
+{
+   //  Created on demand : it lives in the system temporary directory, so it may well
+   //  not exist yet, and only the benches and TestRecall ever need it
+   static bool aFirstCall = true;
+   if (aFirstCall)
+   {
+      aFirstCall = false;
+      CreateDirectories(mTmpDirTestMMVII);
+   }
+   return mTmpDirTestMMVII;
+}
 const std::string & cMMVII_Appli::InputDirTestMMVII() {return mInputDirTestMMVII;}
 const std::string & cMMVII_Appli::TopDirMMVII()       {return mTopDirMMVII;}
 const std::string & cMMVII_Appli::DirBinMMVII()       {return mDirBinMMVII; }

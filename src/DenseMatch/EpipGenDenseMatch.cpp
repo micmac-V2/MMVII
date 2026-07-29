@@ -556,16 +556,16 @@ void cOneLevel::Purge()
    // For Im1, we must remove Px & Masq one step later as it will be used in next computation
    if (mIm.mIsIm1 && mDownLev!=nullptr)
    {
-       RemoveFile(mDownLev->mNamePx,false);
-       RemoveFile(mDownLev->mNameMasq,false);
+       RemoveFile(mDownLev->mNamePx);
+       RemoveFile(mDownLev->mNameMasq);
    }
    // At top level, dont remove initial image & masq
    if (mLevel==0)
       return;
 
-   RemoveFile(mNameIm,false);
+   RemoveFile(mNameIm);
    if (!mIm.mIsIm1 )
-       RemoveFile(mNameMasq,false);
+       RemoveFile(mNameMasq);
 }
 
 
