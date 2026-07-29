@@ -514,6 +514,7 @@ int cAppliBundlAdj::Exe()
     {
         // expected: [Folder,SigI,SigAt?=-1,Thrs?=-1,Exp?=1]
         AddOneSetGCP2D(aGCP2D);
+        mMeasureAdded = true;
     }
 
     if (mGCP2D.empty())
