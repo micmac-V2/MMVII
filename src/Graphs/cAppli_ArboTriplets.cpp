@@ -1,7 +1,7 @@
 #include "ArboTriplets.h"
 
 // DEBUG ONLY - see the anonymous namespace below
-#define MMVII_DBG_HSFM_SAVE_MERGE 1
+#define MMVII_DBG_HSFM_SAVE_MERGE 0
 
 
 namespace MMVII
