@@ -54,6 +54,7 @@ Compilation procedure is described below for:
 - **[Linux Ubuntu distribution](#linux-ubuntu-distribution)**
 - **[Windows](#windows)**
 - **[Mac](#mac)**
+- **[a container image](#building-in-a-container-image)**, which installs no dependency on your machine
 
 
 
@@ -164,6 +165,34 @@ Compilation procedure is described below for:
 	```
 Bench passes if it does not end with a fatal error block.
 
+## Building in a container image
+
+A second image, distinct from the one that *runs* MMVII, carries the whole build
+toolchain — g++ and clang-18, PROJ, GDAL, Xerces, pybind11 and the LaTeX set — and no
+MMVII: it compiles the sources you give it, so nothing has to be installed on your
+machine.
+
+```sh
+docker pull ghcr.io/micmac-v2/build-mmvii
+cd <your MMVII source directory>
+docker run --rm -it -v "$PWD:$PWD" -w "$PWD" ghcr.io/micmac-v2/build-mmvii
+```
+
+That opens a shell in your own source directory, where `cmake`, `ninja`,
+`make -C Doc a4` and `pip wheel` work exactly as described above. The single command
+`mmvii-build` does the whole `full` cycle, and takes its compiler from `CC` and `CXX`:
+
+```sh
+docker run --rm -e CC=clang-18 -e CXX=clang++-18 \
+	-v "$PWD:$PWD" -w "$PWD" ghcr.io/micmac-v2/build-mmvii mmvii-build
+```
+
+As for the MMVII image, `--user` is optional and `-w` is what makes the container adopt
+your identity, so the build products (`bin/`, `build/`, `src/GeneratedCodes/`) belong to
+you and never to root. The ccache of the build lives in `<build directory>/ccache`. The
+image converts to a Singularity/Apptainer image as well; use `singularity run` there
+rather than `exec`, so that the entry point applies.
+
 ## Additionnal notes
 ### Compilation details
 - If using CLang version XX and want OpenMP: `sudo apt install libomp-XX-dev`
@@ -266,11 +295,16 @@ docker run --rm -it \
 	ghcr.io/micmac-v2/mmvii MMVII <command> <arguments>
 ```
 
-`--user` is not optional: without it the container runs under an account of its own,
-which cannot write in your directories unless your own account happens to have the same
-user id, and MMVII fails as soon as it writes its log file. Mounting the directories
-under **the same paths as on the host** means an absolute path designates the same file
-on both sides.
+`--user` is optional: given none, the container drops root immediately and adopts the
+owner of the directory named by `-w`, so it writes your files as you and never runs your
+command as root. `-w "$PWD"` is what carries that identity — without it the container
+starts in a directory of its own and falls back to an account that cannot write in your
+files, and MMVII fails as soon as it writes its log file. Passing `--user` explicitly
+remains valid, and is what the `MMVII` shell function of the next section does. Mounting
+`$HOME` and passing `HOME` is what keeps your MMVII profile from one container to the
+next; without them MMVII works in a temporary home, with its default settings. Mounting
+the directories under **the same paths as on the host** means an absolute path
+designates the same file on both sides.
 
 That command line is too long to type repeatedly: see
 [Command completion in your own shell](#command-completion-in-your-own-shell), which
