@@ -230,7 +230,7 @@ void cMMVII_BundleAdj::OneItere_GCP()
                 aWeightedSqRes.Add(aWeightImage,SqN2(aResidual));
 
                 aUW_SqRes.Add(1.0,SqN2(aResidual));
-                cCalculator<double> * anEqColin =  aSens->GetEqColinearity();
+                cCalculator<double> * anEqColin = nullptr;
                 // the "obs" are made of 2 point and, possibily, current rotation (for PC cams)
                 std::vector<double> aVObs = aPIm.ToStdVector();
 
@@ -238,6 +238,8 @@ void cMMVII_BundleAdj::OneItere_GCP()
                 cStaticLidar * aStaticLidar = dynamic_cast<cStaticLidar*>(aSens);
                 if (!aDistWithSigma.has_value())
                     aStaticLidar = nullptr;
+                anEqColin = aStaticLidar ? aStaticLidar->GetEqColinearityDist() : aSens->GetEqColinearity();
+
                 if (!aStaticLidar)
                     aSens->PushOwnObsColinearity(aVObs,aPGr);
                 else

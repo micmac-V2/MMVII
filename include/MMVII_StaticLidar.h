@@ -136,8 +136,10 @@ public :
     static std::string NameFromId(const std::string &aIdName, bool getOriName);
     static bool IsNameTSL(const std::string &aImageName);
 
-    cCalculator<double> * CreateEqColinearity(bool WithDerives, int aSzBuf, bool ReUse) override;
-    void PushOwnObsColinearity(std::vector<double> & aVObs,const cPt3dr &) override; // just fail
+    cCalculator<double> * CreateEqColinearity(bool WithDerives, int aSzBuf, bool ReUse) override; // colinearity with fixed F and PP
+    cCalculator<double> * CreateEqColinearityDist(bool WithDerives, int aSzBuf, bool ReUse);
+    cCalculator<double> * GetEqColinearityDist();
+    void PushOwnObsColinearity(std::vector<double> & aVObs, const cPt3dr &) override; // use this for GCP obs
     void PushOwnObsColinearityDistance(std::vector<double> & aVObs, tREAL4 aMesDistance); // use this for GCP obs
 
 
@@ -242,6 +244,7 @@ private :
     cTriangulation3D<tREAL8> * mTriangulation; ///< triangulation of the raster, for zbuffer
 
     cDiffInterpolator1D * mLinearInterpolator;
+    cCalculator<double> * mEqDistColinearityDist;
 };
 
 template <typename TYPE>

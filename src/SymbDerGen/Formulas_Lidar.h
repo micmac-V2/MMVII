@@ -346,8 +346,8 @@ private :
 class cEqTSL_GCP
 {
 public :
-    cEqTSL_GCP() {}
-    std::string FormulaName() const { return "cEqTSL_GCP";}
+    cEqTSL_GCP(bool aWithDistance) : mWithDistance(aWithDistance) {}
+    std::string FormulaName() const { return std::string("cEqTSL_GCP")+(mWithDistance?"D":"");}
     std::vector<std::string>  VNamesUnknowns() const
     {
         return Append
@@ -359,7 +359,10 @@ public :
 
     std::vector<std::string>    VNamesObs() const
     {
-        return Append(NamesP2("Im"),{"D","F"},NamesP2("PP"),NamesMatr("M",cPt2di(3,3)));
+        if (mWithDistance)
+            return Append(NamesP2("Im"),{"D","F"},NamesP2("PP"),NamesMatr("M",cPt2di(3,3)));
+        else
+            return Append(NamesP2("Im"),{"F"},NamesP2("PP"),NamesMatr("M",cPt2di(3,3)));
     }
 
     template <typename tUk>
@@ -374,7 +377,9 @@ public :
         size_t aIndObs = 0;
 
         auto  aPtIm    = VtoP2AutoIncr(aVObs,&aIndObs);
-        auto  aDistance   =  aVObs.at(aIndObs++);
+        tUk  aDistance   =  0;
+        if (mWithDistance)
+            aDistance = aVObs.at(aIndObs++);
         auto  aFoc   =  aVObs.at(aIndObs++);
         auto  aPP   =  VtoP2AutoIncr(aVObs,&aIndObs);
 
@@ -396,17 +401,21 @@ public :
 
         cPtxd<tUk,2> aPPix =  aPP + aPProj * aFoc; // Use Focal and PP to make pixel
 
-        MMVII_INTERNAL_ASSERT_always(aIndUk=aVUk.size(),"cEqColinearityDistance : Uk-size");
-        MMVII_INTERNAL_ASSERT_always(aIndObs== aVObs.size(),"cEqColinearityDistance : Obs-size");
+        MMVII_INTERNAL_ASSERT_always(aIndUk=aVUk.size(),"cEqColinearityTSL_GCPD : Uk-size");
+        MMVII_INTERNAL_ASSERT_always(aIndObs== aVObs.size(),"cEqColinearityTSL_GCPD : Obs-size");
 
         cPtxd<tUk,2> aResidual2D = aPPix - aPtIm;  // compare to mesured point
-        auto aResidualDistance = aGndDistance - aDistance;
+        auto aResidualDistance = mWithDistance ? (aGndDistance - aDistance) : 0;
 
-        return {aResidual2D.x(),aResidual2D.y(),aResidualDistance};
+        if (mWithDistance)
+            return {aResidual2D.x(),aResidual2D.y(),aResidualDistance};
+        else
+            return {aResidual2D.x(),aResidual2D.y()};
     }
 
+protected:
+    bool mWithDistance;
 };
-
 
 
 };//  namespace MMVII

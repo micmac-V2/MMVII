@@ -705,7 +705,8 @@ cStaticLidar::cStaticLidar(const std::string & aNameFile, const std::string & aS
     mSigma(aSigma),
     mRotInput2Raster(aRotInput2Raster),
     mTriangulation(nullptr),
-    mLinearInterpolator(cDiffInterpolator1D::AllocFromNames({"Linear"}))
+    mLinearInterpolator(cDiffInterpolator1D::AllocFromNames({"Linear"})),
+    mEqDistColinearityDist(nullptr)
 {
 }
 
@@ -1412,18 +1413,31 @@ cCalculator<double> * cStaticLidar::CreateEqColinearity(bool WithDerives, int aS
     return EqTSL_GCP(WithDerives,aSzBuf,ReUse);
 }
 
-void cStaticLidar::PushOwnObsColinearity(std::vector<double> & aVObs,const cPt3dr &)
+cCalculator<double> * cStaticLidar::CreateEqColinearityDist(bool WithDerives, int aSzBuf, bool ReUse)
 {
-    MMVII_INTERNAL_ASSERT_tiny(false, "Error: use PushOwnObsColinearityDistance() instead of PushOwnObsColinearity() for TLS");
+    return EqTSL_GCPD(WithDerives,aSzBuf,ReUse);
 }
 
-void cStaticLidar::cStaticLidar::PushOwnObsColinearityDistance(std::vector<double> & aVObs, tREAL4 aMesDistance)
+cCalculator<double> * cStaticLidar::GetEqColinearityDist()
 {
-    aVObs.push_back(aMesDistance);
+    if (!mEqDistColinearityDist)
+        mEqDistColinearityDist  = CreateEqColinearityDist(true,10,true);
+    return mEqDistColinearityDist;
+}
+
+void cStaticLidar::cStaticLidar::PushOwnObsColinearity(std::vector<double> & aVObs, const cPt3dr &)
+{
     aVObs.push_back(InternalCalib()->F());
     aVObs.push_back(InternalCalib()->PP().x());
     aVObs.push_back(InternalCalib()->PP().y());
     mPose_WU.PushObs(aVObs,true);
+}
+
+
+void cStaticLidar::cStaticLidar::PushOwnObsColinearityDistance(std::vector<double> & aVObs, tREAL4 aMesDistance)
+{
+    aVObs.push_back(aMesDistance);
+    PushOwnObsColinearity(aVObs,{});
 }
 
 void cStaticLidar::FilterIntensity(const cStaticLidarImporter &aSL_importer, tREAL8 aLowest, tREAL8 aHighest)
