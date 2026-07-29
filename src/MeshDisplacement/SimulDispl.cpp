@@ -148,8 +148,11 @@ namespace MMVII
     int cAppli_SimulDispl::Exe()
     {
         const bool aIsBillinearInterp = (mInterpName == "Bilinear");
+        //  "Bilinear" selects the DefGetVBL/InsideBL path and allocates no interpolator ; it is not
+        //  a name InitUserInterpolator can resolve, so it must not be called in that case.
         std::unique_ptr<cDiffInterpolator1D> anInterp = nullptr;
-        anInterp = std::unique_ptr<cDiffInterpolator1D>(InitUserInterpolator());
+        if (! aIsBillinearInterp)
+           anInterp = std::unique_ptr<cDiffInterpolator1D>(InitUserInterpolator());
 
         mImIn = tImDispl::FromFile(mNameImage);
         cDataFileIm2D aDescFile = cDataFileIm2D::Create(mNameImage, eForceGray::No);
