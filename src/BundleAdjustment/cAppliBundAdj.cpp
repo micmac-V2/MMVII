@@ -392,6 +392,7 @@ void  cAppliBundlAdj::AddOneSetGCP3D(const std::string & aFolderIn, const std::s
 // VParam standar is done from  Folder +  weight of size [1,4]
 void  cAppliBundlAdj::AddOneSetGCP2D(const cGCP2D & aGCP2D)
 {
+    mMeasureAdded = true;
     std::string aFolderIn = aGCP2D.GCPDir;  // folder
     std::vector<tREAL8>  aGCPW = {aGCP2D.Sigma, aGCP2D.SigmaAttenuation,aGCP2D.Threshold, aGCP2D.Exponent};
     cMes2DDirInfo * aMesDirInfo = cMes2DDirInfo::addMes2DDirInfo(mBA.getGCP() ,aFolderIn, cStdWeighterResidual(aGCPW,0));
@@ -514,7 +515,6 @@ int cAppliBundlAdj::Exe()
     {
         // expected: [Folder,SigI,SigAt?=-1,Thrs?=-1,Exp?=1]
         AddOneSetGCP2D(aGCP2D);
-        mMeasureAdded = true;
     }
 
     if (mGCP2D.empty())
