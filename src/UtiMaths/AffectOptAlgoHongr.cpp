@@ -10,7 +10,7 @@ tINT4 CostPermutation(cIm2D<tINT4> aCostM,const std::vector<int> & aPerm)
 {
    tINT4 aRes = 0;
 
-   for (int aK=0; aK<aPerm.size() ; aK++)
+   for (size_t aK=0; aK<aPerm.size() ; aK++)
        aRes += aCostM.DIm().GetV(cPt2di(aK,aPerm.at(aK)));
    return aRes;
 }
@@ -21,7 +21,7 @@ bool IsPermutation(const std::vector<int> & aPerm)
     for (size_t aK1=0 ; aK1<aPerm.size() ; aK1++)
     {
         // Must be in the right range
-        if ((aPerm[aK1]<0) || (aPerm[aK1]>=aPerm.size()))
+        if ((aPerm[aK1]<0) || (aPerm[aK1]>=(int)aPerm.size()))
             return false;
         // must be all diff
         for (size_t aK2=aK1+1 ; aK2<aPerm.size() ; aK2++)
@@ -36,13 +36,13 @@ bool IsPermutation(const std::vector<int> & aPerm)
 void  BenchAllPerm(const std::vector<std::vector<int>> & aVAll, int aNb)
 {
     // Good number of permutation
-    MMVII_INTERNAL_ASSERT_bench( iFactorial(aNb)==aVAll.size(), "Bad size for  BenchAllPerm");
-    for (int aK1=0 ; aK1<aVAll.size() ; aK1++)
+    MMVII_INTERNAL_ASSERT_bench( iFactorial(aNb)==(int)aVAll.size(), "Bad size for  BenchAllPerm");
+    for (size_t aK1=0 ; aK1<aVAll.size() ; aK1++)
     {
         MMVII_INTERNAL_ASSERT_bench(IsPermutation(aVAll.at(aK1)),"Not a perm BenchAllPerm");
-        MMVII_INTERNAL_ASSERT_bench(aVAll.at(aK1).size()==aNb,"Not a perm BenchAllPerm");
+        MMVII_INTERNAL_ASSERT_bench((int)aVAll.at(aK1).size()==aNb,"Not a perm BenchAllPerm");
 
-        for (int aK2=aK1+1 ; aK2<aVAll.size() ; aK2++)
+        for (size_t aK2=aK1+1 ; aK2<aVAll.size() ; aK2++)
         {
             MMVII_INTERNAL_ASSERT_bench(aVAll.at(aK1)!=aVAll.at(aK2),"Not all Diff in BenchAllPerm");
         }
@@ -111,7 +111,7 @@ void OneBench_AlgoHongrois(int aNb)
  // StdOut() << "IsPerm=" << IsPermutation(aSolVect) << " Sz=" <<aSolVect.size()  << " " << aCostH << " " << aMinCost << "\n";
 
   MMVII_INTERNAL_ASSERT_bench(IsPermutation(aSolVect)," Not a permut in OneBench_AlgoHongrois");
-  MMVII_INTERNAL_ASSERT_bench( aSolVect.size()==aNb," Bad size in OneBench_AlgoHongrois");
+  MMVII_INTERNAL_ASSERT_bench( (int)aSolVect.size()==aNb," Bad size in OneBench_AlgoHongrois");
 
   MMVII_INTERNAL_ASSERT_bench( aCostH==aMinCost," Bad size in OneBench_AlgoHongrois");
 
@@ -182,7 +182,7 @@ template <class Type> void DELETE_TAB(Type * aPtr) {delete [] aPtr;}
 
 void  VoidScanf(int * aIPtr)
 {
- std::scanf("%d",aIPtr);
+ [[maybe_unused]] int v = std::scanf("%d",aIPtr);
 }
 
 
