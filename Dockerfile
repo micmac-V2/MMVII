@@ -82,8 +82,8 @@ ENV LANG=C.UTF-8
 
 # Fallback identity, used only when the working directory is root-owned -- that is,
 # when nothing is mounted over /src. Ubuntu 24.04 already ships a user at uid 1000,
-# so it is replaced rather than added. Singularity/Apptainer ignores all of this: it
-# runs as the invoking user, whoever that is.
+# so it is replaced rather than added. Singularity/Apptainer ignores all of this:
+# it runs as the invoking user, whoever that is.
 RUN userdel --remove ubuntu \
  && useradd --create-home --shell /bin/bash --uid 1000 mmvii
 
