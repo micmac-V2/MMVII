@@ -249,8 +249,6 @@ class cAppliBundlAdj : public cMMVII_Appli
         cTiePWeightParam          mTiePWeight;
         std::vector<cAddTieP>     mAddTieP; // In case there is multiple GCP Set
         std::vector<int>          mTiepShowPerMil;
-        std::vector<double>       mBRSigma; // RIGIDBLOC
-        std::vector<double>       mBRSigma_Rat; // RIGIDBLOC
         cRefOriParam              mParamRefOri;  // Force Poses to be +- equals to this reference
 
         std::vector<cLidarPhotograParam>  mParamLidarPhgr; // parameters for photogra/lidar adj via triangulation
@@ -356,8 +354,6 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
 
            << "Blocks"
-      << AOpt2007(mBRSigma,"BRW","Bloc Rigid Weighting [SigmaCenter,SigmaRot]",{{eTA2007::ISizeV,"[2,2]"}})  // RIGIDBLOC
-      << AOpt2007(mBRSigma_Rat,"BRW_Rat","Rattachment fo Bloc Rigid Weighting [SigmaCenter,SigmaRot]",{{eTA2007::ISizeV,"[2,2]"}})  // RIGIDBLOC
       << AOpt2007
          (
              mParamBOI,
