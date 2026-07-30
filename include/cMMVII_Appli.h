@@ -6,6 +6,8 @@
 #include "MMVII_Bench.h"
 #include "MMVII_GenArgsSpec.h"
 #include <set>
+#include <deque>
+#include <mutex>
 
 
 namespace MMVII
@@ -210,31 +212,49 @@ class cMMVII_Ap_NameManip
  *     Each time an cAutoTimerSegm is created on a cTimerSegm, the name is
  *     changed (so accumulation is done on another name), when cAutoTimerSegm is
  *     destroyed, the current state is destroyed
+ *
+ *     Thread-safe: each thread accumulates in its own table ; Times()/TimesInclusive()
+ *     merge them under a lock, call once threads have joined. TimesInclusive() also
+ *     counts time spent in nested segments.
  */
 
 class cAutoTimerSegm;
 typedef std::string tIndTS;
 typedef std::map<tIndTS,double> tTableIndTS;
+
 class cTimerSegm
 {
    public :
-        
+
        friend class cAutoTimerSegm;
 
        cTimerSegm(cMMVII_Ap_CPU *);
        void  SetIndex(const tIndTS &);
-       const tTableIndTS &  Times() const;
+       tTableIndTS  Times() const;           ///< self ("exclusive") time, summed over all threads
+       tTableIndTS  TimesInclusive() const;  ///< self+nested ("inclusive") time, summed over all threads
        void Show();
        ~cTimerSegm();
        /// Force to have no show at del, usefull for handling parameter in bench
        void SetNoShowAtDel();
-       double  CurBeginTime() const ; ///< Accessor
+       double  CurBeginTime() const ; ///< Accessor, current thread's cursor
    private :
-       tTableIndTS          mTimers;
-       tIndTS               mLastIndex;
-       cMMVII_Ap_CPU *      mAppli;
-       double               mCurBeginTime;
-       bool                 mShowAtDel;
+       /// Per-thread state : cursor, its begin time, and this thread's own accumulators
+       struct cThreadState
+       {
+            cThreadState(const tIndTS & aFirstIndex,double aT0);
+            tIndTS       mLastIndex;
+            double       mCurBeginTime;
+            tTableIndTS  mExclusive;
+            tTableIndTS  mInclusive;
+       };
+       /// Get (creating on first call from a given thread) this thread's private state
+       cThreadState & CurThreadState() const;
+
+       const tU_INT8                      mId;      ///< unique id, stable across cTimerSegm lifetimes
+       cMMVII_Ap_CPU *                    mAppli;
+       bool                               mShowAtDel;
+       mutable std::mutex                 mMutex;         ///< protects mThreadStates, not the hot path
+       mutable std::deque<cThreadState>   mThreadStates;  ///< one entry per thread
 };
 
 
@@ -253,6 +273,7 @@ class cAutoTimerSegm
           cAutoTimerSegm(const cAutoTimerSegm&) = delete;
           cTimerSegm * mTS;  // save the global timer
           tIndTS  mSaveInd;  // save the curent index in TS to restore it at end
+          double  mBeginTime;  // this activation's own start time (self+nested/"inclusive" accounting)
 };
 
 /**  Class for executing some acion at given period */

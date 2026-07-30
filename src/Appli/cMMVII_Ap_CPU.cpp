@@ -1,5 +1,9 @@
 #include "cMMVII_Appli.h"
 #include "MMVII_Sys.h"
+#include <atomic>
+#include <unordered_map>
+#include <algorithm>
+#include <vector>
 
 namespace MMVII
 {
@@ -94,8 +98,9 @@ bool cTimeSequencer::ItsTime2Execute()
 /***********************************/
 
 cAutoTimerSegm::cAutoTimerSegm(cTimerSegm & aTS,const tIndTS & anInd) :
-   mTS      (&aTS),
-   mSaveInd (mTS->mLastIndex)
+   mTS        (&aTS),
+   mSaveInd   (aTS.CurThreadState().mLastIndex),
+   mBeginTime (aTS.mAppli->SecFromT0())
 {
    mTS->SetIndex(anInd);
 }
@@ -110,7 +115,8 @@ cAutoTimerSegm::cAutoTimerSegm(cTimerSegm * aTS,const tIndTS & anInd) :
 {
    if (aTS)
    {
-      mSaveInd =  aTS->mLastIndex;
+      mSaveInd   =  aTS->CurThreadState().mLastIndex;
+      mBeginTime =  aTS->mAppli->SecFromT0();
       mTS->SetIndex(anInd);
    }
 }
@@ -118,7 +124,13 @@ cAutoTimerSegm::cAutoTimerSegm(cTimerSegm * aTS,const tIndTS & anInd) :
 cAutoTimerSegm::~cAutoTimerSegm()
 {
    if (mTS)
+   {
+      // LIFO nesting guarantees this thread's open segment is the one we opened
+      cTimerSegm::cThreadState & aTh = mTS->CurThreadState();
+      tIndTS aClosedInd = aTh.mLastIndex;
       mTS->SetIndex(mSaveInd);
+      aTh.mInclusive[aClosedInd] += mTS->mAppli->SecFromT0() - mBeginTime;
+   }
 }
 
 /***********************************/
@@ -128,16 +140,40 @@ cAutoTimerSegm::~cAutoTimerSegm()
 /***********************************/
 
 static const std::string DefTime("OTHERS");
+static std::atomic<tU_INT8> TheNextTimerSegmId(1);
+
+cTimerSegm::cThreadState::cThreadState(const tIndTS & aFirstIndex,double aT0) :
+   mLastIndex     (aFirstIndex),
+   mCurBeginTime  (aT0)
+{
+}
 
 cTimerSegm::cTimerSegm(cMMVII_Ap_CPU * anAppli) :
-   mLastIndex     (DefTime),
+   mId            (TheNextTimerSegmId.fetch_add(1)),
    mAppli         (anAppli),
-   mCurBeginTime  (mAppli->SecFromT0()),
    mShowAtDel     (true)
 {
 }
 
-double cTimerSegm::CurBeginTime() const {return  mCurBeginTime;}
+// Per-thread cache, keyed by mId (not "this") so a stale entry can't survive a
+// cTimerSegm destroyed and reallocated at the same address. State itself lives in
+// mThreadStates, owned by the cTimerSegm, so it outlives the thread that filled it.
+cTimerSegm::cThreadState & cTimerSegm::CurThreadState() const
+{
+   thread_local std::unordered_map<tU_INT8,cThreadState*> TheCache;
+
+   auto anIt = TheCache.find(mId);
+   if (anIt != TheCache.end())
+      return *(anIt->second);
+
+   std::lock_guard<std::mutex> aLock(mMutex);
+   mThreadStates.emplace_back(DefTime,mAppli->SecFromT0());
+   cThreadState * aRes = &mThreadStates.back();
+   TheCache.emplace(mId,aRes);
+   return *aRes;
+}
+
+double cTimerSegm::CurBeginTime() const {return  CurThreadState().mCurBeginTime;}
 
 void  cTimerSegm::SetNoShowAtDel()
 {
@@ -146,7 +182,7 @@ void  cTimerSegm::SetNoShowAtDel()
 
 cTimerSegm::~cTimerSegm()
 {
-   if (mShowAtDel && (mTimers.size() >=2)) // is something was added
+   if (mShowAtDel && (Times().size() >=2)) // is something was added
      Show();
 }
 
@@ -155,14 +191,48 @@ cTimerSegm & GlobAppTS()
    return cMMVII_Appli::CurrentAppli().TimeSegm();
 }
 
-const tTableIndTS &  cTimerSegm::Times() const {return mTimers;}
+tTableIndTS  cTimerSegm::Times() const
+{
+   std::lock_guard<std::mutex> aLock(mMutex);
+   tTableIndTS aRes;
+   for (const auto & aTh : mThreadStates)
+       for (const auto & aPair : aTh.mExclusive)
+           aRes[aPair.first] += aPair.second;
+   return aRes;
+}
+
+tTableIndTS  cTimerSegm::TimesInclusive() const
+{
+   std::lock_guard<std::mutex> aLock(mMutex);
+   tTableIndTS aRes;
+   for (const auto & aTh : mThreadStates)
+       for (const auto & aPair : aTh.mInclusive)
+           aRes[aPair.first] += aPair.second;
+   return aRes;
+}
 
 void cTimerSegm::SetIndex(const tIndTS & aInd)
 {
+   cThreadState & aTh = CurThreadState();
    double aCurTime =  mAppli->SecFromT0();
-   mTimers[mLastIndex] += aCurTime-mCurBeginTime;
-   mCurBeginTime = aCurTime;
-   mLastIndex = aInd;
+   aTh.mExclusive[aTh.mLastIndex] += aCurTime-aTh.mCurBeginTime;
+   aTh.mCurBeginTime = aCurTime;
+   aTh.mLastIndex = aInd;
+}
+
+// Names of aExcl, by decreasing duration -- systematic, no option
+static std::vector<tIndTS> NamesByDecreasingDuration(const tTableIndTS & aExcl)
+{
+   std::vector<tIndTS> aRes;
+   aRes.reserve(aExcl.size());
+   for (const auto & aPair : aExcl)
+       aRes.push_back(aPair.first);
+   std::stable_sort
+   (
+       aRes.begin(),aRes.end(),
+       [&aExcl](const tIndTS & aN1,const tIndTS & aN2) {return aExcl.at(aN1) > aExcl.at(aN2);}
+   );
+   return aRes;
 }
 
 void cTimerSegm::Show()
@@ -171,15 +241,30 @@ void cTimerSegm::Show()
       cAutoTimerSegm aATS(*this,DefTime);
    }
 
+   tTableIndTS aExcl = Times();
+   tTableIndTS anIncl = TimesInclusive();
+
    double aSom = 0.0;
    StdOut()  <<  " ========== TIMING ===========" << std::endl;
-   for (const auto & aPair : mTimers)
+   for (const auto & aName : NamesByDecreasingDuration(aExcl))
    {
-       aSom += aPair.second;
-       StdOut() << " * "  << FixDigToStr(aPair.second,4,4) << " : " << aPair.first << std::endl;
+       double aDur = aExcl.at(aName);
+       aSom += aDur;
+       StdOut() << " * "  << FixDigToStr(aDur,4,4) << " : " << aName;
+       auto anItIncl = anIncl.find(aName);
+       // show inclusive time only when something ran nested inside this segment
+       if ((anItIncl != anIncl.end()) && (anItIncl->second > aDur + 1e-3))
+           StdOut() << "  (incl. nested: " << FixDigToStr(anItIncl->second,4,4) << ")";
+       StdOut() << std::endl;
    }
 
-   StdOut() << " *** Total sum: " << aSom  <<  " Total ellapsed: " << mAppli->SecFromT0() << std::endl;
+   double aElapsed = mAppli->SecFromT0();
+   StdOut() << " *** Total sum: " << aSom  <<  " Total ellapsed: " << aElapsed;
+   // sum > elapsed is expected with concurrent threads, not an inconsistency
+   if (aSom > aElapsed + 1e-3)
+       StdOut() << "  (sum>elapsed : segments were measured concurrently by several threads, parallelism ratio="
+                 << FixDigToStr(aSom/std::max(aElapsed,1e-9),3,2) << ")";
+   StdOut() << std::endl;
 }
 
 
