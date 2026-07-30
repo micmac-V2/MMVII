@@ -434,7 +434,7 @@ template<> cE2Str<eTargetDistanceEstim>::tMapE2Str cE2Str<eTargetDistanceEstim>:
 
 template<> cE2Str<eModeWeighter>::tMapE2Str cE2Str<eModeWeighter>::mE2S
     {
-        {eModeWeighter::eExpl, "Expl"},
+        //{eModeWeighter::eExpl, "Expl"},
         {eModeWeighter::eStd, "Std"},
         {eModeWeighter::eLin, "Lin"}
     };

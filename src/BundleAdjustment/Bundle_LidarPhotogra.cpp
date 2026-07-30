@@ -962,8 +962,10 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cBasicWeigh
 cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
                                            cMMVII_BundleAdj& aBA, const std::string & aPatScan, double aSigma,
                                            double aThresholdInit, double aThresholdFinal,
-                                           double aNormalTolDeg, const std::vector<std::string> & aInterp) :
-    cBA_LidarBase(aPhProj, aBA, aSigma, aInterp)
+                                           double aNormalTolDeg, const std::vector<std::string> & aInterp,
+                                           const cWeighterParam & aWParam) :
+    cBA_LidarBase(aPhProj, aBA, aSigma, aInterp),
+    mWParam(aWParam)
 {
     mEq = EqEqLidarLidar (true,1,true);
 
@@ -1024,12 +1026,28 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
             auto &aScanB = aScanDataB.mLidarRaster;
             tREAL8 aSigmaAB = sqrt(aScanA->Sigma()*aScanA->Sigma()
                                    +aScanB->Sigma()*aScanB->Sigma());
-            mWeightersMap[aScanA->NameImage()+"-"+aScanB->NameImage()].reset(
+            //mWeightersMap[aScanA->NameImage()+"-"+aScanB->NameImage()].reset(
                 //= cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh / 30., aTh, 1); // simulate least L1 with 1/31 of weight before exclusion
                 //= cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh / 9., aTh, 1); // simulate least L1 with 1/10 of weight before exclusion
                 //new cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, -1, aTh, 1) // least squares better for final convergence since exclusion methods are efficient
-                new cLinearWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh, aTh*10)
-                );
+                //new cLinearWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh, aTh*10)
+                //);
+
+            cBasicWeighter<tREAL8> * aW = nullptr;
+            switch (mWParam.Mode) {
+            case eModeWeighter::eStd:
+                MMVII_INTERNAL_ASSERT_User(mWParam.VParams.size()==2,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParam.Mode)+" must have 2 params");
+                aW = new cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh*mWParam.VParams.at(0), aTh, mWParam.VParams.at(1));
+                break;
+            case eModeWeighter::eLin:
+                MMVII_INTERNAL_ASSERT_User(mWParam.VParams.size()==1,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParam.Mode)+" must have 1 param");
+                aW = new cLinearWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh, aTh*mWParam.VParams.at(0));
+                break;
+            case eModeWeighter::eNbVals:
+                MMVII_INTERNAL_ASSERT_User(false,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParam.Mode)+" not allowed!");
+                break;
+            }
+            mWeightersMap[aScanA->NameImage()+"-"+aScanB->NameImage()].reset( aW );
         }
     }
 }
