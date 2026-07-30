@@ -753,7 +753,7 @@ std::tuple<double, double, cPt3dr> cStaticLidar::getDistSigmaNormalPlane(cPt2dr 
     if (IsValidPoint(aCenter) && (aVPtCam.size()<3))
     {
         return std::make_tuple(Image2Distance(aCenter), Sigma(),
-                               Pose().Rot().Value(Image2NormalInstr(aCenter,*getLineraInterpolator())));
+                               Pose().Rot().Value(Image2NormalInstr(aCenter,*getLineraInterpolator()))); // which interpolator to use for Target extract?
     }
 
     std::cout<<"Box "<<aPixBox<<" => "<<aPixBox.Sz().x()*aPixBox.Sz().y()
@@ -1728,7 +1728,7 @@ void cStaticLidar::MakePatches
      const std::vector<cSensorCamPC *> & aVCam,
      int    aNbPointByPatch,
      int    aSzMin,
-     const cDiffInterpolator1D & aInterp
+     const cDiffInterpolator1D & aInterpN
      ) const
 {
     //StdOut() << "MakePatches\n";
@@ -1744,9 +1744,9 @@ void cStaticLidar::MakePatches
             auto & aCenter = mPatchCenters[i];
             MMVII_INTERNAL_ASSERT_tiny(IsMaskedPoint(ToR(aCenter))==false, "Error: patch " + ToStr(aCenter) + " is on a masked area");
             auto aCenterR = cPt2dr(aCenter.x(),aCenter.y());
-            if (getRasterDistance().InsideInterpolator(aInterp,aCenterR,1.0))  // is it sufficiently inside
+            if (getRasterDistance().InsideInterpolator(aInterpN,aCenterR,1.0))  // is it sufficiently inside
             {
-                auto aN = Image2NormalInstr(aCenterR, aInterp);
+                auto aN = Image2NormalInstr(aCenterR, aInterpN);
                 aLPatches.push_back({i, {aCenter}, {}, aN});
                 //std::cout<<"make patch "<<aCenter<<" N="<<aN<<"\n";
             }
@@ -1761,7 +1761,7 @@ void cStaticLidar::MakePatches
     {
         auto & aCenter = mPatchCenters[i];
         auto aCenterR = cPt2dr(aCenter.x(),aCenter.y());
-        if (!getRasterDistance().InsideInterpolator(aInterp,aCenterR,1.0))  // is it sufficiently inside
+        if (!getRasterDistance().InsideInterpolator(aInterpN,aCenterR,1.0))  // is it sufficiently inside
             continue;
         //search for average GndPixelSize
         aVectGndPixelSize.clear();
@@ -1835,7 +1835,7 @@ void cStaticLidar::MakePatches
         // some requirement on minimal size
         if ((int)aPatchPts.size() > aSzMin)
         {
-            auto aN = Image2NormalInstr(aCenterR, aInterp);
+            auto aN = Image2NormalInstr(aCenterR, aInterpN);
             aLPatches.push_back({i, aPatchPts, {}, aN});
             //std::cout<<"make patch "<<aCenter<<" N="<<aN<<"\n";
         #ifdef NUMMAKEPATCHDEBUG
