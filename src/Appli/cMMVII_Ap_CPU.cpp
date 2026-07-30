@@ -258,16 +258,16 @@ void cTimerSegm::Show()
    tTableIndTS anIncl = TimesInclusive();
 
    double aSom = 0.0;
-   StdOut()  <<  " ========== TIMING ===========" << std::endl;
+   StdOut()  <<  Color::title << " ========== TIMING ===========" << Color::end << std::endl;
    for (const auto & aName : NamesByDecreasingDuration(aExcl))
    {
        double aDur = aExcl.at(aName);
        aSom += aDur;
-       StdOut() << " * "  << FixDigToStr(aDur,4,4) << " : " << aName;
+       StdOut() << " * "  << FixDigToStr(aDur,4,4) << " : " << Color::command << aName << Color::end;
        auto anItIncl = anIncl.find(aName);
        // show inclusive time only when something ran nested inside this segment
        if ((anItIncl != anIncl.end()) && (anItIncl->second > aDur + 1e-3))
-           StdOut() << "  (incl. nested: " << FixDigToStr(anItIncl->second,4,4) << ")";
+           StdOut() << Color::descr << "  (incl. nested: " << FixDigToStr(anItIncl->second,4,4) << ")" << Color::end;
        StdOut() << std::endl;
    }
 
@@ -275,26 +275,26 @@ void cTimerSegm::Show()
    StdOut() << " *** Total sum: " << aSom  <<  " Total ellapsed: " << aElapsed;
    // sum > elapsed is expected with concurrent threads, not an inconsistency
    if (aSom > aElapsed + 1e-3)
-       StdOut() << "  (sum>elapsed : segments were measured concurrently by several threads, parallelism ratio="
-                 << FixDigToStr(aSom/std::max(aElapsed,1e-9),3,2) << ")";
+       StdOut() << Color::warning << "  (sum>elapsed : segments were measured concurrently by several threads, parallelism ratio="
+                 << FixDigToStr(aSom/std::max(aElapsed,1e-9),3,2) << ")" << Color::end;
    StdOut() << std::endl;
 
    // per-thread breakdown, opt-in via SetShowPerThread
    std::lock_guard<std::mutex> aLock(mMutex);
    if (mShowPerThread && (mThreadStates.size() >= 2))
    {
-       StdOut() << " ---------- per thread ----------" << std::endl;
+       StdOut() << Color::title << " ---------- per thread ----------" << Color::end << std::endl;
        int aKTh = 0;
        for (const auto & aTh : mThreadStates)
        {
-           StdOut() << " -- Thread " << aKTh << " --" << std::endl;
+           StdOut() << Color::title << " -- Thread " << aKTh << " --" << Color::end << std::endl;
            for (const auto & aName : NamesByDecreasingDuration(aTh.mExclusive))
            {
                double aDur = aTh.mExclusive.at(aName);
-               StdOut() << "    * " << FixDigToStr(aDur,4,4) << " : " << aName;
+               StdOut() << "    * " << FixDigToStr(aDur,4,4) << " : " << Color::command << aName << Color::end;
                auto anItIncl = aTh.mInclusive.find(aName);
                if ((anItIncl != aTh.mInclusive.end()) && (anItIncl->second > aDur + 1e-3))
-                   StdOut() << "  (incl. nested: " << FixDigToStr(anItIncl->second,4,4) << ")";
+                   StdOut() << Color::descr << "  (incl. nested: " << FixDigToStr(anItIncl->second,4,4) << ")" << Color::end;
                StdOut() << std::endl;
            }
            aKTh++;
