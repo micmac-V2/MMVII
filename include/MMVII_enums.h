@@ -457,7 +457,7 @@ enum class eTargetDistanceEstim
 
 enum class eModeWeighter
 {
-    eExpl,     // cResidualWeighterExplicit
+//    eExpl,     // cResidualWeighterExplicit
     eStd,      // cStdWeighterResidual
     eLin,      // cLinearWeighterResidual
     eNbVals
