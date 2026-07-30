@@ -131,6 +131,7 @@ public:
     bool operator       <(const cAugCdt& aAug) const;
     tAff2Dr Ref2GImEstim(cSensorCamPC* aCam) const;
     std::vector<cPt2di> Corners() const;
+    bool IsInside(const cSensorCamPC *aCam) const;
     tIm RefIm() const;
     void SetFSpec(std::shared_ptr<cFullSpecifTarget> aFSpec);
     cAugCdtInCam InCam(const cSensorCamPC* aCam);
@@ -147,16 +148,19 @@ private:
     std::vector<cExtract>               mVExtracts;
 };
 
-class cAugCdtInCam : cAugCdt
+class cAugCdtInCam
 {
 public:
     cAugCdtInCam(const cAugCdt& aAugCdt, const cSensorCamPC* aCam);
     tAff2Dr mRef2Glob;
     tU_INT1 Visibility();
+    std::vector<cPt2dr> Corners();
     const std::string Name();
+    const bool IsVisible();
 private:
     const cSensorCamPC* mCam;
     const cAugCdt& mCdt;
+    bool mVisible;
 };
 
 void AddData(const cAuxAr2007& anAux, cAugCdt& anEx);

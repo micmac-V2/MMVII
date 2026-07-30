@@ -52,8 +52,8 @@ namespace MMVII
         cSampler(tIm aInIm, cPixBox<2> aInBox, tAff2Dr aIn2Out);
         std::pair<tIm, cPt2di> Sample();
     private:
-        tIm mIm;
-        cPixBox<2> mBBox;
+        tIm mIm;//-> original image to sample
+        cPixBox<2> mBBox;//->
         tAff2Dr mMap;
     };
 
@@ -81,7 +81,7 @@ namespace MMVII
     public:
         cPatch(tIm& aGlobIm, cPixBBox aGlobBBox);
         tIm Patch();
-        void SaveIm(std::string aDir);
+        void SaveIm(std::string aDir, bool isOk);
         cPixBox<2> BBox();
     private:
         tIm& mGIm;

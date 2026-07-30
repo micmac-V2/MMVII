@@ -94,23 +94,41 @@ namespace MMVII
         mCam (aCam),
         mCdt (aAugCdt)
     {
-        std::vector<cPt2dr> aVOut = {}, aVIn = {};
-        for (const auto& aP : mCdt.Corners())
+        mVisible = mCdt.IsInside(mCam);
+        if (mVisible)
         {
-            aVIn.push_back(ToR(aP));
-            aVOut.push_back(mCam->Ground2Image(mCdt.mRef2Gnd.Value(cPt3dr(aP.x(), aP.y(), 0))));
+            std::vector<cPt2dr> aVOut = {}, aVIn = {};
+            for (const auto& aP : mCdt.Corners())
+            {
+                aVIn.push_back(ToR(aP));
+                aVOut.push_back(mCam->Ground2Image(mCdt.mRef2Gnd.Value(cPt3dr(aP.x(), aP.y(), 0))));
+            }
+            tREAL8 aRes;
+            tAff2Dr aAff;
+            mRef2Glob = aAff.StdGlobEstimate(aVIn, aVOut, &aRes, nullptr, cParamCtrlOpt::Default());
         }
-        tREAL8 aRes;
-        tAff2Dr aAff;
-        mRef2Glob = aAff.StdGlobEstimate(aVIn, aVOut, &aRes, nullptr, cParamCtrlOpt::Default());
     }
+
+    const bool cAugCdtInCam::IsVisible() {return mVisible;}
 
     tU_INT1 cAugCdtInCam::Visibility()
     {
         tU_INT1 aRes = 0;
+        cTplBox<double, 2> aBox = mCam->PixelDomain().Box().Dilate(-5);//-> avoid borders
         for (const auto& aP : mCdt.Corners())
         {
-            if (mCam->IsVisibleOnImFrame(mRef2Glob.Value(ToR(aP)))) ++aRes;
+            cPt2dr aPInG = mRef2Glob.Value(ToR(aP));
+            if (aBox.Inside(aPInG)) ++aRes;
+        }
+        return aRes;
+    }
+
+    std::vector<cPt2dr> cAugCdtInCam::Corners()
+    {
+        std::vector<cPt2dr> aRes = {};
+        for (const auto& aC : mCdt.Corners())
+        {
+            aRes.push_back(mRef2Glob.Value(ToR(aC)));
         }
         return aRes;
     }
@@ -234,6 +252,20 @@ namespace MMVII
         if (mOKInter) mOKAug = true;
     }
 
+    bool cAugCdt::IsInside(const cSensorCamPC* aCam) const
+    {
+        tU_INT1 aRes = 0;
+        for (const auto& aP : GndCorners())
+        {
+            if (aCam->Pt_W2L(aP).z()>0.)//-> check if point image isn't behind
+            {
+                auto aImP = aCam->Ground2Image(aP);
+                if (aCam->IsVisibleOnImFrame(aImP)) ++aRes;
+            }
+        }
+        return aRes == 4;
+    }
+
     cCdTDiscr cAugCdt::Discretize(cSensorCamPC* aCam, bool& isIn) const
     {
         //----- discretization = computing map between CdT theoretical image & glob image
@@ -354,14 +386,13 @@ namespace MMVII
         for (const auto& aAug : aOKAugSet.Cdts())
         {
             if (!aAug.mOKInter) continue;
-            std::vector<cPt2dr> aVImP = {};
-            auto& aCol = (aAug.mOKInter ? cRGBImage::Red : cRGBImage::Cyan);
-            for (const auto& aP : aAug.GndCorners())
+            StdOut() << "cdt:" << aAug.mName << '\n';
+            if (aAug.IsInside(aCam))
             {
-                auto aImP = aCam->Ground2Image(aP);
-                if (aDIm->InsideBL(aImP))
+                cAugCdtInCam aCdt(aAug, aCam);
+                for (const auto& aC : aCdt.Corners())
                 {
-                    aDIm->DrawCross(aImP, cPt2dr(1,1), aCol, .5);
+                    aDIm->DrawCross(aC, cPt2dr(1,1), cRGBImage::Red, .5);
                 }
             }
         }
