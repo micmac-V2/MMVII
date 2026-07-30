@@ -432,6 +432,14 @@ template<> cE2Str<eTargetDistanceEstim>::tMapE2Str cE2Str<eTargetDistanceEstim>:
         {eTargetDistanceEstim::ePlaneEstim, "PlaneEstim"}
     };
 
+template<> cE2Str<eModeWeighter>::tMapE2Str cE2Str<eModeWeighter>::mE2S
+    {
+        {eModeWeighter::eExpl, "Expl"},
+        {eModeWeighter::eStd, "Std"},
+        {eModeWeighter::eLin, "Lin"}
+    };
+
+
 
 
 template<> cE2Str<eTypeSerial>::tMapE2Str cE2Str<eTypeSerial>::mE2S
@@ -603,6 +611,7 @@ void BenchEnum(cParamExeBench & aParam)
     TplBenchEnum<eModeSSR>();
     TplBenchEnum<eImatchCrit>();
     TplBenchEnum<eTargetDistanceEstim>();
+    TplBenchEnum<eModeWeighter>();
     TplBenchEnum<eTyClino>();
     TplBenchEnum<eTypeDBCam>();
     TplBenchEnum<eTyInstr>();
@@ -1461,7 +1470,7 @@ MACRO_INSTANTIATE_STRIO_ENUM(eFormatSensor,"FormatSensor")
 MACRO_INSTANTIATE_STRIO_ENUM(eModeSSR,"ModeSRR")
 MACRO_INSTANTIATE_STRIO_ENUM(eImatchCrit,"ImatchCrit")
 MACRO_INSTANTIATE_STRIO_ENUM(eTargetDistanceEstim,"TargetDistanceEstim")
-
+MACRO_INSTANTIATE_STRIO_ENUM(eModeWeighter,"ModeWeighter")
 
 
 };
