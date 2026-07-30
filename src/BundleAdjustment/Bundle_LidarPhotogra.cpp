@@ -11,7 +11,7 @@ namespace MMVII
 //#define EXPORTREPROJLIDAR
 
 cBA_LidarBase::cBA_LidarBase(cPhotogrammetricProject * aPhProj,
-                                     cMMVII_BundleAdj& aBA, double aSigma, const std::vector<std::string> & aInterp) :
+                             cMMVII_BundleAdj& aBA, double aSigma, const std::vector<std::string> & aInterp) :
     mPhProj     (aPhProj),
     mBA         (aBA),                                 // memorize the bundel adj class itself (access to optimizer)
     mParamInterpol (aInterp),
@@ -962,10 +962,11 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cBasicWeigh
 cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
                                            cMMVII_BundleAdj& aBA, const std::string & aPatScan, double aSigma,
                                            double aThresholdInit, double aThresholdFinal,
-                                           double aNormalTolDeg, const std::vector<std::string> & aInterp,
+                                           double aNormalTolDeg, const std::vector<std::string> & aInterpD, const std::vector<std::string> &aInterpN,
                                            const cWeighterParam & aWParam) :
-    cBA_LidarBase(aPhProj, aBA, aSigma, aInterp),
-    mWParam(aWParam)
+    cBA_LidarBase(aPhProj, aBA, aSigma, aInterpD),
+    mWParam(aWParam), mParamInterpolN(aInterpN),
+    mInterpN(cDiffInterpolator1D::AllocFromNames(mParamInterpolN))
 {
     mEq = EqEqLidarLidar (true,1,true);
 
@@ -997,7 +998,7 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
     for (auto & aScanData: mVScans)
     {
         auto & aScan = aScanData.mLidarRaster;
-        aScan->MakePatches(aScanData.mLPatches,aBA.VSCPC(),1,5, *mInterp);
+        aScan->MakePatches(aScanData.mLPatches,aBA.VSCPC(),1,5, *mInterpN);
         StdOut() << "Nb patches for " << aScan->NameImage()<< ": " << aScanData.mLPatches.size() << "\n";
 
         //for (auto &aTestRasterPoint: {cPt2di(10672,2238), cPt2di(2552,2121) })
@@ -1008,6 +1009,7 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
 
 cBA_LidarLidarRaster::~cBA_LidarLidarRaster()
 {
+    delete mInterpN;
 }
 
 
@@ -1280,7 +1282,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             }
             if (aGenDImDist.InsideInterpolator(*mInterp,aPIm,1.0))  // is it sufficiently inside
             {
-                auto aVGr = aGenDImDist.GetValueAndGradInterpol(*aScanB->getLineraInterpolator(),aPIm); // extract pair Value/Grad of image
+                auto aVGr = aGenDImDist.GetValueAndGradInterpol(*mInterp,aPIm); // extract pair Value/Grad of image
 
                 aData.mVGr = {aVGr};
                 #ifdef SCANSCANDEBUG
@@ -1309,7 +1311,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                     #endif
                     continue;
                 }
-                cPt3dr aNormalInstrB = aScanB->Image2NormalInstr(aPIm, *mInterp);
+                cPt3dr aNormalInstrB = aScanB->Image2NormalInstr(aPIm, *mInterpN);
                 cPt3dr aNormalGndB = aScanB->Pose().Rot().Value(aNormalInstrB);
                 if (Scal(aNormalGndA,aNormalGndB)<mNormalDiffMinCos)
                 {

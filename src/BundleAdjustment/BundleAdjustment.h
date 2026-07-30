@@ -703,7 +703,8 @@ public :
     /// constructor, take the global bundle struct + typed lidar/lidar parameters
     cBA_LidarLidarRaster(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj&, const std::string & aPatScan,
                          double aSigma, double aThresholdInit, double aThresholdFinal,
-                         double aNormalTolDeg, const std::vector<std::string> & aInterp, const cWeighterParam & aWParam);
+                         double aNormalTolDeg, const std::vector<std::string> & aInterpD,
+                         const std::vector<std::string> & aInterpN, const cWeighterParam & aWParam);
     /// destuctor, free interopaltor, calculator ....
     virtual ~cBA_LidarLidarRaster();
 
@@ -728,6 +729,8 @@ protected :
 
     tREAL8 mNormalDiffMinCos = cos(15*M_PI/180);
     cWeighterParam mWParam;
+    std::vector<std::string>       mParamInterpolN;  ///< the normal interpol parameters
+    cDiffInterpolator1D *          mInterpN;         ///< Interpolator, used to extract  Value & Grad of images
 
 #ifdef SCANSCANSHOWPATCHES
     std::map<std::string,cIm2D<tREAL4>> mMapPatchesRasters; ///< indexed by "nameA>nameB"
@@ -829,7 +832,8 @@ class cMMVII_BundleAdj
                                  const std::vector<std::string> & aInterp, double aScaleInit, double aScaleFinal,
                                  double aThreshold, int aNbPtsPerPatch);
           void Add1AdjLidarLidar(const std::string & aPatScan, double aSigma, double aThresholdInit,
-                                 double aThresholdFinal, double aNormalTolDeg, const std::vector<std::string> & aInterp, const cWeighterParam &aWParam);
+                                 double aThresholdFinal, double aNormalTolDeg, const std::vector<std::string> & aInterpD,
+                                 const std::vector<std::string> & aInterpP, const cWeighterParam &aWParam);
 
           ///  ============  Add multiple tie point ============
           void AddMTieP(const std::string & aName,cComputeMergeMulTieP  * aMTP,const cStdWeighterResidual & aWIm);

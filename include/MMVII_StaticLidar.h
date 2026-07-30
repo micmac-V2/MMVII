@@ -155,7 +155,7 @@ public :
     void MakeVisu(const cPhotogrammetricProject & aPhProj) const;     ///< show 8bit dist image with patch centers
     void MakePatches(std::list<cLidarRasterPatch> &aLPatches,
                      const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin,
-                     const cDiffInterpolator1D &aInterp) const;
+                     const cDiffInterpolator1D &aInterpN) const;
     std::tuple<tREAL8,tREAL8,tREAL8> AvgDistNbValidAndNbNotMasked() const; //< return average dist for valid points, number of valid points and number of not-masked points
 
     cPt3dr Image2InputXYZ(cPt2di aRasterPxI) const; // in input frame
