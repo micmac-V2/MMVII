@@ -46,6 +46,10 @@ template <class Type>  cBasicWeighter<Type>::cBasicWeighter(const Type & aVal) :
 {
 }
 
+template <class Type>  cBasicWeighter<Type>::~cBasicWeighter()
+{
+}
+
 template <class Type>  std::vector<Type>  cBasicWeighter<Type>::WeightOfResidual(const tStdVect & aVResidual) const
 {
         return tStdVect(aVResidual.size(),mVal);

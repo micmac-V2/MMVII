@@ -35,6 +35,7 @@ template <class Type> class cBasicWeighter
             typedef std::vector<Type>     tStdVect;
 
             cBasicWeighter(const Type & aVal=1.0);
+            virtual ~cBasicWeighter();
             virtual tStdVect WeightOfResidual(const tStdVect &) const;
        private :
              Type mVal;
@@ -123,7 +124,7 @@ class cREAL8_RSNL
           typedef cSparseVect<tREAL8>                             tSVect;
           typedef std::vector<int>                                tVectInd;
           typedef std::vector<tREAL8>                             tStdVect;
-          typedef cBasicWeighter<tREAL8>                       tResidualW;
+          typedef cBasicWeighter<tREAL8>                          tResidualW;
           typedef NS_SymbolicDerivative::cCalculator<tREAL8>      tCalc;
           typedef cSetIORSNL_SameTmp<tREAL8>                      tSetIO_ST;
           typedef cObjWithUnkowns<tREAL8>                         tObjWUk;
@@ -283,7 +284,7 @@ template <class Type> class cResolSysNonLinear : public cREAL8_RSNL
           typedef std::vector<Type>                             tStdVect;
           typedef std::vector<int>                              tVectInd;
           typedef cResolSysNonLinear<Type>                      tRSNL;
-          typedef cBasicWeighter<Type>                       tResidualW;
+          typedef cBasicWeighter<Type>                          tResidualW;
           typedef cObjWithUnkowns<Type>                         tObjWUk;
 
            /// basic constructor, using a mode of matrix + a solution  init
