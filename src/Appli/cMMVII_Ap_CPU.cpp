@@ -142,6 +142,8 @@ cAutoTimerSegm::~cAutoTimerSegm()
 static const std::string DefTime("OTHERS");
 static std::atomic<tU_INT8> TheNextTimerSegmId(1);
 
+bool cTimerSegm::TheDefaultShowPerThread = false;
+
 cTimerSegm::cThreadState::cThreadState(const tIndTS & aFirstIndex,double aT0) :
    mLastIndex     (aFirstIndex),
    mCurBeginTime  (aT0)
@@ -151,7 +153,8 @@ cTimerSegm::cThreadState::cThreadState(const tIndTS & aFirstIndex,double aT0) :
 cTimerSegm::cTimerSegm(cMMVII_Ap_CPU * anAppli) :
    mId            (TheNextTimerSegmId.fetch_add(1)),
    mAppli         (anAppli),
-   mShowAtDel     (true)
+   mShowAtDel     (true),
+   mShowPerThread (TheDefaultShowPerThread)
 {
 }
 
@@ -178,6 +181,16 @@ double cTimerSegm::CurBeginTime() const {return  CurThreadState().mCurBeginTime;
 void  cTimerSegm::SetNoShowAtDel()
 {
     mShowAtDel = false;
+}
+
+void  cTimerSegm::SetShowPerThread(bool aShow)
+{
+    mShowPerThread = aShow;
+}
+
+void  cTimerSegm::SetDefaultShowPerThread(bool aShow)
+{
+    TheDefaultShowPerThread = aShow;
 }
 
 cTimerSegm::~cTimerSegm()
@@ -265,6 +278,28 @@ void cTimerSegm::Show()
        StdOut() << "  (sum>elapsed : segments were measured concurrently by several threads, parallelism ratio="
                  << FixDigToStr(aSom/std::max(aElapsed,1e-9),3,2) << ")";
    StdOut() << std::endl;
+
+   // per-thread breakdown, opt-in via SetShowPerThread
+   std::lock_guard<std::mutex> aLock(mMutex);
+   if (mShowPerThread && (mThreadStates.size() >= 2))
+   {
+       StdOut() << " ---------- per thread ----------" << std::endl;
+       int aKTh = 0;
+       for (const auto & aTh : mThreadStates)
+       {
+           StdOut() << " -- Thread " << aKTh << " --" << std::endl;
+           for (const auto & aName : NamesByDecreasingDuration(aTh.mExclusive))
+           {
+               double aDur = aTh.mExclusive.at(aName);
+               StdOut() << "    * " << FixDigToStr(aDur,4,4) << " : " << aName;
+               auto anItIncl = aTh.mInclusive.find(aName);
+               if ((anItIncl != aTh.mInclusive.end()) && (anItIncl->second > aDur + 1e-3))
+                   StdOut() << "  (incl. nested: " << FixDigToStr(anItIncl->second,4,4) << ")";
+               StdOut() << std::endl;
+           }
+           aKTh++;
+       }
+   }
 }
 
 

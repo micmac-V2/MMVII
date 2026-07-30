@@ -298,6 +298,7 @@ cMMVII_Appli::cMMVII_Appli
    mStdCerr       (std::cerr),
    mSeedRand      (msDefSeedRand), // In constructor, don't use virtual, wait ...
    mExtendPattern (true),
+   mShowTimePerThread (false),
    mVSPO          (aVSPO),
    mCarPPrefOut   (MMVII_StdDest),
    mCarPPrefIn    (MMVII_StdDest),
@@ -515,6 +516,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
 
       <<  AOpt2007(msWithWarning,GOP_WW,"Do we print warnings",aGlobHDV)
       <<  AOpt2007(mNbProcAllowed,GOP_NbProc,"Number of process allowed in parallelisation",aGlobHDV)
+      <<  AOpt2007(mShowTimePerThread,"ShowTimePerThread","Show per-thread breakdown in TimerSegm timing reports",aGlobHDV)
       <<  AOpt2007(aDP ,GOP_DirProj,"Project Directory",{eTA2007::DirProject,eTA2007::Global})
       <<  AOpt2007(mParamStdOut,GOP_StdOut,"Redirection of Ouput (+File for terminal and file output, 0File to reset file, "+ MMVII_NONE + " for no out)",aGlob)
 
@@ -725,6 +727,12 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
       mSetInit.Add(aVSpec[aK]->AdrParam()); ///< Memorize this value was initialized
   }
   mNbProcAllowed = std::min(mNbProcAllowed,mNbProcSystem); ///< avoid greedy/gluton user
+  if (mShowTimePerThread)
+  {
+      // this appli's timer, and every cTimerSegm created from now on
+      cTimerSegm::SetDefaultShowPerThread(true);
+      TimeSegm().SetShowPerThread(true);
+  }
   mMainProcess   = (mLevelCall==0);
   mGlobalMainAppli = mMainProcess && mMainAppliInsideP;
   // Compute an Id , unique and (more or less ;-) understandable

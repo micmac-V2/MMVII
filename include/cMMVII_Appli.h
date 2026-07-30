@@ -236,6 +236,10 @@ class cTimerSegm
        ~cTimerSegm();
        /// Force to have no show at del, usefull for handling parameter in bench
        void SetNoShowAtDel();
+       /// Show a per-thread breakdown in Show() ; off by default
+       void SetShowPerThread(bool);
+       /// Default mShowPerThread of cTimerSegm constructed after this call
+       static void SetDefaultShowPerThread(bool);
        double  CurBeginTime() const ; ///< Accessor, current thread's cursor
    private :
        /// Per-thread state : cursor, its begin time, and this thread's own accumulators
@@ -253,6 +257,8 @@ class cTimerSegm
        const tU_INT8                      mId;      ///< unique id, stable across cTimerSegm lifetimes
        cMMVII_Ap_CPU *                    mAppli;
        bool                               mShowAtDel;
+       bool                               mShowPerThread; ///< print the per-thread breakdown in Show()
+       static bool                        TheDefaultShowPerThread; ///< default mShowPerThread of new instances
        mutable std::mutex                 mMutex;         ///< protects mThreadStates, not the hot path
        mutable std::deque<cThreadState>   mThreadStates;  ///< one entry per thread
 };
@@ -780,6 +786,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         std::map<std::string,std::string>         mMapAppliSpecParam; ///< Mat created from mVecAppliSpecParam
      //   std::string                               mAppliSpecParam;
         bool                                      mExtendPattern;  ///<  If false Interpret the pattern as single  , def=true !!
+        bool                                      mShowTimePerThread; ///< Global opt : show per-thread breakdown in TimerSegm reports
         // Control position/hierachy of call
         int                                       mNumCallInsideP; ///< Numero of Appli in the process of creation
         bool                                      mMainAppliInsideP; ///< Is the main/firsy Appli inside the process
