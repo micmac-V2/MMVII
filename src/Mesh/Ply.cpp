@@ -6,6 +6,7 @@
 #include "MMVII_PCSens.h"
 #include "MMVII_StaticLidar.h"
 #include "../PoseEstim/VisPoseAndStructure.h"
+#include "PlyFonts/all.h"
 
 #include "happly.h"
 
@@ -413,16 +414,63 @@ cPlyVertices::~cPlyVertices()
     delete mPlyOut;
 }
 
-void cPlyVertices::AddVert(const std::array<double, 3> &aVert, const std::array<double, 3> &aColor)
+int cPlyVertices::AddVert(const std::array<double, 3> &aVert, const std::array<double, 3> &aColor)
 {
     mPlyVerts.push_back(aVert);
     mPlyColors.push_back(aColor);
+    return mPlyVerts.size() - 1;
 }
 
-void cPlyVertices::AddVert(const cPt3dr &aVert, const cPt3dr &aColor)
+int cPlyVertices::AddVert(const cPt3dr &aVert, const cPt3dr &aColor)
 {
     mPlyVerts.push_back({aVert.x(),aVert.y(),aVert.z()});
     mPlyColors.push_back({aColor.x(),aColor.y(),aColor.z()});
+
+    return mPlyVerts.size() - 1;
+}
+
+namespace PlyRegularFont = PlyFontData::SourceCodeProRegular;
+
+void cPlyVertices::DrawCharacter(const cPt3dr &startPosition, const cPt3dr &offsetX, const cPt3dr &offsetY, double scale, const char c, const cPt3dr &color)
+{
+    const auto data = PlyRegularFont::RASTERIZED_CHARACTERS.at(c);
+    
+    for (size_t y = 0; y < data.size(); y++) {
+        const auto line = data[y];
+        for (size_t x = 0; x < PlyRegularFont::WIDTH; x++) {
+            const auto bit = (PlyRegularFont::LineType) 1 << (PlyRegularFont::WIDTH - x - 1);
+            if (!(bit & line)) {
+                continue;
+            }
+
+            const auto pos = startPosition + offsetX * ((double)x * scale) + offsetY*((double)y * scale);
+            AddVert(pos, color);
+        }
+    }
+}
+
+void cPlyVertices::DrawString(const cPt3dr &startPosition, const cPt3dr &offsetX, const cPt3dr &offsetY, double scale, const std::string &str, const cPt3dr &color) {
+    auto position = cPt3dr(startPosition.x(), startPosition.y(), startPosition.z());
+    
+    for (const auto c : str) {
+        DrawCharacter(position, offsetX, offsetY, scale, c, color);
+
+        position += offsetX * (PlyRegularFont::WIDTH * scale);
+    }
+
+}
+
+cPt3dr cPlyVertices::StringSize(const double scale, const cPt3dr &offsetX, const cPt3dr &offsetY, const std::string &str) {
+    return offsetX * (PlyRegularFont::WIDTH * scale * str.size()) + offsetY * ((double) PlyRegularFont::HEIGHT * scale);    
+}
+
+void cPlyVertices::AddLine(const cPt3dr &aStartVertice, const cPt3dr &aEndVertice, const cPt3dr &aColor) {
+    auto startId = AddVert(aStartVertice, aColor);
+    auto endId = AddVert(aEndVertice, aColor);
+    auto middleId = AddVert(aEndVertice, aColor);
+
+    mPlyFacesIndices.push_back({ static_cast<uint32_t>(startId), static_cast<uint32_t>(endId), static_cast<uint32_t>(middleId) });
+    mPlyFacesColors.push_back({ aColor.x(), aColor.y(), aColor.z() });
 }
 
 void cPlyVertices::DrawLineAsVert(
@@ -563,10 +611,40 @@ void cPlyVertices::Draw3DCrossAsVert(
     DrawLineAsVert(yzpStart, yzpEnd, aColor, aSpacingBetweenPoints);
 }
 
+void cPlyVertices::addFaces(std::vector<std::vector<uint32_t>>& indices, std::vector<std::array<double, 3>>& colors) {
+    MMVII_INTERNAL_ASSERT_tiny(indices.size() == colors.size(), "colors vector argument must be the same size as the indices vector.");
+
+    const std::string faceName = "face";
+    auto size = indices.size();
+
+    if (!mPlyOut->hasElement(faceName)) {
+        mPlyOut->addElement(faceName, size);
+    }
+
+    mPlyOut->getElement(faceName).addListProperty<uint32_t>("vertex_indices", indices);
+
+    std::vector<unsigned char> r(size);
+    std::vector<unsigned char> g(size);
+    std::vector<unsigned char> b(size);
+
+    for (size_t i = 0; i < size; i++)
+    {
+        const auto color = colors[i];
+        r[i] = static_cast<unsigned char>(color[0] * 255.);
+        g[i] = static_cast<unsigned char>(color[1] * 255.);
+        b[i] = static_cast<unsigned char>(color[2] * 255.);
+    }
+
+    mPlyOut->getElement(faceName).addProperty<unsigned char>("red", r);
+    mPlyOut->getElement(faceName).addProperty<unsigned char>("green", g);
+    mPlyOut->getElement(faceName).addProperty<unsigned char>("blue", b);
+}
+
 void cPlyVertices::ToPly(const std::string & aFileName, bool aIsBinary)
 {
     mPlyOut->addVertexPositions(mPlyVerts); // can be done only once with happly?!
     mPlyOut->addVertexColors(mPlyColors);
+    addFaces(mPlyFacesIndices, mPlyFacesColors);
     mPlyOut->write(aFileName,(aIsBinary?happly::DataFormat::Binary:happly::DataFormat::ASCII));
     delete mPlyOut; // reset for new ply
     mPlyOut =new happly::PLYData;
@@ -700,6 +778,22 @@ void cAppli_VisuPoseStr3D::AddOnlyCameras(cPlyVertices& aPlyverts, const std::ve
             double aFPix = aCamPC->InternalCalib()->F();
             double aF = CalculateFDepth(aSz,aFPix);
 
+            const auto origin = aSens->ImageAndDepth2Ground(cPt3dr(0, 0, aF));
+            const auto offsetX = aSens->ImageAndDepth2Ground(cPt3dr(1, 0, aF)) - origin;
+            const auto offsetY = aSens->ImageAndDepth2Ground(cPt3dr(0, 1, aF)) - origin;
+
+            const auto textScale = (double) aSz[0] / aSens->NameImage().size() / PlyRegularFont::WIDTH;
+            
+            const auto textSize = aPlyverts.StringSize(textScale, offsetX, offsetY, aSens->NameImage());
+            const auto center = aSens->ImageAndDepth2Ground(cPt3dr(aSz[0] / 2, aSz[1] / 2, aF));
+
+            aPlyverts.DrawString(
+                center - textSize / 2.,
+                offsetX,
+                offsetY,
+                textScale,
+                aSens->NameImage()
+            );
 
             // add image border
             std::vector<cPt3dr> aImVPts;

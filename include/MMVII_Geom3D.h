@@ -763,8 +763,9 @@ class cPlyVertices
 public:
     cPlyVertices();
     ~cPlyVertices();
-    void AddVert(const std::array<double, 3> &aVert, const std::array<double, 3> &aColor={1.,1.,1.});
-    void AddVert(const cPt3dr &aVert, const cPt3dr &aColor={1.,1.,1.});
+    int AddVert(const std::array<double, 3> &aVert, const std::array<double, 3> &aColor={1.,1.,1.});
+    int AddVert(const cPt3dr &aVert, const cPt3dr &aColor={1.,1.,1.});
+    void AddLine(const cPt3dr &aStartVert, const cPt3dr &aEndVert, const cPt3dr &aColor={1.,1.,1.});
     void DrawLineAsVert(
         const cPt3dr &aStartVert,
         const cPt3dr &aEndVert,
@@ -783,11 +784,36 @@ public:
         const tREAL8 aLength = 1,
         const tREAL8 aSpacingBetweenPoints = 0.1
     );
+    void DrawCharacter(
+        const cPt3dr &startPosition,
+        const cPt3dr &offsetX,
+        const cPt3dr &offsetY,
+        double scale,
+        const char c,
+        const cPt3dr &color = {1.,1.,1.}
+    );
+    void DrawString(
+        const cPt3dr &startPosition,
+        const cPt3dr &offsetX,
+        const cPt3dr &offsetY,
+        double scale,
+        const std::string &str,
+        const cPt3dr &color = {1.,1.,1.}
+    );
+    cPt3dr StringSize(const double scale, const cPt3dr &offsetX, const cPt3dr &offsetY, const std::string &str);
     void ToPly(const std::string & aFileName, bool aIsBinary);
 protected:
     std::vector<std::array<double, 3>> mPlyVerts;
     std::vector<std::array<double, 3>> mPlyColors;
+    std::vector<std::vector<uint32_t>> mPlyFacesIndices;
+    std::vector<std::array<double, 3>> mPlyFacesColors;
+    
     happly::PLYData * mPlyOut;
+
+    void addFaces(
+        std::vector<std::vector<uint32_t>>& indices,
+        std::vector<std::array<double, 3>>& colors
+    );
 };
 
 

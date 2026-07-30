@@ -1,0 +1,3 @@
+fonttools==4.63.0
+freetype-py==2.5.1
+numpy==2.5.1
