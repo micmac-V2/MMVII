@@ -518,6 +518,8 @@ void Bench_MatEss(cParamExeBench & aParam)
     if (aParam.Show())
     {
        aTS = new cTimerSegm(&cMMVII_Appli::CurrentAppli());
+       if (! aParam.Verbose())
+           aTS->SetNoShowAtDel();
     }
     for (int aNb=0 ; aNb<1 ; aNb++)
     {

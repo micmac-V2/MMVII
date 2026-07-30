@@ -427,6 +427,9 @@ int  cAppli_MMVII_Bench::Exe()
     if (!IsInit(&mShow))
         mShow =  IsInit(&mPat); // Becoz, if mPat init, few bench => we can display msg
 
+    if (! mVerbose)
+        TimeSegm().SetNoShowAtDel();
+
    cParamExeBench aParam(mPat,mPatRefut,mKeyBug,mLevMin,mShow,mVerbose);
    aParam.SetDemoTest(mDemoTest);
 

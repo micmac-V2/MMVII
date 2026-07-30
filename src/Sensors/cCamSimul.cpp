@@ -295,6 +295,8 @@ void Bench_HBA(cParamExeBench & aParam)
     if (aParam.Show())
     {
         aTS = new cTimerSegm(&cMMVII_Appli::CurrentAppli());
+        if (! aParam.Verbose())
+            aTS->SetNoShowAtDel();
     }
 
 
