@@ -324,8 +324,7 @@ tRotR  cNodeArborTriplets::EstimateRotTransfert
                   const std::vector<cOneTripletMerge> &  aVLink3
              )
 {
-    cAutoTimerSegm aTimerRestim((cMMVII_Appli::IsMultiThread() ? nullptr : &mPMAT->TimeSegm()),
-                                "RotEstim");
+    cAutoTimerSegm aTimerRestim(mPMAT->TimeSegm(),"RotEstim");
     // store all the individual transfer, note that as they are defined up to a scale, the translation cannot be used directly
     std::vector<tPoseR>   aVecTransf_W1_to_W0;
     cNodeArborTriplets & aN0 = *(mChildren.at(0));
@@ -513,8 +512,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
                   const std::vector<cOneTripletMerge> &  aVLink3
              )
 {
-    cAutoTimerSegm aTimerSimestim((cMMVII_Appli::IsMultiThread() ? nullptr : &mPMAT->TimeSegm()),
-                                "SimEstim");
+    cAutoTimerSegm aTimerSimestim(mPMAT->TimeSegm(),"SimEstim");
 
     // [0]  some preliminary stuff
     // typedef   std::vector<cCplIV<tREAL8>> tVIV;
@@ -737,8 +735,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
 
     MMVII_INTERNAL_ASSERT_bench(aKWeight==int(aWeightR.size()),"End of rotation weighting");
 
-    cAutoTimerSegm aTimerSolveSim((cMMVII_Appli::IsMultiThread() ? nullptr : &mPMAT->TimeSegm()),
-                                "SolveSimInit");
+    cAutoTimerSegm aTimerSolveSim(mPMAT->TimeSegm(),"SolveSimInit");
 
     cDenseVect<tREAL8> aSol = aSys->PublicSolve(); //rotation weighting only
     tREAL8 aLambda1 = aSol(3);
@@ -822,8 +819,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
             AddEqLink(aSys,nullptr,aW,aBI.mKEq,aBI.mC0,aBI.mC1,aBI.mCTri0,aBI.mCTri1);
         }
     }
-    cAutoTimerSegm aTimerSolveSimFinal((cMMVII_Appli::IsMultiThread() ? nullptr : &mPMAT->TimeSegm()),
-                                  "SolveSimFinal");
+    cAutoTimerSegm aTimerSolveSimFinal(mPMAT->TimeSegm(),"SolveSimFinal");
     aSol = aSys->PublicSolve();
     tREAL8 aLambda = aSol(3);
     cPt3dr aTr(aSol(0),aSol(1),aSol(2));
@@ -932,6 +928,8 @@ void cNodeArborTriplets::CmpWithGT()
 
 void cNodeArborTriplets::MergeChildrenSol()
 {
+     cAutoTimerSegm aTimerMerge(mPMAT->TimeSegm(),"MergeChildrenSol");
+
      cNodeArborTriplets & aN0 = *(mChildren.at(0));
      cNodeArborTriplets & aN1 = *(mChildren.at(1));
 
@@ -1055,6 +1053,8 @@ void cNodeArborTriplets::MergeChildrenSol()
 /* Refinement on bundles (any camera projection) */
 void cNodeArborTriplets::RefineCurSolution()
 {
+    cAutoTimerSegm aTimerBA(mPMAT->TimeSegm(),"RefineBA");
+
     int aNbIterEnd = mPMAT->Cfg().mNbIterBA + (mDepth==0 ? mPMAT->Cfg().mNbExtraIterAtRoot : 0);
 
     cBA_ArboTriplets* aBA = new cBA_ArboTriplets(mPMAT, mLocSols,mDepth,aNbIterEnd,1.0,1.0);
