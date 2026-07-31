@@ -158,7 +158,10 @@ void cBA_ArboTriplets::OneIteration(int aIter)
     tREAL8 aSigA = CurrentVal(aIter,mNbIter,mSigARange.at(0),mSigARange.at(1));
     tREAL8 aThr = CurrentVal(aIter,mNbIter,mThrRange.at(0),mThrRange.at(1));
     cStdWeighterResidual aTPtsW(1.0, aSigA, aThr, 2.0);
-  //  StdOut() << "SIIGGGG THRRR " << aSigA << " " << aThr << std::endl;
+
+    StdOutLock::lock();
+    StdOut() << "SIIGGGG THRRR " << aSigA << " " << aThr << std::endl;
+    StdOutLock::unlock();
 
     // add observation equations for all tie-points
     tREAL8 aMaxRes=0;
@@ -356,7 +359,7 @@ tREAL8 cBA_ArboTriplets::RobustResidualScale(size_t aNbSample)
         }
     }
     if (aVRes.size() < 50) return -1; // not enough data => keep nominal weighting
-    return NC_KthVal(aVRes,0.5);      // median, in pixels
+    return NC_KthVal(aVRes,0.75);      // quantile, in pixels
 }
 
 void cBA_ArboTriplets::AdaptWeightingToData()
@@ -364,12 +367,16 @@ void cBA_ArboTriplets::AdaptWeightingToData()
     const tREAL8 aSigAtt = mPMAT->Cfg().mSigmaAtt;
     const tREAL8 aThr    = mPMAT->Cfg().mThrs;
 
-    /// compute median residual over this merged node
+    /// compute quantile residual over this merged node
     mResScale = RobustResidualScale();
     if (mResScale<=0) return;
 
-    static constexpr tREAL8 TheMaxLoosening = 20.0; /// not too sure about this value
+    static constexpr tREAL8 TheMaxLoosening = 40.0; /// not too sure about this value
     const tREAL8 aMult = std::clamp(mResScale/aSigAtt,1.0,TheMaxLoosening);
+
+    StdOutLock::lock();
+    StdOut() << aMult << " " << mResScale << " " << aSigAtt << std::endl;
+    StdOutLock::unlock();
 
     /// update the SigmaAtt and Threshold ranges
     mSigARange = {2.0*aMult*aSigAtt, aSigAtt};
