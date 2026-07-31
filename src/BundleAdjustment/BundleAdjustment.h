@@ -757,6 +757,9 @@ class cBA_ArboTriplets
         /// Copies refined poses back into aLocSols.
         void UpdateLocSols(std::vector<cSolLocNode>& aLocSols);
 
+        /// Widen sigma/threshold according to the actual "quality" of the merged solutions
+        void AdaptWeightingToData();
+
         size_t NbCams() const { return mVCams.size(); }
         int    NbIter() const { return mNbIter; }
 
@@ -764,6 +767,9 @@ class cBA_ArboTriplets
         void SetGTPts3D(std::map<int,cPt3dr>* aGT) { mGTPts3D = aGT; }
 
     private:
+        /// Compute a residual scaling factor (to be applied to SigmaAtt & Threshold) based on tie-pts residuals
+        tREAL8 RobustResidualScale(size_t aNbSample=1000);
+
         cMakeArboTriplet*                            mPMAT;
         int                                                mNbIter;
         std::vector<tREAL8>                                mSigARange;  ///< [start, end] dynamic threshold
@@ -779,6 +785,8 @@ class cBA_ArboTriplets
         std::map<int,cPt3dr>*                              mGTPts3D = nullptr; ///< optional GT pts for diagnosis
 
         const int                                          mTreeDepth;
+
+        tREAL8                                             mResScale; ///< scale of the residuals
 };
 
 class cMMVII_BundleAdj

@@ -118,6 +118,10 @@ void cBA_ArboTriplets::OneIteration(int aIter)
     for (auto& aPair : mTPts->Pts())
         MakePGroundFromBundles(aPair, mVSens);
 
+    // adapt the BA weight parameters
+    if (aIter==0)
+        AdaptWeightingToData();
+
     // diagnostic: compare triangulated P3D with GT at first iteration
     if (aIter==0 && mGTPts3D)
     {
@@ -145,15 +149,17 @@ void cBA_ArboTriplets::OneIteration(int aIter)
             StdOut() << "[DiagP3D] no matching GT pts found (mVIdPts empty or no overlap)\n";
     }
 
-    auto CurrentVal = [&](int iterCur,int iterMax,tREAL8 delta,tREAL8 bias)
+    auto CurrentVal = [&](int aIterCur,int aIterMax,tREAL8 aV0,tREAL8 aV1)
     {
-        return delta*(1 - double(iterCur)/(iterMax-1)) + bias;
+        if (aIterMax<=1) return aV1;
+        return aV0 * std::pow(aV1/aV0, double(aIterCur)/(aIterMax-1));
     };
 
-    tREAL8 aSigA = CurrentVal(aIter,mNbIter,mSigARange.at(0) - mSigARange.at(1),mSigARange.at(1));
-    tREAL8 aThr = CurrentVal(aIter,mNbIter,mThrRange.at(0) - mThrRange.at(1),mThrRange.at(1));
+    tREAL8 aSigA = CurrentVal(aIter,mNbIter,mSigARange.at(0),mSigARange.at(1));
+    tREAL8 aThr = CurrentVal(aIter,mNbIter,mThrRange.at(0),mThrRange.at(1));
     cStdWeighterResidual aTPtsW(1.0, aSigA, aThr, 2.0);
   //  StdOut() << "SIIGGGG THRRR " << aSigA << " " << aThr << std::endl;
+
     // add observation equations for all tie-points
     tREAL8 aMaxRes=0;
     int aNumAllTiePts=0;
@@ -306,6 +312,68 @@ void cBA_ArboTriplets::UpdateLocSols(std::vector<cSolLocNode>& aLocSols)
         aLocSols.at(aK).mPose.Tr()  = mVCams.at(aK)->Center();
         aLocSols.at(aK).mPose.Rot() = mVCams.at(aK)->Pose().Rot();
     }
+}
+
+tREAL8 cBA_ArboTriplets::RobustResidualScale(size_t aNbSample)
+{
+    size_t aNbObs = 0;
+    for (const auto &aAllConfigs : mTPts->Pts())
+        aNbObs+=aAllConfigs.second.mVPIm.size();
+
+    const size_t aStep = std::max<size_t>(1,(aNbObs+aNbSample-1)/aNbSample);
+
+    std::vector<double> aVRes;
+    aVRes.reserve(std::min(aNbObs,aNbSample));
+    size_t aKObs=0;
+
+    for(const auto &aAllConfigs : mTPts->Pts())
+    {
+        const auto &aConf = aAllConfigs.first;
+        const auto &aVals = aAllConfigs.second;
+        const size_t aNbIm = aConf.size();
+        const size_t aNbPts = aVals.mVPGround.size();
+
+        for (size_t aKPts=0; aKPts<aNbPts; aKPts++)
+        {
+            const cPt3dr& aP3D = aVals.mVPGround.at(aKPts);
+            for (size_t aKIm=0; aKIm<aNbIm; aKIm++,aKObs++)
+            {
+                if (aKObs % aStep) continue; /// take only N samples
+
+                cSensorCamPC *aCam = mVCams.at(aConf.at(aKIm));
+                if (aCam->DegreeVisibility(aP3D)<=0) continue; /// point must be visible
+
+                const cPt3dr aPBun( aVals.mVPIm.at(aKPts*aNbIm+aKIm).x(),
+                                   aVals.mVPIm.at(aKPts*aNbIm+aKIm).y(),
+                                   aVals.mVPZ .at(aKPts*aNbIm+aKIm) );
+
+                // |Unit(Bundle_obs) ^ Unit(Bundle_pred)| = sin(angle): exactly the norm
+                // of the (u,v) residual of OneIteration, without needing u,v
+                tREAL8 aSinA = Norm2( VUnit(aPBun) ^ VUnit(aCam->Pt_W2L(aP3D)) );
+                aVRes.push_back(aCam->InternalCalib()->F() * aSinA);
+
+            }
+        }
+    }
+    if (aVRes.size() < 50) return -1; // not enough data => keep nominal weighting
+    return NC_KthVal(aVRes,0.5);      // median, in pixels
+}
+
+void cBA_ArboTriplets::AdaptWeightingToData()
+{
+    const tREAL8 aSigAtt = mPMAT->Cfg().mSigmaAtt;
+    const tREAL8 aThr    = mPMAT->Cfg().mThrs;
+
+    /// compute median residual over this merged node
+    mResScale = RobustResidualScale();
+    if (mResScale<=0) return;
+
+    static constexpr tREAL8 TheMaxLoosening = 20.0; /// not too sure about this value
+    const tREAL8 aMult = std::clamp(mResScale/aSigAtt,1.0,TheMaxLoosening);
+
+    /// update the SigmaAtt and Threshold ranges
+    mSigARange = {2.0*aMult*aSigAtt, aSigAtt};
+    mThrRange = {2*aMult*aThr, aThr};
 }
 
 cBA_ArboTriplets::~cBA_ArboTriplets()
