@@ -360,9 +360,14 @@ void cProjPointCloud::ProcessOneProj
 
 
 
+     //  In "std" mode the image is a private one, its origin is the min of projections; the offset must be
+     //  the exact min : initialized at (0,0) it stays at 0 as soon as the projection does not reach the
+     //  origin, the indexes then start at P0>0 while mSzIm is computed from the size only => all the points with
+     //  index >= mSzIm silently fall outside the image and are never seen as visible.
      cPt2dr aPMin(0.0,0.0);
-     if (! isModeImage)
+     if ((! isModeImage) && (! mVPtsProj.empty()))
      {
+        aPMin = Proj(mVPtsProj.at(0));
         for (const auto & aPt : mVPtsProj)
         {
             SetInfEq(aPMin,Proj(aPt));
@@ -382,7 +387,9 @@ void cProjPointCloud::ProcessOneProj
          mVPtImages.push_back(anInd);
      }
 
-     mSzIm = ( isModeImage ?    mBoxInd.CurBox().P1() : mBoxInd.CurBox().Sz())   + cPt2di(1,1);
+     //  indexes are >=0 in both modes, so P1+1 is the size that contains them all (in std mode P0 is now
+     //  0 by construction, so this is equivalent to the size of the box, but robust to any rounding)
+     mSzIm = mBoxInd.CurBox().P1() + cPt2di(1,1);
 
 
      if (false && isModeImage)
