@@ -553,13 +553,16 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     mIter++;
     if(mVerbose)
     {
-        StdOut() << "---------------------- "
+        StdOut() << Color::title
+                 << "---------------------- "
                  << " End Iter" << mIter
-                  << " StdDevLast=" << std::sqrt(mR8_Sys->VarLastSol())
-                  << " StdDevCur=" << std::sqrt(mR8_Sys->VarCurSol())
+                  << " StdDevLast=" <<   Color::end<< std::sqrt(mR8_Sys->VarLastSol()) << Color::title
+                  << " StdDevCur=" <<  Color::end << std::sqrt(mR8_Sys->VarCurSol()) << Color::title
                   //<< " VarLast=" << mR8_Sys->VarLastSol()
                  //<< " ?VarCur?=" << mR8_Sys->VarCurSol()
-                 << " ---------------" << std::endl;
+                 << " ---------------"
+                 << Color::end
+                 <<  std::endl;
     }
 
 }

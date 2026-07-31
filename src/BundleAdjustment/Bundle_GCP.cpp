@@ -125,8 +125,8 @@ void cMMVII_BundleAdj::OneItere_GCP()
 
 
     int aNbGCPVis = 0;
-    int aAvgVis = 0;
-    int aAvgNonVis = 0;
+    int aNbVisib = 0;
+    [[maybe_unused]] int aAvgNonVis = 0; // supress the print , see if we maintain
     if (aNbGCP!=0)
     {
         aNewGCP = aSet; //copy
@@ -262,7 +262,7 @@ void cMMVII_BundleAdj::OneItere_GCP()
                 }
             }
         }
-        aAvgVis += aNbImVis;
+        aNbVisib += aNbImVis;
         aAvgNonVis += aVPIm.size() -aNbImVis;
         aNbGCPVis += (aNbImVis !=0);
 
@@ -306,15 +306,19 @@ void cMMVII_BundleAdj::OneItere_GCP()
 
     if (mVerbose && (aNbGCP!=0))
     {
-
+        // ---------- Print residual on 2D-Proj of GGP ------
         if (aWeightedSqRes.Nb()!=0)
-            StdOut() << "  WeightedGcp=" << std::sqrt(aWeightedSqRes.Average())
-                     << "  UWGcp=" << std::sqrt(aUW_SqRes.Average()) ; // getchar();
+            StdOut() << Color::argument << " *[GGP ]: " << Color::end
+                     << Color::descr << " Weighted=" << Color::end <<  std::sqrt(aWeightedSqRes.Average())
+                     << Color::descr  << "  Un-Weigthed=" << Color::end  << std::sqrt(aUW_SqRes.Average()) ;
+
+        // For LIDAR print 3D resisdual
         if (aWeightedSqResDist.Nb()>0)
-            StdOut() << "  ResDist=" << std::sqrt(aWeightedSqResDist.Average());
-        StdOut() << "  PropVis1Im=" << aNbGCPVis /double(aNbGCP)
-                 << "  Avg vis/GCP=" << aAvgVis/double(aNbGCP)
-                 << "  Mes used="<<aAvgVis<<" / not used="<<aAvgNonVis
+            StdOut()   << Color::descr << "  ResDist="  << Color::end << std::sqrt(aWeightedSqResDist.Average());
+        // F
+        StdOut()  << Color::descr << "  PropVis1Im="  << Color::end << aNbGCPVis /double(aNbGCP)
+                  << Color::descr  << "  Avg vis/GCP=" << Color::end <<  aNbVisib/double(aNbGCP)
+                //  << "  Mes used="<<aAvgVis<<" / not used="<<aAvgNonVis
         ;
         StdOut() << std::endl;
     }
