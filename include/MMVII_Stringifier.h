@@ -248,10 +248,12 @@ typedef std::vector<tPtrArg2007>          tVecArg2007;
 class cHeaderSectionArg
 {
       public :
-         explicit cHeaderSectionArg(const std::string & aComment);
+         explicit cHeaderSectionArg(const std::string & aComment,bool GlobMMVII=false);
          const  std::string & GetComment() const; ///< Accessor
+         bool    GlobMMVII() const;
       private :
         std::string  mComment;
+        bool         mGlobMMVII;
 };
 typedef std::optional<cHeaderSectionArg> tOptHeadSA;
 
@@ -332,7 +334,7 @@ class cCollecSpecArg2007
       tPtrArg2007 operator [] (int) const;
       void clear() ;
       cCollecSpecArg2007 & operator << (tPtrArg2007 aVal);
-      cCollecSpecArg2007 & operator << (const std::string & aComment);
+      // cCollecSpecArg2007 & operator << (const std::string & aComment);
       cCollecSpecArg2007 & operator << (const cHeaderSectionArg& aComment);
       /// Check that no waiting header remains
       void CheckNoWaitingHeadSA() const;
@@ -340,7 +342,7 @@ class cCollecSpecArg2007
       tVecArg2007 & Vec();
       cCollecSpecArg2007(const cCollecSpecArg2007&) = delete;
       tVecArg2007  mV;
-      std::vector<std::pair<size_t,std::string> > mVComm; ///< comments inserted at a given position in mV
+     // std::vector<std::pair<size_t,std::string> > mVComm; ///< comments inserted at a given position in mV
       cCollecSpecArg2007();
       /// Possible header SA that has been added to be put in next arg
       tOptHeadSA mWaitingHeadSA;

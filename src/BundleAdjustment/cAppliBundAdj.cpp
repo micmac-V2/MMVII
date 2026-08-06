@@ -308,42 +308,46 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
           anArgOpt
      // << AOpt2007(mDataDir,"DataDir","Default data directories ",{eTA2007::HDV})
       << AOpt2007(mParamRefOri,"RefOri","Reference orientation")
-      << AOpt2007(mVSharedIP,"SharedIP","Shared intrinsic parameters",{eTA2007::CanRepeat})
       << AOpt2007(mPostFixReport,NameParamPostFixReport(),CommentParamPostFixReport())
       << AOpt2007(mParamLine,"AdjLine3D","Parameter for line Adjustment")
 
-           << "Topo"
+       << cHeaderSectionArg("Topo")
       << mPhProj.DPTopoMes().ArgDirInOpt("TopoDirIn","Dir for Topo measures") //  TOPO
       << mPhProj.DPTopoMes().ArgDirOutOpt("TopoDirOut","Dir for Topo measures output") //  TOPO
 
-      << "Clino"
+      << cHeaderSectionArg("Clino")
       << mPhProj.DPMeasuresClino().ArgDirInOpt()
-           << "GCPs"
+
+      << cHeaderSectionArg("GCPs")
       << AOpt2007 ( mGCP3D, "GCP3D", "GCP ground",{eTA2007::CanRepeat})
       << AOpt2007 ( mGCP2D, "GCP2D", "GCP image",{eTA2007::CanRepeat})
       << AOpt2007(mGCPFilter,"GCPFilter","Pattern to filter GCP by name")
       << AOpt2007(mGCPFilterAdd,"GCPFilterAdd","Pattern to filter GCP by additional info")
-           << "Tie points"
+
+      << cHeaderSectionArg("Tie points")
       << mPhProj.DPMulTieP().ArgDirInOpt("TPDir","Dir for Tie Points if != DataDir")
       << AOpt2007(mTiePWeight,"TiePWeight","Tie point weighting")
       << AOpt2007(mAddTieP,"AddTieP","For additional TieP",{eTA2007::CanRepeat})
       << AOpt2007(mTiepShowPerMil,"TiePShowPerMil","Per/1000 for printing residual, for ex [500] -> show median ",{eTA2007::HDV})
 
 
-           << "Lidar"
+      << cHeaderSectionArg("Lidar")
       << AOpt2007 ( mParamLidarPhgr,  "LidarPhotogra", "Lidar/Phgr adj via triangulation",  {eTA2007::CanRepeat})
       << AOpt2007 ( mParamLidarPhoto, "LidarPhoto",    "Lidar/Phgr adj via rasterisation",  {eTA2007::CanRepeat})
       << AOpt2007 ( mParamLidarLidar, "LidarLidar",    "Lidar/Lidar adj via rasterisation", {eTA2007::CanRepeat})
-           << "Freeze"
+
+      << cHeaderSectionArg("Freeze")
       << AOpt2007(mPatParamFrozCalib,"PPFzCal","Pattern for freezing internal calibration parameters")
       << AOpt2007(mVVParFreeCalib,"PPFreeCal","Pattern for free internal calibration parameters",{eTA2007::CanRepeat})
       << AOpt2007(mPatFrosenCenters,"PatFzCenters","Pattern of images for freezing center of poses")
       << AOpt2007(mPatFrosenOrient,"PatFzOrient","Pattern of images for freezing orientation of poses")
       << AOpt2007(mPatFrosenClino,"PatFzClino","Pattern of clinometers for freezing boresight")
       << AOpt2007(mParamGaugeRel,"FixGauge","Param for gauge in pure relative")
+      << AOpt2007(mVSharedIP,"SharedIP","Shared intrinsic parameters",{eTA2007::CanRepeat})
 
 
-           << "Computation"
+
+      << cHeaderSectionArg("Computation")
       << AOpt2007(mNbIter,"NbIter","Number of iterations",{eTA2007::HDV})
       << AOpt2007(mLVM,"LVM","Levenberg–Marquardt parameter (to have better conditioning of least squares)",{eTA2007::HDV})
       << AOpt2007(mViscPose,"PoseVisc","Sigma viscosity on pose")
@@ -353,7 +357,7 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mCheckMeasureAdded,"CheckMeasureAdded","Do we check the adding of measures)",{eTA2007::Tuning,eTA2007::HDV})
 
 
-           << "Blocks"
+           << cHeaderSectionArg("Blocks")
       << AOpt2007
          (
              mParamBOI,

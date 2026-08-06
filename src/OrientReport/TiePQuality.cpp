@@ -220,12 +220,12 @@ cCollecSpecArg2007 & cAppli_TiePReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
     return   anArgOpt
 
-          <<  "Parameters for per/image stas/visu"
+          << cHeaderSectionArg ("Parameters for per/image stas/visu")
           << AOpt2007(mPatImRes,"PatImRes","Pattern of  images  where we generat residual (if any)")
           << AOpt2007(mPatImFV,"PatImFV","Pattern of  images  where we generat field vector (if any)")
           << AOpt2007(mDoImResCalib,"DoImResCalib","Do we generate images of residual by calibration ?",{eTA2007::HDV})
 
-          << "Parameters by pairs "
+          << cHeaderSectionArg("Parameters by pairs ")
           << mPhProj.DPTieP().ArgDirInOpt("","Tie point in pair format for by pair stat/visu")
           << AOpt2007(mPatternVFByPair,"PairPatFV","Pattern for pairs generatin vector fiels by pair")
           << AOpt2007(mPatternResByPair,"PairPatRes","Pattern for pairs generating residual images")
@@ -233,7 +233,7 @@ cCollecSpecArg2007 & cAppli_TiePReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
 
 
-          << "General pameters (for per-images and pairs)"
+          << cHeaderSectionArg("General pameters (for per-images and pairs)")
           << AOpt2007(mPropStat,"Perc","Percentil for stat exp",{eTA2007::HDV})
           << cImageVectorField::ArgOpt(anArgOpt,mParamsFV)
              /*
@@ -245,7 +245,7 @@ cCollecSpecArg2007 & cAppli_TiePReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
                  {{eTA2007::HDV},{eTA2007::ISizeV,"[1,5]"}}
              )*/
 
-          << "3D pameters"
+          << cHeaderSectionArg("3D pameters")
           << AOpt2007(mParamPly,"ParamPly","Generate a 3D visualization of ply files [Colored,ExpQual]",{{eTA2007::ISizeV,"[2,2]"}})
     ;
 }

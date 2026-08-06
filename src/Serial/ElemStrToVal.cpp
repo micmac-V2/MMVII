@@ -634,8 +634,9 @@ std::string  Name4Help(const tSemA2007 & aSem)
 /*       cHeaderSectionArg   */
 /* ========================== */
 
-cHeaderSectionArg::cHeaderSectionArg(const std::string & aComment) :
-    mComment (aComment)
+cHeaderSectionArg::cHeaderSectionArg(const std::string & aComment,bool isGlobMMVII ) :
+    mComment (aComment),
+    mGlobMMVII (isGlobMMVII)
 {
 }
 
@@ -644,6 +645,7 @@ const  std::string & cHeaderSectionArg::GetComment() const
     return mComment;
 }
 
+bool cHeaderSectionArg::GlobMMVII() const {return mGlobMMVII;}
 
 /* ========================== */
 /*          cSpecOneArg2007   */
@@ -830,11 +832,13 @@ cCollecSpecArg2007 & cCollecSpecArg2007::operator << (tPtrArg2007 aVal)
     return *this;
 }
 
+/*
 cCollecSpecArg2007 & cCollecSpecArg2007::operator << (const std::string & aComment)
 {
     mVComm.push_back({mV.size(),aComment});
     return *this;
 }
+*/
 
 cCollecSpecArg2007::cCollecSpecArg2007()
 {

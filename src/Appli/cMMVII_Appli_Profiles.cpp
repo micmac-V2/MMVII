@@ -41,6 +41,8 @@ MACRO_INSTANTIATE_STRIO_ENUM(eModeHelpColor,"ModeHelpColor")
 Color Color::command;
 Color Color::argument;
 Color Color::title;
+Color Color::sub_title;
+
 Color Color::success;
 Color Color::error;
 Color Color::warning;
@@ -82,6 +84,7 @@ static void SetColors(eModeHelpColor aMode)
         Color::argument = DarkMagenta;
         Color::descr = DarkGreen;
         Color::title = DarkCyan;
+        Color::sub_title = Cyan;
         Color::success = DarkGreen;
         Color::error = DarkRed;
         Color::warning = DarkMagenta;
@@ -94,6 +97,8 @@ static void SetColors(eModeHelpColor aMode)
         Color::descr = DarkYellow;
         Color::success = Green;
         Color::title = Blue;
+        Color::sub_title = Cyan;
+
         Color::error = DarkRed; // Mpd to have descr != warn
         Color::warning = Red;
         Color::end = Reset;
