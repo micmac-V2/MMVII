@@ -558,6 +558,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         static void SignalInputFormat(int); ///< indicate that a xml file was read in the given version
         static bool        OutV2Format() ;  ///<  Do we write in V2 Format
 
+        void BeginParamFacShared();
         void InitParam(cGenArgsSpecContext *aArgsSpec = nullptr);  ///< Parse the parameter list, aArgsSpecs must be nullptr. (only cMMVII_GenArgsSpec use aArgsSpec)
         void SetNot4Exe(); ///< Indicate that the appli was not fully initialized
 
@@ -855,6 +856,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
 
         std::string                        mPatternInitGMA;
         static bool                        mIsMultiThread;  /// memorize the multi thread state
+        bool                               mArgGlobHasBegun; /// To make once separation with arg glob
 };
 
 #define ASSERT_NO_MUTI_THREAD() \

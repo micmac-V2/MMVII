@@ -630,6 +630,20 @@ std::string  Name4Help(const tSemA2007 & aSem)
 }
 
 
+/* ========================== */
+/*       cHeaderSectionArg   */
+/* ========================== */
+
+cHeaderSectionArg::cHeaderSectionArg(const std::string & aComment) :
+    mComment (aComment)
+{
+}
+
+const  std::string & cHeaderSectionArg::GetComment() const
+{
+    return mComment;
+}
+
 
 /* ========================== */
 /*          cSpecOneArg2007   */
@@ -700,6 +714,25 @@ std::string  cSpecOneArg2007::Name4Help() const
     return aRes;
 }
 
+
+void cSpecOneArg2007::SetHeadSep(const cHeaderSectionArg & aHead)
+{
+    MMVII_INTERNAL_ASSERT_strong(!mHeadSep.has_value(),"Multiple cSpecOneArg2007::SetHeadSep");
+    mHeadSep = aHead;
+}
+
+bool cSpecOneArg2007::HasHeadSep() const
+{
+    return mHeadSep.has_value();
+}
+
+const cHeaderSectionArg&  cSpecOneArg2007::GetHeadSep() const
+{
+    MMVII_INTERNAL_ASSERT_strong(mHeadSep.has_value(),"No cSpecOneArg2007::GetHeadSep");
+    return mHeadSep.value();
+}
+
+
 std::list<std::string>  cSpecOneArg2007::AddComs() const
 {
     std::list<std::string> aRes;
@@ -768,17 +801,31 @@ void  cSpecOneArg2007::InitParam(const std::string & aStr, bool aFirstInit)
 }
 
 
-
-
-
-
 /* ============================ */
 /*          cCollecSpecArg2007  */
 /* ============================ */
 
+cCollecSpecArg2007 & cCollecSpecArg2007::operator << (const cHeaderSectionArg& aComment)
+{
+    // It's likely that the use doesnt want the second command overwriting the previous
+    MMVII_INTERNAL_ASSERT_always(!mWaitingHeadSA.has_value(),"Succesive comment in cCollecSpecArg2007");
+    mWaitingHeadSA = aComment;
+    return *this;
+}
+void cCollecSpecArg2007::CheckNoWaitingHeadSA() const
+{
+    MMVII_INTERNAL_ASSERT_always(!mWaitingHeadSA.has_value(),"a header was not used, in CheckNoWaitingHeadSA");
+}
+
+
 
 cCollecSpecArg2007 & cCollecSpecArg2007::operator << (tPtrArg2007 aVal)
 {
+    if (mWaitingHeadSA.has_value())
+    {
+        aVal->SetHeadSep(mWaitingHeadSA.value());
+        mWaitingHeadSA.reset();
+    }
     mV.push_back(aVal);
     return *this;
 }

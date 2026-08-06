@@ -94,8 +94,8 @@ static void SetColors(eModeHelpColor aMode)
         Color::descr = DarkYellow;
         Color::success = Green;
         Color::title = Blue;
-        Color::error = Red;
-        Color::warning = DarkYellow;
+        Color::error = DarkRed; // Mpd to have descr != warn
+        Color::warning = Red;
         Color::end = Reset;
     }
 }

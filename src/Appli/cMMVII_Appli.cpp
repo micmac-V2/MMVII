@@ -1,7 +1,7 @@
 #include "cMMVII_Appli.h"
 #include "MMVII_Sys.h"
 #include "MMVII_DeclareCste.h"
-#include "MMVII_2Include_Serial_Tpl.h"
+#include "MMVII_Tpl_ElemStrToVal.h"
 
 
 #include <thread>
@@ -9,6 +9,8 @@
 
 namespace MMVII
 {
+
+
 
 extern std::string MMVII_SysTempDir();   ///< defined in uti_sysdep.cpp
 
@@ -306,7 +308,8 @@ cMMVII_Appli::cMMVII_Appli
    mTiePPrefIn    (MMVII_StdDest),
    mIsInBenchMode (false),
    mReportSubDir   (""),
-   mPatternInitGMA (MMVII_NONE)
+   mPatternInitGMA (MMVII_NONE),
+   mArgGlobHasBegun (false)
 {
    mNumCallInsideP = TheNbCallInsideP;
    TheNbCallInsideP++;
@@ -440,6 +443,15 @@ void cMMVII_Appli::SetNot4Exe()
    mForExe = false;
 }
 
+void cMMVII_Appli::BeginParamFacShared()
+{
+   if (! mArgGlobHasBegun)
+   {
+       mArgGlobHasBegun = true;
+       mArgFac << " Shared Args" ;
+   }
+}
+
 void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
 {
   //  StdOut() << "XXXXXXXXXXInitParam" << "\n";
@@ -474,12 +486,15 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
   cSpecOneArg2007::tAllSemPL aGlob{eTA2007::Global}; // just to make shorter lines
   cSpecOneArg2007::tAllSemPL aGlobHDV{eTA2007::Global,eTA2007::HDV}; // just to make shorter lines
 
+
   if (HasSharedSPO(eSharedPO::eSPO_CarPO))
   {
+     BeginParamFacShared();
      mArgFac << AOpt2007(mCarPPrefOut,"CarPOut","Name for Output caracteristic points",{eTA2007::HDV});
   }
   if (HasSharedSPO(eSharedPO::eSPO_CarPI))
   {
+     BeginParamFacShared();
      mArgFac << AOpt2007(mCarPPrefIn,"CarPIn","Name for Input caracteristic points",{eTA2007::HDV});
   }
 
@@ -495,6 +510,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
       TestMainSet(anArgFac,HasMain0,HasMain1);
       if (HasMain0)
       {
+        BeginParamFacShared();
         mArgFac <<  AOpt2007(mIntervFilterMS[0],GOP_Int0,"File Filter Interval, Main Set"  ,{eTA2007::Shared,{eTA2007::FFI,"0"}});
         mArgFac <<  AOpt2007(mTransfoFFI[0],"Pat"+GOP_Int0,"Pattern Transfo File Filter Interval, Main Set"  ,{eTA2007::Shared,{eTA2007::ISizeV,"[2,2]"}});
       }
@@ -504,48 +520,8 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
         mArgFac <<  AOpt2007(mTransfoFFI[1],"Pat"+GOP_Int1,"Pattern Transfo File Filter Interval, Main Set"  ,{eTA2007::Shared,{eTA2007::ISizeV,"[2,2]"}});
       }
   }
-  if  (The_MMVII_DebugLevel >= The_MMVII_DebugLevel_InternalError_micro)
-  {
-      mArgFac
-         <<  AOpt2007(mNumTagObjCr,"NTOC4ML","Num of tagged object at creation for memory leak",{eTA2007::Global});
-  }
-  mArgFac
-      <<  AOpt2007(mNumOutPut,GOP_NumVO,"Num version for output format (1 or 2)",{eTA2007::Global,{eTA2007::Range,"[1,2]"}})
-      <<  AOpt2007(mSeedRand,GOP_SeedRand,"Seed for random,if <=0 init from time",aGlobHDV)
-      <<  AOpt2007(mExtendPattern,"ExtPatFile","Do we extend patterns for files (or interpret them literally)",aGlobHDV)
 
-      <<  AOpt2007(msWithWarning,GOP_WW,"Do we print warnings",aGlobHDV)
-      <<  AOpt2007(mNbProcAllowed,GOP_NbProc,"Number of process allowed in parallelisation",aGlobHDV)
-      <<  AOpt2007(mShowTimePerThread,"ShowTimePerThread","Show per-thread breakdown in TimerSegm timing reports",aGlobHDV)
-      <<  AOpt2007(aDP ,GOP_DirProj,"Project Directory",{eTA2007::DirProject,eTA2007::Global})
-      <<  AOpt2007(mParamStdOut,GOP_StdOut,"Redirection of Ouput (+File for terminal and file output, 0File to reset file, "+ MMVII_NONE + " for no out)",aGlob)
-
-      <<  AOpt2007(mProfileName,"Profile","Apply specific user profile for this command",{eTA2007::Global,eTA2007::HDV,{eTA2007::AllowedValues,ToS(GlobProfileNames())}})
-
-      <<  AOpt2007(mLevelCall,GIP_LevCall," Level Of Call",aInternal)
-      <<  AOpt2007(mKthCall,GIP_KthCall," Ordre Of Call when multiple call",aInternal)
-      <<  AOpt2007(mPatternInitGMA,GIP_PatternGMA,"Initial pattern of global main appli ",aInternal)
-      <<  AOpt2007(mShowAll,GIP_ShowAll,"",aInternal)
-      <<  AOpt2007(mPrefixGMA,GIP_PGMA," Prefix Global Main Appli",aInternal)
-      <<  AOpt2007(mPrefix_TIM_GMA,GIP_TIM_GMA," Prefix for Time of Global Main Appli",aInternal)
-      <<  AOpt2007(mDirProjGMA,GIP_DirProjGMA," Folder Project Global Main Appli",aInternal)
-      <<  AOpt2007(mExecFrom,GIP_ExecFrom," Name of the frontend that launched this command",aInternal)
-  ;
-
-  // Check that names of optionnal parameters begin with alphabetic caracters
-  for (const auto & aSpec : mArgFac.Vec())
-  {
-      aSpec->ReInit();
-      if (!std::isalpha(aSpec->Name()[0]))
-      {
-         MMVII_INTERNAL_ASSERT_always
-         (
-             false,
-             "Name of optional param must begin with alphabetic => ["+aSpec->Name()+"]"
-         );
-      }
-  }
-
+  //  MPD : test move here to use mModeHelp in add comment
   mNbMinusInHelp=0;
   // Test if we are in help mode
   for (int aKArg=0 ; aKArg<mArgc ; aKArg++)
@@ -567,6 +543,68 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
          SplitStringAround(aName,mPatHelp,aArgK,'=',true,false);
       }
   }
+
+  /// MPD2ARGS
+  //if (mDoGlobHelp)
+  //    mArgFac << "Global Args";
+
+//  StdOut() << "mDoGlobHelpmDoGlobHelp " << mDoGlobHelp << "\n";
+
+  if  (The_MMVII_DebugLevel >= The_MMVII_DebugLevel_InternalError_micro)
+  {
+
+      mArgFac
+         <<  AOpt2007(mNumTagObjCr,"NTOC4ML","Num of tagged object at creation for memory leak",{eTA2007::Global});
+  }
+  mArgFac
+      <<  AOpt2007(mNumOutPut,GOP_NumVO,"Num version for output format (1 or 2)",{eTA2007::Global,{eTA2007::Range,"[1,2]"}})
+      <<  AOpt2007(mSeedRand,GOP_SeedRand,"Seed for random,if <=0 init from time",aGlobHDV)
+      <<  AOpt2007(mExtendPattern,"ExtPatFile","Do we extend patterns for files (or interpret them literally)",aGlobHDV)
+
+      <<  AOpt2007(msWithWarning,GOP_WW,"Do we print warnings",aGlobHDV)
+      <<  AOpt2007(mNbProcAllowed,GOP_NbProc,"Number of process allowed in parallelisation",aGlobHDV)
+      <<  AOpt2007(mShowTimePerThread,"ShowTimePerThread","Show per-thread breakdown in TimerSegm timing reports",aGlobHDV)
+      <<  AOpt2007(aDP ,GOP_DirProj,"Project Directory",{eTA2007::DirProject,eTA2007::Global})
+      <<  AOpt2007(mParamStdOut,GOP_StdOut,"Redirection of Ouput (+File for terminal and file output, 0File to reset file, "+ MMVII_NONE + " for no out)",aGlob)
+
+      <<  AOpt2007
+          (
+              mProfileName,"Profile","Apply specific user profile for this command",
+              {eTA2007::Global,eTA2007::HDV,{eTA2007::AllowedValues,ToS(GlobProfileNames())}}
+           );
+
+  /// MPD2ARGS
+  //if (mDoInternalHelp)
+  //    mArgFac << "Internal Args";
+   mArgFac
+      <<  AOpt2007(mLevelCall,GIP_LevCall," Level Of Call",aInternal)
+      <<  AOpt2007(mKthCall,GIP_KthCall," Ordre Of Call when multiple call",aInternal)
+      <<  AOpt2007(mPatternInitGMA,GIP_PatternGMA,"Initial pattern of global main appli ",aInternal)
+      <<  AOpt2007(mShowAll,GIP_ShowAll,"",aInternal)
+      <<  AOpt2007(mPrefixGMA,GIP_PGMA," Prefix Global Main Appli",aInternal)
+      <<  AOpt2007(mPrefix_TIM_GMA,GIP_TIM_GMA," Prefix for Time of Global Main Appli",aInternal)
+      <<  AOpt2007(mDirProjGMA,GIP_DirProjGMA," Folder Project Global Main Appli",aInternal)
+      <<  AOpt2007(mExecFrom,GIP_ExecFrom," Name of the frontend that launched this command",aInternal)
+  ;
+
+   // Check no header was added that is associated to nothing
+   mArgFac.CheckNoWaitingHeadSA();
+
+  // Check that names of optionnal parameters begin with alphabetic caracters
+  for (const auto & aSpec : mArgFac.Vec())
+  {
+      aSpec->ReInit();
+      if (!std::isalpha(aSpec->Name()[0]))
+      {
+         MMVII_INTERNAL_ASSERT_always
+         (
+             false,
+             "Name of optional param must begin with alphabetic => ["+aSpec->Name()+"]"
+         );
+      }
+  }
+
+  // HERE WAS HELP INIT BEFORE MPD MOVE
 
   if (mModeHelp)
   {
@@ -1536,6 +1574,29 @@ void cMMVII_Appli::GenerateHelp()
 
    HelpOut() << "\n";
    HelpOut() << Color::title << " == Optional named args : ==\n" << Color::end;
+
+   for (const auto & Arg : mArgFac.Vec())
+   {
+       bool IsInternal = Arg->HasType(eTA2007::Internal);
+       bool IsGlobHelp = Arg->HasType(eTA2007::Global);
+       bool DoIt =     ((!IsInternal) && (!IsGlobHelp))
+                    || (mDoGlobHelp && (!IsInternal))
+                    ||  mDoInternalHelp ;
+
+       if (DoIt)
+       {
+          HelpOut()  << "  * [" << Color::argument << Arg->Name() << Color::end << "] " << Arg->NameType() << Arg->Name4Help() << ": " ;
+
+         if (IsInternal)
+         {
+              HelpOut() << Color::warning  << "(!!== INTERNAL DONT USE DIRECTLY ==!!)" << Color::end ;
+          }
+          HelpOut() << "\n";
+       }
+   }
+    HelpOut() << "******************************************\n\n\n"; getchar();
+
+
    //  Help to write only once the #### XXXX ###
    bool InternalMet = false;
    bool GlobalMet   = false;
@@ -1556,6 +1617,8 @@ void cMMVII_Appli::GenerateHelp()
                 bool IsGlobHelp = Arg->HasType(eTA2007::Global);
                 // First time do std args, second time to others (tune,glob,inter ...)
                 bool DoIt = (aKTime==0) ^  (IsIinternal || IsTuning || IsGlobHelp);
+
+
                 if (DoIt && ((!IsGlobHelp) || mDoGlobHelp))
                 {
                    while ((aCommNum<mArgFac.mVComm.size()) &&(mArgFac.mVComm.at(aCommNum).first==aArgNum) )

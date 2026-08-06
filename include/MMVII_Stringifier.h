@@ -240,6 +240,22 @@ typedef std::shared_ptr<cSpecOneArg2007>  tPtrArg2007;
 typedef std::vector<tPtrArg2007>          tVecArg2007;
 
 
+/** Class for storing the separator between section of args,
+ *  can be used for specific separation like OriBundleAdj or geneal like Global/Internal ..
+ *  For now only a string but may evolve  (add Origin?)
+ */
+
+class cHeaderSectionArg
+{
+      public :
+         explicit cHeaderSectionArg(const std::string & aComment);
+         const  std::string & GetComment() const; ///< Accessor
+      private :
+        std::string  mComment;
+};
+typedef std::optional<cHeaderSectionArg> tOptHeadSA;
+
+
 class  cSpecOneArg2007 : public cMemCheck
 {
      public :
@@ -281,6 +297,10 @@ class  cSpecOneArg2007 : public cMemCheck
         void SetComment(const std::string& aCom);
         void SetName(const std::string& aName);
 
+
+        void SetHeadSep(const cHeaderSectionArg &); ///< Fix the heade (check done once)
+        bool HasHeadSep() const; ///< Is  there a separator
+        const cHeaderSectionArg&  GetHeadSep() const; ///< Accessor to separato (check was set)
      private :
         ///  This action defined in heriting-template class initialize "real" the value from its string value
          virtual void V_InitParam(const std::string & aStr, bool aFirstInit) = 0;
@@ -289,6 +309,7 @@ class  cSpecOneArg2007 : public cMemCheck
          int             mNbMatch;  ///< Number of match, to generate error on multiple names
          std::string     mName; ///< Name for optionnal
          std::string     mCom;  ///< Comment for all
+         tOptHeadSA      mHeadSep; ///< Possible header of separation
 
      protected:
          tSemA2007PL     mSemPL;    ///< Vector of semantic
@@ -312,12 +333,17 @@ class cCollecSpecArg2007
       void clear() ;
       cCollecSpecArg2007 & operator << (tPtrArg2007 aVal);
       cCollecSpecArg2007 & operator << (const std::string & aComment);
+      cCollecSpecArg2007 & operator << (const cHeaderSectionArg& aComment);
+      /// Check that no waiting header remains
+      void CheckNoWaitingHeadSA() const;
    private :
       tVecArg2007 & Vec();
       cCollecSpecArg2007(const cCollecSpecArg2007&) = delete;
       tVecArg2007  mV;
       std::vector<std::pair<size_t,std::string> > mVComm; ///< comments inserted at a given position in mV
       cCollecSpecArg2007();
+      /// Possible header SA that has been added to be put in next arg
+      tOptHeadSA mWaitingHeadSA;
 };
 
 
@@ -325,6 +351,7 @@ class cCollecSpecArg2007
 template <class Type> tPtrArg2007 Arg2007(Type &, const std::string & aCom, const cSpecOneArg2007::tAllSemPL & = cSpecOneArg2007::TheEmptySem);
 ///  One for optional args
 template <class Type> tPtrArg2007 AOpt2007(Type &,const std::string & aName, const std::string & aCom,const std::vector<tSemA2007> & = cSpecOneArg2007::TheEmptySem);
+
 
 
 
