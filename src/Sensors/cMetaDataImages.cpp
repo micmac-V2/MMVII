@@ -530,6 +530,14 @@ cMetaDataImage::cMetaDataImage() :
 {
 }
 
+bool cMetaDataImage::Has_InternalCalibGeomIdent() const
+{
+   return
+               (CameraName(true) !="")
+           &&  (FocalMM(true) >0)
+    ;
+}
+
 std::string  cMetaDataImage::InternalCalibGeomIdent() const
 {
     std::string  aRes = cPerspCamIntrCalib::SharedCalibPrefixName();

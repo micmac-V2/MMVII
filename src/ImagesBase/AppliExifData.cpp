@@ -3,6 +3,7 @@
 #include "cMMVII_Appli.h"
 #include "MMVII_Sensor.h"
 #include "MMVII_Tpl_ElemStrToVal.h"
+#include "MMVII_2Include_Serial_Tpl.h"
 
 namespace MMVII
 {
@@ -38,16 +39,38 @@ public :
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
 private :
+    /** Process one image , ie:
+         - compute the hash-code if ! ForPrint
+         - print else
+         The hash-code will allow to group together images having same meta data
+     */
+    void MakeOneImage(const std::string & aName,bool ForPrint);
+
+    template <class Type> inline void FunctionDispExif(const std::string& aXifName,const Type & aXifVal);
+    template <class TypeXif,class TypeMMVI2> inline void FunctionDispExif_MMVII
+                                         (const std::string&aXifName,const TypeXif &aXifVal,
+                                          const TypeMMVI2 &aValV2,const TypeMMVI2 & aDefV2);
+
+
+
     cPhotogrammetricProject  mPhgrProj;
-    std::string mNameIn;  ///< Input image name
-    eDispExif mDisp;
+    std::string    mNameIn;  ///< Input image name
+    eDispExif      mDisp;
+    cExifData      mCurXif;
+    std::size_t    mHash;
+    bool           mIterPrint;
+
+    std::map<std::size_t,std::list<std::string>>  mMergedNames;
+    std::map<std::string,std::size_t>             mName2Hash;
+
 };
 
 
 cAppli_ImageMetada:: cAppli_ImageMetada(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec,bool isBasic) :
     cMMVII_Appli (aVArgs,aSpec),
     mPhgrProj(*this),
-    mDisp(eDispExif::eMainExif)
+    mDisp(eDispExif::eMainExif),
+    mHash (0)
 {
 }
 
@@ -77,62 +100,109 @@ std::ostream& operator<<(std::ostream& os, std::optional<T> const& opt)
 }
 
 
-
-int cAppli_ImageMetada::Exe()
+template <class Type>  void cAppli_ImageMetada::FunctionDispExif(const std::string& aNameKey,const Type & aValue)
 {
-    mPhgrProj.FinishInit();
+    if (mIterPrint)
+       StdOut() << Color::command << "  -(exif) "<< aNameKey << Color::end << ": "  << aValue << std::endl;
+    hash_combine(mHash,aNameKey);
+    hash_combine(mHash,aValue);
+}
+
+template <class TypeXif,class TypeMMVI2>
+   void cAppli_ImageMetada::FunctionDispExif_MMVII
+        (
+             const std::string&aXifName,const TypeXif &aXifVal,
+             const TypeMMVI2 &aValV2,const TypeMMVI2 & aDefV2
+        )
+{
+       if (mCurXif.Valid()) {FunctionDispExif(aXifName,aXifVal);}
+
+       // if it has a value and is != of xif
+       if ((aValV2 != aDefV2) && (aXifVal.value_or(aDefV2)!=aValV2)  )
+       {
+          if (mIterPrint)
+              StdOut() << Color::descr << "  *** MMVII, SetByUserRule " << Color::end
+                       << Color::command << aXifName << Color::end
+                       << ": " << aValV2 << "\n";
+           hash_combine(mHash,MMVIIBin2007+":"+aXifName);
+           hash_combine(mHash,aValV2);
+       }
+}
 
 
+void cAppli_ImageMetada::MakeOneImage(const std::string & aName,bool ForPrint)
+{
+    mHash = 0;
 
     const auto default_precision{std::cout.precision()};
     constexpr auto max_precision{std::numeric_limits<long double>::digits10};
 
-    for (const auto & aName : VectMainSet(0))
-    {
-        cMetaDataImage aMDI = mPhgrProj.GetMetaData(aName);
+    cMetaDataImage aMDI = mPhgrProj.GetMetaData(aName);
 
-        auto aDataFileIm=cDataFileIm2D::Create(aName,eForceGray::No);
-        StdOut() << "####### " << aDataFileIm.Name() <<": " << std::endl;
-        StdOut() << "Size: " << aDataFileIm.Sz() << ", Type: "  << ToStr(aDataFileIm.Type()) << ", Channels: " << aDataFileIm.NbChannel() << std::endl;
-        switch (mDisp) {
+    auto aDataFileIm=cDataFileIm2D::Create(aName,eForceGray::No);
+
+    if (mIterPrint)
+    {
+
+        {
+            size_t aHash = mName2Hash[aName];
+            auto & aList = mMergedNames[aHash];
+            if (aList.empty())
+                return;
+            for (const auto & aNameEquiv : aList)
+                StdOut() << Color::title << "------------- " << aNameEquiv <<"------------- " << Color::end <<  std::endl;
+            aList.clear();
+        }
+
+        StdOut() << Color::command << "Size: " << Color::end << aDataFileIm.Sz()
+                 << Color::command << ", Type: " << Color::end  << ToStr(aDataFileIm.Type())
+                 << Color::command << ", Channels: " << Color::end << aDataFileIm.NbChannel() << std::endl;
+
+
+    }
+    else
+    {
+        hash_combine(mHash,std::string("SizeType"));
+        hash_combine(mHash,HashValue(aDataFileIm.Sz(),true));
+        hash_combine(mHash,(int)aDataFileIm.Type());
+        hash_combine(mHash,(int)aDataFileIm.NbChannel());
+    }
+    switch (mDisp)
+    {
         case eDispExif::eSizeType:
         case eDispExif::eNbVals:
             break;
         case eDispExif::eMainExif:
         case eDispExif::eAllExif:
         {
-            cExifData anExif = aDataFileIm.ExifData();
+             mCurXif = aDataFileIm.ExifData();
 
             // MPD pas mal de remaniement pour :
             //  - conserver le No Exif Data ajoute par Jo quand il n'y a pas de xif
             //  - conserver quand meme dans ce cas les xif du a des modif utilisateur
             //  - je pense qu'a terme il faudrait "de-macroiser" ce code avec des template
 
-#define DISP_EXIF(key) {StdOut() << #key << ": " << anExif.m##key << std::endl;}
+#define DISP_EXIF(key) {FunctionDispExif(#key, mCurXif.m##key);}
+
 // this macro disp standard xif, and user's changed value if apply
-#define DISP_XIF_MMVII(key,val,def) if (anExif.Valid()) {DISP_EXIF(key);} \
-    if ((val != def) && (anExif.m##key.value_or(def)!=val)  ) { \
-        if (!anExif.Valid())  {StdOut() << #key << std::endl;}\
-        StdOut() << "  *** SetByUserRule " << val << "\n";}
+#define DISP_XIF_MMVII(key,val,def) {FunctionDispExif_MMVII(#key, mCurXif.m##key,val,def);}
+
+
 
 
             // DISP_EXIF(FocalLength_mm);
-             DISP_XIF_MMVII(FocalLength_mm,aMDI.FocalMM(true),-1);
+             DISP_XIF_MMVII(FocalLength_mm,aMDI.FocalMM(true),-1.0);
 
              //DISP_EXIF(FocalLengthIn35mmFilm_mm);
-             DISP_XIF_MMVII(FocalLengthIn35mmFilm_mm,aMDI.FocalMMEqui35(true),-1);
+             DISP_XIF_MMVII(FocalLengthIn35mmFilm_mm,aMDI.FocalMMEqui35(true),-1.0);
 
              //DISP_EXIF(Model);
-             DISP_XIF_MMVII(Model,aMDI.CameraName(true),"");
+             DISP_XIF_MMVII(Model,aMDI.CameraName(true),std::string(""));
              /// the information on size of sensor are generally not provided by xif, so user
-             /// has to indicate it in the data-base, we indicate
+             /// has to indicate it in the data-base, we indicate if it was found
+             if (mIterPrint)
              {
-                /* std::optional<std::string> aModel = anExif.mModel;
-                 std::string aNameMMVII = aMDI.CameraName(true);
-                 if (aNameMMVII != "" )
-                 {
-                     aModel = aNameMMVII;
-                 }*/
+
                  std::string aNameMMVII = aMDI.CameraName(true);
 
                  if (aNameMMVII!="")
@@ -140,27 +210,40 @@ int cAppli_ImageMetada::Exe()
                      const cElemCamDataBase * anElCDB = mPhgrProj.GetCamFromNameCam(aNameMMVII,true);
                      if (anElCDB)
                      {
-                          StdOut()  << "  *** Camera model is in data base :"
-                                    << " SzSensor=" << anElCDB-> mSzSensor_Mm << " mm "
-                                    << " SzPixel="   << anElCDB->mSzPixel_Micron << " mu"
+                          StdOut()  << Color::descr << "  *** MMVII, Camera model is in data base :" << Color::end
+                                    << Color::command << " SzSensor=" << Color::end << anElCDB-> mSzSensor_Mm << " mm "
+                                     << Color::command << " SzPixel="   << Color::end << anElCDB->mSzPixel_Micron << " micron"
                                     << "\n";
                      }
                      else
                      {
-                          StdOut()  << " !!!  Camera model is NOT in data base\n";
+                          StdOut()  << Color::warning << " !!!  Camera model is NOT in data base !!!" << Color::end << "\n";
                      }
                  }
+
+
+             }
+             if (aMDI.Has_InternalCalibGeomIdent())
+             {
+                 std::string aNameCam = aMDI.InternalCalibGeomIdent();
+                 if (mIterPrint)
+                    StdOut() << Color::descr << "  *** MMVII, " << Color::command << " Cam-Ident " << Color::end << " : "<< aNameCam << "\n";
+                 hash_combine(mHash,aNameCam);
              }
 
 
-            if (! anExif.Valid())
+            if (! mCurXif.Valid())
             {
-                StdOut() << "No Exif metadata" << std::endl;
-                break;
+                if (mIterPrint)
+                    StdOut() << Color::warning << "--- No Exif metadata---" << Color::end<< std::endl;
+                return;
             }
 
 
             DISP_EXIF(PixelXDimension);
+            //aMDI.InternalCalibGeomIdent()
+          //  const auto & aList = mMergedNames[aName];
+         //   mMergedNames
             DISP_EXIF(PixelYDimension);
 
 
@@ -208,40 +291,68 @@ int cAppli_ImageMetada::Exe()
                 DISP_EXIF(ExifVersion);
             }
 #undef DISP_EXIF
+#undef DISP_XIF_MMVII
             StdOut() << std::setprecision(default_precision);
             break;
         }
-        case eDispExif::eRawExif:
+        if (mIterPrint)
         {
-            auto anExifList = aDataFileIm.ExifStrings();
-            if (anExifList.empty())
+            case eDispExif::eRawExif:
             {
-                StdOut() << "No Exif metadata" << std::endl;
-            } else {
-                for (const auto &s : anExifList)
-                    StdOut() << s << std::endl;
-            }
-            break;
-        }
-        case eDispExif::eAllGDALInfo:
-        {
-            auto allMetadata = aDataFileIm.AllMetadata();
-            for (const auto& aDomain : allMetadata ) {
-                StdOut() << "- Domain : " << (aDomain.first.empty() ? "<NULL>" : "\"" + aDomain.first + "\"") << "\n";
-                for (const auto& aMetadata : aDomain.second) {
-                    StdOut() << "  . \"" << aMetadata << "\"\n";
+                auto anExifList = aDataFileIm.ExifStrings();
+                if (anExifList.empty())
+                {
+                    StdOut() << "No Exif metadata" << std::endl;
+                } else {
+                    for (const auto &s : anExifList)
+                        StdOut() << s << std::endl;
                 }
+                return;
             }
-            break;
-        }
-        }
-        StdOut() << std::endl;
+            case eDispExif::eAllGDALInfo:
+            {
+                auto allMetadata = aDataFileIm.AllMetadata();
+                for (const auto& aDomain : allMetadata ) {
+                    StdOut() << "- Domain : " << (aDomain.first.empty() ? "<NULL>" : "\"" + aDomain.first + "\"") << "\n";
+                    for (const auto& aMetadata : aDomain.second) {
+                        StdOut() << "  . \"" << aMetadata << "\"\n";
+                    }
+                }
+                return;
 
-
+            }
+            StdOut() << std::endl;
+        }
+    }
 
 
 //   const cElemCamDataBase *  cPhotogrammetricProject::GetCamFromNameCam(const std::string& aNameCam,bool SVP) const
 
+
+}
+
+int cAppli_ImageMetada::Exe()
+{
+    mPhgrProj.FinishInit();
+
+
+
+  //  const auto default_precision{std::cout.precision()};
+  //  constexpr auto max_precision{std::numeric_limits<long double>::digits10};
+
+    for (const auto anIter : {false,true})
+    {
+        mIterPrint = anIter;
+       for (const auto & aName : VectMainSet(0))
+       {
+           MakeOneImage(aName,true);
+           if (!mIterPrint)
+           {
+               mMergedNames[mHash].push_back(aName);
+               mName2Hash[aName]=mHash;
+//               StdOut() << "NAME=" << aName << " H=" << mHash << "\n";
+           }
+       }
     }
     return EXIT_SUCCESS;
 }

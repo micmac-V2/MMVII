@@ -160,7 +160,6 @@ class cAppli_CGPReport : public cMMVII_Appli
         std::string              mSpecImIn;   ///  Pattern of xml file
         cPhotogrammetricProject  mPhProj;
 
-        std::vector<double>      mGeomFiedlVec;
         tREAL8                   mFactRed; ///< Reduction factor
         std::vector<int>         mPropStat;
 
@@ -215,12 +214,13 @@ cCollecSpecArg2007 & cAppli_CGPReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return anArgOpt
                 << AOpt2007(mPropStat,"Perc","Percentil for stat exp",{eTA2007::HDV})
-                << AOpt2007(mGeomFiedlVec,"GFV","Geom Fiel Vect for visu [Mul,Witdh,Ray,Zoom?=2,JPeg?=1]",{{eTA2007::ISizeV,"[3,5]"}})
                 << AOpt2007(mMarginMiss,"MargMiss","Margin to border for counting missed target",{eTA2007::HDV})
                 << AOpt2007(mSuffixReportSubDir, "Suffix", "Suffix to report subdirectory name")
                 << AOpt2007(mFilterName, "Filter", "Pattern to filter GCP by name")
                 << AOpt2007(mFilterAdd, "FilterAdd", "Pattern to filter GCP by additional info")
                 << AOpt2007(mFactRed, "RedFact", "Factor of reduction for sensor images (dist & bias)",{eTA2007::HDV})
+
+                 << cHeaderSectionArg("Image of field vector")
                 << cImageVectorField::ArgOpt(anArgOpt,mParamVF)
                 <<  AOpt2007( mPatternParamIVF,"PatImFV","Pattern of  images  where we generat field vector (if any)")
             ;
@@ -230,7 +230,7 @@ cCollecSpecArg2007 & cAppli_CGPReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 std::vector<std::string>  cAppli_CGPReport::Samples() const
 {
     return {
-        "MMVII ReportGCP \"C2_0002.*JPG\" targets-out-wiSigma Targets-2D BA-Block  GFV=[100,1,1,1,0] "
+        "MMVII ReportGCP C2_0002.*JPG targets-out-wiSigma Targets-2D BA-Block  PatImFV=C2_00021.JPG GFV=[100,1,1,1,0]"
     };
 }
 
@@ -266,7 +266,7 @@ void cAppli_CGPReport::MakeOneIm(const std::string & aNameIm)
             cPt2dr aProj = aCam->Ground2Image(aPGr);
             if (Norm2(aProj-aP2)>10)
             {
-                StdOut() << aP2 << aProj << "\n";
+//                 StdOut() << aP2 << aProj << "\n";
                  aIVF->Im().DrawLine(aP2,aProj,cRGBImage::Red);
             }
         }

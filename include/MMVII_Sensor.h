@@ -378,6 +378,8 @@ class cMetaDataImage
           cPt2dr  PPPixel(bool SVP=false) const;
           //  generate an identifier specific to data
           std::string InternalCalibGeomIdent() const;
+          bool Has_InternalCalibGeomIdent() const;
+
 
           cMetaDataImage(const std::string & aDir,const std::string & aNameIm,
                          const cGlobCalculMetaDataProject * aCalc,
