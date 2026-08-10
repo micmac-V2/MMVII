@@ -417,7 +417,7 @@ void FromStr
     {
         ExceptionOrError(ExceptionOnError,eTyUEr::eBadSize4Vect,
                          "Too many arguments [" + aStr+ "]: got "
-                             + std::to_string(aValues.size()) + ", expected a maximum of"
+                             + std::to_string(aValues.size()) + ", expected a maximum of "
                              + std::to_string(aFields.size()));
     }
 
