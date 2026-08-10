@@ -1280,7 +1280,8 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                 #endif
                 continue;
             }
-            if (aGenDImDist.InsideInterpolator(*mInterp,aPIm,1.0))  // is it sufficiently inside
+            if (aGenDImDist.InsideInterpolator(*mInterp,aPIm,1.0)
+                && aGenDImDist.InsideInterpolator(*mInterpN,aPIm,1.0))  // is it sufficiently inside for each interpolators
             {
                 auto aVGr = aGenDImDist.GetValueAndGradInterpol(*mInterp,aPIm); // extract pair Value/Grad of image
 
