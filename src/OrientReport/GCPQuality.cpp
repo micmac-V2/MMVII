@@ -392,7 +392,9 @@ void cAppli_CGPReport::ReportsByGCP()
 
         for (size_t aKIm = 0 ; aKIm<  aVIndI.size() ; aKIm++)
         {
-            aStat.Add(Norm2( aMesIm.VMeasures()[aKIm]  - aVSens[aVIndI[aKIm]]->Ground2Image(aGCP.mPt)));
+            cPt2dr  aVec = aMesIm.VMeasures()[aKIm]  - aVSens[aVIndI[aKIm]]->Ground2Image(aGCP.mPt);
+            aVSens[aVIndI[aKIm]]->FixLoopPixelsResiduals(aVec);
+            aStat.Add(Norm2(aVec));
         }
         AddStdStatCSV(mNameReportGCP,aGCP.mNamePt,aStat,mPropStat);
     if (aVIndI.size()>1)
