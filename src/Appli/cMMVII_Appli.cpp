@@ -1614,7 +1614,7 @@ void cMMVII_Appli::GenerateHelp()
           }
           if ( Arg->HasType(eTA2007::Tuning))
           {
-               HelpOut() << Color::warning  << "(Tuning)" << Color::end ;
+               HelpOut() << Color::warning  << "(Tuning) " << Color::end ;
           }
 
 

@@ -166,7 +166,7 @@ NS_SymbolicDerivative::cCalculator<double> * RPC_Proj(bool WithDerive,int aSzBuf
 cCalculator<double> * EqDist(const cPt3di & aDeg,bool WithDerive,int aSzBuf,bool isFraserMode)
 {
     cCalculator<double> * aRes =  StdAllocCalc(NameEqDist(aDeg,WithDerive,false,isFraserMode),aSzBuf,true);
-    TestResDegree(aRes,aDeg,"EqDist");
+    TestResDegree(aRes,aDeg,"Equation of Distorsion");
     return aRes;
 }
 cCalculator<double> * EqBaseFuncDist(const cPt3di & aDeg,int aSzBuf,bool isFraserMode)
@@ -192,7 +192,7 @@ cCalculator<double> * EqColinearityCamPPC(eProjPC  aType,const cPt3di & aDeg,boo
         //  true->  SVP
     cCalculator<double> * aRes = StdAllocCalc(NameEqColinearityCamPPC(aType,aDeg,WithDerive,isFraserMode,aTypeEqCol),aSzBuf,true,ReUse);
 
-    TestResDegree(aRes,aDeg,"EqColinearityCamPPC");
+    TestResDegree(aRes,aDeg,"Equation of Colinearity in Central Proj");
 
      return aRes;
 }
@@ -844,15 +844,31 @@ const std::vector<cPt3di>
     };
 
 
+void PrintGeneratedDegree()
+{
+    //  Stenope,FE_EquiDist,FE_EquiSolid,StereroGraphik,OrthoGraphik,EquiRect
+
+        StdOut() << Color::title << "------Generated degrees are: ----------\n" << Color::end
+                 << "  * " <<  Color::descr << E2Str(eProjPC::eStenope) << Color::end << " : " << TheVectDegree << "\n"
+                 << "  * " << Color::descr << E2Str(eProjPC::eFE_EquiDist) << Color::end << " : " << TheVectDegreeEquiDist << "\n"
+                 << "  * " << Color::descr << E2Str(eProjPC::eEquiRect) << Color::end << " : " << TheVectDegreeEquiRect << "\n"
+                 << "  * " << Color::descr << "Special SIA/SysCyr : " <<   Color::end << TheVectDegreeNoFraser << "\n"
+
+            ;
+}
+
 void TestResDegree(cCalculator<double> * aCalc,const cPt3di & aDeg,const std::string & aFonc)
 {
     if (aCalc==nullptr)
     {
+        PrintGeneratedDegree();
+/*
         StdOut() << "Generated degrees are:\n"
                  << " - ProjStenope Fraser: " << TheVectDegree << "\n"
                  << " - ProjStenope not Fraser: " << TheVectDegreeNoFraser << "\n"
                  << " - EquiRect: " << TheVectDegreeEquiRect << "\n"
                  << " - EquiDist: " << TheVectDegreeEquiDist << "\n";
+*/
         MMVII_UserError
             (
                 eTyUEr::eBadDegreeDist,

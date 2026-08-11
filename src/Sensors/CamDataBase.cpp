@@ -283,7 +283,7 @@ cCollecSpecArg2007 & cAppli_CreateCalib::ArgOpt(cCollecSpecArg2007 & anArgObl)
   return      anArgObl
             << AOpt2007(mProj,"Proj","Projection mode ",{eTA2007::HDV})
             << AOpt2007(mDegree,"Degree","Degree for distorsion param",{{eTA2007::HDV}})
-            << AOpt2007(mSystCyl,"SystCyl","Use SIA/SytCyl instead of Fraser Model",{{eTA2007::HDV}})
+            << AOpt2007(mSystCyl,"SystCyl","Use SIA/SytCyl instead of Fraser Model",{{eTA2007::HDV},{eTA2007::Tuning}})
             // << AOpt2007(mNameBloc,"NameBloc","Set the name of the bloc ",{{eTA2007::HDV}})
     ;
 
