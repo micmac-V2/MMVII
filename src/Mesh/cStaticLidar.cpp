@@ -782,7 +782,8 @@ void cStaticLidar::initInterpolators()
     // init interpolators
     double aNormalPrec = 5. * M_PI / 180.;
     std::vector< std::pair<double,double>> aV_Start_Mid_dist_class = {{0,1.25},{2,4},{6,12}}; // distances classes for normal interpolator (start and middle)
-    std::vector<std::string> aParamInterpolN = {"Scale","3","1000","Linear"};
+    //std::vector<std::string> aParamInterpolN = {"Scale","3","1000","Linear"};
+    std::vector<std::string> aParamInterpolN = {"Scale","3","1000","Cubic","-0.5"};
     for (auto & [aStart,aMid]: aV_Start_Mid_dist_class)
     {
         int aSz = pow(mSigma/(tan(aNormalPrec)*aMid*1./InternalCalib()->F()),2./3.)+1;
