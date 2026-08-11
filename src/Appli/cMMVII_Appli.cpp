@@ -1925,7 +1925,7 @@ bool  cMMVII_Appli::IsInSpec(const void * aPtr)
 void cMMVII_Appli::MMVII_WARNING(const std::string & aMes)
 {
    StdOut() << "===================================================================" << std::endl;
-   StdOut() <<  aMes << std::endl;
+   StdOut() <<  Color::warning << aMes << Color::end << std::endl;
    StdOut() << "===================================================================" << std::endl;
 }
 

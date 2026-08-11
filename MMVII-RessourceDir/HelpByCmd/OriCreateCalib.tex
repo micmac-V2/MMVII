@@ -16,7 +16,50 @@
 \SecDescr
 
 This command create  initial intrinsic calibration for in \MMVII format for a
-set of images. 
+set of images. It take $2$ mandatory parameter, a set of images and destination
+for the generated model of calibraition  and a destination folder.
+For each image :
+
+
+\begin{itemize}
+   \item  the name of calibration file is computed (the same as can be seen in \FileSty{ImageMetadata});
+   \item  an initial calibration is created and saved using the folder and the name of the file.
+\end{itemize}
+
+The initial calibration is computed using the following approach :
+
+
+\begin{itemize}
+   \item the focal length is extracted from meta-data, this means that the focal in mm
+         and the model of camera must be known (it works also if only the focal equiv $35$ is known)
+   \item the principal point is set in the middle of the image;
+   \item the model of projection is set by optional parameter \FileSty{Proj}, it's default
+         value \FileSty{Stenope} correspond to a rectilenear model, othe value correspond to
+         different fisheyes or to $360$ camera;
+   \item the distorsion is initially void, it's degree of parametrisation is set
+         by optionnal parameter \FileSty{Degree}.
+\end{itemize}
+
+
+Regarding the degree $D=[D_x,D_y,D_z]$ :
+
+\begin{itemize}
+   \item  $D_x$ fix the number  of parameter for radial distorsion
+          $D_x=3$ will generate $R^3, R^5, R^7$ ;
+
+   \item  $D_y$ fix the number   of pameter fo decentric  distortion
+          (practically $D_y$ is always equal to $1$ or $0$);
+
+
+   \item  $D_z$ fix the degree   of complementary polynom, the
+          current value $D_z=1$ correspond to affine function.
+\end{itemize}
+
+
+The default value for $D$ is $[3,1,1]$ which correspond to the Fraser's model.
+Only some possible value are accepted for the degree, the value for which
+code have been generated.  This possible value depend of \FileSty{Proj}. To know
+what are the possible value, just \FileSty{OriCreateCalib} with $D_x=-1$.
 
 
  %=================================================================================
@@ -24,6 +67,8 @@ set of images.
 \SecRelatedCmd
 
 \begin{itemize}
+   \item  \FileSty{EditCalcMTDI}
+   \item  \FileSty{ImageMetadata}
    \item  \FileSty{OriPoseEstimSpaceResection}
 \end{itemize}
 

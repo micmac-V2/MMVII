@@ -848,7 +848,7 @@ void PrintGeneratedDegree()
 {
     //  Stenope,FE_EquiDist,FE_EquiSolid,StereroGraphik,OrthoGraphik,EquiRect
 
-        StdOut() << Color::title << "------Generated degrees are: ----------\n" << Color::end
+        StdOut() << Color::title << "------ Allowed degrees are: ----------\n" << Color::end
                  << "  * " <<  Color::descr << E2Str(eProjPC::eStenope) << Color::end << " : " << TheVectDegree << "\n"
                  << "  * " << Color::descr << E2Str(eProjPC::eFE_EquiDist) << Color::end << " : " << TheVectDegreeEquiDist << "\n"
                  << "  * " << Color::descr << E2Str(eProjPC::eEquiRect) << Color::end << " : " << TheVectDegreeEquiRect << "\n"
