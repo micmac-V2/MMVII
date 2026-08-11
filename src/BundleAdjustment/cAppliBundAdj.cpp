@@ -129,7 +129,6 @@ struct cLidarLidarParam
     double NormalTolDeg = 15;
     cWeighterParam ModeWeighter;
     std::vector<std::string> InterpD = {"Linear"};
-    std::vector<std::string> InterpN = {"Linear"};
     ARG2007_STRUCT_FIELDS (
         PatScan,FieldSem({eTA2007::AddCom,"Pattern of scan names to use"}),
         Sigma,FieldSem({eTA2007::AddCom,"Sigma factor"}),
@@ -137,8 +136,7 @@ struct cLidarLidarParam
         ThresholdFinal,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold at last iteration, <0 = infinite"}}),
         NormalTolDeg,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Max normal angle tolerance (degrees)"}}),
         ModeWeighter,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Weighter"}}),
-        InterpD,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Distance interpolator"}}),
-        InterpN,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Normal interpolator"}})
+        InterpD,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Distance interpolator"}})
         )
 };
 
@@ -596,7 +594,7 @@ int cAppliBundlAdj::Exe()
     {
         mMeasureAdded = true;
         mBA.Add1AdjLidarLidar(aParam.PatScan, aParam.Sigma, aParam.ThresholdInit,
-                              aParam.ThresholdFinal, aParam.NormalTolDeg, aParam.InterpD, aParam.InterpN, aParam.ModeWeighter);
+                              aParam.ThresholdFinal, aParam.NormalTolDeg, aParam.InterpD, aParam.ModeWeighter);
     }
 
     if (mCheckMeasureAdded)

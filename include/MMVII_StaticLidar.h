@@ -153,9 +153,7 @@ public :
     void SelectPatchCenters1(int aNbPatches);
     void SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> *aSupMaskDIm=nullptr);
     void MakeVisu(const cPhotogrammetricProject & aPhProj) const;     ///< show 8bit dist image with patch centers
-    void MakePatches(std::list<cLidarRasterPatch> &aLPatches,
-                     const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin,
-                     const cDiffInterpolator1D &aInterpN) const;
+    void MakePatches(std::list<cLidarRasterPatch> &aLPatches, const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin) const;
     std::tuple<tREAL8,tREAL8,tREAL8> AvgDistNbValidAndNbNotMasked() const; //< return average dist for valid points, number of valid points and number of not-masked points
 
     cPt3dr Image2InputXYZ(cPt2di aRasterPxI) const; // in input frame
@@ -163,7 +161,7 @@ public :
 
     template <typename TYPE>
     cPt3dr Image2Camera3D(const TYPE & aRasterPx) const; // in sensor frame (Z forward)
-    cPt3dr Image2NormalInstr(const cPt2dr &aRasterPx, const cDiffInterpolator1D &aInterp) const; //< normal in sensor frame
+    cPt3dr Image2NormalInstr(const cPt2dr &aRasterPx) const; //< normal in sensor frame
 
     template <typename TYPE>
         cPt3dr Image2ThetaPhiDist(const TYPE & aRasterPx) const;
@@ -193,15 +191,17 @@ public :
     tREAL8 Sigma() const;
     const std::vector<cPt2di> & PatchCenters() const;
 
+    bool isInsideNormalInterpolator(cPt2dr & aPt) const;
+    cDiffInterpolator1D * getNormalInterpolator(const cPt2dr &aPt) const;
+
     void Show() const override;
+    void initInterpolators();
     static std::string GetIdSuffix();
     static std::string GetIdSuffixRegex();
 
     cIm2D<tU_INT1> projectIntensityFrom(const cStaticLidar& aFrom) const;
 
     virtual bool DoAddCalibToUk() const override;
-
-    cDiffInterpolator1D * getLineraInterpolator() const;
 
     std::tuple<double, double, cPt3dr> getDistSigmaNormalPlane(cPt2dr aCenter, const cPixBox<2> &aPixBox) const; ///< Adjust a plane on defined points
 
@@ -243,7 +243,7 @@ private :
     // triangulation for patches selection
     cTriangulation3D<tREAL8> * mTriangulation; ///< triangulation of the raster, for zbuffer
 
-    cDiffInterpolator1D * mLinearInterpolator;
+    std::vector<std::pair<double,cDiffInterpolator1D *>> mVInterpN;         ///< Interpolators, used to get normal of the images, with min dist to use them (must be sorted by dist)
     cCalculator<double> * mEqDistColinearityDist;
 };
 
