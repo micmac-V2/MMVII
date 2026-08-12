@@ -782,7 +782,7 @@ class cEllipse
        /// get points on ellipse that are +- less regularly sampled at a given step
        void GetTetasRegularSample(std::vector<tREAL8> & aVTetas,const tREAL8 & aDist);
 
-       cPixBox<2> GetBoundingBox() const;
+       cPixBox<2> GetBoundingBox(const cPt2dr& aScale={1.,1.}) const;
 
     private :
        inline void AssertOk() const;
