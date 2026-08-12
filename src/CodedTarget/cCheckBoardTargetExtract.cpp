@@ -605,7 +605,7 @@ void  cAppliCheckBoardTargetExtract::DoExport()
                      break;
                  case eTargetDistanceEstim::ePlaneEstim:
                  {
-                     auto aEllipseBBox = anEl.GetBoundingBox();
+                     auto aEllipseBBox = anEl.GetBoundingBox(aImFactor);
                      std::cout<< "Ellipse " << aCdtM.Code()->Name() << " "
                                << anEl.LGa() * anEl.VGa() << " " << anEl.LSa() * anEl.VSa() <<"\n";
                      auto [aD,aS,aN] = aLidar->getDistSigmaNormalPlane(aMesIm.mPt,aEllipseBBox);

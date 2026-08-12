@@ -402,9 +402,11 @@ tREAL8 cEllipse::NonEuclidDist(const cPt2dr& aP) const
 }
 
 
-cPixBox<2> cEllipse::GetBoundingBox() const
+cPixBox<2> cEllipse::GetBoundingBox(const cPt2dr& aScale) const
 {
     std::vector<cPt2dr> aVPts = {Center()+LGa()*VGa(), Center()-LGa()*VGa(), Center()+LSa()*VSa(), Center()-LSa()*VSa()};
+    for (auto & aP: aVPts)
+        aP = MulCByC(aP, aScale);
     return cPixBox<2>(cTplBox<tREAL8,2>::FromVect(aVPts,true).ToI());
 }
 
