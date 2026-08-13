@@ -992,8 +992,6 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
     MMVII_INTERNAL_ASSERT_User(!mVScans.empty(),
                                eTyUEr::eBadFileSetName,"No TSL found!");
 
-    //mInterpN(cDiffInterpolator1D::AllocFromNames(mParamInterpolN))
-
     // Creation of the patches, here just center point
     for (auto & aScanData: mVScans)
     {
@@ -1220,14 +1218,17 @@ void cBA_LidarLidarRaster::SetVUkVObs
 tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cStaticLidarBAData & aScanAData)
 {
     auto & aScanA = aScanAData.mLidarRaster;
-    cPt3dr aPGround = aScanA->Image2Ground(*aPatch.mLPatchesP.begin());
+    cPt2dr aPatchCenterA = ToR(*aPatch.mLPatchesP.begin());
+    // TODO: use mInterpolD or normal (adaptative) interpol??
+    auto aInterpolA = mInterp;//aScanA->getNormalInterpolator(aPatchCenterA);
+    cPt3dr aPGround = aScanA->Image2Ground_InterpoleDist(aPatchCenterA, aInterpolA);
     std::vector<cData1ImLidPhgr> aVData; // for each image where patch is visible will store the data
     cWeightAv<tREAL8>   aAvgRes;    // compute average residual
     tREAL8 aMinResidual = INFINITY;
     cPt3dr aNormalGndA = aScanA->Pose().Rot().Value(aPatch.mNormalInstr);
 
     #ifdef SCANSCANDEBUG
-    std::cout<<"ScanA: "<<aScanA->NameImage()<<" Patch "<<aPatch.mId<<": "<<*aPatch.mLPatchesP.begin()<<" -> Gnd: "<<aPGround<<"\n";
+    std::cout<<"ScanA: "<<aScanA->NameImage()<<" Patch "<<aPatch.mId<<": "<<aPatchCenterA<<" -> Gnd: "<<aPGround<<"\n";
     #endif
     //  Parse all the scans B, we will select the ones where the patch is visible
     for (auto & aScanBData: mVScans)
@@ -1279,10 +1280,11 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                 #endif
                 continue;
             }
-            if (aGenDImDist.InsideInterpolator(*mInterp,aPIm,1.0)
+            auto aInterpolB = mInterp;//aScanB->getNormalInterpolator(aPIm);
+            if (aGenDImDist.InsideInterpolator(*aInterpolB,aPIm,1.0)
                 && aScanB->isInsideNormalInterpolator(aPIm))  // is it sufficiently inside for each interpolators
             {
-                auto aVGr = aGenDImDist.GetValueAndGradInterpol(*mInterp,aPIm); // extract pair Value/Grad of image
+                auto aVGr = aGenDImDist.GetValueAndGradInterpol(*aInterpolB,aPIm); // extract pair Value/Grad of image
 
                 aData.mVGr = {aVGr};
                 #ifdef SCANSCANDEBUG

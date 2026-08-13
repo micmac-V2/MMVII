@@ -157,10 +157,12 @@ public :
     std::tuple<tREAL8,tREAL8,tREAL8> AvgDistNbValidAndNbNotMasked() const; //< return average dist for valid points, number of valid points and number of not-masked points
 
     cPt3dr Image2InputXYZ(cPt2di aRasterPxI) const; // in input frame
-    cPt3dr Image2InputXYZ(cPt2dr aRasterPx) const;
+    cPt3dr Image2InputXYZ(cPt2dr aRasterPx) const; // in input frame
+    cPt3dr Image2InputXYZ_InterpoleDist(cPt2dr aRasterPx, const cInterpolator1D *anInterpol) const; // just fix distance with interpolator on dist image
 
     template <typename TYPE>
     cPt3dr Image2Camera3D(const TYPE & aRasterPx) const; // in sensor frame (Z forward)
+    cPt3dr Image2Camera3D_InterpoleDist(const cPt2dr & aRasterPx, const cInterpolator1D *anInterpol) const; // in sensor frame (Z forward)
     cPt3dr Image2NormalInstr(const cPt2dr &aRasterPx) const; //< normal in sensor frame
 
     template <typename TYPE>
@@ -168,7 +170,10 @@ public :
 
     cPt3dr Image2Ground(const cPt2di &aRasterPxI) const;
     cPt3dr Image2Ground(cPt2dr aRasterPx) const;
+    cPt3dr Image2Ground_InterpoleDist(cPt2dr aRasterPx, const cInterpolator1D *anInterpol) const;
+
     tREAL4 Image2Distance(cPt2dr aRasterPx) const;
+    tREAL4 Image2DistanceInterpol(cPt2dr aRasterPx, const cInterpolator1D *anInterpol) const;
     cPt3dr ImageAndDepth2Ground(const cPt3dr & ) const override;
 
     cPt2dr Ground2Image(const cPt3dr &aGroundPt) const override;
