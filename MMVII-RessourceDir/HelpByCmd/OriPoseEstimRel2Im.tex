@@ -52,12 +52,20 @@ The $4$ mandatory parameters are:
 
 \section{"Mandatory" Optionnal parameters for input}
 
-These command accept $3$ different way to specify the tie points used to compute orientation :
+All these command accept $3$ different way to specify the tie points used to compute orientation :
 
 \begin{itemize}
    \item  tie point computed from pair of images with parameter \FileSty{InTieP};
-   \item  multtiple tie point issued from merged tie points by pair , with
+	  this is the \emph{standar} method;
+
+   \item  multiple tie point issued from merged tie points by pair , with
           parameter \FileSty{InMulTieP};
+	  this can be  used when point by pair have been merged, and initial 
+	  by pair have been "lost";
+
+  \item  points computed from coded target with parameter \FileSty{InObjMesInstr},
+	 this can be used when computing  relative orientation with code-target
+         that have no $3d$ measure associated.
 \end{itemize}
 
 %=================================================================================

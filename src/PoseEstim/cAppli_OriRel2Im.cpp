@@ -850,13 +850,15 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt
     anArgOpt
             << cHeaderSectionArg("Input for tie points")
             <<  mPhProj.DPTieP().ArgDirInOpt()
-            <<  mPhProj.DPGndPt2D().ArgDirInOpt()
             <<  mPhProj.DPMulTieP().ArgDirInOpt()
+            <<  mPhProj.DPGndPt2D().ArgDirInOpt();
 
-             << cHeaderSectionArg("Export virtual")
-             <<  mPhProj.DPTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
+     if (mModeCompute!=0)
+            anArgOpt << cHeaderSectionArg("Export virtual")
+             <<  mPhProj.DPTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points");
 
-            << cHeaderSectionArg("Fine parametrization")
+
+     anArgOpt << cHeaderSectionArg("Fine parametrization")
             <<  AOpt2007(mNbMinHom,"NbMinHom","Number minimal of homologous point required",{eTA2007::HDV})
             <<  AOpt2007(mDensitySol,"CompForce","How much computation do we pay?",{eTA2007::HDV})
             <<  AOpt2007(mNbIterBA,"NbIterBA","Number of iteration in Bundle/Adj",{eTA2007::HDV})
@@ -895,10 +897,20 @@ std::vector<cOneHelpSampleCmp>  cAppli_OriRelPairOfIm::Samples() const
     {
         return
         {
-           {
+            cOneHelpSampleCmp::Header("Examples with Ramses data set"),
+            {
+                 "MMVII OriPoseEstimRel2Im IMG_0350.JPG IMG_0351.JPG Calib_Init T_5051 InTieP=V1 "
+            },
+            {
+                 "MMVII OriPoseEstimRel2Im IMG_0350.JPG IMG_0351.JPG Calib_Init T_5051 InMulTieP=V1 OriGT=Adjust ",
+                {"Use with single and multiple tie points, in second use a ground truh to measure quality"}
+            }
+
+
+ /*          {
                  std::string("MMVII OriPoseEstimRel2Im 043_1012_CalibInit.tif 043_1015_CalibInit.tif")
               + " BA1-CalibInit_311 InObjMesInstr=Pannel OriGT=BA1-CalibInit_311 NbSol0=5 OutLayers=[5,100]"
-            }
+            }*/
         };
     }
     return {};
