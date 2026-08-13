@@ -763,6 +763,10 @@ std::tuple<double, double, cPt3dr> cStaticLidar::getDistSigmaNormalPlane(cPt2dr 
 
 cDiffInterpolator1D * cStaticLidar::getNormalInterpolator(const cPt2dr & aPt) const
 {
+    if (!getRasterDistance().InsideBL(aPt))
+    {
+        return mVInterpN.front().second; // if impossible to get dist, return any interpolator
+    }
     double aDist = Image2Distance(aPt);
     size_t i = 0;
     while ((i<mVInterpN.size()) && (aDist>mVInterpN[i].first))
@@ -860,12 +864,19 @@ cPt3dr cStaticLidar::Image2InputXYZ(cPt2dr aRasterPx) const
     };
 }
 
+cPt3dr cStaticLidar::Image2InputXYZ_InterpoleDist(cPt2dr aRasterPx,
+                                                  const cInterpolator1D *anInterpol) const
+{
+    cPt3dr aPtXYZ = Image2InputXYZ(aRasterPx);
+    tREAL8 aDistFactor = Image2DistanceInterpol(aRasterPx, anInterpol) / Norm2(aPtXYZ);
+    aPtXYZ = aPtXYZ * aDistFactor;
+    return aPtXYZ;
+}
+
 cPt3dr cStaticLidar::Image2Ground(const cPt2di & aRasterPxI) const
 {
     cPt2dr aRasterPx = ToR(aRasterPxI);
-    InternalCalib()->FixLoopPixelsInImage(aRasterPx);
-    cPt3dr aCam3DPt = Image2Camera3D(aRasterPx);
-    return Pose().Value(aCam3DPt);
+    return Image2Ground(aRasterPx);
 }
 
 cPt3dr cStaticLidar::Image2Ground(cPt2dr aRasterPx) const
@@ -875,10 +886,24 @@ cPt3dr cStaticLidar::Image2Ground(cPt2dr aRasterPx) const
     return Pose().Value(aCam3DPt);
 }
 
+cPt3dr cStaticLidar::Image2Ground_InterpoleDist(cPt2dr aRasterPx,
+                                                const cInterpolator1D *anInterpol) const
+{
+    InternalCalib()->FixLoopPixelsInImage(aRasterPx);
+    cPt3dr aCam3DPt = Image2Camera3D_InterpoleDist(aRasterPx, anInterpol);
+    return Pose().Value(aCam3DPt);
+}
+
 tREAL4 cStaticLidar::Image2Distance(cPt2dr aRasterPx) const
 {
     InternalCalib()->FixLoopPixelsInImage(aRasterPx);
     return getRasterDistance().GetVBL(aRasterPx);
+}
+
+tREAL4 cStaticLidar::Image2DistanceInterpol(cPt2dr aRasterPx, const cInterpolator1D *anInterpol) const
+{
+    InternalCalib()->FixLoopPixelsInImage(aRasterPx);
+    return getRasterDistance().GetValueInterpol(*anInterpol, aRasterPx);
 }
 
 cPt3dr cStaticLidar::ImageAndDepth2Ground(const cPt3dr & aPIm3) const
@@ -894,6 +919,15 @@ cPt3dr cStaticLidar::ImageAndDepth2Ground(const cPt3dr & aPIm3) const
         return cSensorCamPC::ImageAndDepth2Ground(aPIm3);
     }
 }
+
+cPt3dr cStaticLidar::Image2Camera3D_InterpoleDist(const cPt2dr & aRasterPx,
+                                                  const cInterpolator1D *anInterpol) const
+{
+    cPt3dr aPtInput3D = Image2InputXYZ_InterpoleDist(aRasterPx, anInterpol);
+    cPt3dr aPtCam3D = mRotInput2Raster.Value(aPtInput3D);
+    return aPtCam3D;
+}
+
 
 std::tuple<tREAL8,tREAL8,tREAL8> cStaticLidar::AvgDistNbValidAndNbNotMasked() const
 {
