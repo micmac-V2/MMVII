@@ -125,6 +125,7 @@ class cOneLevel
 
        cParamCallSys StrComClipIm(bool ModeIm,const cPt2di & aInd,const cParam1Match &) const;
        cParamCallSys StrComReduce(bool ModeIm=true) const; ///< Generate the string for computing reduced images
+       cParamCallSys StrComReduceV2(bool ModeIm) const ;
        //cParamCallSys StrComReduce(bool ModeIm=true) const;
        void CreateNuageLastFile(const std::string& Dir, const std::string& ImName);
 
@@ -370,6 +371,21 @@ cParamCallSys cOneLevel::StrComReduce(bool ModeIm) const
           + BLANK + std::string("Out=")  + mDownLev->NameImOrMasq(ModeIm)
           + std::string(ModeIm ? "" : " ModMasq=1")
   ;*/
+}
+
+cParamCallSys cOneLevel::StrComReduceV2(bool ModeIm) const 
+{
+   return cParamCallSys
+   (
+         "MMVII",
+         "ImageScale_Std",
+         NameImOrMasq(ModeIm),
+         ToStr(mIm.mAppli.mRatioByL),
+         std::string("PrefOut=")+"",
+         std::string("Out=") + mDownLev->NameImOrMasq(ModeIm),
+      "@ExitOnBrkp"
+   );
+
 }
 
 #if (MMVII_KEEP_LIBRARY_MMV1)
