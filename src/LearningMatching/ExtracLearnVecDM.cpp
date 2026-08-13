@@ -31,7 +31,7 @@ class cAppliExtractLearnVecDM : public cAppliLearningMatch
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
-        std::vector<std::string>  Samples() const  override;
+        std::vector<cOneHelpSampleCmp>  Samples() const  override;
 
     
         const cBox2di &     CurBoxIn(bool IsIm1) const {return   IsIm1 ? mCurBoxIn1 : mCurBoxIn2 ;}
@@ -180,15 +180,14 @@ void cAppliExtractLearnVecDM::AddLearn(cFileVecCaracMatch & aFVCM,const cAimePCa
    }
 }
 
-std::vector<std::string>  cAppliExtractLearnVecDM::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppliExtractLearnVecDM::Samples() const
 {
-    return std::vector<std::string>
-           (
+    return
                {
-                   "MMVII DM2CalcHistoCarac DMTrain_MDLB2014-Vintage-perfect_Box0Std_LDHAime0.dmp Test",
-                   "MMVII DM2CalcHistoCarac DMTrain_MDLB2014.*LDHAime0.dmp AllMDLB2014"
+                   {"MMVII DM2CalcHistoCarac DMTrain_MDLB2014-Vintage-perfect_Box0Std_LDHAime0.dmp Test"},
+                   {"MMVII DM2CalcHistoCarac DMTrain_MDLB2014.*LDHAime0.dmp AllMDLB2014"}
                }
-          );
+          ;
 
 }
 

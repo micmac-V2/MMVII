@@ -40,7 +40,7 @@ public :
     cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-    std::vector<std::string>  Samples() const override;
+    std::vector<cOneHelpSampleCmp>  Samples() const override;
 
 private :
     /** Process one image , ie:
@@ -103,12 +103,22 @@ cCollecSpecArg2007 & cAppli_ImageMetada::ArgOpt(cCollecSpecArg2007 & anArgOpt)
         ;
 }
 
-std::vector<std::string>  cAppli_ImageMetada::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ImageMetada::Samples() const
 {
     return {
-           "MMVII ImageMetadata IMG_0335.JPG",
-           "MMVII ImageMetadata .*JPG",
-           "MMVII ImageMetadata .*JPG Disp=PhgrExif"
+              cOneHelpSampleCmp::Header("Examples with Ramses data set"),
+             {"MMVII ImageMetadata IMG_0335.JPG",
+               {"\"Standard\" exif info of IMG_0335.JPG"}
+             },
+             {  "MMVII ImageMetadata .*JPG",
+                {"\"Standard\" exif info of all JPG images",
+                 "Result merged in 9 group because exposure time varies"
+                }
+             },
+             {
+                     "MMVII ImageMetadata .*JPG Disp=PhgrExif",
+                     {"Result merged in a single group (same meta-data photogrammetric params for all images)"}
+             }
     };
 }
 

@@ -1550,6 +1550,13 @@ static void PrintStructuredFieldsComment4Help
    anOut << "\n";
 }
 
+void cMMVII_Appli::SectionHelp(const std::string & aNameSec)
+{
+    HelpOut() << "\n";
+    HelpOut() << Color::title << " == " << aNameSec << " : ==\n" << Color::end;
+
+}
+
 void cMMVII_Appli::GenerateHelp()
 {
    HelpOut() << "\n";
@@ -1564,9 +1571,9 @@ void cMMVII_Appli::GenerateHelp()
    HelpOut() << Color::title << "  For command : " << Color::command << mSpecs.Name() << Color::end << " \n";
    HelpOut() << "   => " << Color::descr << mSpecs.Comment() << Color::end << "\n";
    HelpOut() << "   => Srce code entry in :" << mSpecs.NameFile() << "\n";
-   HelpOut() << "\n";
 
-   HelpOut() << Color::title << " == Mandatory unnamed args : ==\n" << Color::end;
+
+   SectionHelp("Mandatory unnamed args");
 
    for (const auto & Arg : mArgObl.Vec())
    {
@@ -1577,26 +1584,31 @@ void cMMVII_Appli::GenerateHelp()
 
    tNameSelector  aSelName =  AllocRegex(mPatHelp);
 
-   HelpOut() << "\n";
-   HelpOut() << Color::title << " == Optional named args : ==\n" << Color::end;
+   SectionHelp("Optional named args");
 
-   bool GotGlobArg = false;
+   bool AlreadyGotGlobArg = false;
    for (const auto & Arg : mArgFac.Vec())
    {
-       bool IsInternal = Arg->HasType(eTA2007::Internal);
-       bool IsGlobHelp = Arg->HasType(eTA2007::Global);
-       bool DoIt =     ((!IsInternal) && (!IsGlobHelp))
-                    || (mDoGlobHelp && (!IsInternal))
+       bool ArgIsInternal = Arg->HasType(eTA2007::Internal);
+       bool ArgIsGlobal = Arg->HasType(eTA2007::Global);
+       // The rule :
+       //   - if ArgIsInternal : print if mDoInternalHelp (used for internal MMVII purpose)
+       //   - if ArgIsGlobal   :  print if  mDoGlobHelp   (usefull but alwayse the same)
+       //    - else print
+
+       bool DoIt =     ((!ArgIsInternal) && (!ArgIsGlobal))
+                    || (mDoGlobHelp && (!ArgIsInternal))
                     ||  mDoInternalHelp ;
 
        if (DoIt)
        {
          if (Arg->HasHeadSep())
          {
-             //  To have a separation between coamnd header and global MMVII header
-             if ((!GotGlobArg) &&  Arg->GetHeadSep().GlobMMVII())
+             //  To have a separation between  header of commans and global MMVII header*
+             // we print a new line the first time we enconter a global header
+             if ((!AlreadyGotGlobArg) &&  Arg->GetHeadSep().GlobMMVII())
              {
-               GotGlobArg = true;
+               AlreadyGotGlobArg = true;
                HelpOut() << "\n";
              }
              std::string aDeco1 = "----------------";
@@ -1608,7 +1620,7 @@ void cMMVII_Appli::GenerateHelp()
          }
          HelpOut()  << "  * [" << Color::argument << Arg->Name() << Color::end << "] " << Arg->NameType() << Arg->Name4Help() << ": " ;
 
-         if (IsInternal)
+         if (ArgIsInternal)
          {
               HelpOut() << Color::warning  << "(!!== INTERNAL DONT USE DIRECTLY ==!!)" << Color::end ;
           }
@@ -1632,129 +1644,51 @@ void cMMVII_Appli::GenerateHelp()
        }
    }
 
-#if (0)
 
-   //  Help to write only once the #### XXXX ###
-   bool InternalMet = false;
-   bool GlobalMet   = false;
-   bool TuningMet   = false;
-   for (int aKTime=0 ; aKTime<2; aKTime++)
+   std::string aPdfFile =  mDirHelpByCmd + mSpecs.Name() + ".pdf";
+
+   if (ExistFile(aPdfFile))
    {
-      size_t aArgNum = 0;
-      size_t aCommNum = 0;
-      for (const auto & Arg : mArgFac.Vec())
-      {
-          const std::string & aNameA = Arg->Name();
-          if (aSelName.Match(aNameA))
-          {
-             bool IsIinternal = Arg->HasType(eTA2007::Internal);
-             bool IsTuning = Arg->HasType(eTA2007::Tuning);
-             if ((! (IsIinternal || IsTuning)) || mDoInternalHelp)
-             {
-                bool IsGlobHelp = Arg->HasType(eTA2007::Global);
-                // First time do std args, second time to others (tune,glob,inter ...)
-                bool DoIt = (aKTime==0) ^  (IsIinternal || IsTuning || IsGlobHelp);
+       //  StdOut()  << " PatH=" << mPatHelp << "\n";
+       SectionHelp("Detailled help exist for this command in file");
 
+       HelpOut()  << Color::descr << "       "  << aPdfFile << Color::end << "\n";
 
-                if (DoIt && ((!IsGlobHelp) || mDoGlobHelp))
-                {
-                   while ((aCommNum<mArgFac.mVComm.size()) &&(mArgFac.mVComm.at(aCommNum).first==aArgNum) )
-                   {
-                      std::string aDeco1 = "----------------";
-                      std::string aDeco2 = "===";
-                      HelpOut() << Color::title  << aDeco1 << aDeco2 << " ["
-                                << mArgFac.mVComm.at(aCommNum).second
-                                <<  "] " << aDeco2 << aDeco1 << Color::end << "\n" ;
-                      aCommNum++;
-                   }
-                   if (IsTuning && (!TuningMet))
-                   {
-                      HelpOut() << Color::title << "       ####### TUNING #######\n" << Color::end ;
-                      TuningMet = true;
-                   }
-                   else if (IsIinternal && (!InternalMet))
-                   {
-                      HelpOut() << Color::title << "       ####### INTERNAL #######\n" << Color::end ;
-                      InternalMet = true;
-                   }
-                   else if (IsGlobHelp && (!GlobalMet))
-                   {
-                      HelpOut() << Color::title << "       ####### GLOBAL   #######\n" << Color::end ;
-                      GlobalMet = true;
-                   }
-
-                   HelpOut()  << "  * [" << Color::argument << Arg->Name() << Color::end << "] " << Arg->NameType() << Arg->Name4Help() << ": " ;
-                   if (IsIinternal)
-                       HelpOut()  << "(!!== INTERNAL DONT USE DIRECTLY ==!!)";
-                   HelpOut()  << Color::descr <<  Arg->Com() << Color::end ;
-                   bool HasDefVal = Arg->HasType(eTA2007::HDV);
-                   if (HasDefVal)
-                   {
-                      HelpOut() << ", [Default="  << Color::descr << Arg->DefaultNameValue() << Color::end << "]";
-                   }
-
-                   HelpOut()  << "\n";
-                   PrintStructuredFieldsComment4Help(HelpOut(),Arg);
-
-                   // Check tuning comes at end =  when tuning is reached, we have non standard param
-/*
-                if (TuningMet)
-                {
-                   MMVII_INTERNAL_ASSERT_always
-                   (
-                       (IsIinternal||IsGlobHelp||IsTuning),
-                       "Tuning parameter must comes at end"
-                   );
-                }
-*/
-                }
-                if (DoIt)
-                    PrintAdditionnalComments(Arg);
-             }
-          }
-          aArgNum++;
-      }
+       std::string aPdfOpen = mParamProfile.Get("PdfOpen",std::string());
+       //  StdOut() << "HHHHHhh " << aPdfOpen.has_value()  << " UN " << mParamProfile.mUserName << "\n";
+       if (aPdfOpen.size() && (mPatHelp=="pdf"))
+       {
+           cParamCallSys aCom(aPdfOpen,aPdfFile);
+           int aResult = aCom.Execute(true);
+//           int aResult = system(aCom.Com().c_str());
+           if (aResult!= EXIT_SUCCESS)
+           {
+               StdOut() << "Can't run command : '" << aCom.Com() << "'\n";
+           }
+       }
    }
-   // HelpOut() << "\n";
-#endif
 
    // Eventually, print samples of "good" uses , only with Help
    if (mDoGlobHelp)
    {
-       std::vector<std::string> aVS = Samples ();
-       if (! aVS.empty())
+       std::vector<cOneHelpSampleCmp> aVSample = Samples ();
+       if (! aVSample.empty())
        {
-          HelpOut() << Color::title << " == Examples of use : ==\n" << Color::end;
+          SectionHelp("Examples of use");
 
-          for (const auto & aStr : aVS)
+          for (const auto & aSample : aVSample)
           {
-              HelpOut() << "  - " <<  aStr  << "\n";
+              if (aSample.mIsHeader)
+                  HelpOut() << Color::sub_title << "  --- " <<  aSample.mCmd  << "---"<<  Color::end << "\n";
+              else
+                  HelpOut() << "   - " <<  aSample.mCmd  << "\n";
+              for (const auto & aCom : aSample.mVComs)
+                  HelpOut() << "      * " <<  Color::descr << aCom << Color::end << "\n";
+
           }
        }
-       HelpOut() << "\n";
    }
 
-    std::string aPdfFile =  mDirHelpByCmd + mSpecs.Name() + ".pdf";
-
-    if (ExistFile(aPdfFile))
-    {
-        //  StdOut()  << " PatH=" << mPatHelp << "\n";
-        HelpOut() <<  Color::title  << " == Detailled help for this command in : \n" << "    * " << Color::descr
-                   << aPdfFile <<  Color::title << " ==" << Color::end << "\n";
-
-        std::string aPdfOpen = mParamProfile.Get("PdfOpen",std::string());
-        //  StdOut() << "HHHHHhh " << aPdfOpen.has_value()  << " UN " << mParamProfile.mUserName << "\n";
-        if (aPdfOpen.size() && (mPatHelp=="pdf"))
-        {
-            cParamCallSys aCom(aPdfOpen,aPdfFile);
-            int aResult = aCom.Execute(true);
- //           int aResult = system(aCom.Com().c_str());
-            if (aResult!= EXIT_SUCCESS)
-            {
-                StdOut() << "Can't run command : '" << aCom.Com() << "'\n";
-            }
-        }
-    }
 }
 
 void cMMVII_Appli::ShowAllParams()
@@ -2356,9 +2290,9 @@ cParamCallSys cMMVII_Appli::CommandOfMain() const
     return aRes;
 }
 
-std::vector<std::string>  cMMVII_Appli::Samples() const
+std::vector<cOneHelpSampleCmp>  cMMVII_Appli::Samples() const
 {
-   return std::vector<std::string>();
+    return {};
 }
 
 bool IsInit(const void * anAdr)
@@ -2371,6 +2305,42 @@ int  cMMVII_Appli::ExeOnParsedBox()
     MMVII_INTERNAL_ERROR("Call to undefined method ExeOnParsedBox()");
     return EXIT_FAILURE;
 }
+
+/* ******************************************************* */
+/*                                                         */
+/*                    cOneHelpSampleCmp                    */
+/*                                                         */
+/* ******************************************************* */
+
+
+cOneHelpSampleCmp::cOneHelpSampleCmp(const std::string & aCmd) :
+    cOneHelpSampleCmp(aCmd,{})
+{
+}
+
+cOneHelpSampleCmp::cOneHelpSampleCmp(const std::string & aCmd,const std::vector<std::string> & aVComs) :
+    mIsHeader    (false),
+    mCmd (aCmd),
+    mVComs (aVComs)
+{
+}
+
+cOneHelpSampleCmp cOneHelpSampleCmp::Header(const std::string & aCom)
+{
+    cOneHelpSampleCmp aRes(aCom);
+    aRes.mIsHeader = true;
+    return aRes;
+}
+
+
+/*
+cOneHelpSampleCmp::cOneHelpSampleCmp(bool IsHeader,const std::string & aCmd) :
+    cOneHelpSampleCmp(aCmd,{})
+
+{
+    mIsHeader = IsHeader;
+}
+*/
 
 
 };

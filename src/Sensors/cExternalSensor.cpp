@@ -372,7 +372,7 @@ class cAppliImportInitialExternSensor : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
 
         void ImportOneImage(const std::string &);
 
@@ -411,11 +411,11 @@ cCollecSpecArg2007 & cAppliImportInitialExternSensor::ArgOpt(cCollecSpecArg2007 
    ;
 }
 
-std::vector<std::string>  cAppliImportInitialExternSensor::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppliImportInitialExternSensor::Samples() const
 {
    return {
-              "MMVII ImportPushbroom AllIm.xml '[SPOT_(.*).tif,RPC_$1.xml]' SPOT_Init",
-              "MMVII ImportPushbroom AllIm.xml '[SPOT_(.*).tif,RPC_$1.xml]' SPOT_Init"
+              {"MMVII ImportPushbroom AllIm.xml '[SPOT_(.*).tif,RPC_$1.xml]' SPOT_Init"},
+              {"MMVII ImportPushbroom AllIm.xml '[SPOT_(.*).tif,RPC_$1.xml]' SPOT_Init"}
         };
 }
 

@@ -122,7 +122,7 @@ class cAppli_TiePReport : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
 
 
 
@@ -212,12 +212,13 @@ cAppli_TiePReport::cAppli_TiePReport
 {
 }
 
-std::vector<std::string>  cAppli_TiePReport::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_TiePReport::Samples() const
 {
-    return {
-        "MMVII ReportTieP .*JPG V1 Adjust  ParamPly=[1,4.0]",
-        "MMVII ReportTieP IMG_03.*JPG V1Dense Adjust InTieP=V1Dense  PairPatRes=IMG_035[0-3].JPG  PairPatFV=IMG_035[1-2].JPG"
-    }   ;
+    return
+    {
+        {"MMVII ReportTieP .*JPG V1 Adjust  ParamPly=[1,4.0]"},
+        {"MMVII ReportTieP IMG_03.*JPG V1Dense Adjust InTieP=V1Dense  PairPatRes=IMG_035[0-3].JPG  PairPatFV=IMG_035[1-2].JPG"}
+    };
 }
 
 cCollecSpecArg2007 & cAppli_TiePReport::ArgObl(cCollecSpecArg2007 & anArgObl)

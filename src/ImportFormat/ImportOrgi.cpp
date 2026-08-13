@@ -25,7 +25,7 @@ class cAppli_ImportOrgi : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
      private :
 
         cPhotogrammetricProject  mPhProj;
@@ -171,9 +171,12 @@ int cAppli_ImportOrgi::Exe()
 }
 
 
-std::vector<std::string>  cAppli_ImportOrgi::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ImportOrgi::Samples() const
 {
-        return {"MMVII V2ImportCalib ../../Pannel/ BA_725 CalibInit725"};
+        return
+        {
+            {"MMVII V2ImportCalib ../../Pannel/ BA_725 CalibInit725"}
+        };
 }
 
 

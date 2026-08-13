@@ -144,7 +144,7 @@ class cAppli_CGPReport : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
 
 
      private :
@@ -227,10 +227,10 @@ cCollecSpecArg2007 & cAppli_CGPReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
 }
 
-std::vector<std::string>  cAppli_CGPReport::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_CGPReport::Samples() const
 {
     return {
-        "MMVII ReportGCP C2_0002.*JPG targets-out-wiSigma Targets-2D BA-Block  PatImFV=C2_00021.JPG GFV=[100,1,1,1,0]"
+        {"MMVII ReportGCP C2_0002.*JPG targets-out-wiSigma Targets-2D BA-Block  PatImFV=C2_00021.JPG GFV=[100,1,1,1,0]"}
     };
 }
 

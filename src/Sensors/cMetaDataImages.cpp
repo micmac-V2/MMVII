@@ -640,7 +640,7 @@ class cAppli_EditCalcMetaDataImage : public cMMVII_Appli
         
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
-        std::vector<std::string>  Samples() const override; ///< For help, gives samples of "good" use
+        std::vector<cOneHelpSampleCmp>  Samples() const override; ///< For help, gives samples of "good" use
 
 
         cPhotogrammetricProject     mPhProj;
@@ -698,12 +698,12 @@ cCollecSpecArg2007 & cAppli_EditCalcMetaDataImage::ArgOpt(cCollecSpecArg2007 & a
     ;
 }
 
-std::vector<std::string>  cAppli_EditCalcMetaDataImage::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_EditCalcMetaDataImage::Samples() const
 {
     return {
-               "MMVII EditCalcMTDI Std ModelCam ImTest=043_0136.JPG  Modif=[.*.JPG,\"NIKON D5600\",0] Save=1",
-               "MMVII EditCalcMTDI Std Focalmm ImTest=043_0136.JPG  Modif=[.*.JPG,24,0] Save=1",
-               "MMVII EditCalcMTDI Std AdditionalName ImTest=043_0136.JPG  Modif=[\"(.*)_.*\",\"\\$1\",0] Save=1"
+               {"MMVII EditCalcMTDI Std ModelCam ImTest=043_0136.JPG  Modif=[.*.JPG,\"NIKON D5600\",0] Save=1"},
+               {"MMVII EditCalcMTDI Std Focalmm ImTest=043_0136.JPG  Modif=[.*.JPG,24,0] Save=1"},
+               {"MMVII EditCalcMTDI Std AdditionalName ImTest=043_0136.JPG  Modif=[\"(.*)_.*\",\"\\$1\",0] Save=1"}
            };
 }
 

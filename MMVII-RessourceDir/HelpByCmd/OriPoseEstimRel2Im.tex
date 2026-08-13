@@ -1,0 +1,82 @@
+\documentclass[a4paper]{article}
+\usepackage{MMVII}
+
+\newcommand{\TheCmd}{OriPoseEstimRel2Im}
+
+\begin{document}
+
+\CmdTitle
+%\maketitle
+
+\tableofcontents
+
+
+%=================================================================================
+
+\SecDescr
+
+This command  compute the relative orientation of a pair of images
+using tie points and a known calibration for each images.
+The main purpose of this functionnality it to be used
+by \FileSty{OriPoseEstimRelPairsOf1Im} and \FileSty{OriPoseEstimRelAllPairs}
+when computing  global orientation .
+However, it  may be interesting to run on a specific pair for :
+
+
+\begin{itemize}
+   \item didactic purpose when teaching the methodology for computing global
+         relative orientation;
+
+   \item tuning and testing when developping the complete pipeline.
+
+\end{itemize}
+
+
+Several parameters used for  this command will be used similarly for  other
+command on pair and triplets (see~\ref{Ref:RelCmd}).
+
+The $4$ mandatory parameters are:
+
+\begin{itemize}
+  \item the $2$ images we want to compute relative orientation ( pattern, or triplet for other command);
+
+  \item the input folder for localization of internal calibration of the $2$ images (similar in command of~\ref{Ref:RelCmd});
+
+  \item an output folder for saving the $2$ relative poses as a standard orientation
+       (because of the "didactic" , for other command, it will be saved in folder specific 
+        aspect).
+\end{itemize}
+
+
+%=================================================================================
+
+\section{"Mandatory" Optionnal parameters for input}
+
+These command accept $3$ different way to specify the tie points used to compute orientation :
+
+\begin{itemize}
+   \item  tie point computed from pair of images with parameter \FileSty{InTieP};
+   \item  multtiple tie point issued from merged tie points by pair , with
+          parameter \FileSty{InMulTieP};
+\end{itemize}
+
+%=================================================================================
+
+\section{Parameters for testing and tuning}
+
+ %=================================================================================
+\SecRelatedCmd
+
+\begin{itemize}
+   \item  \FileSty{OriPoseEstimRelPairsOf1Im}
+   \item  \FileSty{OriPoseEstimRelAllPairs}
+   \item  \FileSty{OriPoseEstimRel3Im}
+   \item  \FileSty{OriPoseEstimRelTripletssOf1Im}
+   \item  \FileSty{OriPoseEstimRelAllTriplets}
+   \item  \FileSty{OriPoseEstimRelGlob}
+\end{itemize}
+
+And 
+
+
+\end{document}

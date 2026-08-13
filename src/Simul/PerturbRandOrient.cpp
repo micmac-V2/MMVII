@@ -28,7 +28,7 @@ class cAppli_PerturbRandomOri : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
 
         void TestPly();
      private :
@@ -170,9 +170,9 @@ int cAppli_PerturbRandomOri::Exe()
 }
 
 
-std::vector<std::string>  cAppli_PerturbRandomOri::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_PerturbRandomOri::Samples() const
 {
-   return {"NO SAMPLES FOR NOW"};
+   return {};
 }
 
 

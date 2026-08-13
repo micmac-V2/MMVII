@@ -26,7 +26,7 @@ public :
     cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-    std::vector<std::string>  Samples() const override;
+    std::vector<cOneHelpSampleCmp>  Samples() const override;
 
     void getAnglesMinMax();
     void estimatePhiStep();
@@ -816,7 +816,7 @@ int cAppli_ImportTSL::Exe()
 
 }
 
-std::vector<std::string>  cAppli_ImportTSL::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ImportTSL::Samples() const
 {
     return
         {
@@ -862,7 +862,7 @@ public :
     cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-    std::vector<std::string>  Samples() const override;
+    std::vector<cOneHelpSampleCmp>  Samples() const override;
     void poseFromXYZ();
     void poseFromXYZv4();
     void poseFromGCP();
@@ -1173,7 +1173,7 @@ int cAppli_InitTSL::Exe()
     return EXIT_SUCCESS;
 }
 
-std::vector<std::string>  cAppli_InitTSL::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_InitTSL::Samples() const
 {
     return
         {

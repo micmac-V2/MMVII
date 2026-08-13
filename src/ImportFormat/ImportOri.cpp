@@ -29,7 +29,7 @@ class cAppli_ImportOri : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
      private :
 
         cPhotogrammetricProject  mPhProj;
@@ -103,12 +103,12 @@ cCollecSpecArg2007 & cAppli_ImportOri::ArgOpt(cCollecSpecArg2007 & anArgObl)
     ;
 }
 
-std::vector<std::string>  cAppli_ImportOri::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ImportOri::Samples() const
 {
    return
    {
-        "MMVII ImportOri trajectographie_tif.opk NSSXYZWPKS Calib InitUP AngU=degree KIsUp=true ChgN=[\".*\",\"Traj_\\$&\"]",
-        "MMVII ImportOri trajectographie_tif.opk NSSXYZWPKS Calib001 InitUP AngU=degree KIsUp=true DicName=DicoVol.xml"
+        {"MMVII ImportOri trajectographie_tif.opk NSSXYZWPKS Calib InitUP AngU=degree KIsUp=true ChgN=[\".*\",\"Traj_\\$&\"]"},
+        {"MMVII ImportOri trajectographie_tif.opk NSSXYZWPKS Calib001 InitUP AngU=degree KIsUp=true DicName=DicoVol.xml"}
    };
 }
 

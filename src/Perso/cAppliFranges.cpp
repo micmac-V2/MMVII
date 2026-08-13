@@ -137,7 +137,7 @@ class cAppliFranges : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
-         std::vector<std::string>  Samples() const override;
+         std::vector<cOneHelpSampleCmp>  Samples() const override;
         virtual ~cAppliFranges();
 
             //------------------------- Specific method----------------
@@ -255,12 +255,12 @@ cCollecSpecArg2007 & cAppliFranges::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 }
 
 
-std::vector<std::string>  cAppliFranges::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppliFranges::Samples() const
 {
    return
    {
-       "MMVII ExtractFranges Retiga_000000105.tif Sigma=[10,2] DoVisu=1",
-       "MMVII ExtractFranges Retiga_.*.tif"
+       {"MMVII ExtractFranges Retiga_000000105.tif Sigma=[10,2] DoVisu=1"},
+       {"MMVII ExtractFranges Retiga_.*.tif"}
    };
 }
 

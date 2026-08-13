@@ -489,7 +489,7 @@ class cAppliParametrizeSensor : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
 
         void ImportOneImage(const std::string &);
 
@@ -533,10 +533,10 @@ cCollecSpecArg2007 & cAppliParametrizeSensor::ArgOpt(cCollecSpecArg2007 & anArgO
    ;
 }
 
-std::vector<std::string>  cAppliParametrizeSensor::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppliParametrizeSensor::Samples() const
 {
    return {
-              "MMVII OriParametrizeSensor AllIm.xml ..."
+              {"MMVII OriParametrizeSensor AllIm.xml ..."}
         };
 }
 

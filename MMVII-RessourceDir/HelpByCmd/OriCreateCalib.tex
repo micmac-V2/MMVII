@@ -16,8 +16,8 @@
 \SecDescr
 
 This command create  initial intrinsic calibration for in \MMVII format for a
-set of images. It take $2$ mandatory parameter, a set of images and destination
-for the generated model of calibraition  and a destination folder.
+set of images. It take $2$ mandatory parameter, a set of images and destination folder
+for the generated model of calibraition. 
 For each image :
 
 
@@ -30,7 +30,7 @@ The initial calibration is computed using the following approach :
 
 
 \begin{itemize}
-   \item the focal length is extracted from meta-data, this means that the focal in mm
+   \item the focal length is extracted from meta-data, this requires that the focal in mm
          and the model of camera must be known (it works also if only the focal equiv $35$ is known)
    \item the principal point is set in the middle of the image;
    \item the model of projection is set by optional parameter \FileSty{Proj}, it's default
@@ -40,6 +40,9 @@ The initial calibration is computed using the following approach :
          by optionnal parameter \FileSty{Degree}.
 \end{itemize}
 
+%=================================================================================
+
+\section{Specifying the degree of polynomial}
 
 Regarding the degree $D=[D_x,D_y,D_z]$ :
 
@@ -59,7 +62,7 @@ Regarding the degree $D=[D_x,D_y,D_z]$ :
 The default value for $D$ is $[3,1,1]$ which correspond to the Fraser's model.
 Only some possible value are accepted for the degree, the value for which
 code have been generated.  This possible value depend of \FileSty{Proj}. To know
-what are the possible value, just \FileSty{OriCreateCalib} with $D_x=-1$.
+what are the possible value, run \FileSty{OriCreateCalib} with $D_x=-1$.
 
 
  %=================================================================================
