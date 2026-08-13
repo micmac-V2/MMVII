@@ -22,7 +22,7 @@ class cAppliEpipDMEval : public cMMVII_Appli,
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
-        std::vector<std::string>  Samples() const  override;
+        std::vector<cOneHelpSampleCmp>  Samples() const  override;
 
                  // --- Method to be a cAppliParseBoxIm<tREAL4>
         int ExeOnParsedBox() override; ///< Action to exec for each box, When the appli parse a big file
@@ -108,9 +108,12 @@ cCollecSpecArg2007 & cAppliEpipDMEval::ArgObl(cCollecSpecArg2007 & anArgObl)
    ;
 }
 
-std::vector<std::string> cAppliEpipDMEval::Samples() const
+std::vector<cOneHelpSampleCmp> cAppliEpipDMEval::Samples() const
 {
-   return {"MMVII DenseMatchEpipEval Im_R.tif Im_L.tif Px_R.tif true HiddenMask=HM_R.tif ImCorrel=Cor_R.tif Masq1=Im_R_Masq.tif Masq2=Im_L.tif"};
+   return
+    {
+       {"MMVII DenseMatchEpipEval Im_R.tif Im_L.tif Px_R.tif true HiddenMask=HM_R.tif ImCorrel=Cor_R.tif Masq1=Im_R_Masq.tif Masq2=Im_L.tif"}
+   };
 
 }
 

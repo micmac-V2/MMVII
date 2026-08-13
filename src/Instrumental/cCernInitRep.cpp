@@ -48,7 +48,7 @@ void AddData(const  cAuxAr2007 & anAux,cResultWireD & aRW)
 /**  Class for computing the vertical in the repair of of the object linked to the clino.
 
        Use  "cGetVerticalFromClino" for the score function and interface as a "cDataMapping<tREAL8,2,1>"
-    to use  the "cOptimByStep<2>"  . The computation is done in a "tangent space" arround an initial solution.
+    to use  the "cOptimByStep<2>"  . The computation is done in a "tangent space" around an initial solution.
 */
 
 class cOptimGVFromClino : public  cDataMapping<tREAL8,2,1>

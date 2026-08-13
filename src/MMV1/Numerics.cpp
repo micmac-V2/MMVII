@@ -47,7 +47,7 @@ template <class TVal> void SplitArrounKthValue(TVal * Data,int aNb,int aKth)
    // Compute the pivot value
    TVal aPivot = Average(Data,aNb);
 
-   // Now split arround the pivot
+   // Now split around the pivot
    int aK0 =0;  //  index a value < Pivot
    int aK1 = aNb-1; // index of value >=Pivot
    while (aK0 < aK1)

@@ -28,7 +28,7 @@ class cAppli_ImportTiePMul : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
      private :
 
         bool                     mModeTieP;  // Mode TieP vs Mode XY
@@ -241,12 +241,12 @@ int cAppli_ImportTiePMul::Exe()
 }
 
 
-std::vector<std::string>  cAppli_ImportTiePMul::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ImportTiePMul::Samples() const
 {
    if (mModeTieP)
       return
       {
-          "MMVII ImportTiePMul External-Data/Liaisons.MES NIXY Vexcell NumL0=1 PatIm=[\".*\",\"\\$&.tif\"] PatPt=[\"(MES_)(.*)\",\"\\$2\"]"
+          {"MMVII ImportTiePMul External-Data/Liaisons.MES NIXY Vexcell NumL0=1 PatIm=[\".*\",\"\\$&.tif\"] PatPt=[\"(MES_)(.*)\",\"\\$2\"]"}
       };
 
     return {};

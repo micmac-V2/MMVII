@@ -29,7 +29,7 @@ class cAppli_ImportGCP : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
      private :
 
         cPhotogrammetricProject  mPhProj;
@@ -206,12 +206,12 @@ int cAppli_ImportGCP::Exe()
 }
 
 
-std::vector<std::string>  cAppli_ImportGCP::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ImportGCP::Samples() const
 {
    return
    {
-       "MMVII ImportGCP  2023-10-06_15h31PolarModule.coo  NXYZ Std  NumL0=14 NumLast=34 PatName=\'[P\\.(.*),$1]\' NbDigName=4",
-       "MMVII ImportGCP  Pannel5mm.obc  NXYZ Std NbDigName=4 ChSys=[LocalPannel]"
+       {"MMVII ImportGCP  2023-10-06_15h31PolarModule.coo  NXYZ Std  NumL0=14 NumLast=34 PatName=\'[P\\.(.*),$1]\' NbDigName=4"},
+       {"MMVII ImportGCP  Pannel5mm.obc  NXYZ Std NbDigName=4 ChSys=[LocalPannel]"}
    };
 }
 

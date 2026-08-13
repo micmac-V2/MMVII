@@ -329,8 +329,20 @@ template <class Type>
       return aResult;
 }
 
+template <class Type>
+cIm2D<Type>  cIm2D<Type>::EnlargeInt(int aFactor) const
+{
+    cIm2D<Type> aResult(mPIm->Sz()*aFactor);
 
+    cDataIm2D<Type> & aDImOut = aResult.DIm();
 
+    for (const auto & aP : aDImOut)
+    {
+        aDImOut.SetV(aP,DIm().GetV(aP/aFactor));
+    }
+
+    return aResult;
+}
 
 
 

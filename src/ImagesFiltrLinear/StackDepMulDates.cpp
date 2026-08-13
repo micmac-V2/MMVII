@@ -147,7 +147,7 @@ cAppli_StackDep::cAppli_StackDep(const std::vector<std::string> &  aVArgs,const 
 cCollecSpecArg2007 & cAppli_StackDep::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
       return anArgObl
-              << Arg2007(mArgInterpol,"Argument interpolator ")
+              << Arg2007(mArgInterpol,"Argument interpolator ",InterpolArgSem())
               << Arg2007(mFilePairs,"File for pairs of images")
               << Arg2007(mDoL2,"L2/L1 compensation")
            ;

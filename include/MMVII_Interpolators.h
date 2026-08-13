@@ -58,11 +58,92 @@ class cRessampleWeigth
          std::vector<double>  mVWeight;
 };
 
+class cInterpolSpec;
+
+/**  One parameter of an interpolator, as declared by its cInterpolSpec.
+     The type is the one shown by help and completion, the value itself is kept as a string
+     and converted on demand, so that no parallel type system is needed here.
+*/
+struct cInterpolParamSpec
+{
+     std::string mName;
+     std::string mType;      ///< "int", "double" ...  as printed by help and completion
+     std::string mComment;
+     std::string mExample;   ///< a valid value, for help, completion and bench; NOT a default
+};
+
+/**  Values of the parameters of one interpolator, as read on the command line */
+
+class cInterpolParams
+{
+     public :
+        cInterpolParams(const std::vector<std::string> & aVals);
+        /// Value of the K-th parameter, converted to the requested type (instantiated for int/tREAL8)
+        template <class Type> Type Get(size_t aK) const;
+        const std::vector<std::string> & Vals() const;  ///< Accessor, the raw values
+     private :
+        std::vector<std::string> mVals;
+};
+
+/**  Describes one entry of the interpolator language : its name, its parameters, and how to
+     allocate it. One such object is declared next to each interpolator class, and is the only
+     thing to write when adding one : it feeds the parsing, the help and the completion.
+
+     An interpolator either is a leaf, or wraps the interpolator that follows it (Tabul, Scale).
+     A wrapper does NOT own the interpolator it is given : the parser destroys it afterwards.
+*/
+
+class cInterpolSpec
+{
+     public :
+        typedef cInterpolator1D * (*tAllocLeaf)    (const cInterpolParams &);
+        typedef cInterpolator1D * (*tAllocWrapper) (const cInterpolParams &,const cInterpolator1D &);
+
+        /// Declare a leaf interpolator, registers it
+        cInterpolSpec(const std::string & aName,const std::string & aComment,
+                      const std::vector<cInterpolParamSpec> &,tAllocLeaf);
+        /// Declare an interpolator wrapping the one that follows it, registers it
+        cInterpolSpec(const std::string & aName,const std::string & aComment,
+                      const std::vector<cInterpolParamSpec> &,tAllocWrapper);
+
+        const std::string & Name() const;      ///< Accessor
+        const std::string & Comment() const;   ///< Accessor
+        const std::vector<cInterpolParamSpec> & Params() const;  ///< Accessor
+        bool  HasSubInterpol() const;          ///< Does it wrap the interpolator that follows it
+
+        /// All declared interpolators, sorted by name
+        static const std::vector<const cInterpolSpec*> & VecAll();
+        /// Specification of a given name, nullptr if unknown and aSVP
+        static const cInterpolSpec * OfName(const std::string & aName,bool aSVP);
+        /// The names of all interpolators, as "[Name1,Name2,...]", for help messages
+        static std::string StrAllNames();
+
+        /// Allocate, aSub is null for a leaf, and is not owned by the result
+        cInterpolator1D * Alloc(const cInterpolParams &,const cInterpolator1D * aSub) const;
+
+     private :
+        cInterpolSpec(const cInterpolSpec &) = delete;
+
+        std::string                     mName;
+        std::string                     mComment;
+        std::vector<cInterpolParamSpec> mParams;
+        tAllocLeaf                      mAllocLeaf;
+        tAllocWrapper                   mAllocWrapper;
+};
+
+/**  Semantics of a command line argument that is an interpolator : the semantic itself, plus the
+     description of the language as additionnal comments, generated from the registry so that
+     help and completion cannot drift from the interpolators actually declared.
+*/
+std::vector<tSemA2007> InterpolArgSem();
+
 /**  Virtual Base class for  all interpolator */
 
 class cInterpolator1D : public cMemCheck
 {
       public :
+        friend class cInterpolSpec;  ///< stamps VNames with the expression it parsed
+
         /// Constructor, Weight is assumed to be 0 outside [-aSzK,+aSzK]
         cInterpolator1D(const tREAL8 & aSzKernel,const std::vector<std::string> & aVNames);
         ///  virtual destructor for a pure virtual class
@@ -76,7 +157,18 @@ class cInterpolator1D : public cMemCheck
 
         /// create a tabulated interpol
         static cInterpolator1D *  TabulatedInterp(const cInterpolator1D &,int aNbTabul,bool BilinInterp);
+
+        /**  Allocator from a vector of names, as given on the command line. The syntax is flat and
+             prefixed : a wrapper is followed by its parameters then by the interpolator it wraps,
+             as in "Tabul,1000,SinCApod,10,10". Use the cDiffInterpolator1D version when the
+             derivatives are required.
+        */
+        static cInterpolator1D * AllocFromNames(const std::vector<std::string> & aVName);
       protected :
+        /// Parse one interpolator from aK, which is moved past the tokens consumed
+        static cInterpolator1D * AllocFromNames(const std::vector<std::string> & aVName,size_t & aK);
+        void SetVNames(const std::vector<std::string> & aVNames);
+
         void SetSzKernel(tREAL8  aSzK) ;
 
         tREAL8 mSzKernel;
@@ -110,12 +202,6 @@ class cDiffInterpolator1D : public cInterpolator1D
              static cDiffInterpolator1D *  TabulSinC(int aSzSin,int aSzApod=-1,int aNbTabul=1000);
 
 
-       protected :
-            static const std::string & Get(const std::vector<std::string> & aVName,size_t aK0);
-
-            static void AssertEndParse(const std::vector<std::string> & aVName,size_t aK0);
-            /// Internal method , K0 will vary during parsing
-            static cDiffInterpolator1D * AllocFromNames(const std::vector<std::string> & aVName,size_t aK0);
 };
 
 

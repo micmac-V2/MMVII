@@ -238,6 +238,11 @@ NS_SymbolicDerivative::cCalculator<double> * EqEqLidarImCensus(bool WithDerive,i
 NS_SymbolicDerivative::cCalculator<double> * EqEqLidarImCorrel(bool WithDerive,int aSzBuf,bool aScanPoseUk,bool ReUse);
 NS_SymbolicDerivative::cCalculator<double> * EqEqLidarLidar(bool WithDerive,int aSzBuf,bool ReUse);
 NS_SymbolicDerivative::cCalculator<double> * EqTSL_GCP(bool WithDerive,int aSzBuf,bool ReUse);
+NS_SymbolicDerivative::cCalculator<double> * EqTSL_GCPD(bool WithDerive,int aSzBuf,bool ReUse);
+
+
+// Print the possible degree for each camera model
+void PrintGeneratedDegree();
 
 
 };

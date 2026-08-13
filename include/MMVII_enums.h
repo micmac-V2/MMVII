@@ -59,13 +59,11 @@ enum class eTA2007
                 StaticLidar,   ///< Static Lidar
                 Topo,          ///< Topo
                 SysCo,         ///< System coord
-                Profile,       ///< User profile name
-                ProfileKey,    ///< Key for user profile
-                CanRepeat,     ///< Parameter can be repeated several times, and will be stored in a vector
                 Input,         ///< Is this parameter used as input/read
                 Output,        ///< Is this parameter used as output/write
                 OptionalExist, ///< if given, the file (image or other) can be unexisting (interface mut allow seizing "at hand")
                 PatParamCalib, ///< It's a pattern for parameter of calibration
+                Interpol,      ///< Parameter is an interpolator, see cInterpolSpec
             // !!!!! AddCom must be last UNPRINTED  !!! because of test in Name4Help()
                 AddCom,        ///< Not an attribute, used to embed additionnal comment in Help mode
                 AllowedValues, ///< String of possible values for enums type, automagically added for args of enum type
@@ -76,6 +74,7 @@ enum class eTA2007
                 Internal,      ///< Reserved to internall use by MMVII
                 Tuning,        ///< Used for testing/tuning command but not targeted for user
                 HDV,           ///< Has Default Value, will be printed on help
+                CanRepeat,     ///< Parameter can be repeated several times, and will be stored in a vector
                 ISizeV,        ///< Interval size vect, print on help
                 XmlOfTopTag,   ///< Parameter must be a XML-file containing certain tag
                 Range,         ///< Range of allowed numerical values: "[min,max]" | "[min,]" | "[,max]"
@@ -457,6 +456,15 @@ enum class eModeSSR
       eNbVals
 };
 
+/** Mode  for target distance estimation */
+
+enum class eTargetDistanceEstim
+{
+    eNoDist,       // no distance
+    eRawDist,      // use direct distance
+    ePlaneEstim,   // estimate a plane then get distance to plane
+    eNbVals
+};
 
 /** Mode "Padding" callable in DenseMatchEpipGen */
 
@@ -465,7 +473,7 @@ enum class eModePaddingEpip
    eMPE_NoPad,  // No padding, natural size MicMac V1
    eMPE_PxPos,  // Padding force positive paralax
    eMPE_PxNeg,  // Padding force negative paralax
-   eMPE_SzEq,  //  Centerd padding, size equal
+   eMPE_SzEq,  //  Centered padding, size equal
    eNbVals
 };
 
@@ -583,7 +591,7 @@ enum class eModeCaracMatch
 
 enum class eDCTFilters
 {
-   eSym,       // symetry filters arround pts
+   eSym,       // symetry filters around pts
    eBin,       // binarity of the  histogramm
    eRad,       // radiality of the distribution
    eGrad,      // average  gradient

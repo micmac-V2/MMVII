@@ -876,7 +876,7 @@ template <class Type>
             tREAL8 aLVMCoeff =  mSysLinear->LVMW(aK);
             if (aLVMCoeff==0)
             {
-               MMVII_USER_TYPED_WARNING(eTyUEr::eLVM_NoConstraint,"LVM : freezing an unsused unknown");
+               MMVII_USER_TYPED_WARNING(eTyUEr::eLVM_NoConstraint,"LVM : freezing an unused unknown");
                aLVMCoeff = 1.0;
                mNbLVMFrozenUSed ++;
                mLVMFrozenUsed.at(aK) = true;

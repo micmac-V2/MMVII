@@ -45,7 +45,7 @@ class cMDLB_AppliFormatTDEDM : public cAppliLearningMatch
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
-        std::vector<std::string>  Samples() const  override;
+        std::vector<cOneHelpSampleCmp>  Samples() const  override;
 
         void MakePxSym(const std::string & aDir,int aK);
         cIm2D<tU_INT1> ComputeAR(double aAmpl,int aK);
@@ -90,16 +90,15 @@ cMDLB_AppliFormatTDEDM::cMDLB_AppliFormatTDEDM
 {
 }
 
-std::vector<std::string>  cMDLB_AppliFormatTDEDM::Samples() const
+std::vector<cOneHelpSampleCmp>  cMDLB_AppliFormatTDEDM::Samples() const
 {
-   return std::vector<std::string>
-          (
+   return
             {
-                "MMVII  DMFormatTD_MDLB \".*JAX_022_004_002_.*\" 100 DoRectif=1"
-               ,"MMVII DM0FormatTD_MDLB \".*Pl.*\" 2014 "
+                {"MMVII  DMFormatTD_MDLB \".*JAX_022_004_002_.*\" 100 DoRectif=1"},
+                {"MMVII DM0FormatTD_MDLB \".*Pl.*\" 2014 "}
             }
 
-          );
+          ;
 }
 
 cCollecSpecArg2007 & cMDLB_AppliFormatTDEDM::ArgObl(cCollecSpecArg2007 & anArgObl)
@@ -128,7 +127,7 @@ void cMDLB_AppliFormatTDEDM::MakePxSym(const std::string & aDir,int aK)
   int aDef = aSign * -10000;
   cParamCallSys aComPx(MMV1Bin(),"Nikrup","* " + ToStr(aSign) + " F1F2BN " + aTmp +" "+ ToStr(aDef),NamePx(aK));
   GlobSysCall(aComPx);
-  RemoveFile(aTmp,false);
+  RemoveFile(aTmp);
 }
 
 cIm2D<tU_INT1> cMDLB_AppliFormatTDEDM::ComputeAR(double aAmpl,int aK)
@@ -190,7 +189,7 @@ void  cMDLB_AppliFormatTDEDM::MakeMaskAR(double aPixThresh,int aK)
         NameMasq(aK),"Type=u_int1"
         );
     GlobSysCall(aComMasq);
-    RemoveFile(aTmpAR,false);
+    RemoveFile(aTmpAR);
 }
 
 int cMDLB_AppliFormatTDEDM::Exe()
@@ -364,7 +363,7 @@ class cWT_AppliFormatTDEDM : public cAppliLearningMatch
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
-        std::vector<std::string>  Samples() const  override;
+        std::vector<cOneHelpSampleCmp>  Samples() const  override;
 
      private :
        // =========== Data ========
@@ -401,15 +400,14 @@ cCollecSpecArg2007 & cWT_AppliFormatTDEDM::ArgOpt(cCollecSpecArg2007 & anArgOpt)
    ;
 }
 
-std::vector<std::string>  cWT_AppliFormatTDEDM::Samples() const
+std::vector<cOneHelpSampleCmp>  cWT_AppliFormatTDEDM::Samples() const
 {
-   return std::vector<std::string>
-          (
+   return
             {
-                " MMVII  DM0FormatTD_WT \".*0002.png\" UmbraStereo"
+               { " MMVII  DM0FormatTD_WT \".*0002.png\" UmbraStereo"}
             }
 
-          );
+          ;
 }
 
 
@@ -435,7 +433,7 @@ int cWT_AppliFormatTDEDM::Exe()
        cParamCallSys  aComMasq(MMV1Bin(),"Nikrup","* 255 !=  " + aTmpPx + " 0",NameMasq1(aPref),"Type=u_int1");
        GlobSysCall(aComMasq);
 
-       RemoveFile(aTmpPx,false);
+       RemoveFile(aTmpPx);
     }
 
    return EXIT_SUCCESS;

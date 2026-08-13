@@ -1040,7 +1040,9 @@ cIMakeTreeAr::cIMakeTreeAr(const std::string & aName,eTypeSerial aTypeS)  :
     mError    (false)
 {
 
-   cSerialFileParser *  aSTP = cSerialFileParser::Alloc(mNameFile,aTypeS);
+   //  unique_ptr and not a raw pointer : parsing a corrupted file raises, and the parser must
+   //  be freed by the unwinding, else the memory state check fails at the end of the process
+   std::unique_ptr<cSerialFileParser>  aSTP (cSerialFileParser::Alloc(mNameFile,aTypeS));
    cSerialTree aTree(*aSTP);
 
    // StdOut() << "JJJJJUiOp " << mNameFile << std::endl;
@@ -1062,8 +1064,6 @@ cIMakeTreeAr::cIMakeTreeAr(const std::string & aName,eTypeSerial aTypeS)  :
        }
        StdOut()  << ">>>>>>>>" << std::endl;
    }
-
-   delete aSTP;
 }
 
 cResLex cIMakeTreeAr::GetNextLex()

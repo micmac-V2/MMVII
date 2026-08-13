@@ -122,12 +122,11 @@ template<> cE2Str<eTA2007>::tMapE2Str cE2Str<eTA2007>::mE2S
                 {eTA2007::OriRel,"OriRel"},
                 {eTA2007::Topo,"Topo"},
                 {eTA2007::SysCo,"SysCo"},
-                {eTA2007::Profile,"Profile"},
-                {eTA2007::ProfileKey,"ProfileKey"},
                 {eTA2007::Input,"In"},
                 {eTA2007::Output,"Out"},
                 {eTA2007::OptionalExist,"OptEx"},
                 {eTA2007::PatParamCalib,"ParamCalib"},
+                {eTA2007::Interpol,"Interpol"},
                 {eTA2007::AddCom,"AddCom"},
                 {eTA2007::AllowedValues,"Allowed"},
                 {eTA2007::Internal,"##Intern"},
@@ -435,6 +434,13 @@ template<> cE2Str<eImatchCrit>::tMapE2Str cE2Str<eImatchCrit>::mE2S
                 {eImatchCrit::eCorrel, "Correl"}
            };
 
+template<> cE2Str<eTargetDistanceEstim>::tMapE2Str cE2Str<eTargetDistanceEstim>::mE2S
+    {
+        {eTargetDistanceEstim::eNoDist, "NoDist"},
+        {eTargetDistanceEstim::eRawDist, "RawDist"},
+        {eTargetDistanceEstim::ePlaneEstim, "PlaneEstim"}
+    };
+
 
 
 template<> cE2Str<eTypeSerial>::tMapE2Str cE2Str<eTypeSerial>::mE2S
@@ -605,6 +611,7 @@ void BenchEnum(cParamExeBench & aParam)
     TplBenchEnum<eFormatSensor>();
     TplBenchEnum<eModeSSR>();
     TplBenchEnum<eImatchCrit>();
+    TplBenchEnum<eTargetDistanceEstim>();
     TplBenchEnum<eTyClino>();
     TplBenchEnum<eTypeDBCam>();
     TplBenchEnum<eTyInstr>();
@@ -632,6 +639,22 @@ std::string  Name4Help(const tSemA2007 & aSem)
 }
 
 
+/* ========================== */
+/*       cHeaderSectionArg   */
+/* ========================== */
+
+cHeaderSectionArg::cHeaderSectionArg(const std::string & aComment,bool isGlobMMVII ) :
+    mComment (aComment),
+    mGlobMMVII (isGlobMMVII)
+{
+}
+
+const  std::string & cHeaderSectionArg::GetComment() const
+{
+    return mComment;
+}
+
+bool cHeaderSectionArg::GlobMMVII() const {return mGlobMMVII;}
 
 /* ========================== */
 /*          cSpecOneArg2007   */
@@ -644,7 +667,12 @@ cSpecOneArg2007::cSpecOneArg2007(const std::string & aName,const std::string & a
     mCom   (aCom),
     mSemPL (aVPL)
 {
+    //if (mSemPL.cES_PropertyList)
     ReInit();
+    if (HasType(eTA2007::Output))
+    {
+     //   StdOut() << "cSpecOneArg2007::cSpecOneArg2 :" << mName << "\n"; getchar();
+    }
 }
 
 cSpecOneArg2007::~cSpecOneArg2007()
@@ -655,6 +683,24 @@ void cSpecOneArg2007::ReInit()
 {
     mNbMatch = 0;
 }
+
+void cSpecOneArg2007::AddSemantics(const tSemA2007PL& aSemPL)
+{
+    tAllSemPL aAllSem = SemPL();
+    const auto & aNewSem = aSemPL.AllPairs();
+    aAllSem.insert(aAllSem.end(),aNewSem.begin(),aNewSem.end());
+    mSemPL = tSemA2007PL(aAllSem);
+}
+
+void cSpecOneArg2007::SetComment(const std::string& aCom)
+{
+    mCom = aCom;
+}
+void cSpecOneArg2007::SetName(const std::string& aName)
+{
+    mName = aName;
+}
+
 
 
 std::string  cSpecOneArg2007::Name4Help() const
@@ -678,6 +724,25 @@ std::string  cSpecOneArg2007::Name4Help() const
         aRes += "]";
     return aRes;
 }
+
+
+void cSpecOneArg2007::SetHeadSep(const cHeaderSectionArg & aHead)
+{
+    MMVII_INTERNAL_ASSERT_strong(!mHeadSep.has_value(),"Multiple cSpecOneArg2007::SetHeadSep");
+    mHeadSep = aHead;
+}
+
+bool cSpecOneArg2007::HasHeadSep() const
+{
+    return mHeadSep.has_value();
+}
+
+const cHeaderSectionArg&  cSpecOneArg2007::GetHeadSep() const
+{
+    MMVII_INTERNAL_ASSERT_strong(mHeadSep.has_value(),"No cSpecOneArg2007::GetHeadSep");
+    return mHeadSep.value();
+}
+
 
 std::list<std::string>  cSpecOneArg2007::AddComs() const
 {
@@ -740,33 +805,49 @@ const std::string  & cSpecOneArg2007::Com() const
     return mCom;
 }
 
-void  cSpecOneArg2007::InitParam(const std::string & aStr)
+void  cSpecOneArg2007::InitParam(const std::string & aStr, bool aFirstInit)
 {
     mValue = aStr;
-    V_InitParam(aStr);
+    V_InitParam(aStr, aFirstInit);
 }
-
-
-
-
 
 
 /* ============================ */
 /*          cCollecSpecArg2007  */
 /* ============================ */
 
+cCollecSpecArg2007 & cCollecSpecArg2007::operator << (const cHeaderSectionArg& aComment)
+{
+    // It's likely that the use doesnt want the second command overwriting the previous
+    MMVII_INTERNAL_ASSERT_always(!mWaitingHeadSA.has_value(),"Succesive comment in cCollecSpecArg2007");
+    mWaitingHeadSA = aComment;
+    return *this;
+}
+void cCollecSpecArg2007::CheckNoWaitingHeadSA() const
+{
+    MMVII_INTERNAL_ASSERT_always(!mWaitingHeadSA.has_value(),"a header was not used, in CheckNoWaitingHeadSA");
+}
+
+
 
 cCollecSpecArg2007 & cCollecSpecArg2007::operator << (tPtrArg2007 aVal)
 {
+    if (mWaitingHeadSA.has_value())
+    {
+        aVal->SetHeadSep(mWaitingHeadSA.value());
+        mWaitingHeadSA.reset();
+    }
     mV.push_back(aVal);
     return *this;
 }
 
+/*
 cCollecSpecArg2007 & cCollecSpecArg2007::operator << (const std::string & aComment)
 {
     mVComm.push_back({mV.size(),aComment});
     return *this;
 }
+*/
 
 cCollecSpecArg2007::cCollecSpecArg2007()
 {
@@ -822,14 +903,19 @@ MACRO_INSTANTIATE_ARG2007(cBox3dr)
    atomic and some non atomic object
 */
 
+void ExceptionOrError(bool ExceptionOnError, eTyUEr aType,
+                      const std::string &aMes) {
+    if (ExceptionOnError)
+        throw StrIOException(aMes);
+    MMVII_UserError(aType, aMes);
+}
+
 /* ==================================== */
 /*                                      */
 /*         Atomic native type           */
 /*  bool, int, double, std::string      */
 /*                                      */
 /* ==================================== */
-thread_local static char BufStrIO[1000];
-
 
 // ================  bool ==============================================
 
@@ -842,9 +928,7 @@ template <>  bool cStrIO<bool>::FromStr(const std::string & aStr, bool Exception
     if ((aStr=="1") || UCaseEqual(aStr,"true")) return true;
     if ((aStr=="0") || UCaseEqual(aStr,"false")) return false;
 
-    if (ExceptionOnError)
-        throw StrIOException("Bad value for boolean :["+aStr+"]");
-    MMVII_UserError(eTyUEr::eBadBool,"Bad value for boolean :["+aStr+"]");
+    ExceptionOrError(ExceptionOnError,eTyUEr::eBadBool,"Bad value for boolean :["+aStr+"]");
 
     return false;
 }
@@ -863,9 +947,7 @@ template <>  std::string cStrIO<char>::ToStr(const char & anI)
 template <>  char cStrIO<char>::FromStr(const std::string & aStr, bool ExceptionOnError)
 {
     if (aStr.size()!=1) {
-        if (ExceptionOnError)
-            throw StrIOException("String size shoul be 1 for char create");
-        MMVII_UserError(eTyUEr::eUnClassedError,"String size shoul be 1 for char create");
+        ExceptionOrError(ExceptionOnError,eTyUEr::eUnClassedError,"String size shoul be 1 for char create");
     }
 
     return aStr[0];
@@ -879,8 +961,7 @@ template <>  std::string cStrIO<char>::msNameType() { return "char";}
 
 template <>  std::string cStrIO<size_t>::ToStr(const size_t & aSz)
 {
-    sprintf(BufStrIO,"%zu",aSz);
-    return BufStrIO;
+    return std::to_string(aSz);
 }
 template <>  size_t cStrIO<size_t>::FromStr(const std::string & aStr, bool ExceptionOnError)
 {
@@ -891,9 +972,7 @@ template <>  size_t cStrIO<size_t>::FromStr(const std::string & aStr, bool Excep
     int aNb= sscanf(aStr.c_str(),"%zu",&aSz);
 
     if (aNb == 0) {
-        if (ExceptionOnError)
-            throw StrIOException("String is not a valid size_t");
-        MMVII_UserError(eTyUEr::eBadInt,"String is not a valid size_t");
+        ExceptionOrError(ExceptionOnError,eTyUEr::eBadInt,"String ["+ aStr +"] is not a valid size_t");
     }
     return aSz;
 }
@@ -912,8 +991,7 @@ bool  StringIsIntOk(const std::string & aStr)
 
 template <>  std::string cStrIO<int>::ToStr(const int & anI)
 {
-    sprintf(BufStrIO,"%d",anI);
-    return BufStrIO;
+    return std::to_string(anI);
 }
 template <>  int cStrIO<int>::FromStr(const std::string & aStr, bool ExceptionOnError)
 {
@@ -924,9 +1002,7 @@ template <>  int cStrIO<int>::FromStr(const std::string & aStr, bool ExceptionOn
     int aNb= sscanf(aStr.c_str(),"%d",&anI);
 
     if (aNb == 0) {
-        if (ExceptionOnError)
-            throw StrIOException("String=["+ aStr +"] is not a valid int");
-        MMVII_UserError(eTyUEr::eBadInt,"String=["+ aStr +"] is not a valid int");
+        ExceptionOrError(ExceptionOnError,eTyUEr::eBadInt,"String ["+ aStr +"] is not a valid int");
     }
     return anI;
 }
@@ -943,17 +1019,15 @@ template <>  std::string cStrIO<tINT2>::msNameType() { return "int2"; }
 template <>  std::string cStrIO<tU_INT1>::msNameType() { return "u_int1";}
 template <>  std::string cStrIO<tREAL4>::msNameType()  { return "float";}
 
-std::string ToStr(int aVal,int aSzMin)
-{
+
+std::string ToStr(int aVal, int aSzMin) {
     std::string aRes = ToStr(std::abs(aVal));
-    while (int(aRes.size())<aSzMin)
+    while (int(aRes.size()) < aSzMin)
         aRes = "0" + aRes;
-    if (aVal<0)
+    if (aVal < 0)
         aRes = "-" + aRes;
     return aRes;
 }
-
-
 
 /*
 std::string  ToS_NbDigit(int aNb,int aNbDig,bool AcceptOverFlow)
@@ -1014,9 +1088,7 @@ template <>  double cStrIO<double>::FromStr(const std::string & aStr, bool Excep
     double anI;
     int aNb = sscanf(aStr.c_str(),"%lf",&anI);
     if (aNb == 0) {
-        if (ExceptionOnError)
-            throw StrIOException("String=["+ aStr +"] is not a valid double");
-        MMVII_UserError(eTyUEr::eBadInt,"String=["+ aStr +"] is not a valid double");
+        ExceptionOrError(ExceptionOnError,eTyUEr::eBadInt,"String ["+ aStr +"] is not a valid double");
     }
     return anI;
 }
@@ -1089,32 +1161,15 @@ template <>  std::string cStrIO<std::string>::msNameType() { return "string";}
 /*                                      */
 /* ==================================== */
 
-//  vector<int>  => [1,2,3]
-
-template <class Type>  std::string Vect2Str(const std::vector<Type>  & aV)
-{
-   std::string aRes ="[";
-   for (int aK=0 ; aK<(int)aV.size() ; aK++)
-   {
-      if (aK>0)
-         aRes += ",";
-      aRes += ToStr(aV[aK]);
-   }
-   aRes += "]";
-   return aRes;
-}
-
 //  4/12/2023 : "Big" modif by MPD to be abble to parse nested stuff like "[1,[2,3],4]" correctly
 
-template <class Type>  std::vector<Type> Str2Vec(const std::string & aStrGlob, bool ExceptionOnError)
+void Str2VecAlgo(const std::string & aStrGlob, bool ExceptionOnError,
+                 const std::function<void(const std::string&, bool)>& f)
 {
 // StdOut() <<  "aStrGlobaStrGlobaStrGlob =" << aStrGlob << "\n";
-   std::vector<Type> aRes;
    const char * aC=aStrGlob.c_str();
    if (*aC!='[') {
-       if (ExceptionOnError)
-           throw StrIOException("expected [ at beging of vect");
-       MMVII_UserError(eTyUEr::eParseError,"expected [ at beging of vect");
+       ExceptionOrError(ExceptionOnError,eTyUEr::eParseError,"expected [ at beging of vect");
    }
    aC++;
    int aLevel = 1;  // level in the parenthesis language, if Lev>1 we dont consider [,] as poncutation
@@ -1123,14 +1178,12 @@ template <class Type>  std::vector<Type> Str2Vec(const std::string & aStrGlob, b
    {
        if (*aC==0)
        {
-          if (ExceptionOnError)
-              throw StrIOException("unexpected end of string while parsing " + aStrGlob);
-          MMVII_UserError(eTyUEr::eParseError,"unexpected end of string while parsing " + aStrGlob);
+           ExceptionOrError(ExceptionOnError,eTyUEr::eParseError,"unexpected end of string while parsing " + aStrGlob);
        }
        // only level 1 "," are considered as separators
        else if ((*aC==',') && (aLevel==1))
        {
-           aRes.push_back(cStrIO<Type>::FromStr(aStrV,ExceptionOnError));
+           f(aStrV,ExceptionOnError);
            aStrV="";
        }
        //  a "[" is an ordinary carater, just increase the level
@@ -1149,7 +1202,7 @@ template <class Type>  std::vector<Type> Str2Vec(const std::string & aStrGlob, b
             {
                 // else it's the final ponctuation
                 if (aStrV!="")
-                    aRes.push_back(cStrIO<Type>::FromStr(aStrV,ExceptionOnError));
+                    f(aStrV,ExceptionOnError);
                 else
                 {
                     // if last string  is "", we dont add it
@@ -1167,41 +1220,9 @@ template <class Type>  std::vector<Type> Str2Vec(const std::string & aStrGlob, b
    }
 
    if (aLevel!=0) {
-       if (ExceptionOnError)
-           throw StrIOException("unexpected end of string , bad match in []");
-      MMVII_UserError(eTyUEr::eParseError,"unexpected end of string , bad match in []");
+       ExceptionOrError(ExceptionOnError,eTyUEr::eParseError,"unexpected end of string , bad match in []");
    }
-
-   return  aRes;
 }
-
-/*
-template <class Type>  std::vector<Type> Str2Vec(const std::string & aStrGlob)
-{
-   std::vector<Type> aRes;
-   const char * aC=aStrGlob.c_str();
-   if (*aC!='[')
-       MMVII_UsersErrror(eTyUEr::eParseError,"expected [ at beging of vect");
-   aC++;
-   while((*aC) && *aC!=']')
-   {
-       std::string aStrV;
-       while ((*aC) && (*aC!=',') && (*aC!=']'))
-          aStrV += *(aC++);
-       if (!(*aC))
-          MMVII_UsersErrror(eTyUEr::eParseError,"unexpected end of string while expecting \",\"");
-       aRes.push_back(cStrIO<Type>::FromStr(aStrV));
-       if (*aC==',')
-          aC++;
-   }
-   if (*aC!=']')
-      MMVII_UsersErrror(eTyUEr::eParseError,"unexpected end of string while expecting \"]\"");
-   aC++;
-
-   return  aRes;
-}
-*/
-
 
 
 
@@ -1231,6 +1252,75 @@ std::vector<std::string> Str2VStr(const std::string & aS)
 
 /* ==================================== */
 /*                                      */
+/*         StructuredArg                */
+/*                                      */
+/* ==================================== */
+
+namespace StructuredArg
+{
+
+static std::string TrimFieldName(const std::string & aName)
+{
+    const auto aBegin = aName.find_first_not_of(" \t\n\r");
+    if (aBegin == std::string::npos)
+        return "";
+    const auto anEnd = aName.find_last_not_of(" \t\n\r");
+    return aName.substr(aBegin,anEnd-aBegin+1);
+}
+
+std::vector<std::string> FieldNames(const std::string & aNames)
+{
+    std::vector<std::string> aResult;
+    size_t aBegin = 0;
+    int aDepth = 0;
+    for (size_t aK=0 ; aK<=aNames.size() ; ++aK)
+    {
+        const char aChar = (aK<aNames.size()) ? aNames[aK] : ' ';
+        if ((aChar=='(') || (aChar=='{') || (aChar=='['))
+            ++aDepth;
+        else if ((aChar==')') || (aChar=='}') || (aChar==']'))
+            --aDepth;
+        else if (((aChar==',') || (aK==aNames.size())) && (aDepth==0))
+        {
+            aResult.push_back(TrimFieldName(aNames.substr(aBegin,aK-aBegin)));
+            aBegin = aK + 1;
+        }
+    }
+    return aResult;
+}
+
+void ApplyFieldSemantics(const tPtrArg2007 & aSpec,const cArg2007FieldSemantics & aFieldSem)
+{
+    MMVII_INTERNAL_ASSERT_always(aSpec,"FieldSem must follow a field in ARG2007_STRUCT_FIELDS");
+    auto aSemPL = cSpecOneArg2007::tAllSemPL{};
+    auto aCommentDone = false;
+    for (const auto& aSem : aFieldSem.mValues)
+    {
+        MMVII_INTERNAL_ASSERT_always
+        (
+            aSem.Type() != eTA2007::CanRepeat,
+            "CanRepeat is reserved to a top level argument, it cannot be used on the field ["
+                + aSpec->Name() + "] of a structured argument"
+        );
+        if (aSem.Type() == eTA2007::AddCom  && ! aCommentDone)
+        {
+            aSpec->SetComment(aSem.Aux());
+            aCommentDone = true;
+        } else {
+            aSemPL.push_back(aSem);
+        }
+        if (aSem.Type() == eTA2007::HDV)
+        {
+            aSpec->SetName(aSpec->Name() + "?");
+        }
+    }
+    aSpec->AddSemantics(aSemPL);
+}
+
+} // namespace StructuredArg
+
+/* ==================================== */
+/*                                      */
 /*         cPtxd                        */
 /*                                      */
 /* ==================================== */
@@ -1254,9 +1344,8 @@ template <>  cPtxd<TYPE,DIM> cStrIO<cPtxd<TYPE,DIM> >::FromStr(const std::string
 {\
     std::vector<TYPE> aV = cStrIO<std::vector<TYPE>>::FromStr(aStr,ExceptionOnError);\
     if (aV.size()!=DIM) {\
-        if (ExceptionOnError)\
-            throw StrIOException("Bad dimension for point, expect=" + MMVII::ToStr(DIM) + " Got=" + MMVII::ToStr(int(aV.size())) );\
-       MMVII_UserError(eTyUEr::eBadDimForPt,"Expect="+ MMVII::ToStr(DIM) + " Got=" + MMVII::ToStr(int(aV.size())) );\
+        ExceptionOrError(ExceptionOnError,eTyUEr::eBadDimForPt,\
+             "Bad dimension for point, expect=" + MMVII::ToStr(DIM) + " Got=" + MMVII::ToStr(int(aV.size())) );\
     }\
     cPtxd<TYPE,DIM> aRes;\
     for (int aK=0 ; aK<DIM ; aK++)\
@@ -1267,9 +1356,8 @@ template <>  cTplBox<TYPE,DIM> cStrIO<cTplBox<TYPE,DIM> >::FromStr(const std::st
 {\
     std::vector<TYPE> aV = cStrIO<std::vector<TYPE>>::FromStr(aStr, ExceptionOnError);\
     if (aV.size()!=2*DIM) {\
-        if (ExceptionOnError)\
-            throw StrIOException("Expect="+ MMVII::ToStr(2*DIM) + " Got=" + MMVII::ToStr(int(aV.size())));\
-        MMVII_UserError(eTyUEr::eBadDimForBox,"Expect="+ MMVII::ToStr(2*DIM) + " Got=" + MMVII::ToStr(int(aV.size())) );\
+        ExceptionOrError(ExceptionOnError,eTyUEr::eBadDimForBox,\
+                        "Expect="+ MMVII::ToStr(2*DIM) + " Got=" + MMVII::ToStr(int(aV.size())));\
     }\
     cPtxd<TYPE,DIM> aP0,aP1;\
     for (int aK=0 ; aK<DIM ; aK++){\
@@ -1382,6 +1470,6 @@ MACRO_INSTANTIATE_STRIO_ENUM(eTypeSensor,"TypeSensor")
 MACRO_INSTANTIATE_STRIO_ENUM(eFormatSensor,"FormatSensor")
 MACRO_INSTANTIATE_STRIO_ENUM(eModeSSR,"ModeSRR")
 MACRO_INSTANTIATE_STRIO_ENUM(eImatchCrit,"ImatchCrit")
-
+MACRO_INSTANTIATE_STRIO_ENUM(eTargetDistanceEstim,"TargetDistanceEstim")
 
 };

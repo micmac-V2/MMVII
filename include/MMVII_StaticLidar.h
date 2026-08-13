@@ -1,6 +1,8 @@
 #ifndef  _MMVII_STATICLIDAR_H_
 #define  _MMVII_STATICLIDAR_H_
 
+#include <functional>
+
 #include "MMVII_2Include_Serial_Tpl.h"
 #include "MMVII_Geom3D.h"
 #include "MMVII_PCSens.h"
@@ -129,12 +131,15 @@ public :
     virtual void ToFile(const std::string &) const override;
     static std::string RasterIntensityPath(const std::string & aImName); ///< base name should be Station-scan
     static std::string RasterIntensityPath(const cPhotogrammetricProject & aPhProj, const std::string & aImIDName); ///< base name should be Station-scan
-    void FillRasters(const cStaticLidarImporter & aSL_importer, const std::string &aPhProjDirOut, bool saveRasters);
+    void FillRasters(const cStaticLidarImporter & aSL_importer);
+    void SaveRasters(const cStaticLidarImporter & aSL_importer, const std::string &aPhProjDirOut);
     static std::string NameFromId(const std::string &aIdName, bool getOriName);
     static bool IsNameTSL(const std::string &aImageName);
 
-    cCalculator<double> * CreateEqColinearity(bool WithDerives, int aSzBuf, bool ReUse) override;
-    void PushOwnObsColinearity(std::vector<double> & aVObs,const cPt3dr &) override; // just fail
+    cCalculator<double> * CreateEqColinearity(bool WithDerives, int aSzBuf, bool ReUse) override; // colinearity with fixed F and PP
+    cCalculator<double> * CreateEqColinearityDist(bool WithDerives, int aSzBuf, bool ReUse);
+    cCalculator<double> * GetEqColinearityDist();
+    void PushOwnObsColinearity(std::vector<double> & aVObs, const cPt3dr &) override; // use this for GCP obs
     void PushOwnObsColinearityDistance(std::vector<double> & aVObs, tREAL4 aMesDistance); // use this for GCP obs
 
 
@@ -146,12 +151,12 @@ public :
     void FilterDistance(tREAL8 aDistMin, tREAL8 aDistMax);
     void MaskBuffer(const cStaticLidarImporter &aSL_importer, tREAL8 aAngBuffer, const std::string &aPhProjDirOut);
     void SelectPatchCenters1(int aNbPatches);
-    void SelectPatchCenters2(int aNbPatches);
+    void SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> *aSupMaskDIm=nullptr);
     void MakeVisu(const cPhotogrammetricProject & aPhProj) const;     ///< show 8bit dist image with patch centers
     void MakePatches(std::list<cLidarRasterPatch> &aLPatches,
                      const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin,
                      const cDiffInterpolator1D &aInterp) const;
-    std::pair<tREAL8,tREAL8> AvgDistAndNbValid() const; //< return average dist for valid points, and number of valid points
+    std::tuple<tREAL8,tREAL8,tREAL8> AvgDistNbValidAndNbNotMasked() const; //< return average dist for valid points, number of valid points and number of not-masked points
 
     cPt3dr Image2InputXYZ(cPt2di aRasterPxI) const; // in input frame
     cPt3dr Image2InputXYZ(cPt2dr aRasterPx) const;
@@ -166,8 +171,10 @@ public :
     cPt3dr Image2Ground(const cPt2di &aRasterPxI) const;
     cPt3dr Image2Ground(cPt2dr aRasterPx) const;
     tREAL4 Image2Distance(cPt2dr aRasterPx) const;
+    cPt3dr ImageAndDepth2Ground(const cPt3dr & ) const override;
 
-    cPt2dr Ground2ImagePrecise(const cPt3dr & aGroundPt) const;
+    cPt2dr Ground2Image(const cPt3dr &aGroundPt) const override;
+    cPt3dr Ground2ImageAndDepth(const cPt3dr &) const override;
 
     void FixPtPxLoopAroundPP(cPt2dr &aPtPx) const override;
 
@@ -180,7 +187,9 @@ public :
     static std::string Pat2Sup(const std::string & aPatSelect);
 
     cDataIm2D<tREAL4> &getRasterDistance() const;
-    bool IsValidPoint(const cPt2dr &aRasterPx) const;
+    bool IsValidPoint(const cPt2dr &aRasterPx) const; ///< is dist>0
+    bool IsValidPoint(const cPt2di &aRasterPx) const; ///< is dist>0
+    bool IsMaskedPoint(const cPt2dr &aRasterPx) const;
     tREAL8 Sigma() const;
     const std::vector<cPt2di> & PatchCenters() const;
 
@@ -188,13 +197,19 @@ public :
     static std::string GetIdSuffix();
     static std::string GetIdSuffixRegex();
 
-    virtual bool DoAddCalibToUk() const override;
-private :
-    template <typename TYPE> static void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
-                    std::function<TYPE (int)> func); // do not keep image in memory
+    cIm2D<tU_INT1> projectIntensityFrom(const cStaticLidar& aFrom) const;
 
-    template <typename TYPE> static void fillRaster(const cStaticLidarImporter & aSL_importer, const std::string& aPhProjDirOut, const std::string& aFileName,
-                    std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE>> & aIm, bool saveRaster); // keep image in memory
+    virtual bool DoAddCalibToUk() const override;
+
+    cDiffInterpolator1D * getLineraInterpolator() const;
+
+    std::tuple<double, double, cPt3dr> getDistSigmaNormalPlane(cPt2dr aCenter, const cPixBox<2> &aPixBox) const; ///< Adjust a plane on defined points
+
+private :
+    template <typename TYPE> static void fillRaster(const cStaticLidarImporter & aSL_importer,
+                    std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE>> & aIm); // keep image in memory
+
+    cPt2dr Ground2ImagePrecise(const cPt3dr & aGroundPt) const;
 
     std::string mStationName;
     std::string mScanName;
@@ -227,6 +242,9 @@ private :
     cRotation3D<tREAL8> mRotInput2Raster; //< to go from z vertical to z view direction of PP, and make PPx in center
     // triangulation for patches selection
     cTriangulation3D<tREAL8> * mTriangulation; ///< triangulation of the raster, for zbuffer
+
+    cDiffInterpolator1D * mLinearInterpolator;
+    cCalculator<double> * mEqDistColinearityDist;
 };
 
 template <typename TYPE>
@@ -243,6 +261,8 @@ template <typename TYPE>
 {
     cPt3dr aPtCam3D = Image2Camera3D(aRasterPx);
     tREAL8 aDist = Norm2(aPtCam3D);
+    if (aDist==0)
+        return {0.,0.,0.}; // InternalCalib()->Value() will make an error
     cPt2dr aPx = InternalCalib()->Value(aPtCam3D);
     cPt2dr aDir = (aPx - InternalCalib()->PP()) / InternalCalib()->F();
     if (aDir.x()<-M_PI)

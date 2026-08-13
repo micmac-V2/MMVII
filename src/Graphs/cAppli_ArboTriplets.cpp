@@ -1,8 +1,87 @@
 #include "ArboTriplets.h"
 
+// DEBUG ONLY - see the anonymous namespace below
+#define MMVII_DBG_HSFM_SAVE_MERGE 0
+
+
 namespace MMVII
 {
-   // mNbTriAnchor mNbTreeGlob mNbTree2Split
+
+#if MMVII_DBG_HSFM_SAVE_MERGE
+namespace
+{
+/// save nodes of depth (root=0)
+static constexpr int TheDbgMergeMaxDepth = 2;
+/// prefix for created intermediary poses
+static const std::string TheDbgMergePrefix = "DbgMerge_";
+
+struct DbgMergeSnapshot
+{
+    std::string mName;
+    std::vector<cSolLocNode> mLocSols;
+};
+
+std::mutex TheDbgMergeMutex;
+std::vector<DbgMergeSnapshot> TheDbgMergeSnaps;
+
+/// memorize the copy of camera poses (run from the thread worker)
+void DbgMemoMergeSols(const std::string& aName, const std::vector<cSolLocNode>& aLocSols)
+{
+    MMVII_INTERNAL_ASSERT_strong(!aName.empty(),"DbgMemoMergeSol : empty folder name");
+
+    DbgMergeSnapshot aSnap;
+    aSnap.mName = aName;
+    aSnap.mLocSols.reserve(aLocSols.size());
+
+    // duplicate
+    for (const auto& aSol : aLocSols)
+    {
+        aSnap.mLocSols.push_back(cSolLocNode(tPoseR(aSol.mPose.Tr(),
+                                                    tRotR(aSol.mPose.Rot().Mat().Dup(),false)),aSol.mNumPose));
+        std::lock_guard<std::mutex> aLock(TheDbgMergeMutex);
+
+    }
+    {
+        std::lock_guard<std::mutex> aLock(TheDbgMergeMutex);
+        TheDbgMergeSnaps.push_back(std::move(aSnap));
+    }
+
+}
+
+/// function that does the writing to disk (call in monothread)
+void DbgFlushMergeSol(cMakeArboTriplet& aPMAT)
+{
+    ASSERT_NO_MUTI_THREAD();
+
+    /// read photogrammetric project from memory
+    cPhotogrammetricProject* aPhP = dynamic_cast<cPhotogrammetricProject*>(&(aPMAT.PhProj()));
+    if (aPhP==nullptr) return;
+
+    std::sort(TheDbgMergeSnaps.begin(), TheDbgMergeSnaps.end(), [](const DbgMergeSnapshot& aS1, const DbgMergeSnapshot& aS2)
+              {
+                  return aS1.mName < aS2.mName;
+              });
+
+    StdOut() << "Saving merge snapshots to disk (" << TheDbgMergeSnaps.size() << " snapshots)\n";
+
+    for (const auto & aSnap : TheDbgMergeSnaps)
+    {
+        std::string aFullDir = aPhP->DPOrient().ComputeFullDir(aSnap.mName);
+        CreateDirectories(aFullDir,true);
+
+        for (const auto & aSol : aSnap.mLocSols)
+        {
+            std::string aNameIm = aPMAT.MapI2Str(aSol.mNumPose);
+            cSensorCamPC aCam(aNameIm,aSol.mPose,aPMAT.InternalCalibFromNameImage(aNameIm));
+            aCam.ToFile(aFullDir + aCam.NameOriStd());
+
+        }
+        StdOut() << "   * " << aSnap.mName << " : " << aSnap.mLocSols.size() << " poses" << std::endl;
+    }
+    TheDbgMergeSnaps.clear();
+}
+}
+#endif //
 
 /* ********************************************************* */
 /*                                                           */
@@ -35,7 +114,7 @@ cNodeArborTriplets::cNodeArborTriplets(cMakeArboTriplet & aMAT ,const t3G3_Tree 
           aWME.Add(anE,anE->AttrSym().mCostTree * aWeight);
       }
 
-      // [2]  split arround best
+      // [2]  split around best
       std::array<t3G3_Tree,2>  a2T;
       aTree.Split(a2T,aWME.IndexExtre());  // split the tree
       aMAT.CostMergeTree() += a2T.at(0).Edges().size() +  a2T.at(1).Edges().size();
@@ -245,8 +324,7 @@ tRotR  cNodeArborTriplets::EstimateRotTransfert
                   const std::vector<cOneTripletMerge> &  aVLink3
              )
 {
-    cAutoTimerSegm aTimerRestim((cMMVII_Appli::IsMultiThread() ? nullptr : &mPMAT->TimeSegm()),
-                                "RotEstim");
+    cAutoTimerSegm aTimerRestim(mPMAT->TimeSegm(),"RotEstim");
     // store all the individual transfer, note that as they are defined up to a scale, the translation cannot be used directly
     std::vector<tPoseR>   aVecTransf_W1_to_W0;
     cNodeArborTriplets & aN0 = *(mChildren.at(0));
@@ -320,11 +398,23 @@ tRotR  cNodeArborTriplets::EstimateRotTransfert
     // B.2  : ---------- make a robust estimation --------------------
     //  B.2.1 robust estimator, but to limit compuation time is Nb>aSzMax => split in small pack, estimate, and aggregate
     int aSzMax = 20;
-    tREAL8 aSig0 = 0.1;
+    tREAL8 aSig0Fixed = 0.1; // fallback when not enough data to estimate a MAD
+    int    aMinNbSamples = 5; // below this threshold the aSig0Fixed is used
     tRotR aRotEstim ;
     {
-
         aRotEstim = tRotR::PseudoMediane(aVRot,aSzMax);
+
+        // compute data-dependent Sigma0
+        tREAL8 aSig0 = aSig0Fixed;
+        if ((int)aVRot.size()>=aMinNbSamples)
+        {
+            std::vector<tREAL8> aVRotVar;
+            for (auto& aRotCur : aVRot)
+                aVRotVar.push_back( aRotEstim.Dist(aRotCur) );
+            tREAL8 aKth50 = NC_KthVal(aVRotVar,0.5);
+            aSig0 = 1.4826*aKth50;
+        }
+
         //  B.2.2 make weighted averaging initializd from pseudo median d
         //  Make exactly  2 iteration with  a weighting having a L1 behaviour at infinite
         aRotEstim = tRotR::RobustAvg(aVRot,aRotEstim,{aSig0,2,0.5},2);
@@ -402,7 +492,16 @@ void cNodeArborTriplets::AddEqLink
      }
 }
 
-
+void cNodeArborTriplets::AddEqCommon(cLinearOverCstrSys<tREAL8> * aSys,tREAL8 aWeight,
+                                     const cPt3dr &aC0_in_W0, const cPt3dr &aC1_in_W0)
+{
+    for (int aKC=0 ; aKC<3 ; aKC++)
+    {
+        //  observation is :   aC0.{x,y,z} = Tr{x,y,z} + Lambda aC1.{x,y,z}
+        tVIV aVIV {{aKC,1.0},{3,aC1_in_W0[aKC]}};   //  KC->num of Tr.{x,y,z},  3 num of lambda
+        aSys->PublicAddObservation(aWeight, tSV(aVIV), aC0_in_W0[aKC]);
+    }
+}
 
 
 
@@ -413,13 +512,29 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
                   const std::vector<cOneTripletMerge> &  aVLink3
              )
 {
-    cAutoTimerSegm aTimerRestim(mPMAT->TimeSegm(),"SimEstim");
+    cAutoTimerSegm aTimerSimestim(mPMAT->TimeSegm(),"SimEstim");
+
     // [0]  some preliminary stuff
     // typedef   std::vector<cCplIV<tREAL8>> tVIV;
     // typedef   cSparseVect<tREAL8>         tSV;
     bool  withLnk2=true;
     bool  withLnk3=true;
     bool  withSchur = false;  // work with Schur but, surprinsingly (?) , increase computation time
+
+    // [0] structure holding data on the 'bridge' observations between two children
+    //     it will help to do some observation dependent quality checks
+    enum class eBridgeCat { Common, EdgeLink, TripletLink };
+
+    struct cBridgeResInfo
+    {
+        eBridgeCat mCat;
+        int    mI0Glob, mI1Glob;   // global image indices this bridge connects
+        cPt3dr mC0, mC1;
+        cPt3dr mCTri0, mCTri1;
+        int    mKEq;
+        int    mNumTri = -1;   // triplet id, only meaningful for mCat==TripletLink
+    };
+    std::vector<cBridgeResInfo> aBridgeInfos;
 
     cNodeArborTriplets & aN0 = *(mChildren.at(0));
     cNodeArborTriplets & aN1 = *(mChildren.at(1));
@@ -455,6 +570,29 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
     // cLinearOverCstrSys<tREAL8> * aSys = new cLeasSqtAA<tREAL8>(aNbUnk);
     //cLinearOverCstrSys<tREAL8> * aSys = AllocL1_Barrodale<tREAL8>(aNbUnk);
     
+    // Compute a reference scale across all local solutions (N0 is reference)
+    //   it will be used for residual normalisation (otherwise data lives in diff scale frames)
+    auto ScaleOfChild = [](const std::vector<cSolLocNode>& aLocSols) -> tREAL8
+    {
+        if (aLocSols.size()<2) return 0.0;
+        cPt3dr aCdg(0,0,0);
+
+        for (const auto& aSol : aLocSols)
+            aCdg = aCdg + aSol.mPose.Tr();
+
+        aCdg = aCdg / (tREAL8)aLocSols.size();
+
+        tREAL8 aSumSqD = 0.0;
+        for (const auto& aSol: aLocSols)
+            aSumSqD+= SqN2( aSol.mPose.Tr() - aCdg);
+
+        return Sqrt(aSumSqD/aLocSols.size());
+    };
+
+    tREAL8 aScale0= ScaleOfChild(aN0.mLocSols);
+    tREAL8 aScale1= ScaleOfChild(aN1.mLocSols);
+    tREAL8 aScaleRef = (aScale0>1e-8) ? aScale0 : ((aScale1>1e-8) ? aScale1 : 1.0); // avoid degenerate (too small) scale
+
 
     int aKWeight=0;
     // [3]   Add the equation corresponding to common pose
@@ -467,12 +605,16 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
         //  C0 and C1 are two estimation of the center of the pose, they must be equal up
         //  to the global transfert (Tr,Lambda) from W1 to W0
         //
-        for (int aKC=0 ; aKC<3 ; aKC++)
+        AddEqCommon(aSys,aW,aC0,aC1);
+        /*for (int aKC=0 ; aKC<3 ; aKC++)
         {
             //  observauion is :   aC0.{x,y,z} = Tr{x,y,z} + Lambda aC1.{x,y,z}
             tVIV aVIV {{aKC,1.0},{3,aC1[aKC]}};   //  KC->num of Tr.{x,y,z}  ,  3 num of lambda
             aSys->PublicAddObservation(aW, tSV(aVIV),aC0[aKC]);
-        }
+        }*/
+        // update the 'brudge' structure with current observation
+        aBridgeInfos.push_back({eBridgeCat::Common, aN0.mLocSols[aI0Loc].mNumPose, aN1.mRotateLS[aI1Loc].mNumPose,
+                                aC0, aC1, cPt3dr(), cPt3dr(), -1,-1});
     }
     // count the current position of equation for edge/triplet
     int aKEq = 4;
@@ -512,11 +654,15 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
              }
 
 
-             // "transer" the centers of triplet in the W0
+             // "transfer" the centers of triplet in the W0
              cPt3dr aCTri0_In_W0 = aR_Tri_to_W0.Value(aPI0_toTri.Tr());
              cPt3dr aCTri1_In_W0 = aR_Tri_to_W0.Value(aPI1_toTri.Tr());
 
              AddEqLink(aSys,aPtrSubst,aWeight,aKEq,aC0_in_W0,aC1_in_W0,aCTri0_In_W0,aCTri1_In_W0);
+
+             // update the 'brudge' structure with current observation
+             aBridgeInfos.push_back({eBridgeCat::EdgeLink, aN0.mLocSols[aI0Loc].mNumPose, aN1.mRotateLS[aI1Loc].mNumPose,
+                                     aC0_in_W0, aC1_in_W0, aCTri0_In_W0, aCTri1_In_W0, aKEq,-1});
              aKEq += 4;
              if (withSchur)
                 aSys->PublicAddObsWithTmpUK(*aPtrSubst,mPMAT->Cfg().mLVM);
@@ -576,6 +722,10 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
                  cPt3dr  aC1_in_W0 = aN1.mRotateLS.at(aI1Loc).mPose.Tr();
 
                  AddEqLink(aSys,aPtrSubst,aWeight,aKEq,aC0_in_W0,aC1_in_W0,aCTri0_In_W0,aCTri1_In_W0);
+
+                 // update the 'brudge' structure with current observation
+                 aBridgeInfos.push_back({eBridgeCat::TripletLink, aN0.mLocSols.at(aI0Loc).mNumPose, aN1.mRotateLS.at(aI1Loc).mNumPose,
+                                         aC0_in_W0, aC1_in_W0, aCTri0_In_W0, aCTri1_In_W0, aKEq,aLnk3.mNumTri});
            }
            aKEq += 4;
            if (withSchur)
@@ -585,8 +735,92 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
 
     MMVII_INTERNAL_ASSERT_bench(aKWeight==int(aWeightR.size()),"End of rotation weighting");
 
-    cAutoTimerSegm aTimerSolveSim(mPMAT->TimeSegm(),"SolveSim");
-    cDenseVect<tREAL8> aSol = aSys->PublicSolve();
+    cAutoTimerSegm aTimerSolveSim(mPMAT->TimeSegm(),"SolveSimInit");
+
+    cDenseVect<tREAL8> aSol = aSys->PublicSolve(); //rotation weighting only
+    tREAL8 aLambda1 = aSol(3);
+    cPt3dr aTr1(aSol(0),aSol(1),aSol(2));
+
+    // [6] re-estimate translation and lambda with weights
+
+    // compute weighting:
+    //    * to favour observations coming from common-poses which have more redundancy
+    //    * to penalise observation based on their (normalised) residuals
+    // notion of redundancy: fraction of a bridge's own local equations that actually check
+    // consistency rather than being absorbed by its private TrTri/LambdaTri unknowns.
+    // Common-pose bridges have none of these unknowns (fraction=1, nothing to hide behind).
+    // Link/triplet bridges share their 4 private unknowns with every other bridge using the
+    // same aKEq (2 links of the same triplet share one block, a standalone edge-link does not)
+    // -> fraction = 1 - 4/(6*nSharing).
+    std::map<int,int> aKEqCount;
+    for (const auto & aBI : aBridgeInfos)
+        if (aBI.mCat!=eBridgeCat::Common)
+            aKEqCount[aBI.mKEq]++;
+
+    std::vector<tREAL8> aRedFrac(aBridgeInfos.size());
+    for (size_t aI=0 ; aI<aBridgeInfos.size() ; aI++)
+    {
+        const auto & aBI = aBridgeInfos.at(aI);
+        aRedFrac.at(aI) = (aBI.mCat==eBridgeCat::Common)? 1.0 : (1.0 - 4.0/(6.0*aKEqCount.at(aBI.mKEq)));
+    }
+
+    // per-bridge residual, normalized by aScaleRef and redundancy
+    std::vector<tREAL8> aBridgeRes;
+    //for (const auto & aBI : aBridgeInfos)
+    for (size_t aI=0 ; aI<aBridgeInfos.size() ; aI++)
+    {
+        const auto & aBI = aBridgeInfos.at(aI);
+        tREAL8 aResNorm;
+        if (aBI.mCat==eBridgeCat::Common)
+        {
+            cPt3dr aDelta = aBI.mC0 - (aTr1 + aLambda1*aBI.mC1);
+            aResNorm = Norm2(aDelta);
+        }
+        else
+        {
+            cPt3dr aTrTri(aSol(aBI.mKEq),aSol(aBI.mKEq+1),aSol(aBI.mKEq+2));
+            tREAL8 aLambdaTri = aSol(aBI.mKEq+3);
+            cPt3dr aRes0 = aBI.mC0 - (aTrTri + aLambdaTri*aBI.mCTri0);
+            cPt3dr aRes1 = (aTr1 + aLambda1*aBI.mC1) - (aTrTri + aLambdaTri*aBI.mCTri1);
+            aResNorm = std::sqrt(SqN2(aRes0)+SqN2(aRes1));
+        }
+        aBridgeRes.push_back( (aResNorm/aScaleRef) / std::sqrt(aRedFrac.at(aI)) );
+    }
+
+    // compute data-dependent observations sigma
+    tREAL8 aSigT = 0.1;
+    int    aMinNbForAdaptiveT = 5;// fallback when too few bridges to estimate a spread
+    if ((int)aBridgeRes.size() >= aMinNbForAdaptiveT)
+    {
+        std::vector<tREAL8> aResForMed = aBridgeRes;   // because NC_KthVal reorders its argument
+        tREAL8 aMed = NC_KthVal(aResForMed,0.5);
+        if (aMed>1e-8) aSigT = 1.4826*aMed;
+    }
+
+    // combine with rotation weight
+    std::vector<tREAL8> aWeightFinal(aBridgeInfos.size());
+    for (size_t aI=0 ; aI<aBridgeInfos.size() ; aI++)
+    {
+        aWeightFinal.at(aI) = aWeightR.at(aI) * aRedFrac.at(aI) * StdWeightResidual({aSigT,2,1.0},aBridgeRes.at(aI));
+    }
+
+    // replay same equations with new weights
+    aSys->PublicReset();
+    for (size_t aI=0 ; aI<aBridgeInfos.size() ; aI++)
+    {
+        const auto & aBI = aBridgeInfos.at(aI);
+        tREAL8 aW = aWeightFinal.at(aI);
+        if (aBI.mCat==eBridgeCat::Common)
+        {
+            AddEqCommon(aSys,aW,aBI.mC0,aBI.mC1);
+        }
+        else
+        {
+            AddEqLink(aSys,nullptr,aW,aBI.mKEq,aBI.mC0,aBI.mC1,aBI.mCTri0,aBI.mCTri1);
+        }
+    }
+    cAutoTimerSegm aTimerSolveSimFinal(mPMAT->TimeSegm(),"SolveSimFinal");
+    aSol = aSys->PublicSolve();
     tREAL8 aLambda = aSol(3);
     cPt3dr aTr(aSol(0),aSol(1),aSol(2));
 
@@ -694,6 +928,8 @@ void cNodeArborTriplets::CmpWithGT()
 
 void cNodeArborTriplets::MergeChildrenSol()
 {
+     cAutoTimerSegm aTimerMerge(mPMAT->TimeSegm(),"MergeChildrenSol");
+
      cNodeArborTriplets & aN0 = *(mChildren.at(0));
      cNodeArborTriplets & aN1 = *(mChildren.at(1));
 
@@ -787,9 +1023,16 @@ void cNodeArborTriplets::MergeChildrenSol()
          mLocSols.push_back(cSolLocNode(aPoseInS0,aSol1.mNumPose));
      }
 
-     //aN0.SaveGlobSol("Child0Init");
-     //aN1.SaveGlobSol("Child1Init");
-     //SaveGlobSol("Init");
+#if MMVII_DBG_HSFM_SAVE_MERGE
+     if (mDepth <= TheDbgMergeMaxDepth)
+     {
+        // identify the node by its depth + its smallest triplet number
+        int aKTMin = std::numeric_limits<int>::max();
+        for (const auto & aVT : mTree.Vertices())
+            aKTMin = std::min(aKTMin,aVT->Attr().mKT);
+        DbgMemoMergeSols(TheDbgMergePrefix+"_D"+ToStr(mDepth)+"_T"+ToStr(aKTMin),mLocSols);
+     }
+#endif
 
      // refine the solution with BA
      if (mPMAT->TPtsStruct() !=nullptr)
@@ -810,9 +1053,11 @@ void cNodeArborTriplets::MergeChildrenSol()
 /* Refinement on bundles (any camera projection) */
 void cNodeArborTriplets::RefineCurSolution()
 {
+    cAutoTimerSegm aTimerBA(mPMAT->TimeSegm(),"RefineBA");
+
     int aNbIterEnd = mPMAT->Cfg().mNbIterBA + (mDepth==0 ? mPMAT->Cfg().mNbExtraIterAtRoot : 0);
 
-    cBA_ArboTriplets* aBA = new cBA_ArboTriplets(mPMAT, mLocSols,mDepth,aNbIterEnd);
+    cBA_ArboTriplets* aBA = new cBA_ArboTriplets(mPMAT, mLocSols,mDepth,aNbIterEnd,1.0,1.0);
 
     for (int aIter = 0; aIter < aNbIterEnd; aIter++)
         aBA->OneIteration(aIter);
@@ -1492,12 +1737,9 @@ void cMakeArboTriplet::ComputeArbor()
    mArbor = new cNodeArborTriplets(*this,aTreeKernel,0);
    if (mCfg.mVerbose) StdOut() << "CostMerge " << mCostMergeTree << "\n";
 
-   //mArbor->ComputeResursiveSolution();
-
    mArbor->DoTerminalNode();
 
-   //StdOut() << "END DoTerminalNode" << std::endl;
-   //
+   // multi-thread processing of the tree
    cMemManager::SetActiveMemoryCount(false);
    mAppli.SetMultiThread(true);
    TreeThreads<cNodeArborTriplets*> tp;
@@ -1505,8 +1747,9 @@ void cMakeArboTriplet::ComputeArbor()
    mAppli.SetMultiThread(false);
    cMemManager::SetActiveMemoryCount(true);
 
-   //StdOut() << "END Exec" << std::endl;
-
+#if MMVII_DBG_HSFM_SAVE_MERGE
+    DbgFlushMergeSol(*this);
+#endif
 
 }
 

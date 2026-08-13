@@ -389,10 +389,10 @@ std::vector<tElemStrInterv> LireInterv(const std::string & aStr)
          aC++;
       }
 
-      // Split string arround ','
+      // Split string around ','
       std::string a2Str(aC0,aC);
       std::string aStrLow,aStrUp;
-      SplitStringArround(aStrLow,aStrUp,a2Str,',');
+      SplitStringAround(aStrLow,aStrUp,a2Str,',');
 
       aRes.push_back(tElemStrInterv(aStrLow,aLowIncl));
       aRes.push_back(tElemStrInterv(aStrUp,anUpIncl));

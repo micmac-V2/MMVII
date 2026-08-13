@@ -13,7 +13,7 @@ class cTopoPoint;
 class cBA_Topo;
 class cTopoObs;
 
-template <class Type> class cResidualWeighter;
+template <class Type> class cBasicWeighter;
 
 /**
  * @brief The cTopoSigma class represents the precision of an observation.
@@ -39,7 +39,7 @@ void AddData(const cAuxAr2007 & anAuxInit, cTopoSigma & aTopoSigma);
  * @brief The cTopoWeighter class records an obs cTopoSigmas
  * and get the total weight for least squares using current length
  */
-class cTopoWeighter : public cResidualWeighter<tREAL8>
+class cTopoWeighter : public cBasicWeighter<tREAL8>
 {
 public :
     typedef std::vector<tREAL8>     tStdVect;

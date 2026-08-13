@@ -99,8 +99,8 @@ void cAppliCalcHistoCarac::AddOneFile(const std::string& aStr0,int aKFile,int aN
 int  cAppliCalcHistoCarac::Exe()
 {
    SetNamesProject("",mNameResult);
-   CreateDirectories(DirVisu(),true);
-   CreateDirectories(DirResult(),true);
+   CreateDirectories(DirVisu());
+   CreateDirectories(DirResult());
 
    mStats = new cStatAllVecCarac(mWithCr);
    int aKFile=0;

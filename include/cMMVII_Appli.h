@@ -6,6 +6,8 @@
 #include "MMVII_Bench.h"
 #include "MMVII_GenArgsSpec.h"
 #include <set>
+#include <deque>
+#include <mutex>
 
 
 namespace MMVII
@@ -210,31 +212,55 @@ class cMMVII_Ap_NameManip
  *     Each time an cAutoTimerSegm is created on a cTimerSegm, the name is
  *     changed (so accumulation is done on another name), when cAutoTimerSegm is
  *     destroyed, the current state is destroyed
+ *
+ *     Thread-safe: each thread accumulates in its own table ; Times()/TimesInclusive()
+ *     merge them under a lock, call once threads have joined. TimesInclusive() also
+ *     counts time spent in nested segments.
  */
 
 class cAutoTimerSegm;
 typedef std::string tIndTS;
 typedef std::map<tIndTS,double> tTableIndTS;
+
 class cTimerSegm
 {
    public :
-        
+
        friend class cAutoTimerSegm;
 
        cTimerSegm(cMMVII_Ap_CPU *);
        void  SetIndex(const tIndTS &);
-       const tTableIndTS &  Times() const;
+       tTableIndTS  Times() const;           ///< self ("exclusive") time, summed over all threads
+       tTableIndTS  TimesInclusive() const;  ///< self+nested ("inclusive") time, summed over all threads
        void Show();
        ~cTimerSegm();
        /// Force to have no show at del, usefull for handling parameter in bench
        void SetNoShowAtDel();
-       double  CurBeginTime() const ; ///< Accessor
+       /// Show a per-thread breakdown in Show() ; off by default
+       void SetShowPerThread(bool);
+       /// Default mShowPerThread of cTimerSegm constructed after this call
+       static void SetDefaultShowPerThread(bool);
+       double  CurBeginTime() const ; ///< Accessor, current thread's cursor
    private :
-       tTableIndTS          mTimers;
-       tIndTS               mLastIndex;
-       cMMVII_Ap_CPU *      mAppli;
-       double               mCurBeginTime;
-       bool                 mShowAtDel;
+       /// Per-thread state : cursor, its begin time, and this thread's own accumulators
+       struct cThreadState
+       {
+            cThreadState(const tIndTS & aFirstIndex,double aT0);
+            tIndTS       mLastIndex;
+            double       mCurBeginTime;
+            tTableIndTS  mExclusive;
+            tTableIndTS  mInclusive;
+       };
+       /// Get (creating on first call from a given thread) this thread's private state
+       cThreadState & CurThreadState() const;
+
+       const tU_INT8                      mId;      ///< unique id, stable across cTimerSegm lifetimes
+       cMMVII_Ap_CPU *                    mAppli;
+       bool                               mShowAtDel;
+       bool                               mShowPerThread; ///< print the per-thread breakdown in Show()
+       static bool                        TheDefaultShowPerThread; ///< default mShowPerThread of new instances
+       mutable std::mutex                 mMutex;         ///< protects mThreadStates, not the hot path
+       mutable std::deque<cThreadState>   mThreadStates;  ///< one entry per thread
 };
 
 
@@ -253,6 +279,7 @@ class cAutoTimerSegm
           cAutoTimerSegm(const cAutoTimerSegm&) = delete;
           cTimerSegm * mTS;  // save the global timer
           tIndTS  mSaveInd;  // save the curent index in TS to restore it at end
+          double  mBeginTime;  // this activation's own start time (self+nested/"inclusive" accounting)
 };
 
 /**  Class for executing some acion at given period */
@@ -351,7 +378,7 @@ class cParamCallSys
 
 cMultipleOfs& StdOut(); /// Call the ostream of cMMVII_Appli if exist (else std::cout)
 cMultipleOfs& HelpOut();
-cMultipleOfs& ErrOut();
+cMultipleOfs& ErrOut();  /// Same model as StdOut, but on std::cerr, and never silenced
 
 
 /// Mother class of all appli
@@ -439,6 +466,20 @@ struct  cAttrReport
 };
 
 
+struct cOneHelpSampleCmp
+{
+    public :
+
+       static cOneHelpSampleCmp Header(const std::string &);
+       cOneHelpSampleCmp(const std::string & aCmd) ;
+       cOneHelpSampleCmp(const std::string & aCmd,const std::vector<std::string> & aVComs) ;
+
+       bool                       mIsHeader;
+       std::string                mCmd;
+       std::vector<std::string>  mVComs;
+};
+
+
 
 class cMMVII_Appli : public cMMVII_Ap_NameManip,
                      public cMMVII_Ap_CPU
@@ -495,7 +536,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
 
         void LogCommandAbortOnError(std::string &aMessage);  ///< Used in MMVII_errors.cpp to log error message in main log
 
-        virtual std::vector<std::string>  Samples() const; ///< For help, gives samples of "good" use
+        virtual std::vector<cOneHelpSampleCmp>  Samples() const; ///< For help, gives samples of "good" use
         bool ModeHelp() const;              ///< If we are in help mode, don't execute
         bool ModeArgsSpec() const;          ///< If called only to output args specs, don't execute
         virtual ~cMMVII_Appli();            ///< Always virtual Dstrctr for "big" classes
@@ -531,6 +572,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         static void SignalInputFormat(int); ///< indicate that a xml file was read in the given version
         static bool        OutV2Format() ;  ///<  Do we write in V2 Format
 
+        void BeginParamFacShared();
         void InitParam(cGenArgsSpecContext *aArgsSpec = nullptr);  ///< Parse the parameter list, aArgsSpecs must be nullptr. (only cMMVII_GenArgsSpec use aArgsSpec)
         void SetNot4Exe(); ///< Indicate that the appli was not fully initialized
 
@@ -664,6 +706,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
     private :
         // not very clean, but mutable dont seem enough
         cMultipleOfs & NC_StdOut();
+        cMultipleOfs & NC_ErrOut();
 
         cMMVII_Appli(const cMMVII_Appli&) = delete ; ///< New C++11 feature , forbid copy
         cMMVII_Appli & operator = (const cMMVII_Appli&) = delete ; ///< New C++11 feature , forbid copy
@@ -687,6 +730,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         void GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::string& aSpecName, bool aOptional, cGenArgsSpecContext *aArgsSpec);
 
         void                                      GenerateHelp(); ///< In Help mode print the help
+        void SectionHelp(const std::string & aNameSec);
         void PrintAdditionnalComments(tPtrArg2007 anArg); ///< Print the optional comm in mode glob help
 
         void                                      InitProject();  ///< Create Dir (an other ressources) that may be used by all processe
@@ -752,11 +796,13 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         // For controling output
         std::unique_ptr<cMMVII_Ofs>               mFileStdOut;  ///< Redirection of std output
         cMultipleOfs                              mStdCout;     ///< Standard Ouput (File,Console, both or none)
+        cMultipleOfs                              mStdCerr;     ///< Error Ouput, console and, if any, same file as mStdCout
         std::string                               mParamStdOut; ///< Users value
         int                                       mSeedRand;    ///< Seed for random generator
         std::map<std::string,std::string>         mMapAppliSpecParam; ///< Mat created from mVecAppliSpecParam
      //   std::string                               mAppliSpecParam;
         bool                                      mExtendPattern;  ///<  If false Interpret the pattern as single  , def=true !!
+        bool                                      mShowTimePerThread; ///< Global opt : show per-thread breakdown in TimerSegm reports
         // Control position/hierachy of call
         int                                       mNumCallInsideP; ///< Numero of Appli in the process of creation
         bool                                      mMainAppliInsideP; ///< Is the main/firsy Appli inside the process
@@ -825,6 +871,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
 
         std::string                        mPatternInitGMA;
         static bool                        mIsMultiThread;  /// memorize the multi thread state
+        bool                               mArgGlobHasBegun; /// To make once separation with arg glob
 };
 
 #define ASSERT_NO_MUTI_THREAD() \

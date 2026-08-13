@@ -113,7 +113,7 @@ cPSC_Selec::cPSC_Selec(tREAL8 aProp):
  *      (ax1 + by1 + cz1) z2 - (gx1 + h y1 i z1) x2 = 0     L1.P1 z2 - L3.P1 x2 = 0
  *      (dx1 + ey1 + fz1) z2 - (gx1 + h y1 i z1) y2 = 0     L2.P1 z2 - L3.P1 y2 = 0
  *
- *   For computing epipolar repair, there is an ambiguity by a common rotation arround X-axe.  In the
+ *   For computing epipolar repair, there is an ambiguity by a common rotation around X-axe.  In the
  *   planar case, we define the special epipolar repair such that the Y-axe belong to the plane . In this
  *   repair, the plane has equation :
  *           P :  Z = c + k X

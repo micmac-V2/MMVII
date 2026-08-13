@@ -167,6 +167,8 @@ void Bench_HBA(cParamExeBench & aParam); // test hierarchical initial solution a
 
 
 
+void Bench_AlgoHongrois(cParamExeBench & aParam);
+
 void Bench_SpatialIndex(cParamExeBench & aParam); /// test spatial index
 
 void  BenchLinearConstr(cParamExeBench & aParam);  /// elementary test on linear constr

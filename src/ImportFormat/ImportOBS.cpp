@@ -21,7 +21,7 @@ public :
     cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-    std::vector<std::string>  Samples() const override;
+    std::vector<cOneHelpSampleCmp>  Samples() const override;
 private :
 
     cPhotogrammetricProject  mPhProj;
@@ -75,11 +75,11 @@ int cAppli_ImportOBS::Exe()
 }
 
 
-std::vector<std::string>  cAppli_ImportOBS::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ImportOBS::Samples() const
 {
     return
     {
-        "MMVII ImportOBS  toto.obs  Toto1"
+        {"MMVII ImportOBS  toto.obs  Toto1"}
     };
 }
 

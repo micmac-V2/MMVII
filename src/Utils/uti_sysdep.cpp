@@ -4,6 +4,7 @@
 #include "MMVII_2Include_Serial_Tpl.h"
 
 #include <filesystem>
+#include <system_error>
 #include <cstdlib>
 #include <string>
 #include <mutex>
@@ -50,28 +51,26 @@ cMMVII_Warning::cMMVII_Warning
 cMMVII_Warning::~cMMVII_Warning()
 {
     if (mCpt==0) return;
+    // At this step ErrOut() may have be destroyed, use std::cerr directly
+    if (! cMMVII_Appli::WithWarnings()) return;   // else the title was printed without any warning
 
     static bool First=true;
     if (First)
     {
-        std::cout << "\n";
-        std::cout << " -------------- THERE WERE WARNINGS -----------  : \n\n";
+        std::cerr << "\n";
+        std::cerr << " -------------- THERE WERE WARNINGS -----------  : \n\n";
         First=false;
     }
-    // At this step StdOut() may have be destroyed
-    if (cMMVII_Appli::WithWarnings())
+    if (mUser)
     {
-       if (mUser)
-       {
-           std::cout <<  " ### USER ##";
-       }
-       else
-       {
-           std::cout <<  " - INTERNAL -";
-       }
-       std::cout << "  Type=" << E2Str(mType);
-       std::cout << "   Nb Warning "<< mCpt << ", for :[" << mMes<<"]\n";
+        std::cerr <<  " ### USER ##";
     }
+    else
+    {
+        std::cerr <<  " - INTERNAL -";
+    }
+    std::cerr << "  Type=" << E2Str(mType);
+    std::cerr << "   Nb Warning "<< mCpt << ", for :[" << mMes<<"]\n";
 }
 
 void cMMVII_Warning::Activate()
@@ -82,8 +81,8 @@ void cMMVII_Warning::Activate()
       return;
    if (cMMVII_Appli::WithWarnings())
    {
-       StdOut() << Color::warning << "   - MMVII Warning at line " << Color::end << mLine << " of " << mFile << std::endl;
-       StdOut() << Color::warning << "   - " << mMes <<  Color::end << std::endl;
+       ErrOut() << Color::warning << "   - MMVII Warning at line " << Color::end << mLine << " of " << mFile << std::endl;
+       ErrOut() << Color::warning << "   - " << mMes <<  Color::end << std::endl;
    }
 }
 
@@ -185,7 +184,7 @@ int GlobParalSysCallByMkF(const std::string & aNameMkF,const std::list<cParamCal
        int aRes= system(aCom.c_str());
        StdOut() << "KKKKKKKK " << aRes <<  std::endl;
        // getchar();
-       RemoveFile(aNameMkF,true);
+       RemoveFile(aNameMkF,SVP::Yes);
        return aRes;
    }
    else
@@ -208,16 +207,23 @@ std::string MMVII_CanonicalRootDirFromExec()
    return fs::canonical(selfExec).parent_path().parent_path().generic_string();
 }
 
-static std::string MMVII_RequiredEnv(const char * aName)
+/**  Value of an environment variable required to locate the user profile.
+     With SVP, an undefined variable gives an empty string instead of an error, so that a
+     command can go on with its default values rather than being killed at startup.
+*/
+static std::string MMVII_RequiredEnv(const char * aName,bool aSVP)
 {
     const char * aValue = std::getenv(aName);
+    if ((aValue != nullptr) && (*aValue != '\0'))
+       return aValue;
+
     MMVII_INTERNAL_ASSERT_User
     (
-        (aValue != nullptr) && (*aValue != '\0'),
+        aSVP,
         eTyUEr::eUnClassedError,
         std::string("Environment variable ") + aName + " is required to locate the MMVII user profile"
     );
-    return aValue;
+    return "";
 }
 
 
@@ -245,14 +251,19 @@ static fs::path MMVII_RawSelfExecName()
     return fs::path(buf);
 }
 
-std::string MMVII_UserConfigDir()
+std::string MMVII_UserConfigDir(bool aSVP)
 {
     const char * aXdgConfig = std::getenv("XDG_CONFIG_HOME");
     fs::path aConfigDir;
     if ((aXdgConfig != nullptr) && (*aXdgConfig != '\0') && fs::path(aXdgConfig).is_absolute())
         aConfigDir = aXdgConfig;
     else
-        aConfigDir = fs::path(MMVII_RequiredEnv("HOME")) / ".config";
+    {
+        const std::string aHome = MMVII_RequiredEnv("HOME",aSVP);
+        if (aHome.empty())    //  only reachable with SVP, else the error was raised
+           return "";
+        aConfigDir = fs::path(aHome) / ".config";
+    }
     return (aConfigDir / "MMVII").generic_string();
 }
 
@@ -281,9 +292,12 @@ fs::path MMVII_RawSelfExecName()
     return fs::path(buffer);
 }
 
-std::string MMVII_UserConfigDir()
+std::string MMVII_UserConfigDir(bool aSVP)
 {
-    return (fs::path(MMVII_RequiredEnv("APPDATA")) / "MMVII").generic_string();
+    const std::string aAppData = MMVII_RequiredEnv("APPDATA",aSVP);
+    if (aAppData.empty())    //  only reachable with SVP, else the error was raised
+       return "";
+    return (fs::path(aAppData) / "MMVII").generic_string();
 }
 
 #else
@@ -314,11 +328,32 @@ fs::path MMVII_RawSelfExecName()
     return path;
 }
 
-std::string MMVII_UserConfigDir()
+std::string MMVII_UserConfigDir(bool aSVP)
 {
-    return (fs::path(MMVII_RequiredEnv("HOME")) / "Library" / "Application Support" / "MMVII").generic_string();
+    const std::string aHome = MMVII_RequiredEnv("HOME",aSVP);
+    if (aHome.empty())    //  only reachable with SVP, else the error was raised
+       return "";
+    return (fs::path(aHome) / "Library" / "Application Support" / "MMVII").generic_string();
 }
 
 #endif
+
+/**  Standard temporary directory of the system : TMPDIR and its friends under unix,
+     TMP/TEMP under windows, /tmp as a last resort. std::filesystem gives it portably,
+     but its throwing overload would bypass the MMVII error handler, hence error_code.
+     Degrades to the current directory rather than failing, as the user profile does.
+*/
+std::string MMVII_SysTempDir()
+{
+    std::error_code aEc;
+    fs::path aDir = fs::temp_directory_path(aEc);
+    if (aEc)
+    {
+        MMVII_USER_WARNING("No system temporary directory (" + aEc.message() + "), using the current one");
+        aDir = ".";
+    }
+    return aDir.generic_string();
+}
+
 } // Namespace MMVII
 

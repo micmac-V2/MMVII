@@ -20,7 +20,7 @@ cAppli_VisuPoseStr3D::cAppli_VisuPoseStr3D(const std::vector<std::string> & aVAr
     mErrProjMax  (10.0),
     mCamScale    (0.1),
     mTSLCloudDezoom(0),
-    mOutfile     ("VisSFM_${ori}_${features}.ply"),
+    mOutfile     ("VisuPose3D_${ori}_${features}.ply"),
     mBinary      (true),
     mWithRGB     (true),
     mWithAvgRGB  (false)
@@ -56,7 +56,7 @@ int cAppli_VisuPoseStr3D::Exe()
 
     if (!IsInit(&mOutfile))
         mOutfile =  mPhProj.DirVisuAppli() +
-                     ("VisSFM_"+mPhProj.DPOrient().DirIn()+
+                     ("VisuPose3D_"+mPhProj.DPOrient().DirIn()+
                     (mPhProj.DPMulTieP().DirInIsInit() ? "_"+mPhProj.DPMulTieP().DirIn() :
                      mPhProj.DPGndPt2D().DirInIsInit() ? "_"+mPhProj.DPGndPt2D().DirIn() : "")  +".ply");
 
@@ -75,6 +75,10 @@ int cAppli_VisuPoseStr3D::Exe()
         {
             aVNames.push_back(aIm);
             aVSens.push_back(aSens);
+
+            cStaticLidar* aScan = dynamic_cast<cStaticLidar*>(aSens);
+            if (aScan)
+                aScan->ReadRasters(mPhProj.DirStaticLidarRasters());
         }
         else StdOut() << "Image " << aIm << " has no orientation" << std::endl;
     }
@@ -132,7 +136,6 @@ int cAppli_VisuPoseStr3D::Exe()
             cStaticLidar* aScan = dynamic_cast<cStaticLidar*>(aSens);
             if (aScan)
             {
-                aScan->ReadRasters(mPhProj.DirStaticLidarRasters());
                 cPt3dr aColor(RandUnif_0_1(),RandUnif_0_1(), RandUnif_0_1());
                 AddPointCould(aPlyverts, aScan, mTSLCloudDezoom, aColor);
             }

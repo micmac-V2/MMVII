@@ -730,7 +730,7 @@ class cAppli_OriRelPairOfIm : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
-         std::vector<std::string>  Samples() const override;
+         std::vector<cOneHelpSampleCmp>  Samples() const override;
 
      private :
 
@@ -848,15 +848,20 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgObl(cCollecSpecArg2007 & anArgObl
 cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     anArgOpt
+            << cHeaderSectionArg("Input for tie points")
             <<  mPhProj.DPTieP().ArgDirInOpt()
             <<  mPhProj.DPGndPt2D().ArgDirInOpt()
             <<  mPhProj.DPMulTieP().ArgDirInOpt()
 
-            <<  mPhProj.DPTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
+             << cHeaderSectionArg("Export virtual")
+             <<  mPhProj.DPTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
 
+            << cHeaderSectionArg("Fine parametrization")
             <<  AOpt2007(mNbMinHom,"NbMinHom","Number minimal of homologous point required",{eTA2007::HDV})
             <<  AOpt2007(mDensitySol,"CompForce","How much computation do we pay?",{eTA2007::HDV})
             <<  AOpt2007(mNbIterBA,"NbIterBA","Number of iteration in Bundle/Adj",{eTA2007::HDV})
+
+            << cHeaderSectionArg("Testing")
 
             <<  AOpt2007(mUseOri4GT,"UseOriGT","Set if orientation contains also exterior as a ground truth",{eTA2007::HDV})
             <<  AOpt2007(mFolderOriGT,"OriGT","If ground truth ori != calib")
@@ -867,9 +872,9 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt
 
     if (mModeCompute==0)
     {
-        anArgOpt  //<< mPhProj.DPOrient().ArgDirOutOpt("OriOut","For saving relative or as orientations")
-                 << AOpt2007(mKSaveOri,"KSaveOri","Num of sol to save",{eTA2007::HDV})  ;
+        anArgOpt      << AOpt2007(mKSaveOri,"KSaveOri","Num of sol to save",{eTA2007::HDV,eTA2007::Tuning})  ;
     }
+
 
     return anArgOpt;
 }
@@ -884,13 +889,16 @@ cPt2dr  cAppli_OriRelPairOfIm::RandomizePt(const cPt2dr& aP0,const cSensorCamPC&
     return aBox.Proj(aRes);
 }
 
-std::vector<std::string>  cAppli_OriRelPairOfIm::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_OriRelPairOfIm::Samples() const
 {
     if (mModeCompute==0)
     {
-        return {
-           std::string("MMVII OriPoseEstimRel2Im 043_1012_CalibInit.tif 043_1015_CalibInit.tif")
+        return
+        {
+           {
+                 std::string("MMVII OriPoseEstimRel2Im 043_1012_CalibInit.tif 043_1015_CalibInit.tif")
               + " BA1-CalibInit_311 InObjMesInstr=Pannel OriGT=BA1-CalibInit_311 NbSol0=5 OutLayers=[5,100]"
+            }
         };
     }
     return {};
@@ -942,14 +950,19 @@ int cAppli_OriRelPairOfIm::DoAllPairs()
 
     // =========== Parse these images to generate a list of command ============
     std::list<cParamCallSys> aListCom;
-    for (const auto& aName : aVecStr)
+    for (size_t aKName=0 ; aKName<aVecStr.size() ; aKName++ )
     {
+        const std::string & aName  = aVecStr.at(aKName);
         cParamCallSys aParam(cMMVII_Appli::FullBin(),TheSpec_OriRelPairsOf1m.Name(),aName);
 
         for (size_t aKP=2 ; aKP<mArgv.size() ; aKP++)
         {
              aParam.AddArgs(mArgv[aKP]);
         }
+
+        aParam.AddArgs(GIP_LevCall + "=" + ToStr(mLevelCall+1));
+        aParam.AddArgs(GIP_KthCall + "=" +  ToStr(aKName));
+
         aListCom.push_back(aParam);
        // StdOut() << aParam.Com() << "\n";
     }
@@ -1185,7 +1198,7 @@ void cAppli_OriRelPairOfIm::Generate5Pts(const tPoseR& aPoseR)
     }
 
     std::string aDirPath = mPhProj.DPTieP().FullDirOut() + mIm1 + "/";
-    CreateDirectories(aDirPath,true);
+    CreateDirectories(aDirPath);
     aCpleH5Pts.ToFile( aDirPath + mIm2 + ".csv");
 
 

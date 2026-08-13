@@ -56,6 +56,14 @@ size_t NbPtsMul(const tPairTiePMult & aPair)
 }
 
 
+cPt2dr  KthPt(const tPairTiePMult & aPair, int aKIm,int aKPt)
+{
+   // size_t aMult = Multiplicity(aPair);
+
+   return aPair.second.mVPIm.at(aKIm+Multiplicity(aPair)*aKPt);
+}
+
+
 cPt3dr BundleInter(const tPairTiePMult & aPair,size_t aKPts,const std::vector<cSensorImage *>&  aVSI)
 {
 
@@ -506,10 +514,16 @@ cComputeMergeMulTieP::cComputeMergeMulTieP(int aNbTarget,const cComputeMergeMulT
     }
 }
 
-const std::vector<std::list<std::pair<size_t,tPairTiePMult*>>> & cComputeMergeMulTieP::IndexeOfImages()  const
+const std::vector<std::list<std::pair<size_t,tPairTiePMult*>>> & cComputeMergeMulTieP::IndexesOfImages()  const
 {
         return mImageIndexes;
 }
+
+const std::list<std::pair<size_t,tPairTiePMult*>> & cComputeMergeMulTieP::IndexeOf1Image(size_t aKInd) const
+{
+    return mImageIndexes.at(aKInd);
+}
+
 
 void cComputeMergeMulTieP::SetImageIndexe()
 {

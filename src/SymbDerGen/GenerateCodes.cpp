@@ -166,7 +166,7 @@ NS_SymbolicDerivative::cCalculator<double> * RPC_Proj(bool WithDerive,int aSzBuf
 cCalculator<double> * EqDist(const cPt3di & aDeg,bool WithDerive,int aSzBuf,bool isFraserMode)
 {
     cCalculator<double> * aRes =  StdAllocCalc(NameEqDist(aDeg,WithDerive,false,isFraserMode),aSzBuf,true);
-    TestResDegree(aRes,aDeg,"EqDist");
+    TestResDegree(aRes,aDeg,"Equation of Distorsion");
     return aRes;
 }
 cCalculator<double> * EqBaseFuncDist(const cPt3di & aDeg,int aSzBuf,bool isFraserMode)
@@ -192,7 +192,7 @@ cCalculator<double> * EqColinearityCamPPC(eProjPC  aType,const cPt3di & aDeg,boo
         //  true->  SVP
     cCalculator<double> * aRes = StdAllocCalc(NameEqColinearityCamPPC(aType,aDeg,WithDerive,isFraserMode,aTypeEqCol),aSzBuf,true,ReUse);
 
-    TestResDegree(aRes,aDeg,"EqColinearityCamPPC");
+    TestResDegree(aRes,aDeg,"Equation of Colinearity in Central Proj");
 
      return aRes;
 }
@@ -504,9 +504,13 @@ cCalculator<double> * EqEqLidarLidar(bool WithDerive,int aSzBuf,bool ReUse)
 
 cCalculator<double> * EqTSL_GCP(bool WithDerive,int aSzBuf,bool ReUse)
 {
-    return StdAllocCalc(NameFormula(cEqTSL_GCP(),WithDerive),aSzBuf,false,ReUse);
+    return StdAllocCalc(NameFormula(cEqTSL_GCP(false),WithDerive),aSzBuf,false,ReUse);
 }
 
+cCalculator<double> * EqTSL_GCPD(bool WithDerive,int aSzBuf,bool ReUse)
+{
+    return StdAllocCalc(NameFormula(cEqTSL_GCP(true),WithDerive),aSzBuf,false,ReUse);
+}
 
 
 /* **************************** */
@@ -840,15 +844,31 @@ const std::vector<cPt3di>
     };
 
 
+void PrintGeneratedDegree()
+{
+    //  Stenope,FE_EquiDist,FE_EquiSolid,StereroGraphik,OrthoGraphik,EquiRect
+
+        StdOut() << Color::title << "------ Allowed degrees are: ----------\n" << Color::end
+                 << "  * " <<  Color::descr << E2Str(eProjPC::eStenope) << Color::end << " : " << TheVectDegree << "\n"
+                 << "  * " << Color::descr << E2Str(eProjPC::eFE_EquiDist) << Color::end << " : " << TheVectDegreeEquiDist << "\n"
+                 << "  * " << Color::descr << E2Str(eProjPC::eEquiRect) << Color::end << " : " << TheVectDegreeEquiRect << "\n"
+                 << "  * " << Color::descr << "Special SIA/SysCyr : " <<   Color::end << TheVectDegreeNoFraser << "\n"
+
+            ;
+}
+
 void TestResDegree(cCalculator<double> * aCalc,const cPt3di & aDeg,const std::string & aFonc)
 {
     if (aCalc==nullptr)
     {
+        PrintGeneratedDegree();
+/*
         StdOut() << "Generated degrees are:\n"
                  << " - ProjStenope Fraser: " << TheVectDegree << "\n"
                  << " - ProjStenope not Fraser: " << TheVectDegreeNoFraser << "\n"
                  << " - EquiRect: " << TheVectDegreeEquiRect << "\n"
                  << " - EquiDist: " << TheVectDegreeEquiDist << "\n";
+*/
         MMVII_UserError
             (
                 eTyUEr::eBadDegreeDist,
@@ -937,7 +957,8 @@ int cAppliGenCode::Exe()
 
        GenCodesFormula((tREAL8*)nullptr,cEqLidarLidar(),WithDer); // lidar/lidar
 
-       GenCodesFormula((tREAL8*)nullptr,cEqTSL_GCP(),WithDer); // TSL/GCP
+       GenCodesFormula((tREAL8*)nullptr,cEqTSL_GCP(false),WithDer); // TSL/GCP
+       GenCodesFormula((tREAL8*)nullptr,cEqTSL_GCP(true),WithDer); // TSL/GCP with distance
 
        GenCodesFormula((tREAL8*)nullptr,cFormulaSumSquares(8),WithDer); // example for contraint
 

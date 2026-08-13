@@ -101,10 +101,12 @@ class cResImagesPPC
 class cDemiConeVert
 {
    public :
-        cDemiConeVert(const cPt3dr & aC,tREAL8 aTgt2Max);
+        /// Builds axis + demi-cone angle directly from a camera's pose+calib, valid for off-center/cropped PP
+        cDemiConeVert(const cSensorCamPC & aCam);
         bool  Inside(const cPt3dr &) const;
    private :
         cPt3dr mC;
+        cPt3dr mOptAxis;
         tREAL8 mTgt2;
 
 };

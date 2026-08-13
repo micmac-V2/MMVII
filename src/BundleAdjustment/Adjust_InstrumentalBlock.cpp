@@ -44,9 +44,7 @@ class cBA_BlockInstr : public cMemCheck
                cMMVII_BundleAdj& ,      //< Global bundle adj
                cIrbComp_Block* aBEstim, //< Block that will be used & adjusted
                cIrbComp_Block* aBInit,  //< Initial value of block
-               const std::vector<std::string> & aVParamPair,
-               const std::vector<std::string> & aVParamGauge,
-               const std::vector<std::string> & aVParamCur
+               const cParamBOI & aParam //< Structured "BOI" parameters
        );
 
        virtual ~cBA_BlockInstr();
@@ -54,7 +52,7 @@ class cBA_BlockInstr : public cMemCheck
        /// Add eventually clinometers adjustment
        void AddClino
             (
-                 const std::vector<std::vector<std::string>> & aParamClino
+                 const cParamClinoBOI & aParamClino
             );
 
 
@@ -111,7 +109,6 @@ class cBA_BlockInstr : public cMemCheck
 
        cIrbCal_Cam1 &            mMasterCam;      //<  Master cam to fix Gauge
 
-       std::vector<std::string>  mVParams;        //< copy of parameters
        cCalculator<tREAL8> *     mEqRigCam;       //< Calculator for pair of camera
        cCalculator<tREAL8> *     mEqRatRC;        //< calculator for rattachment to calib of rig-cam
        cCalculator<tREAL8> *     mEqClino;        //< calculator for clino
@@ -146,9 +143,7 @@ cBA_BlockInstr::cBA_BlockInstr
         cMMVII_BundleAdj& aBA,
         cIrbComp_Block * aCompBl,
         cIrbComp_Block * aCompBl0,
-        const std::vector<std::string> & aVParamsPair,
-        const std::vector<std::string> & aVParamGauge,
-        const std::vector<std::string> & aVParamCur
+        const cParamBOI & aParam
 ) :
     mBA            (aBA),
     mSys           (nullptr),
@@ -168,19 +163,18 @@ cBA_BlockInstr::cBA_BlockInstr
     mMulSigmaClino   (1.0),
     mMulSigmOrthogCl (1.0),
     mMasterCam     (mCalCams->MasterCam()),
-    mVParams       (aVParamsPair),
     mEqRigCam      (EqBlocRig(true,1,true)),
     mEqRatRC       (EqBlocRig_RatE(true,1,true)),
     mEqClino       (EqBlocRig_Clino(true,1,true)),
     mEqOrthog      (EqBlocRig_Orthog(true,1,true)),
     mVertical      (cPt3dr(0,0,1),"Vertical","Vertical"),
-    mValSigmaTr    (cStrIO<double>::FromStr(GetDef(aVParamsPair,1,std::string("1.0")))),
-    mValSigRot   (cStrIO<double>::FromStr(GetDef(aVParamsPair,2,std::string("1.0")))),
-    mModeSaveSigma (cStrIO<int>::FromStr(GetDef(aVParamsPair,3,std::string("1")))),
-    mValSigArMul     (cStrIO<bool>::FromStr(GetDef(aVParamsPair,4,std::string("true")))),
-    mGaugeTr       (cStrIO<double>::FromStr(GetDef(aVParamGauge,0,std::string("0.0")))),
-    mGaugeRot      (cStrIO<double>::FromStr(GetDef(aVParamGauge,1,std::string("0.0")))),
-    mUseRat2CurrBR (! aVParamCur.empty())
+    mValSigmaTr    (aParam.Pair.RelSigTrPair),
+    mValSigRot     (aParam.Pair.RelSigRotPair),
+    mModeSaveSigma (aParam.Pair.SaveSig),
+    mValSigArMul   (aParam.Pair.RelSig),
+    mGaugeTr       (aParam.Gauge.GjTr),
+    mGaugeRot      (aParam.Gauge.GjRot),
+    mUseRat2CurrBR (aParam.Cur.RelSigTrCur >= 0)
 {
 
     // TODO : make vertical variable    for each pose using getUpDirVert() and have as unkown a DeltaV ?
@@ -206,9 +200,9 @@ cBA_BlockInstr::cBA_BlockInstr
 
     if (mUseRat2CurrBR)
     {
-        MMVII_INTERNAL_ASSERT_always(aVParamCur.size()==2,"Bad size for Block-Rat to Cur Block Rigid");
-        mValSigTrCurBR = cStrIO<double>::FromStr(aVParamCur.at(0));
-        mValSigRotCurBR = cStrIO<double>::FromStr(aVParamCur.at(1));
+        MMVII_INTERNAL_ASSERT_always(aParam.Cur.RelSigRotCur >= 0,"Bad size for Block-Rat to Cur Block Rigid");
+        mValSigTrCurBR = aParam.Cur.RelSigTrCur;
+        mValSigRotCurBR = aParam.Cur.RelSigRotCur;
     }
 }
 
@@ -348,35 +342,15 @@ void cBA_BlockInstr::OneIterClinos(const cIrbComp_TimeS& aDataS,tMapStrAv & aMap
 
 void cBA_BlockInstr::AddClino
      (
-          const std::vector<std::vector<std::string>> & aParamClino
+          const cParamClinoBOI & aParamClino
      )
 {
     mWithClino = true;
 
-    MMVII_INTERNAL_ASSERT_tiny(aParamClino.size()>=1,"Size < 1 for param clino");
-
-    //  [NameClino,SigmClino,SigmOrthog?]   [ VertFree?,OkNewTS?]?    [DegFree?]
-
-    {
-         std::vector<std::string> aParamSigma = GetDef(aParamClino,0,std::vector<std::string>());
-         mMulSigmaClino  =   cStrIO<double>::FromStr(GetDef(aParamSigma,1,std::string("1.0")));
-         mMulSigmOrthogCl =  cStrIO<double>::FromStr(GetDef(aParamSigma,2,std::string("1.0")));
-    }
-
- //   bool OkNewTS = false;
-    {
-         std::vector<std::string> aParamFreeze = GetDef(aParamClino,1,std::vector<std::string>());
-         mVertClinoFree = cStrIO<int>::FromStr(GetDef(aParamFreeze,0,std::string("0")));
-
-       //  StdOut() << "GGGGGGGGGGGG " << aParamClino << " " << aParamFreeze << " " << mVertClinoFree << "\n";
-        // OkNewTS =  cStrIO<int>::FromStr(GetDef(aParamFreeze,1,std::string("0")));
-    }
-
-    {
-         std::vector<std::string> aParamDegFree = GetDef(aParamClino,2,std::vector<std::string>());
-         for (const auto& aStr : aParamDegFree)
-             mDegClinFree.push_back(cStrIO<bool>::FromStr(aStr));
-    }
+    mMulSigmaClino   = aParamClino.Sigma.RelSigmaAngle;
+    mMulSigmOrthogCl = aParamClino.Sigma.RelCstrOrthog;
+    mVertClinoFree   = aParamClino.Free.VertFree;
+    mDegClinFree     = aParamClino.DegFree;
 
 
     // do we accept in clino measures data that do not correspond to any time stamp
@@ -666,11 +640,13 @@ void cBA_BlockInstr::OneItere()
       }
    }
 
+   StdOut() << Color::argument << " *[InstrBloc]: " << Color::end << "\n";
+
    // Orthognal constraint
    if (mWithClino)
    {
-      int aNbResOC=0;  // Number of constraint on clino
-      std::string aMsg = "Clino-Ortho : ";
+      StdOut() << Color::argument << "   --Clinos-- " << Color::end << "\n";
+      std::vector<std::vector<std::string>> aVMsg ;
       for (const auto& [aPair, aCstr] : mCalBl->CstrOrthog())
       {
           const cIrb_Desc1Intsr &  aSI1 = mCalBl->DescrIndiv(aPair.V1());
@@ -678,34 +654,40 @@ void cBA_BlockInstr::OneItere()
           if ((aSI1.Type()==eTyInstr::eClino) && (aSI2.Type()==eTyInstr::eClino))
           {
               tREAL8 aRes = AddConstrOrthogClino(aPair.V1(),aPair.V2(),aCstr);
-              aNbResOC ++;
-              aMsg += "[" +aPair.V1()+ "," +aPair.V2() + ":" + ToStr(Rad2DMgon(aRes)) + "" ;
+              aVMsg.push_back({aPair.V1(),aPair.V2(),ToStr(Rad2DMgon(aRes))});
           }
           else
               MMVII_INTERNAL_ERROR("Unhandled combination of instrument in  Orthog constraint");
       }
-      if (aNbResOC)
-          StdOut() << "  * " << aMsg << "\n";
-
+      if (aVMsg.size())
       {
-         StdOut() << "  * ResClino : " ;
+          StdOut() << Color::argument << "     -Orthogonality in DMgon -" << Color::end ;
+          for (const auto & aMsg: aVMsg)
+                 StdOut() << " "<< Color::descr << aMsg.at(0)<<  "/" << aMsg.at(1) << "=" << Color::end  << aMsg.at(2);
+          StdOut() << "\n";
+      }
+      {
+         StdOut() << Color::argument << "     -ResidualMeasures in DMgon :-" << Color::end ;
          cWeightAv<tREAL8,tREAL8> aAvgGlob;
          for (auto & [aName,anAvg] : aMapClino)
          {
              tREAL8 aVAv = anAvg.Average();
              aAvgGlob.Add(1.0,aVAv);
-              StdOut() << "[" << aName << " : "  << Rad2DMgon(aVAv) << "] " ;
+             StdOut() << Color::descr << aName << "=" << Color::end << Rad2DMgon(aVAv) << " " ;
          }
+         StdOut()   << Color::descr << " AVG=" << Color::end  << Rad2DMgon(aAvgGlob.Average()) ;
+
          if (mVertClinoFree)
          {
-              StdOut() << " DVert=" << Rad2DMgon(Norm2(mVertical.GetPNorm()-mVertInit)) ;
+              StdOut()  << Color::descr << " DifVert=" << Color::end << Rad2DMgon(Norm2(mVertical.GetPNorm()-mVertInit)) ;
          }
-         StdOut() << " ---- Glob=" << Rad2DMgon(aAvgGlob.Average()) ;
+         StdOut() << "\n";
+
       }
 
-      StdOut() << "\n";
 
-    //  StdOut() << "==========================================VVVVVV " << mVertClinoFree << "\n";
+      // Maybe to put back, or in option ?
+      if (0)
       {
          StdOut() <<  "  * EvolClino ";
          cWeightAv<tREAL8,tREAL8> aAvgGlob;
@@ -727,14 +709,14 @@ void cBA_BlockInstr::OneItere()
    // Eventually had "soft" gauge
    AddGauge(true);
 
-   StdOut() << "  * Residual IntrBlocCam;  Pair: "
-            << " Tr=" << std::sqrt(mAvgTrPair.Average())
-            << " Rot=" << std::sqrt(mAvgRotPair.Average());
+   StdOut() << Color::argument << "   --Cameras-- SigmaPair" << Color::end
+            << Color::descr  << " Tr=" << Color::end << std::sqrt(mAvgTrPair.Average())
+            << Color::descr  << " Rot=" << Color::end << std::sqrt(mAvgRotPair.Average());
    if (mUseRat2CurrBR)
    {
-       StdOut() << "  Cur : "
-                << " Tr=" << std::sqrt(mAvgTrCur.Average())
-                << " Rot=" << std::sqrt(mAvgRotCur.Average());
+       StdOut()   << Color::argument << "  DifInit : " << Color::end
+                   << Color::descr  << " Tr=" << Color::end << std::sqrt(mAvgTrCur.Average())
+                  << Color::descr  << " Rot=" << Color::end << std::sqrt(mAvgRotCur.Average());
    }
    StdOut() << "\n";
 }
@@ -768,26 +750,28 @@ void cBA_BlockInstr::SaveSigma()
 /*                                                                            */
 /* ************************************************************************** */
 
+std::string GetNameBlock(const std::string & aName)
+{
+    return (aName=="") ? cIrbCal_Block::theDefaultName : aName;
+}
+
 std::string GetNameBlock(const std::vector<std::string> & aVNames)
 {
-    std::string aNameBlock = GetDef(aVNames,0,std::string(""));
-    return (aNameBlock=="") ? cIrbCal_Block::theDefaultName : aNameBlock;
+    return GetNameBlock(GetDef(aVNames,0,std::string("")));
 }
 
 
-void cMMVII_BundleAdj::AddClinoBlokcInstr(const std::vector<std::vector<std::string>> &aVVParam)
+void cMMVII_BundleAdj::AddClinoBlokcInstr(const cParamClinoBOI & aParam)
 {
     StdOut() << " --- BEGIN AddClinoBlokcInstr\n";
 
-    // std::string aNameBlock = GetDef(aVParamPairCam,0,std::string(""));
-    std::vector<std::string> aVParam0 = GetDef(aVVParam,0,std::vector<std::string>());
-    std::string aNameBlock = GetNameBlock(aVParam0);
+    std::string aNameBlock = GetNameBlock(aParam.Sigma.Bloc);
 
     for (const auto & aBlock : mVecBlockInstrAdj)
     {
         if (aBlock->CalBl().NameBloc()== aNameBlock)
         {
-            aBlock->AddClino(aVVParam);
+            aBlock->AddClino(aParam);
             StdOut() << " --- END AddClinoBlokcInstr\n";
             return;
         }
@@ -797,35 +781,21 @@ void cMMVII_BundleAdj::AddClinoBlokcInstr(const std::vector<std::vector<std::str
 }
 
 
-void cMMVII_BundleAdj::AddBlockInstr(const std::vector<std::vector<std::string>> & aVVParam)
+void cMMVII_BundleAdj::AddBlockInstr(const cParamBOI & aParam)
 {
     if (! mPhProj->DPBlockInstr().DirInIsInit())
     {
         MMVII_UnclasseUsEr("Dir for bloc of instrument not init with parameter for BOI/Compensation");
     }
 
-     const std::vector<std::string> & aVParamPairCam = aVVParam.at(0);
-     // std::string aNameBlock = GetDef(aVParamPairCam,0, cIrbCal_Block::theDefaultName);GetNameBlock
-     std::string aNameBlock = GetNameBlock(aVParamPairCam);
+     std::string aNameBlock = GetNameBlock(aParam.Pair.Bloc);
 
-     /*
-     std::string aNameBlock = GetDef(aVParamPairCam,0,std::string(""));
-     if (aNameBlock=="")
-         aNameBlock = cIrbCal_Block::theDefaultName;
-*/
      cIrbComp_Block * aBlock = new cIrbComp_Block(*mPhProj ,aNameBlock);
      cIrbComp_Block * aBlock0 = new cIrbComp_Block(*mPhProj ,aNameBlock);
 
-
-     std::vector<std::string> aParamCur;
-     if (aVVParam.size() >=3)
-     {
-         aParamCur = aVVParam.at(2);
-     }
-
      mVecBlockInstrAdj.push_back
      (
-          new cBA_BlockInstr(*this,aBlock,aBlock0,aVParamPairCam,aVVParam.at(1),aParamCur)
+          new cBA_BlockInstr(*this,aBlock,aBlock0,aParam)
      );
 
 }

@@ -31,7 +31,7 @@ class cAppli_ImportLines : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
      private :
 
         cPhotogrammetricProject  mPhProj;
@@ -143,11 +143,11 @@ int cAppli_ImportLines::Exe()
     return EXIT_SUCCESS;
 }
 
-std::vector<std::string>  cAppli_ImportLines::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ImportLines::Samples() const
 {
    return
    {
-          "MMVII ImportLine Data-Input/BlaAllLine.txt \"Im?X1Y1X2Y2SigmaBla\" CERNFils \"Comment=#\""
+         { "MMVII ImportLine Data-Input/BlaAllLine.txt \"Im?X1Y1X2Y2SigmaBla\" CERNFils \"Comment=#\""}
    };
 }
 

@@ -1,6 +1,8 @@
 #ifndef  _MMVII_BUNDLEADJUSTMENT_H_
 #define  _MMVII_BUNDLEADJUSTMENT_H_
 
+#include <unordered_map>
+
 #include "MMVII_PCSens.h"
 #include "MMVII_MMV1Compat.h"
 #include "MMVII_DeclareCste.h"
@@ -8,6 +10,7 @@
 #include "MMVII_Clino.h"
 #include "MMVII_SysSurR.h"
 #include "MMVII_StaticLidar.h"
+#include "MMVII_Tpl_ElemStrToVal.h"
 
 using namespace NS_SymbolicDerivative;
 namespace MMVII
@@ -28,6 +31,134 @@ class cBA_BlockInstr;
 class cMakeArboTriplet;
 class cSolLocNode;
 
+/**  Parameters of the "BOI" command-line argument (Block Of Instrument).  Structured
+ *   replacement of the former flat [[...],[...],[...]] std::vector<std::vector<std::string>>.
+ *   Textual CLI syntax is preserved: three bracketed sub-groups, the last one optional.
+ */
+
+///  First sub-group : per-pair block parameters
+struct cBOIParamPair
+{
+    std::string Bloc          = "";    ///< Name of block ("" -> default block)
+    tREAL8      RelSigTrPair   = 1.0;  ///< Relative sigma on translation, pair
+    tREAL8      RelSigRotPair  = 1.0;  ///< Relative sigma on rotation, pair
+    tINT4       SaveSig        = 1;    ///< Mode for saving sigma
+    bool        RelSig         = true; ///< Are sigmas relative to saved ones
+    ARG2007_STRUCT_FIELDS (
+        Bloc,         FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Name of block (def=main block)"}}),
+        RelSigTrPair, FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Relative sigma on translation, pair"}}),
+        RelSigRotPair,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Relative sigma on rotation, pair"}}),
+        SaveSig,      FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Mode for saving sigma"}}),
+        RelSig,       FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Are sigmas relative to saved ones"}})
+    )
+};
+
+///  Second sub-group : gauge parameters
+struct cBOIParamGauge
+{
+    tREAL8 GjTr  = 0.0;   ///< Gauge on translation (<=0 : hard freeze)
+    tREAL8 GjRot = 0.0;   ///< Gauge on rotation    (<=0 : hard freeze)
+    ARG2007_STRUCT_FIELDS (
+        GjTr, FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Gauge on translation (<=0:hard freeze)"}}),
+        GjRot,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Gauge on rotation (<=0:hard freeze)"}})
+    )
+};
+
+///  Optional third sub-group : rattachment to current block.
+///  A negative RelSigTrCur (default) marks the whole sub-group as absent.
+struct cBOIParamCur
+{
+    tREAL8 RelSigTrCur  = -1;   ///< Relative sigma on translation, current block
+    tREAL8 RelSigRotCur = -1;   ///< Relative sigma on rotation, current block
+    ARG2007_STRUCT_FIELDS (
+        RelSigTrCur, FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Relative sigma on translation, current block"}}),
+        RelSigRotCur,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Relative sigma on rotation, current block"}})
+    )
+};
+
+///  Full "BOI" parameter : three nested sub-groups, the last one optional
+struct cParamBOI
+{
+    cBOIParamPair  Pair;    ///< Mandatory pair-block parameters
+    cBOIParamGauge Gauge;   ///< Mandatory gauge parameters
+    cBOIParamCur   Cur;     ///< Optional rattachment to current block
+    ARG2007_STRUCT_FIELDS (
+        Pair, FieldSem({eTA2007::AddCom,"Pair-block parameters"}),
+        Gauge,FieldSem({eTA2007::AddCom,"Gauge parameters"}),
+        Cur,  FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Optional rattachment to current block"}})
+    )
+};
+
+///  First sub-group of "ClinoBOI" : block name and relative sigmas
+struct cClinoBOIParamSigma
+{
+    std::string Bloc          = "";    ///< Name of block ("" -> default block)
+    tREAL8      RelSigmaAngle = 1.0;   ///< Relative sigma on clinometer angle
+    tREAL8      RelCstrOrthog = 1.0;   ///< Relative sigma on orthogonality constraint
+    ARG2007_STRUCT_FIELDS (
+        Bloc,         FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Name of block (def=main block)"}}),
+        RelSigmaAngle,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Relative sigma on clino angle"}}),
+        RelCstrOrthog,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Relative sigma on orthogonality constraint"}})
+    )
+};
+
+///  Second sub-group : unknowns left free.
+///  OkNewTs is a string that nothing reads : the code parsing it is commented out,
+///  so any value used to be accepted there and must keep being accepted.
+struct cClinoBOIParamFree
+{
+    bool        VertFree = false;  ///< Is the vertical a free unknown
+    std::string OkNewTs  = "";     ///< Unused : the code reading it is commented out
+    ARG2007_STRUCT_FIELDS (
+        VertFree,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Is the vertical a free unknown"}}),
+        OkNewTs, FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Unused"}})
+    )
+};
+
+///  Full "ClinoBOI" parameter : two nested sub-groups then, per clinometer,
+///  whether its angle is free. The last two sub-groups are optional.
+struct cParamClinoBOI
+{
+    cClinoBOIParamSigma Sigma;     ///< Mandatory : block name and relative sigmas
+    cClinoBOIParamFree  Free;      ///< Optional : unknowns left free
+    std::vector<bool>   DegFree;   ///< Optional : per clinometer, is its angle free
+    ARG2007_STRUCT_FIELDS (
+        Sigma,  FieldSem({eTA2007::AddCom,"Block name and relative sigmas"}),
+        Free,   FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Unknowns left free"}}),
+        DegFree,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Per clinometer, is its angle free"}})
+    )
+};
+
+///  Parameters of the "FixGauge" command-line argument : which pair of poses and which
+///  coordinate fix the gauge of a purely relative orientation.  An empty field means
+///  "not fixed", the system then choosing the pair/coordinate maximizing the base.
+///  MMVII_NONE in MainIm disables the gauge altogether; it is tested by the caller,
+///  before this structure reaches cMMVII_BundleAdj::SetGaugeRelPause.
+struct cParamFixGauge
+{
+    std::string MainIm = "";   ///< Main image      ("" -> free, MMVII_NONE -> no gauge at all)
+    std::string SecIm  = "";   ///< Secondary image ("" -> free)
+    std::string Coord  = "";   ///< Coordinate in x,y,z ("" -> free)
+    ARG2007_STRUCT_FIELDS (
+        MainIm,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Main image (def=free), or "+MMVII_NONE+" to have no gauge at all"}}),
+        SecIm, FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Secondary image (def=free)"}}),
+        Coord, FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Coordinate (def=free)"},{eTA2007::AllowedValues,"[x,y,z]"}})
+    )
+};
+
+///  One entry of the "SharedIP" command-line argument : the intrinsic parameters matching
+///  PatParam are shared by all the calibrations matching PatCal.  Replaces a flat vector
+///  read two by two, so the pairing is now carried by the type.
+struct cSharedIPParam
+{
+    std::string PatCal;     ///< Pattern on calibration name
+    std::string PatParam;   ///< Pattern on parameter name
+    ARG2007_STRUCT_FIELDS (
+        PatCal,  FieldSem({eTA2007::AddCom,"Pattern on calibration name"}),
+        PatParam,FieldSem({eTA2007::AddCom,"Pattern on parameter name"})
+    )
+};
+
 /**  "Standard" weighting classes, used the following formula
  *
  *    W(R) =
@@ -36,7 +167,7 @@ class cSolLocNode;
  *
  */
 
-class cStdWeighterResidual : public cResidualWeighter<tREAL8>
+class cStdWeighterResidual : public cBasicWeighter<tREAL8>
 {
      public :
          // aThr<0 => dont use
@@ -58,6 +189,33 @@ class cStdWeighterResidual : public cResidualWeighter<tREAL8>
          tREAL8   mSig2Thrs;
          tREAL8   mExpS2;
 };
+
+
+/**  alternative to cStdWeighterResidual, with the linear formula
+ *
+ *    W(R) =
+ *          0 if R>Thrs2
+ *          mWGlob if R<Thrs1
+ *          linear between mWGlob and 0 if Thrs1<R<Thrs2
+ *    W(R) = (abs(R) > Thrs2) ? 0 : (abs(R) < Thrs1) ? mWGlob : mWGlob*(1-(abs(R)-Thrs1)/(Thrs2-Thrs1))
+ *
+ */
+class cLinearWeighterResidual : public cBasicWeighter<tREAL8>
+{
+public :
+    // aThr<0 => dont use
+    cLinearWeighterResidual(tREAL8 aSGlob,tREAL8 aThr1,tREAL8 aThr2);
+    //cLinearWeighterResidual();
+
+    tREAL8   SingleWOfResidual(tREAL8 aRes) const ;
+    tStdVect WeightOfResidual(const tStdVect &) const override;
+
+private :
+    tREAL8   mWGlob;
+    tREAL8   mThrs1;
+    tREAL8   mThrs2;
+};
+
 
 #if (MAINTAIN_OLD_BLOCK)
 
@@ -365,12 +523,10 @@ struct cStaticLidarBAData
 class cBA_LidarBase
 {
 public :
-    /// constructor, take the global bundle struct + one vector of param
-    cBA_LidarBase(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj&, const std::vector<std::string> & aParam);
+    /// constructor, take the global bundle struct + sigma factor + interpolator spec
+    cBA_LidarBase(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj&, double aSigma, const std::vector<std::string> & aInterp);
     /// destuctor, free interopaltor, calculator ....
     virtual ~cBA_LidarBase();
-
-    void init(const std::vector<std::string>& aParam, size_t aWeightParamIndex, size_t aInterpolParamIndex);
 
     /// add observation
     virtual void AddObs() = 0;
@@ -395,6 +551,7 @@ protected :
     double                         mWFactor;          ///< weight for observations
     size_t                         mNbUsedPoints;   ///< number of lidar used points
     size_t                         mNbUsedObs;      ///< number of lidar obs used
+    size_t                         mNbUsableObs;      ///< number of lidar obs that could have been used (remove widely false)
 
 };
 
@@ -406,8 +563,10 @@ protected :
 class cBA_LidarPhotogra: public cBA_LidarBase
 {
     public :
-       /// constructor, take the global bundle struct + one vector of param
-       cBA_LidarPhotogra(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj&, const std::vector<std::string> & aParam);
+       /// constructor, take the global bundle struct + typed lidar/photogra parameters
+       cBA_LidarPhotogra(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj&, eImatchCrit aMode, double aSigma,
+                         const std::vector<std::string> & aInterp, bool aPertubate, int aNbPtsPerPatch,
+                         const std::vector<std::string> & aParam={});
        /// destuctor, free interopaltor, calculator ....
        virtual ~cBA_LidarPhotogra();
 
@@ -418,35 +577,36 @@ class cBA_LidarPhotogra: public cBA_LidarBase
 
     protected :
        /**  Add observation for 1 Patch of point */
-       void InitEq(bool aScanPoseUk);
-       void Add1Patch(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+        void InitEq(bool aScanPoseUk);
+
+        void Add1Patch(const cBasicWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
                        const std::string & aScanName, const std::unordered_set<std::string> &aHiddenOnImage, int aPatchNum);
        
-        void Add1PatchMulScale(const cResidualWeighter<tREAL8> & aWeighter,
+        void Add1PatchMulScale(const cBasicWeighter<tREAL8> & aWeighter,
                              const std::vector<cPt3dr> & aVPatchPtGnd, 
                              int aNbS, 
                              int aPatchNum);
 
-       void EvaluatePlanarDisplacements(std::vector<std::string> & aVecOrthoNames,
+        void EvaluatePlanarDisplacements(std::vector<std::string> & aVecOrthoNames,
                                         std::vector<tREAL8 *> & aVecTransforms,
                                         bool isStandalone);
-       void EvalGeomConsistency(const std::vector<cPt3dr>& aVPatch,
+        void EvalGeomConsistency(const std::vector<cPt3dr>& aVPatch,
                                 std::vector<cData1ImLidPhgr>& aVData,
                                 tREAL8 aZPas,
                                 bool sparse,
                                 int aNbs=0);
 
-       tREAL8 EvalCorrel(const std::vector<cData1ImLidPhgr>& aVData);
-       /// Method for adding observations with radiometric differences as similatity criterion
-       std::pair<int, tREAL8> AddPatchDifRad(const cResidualWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+        tREAL8 EvalCorrel(const std::vector<cData1ImLidPhgr>& aVData);
+        /// Method for adding observations with radiometric differences as similatity criterion
+        std::pair<int, tREAL8> AddPatchDifRad(const cBasicWeighter<tREAL8> & aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
                            const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
-       /// Method for adding observations with Census Coeff as similatity criterion
-       std::pair<int, tREAL8>  AddPatchCensus(const cResidualWeighter<tREAL8> &aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
+        /// Method for adding observations with Census Coeff as similatity criterion
+        std::pair<int, tREAL8>  AddPatchCensus(const cBasicWeighter<tREAL8> &aWeighter, const std::vector<cPt3dr> & aVPatchPtGnd,
                            const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
-       /// Method for adding observations with Normalized Centred Coefficent Correlation as similatity criterion
-       virtual std::pair<int, tREAL8>  AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
+        /// Method for adding observations with Normalized Centred Coefficent Correlation as similatity criterion
+        virtual std::pair<int, tREAL8>  AddPatchCorrel(const cBasicWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
                            const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) ;
 
        eImatchCrit                    mModeSim;        ///< type of similarity used
@@ -484,8 +644,15 @@ class cBA_LidarPhotogra: public cBA_LidarBase
 class cBA_LidarPhotograTri : public cBA_LidarPhotogra
 {
 public :
-    /// constructor, take the global bundle struct + one vector of param
-    cBA_LidarPhotograTri(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj&, const std::vector<std::string> & aParam);
+    /// constructor, take the global bundle struct + typed lidar/photogra parameters
+    cBA_LidarPhotograTri(cPhotogrammetricProject *aPhProj, 
+                         cMMVII_BundleAdj&, 
+                         eImatchCrit aMode,
+                         const std::string & aPlyFile, 
+                         double aSigma, 
+                         const std::vector<std::string> & aInterp,
+                         bool aPertubate, int aNbPtsPerPatch,
+                         const std::vector<std::string> & aParam={});
     /// destuctor, free interopaltor, calculator ....
     virtual ~cBA_LidarPhotograTri();
 
@@ -516,10 +683,11 @@ public:
 
 protected:
     std::vector<cStaticLidarBAData>   mVScans;      ///< vector of raster representations of lidar
+    std::map<std::string, int>        mIndexesScans; ///< indexes in mVScans
     std::map<std::string,cIm2D<tREAL4>> mMapZbuf; ///< fusion of all zbuffers for one image/scan B name
-    std::map<std::string,cStdWeighterResidual> mWeightersMap;   ///< map from "nameScanA-nameScanB" to the appropriate weighter
+    std::map<std::string,std::unique_ptr<cBasicWeighter<tREAL8>>> mWeightersMap;   ///< map from "nameScanA-nameScanB" to the appropriate weighter
     tREAL8                            mThresholdInit, mThresholdFinal;   ///< distance where scan points are supposed to be hidden
-    std::map<std::string, int>        mMapNbUsedPatches; // indexed by "ScanA>ImB", number of patches used for this couple
+    std::map<std::pair<std::string,std::string>, int> mMapNbUsedPatches; // indexed by scan/im names (name_a, name_b). Number of patches used for this couple
 };
 
 /**
@@ -529,8 +697,10 @@ protected:
 class cBA_LidarPhotograRaster : public cBA_LidarPhotogra, public cBA_LidarRaster
 {
 public :
-    /// constructor, take the global bundle struct + one vector of param
-    cBA_LidarPhotograRaster(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj&, const std::vector<std::string> & aParam);
+    /// constructor, take the global bundle struct + typed lidar/photogra parameters
+    cBA_LidarPhotograRaster(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj&, eImatchCrit aMode,
+                            const std::string & aPatScan, double aSigma, const std::vector<std::string> & aInterp,
+                            double aScaleInit, double aScaleFinal, double aThreshold, int aNbPtsPerPatch);
     /// destuctor, free interopaltor, calculator ....
     virtual ~cBA_LidarPhotograRaster();
 
@@ -540,7 +710,7 @@ public :
     void UpdateInterpolatorScale(const cMMVII_BundleAdj& aBA);
     void UpdateWeightersMap(const cMMVII_BundleAdj &aBA, double aWFactor); // create or update map, on each iteration
 
-    std::pair<int, tREAL8>  AddPatchCorrel(const cResidualWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
+    std::pair<int, tREAL8>  AddPatchCorrel(const cBasicWeighter<tREAL8> & aWeighter,const std::vector<cPt3dr> & aVPatchPtGnd,
                        const std::vector<cData1ImLidPhgr> &aVData, int aPatchNum) override;
 
 protected:
@@ -560,11 +730,15 @@ protected:
  * Class for adjustment between two lidar scans
  */
 
+// #define SCANSCANSHOWPATCHES 16 // make rasters of patches residuals and rejection for each pair, downscale raster by value
+
 class cBA_LidarLidarRaster: public cBA_LidarBase, public cBA_LidarRaster
 {
 public :
-    /// constructor, take the global bundle struct + one vector of param
-    cBA_LidarLidarRaster(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj&, const std::vector<std::string> & aParam);
+    /// constructor, take the global bundle struct + typed lidar/lidar parameters
+    cBA_LidarLidarRaster(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj&, const std::string & aPatScan,
+                         double aSigma, double aThresholdInit, double aThresholdFinal,
+                         double aNormalTolDeg, const std::vector<std::string> & aInterp);
     /// destuctor, free interopaltor, calculator ....
     virtual ~cBA_LidarLidarRaster();
 
@@ -588,6 +762,10 @@ protected :
          ) override;
 
     tREAL8 mNormalDiffMinCos = cos(15*M_PI/180);
+
+#ifdef SCANSCANSHOWPATCHES
+    std::map<std::string,cIm2D<tREAL4>> mMapPatchesRasters; ///< indexed by "nameA>nameB"
+#endif
 };
 
 
@@ -602,13 +780,22 @@ struct  cBundleBlocNamedVar
        std::vector<bool>        mActivVar;
 };
 
+/// Pattern for one entry of "free" internal calibration parameters (see SetParamFreeCalib)
+struct cFreeCalibPattern
+{
+    std::string PatCal;   ///< pattern on calibration name
+    std::string PatParam; ///< pattern on parameter name
+    tREAL8      Weight;   ///< weight of the constraint, <0 = hard constraint
+};
+
 /** Local bundle adjustment for one node of the triplet arborescence.
    *  Parameterized on bundles (angular/direction residuals), supports all camera projections. */
 class cBA_ArboTriplets
 {
     public:
         /// Sets up cameras, collinearity calculators, solver, local tie-points subset.
-        cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols, int aTDepth, int aNbIterEnd);
+        cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols, int aTDepth, int aNbIterEnd,
+                         tREAL8 aSigLooseningMult=1.0, tREAL8 aThrLooseningMult=1.0);
         ~cBA_ArboTriplets();
 
         /// One BA iteration. Pre-computes u,v vectors on first call (aIter==0).
@@ -651,7 +838,7 @@ class cMMVII_BundleAdj
           void  AddCalib(cPerspCamIntrCalib *);  /// add  if not exist
           void  AddCamPC(cSensorCamPC *);  /// add, error id already exist
           void  AddCam(const std::string & aNameIm);  /// add from name, require PhP exist
-          void  AddReferencePoses(const std::vector<std::string> &);  ///  [Fofder,SigmGCP,SigmaRot ?]
+          void  AddReferencePoses(const std::string & aOri, tREAL8 aSigmaTr, tREAL8 aSigmaRot, const std::string & aPatApply);
 
          // void AddBlocRig(const std::vector<double>& aSigma,const std::vector<double>&  aSigmRat ); // RIGIDBLOC
          // void AddCamBlocRig(const std::string & aCam); // RIGIDBLOC
@@ -671,11 +858,16 @@ class cMMVII_BundleAdj
           void AddGCP2D(cMes2DDirInfo * aMesDirInfo, cSetMesPtOf1Im & aSetMesIm, cSensorImage* aSens, eLevelCheck aOnNonExistGCP=eLevelCheck::Warning, bool verbose=true);
           cBA_GCP& getGCP() { return mGCP;}
 
-          ///  ============  Add Lidar/Photogra ===============          void AddLineAdjust(const std::vector<std::string> &);
+          ///  ============  Add Lidar/Photogra ===============
           bool AddStaticLidar(cStaticLidar* aStaticLidar);
-          void Add1AdjLidarPhotogra(const std::vector<std::string> &);
-          void Add1AdjLidarPhoto(const std::vector<std::string> &);
-          void Add1AdjLidarLidar(const std::vector<std::string> &);
+          void Add1AdjLidarPhotogra(eImatchCrit aMode, const std::string & aPlyFile, double aSigma,
+                                    const std::vector<std::string> & aInterp, bool aPertubate, int aNbPtsPerPatch,
+                                    const std::vector<std::string> & aParam={});
+          void Add1AdjLidarPhoto(eImatchCrit aMode, const std::string & aPatScan, double aSigma,
+                                 const std::vector<std::string> & aInterp, double aScaleInit, double aScaleFinal,
+                                 double aThreshold, int aNbPtsPerPatch);
+          void Add1AdjLidarLidar(const std::string & aPatScan, double aSigma, double aThresholdInit,
+                                 double aThresholdFinal, double aNormalTolDeg, const std::vector<std::string> & aInterp);
 
           ///  ============  Add multiple tie point ============
           void AddMTieP(const std::string & aName,cComputeMergeMulTieP  * aMTP,const cStdWeighterResidual & aWIm);
@@ -693,14 +885,14 @@ class cMMVII_BundleAdj
           //  =========  control object free/frozen ===================
 
           void SetParamFrozenCalib(const std::string & aPattern);
-          void SetParamFreeCalib(const std::vector<std::vector<std::string>> & aPattern);
+          void SetParamFreeCalib(const std::vector<cFreeCalibPattern> & aPattern);
           void SetViscosity(const tREAL8& aViscTr,const tREAL8& aViscAngle);
           void SetFrozenCenters(const std::string & aPattern);
           void SetFrozenOrients(const std::string & aPattern);
           void SetFrozenClinos(const std::string & aPattern);
-          void SetSharedIntrinsicParams(const std::vector<std::string> &);
+          void SetSharedIntrinsicParams(const std::vector<cSharedIPParam> &);
            
-          void SetGaugeRelPause(const std::vector<std::string> &);
+          void SetGaugeRelPause(const cParamFixGauge &);
          // void SetGaugeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
 
           void AddPoseViscosity();
@@ -708,13 +900,13 @@ class cMMVII_BundleAdj
           void AddConstrainteRefPose(cSensorCamPC & aCam,cSensorCamPC & aCamRef);
 
           //  ----------------  Line adjustment -------------------------------------
-          void AddLineAdjust(const std::vector<std::string> &);
+          void AddLineAdjust(const std::string & aFolder, tREAL8 aSigmaIm, int aNbPtsSampl);
           void DeleteLineAdjust();
           void IterAdjustOnLine();
 
           //  ----------------  Block of instrument (new version) -------------------------------------
-          void AddBlockInstr(const std::vector<std::vector<std::string>> &);
-          void AddClinoBlokcInstr(const std::vector<std::vector<std::string>> &);
+          void AddBlockInstr(const cParamBOI &);
+          void AddClinoBlokcInstr(const cParamClinoBOI &);
 
           void SetHardGaugeBlockInstr(); //< if "hard" gauge must be done outside equation
           void IterOneBlockInstr();
@@ -798,12 +990,12 @@ class cMMVII_BundleAdj
 
           std::string  mPatParamFrozenCalib;  /// Pattern for name of paramater of internal calibration
           /// Pattern for parameters that are "finally" free,
-          std::vector<std::vector<std::string>> mPatternFreeCalib;
+          std::vector<cFreeCalibPattern> mPatternFreeCalib;
           std::string  mPatFrozenCenter;      /// Pattern for name of pose with frozen centers
           std::string  mPatFrozenOrient;      /// Pattern for name of pose with frozen centers
           std::string  mPatFrozenClinos;      /// Pattern for name of clino with frozen boresight
 
-          std::vector<std::string>  mVPatShared;
+          std::vector<cSharedIPParam>  mVPatShared;
 
           std::vector<int>          mTiePShowPerMil;
 

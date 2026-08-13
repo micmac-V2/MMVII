@@ -74,6 +74,44 @@ namespace MMVII
     {
     }
 
+    /**  The interpolators offered by "Inter", each with the parameters used when "InterParams" is
+         not given.  "Bilinear" is deliberately not one of them : it selects the direct
+         DefGetVBL/InsideBL path and allocates no interpolator at all.
+    */
+    static const std::vector<std::pair<std::string,std::vector<std::string>>> TheVInterpSimul
+    {
+        {"Cubic",    {"Tabul","1000","Cubic","-0.5"}},
+        {"SinCApod", {"Tabul","10000","SinCApod","10","10"}},
+        {"MMVIIK",   {"Tabul","1000","MMVIIK","2"}}
+    };
+    static const std::string TheNameBilinear = "Bilinear";
+
+    ///  All the values accepted by "Inter", as "[Name1,Name2,...]"
+    static std::string StrInterNames()
+    {
+        std::string aRes = "[" + TheNameBilinear;
+        for (const auto & aPair : TheVInterpSimul)
+            aRes += "," + aPair.first;
+        return aRes + "]";
+    }
+
+    /**  Semantics of "Inter" : the accepted values and their description are built from the table
+         above and from the interpolator registry, so that help and completion cannot drift from
+         what InitUserInterpolator really accepts.  A name absent from the registry is rejected
+         here, while the specification is built, hence by "MMVII GenArgsSpec".
+    */
+    static std::vector<tSemA2007> InterNameSem()
+    {
+        std::vector<tSemA2007> aRes {eTA2007::HDV,{eTA2007::AllowedValues,StrInterNames()}};
+        aRes.push_back({eTA2007::AddCom,"  " + TheNameBilinear + " : direct bilinear resampling, no interpolator"});
+        for (const auto & aPair : TheVInterpSimul)
+        {
+            const cInterpolSpec * aSpec = cInterpolSpec::OfName(aPair.first,SVP::No);
+            aRes.push_back({eTA2007::AddCom,"  " + aPair.first + " : " + aSpec->Comment()});
+        }
+        return aRes;
+    }
+
     cCollecSpecArg2007 &cAppli_SimulDispl::ArgObl(cCollecSpecArg2007 &anArgObl)
     {
         return anArgObl
@@ -86,7 +124,7 @@ namespace MMVII
         return anArgOpt
                << AOpt2007(mAmplDef, "Ampl", "Amplitude of deformation.", {eTA2007::HDV})
                << AOpt2007(mWithDisc, "WithDisc", "Do we add disconinuities.", {eTA2007::HDV})
-               << AOpt2007(mInterpName,"Inter","Interpolator's name type, \"Bilinear\", \"Cubic\", \"SinCApod\", \"MMVIIK\" ", {eTA2007::HDV})
+               << AOpt2007(mInterpName,"Inter","Interpolator's name, one of " + StrInterNames(), InterNameSem())
                << AOpt2007(mInterpParams,"InterParams","Interpolator's parameters", {eTA2007::HDV})
                << AOpt2007(mGenerateDispImageFromUserMaps, "GenerateDispImageFromUserMaps",
                            "Generate post deformation image from user defined displacement maps.", {eTA2007::HDV})
@@ -99,25 +137,14 @@ namespace MMVII
     cDiffInterpolator1D *cAppli_SimulDispl::InitUserInterpolator()
     {
         std::vector<std::string> aParamDef;
-        cDiffInterpolator1D *anInterp = nullptr;
-        if (mInterpName == "Cubic")
-        {
-            aParamDef = {"Tabul", "1000", "Cubic", "-0.5"};
-        }
-        else if (mInterpName == "SinCApod")
-        {
-            aParamDef = {"Tabul", "10000", "SinCApod", "10", "10"};
-        }
-        else if (mInterpName == "MMVIIK")
-        {
-            aParamDef = {"Tabul", "1000", "MMVIIK", "2"};
-        }
-        else
-            MMVII_INTERNAL_ASSERT_User(false, eTyUEr::eUnClassedError, "A misspelled interpolator name ?");
+        for (const auto & aPair : TheVInterpSimul)
+            if (aPair.first == mInterpName)
+               aParamDef = aPair.second;
 
-        anInterp = cDiffInterpolator1D::AllocFromNames( IsInit(&mInterpParams) ? mInterpParams : aParamDef);
+        MMVII_INTERNAL_ASSERT_User(!aParamDef.empty(), eTyUEr::eUnClassedError,
+                                   "Unknown interpolator name [" + mInterpName + "], expecting one of " + StrInterNames());
 
-        return anInterp;
+        return cDiffInterpolator1D::AllocFromNames( IsInit(&mInterpParams) ? mInterpParams : aParamDef);
     }
 
     cAppli_SimulDispl::tImDispl cAppli_SimulDispl::GenerateSmoothRandDispl()
@@ -148,8 +175,11 @@ namespace MMVII
     int cAppli_SimulDispl::Exe()
     {
         const bool aIsBillinearInterp = (mInterpName == "Bilinear");
+        //  "Bilinear" selects the DefGetVBL/InsideBL path and allocates no interpolator ; it is not
+        //  a name InitUserInterpolator can resolve, so it must not be called in that case.
         std::unique_ptr<cDiffInterpolator1D> anInterp = nullptr;
-        anInterp = std::unique_ptr<cDiffInterpolator1D>(InitUserInterpolator());
+        if (! aIsBillinearInterp)
+           anInterp = std::unique_ptr<cDiffInterpolator1D>(InitUserInterpolator());
 
         mImIn = tImDispl::FromFile(mNameImage);
         cDataFileIm2D aDescFile = cDataFileIm2D::Create(mNameImage, eForceGray::No);

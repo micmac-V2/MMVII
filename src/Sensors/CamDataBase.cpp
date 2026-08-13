@@ -5,6 +5,7 @@
 namespace MMVII
 {
 
+
 /*
   Vexcel example 4 first test
       30975 pixel ~ 124 mm
@@ -248,7 +249,7 @@ class cAppli_CreateCalib : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
-        // std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
      private :
 
         cPhotogrammetricProject   mPhProj;
@@ -273,7 +274,7 @@ cAppli_CreateCalib::cAppli_CreateCalib(const std::vector<std::string> & aVArgs,c
 cCollecSpecArg2007 & cAppli_CreateCalib::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return anArgObl
-              <<  Arg2007(mSpecIm ,"Name of Input File",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
+              <<  Arg2007(mSpecIm ,"Image filename",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
               <<  mPhProj.DPOrient().ArgDirOutMand()
            ;
 }
@@ -282,21 +283,58 @@ cCollecSpecArg2007 & cAppli_CreateCalib::ArgOpt(cCollecSpecArg2007 & anArgObl)
 {
   return      anArgObl
             << AOpt2007(mProj,"Proj","Projection mode ",{eTA2007::HDV})
-            << AOpt2007(mDegree,"Degree","Degree for distorsion param",{{eTA2007::HDV}})
-            << AOpt2007(mSystCyl,"SystCyl","Use SIA/SytCyl instead of Fraser Model",{{eTA2007::HDV}})
+            << AOpt2007(mDegree,"Degree","Degree for distorsion param, use [-1,..] to print allowed value",{{eTA2007::HDV}})
+            << AOpt2007(mSystCyl,"SystCyl","Use SIA/SytCyl instead of Fraser Model",{{eTA2007::HDV},{eTA2007::Tuning}})
             // << AOpt2007(mNameBloc,"NameBloc","Set the name of the bloc ",{{eTA2007::HDV}})
     ;
 
 }
 
+std::vector<cOneHelpSampleCmp>  cAppli_CreateCalib::Samples() const
+{
+    return {
+               cOneHelpSampleCmp::Header("Examples with Ramses data set"),
+               {"MMVII OriCreateCalib IMG_0354.JPG Calib_Init ",
+                 {"Create an initial calibration with fraser model (Default-Degree=[3,1,1])"}
+               },
+               {"MMVII OriCreateCalib IMG.*.JPG Calib_Init ",
+                  {"Same result than  command above, because all these images share the same calib "}
+               },
+
+               cOneHelpSampleCmp::Header("Examples with \"Niche\" data set"),
+               {"MMVII  OriCreateCalib .*JPG CalibInit Proj=FE_EquiDist",
+                  {"Create a calibration with model fish-eye equidistant"}
+               },
+
+               cOneHelpSampleCmp::Header("Examples with polygon  data set"),
+               {"MMVII  OriCreateCalib .*JPG CalibInit",
+                  {
+                       "Will createte 2 files (for images \"C1.*\" and \"C2.*\")",
+                       "Becasue  AdditionalName  was specified in EditCalcMTDI"
+                   }
+               },
+
+
+    };
+}
+
+
 int cAppli_CreateCalib::Exe()
 {
     mPhProj.FinishInit();
 
-    for (const auto & aNameIm : VectMainSet(0))
+    if (mDegree.x()<0)
     {
-        cPerspCamIntrCalib * aCalib = mPhProj.GetCalibInit(aNameIm,mProj,mDegree,mPPRel,false,!mSystCyl);
-        mPhProj.SaveCalibPC(*aCalib);
+        PrintGeneratedDegree();
+        MMVII_WARNING("No calib created, in print mode");
+    }
+    else
+    {
+        for (const auto & aNameIm : VectMainSet(0))
+        {
+            cPerspCamIntrCalib * aCalib = mPhProj.GetCalibInit(aNameIm,mProj,mDegree,mPPRel,false,!mSystCyl);
+            mPhProj.SaveCalibPC(*aCalib);
+        }
     }
 
     return EXIT_SUCCESS;
@@ -333,7 +371,7 @@ class cAppli_AddCamInDataBase : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
      private :
 
         cPhotogrammetricProject   mPhgrProj;
@@ -491,11 +529,11 @@ int cAppli_AddCamInDataBase::Exe()
     return EXIT_SUCCESS;
 }
 
-std::vector<std::string>  cAppli_AddCamInDataBase::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_AddCamInDataBase::Samples() const
 {
     return
     {
-        "MMVII EditCamDataBase \"Canon EOS 5D Mark II\" LocalUser 1 Param=[6,6,36,24,5616,3744]"
+        {"MMVII EditCamDataBase \"Canon EOS 5D Mark II\" LocalUser 1 Param=[6,6,36,24,5616,3744]"}
     };
 }
 

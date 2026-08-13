@@ -1148,7 +1148,7 @@ void cAppli_VisuPoseStr3D::AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulT
         std::vector<cPt3dr> aAllPts3D;
         std::vector<std::vector<tObs>> aObsByCam(aNbCam);
 
-        for (auto aAllConfigs : aTPts->Pts())
+        for (auto& aAllConfigs : aTPts->Pts())
         {
             const auto & aConfig = aAllConfigs.first;
             auto & aVals = aAllConfigs.second;
@@ -1201,6 +1201,9 @@ void cAppli_VisuPoseStr3D::AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulT
             {
                 for (size_t aKCam=0; aKCam<aNbCam; aKCam++)
                 {
+                    StdOut() << "(" << aKCam+1 << "/" << aNbCam << ") "
+                             << aVSens[aKCam]->NameImage() << (aObsByCam[aKCam].empty() ? " : no features" : "") << std::endl;
+
                     if (aObsByCam[aKCam].empty()) continue;
 
                     cRGBImage aImRGB = cRGBImage::FromFile(aVSens[aKCam]->NameImage());
@@ -1213,8 +1216,6 @@ void cAppli_VisuPoseStr3D::AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulT
                             aNbRGB[aObs.mPtIdx] += 1;
                         }
                     }
-                    StdOut() << "(" << aKCam+1 << "/" << aNbCam << ") "
-                             << aVSens[aKCam]->NameImage() << std::endl;
                 }
             }
             else
@@ -1223,6 +1224,11 @@ void cAppli_VisuPoseStr3D::AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulT
                 //#pragma omp parallel for schedule(dynamic)
                 for (size_t aKCam = 0; aKCam < aVSens.size(); aKCam++)
                 {
+                    //StdOutLock::lock();
+                    StdOut() << "(" << aKCam+1 << "/" << aNbCam << ") "
+                             << aVSens[aKCam]->NameImage() << (aObsByCam[aKCam].empty() ? " : no features" : "") << std::endl;
+                    //StdOutLock::unlock();
+
                     if (aObsByCam[aKCam].empty()) continue;
 
                     cRGBImage aIm = cRGBImage::FromFile(aVSens[aKCam]->NameImage());
@@ -1235,10 +1241,8 @@ void cAppli_VisuPoseStr3D::AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulT
                             aNbRGB[aObs.mPtIdx] = 1;
                         }
                     }
-                    //StdOutLock::lock();
-                    StdOut() << "(" << aKCam+1 << "/" << aNbCam << ") "
-                             << aVSens[aKCam]->NameImage() << std::endl;
-                    //StdOutLock::unlock();
+
+
                 }
                 //cMemManager::SetActiveMemoryCount(true);
             }

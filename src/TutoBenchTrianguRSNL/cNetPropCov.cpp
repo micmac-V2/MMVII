@@ -48,13 +48,13 @@
        For the simulation to be complete, the ABCD are the transformation of the Pij by a random rotation.
 
        For each sub-ntework we make a global optimiztion and get optimal solution, we memorize
-       this solution and eventually the covariance matrix (this done arround the tag #CCM1 where
+       this solution and eventually the covariance matrix (this done around the tag #CCM1 where
        is called the optimization).  At each iteration we estimate the rotation  R_k
        between two set of coordinates (Pij being curent value in glob, H_k(Pij) being final value in sub) such that:
 
                    R_k(Pij) = H_k(Pij)= hk_ij
 
-       This estimation is done arround the tag #PC1
+       This estimation is done around the tag #PC1
 
                        ==========================================
 
@@ -104,7 +104,7 @@
          Equation (5) correpond to a decomposition of (3) as a sum of square of linear form.  The tag #CCM2
          in the code call the library that make the decomposition.
 
-         The linear form are then used in global least square arround #PC2
+         The linear form are then used in global least square around #PC2
 
 
          The generation of the code, has be done in the class "cNetworConsDistProgCov"
@@ -904,7 +904,7 @@ template <class Type>  void cElemNetwork<Type>::PropagCov(double aWCheatMT)
        cSetIORSNL_SameTmp<Type> aSetIO(aVTmpRot); // structure for schur subst
        for (const auto & anElemLin : mDSSL.VElems()) // parse all linear system
        {
-           cResidualWeighter<Type>  aRW(anElemLin.mW);  // the weigth as given by eigen values
+           cBasicWeighter<Type>  aRW(anElemLin.mW);  // the weigth as given by eigen values
            std::vector<Type> aVObs = anElemLin.mCoeff.ToStdVect(); // coefficient of the linear forme
            aVObs.push_back(anElemLin.mCste);  // cste  of the linear form
            // Add the equation in the structure

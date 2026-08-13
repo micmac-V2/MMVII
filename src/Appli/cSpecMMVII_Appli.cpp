@@ -367,10 +367,11 @@ void cSpecMMVII_Appli::ShowCmdArgs(void)
 {
     if (TheCmdArgs.size() == 0)
         return;
-    std::cout << "========= ARGS OF COMMAND ==========\n";
+    //  std::cerr, and not StdOut : only called by the error handler, as a part of its message
+    std::cerr << "========= ARGS OF COMMAND ==========\n";
     for (const auto& aArg: TheCmdArgs)
-        std::cout << aArg << " ";
-    std::cout << "\n";
+        std::cerr << aArg << " ";
+    std::cerr << "\n";
 }
 
 };

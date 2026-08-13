@@ -795,6 +795,7 @@ class cAppliExtractCircTarget : public cMMVII_Appli,
         double                      mNbMaxMT_Init;    ///< Number of Multiple Target OK for 0 image
         double                      mNbMaxMT_PerIm;    ///<  Number of Multiple Target OK per additional image
         double                      mNbMaxMulTargetTot;  ///<  Number of Multiple Target OK per additional image
+        eTargetDistanceEstim        mModeDistance; // for TSL, which target distance estimation mode
 
         cThresholdCircTarget        mThresh;
 
@@ -830,6 +831,7 @@ cAppliExtractCircTarget::cAppliExtractCircTarget
    mRatioDMML        (1.5),
    mNbMaxMT_Init     (2.0),
    mNbMaxMT_PerIm    (0.1),
+   mModeDistance     (eTargetDistanceEstim::ePlaneEstim),
    mStepRefineGrad   (1e-4),
    mInterpol         (nullptr)
 {
@@ -860,6 +862,7 @@ cCollecSpecArg2007 & cAppliExtractCircTarget::ArgOpt(cCollecSpecArg2007 & anArgO
              << AOpt2007(mZoomVisuElFinal,"ZoomVisuEllipse","Make a visualisation extracted ellispe & target",{eTA2007::HDV})
              << AOpt2007(mShowOnlyMul,"ShowOnlyMul","Show Only Mutlipe detectection",{eTA2007::HDV})
              << AOpt2007(mPatHihlight,"PatHL","Pattern for highliting targets in visu",{eTA2007::HDV})
+             <<  AOpt2007(mModeDistance,"ModeDist","With TSL, how to estimate target distance",{eTA2007::HDV})
 
              << AOpt2007(mNbMaxMT_Init,"NbMMT0","Nb max of multiple target acceptable initial (for 0 image)",{eTA2007::HDV})
              << AOpt2007(mNbMaxMT_PerIm,"NbMMT1","Nb max of multiple target acceptable per image",{eTA2007::HDV})
@@ -898,10 +901,25 @@ void cAppliExtractCircTarget::DoExport()
              std::string aCode = anEE->mWithCode ?  anEE->mEncode.Name() : (MMVII_NONE +"_" + ToStr(aCptUnCoded,mSpec->NbBits()));
              cMesIm1Pt aMesIm(anEE->mPt,aCode,1.0);
              aMesIm.mPt = MulCByC(aMesIm.mPt, aImFactor);
+
              if (aLidar)
-                 aMesIm.mDistWithSigma.emplace(
-                     aLidar->Image2Distance(aMesIm.mPt),
-                     aLidar->Sigma() );
+             {
+                 switch (mModeDistance) {
+                 case eTargetDistanceEstim::eRawDist:
+                     aMesIm.mDistWithSigma.emplace( aLidar->Image2Distance(aMesIm.mPt), aLidar->Sigma() );
+                     break;
+                 case eTargetDistanceEstim::ePlaneEstim:
+                 {
+                     auto aEllipseBBox = anEE->mEllipse.GetBoundingBox();
+                     auto [aD,aS,aN] = aLidar->getDistSigmaNormalPlane(aMesIm.mPt,aEllipseBBox);
+                     aMesIm.mDistWithSigma.emplace( aD, aS );
+                     break;
+                 }
+                 case eTargetDistanceEstim::eNoDist:
+                 case eTargetDistanceEstim::eNbVals:
+                     break;
+                 }
+             }
 
              aSetM.AddMeasure(aMesIm);
              Tpl_AddOneObjReportCSV(*this,mIdExportCSV,aMesIm);

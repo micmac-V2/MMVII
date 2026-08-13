@@ -177,18 +177,32 @@ void Bench_0000_SysDepString(cParamExeBench & aParam)
 {
     if (! aParam.NewBench("SysDepString")) return;
 
-    std::string aPath0 = "MMVII";
+    // A fixed name could collide with a real directory of that name in the cwd.
+    auto RandNonExistingName = [](const std::string & aExt)
+    {
+        std::string aName;
+        do {
+            aName = "MMVII_Bench_";
+            for (int aK=0 ; aK<8 ; aK++)
+                aName += char('a'+RandUnif_N(26));
+            aName += aExt;
+        } while (ExistFile(aName));
+        return aName;
+    };
+
+    std::string aPath0 = RandNonExistingName("");
     MMVII_INTERNAL_ASSERT_bench(DirOfPath (aPath0,false)=="./","Dir Bench_0000_SysDepString");
-    MMVII_INTERNAL_ASSERT_bench(FileOfPath(aPath0,false)=="MMVII","File Bench_0000_SysDepString");
+    MMVII_INTERNAL_ASSERT_bench(FileOfPath(aPath0,false)==aPath0,"File Bench_0000_SysDepString");
 
 
-    std::string aPath1 = "af.tif";
+    std::string aPath1 = RandNonExistingName(".tif");
     MMVII_INTERNAL_ASSERT_bench(DirOfPath (aPath1,false)=="./","Dir Bench_0000_SysDepString");
-    MMVII_INTERNAL_ASSERT_bench(FileOfPath(aPath1,false)=="af.tif","File Bench_0000_SysDepString");
+    MMVII_INTERNAL_ASSERT_bench(FileOfPath(aPath1,false)==aPath1,"File Bench_0000_SysDepString");
 
-    std::string aPath2 = "./toto.txt";
+    std::string aFile2 = RandNonExistingName(".txt");
+    std::string aPath2 = "./" + aFile2;
     MMVII_INTERNAL_ASSERT_bench(DirOfPath (aPath2,false)=="./","Dir Bench_0000_SysDepString");
-    MMVII_INTERNAL_ASSERT_bench(FileOfPath(aPath2,false)=="toto.txt","File Bench_0000_SysDepString");
+    MMVII_INTERNAL_ASSERT_bench(FileOfPath(aPath2,false)==aFile2,"File Bench_0000_SysDepString");
 
     std::string aPath3 = "/a/bb/cc/";
     MMVII_INTERNAL_ASSERT_bench(DirOfPath (aPath3,false)==aPath3,"Dir Bench_0000_SysDepString");
@@ -197,10 +211,6 @@ void Bench_0000_SysDepString(cParamExeBench & aParam)
     std::string aPath4 = "/a/bb/cc/tutu";
     MMVII_INTERNAL_ASSERT_bench(DirOfPath (aPath4,false)==aPath3,"Dir Bench_0000_SysDepString");
     MMVII_INTERNAL_ASSERT_bench(FileOfPath(aPath4,false)=="tutu","File Bench_0000_SysDepString");
-
-    std::string aPath5 = "NONE";
-    MMVII_INTERNAL_ASSERT_bench(DirOfPath (aPath5,false)=="./","Dir Bench_0000_SysDepString");
-    MMVII_INTERNAL_ASSERT_bench(FileOfPath(aPath5,false)=="NONE","File Bench_0000_SysDepString");
 
     aParam.EndBench();
 }
@@ -306,8 +316,8 @@ void   Bench_0000_Param(cParamExeBench & aParam)
    int a,b;
    cCollecSpecArg2007 aCol;
    aCol << Arg2007(a,"UnA") << AOpt2007(b,"b","UnB") ;
-   aCol[0]->InitParam("111");
-   aCol[1]->InitParam("222");
+   aCol[0]->InitParam("111",true);
+   aCol[1]->InitParam("222",true);
 
    MMVII_INTERNAL_ASSERT_bench(a==111,"Bench_0000_Param");
    MMVII_INTERNAL_ASSERT_bench(b==222,"Bench_0000_Param");
@@ -427,6 +437,9 @@ int  cAppli_MMVII_Bench::Exe()
     if (!IsInit(&mShow))
         mShow =  IsInit(&mPat); // Becoz, if mPat init, few bench => we can display msg
 
+    if (! mVerbose)
+        TimeSegm().SetNoShowAtDel();
+
    cParamExeBench aParam(mPat,mPatRefut,mKeyBug,mLevMin,mShow,mVerbose);
    aParam.SetDemoTest(mDemoTest);
 
@@ -475,8 +488,8 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
    }
 
    // Begin with purging directory
-   CreateDirectories(TmpDirTestMMVII(),true );
-   RemoveRecurs(TmpDirTestMMVII(),true,false);
+   CreateDirectories(TmpDirTestMMVII());
+   RemoveRecurs(TmpDirTestMMVII(),true);
 
 
    {
@@ -525,7 +538,7 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
         Bench_SetI(aParam); // Bench manip on set of integers
 
            // Check read/write of object usign serialization
-        BenchSerialization(aParam,DirTestMMVII()+"Tmp/",DirTestMMVII()+"Input/");
+        BenchSerialization(aParam,TmpDirTestMMVII(),InputDirTestMMVII());
         //====  MORE CONSISTENT BENCH
 
         BenchPly(aParam);
@@ -609,6 +622,7 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
         BenchL1Solver(aParam);
         Bench_MatEss(aParam);
         Bench_SpatialIndex(aParam);
+        Bench_AlgoHongrois(aParam);
         Bench_ToHomMult(aParam);
         BenchLinearConstr(aParam);
 
@@ -643,7 +657,7 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
 
 
         // We clean the temporary files created
-   RemoveRecurs(TmpDirTestMMVII(),true,false);
+   RemoveRecurs(TmpDirTestMMVII(),true);
 
 
    ResetToFileIfFirstime<cPerspCamIntrCalib>();
@@ -687,11 +701,11 @@ void cAppli_MMVII_Bench::BenchFiles(cParamExeBench & aParam)
    MMVII_INTERNAL_ASSERT_always(ExistFile(aNameFile),"BenchFiles");
 
    // CreateFile(aTDir+"a/b/c/toto.txt"); Do not work directly
-   CreateDirectories(aTDir+"a/b/c/",false);
+   CreateDirectories(aTDir+"a/b/c/");
    CreateFile(aTDir+"a/b/c/toto.txt"); // Now it works
 
 
-   RemoveRecurs(TmpDirTestMMVII(),true,false);
+   RemoveRecurs(TmpDirTestMMVII(),true);
 
    aParam.EndBench();
 }
@@ -1047,7 +1061,7 @@ void TestQuat()
     std::vector<tRotR> aBQ{tRotR::Identity()} ;
     for (int aK=0 ; aK< 3; aK++)
     {
-        aBQ.push_back(tRotR::RotArroundKthAxe(aK));
+        aBQ.push_back(tRotR::RotAroundKthAxe(aK));
 
        aBQ.back().Mat().Show();
        StdOut() <<  "=======================\n";

@@ -307,7 +307,7 @@ template <class Type,const int Dim>
        }
        else
        {
-          // We restrict the the interval arround minimal value KMin, the new interval will
+          // We restrict the the interval around minimal value KMin, the new interval will
           // be in KMin-1, KMin+1, but truncated when KMin is a bound
           int aKMin = aWM.IndexExtre();
           int aK0 = std::max(0,aKMin-1);

@@ -33,7 +33,7 @@ class cAppli_EditBlockInstr : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
 
      private :
         cPhotogrammetricProject   mPhProj;       ///< As usual ....
@@ -58,12 +58,12 @@ cAppli_EditBlockInstr::cAppli_EditBlockInstr(const std::vector<std::string> &  a
 }
 
 
-std::vector<std::string>  cAppli_EditBlockInstr::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_EditBlockInstr::Samples() const
 {
    return
    {
-       "MMVII EditBlockInstr Bl0  PatsIm4Cam='[.*_(.*).tif]' InMeasureClino=MesClin_043",
-       "MMVII EditBlockInstr Bl0  PatsIm4Cam='[.*tif,.*_(.*).tif,Fils-100.xml]' InMeasureClino=MesClin_043"
+       {"MMVII EditBlockInstr Bl0  PatsIm4Cam='[.*_(.*).tif]' InMeasureClino=MesClin_043"},
+       {"MMVII EditBlockInstr Bl0  PatsIm4Cam='[.*tif,.*_(.*).tif,Fils-100.xml]' InMeasureClino=MesClin_043"}
    };
 }
 
