@@ -76,7 +76,7 @@ namespace MMVII
     public:
         cAppliCloudProjectOnGround(const std::vector<std::string> & aVArgs, const cSpecMMVII_Appli & aSpec );
         static constexpr tREAL8 mInfty =  -1e10;
-        std::pair<cPt3dr,cPt3dr> BascOnePoint(cPt2di A,  cPt2di anOffSet);
+        std::pair<cPt3dr,cPt3dr> BascOnePoint(cPt2di A,  cPt2di anOffSet, bool & oValid);
         //void MakeBasc();
         void MakeFastBasc();
         void MakeBasculeTris(cZBuffer & aZB);
@@ -117,7 +117,7 @@ cAppliCloudProjectOnGround::cAppliCloudProjectOnGround(const std::vector<std::st
     mBascCorrel(false),
     mMultZ(mZF_SameOri ? 1 : -1),
     mMII(0.0),
-    mStretschingThresh(2.0)
+    mStretschingThresh(4.0)
 {
 }
 
@@ -160,15 +160,18 @@ cBox2di cAppliCloudProjectOnGround::BoxUtile(cIm2D<tU_INT1> & anImMasq)
             aBox.Add(aPix);
     }
 
+    if (!aBox.NbPts()) return cBox2di::Empty();
+
     return aBox.CurBox();
 }
 
 
-std::pair<cPt3dr,cPt3dr> cAppliCloudProjectOnGround::BascOnePoint(cPt2di A,  cPt2di anOffSet)
+std::pair<cPt3dr,cPt3dr> cAppliCloudProjectOnGround::BascOnePoint(cPt2di A,  cPt2di anOffSet, bool & oValid)
 {
     cPt3dr aPZA, aPWithDepth;
 
     cPt2di  aPix1 = A+anOffSet;
+    oValid = true;
 
     if(mModeGeom==eModeGeom::eGEOM_EPIP)  ///< entry is a disparity maps so need to compute pseudo intersection
     {
@@ -189,9 +192,16 @@ std::pair<cPt3dr,cPt3dr> cAppliCloudProjectOnGround::BascOnePoint(cPt2di A,  cPt
     }
     else if (mModeGeom==eModeGeom::eGEOM_DEPTH) ///< entry is a depth map so just compute 3D world coordinates
     {
+        tREAL8 aDepth = mImPx1.DIm().GetV(A);
+        if (aDepth==0)  ///< 0 = no-data in the depth map : skip this point
+        {
+            oValid = false;
+            return {cPt3dr(aPix1.x(),aPix1.y(),0.0),cPt3dr(0,0,0)};
+        }
+
         aPWithDepth= cPt3dr(aPix1.x(),
                             aPix1.y(),
-                            mImPx1.DIm().GetV(A));
+                            aDepth);
 
         aPZA = mCamPC->ImageAndDepth2Ground(aPWithDepth);
     }
@@ -205,123 +215,6 @@ std::pair<cPt3dr,cPt3dr> cAppliCloudProjectOnGround::BascOnePoint(cPt2di A,  cPt
 }
 
 
-/*
-void cAppliCloudProjectOnGround::MakeBasc()
-{
-    //mImRed.DIm().Resize(CurSzIn(),eModeInitImage::eMIA_Null);
-    cPt2di aP0 = CurP0();
-    cPt2di aP1= CurBoxIn().P1();
-    std::vector<cPt3dr> aVPts;
-    std::vector<cPt3di> aVFaces;
-
-    cBox2di  aBoxUtileWithMasq = BoxUtile();
-
-    ///  Init index for faces
-    ///
-    cIm2D<int> anImIndex(aBoxUtileWithMasq.Sz());
-    cDataIm2D<int> & aDIdx= anImIndex.DIm();
-
-    int IndBegin=0;
-    for (const auto & aPix: aDIdx)
-    {
-        aDIdx.SetV(aPix,IndBegin);
-        IndBegin++;
-    }
-
-
-    auto start = std::chrono::high_resolution_clock::now();
-    /// Create mesh points
-    for(const auto & aPix: cPixBox<2>(aBoxUtileWithMasq.P0(),
-                                       aBoxUtileWithMasq.P1())
-         )
-    {
-        cPt3dr aP00_3D =BascOnePoint(aPix,aP0);
-        aVPts.push_back(aP00_3D);
-
-        if(mBascCorrel)
-            mVCorrel.push_back(mImCorrel.DIm().GetV(aPix));
-    }
-
-    auto end = std::chrono::high_resolution_clock::now();
-
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-    std::cout << "Time create mesh points: " << duration.count() << " ms\n";
-
-    /// Create mesh faces
-    for(const auto & aPix: cPixBox<2>(aBoxUtileWithMasq.P0(),
-                                       aBoxUtileWithMasq.P1()-cPt2di(1,1))
-         )
-    {
-        cPt2di P00(aPix.x(),aPix.y());
-        cPt2di P10(aPix.x()+1,aPix.y());
-        cPt2di P01(aPix.x(),aPix.y()+1);
-        cPt2di P11(aPix.x()+1,aPix.y()+1);
-
-        cPt3di aFUP(aDIdx.GetV(P00-aBoxUtileWithMasq.P0()),
-                    aDIdx.GetV(P10-aBoxUtileWithMasq.P0()),
-                    aDIdx.GetV(P11-aBoxUtileWithMasq.P0()));
-        cPt3di aFDOWN(aDIdx.GetV(P00-aBoxUtileWithMasq.P0()),
-                      aDIdx.GetV(P11-aBoxUtileWithMasq.P0()),
-                      aDIdx.GetV(P01-aBoxUtileWithMasq.P0()));
-
-        aVFaces.push_back(aFUP);
-        aVFaces.push_back(aFDOWN);
-    }
-
-    StdOut()<<"computed tri "<<std::endl;
-
-
-    start = std::chrono::high_resolution_clock::now();
-    /// ZBUFFER
-    mTri3D = new cTriangulation3D<tREAL8>(aVPts,aVFaces);
-
-    cMeshTri3DIterator  aTriIt(mTri3D);
-
-    cSIMap_Ground2ImageAndProf aMapCamDepth(mCamPC);
-
-    cSetVisibility aSetVis(mCamPC,mMII);
-
-    cBox3dr  aBox(cPt3dr(aP0.x(),aP0.y(),-mInfty),cPt3dr(aP1.x(),aP1.y(),mInfty));
-
-    cDataBoundedSet<tREAL8,3>  aSetCam(aBox);
-
-    cZBuffer aZBuf(aTriIt,aSetVis,aMapCamDepth,aSetCam,1,true,true);
-
-    end = std::chrono::high_resolution_clock::now();
-
-    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-    std::cout << "Time create cZBUffer: " << duration.count() << " ms\n";
-
-    StdOut()<<"ZBB"<<std::endl;
-
-    start = std::chrono::high_resolution_clock::now();
-
-    aZBuf.MakeZBufForBasc(eZBufModeIter::ProjInit);
-
-    end = std::chrono::high_resolution_clock::now();
-
-    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-    std::cout << "Time cZBUffer MakeZBuffer projInit: " << duration.count() << " ms\n";
-
-    start = std::chrono::high_resolution_clock::now();
-    aZBuf.MakeZBufForBasc(eZBufModeIter::SurfDevlpt);
-    end = std::chrono::high_resolution_clock::now();
-
-    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-    std::cout << "Time cZBUffer MakeZBuffer SurfDevlpt: " << duration.count() << " ms\n";
-
-    StdOut()<<"ZBBMAKE"<<std::endl;
-
-    ProcessNoPix(aZBuf);
-
-    MakeBasculeTris(aZBuf);
-}
-*/
-
 void cAppliCloudProjectOnGround::MakeFastBasc()
 {
     //mImRed.DIm().Resize(CurSzIn(),eModeInitImage::eMIA_Null);
@@ -333,39 +226,40 @@ void cAppliCloudProjectOnGround::MakeFastBasc()
 
     StdOut() << "MakeFastBasc " << aP0 << " " << aP1 << "\n";
     cBox2di  aBoxUtileWithMasq = BoxUtile(mImMasq1);
+    if (aBoxUtileWithMasq.IsEmpty())
+        return;
+
     StdOut() << "BoxUtileWithMasq " << aBoxUtileWithMasq << "\n";
 
     ///  Init index for faces
-    ///
     cIm2D<int> anImIndex(aBoxUtileWithMasq.Sz());
     cDataIm2D<int> & aDIdx= anImIndex.DIm();
+    aDIdx.InitCste(-1);   ///<  -1 => no valid vertex for this pixel (e.g. depth==0)
 
+    cAutoTimerSegm aTSMeshCreate(TimeSegm(),"ZBuffer::PrepareProjections"); 
+    /// Create mesh points, keeping only those with a valid depth
     int IndBegin=0;
-    for (const auto & aPix: aDIdx)
-    {
-        aDIdx.SetV(aPix,IndBegin);
-        IndBegin++;
-    }
-
-
-    cAutoTimerSegm aTSMeshCreate(TimeSegm(),"ZBuffer::Init"); 
-    /// Create mesh points
-    cPt3dr aP00_Depth,aP00_3D;
     for(const auto & aPix: cPixBox<2>(aBoxUtileWithMasq.P0(),
                                        aBoxUtileWithMasq.P1())
          )
     {
-        auto [aP00_Depth,aP00_3D] =BascOnePoint(aPix,aP0);
+        bool aValid = true;
+        auto [aP00_Depth,aP00_3D] = BascOnePoint(aPix,aP0,aValid);
+
+        if (! aValid)  ///< no-data depth : do not create a vertex here
+            continue;
+
+        aDIdx.SetV(aPix-aBoxUtileWithMasq.P0(),IndBegin);
+        IndBegin++;
 
         aVPtsDepth.push_back(aP00_Depth);
         aVPts.push_back(aP00_3D);
-
 
         if(mBascCorrel)
             mVCorrel.push_back(mImCorrel.DIm().GetV(aPix));
     }
 
-    /// Create mesh faces
+    /// Create mesh faces (only when the 4 corners have a valid vertex)
     for(const auto & aPix: cPixBox<2>(aBoxUtileWithMasq.P0(),
                                        aBoxUtileWithMasq.P1()-cPt2di(1,1))
          )
@@ -375,15 +269,16 @@ void cAppliCloudProjectOnGround::MakeFastBasc()
         cPt2di P01(aPix.x(),aPix.y()+1);
         cPt2di P11(aPix.x()+1,aPix.y()+1);
 
-        cPt3di aFUP(aDIdx.GetV(P00-aBoxUtileWithMasq.P0()),
-                    aDIdx.GetV(P10-aBoxUtileWithMasq.P0()),
-                    aDIdx.GetV(P11-aBoxUtileWithMasq.P0()));
-        cPt3di aFDOWN(aDIdx.GetV(P00-aBoxUtileWithMasq.P0()),
-                      aDIdx.GetV(P11-aBoxUtileWithMasq.P0()),
-                      aDIdx.GetV(P01-aBoxUtileWithMasq.P0()));
+        int aI00 = aDIdx.GetV(P00-aBoxUtileWithMasq.P0());
+        int aI10 = aDIdx.GetV(P10-aBoxUtileWithMasq.P0());
+        int aI01 = aDIdx.GetV(P01-aBoxUtileWithMasq.P0());
+        int aI11 = aDIdx.GetV(P11-aBoxUtileWithMasq.P0());
 
-        aVFaces.push_back(aFUP);
-        aVFaces.push_back(aFDOWN);
+        if ((aI00<0)||(aI10<0)||(aI01<0)||(aI11<0))  ///< a corner is no-data => skip face
+            continue;
+
+        aVFaces.push_back(cPt3di(aI00,aI10,aI11));
+        aVFaces.push_back(cPt3di(aI00,aI11,aI01));
     }
 
     cAutoTimerSegm aTSBufferInit(TimeSegm(),"ZBuffer::Init"); 
@@ -406,7 +301,7 @@ void cAppliCloudProjectOnGround::MakeFastBasc()
 
     cDataBoundedSet<tREAL8,3>  aSetCam(aBox);
 
-    
+    StdOut()<<"ZBUFFER::ZBUFFER"<<std::endl;
     cZBuffer aZBuf(aTriIt,
                    aSetVis,
                    aMapCamDepth,
@@ -416,9 +311,17 @@ void cAppliCloudProjectOnGround::MakeFastBasc()
                    true,
                    aTriIT2DDepth);
 
+
     cAutoTimerSegm aTSBufferProjInit(TimeSegm(),"ZBuffer::ProjInit"); 
 
     aZBuf.MakeZBufForBasc(eZBufModeIter::ProjInit);
+
+    //save zbuffIm
+    aZBuf.ZBufIm().DIm().ToFile("buffer-projinit_"+
+                                ToStr(mIndBoxRecal.x())+"-"+
+                                ToStr(mIndBoxRecal.y())+"-"+
+                                LastPrefix(mNameResult)+".tif");
+
 
     cAutoTimerSegm aTSBufferSurfDev(TimeSegm(),"ZBuffer::SurfaceDevelopment"); 
 
@@ -530,9 +433,11 @@ void cAppliCloudProjectOnGround::MakeBasculeTris(cZBuffer & aZB)
         mImCorrelOut.DIm().Resize(aSzTarget,eModeInitImage::eMIA_Null);
 
 
-    // iterate over all over triangles and ( add : confidence and occlusion info)
+    // iterate over all over triangles and ( add : confidence and occlusion info
     int aNInOut=0;
     int aNGood=0;
+    int aNHidden=0;
+    int aNNoPix=0;
 
     for (size_t  aKF=0; aKF<mTri3D->NbFace(); aKF++)
     {
@@ -551,6 +456,16 @@ void cAppliCloudProjectOnGround::MakeBasculeTris(cZBuffer & aZB)
         {
             aNInOut++;
         }*/
+
+        if( aZB.ResSurfD(aKF).mResult==eZBufRes::Hidden)
+        {
+            aNHidden++;
+        }
+
+        if( aZB.ResSurfD(aKF).mResult==eZBufRes::NoPix)
+        {
+            aNNoPix++;
+        }
 
         if(ZBufLabIsOk(aZB.ResSurfD(aKF).mResult))
         {
@@ -594,8 +509,10 @@ void cAppliCloudProjectOnGround::MakeBasculeTris(cZBuffer & aZB)
         }
     }
 
-    StdOut()<<"NB GOOD "<<aNGood<<" NB BAD "<<aNInOut<<std::endl;
+    StdOut()<<"NB GOOD "<<aNGood<<" NB BAD "<<aNInOut<<" All Faces "<<mTri3D->NbFace()<<std::endl;
     // write individual images
+
+    StdOut()<<"NB HIDDEN "<<aNHidden<<" NB NO PIX "<<aNNoPix<<std::endl;
 
     cDataFileIm2D aDF= cDataFileIm2D::Create(mPhProj.DPMeshDev().FullDirOut()+
                                                   "BLOC-"+
@@ -670,11 +587,17 @@ void cAppliCloudProjectOnGround::MergeResults()
     for( const auto & PixI: aPBIO.BoxIndex())
     {
         //StdOut()<<PixI<<std::endl;        // READ CORRESPONDING LOC AFFINE TRANSFORMATIONS
-        cAffin2D<tREAL8> mTrfLocBox = ReadTFW(mPhProj.DPMeshDev().FullDirOut()+
+
+        std::string aNameTileTfW = mPhProj.DPMeshDev().FullDirOut()+
                                               "MASQ-"+
                                               ToStr(PixI.x())+"-"+
                                               ToStr(PixI.y())+"-"+
-                                              ChgPostix(FileOfPath(mNameResult,false),"tfw"));
+                                              ChgPostix(FileOfPath(mNameResult,false),"tfw");
+
+        if (! MMVII::ExistFile(aNameTileTfW)) 
+            continue;
+
+        cAffin2D<tREAL8> mTrfLocBox = ReadTFW(aNameTileTfW);
 
         aLocAffOut.push_back(mTrfLocBox);
         // read masq files to get the extent of the number of pixels
@@ -770,6 +693,8 @@ void cAppliCloudProjectOnGround::MergeResults()
                                 ToStr(PixI.x())+"-"+
                                 ToStr(PixI.y())+"-"+
                                 FileOfPath(mNameResult,false) ;
+        if (! MMVII::ExistFile(aNameProfDalle))
+            continue;
 
         std::string aNameMasqDalle = mPhProj.DPMeshDev().FullDirOut()+
                                 "MASQ-"+
@@ -871,7 +796,6 @@ int cAppliCloudProjectOnGround::ExeOnParsedBox()
         mImCorrel = APBI_ReadIm<tU_INT1>(mNameCorrel);
     }
 
-
     MakeFastBasc();
 
 
@@ -904,6 +828,7 @@ int cAppliCloudProjectOnGround::Exe()
 
     if (!InsideParalRecall())
     {
+
         MergeResults();
 
         // REMOVE NON NECESSARY INDIVIDUAL TILES

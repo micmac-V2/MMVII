@@ -733,7 +733,7 @@ void cAppliMMGenDepthMV::Generate_sparse_depth(std::string aNameImage,
   }
 
 
-  /*int cAppliMMGenDepthMV::Exe()
+  int cAppliMMGenDepthMV::Exe()
   {
       mPhProj.FinishInit();
 
@@ -809,11 +809,10 @@ void cAppliMMGenDepthMV::Generate_sparse_depth(std::string aNameImage,
     }
 
       return EXIT_SUCCESS;
-  }*/
+  }
 
 
- // Test MulScaledInterpolator
-
+ /*
 int cAppliMMGenDepthMV::Exe()
     {
         mPhProj.FinishInit();
@@ -850,9 +849,11 @@ int cAppliMMGenDepthMV::Exe()
         return EXIT_SUCCESS;
 
     }
+        */
 
 
 /*
+ // Test MulScaledInterpolator
   int cAppliMMGenDepthMV::ExeScale()
   {
       mPhProj.FinishInit();

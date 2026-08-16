@@ -1028,7 +1028,7 @@ void cAppliCloudFuser::FuseDemsByWAvg( std::vector<cIm2D<tREAL4>> & aVDems,
         for (size_t i=0; i<aVDems.size();i++)
         {
             tREAL8 aWeight = aVWeighters[i].DIm().GetV(aPix);
-            if( aWeight >= 0) // masq has a 1 value
+            if( aWeight > 0) // masq has a 1 value
             {
                 aWeights += aWeight ;
                 aVWeightedZ+=aWeight*aVDems[i].DIm().GetV(aPix);

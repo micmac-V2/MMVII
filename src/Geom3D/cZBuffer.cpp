@@ -140,7 +140,6 @@ cZBuffer::cZBuffer(cTri3DIterator & aMesh,const tSet &  aSetIn,const tMap & aMap
             while (mMesh.GetNextPoint(aPIn))
             {
                 cPt3dr aPOut = mMapI2O.Value(aPIn);
-
                 /*MMVII_INTERNAL_ASSERT_strong(Norm1(aPOut-aPOutReady)<0.000001,
                                 "ready points are not correctly mapped in mMesh2DDepth");*/
 
@@ -322,6 +321,7 @@ void cZBuffer::MakeZBufForBasc(eZBufModeIter aMode)
         }
 
     }
+
     if (aNbTriVis==0)
         mIsOk=false;
 
@@ -369,7 +369,8 @@ eZBufRes cZBuffer::MakeOneTri(const tTri3dr & aTriIn,const tTri3dr &aTri3,eZBufM
      ///  the axe K of camera is in direction of view, the normal is in direction of visibility => they are opposite
     bool WellOriented =  mZF_SameOri ?  (aSign>0)  :(aSign<0);
 
-    aTri2.PixelsInside(aVPix,1e-8,&aVW);
+    aTri2.PixelsInside(aVPix,1e-9,&aVW);
+
     tDIm & aDZImB = mZBufIm.DIm();
     int aNbVis = 0;
     for (size_t aK=0 ; aK<aVPix.size() ; aK++)
