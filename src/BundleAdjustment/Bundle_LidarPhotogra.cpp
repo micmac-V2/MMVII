@@ -1220,8 +1220,8 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
     auto & aScanA = aScanAData.mLidarRaster;
     cPt2dr aPatchCenterA = ToR(*aPatch.mLPatchesP.begin());
     // TODO: use mInterpolD or normal (adaptative) interpol??
-    auto aInterpolA = mInterp;//aScanA->getNormalInterpolator(aPatchCenterA);
-    cPt3dr aPGround = aScanA->Image2Ground_InterpoleDist(aPatchCenterA, aInterpolA);
+    //auto aInterpolA = aScanA->getNormalInterpolator(aPatchCenterA);
+    cPt3dr aPGround = aScanA->Image2Ground(aPatchCenterA); // TODO why Image2Ground works better than Image2Ground_Interpol??
     std::vector<cData1ImLidPhgr> aVData; // for each image where patch is visible will store the data
     cWeightAv<tREAL8>   aAvgRes;    // compute average residual
     tREAL8 aMinResidual = INFINITY;
@@ -1280,13 +1280,13 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                 #endif
                 continue;
             }
-            auto aInterpolB = mInterp;//aScanB->getNormalInterpolator(aPIm);
-            if (aGenDImDist.InsideInterpolator(*aInterpolB,aPIm,1.0)
+            //auto aInterpolB = aScanB->getNormalInterpolator(aPIm);
+            if (aGenDImDist.InsideInterpolator(*mInterp,aPIm,1.0)
                 && aScanB->isInsideNormalInterpolator(aPIm))  // is it sufficiently inside for each interpolators
             {
-                auto aVGr = aGenDImDist.GetValueAndGradInterpol(*aInterpolB,aPIm); // extract pair Value/Grad of image
+                auto aVGr = aGenDImDist.GetValueAndGradInterpol(*mInterp,aPIm); // works better than normal interp for gradient, why?
 
-                aData.mVGr = {aVGr};
+                aData.mVGr = { aVGr };
                 #ifdef SCANSCANDEBUG
                 std::cout<<aPIm<<" GetValueAndGradInterpol: "<<aVGr.first<<" "<<aVGr.second.x()*1940<<" "<<aVGr.second.y()*1940<<"\n";
                 #endif
