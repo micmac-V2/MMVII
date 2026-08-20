@@ -92,7 +92,7 @@ template <class Type> class cGP_OneImage : public cMemCheck
 
 
               // =======   Image processing for creation
-        void  ComputGaussianFilter();  ///< Generate computation of gauss image
+        void  ComputGaussianFilterOfImage();  ///< Generate computation of gauss image
         void  MakeDiff(const tGPIm & ); ///< Put in this the difference between anIm and anIm.mDown
         void  MakeCorner(); ///< Compute an indice of corner image
         void  MakeOrigNorm(const tGPIm & ); ///< Create an image, almost orig, but normalized
@@ -100,7 +100,7 @@ template <class Type> class cGP_OneImage : public cMemCheck
               // =======   Description
         void SaveInFile() const;  ///< Save image on file, tuning/teaching
         void Show() const;  ///< Show Image in text format, test and debug
- 
+
               // =======   Utilitaries
         std::string  ShortId() const;  ///< Helper to create Id avoid
         std::string  Id() const; ///< Some identifier, may usefull in debuging
@@ -167,15 +167,15 @@ template <class Type> class cGP_OneOctave : public cMemCheck
         cPt2dr File2Oct(const cPt2dr &) const; ///< From geomtry of global file
 
         void Show() const;  ///< Show octave in text format, test and debug
-        void ComputGaussianFilter();  ///< Generate computation of gauss pyram
-  
+        void ComputGaussianFilterOfAllImages();  ///< Generate computation of gauss pyram
+
         /** Put in all image of this, the  image  whic are differences of consecutive image in anOct */
         void  MakeDiff(const tOct & anOct);
 
         /**  Put in all image of this, image original normalized */
         void  MakeOrigNorm(const tOct & anOct);
 
-        
+
         //  ====  Accessors  ===========
         tPyr*          Pyram() const ;      ///< Accessor to Pyram
         const cPt2di &  SzIm() const;       ///<  mSzIm
@@ -183,7 +183,7 @@ template <class Type> class cGP_OneOctave : public cMemCheck
         tOct *          Up() const;         ///< Possible octave up in the pyramid, 0 if dont exist
         const int &     NumInPyr() const;   ///< Number inside Pyram
         const std::vector<tSP_GPIm>& VIms()const ;       ///< Images of the Pyramid
-       
+
     private :
         cGP_OneOctave(const tOct &) = delete;
         tPyr*              mPyram;        ///< Pyramid it belongs to
@@ -281,7 +281,7 @@ struct cGP_Params
          int  mNbLevByOct;  ///< Number of level per octave (dont include overlap)
          int  mNbOverlap;   ///< Number of overlap
          const cMMVII_Appli * mAppli; ///< Appli used for names construction
-         
+
          cPt2di       mNumTile; ///< Tile used for computing in small tiles (memory problem) usefull as index for save
          cFilterPCar  mFPC; ///< Not really related to GP, but easier to embed
       // Parameters with def value, can be changed
@@ -317,7 +317,7 @@ template <class Type> class  cGaussianPyramid : public cMemCheck
         /** Generate a Pyramid "almost" original but with normalized values */
         tSP_Pyr  PyramOrigNormalize() ;
 
-       
+
         cPt2dr Pyr2File(const cPt2dr &) const; ///< To geomtry of global file
         cPt2dr File2Pyr(const cPt2dr &) const; ///< To geomtry of global file
 
@@ -328,7 +328,7 @@ template <class Type> class  cGaussianPyramid : public cMemCheck
         tGPIm * ImHom(tGPIm *) ;  ///< return the homologue image (from another pyramid)
         tGPIm * ImHomOri(tGPIm *) ;  ///< return the homologue image in Original Pyramid
 
-        void ComputGaussianFilter();  ///< Generate gauss in image of octave
+        void ComputGaussianPyram();  ///< Generate gauss in image of octave
         void SaveInFile(int aPowSPr,bool ForInstpect) const;  ///< Save images
       // Accessors
         const cGP_Params & Params() const;  ///< Parameters of pyramid
