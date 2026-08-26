@@ -865,6 +865,7 @@ public :
     std::vector<std::string>  Samples() const override;
     void poseFromXYZ();
     void poseFromXYZv4();
+    void poseFromMat4x4(bool aInverse);
     void poseFromGCP();
 
 private :
@@ -876,10 +877,13 @@ private :
 
     // Optional Arg
     int                      mNbPatches;
-    std::string              mPoseXYZFilename;
-    std::string              mPoseXYZv4Filename;
+    std::string              mPoseXYZFilename;     ///< give a Comp3Dv5 XYZ file
+    std::string              mPoseXYZv4Filename;   ///< give a Comp3Dv4 XYZ file
     bool                     mSupposeVerticalized; ///< need only 2 GCP for approx init
-    std::string              mSupMaskFilename; ///< a suplementary mask for patch detection
+    std::string              mSupMaskFilename;     ///< a suplementary mask for patch detection
+    bool                     mIsPoseId;            ///< set pose to identity
+    std::string              mPoseMat4x4Filename;  ///< give a 4x4 matrix text file name
+    bool                     mPoseMat4x4Inverse;   ///< if the matrix given has to be inverted
 
     // data
     tPoseR                   mForcedPose;
@@ -891,6 +895,8 @@ cAppli_InitTSL::cAppli_InitTSL(const std::vector<std::string> & aVArgs,const cSp
     mPhProj         (*this),
     mLidar          (nullptr),
     mNbPatches      (1000),
+    mIsPoseId       (false),
+    mPoseMat4x4Inverse(false),
     mForcedPose     (tPoseR::Identity()),
     mIsForcedPoseInit(false)
 {
@@ -910,6 +916,9 @@ cCollecSpecArg2007 & cAppli_InitTSL::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            << AOpt2007(mNbPatches,"NbPatches","Approx nb patches to make",{{eTA2007::HDV}})
            << AOpt2007(mPoseXYZFilename,"PoseXYZ","Set initial pose from a Comp3D .xyz file",{{eTA2007::FileAny}})
            << AOpt2007(mPoseXYZv4Filename,"PoseXYZv4","Set initial pose from a Comp3D v4 .xyz file",{{eTA2007::FileAny}})
+           << AOpt2007(mIsPoseId,"PoseId","Set initial pose to Id",{{eTA2007::HDV}})
+           << AOpt2007(mPoseMat4x4Filename,"PoseMat4x4","Set initial pose from a 4x4 matrix text file",{{eTA2007::FileAny}})
+           << AOpt2007(mPoseMat4x4Inverse,"InvMat4x4","Invert pose from 4x4 matrix",{{eTA2007::HDV}})
            << mPhProj.DPGndPt3D().ArgDirInOpt("GCP3D","GCPs 3D coords")
            << mPhProj.DPGndPt2D().ArgDirInOpt("GCP2D","GCPs 3D coords")
            << AOpt2007(mSupposeVerticalized,"SupposeVerticalized","Initialize supposing verticalized station (only 2 GCP needed)",{{eTA2007::HDV}})
@@ -969,6 +978,73 @@ void cAppli_InitTSL::poseFromGCP()
     }
     StdOut() << "Isometry residual: " << std::sqrt(aWeightedSqRes.Average())<<"m\n";
 }
+
+
+void cAppli_InitTSL::poseFromMat4x4(bool aInverse)
+{
+    StdOut() << "Pose from 4x4 Mat file\n";
+    /* file format :
+ r11 r12 r13 t1
+ r21 r22 r23 t2
+ r31 r32 r33 t3
+  0   0   0  1
+     */
+
+    std::ifstream aMatfile(mPoseMat4x4Filename);
+    MMVII_INTERNAL_ASSERT_tiny(aMatfile.is_open(),"Error opening "+mPoseMat4x4Filename);
+    std::string aLine;
+    tREAL8 x,y,z, t;
+    cPt3dr aT;
+    cPt3dr aR1, aR2, aR3;
+    {
+        std::getline(aMatfile, aLine);
+        std::istringstream iss(aLine);
+        iss >> x >> y >> z >> t;
+        aR1 = {x, y, z};
+        aT.x() = t;
+    }
+    {
+        std::getline(aMatfile, aLine);
+        std::istringstream iss(aLine);
+        iss >> x >> y >> z >> t;
+        aR2 = {x, y, z};
+        aT.y() = t;
+    }
+    {
+        std::getline(aMatfile, aLine);
+        std::istringstream iss(aLine);
+        iss >> x >> y >> z >> t;
+        aR3 = {x, y, z};
+        aT.z() = t;
+    }
+    {
+        std::getline(aMatfile, aLine);
+        std::istringstream iss(aLine);
+        iss >> x >> y >> z >> t;
+        MMVII_INTERNAL_ASSERT_tiny( (Norm2(cPt3dr(x, y, z))<1e-10) && (fabs(t-1.)<1e-10),
+                                   "Error reading last line, should be 0 0 0 1, got: '"+aLine+"'");
+    }
+    MMVII_INTERNAL_ASSERT_tiny(!aMatfile.bad(),"Error reading "+mPoseMat4x4Filename);
+
+    cRotation3D<tREAL8> aRotTSL2MM = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j");
+
+    auto aRot = cRotation3D<tREAL8>({aR1.x(), aR2.x(), aR3.x()},
+                                    {aR1.y(), aR2.y(), aR3.y()},
+                                    {aR1.z(), aR2.z(), aR3.z()}, true);
+
+
+    if (aInverse)
+    {
+        aRot = aRot.MapInverse();
+        aT = aRot.Value(-aT);
+    }
+
+    mForcedPose.Rot() = (aRotTSL2MM * aRot).MapInverse();
+    mForcedPose.Tr() = aRot.Inverse(-aT);
+
+    mIsForcedPoseInit = true;
+}
+
 
 void cAppli_InitTSL::poseFromXYZv4()
 {
@@ -1141,6 +1217,16 @@ int cAppli_InitTSL::Exe()
         StdOut() << "Read XYZ v4 pose file: " << mPoseXYZv4Filename << std::endl;
         poseFromXYZv4();
     }
+
+    MMVII_INTERNAL_ASSERT_tiny(
+        (!IsInit(&mPoseMat4x4Inverse)) || IsInit(&mPoseMat4x4Filename), // inv => 4x4file
+        "Error: can not inverse 4x4 Mat if not given.");
+    if (IsInit(&mPoseMat4x4Filename))
+    {
+        StdOut() << "Read 4x4 Mat pose file: " << mPoseMat4x4Filename << std::endl;
+        poseFromMat4x4(IsInit(&mPoseMat4x4Inverse)?mPoseMat4x4Inverse:false);
+    }
+
     MMVII_INTERNAL_ASSERT_tiny(
         mPhProj.DPGndPt3D().DirInIsInit() == mPhProj.DPGndPt2D().DirInIsInit(),
         "Error: needs GCP3D and GCP2D for init from GCP");
@@ -1148,6 +1234,14 @@ int cAppli_InitTSL::Exe()
     if (mPhProj.DPGndPt3D().DirInIsInit() && mPhProj.DPGndPt2D().DirInIsInit())
     {
         poseFromGCP();
+    }
+
+    if (IsInit(&mIsPoseId))
+    {
+        StdOut() << "Pose is set to Identity" << std::endl;
+        mForcedPose.Tr() = {0.,0.,0.};
+        mForcedPose.Rot() = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j").MapInverse();
+        mIsForcedPoseInit = true;
     }
 
     if (mIsForcedPoseInit)
