@@ -25,7 +25,7 @@ when computing  global orientation   by  other commands :
     \item \FileSty{OriPoseEstimRelAllPairs}
 \end{itemize}
 
-Having access to thi elementary command is (almos) never done when
+Having access to thi elementary command is (almost) never done when
 computing a real 3D modelization.
 However, it  may be interesting to run on a specific pair for :
 
@@ -77,7 +77,55 @@ All these command accept $3$ different way to specify the tie points used to com
 
 %=================================================================================
 
+\section{Methodology used}
+
+    %  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+\subsection{Introduction}
+
+We give a very brief description of the method used :
+
+\begin{itemize}
+    \item we test different algorithm for initial estimation;
+    \item for each solution we make refinement by bundle adjustment
+    \item we select the best refined solution  using a criteria on
+	    reprojection that try to be robust to outliers.
+\end{itemize}
+
+    %  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+\subsection{Initialization}
+
+We test $2$ method :
+
+\begin{itemize}
+    \item  the essential matrix that works in all case, except when the scene is planar
+    \item  the homographic decomposition that works only when the scene is planar;
+	   is the scene is planar, the method gives $2$ solution that cannot be distinguished;
+\end{itemize}
+
+For each method we make ransac estimation.
+So we obtain $3$ possible initial solutions that are refined using a "specialized bundled adjustment".
+
+    %  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+\subsection{Selection}
+
+Let $r_0,r_1, \dots r_{N-1}$ be the $N$ residual of the reprojection of tie points,
+\emph{sorted} in growing order,
+the formula used for comparing the different solution is : 
+
+\begin{equation}
+	\sum_{k=0}^N  r_k (N-k)
+\end{equation}
+
+
+
+%=================================================================================
+
 \section{Parameters for testing and tuning}
+
+\section{Ground truth}
 
  %=================================================================================
 \SecRelatedCmd
