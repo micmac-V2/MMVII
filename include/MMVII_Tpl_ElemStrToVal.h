@@ -5,7 +5,7 @@
 #include "MMVII_enums.h"
 #include "MMVII_Stringifier.h"
 #include "cMMVII_Appli.h"
-#include "MMVII_Tpl_ElemStrToVal.h"
+//#include "MMVII_Tpl_ElemStrToVal.h"
 /** \file uti_e2string.cpp
     \brief Implementation enum <=> string conversion
 

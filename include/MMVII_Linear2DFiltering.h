@@ -44,6 +44,8 @@ void  ExponentialFilter(cDataIm2D<Type> & aIm,int   aNbIter,double aFact);
 template <class Type>
 void  ExpFilterOfStdDev(cDataIm2D<Type> & aIm,int   aNbIter,double aStdDev);
 template <class Type>
+void  ExpFilterOfStdDev(cDataIm2D<Type> & aIm,int   aNbIter,double aStdDevX,double aStdDevY);
+template <class Type>
 void  ExpFilterOfStdDev(cDataIm2D<Type> & aIOut,const cDataIm2D<Type> & aImIn,int aNbIter,double aStdDev);
 
 

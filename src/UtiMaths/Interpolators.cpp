@@ -856,6 +856,7 @@ cScaledInterpolator::cScaledInterpolator
 
 const std::string cScaledInterpolator::TheNameInterpol("Scale");
 
+/*  MPD : Seems tricky, I no longer understand what it does, and apparently not used ... Comment for npw
 static cInterpolSpec TheSpec_Scale
 (
     cScaledInterpolator::TheNameInterpol,"Tabulate a scaled version of the interpolator that follows",
@@ -866,7 +867,7 @@ static cInterpolSpec TheSpec_Scale
     [](const cInterpolParams & aP,const cInterpolator1D & aSub) -> cInterpolator1D *
         {return cScaledInterpolator::AllocTab(aSub,aP.Get<tREAL8>(0),aP.Get<int>(1));}
 );
-
+*/
 
 
 cScaledInterpolator::~cScaledInterpolator()

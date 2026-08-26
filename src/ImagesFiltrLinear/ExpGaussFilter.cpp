@@ -223,6 +223,19 @@ void  ExpFilterOfStdDev(cDataIm2D<Type> & aIm,int   aNbIter,double aStdDev)
 {
      ExponentialFilter(aIm,aNbIter,FactExpFromSigma2(Square(aStdDev)/aNbIter));
 }
+template <class Type>
+void  ExpFilterOfStdDev(cDataIm2D<Type> & aIm,int   aNbIter,double aStdDevX,double aStdDevY)
+{
+     ExponentialFilter
+     (
+         true,
+         aIm,
+         aNbIter,
+         aIm,
+         FactExpFromSigma2(Square(aStdDevX)/aNbIter),
+         FactExpFromSigma2(Square(aStdDevY)/aNbIter)
+      );
+}
 
 template <class Type>
 void  ExpFilterOfStdDev(cDataIm2D<Type> & aImOut,const cDataIm2D<Type> & aImIn,int   aNbIter,double aStdDev)
@@ -283,6 +296,7 @@ template void  ExpFilterOfStdDev(cDataIm2D<Type> & aIm,int   aNbIter,double aStd
 template void  ExpFilterOfStdDev(cDataIm2D<Type> & aIm,const cDataIm2D<Type> & aImIn,int   aNbIter,double aStdDev);\
 template void  ExponentialFilter(cDataIm1D<Type> & aDI1,int  aNbIt,double aFact);\
 template void  ExpFilterOfStdDev(cDataIm1D<Type> & aDI1,int  aNbIt,double aStdDev);\
+template void  ExpFilterOfStdDev(cDataIm2D<Type> & aIm,int   aNbIter,double aFactX,double aFactY);\
 template void  SquareAvgFilter(cDataIm2D<Type> & aDIm,int  aNbIt,int aSzX,int aSzY);
 
 MACRO_INSTANTIATE_ExpoFilter(tREAL4);
