@@ -127,6 +127,25 @@ the formula used for comparing the different solution is :
 
 \section{Ground truth}
 
+If the parameter \FileSty{OriGT} is used, it must contain orientation for the $2$ images. These
+orientation is used to compute a ground truth relative orientation and a distance between
+this ground truth and the computed value is printed.
+Typically if the orientation has been computed on a large set of data, it can be exptected to
+be more accurate.
+
+If the folder for internal calibration contain also the ground truth, it's sufficient to indicate
+\FileSty{UseOriGT=1}
+
+
+\section{Simulation}
+
+It's possible to create artificial data :
+
+\begin{itemize}
+\end{itemize}
+
+
+
  %=================================================================================
 \SecRelatedCmd
 
