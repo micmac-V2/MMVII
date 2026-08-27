@@ -344,8 +344,8 @@ void cAppli_ImportTSL::computeAngStartStep()
                 }
             }
         }
-        // make a better approx using a second point near the end
-        for (long i=(long)mSL_importer.mVectPtsTPD.size()-1; i>a1stPti; --i)
+        // make a better approx using a second point near the center (near the end theta may be very close to start because of modulo)
+        for (long i=(long)mSL_importer.mVectPtsTPD.size()/2.1-1; i>a1stPti; --i)
         {
             if ((mSL_importer.mVectPtsTPD[i].z()>mSL_importer.DistMinToExist()) && (fabs(fabs(mSL_importer.mVectPtsTPD[i].y())-M_PI/2)>aMinAngToZenith))
             {
