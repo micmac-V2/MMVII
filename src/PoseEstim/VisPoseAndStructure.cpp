@@ -50,6 +50,23 @@ cCollecSpecArg2007 & cAppli_VisuPoseStr3D::ArgOpt(cCollecSpecArg2007 & anArgOpt)
         ;
 }
 
+
+std::vector<cOneHelpSampleCmp>  cAppli_VisuPoseStr3D::Samples() const
+{
+    return {
+
+            cOneHelpSampleCmp::Header("Examples with Ramses data set"),
+            {
+                 "MMVII VisuPose3D  \"IMG_030[3|5].JPG\" Test_03_05 InMulTieP=V1Dense  CamScale=1 "
+
+            },
+            {
+                 "MMVII VisuPose3D  \".*JPG\" Adjust InMulTieP=V1Dense  CamScale=0.5"
+            }
+    };
+}
+
+
 int cAppli_VisuPoseStr3D::Exe()
 {
     mPhProj.FinishInit();
@@ -117,8 +134,15 @@ int cAppli_VisuPoseStr3D::Exe()
     // intersect in 3d
     TimeSegm().SetIndex("INTERSECT 3D TIE-POINTS");
     if (aTPts)
+     {
+        std::vector<tREAL8> aVDist;
         for (auto & aPair : aTPts->Pts())
-            MakePGround(aPair,aVSens);
+        {
+            MakePGround(aPair,aVSens,&aVDist);
+        }
+
+        StdOut()  << " VDIST-SZ=" << aVDist.size() << "\n";
+    }
 
 
     std::string aPrintRGB = (mWithRGB) ? "+RGB": "";

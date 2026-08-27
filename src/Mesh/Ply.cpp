@@ -741,7 +741,8 @@ void cAppli_VisuPoseStr3D::AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulT
 
 double cAppli_VisuPoseStr3D::CalculateFDepth(const cPt2di& aSz, const double& aF)
 {
-    double aDiag = std::sqrt(std::pow(aSz[0],2)+std::pow(aSz[1],2));
+    //    double aDiag = std::sqrt(std::pow(aSz[0],2)+std::pow(aSz[1],2));
+    double aDiag = Norm2(aSz) ;  // MPDER : simpler
     double aRatioDiagF = aDiag/aF ;
 
     return aRatioDiagF*mCamScale;

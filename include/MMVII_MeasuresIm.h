@@ -454,8 +454,10 @@ size_t NbPtsMul(const tPairTiePMult &) ;
 size_t Multiplicity(const tPairTiePMult&);
 cPt2dr  KthPt(const tPairTiePMult & aPair, int aKIm,int aKPt);
 
-cPt3dr BundleInter(const tPairTiePMult &,size_t aKPts,const std::vector<cSensorImage *> &);
-void   MakePGround(tPairTiePMult &,const std::vector<cSensorImage *>&);
+/// If aVDistAdd!=0, the distance PGroun/Sensor are added, 4 now work only with stenope camera => 2 improve
+cPt3dr BundleInter(const tPairTiePMult &,size_t aKPts,const std::vector<cSensorImage *> &,std::vector<tREAL8>* aVDistAdd=nullptr);
+// Compute the 3d points of each
+void   MakePGround(tPairTiePMult &,const std::vector<cSensorImage *>&,std::vector<tREAL8>* aVDistAdd=nullptr);
 void   MakePGroundFromBundles(tPairTiePMult &,const std::vector<cSensorImage *> &);
 
 
