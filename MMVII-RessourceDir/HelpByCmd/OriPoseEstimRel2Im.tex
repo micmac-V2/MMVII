@@ -59,6 +59,8 @@ The $4$ mandatory parameters are:
 
 \section{"Mandatory" Optionnal parameters for input}
 
+\label{Ref:Mand:Opt:TieP}
+
 All these command accept $3$ different way to specify the tie points used to compute orientation :
 
 \begin{itemize}
@@ -136,13 +138,25 @@ be more accurate.
 If the folder for internal calibration contain also the ground truth, it's sufficient to indicate
 \FileSty{UseOriGT=1}
 
+When this parameter is used, a distance is measured between the two relative pose (reference
+and computed). This distance is the sum of distance between translation and rotation,
+and the value printed is \emph{multiplied} by focal, making it homogeneous to pixels
+and (hopefully) easier to interpret.
+
 
 \section{Simulation}
 
-It's possible to create artificial data :
+It's possible to create artificial data , with parameter \FileSty{NbSimulPt},
+it require that the ground truh orientation is initialized; it will generate
+the required random number of tie point that project perfectly  acccording
+to the ground truth orientation.
 
-\begin{itemize}
-\end{itemize}
+These artficial tie points can be cumulated with "real" tie point or used
+alone (this means that "real tie point of~\ref{Ref:Mand:Opt:TieP} become optional).
+
+It possible to add also non prerfect tie point with  parameter \FileSty{OutLayers},
+it indicate the number of un-perfect tie point, and the sigma that is added
+on re-projection.
 
 
 

@@ -902,8 +902,16 @@ std::vector<cOneHelpSampleCmp>  cAppli_OriRelPairOfIm::Samples() const
                  "MMVII OriPoseEstimRel2Im IMG_0350.JPG IMG_0351.JPG Calib_Init T_5051 InTieP=V1 "
             },
             {
-                 "MMVII OriPoseEstimRel2Im IMG_0350.JPG IMG_0351.JPG Calib_Init T_5051 InMulTieP=V1 OriGT=Adjust ",
-                {"Use with single and multiple tie points, in second use a ground truh to measure quality"}
+                 "MMVII OriPoseEstimRel2Im IMG_0350.JPG IMG_0351.JPG Calib_Init T_5051 InMulTieP=V1 OriGT=Adjust "
+            },
+            {
+                "MMVII OriPoseEstimRel2Im IMG_0350.JPG IMG_0351.JPG Adjust T_5051 InMulTieP=V1 UseOriGT=1",
+
+                {"Use with single and multiple tie points, in 2nd & 3rd use a ground truh to measure quality"}
+            },
+            {
+                "MMVII OriPoseEstimRel2Im IMG_0350.JPG IMG_0351.JPG Adjust T_5051  UseOriGT=1  NbSimulPt=100  OutLayers=[400,2]",
+                {"Use goud truh and simulation "}
             }
 
 
