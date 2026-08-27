@@ -193,7 +193,7 @@ void cMMVII_BundleAdj::OneItere_GCP()
             cStdWeighterResidual& aGCPIm_Weighter = aVMesIm.at(aKp).VMesDirInfo().at(aKIm)->mWeighter;
             int aIndIm = aVIndIm.at(aKIm);
             cSensorImage * aSens = aVSens.at(aIndIm);
-            const cPt2dr & aPIm = aVPIm.at(aKIm);
+            cPt2dr aPIm = aVPIm.at(aKIm);
             auto & aDistWithSigma = aVDistWithSigma.at(aKIm);
             //StdOut() << "aSensaSensaSens " << aSens->NameImage() << " " << aVIndIm << "\n";
 
@@ -231,11 +231,26 @@ void cMMVII_BundleAdj::OneItere_GCP()
 
                 aUW_SqRes.Add(1.0,SqN2(aResidual));
                 cCalculator<double> * anEqColin = nullptr;
-                // the "obs" are made of 2 point and, possibily, current rotation (for PC cams)
-                std::vector<double> aVObs = aPIm.ToStdVector();
 
                 // will use dist only if this is as cStaticLidar and we have a distance in mesInstr
                 cStaticLidar * aStaticLidar = dynamic_cast<cStaticLidar*>(aSens);
+                if (aStaticLidar)
+                {
+                    // modify im measurement because of incorrect internal calib
+                    cPt3dr aPtGndFromIm = aStaticLidar->Image2Ground(aPIm);
+                    cPt2dr aPIm2 = aStaticLidar->cSensorCamPC::Ground2Image(aPtGndFromIm);
+                    int aW = aStaticLidar->InternalCalib()->PixelDomain().Sz().x();
+                    if (aPIm2.x()-aPIm.x()<-aW/3.)
+                        aPIm2.x() += aW;
+                    else if (aPIm2.x()-aPIm.x()>aW/3.)
+                        aPIm2.x() -= aW;
+                    std::cout<<" diff "<<aPIm<<" "<<aPIm2<<" -> "<<aPIm2-aPIm<<"\n";
+                    aPIm = aPIm2;
+                }
+
+                // the "obs" are made of 2 point and, possibily, current rotation (for PC cams)
+                std::vector<double> aVObs = aPIm.ToStdVector();
+
                 if (!aDistWithSigma.has_value())
                     aStaticLidar = nullptr;
                 anEqColin = aStaticLidar ? aStaticLidar->GetEqColinearityDist() : aSens->GetEqColinearity();
