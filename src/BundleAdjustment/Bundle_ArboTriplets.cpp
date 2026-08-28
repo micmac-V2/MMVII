@@ -171,9 +171,9 @@ void cBA_ArboTriplets::OneIteration(int aIter)
     tREAL8 aThr = CurrentVal(aIter,mNbIter,mThrRange.at(0),mThrRange.at(1));
     cStdWeighterResidual aTPtsW(1.0, aSigA, aThr, 2.0);
 
-    StdOutLock::lock();
-    StdOut() << "SIIGGGG THRRR " << aSigA << " " << aThr << std::endl;
-    StdOutLock::unlock();
+    //StdOutLock::lock();
+    //StdOut() << "SIIGGGG THRRR " << aSigA << " " << aThr << std::endl;
+    //StdOutLock::unlock();
 
     // add observation equations for all tie-points
     tREAL8 aMaxRes=0;

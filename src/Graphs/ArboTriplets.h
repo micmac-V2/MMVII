@@ -128,6 +128,16 @@ private :
             const std::vector<tPairI>& aVPairLink2,
             const std::vector<cOneTripletMerge> &  aVLink3
             );
+    /** estimates robust rotation, takes into account triplet a priori quality */
+    tRotR EstimateRotTransfertV2
+        (
+            std::vector<tREAL8> &  aWeightRot,
+            const std::vector<tPairI>& aVPairCommon,
+            const std::vector<int>&    aVNumTriCommon,
+            const std::vector<tPairI>& aVPairLink2,
+            const std::vector<int>&    aVNumTriLink2,
+            const std::vector<cOneTripletMerge> &  aVLink3
+            );
     /// compute the mTabGlob2LocInd
     void MakeIndexGlob2Loc();
 
