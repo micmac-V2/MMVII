@@ -257,7 +257,7 @@ cBA_LidarPhotograRaster::cBA_LidarPhotograRaster(cPhotogrammetricProject * aPhPr
 {
     InitEq(true);
 
-    mThresholdInit = mThresholdFinal = aThreshold;
+    mThreshold = mThresholdInit = mThresholdFinal = aThreshold;
 
     tNameSelector aSel =   AllocRegex(aPatScan);
     for (const auto & aPtrCam : mBA.VSCPC())
@@ -353,16 +353,16 @@ void cBA_LidarPhotograRaster::UpdateInterpolatorScale(const cMMVII_BundleAdj& aB
 
 void cBA_LidarPhotograRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, double aWFactor)
 {
-    tREAL4 aTh = aBA.NbMaxIter() < 2 ? mThresholdFinal :
+    mThreshold = aBA.NbMaxIter() < 2 ? mThresholdFinal :
                      mThresholdInit + (mThresholdFinal - mThresholdInit)*float(aBA.Iter())/(aBA.NbMaxIter()-1);
-    std::cout << "up weighters, th="<<aTh<<"\n";
-    if (aTh>10000)
-        aTh = -1;
+    std::cout << "up weighters, th="<<mThreshold<<"\n";
+    if (mThreshold>10000)
+        mThreshold = -1;
     for (auto & aScanDataA: mVScans)
     {
         auto &aScanA = aScanDataA.mLidarRaster;
         tREAL8 aSigma = 1.; // TODO use image res for W? aScanA->Sigma() converted with incidence?
-        mWeightersMap[aScanA->NameImage()].reset(new cStdWeighterResidual(sqrt(aWFactor)*aSigma, aTh / 2., aTh, 1));
+        mWeightersMap[aScanA->NameImage()].reset(new cStdWeighterResidual(sqrt(aWFactor)*aSigma, mThreshold / 2., mThreshold, 1));
     }
 }
 
@@ -970,6 +970,7 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
 
     mThresholdInit = (aThresholdInit<0) ? INFINITY : aThresholdInit;
     mThresholdFinal = (aThresholdFinal<0) ? INFINITY : aThresholdFinal;
+    mThreshold = mThresholdInit;
 
     MMVII_INTERNAL_ASSERT_User((aNormalTolDeg>=0) && (aNormalTolDeg<=180),
                                eTyUEr::eBadOptParam,"Normal tolerance must be inside [0,180], got "+ToStr(aNormalTolDeg));
@@ -1012,11 +1013,11 @@ cBA_LidarLidarRaster::~cBA_LidarLidarRaster()
 
 void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, double aWFactor)
 {
-    tREAL4 aTh = aBA.NbMaxIter() < 2 ? mThresholdFinal :
+    mThreshold = aBA.NbMaxIter() < 2 ? mThresholdFinal :
                      mThresholdInit + (mThresholdFinal - mThresholdInit)*float(aBA.Iter())/(aBA.NbMaxIter()-1);
     //std::cout << "up weighters, th="<<aTh<<"\n";
-    if (aTh>10000)
-        aTh = -1;
+    if (mThreshold>10000)
+        mThreshold = -1;
     for (auto & aScanDataA: mVScans)
     {
         auto &aScanA = aScanDataA.mLidarRaster;
@@ -1036,11 +1037,11 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
             switch (mWParam.Mode) {
             case eModeWeighter::eStd:
                 MMVII_INTERNAL_ASSERT_User(mWParam.VParams.size()==2,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParam.Mode)+" must have 2 params");
-                aW = new cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh*mWParam.VParams.at(0), aTh, mWParam.VParams.at(1));
+                aW = new cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, mThreshold*mWParam.VParams.at(0), mThreshold, mWParam.VParams.at(1));
                 break;
             case eModeWeighter::eLin:
                 MMVII_INTERNAL_ASSERT_User(mWParam.VParams.size()==1,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParam.Mode)+" must have 1 param");
-                aW = new cLinearWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh, aTh*mWParam.VParams.at(0));
+                aW = new cLinearWeighterResidual(sqrt(aWFactor)*aSigmaAB, mThreshold, mThreshold*mWParam.VParams.at(0));
                 break;
             case eModeWeighter::eNbVals:
                 MMVII_INTERNAL_ASSERT_User(false,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParam.Mode)+" not allowed!");
@@ -1294,7 +1295,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                 tREAL8 aValIm = aData.mVGr.at(0).first;   // value of first/central pixel in this image
                 tREAL8 aResidual = aValIm-aDist;
 
-                if (fabs(aResidual)<std::max(0.1,mThresholdInit*20)) // suppose that 10cm is always an error
+                if (fabs(aResidual)<std::max(0.1,mThreshold*20)) // suppose that 10cm is always an error
                     mNbUsableObs++;
 
                 if (fabs(aResidual)<fabs(aMinResidual))
