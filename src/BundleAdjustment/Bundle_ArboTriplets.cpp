@@ -62,14 +62,15 @@ void MThreadForcConcurenceLock()
 /*                                                           */
 /* ********************************************************* */
 
-cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols,int aTDepth,int aNbIterEnd,
-                                   tREAL8 aSigLooseningMult, tREAL8 aThrLooseningMult):
+cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols, int aTDepth, int aNbIterEnd,
+                     tREAL8 aSigLooseningMult, tREAL8 aThrLooseningMult,cComputeMergeMulTieP * aTPts) :
     mPMAT      (aPMAT),
     mNbIter    (aNbIterEnd),
     mSigARange  ({2*aSigLooseningMult*aPMAT->Cfg().mSigmaAtt, Sqrt(aSigLooseningMult)*aPMAT->Cfg().mSigmaAtt}), //{max,min} <=> {initial,final}
     mThrRange   ({2*aThrLooseningMult*aPMAT->Cfg().mThrs,     aThrLooseningMult*aPMAT->Cfg().mThrs}),   //{max,min} <=> {initial,final}
     mSys      (nullptr),
     mTPts     (nullptr),
+    mOwnTPts  (false),
     mTreeDepth(aTDepth)
 {
     // get image names in current node
@@ -79,7 +80,18 @@ cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocN
     Sort2VectFirstOne(aVNames, aLocSols);
 
     // recover tie-points corresponding to the set of images
-    mTPts = new cComputeMergeMulTieP(*mPMAT->TPtsStruct(), aVNames);
+    if (aTPts)
+    {
+        // built once per node in MergeChildrenSol and shared with the similitude estimation
+        mTPts = aTPts;
+        MMVII_INTERNAL_ASSERT_medium(mTPts->VNames()==aVNames,
+                                     "cBA_ArboTriplets : tie-points do not match the images of the node");
+    }
+    else
+    {
+        mTPts = new cComputeMergeMulTieP(*mPMAT->TPtsStruct(), aVNames);
+        mOwnTPts = true;
+    }
 
     // push initial values of intrinsics for your image set
     for (auto & aSol : aLocSols)
@@ -387,9 +399,11 @@ cBA_ArboTriplets::~cBA_ArboTriplets()
 {
     mSetIntervUK.SIUK_Reset();
     delete mSys;
-    delete mTPts;
+
     for (auto p : mVEqCol) delete p;
     for (auto p : mVCams)  delete p;
+
+    if (mOwnTPts) delete mTPts;
 }
 
 };

@@ -94,7 +94,8 @@ cNodeArborTriplets::cNodeArborTriplets(cMakeArboTriplet & aMAT ,const t3G3_Tree 
    mDepth     (aLevel),
    mTree      (aTree),
    mChildren  {0,0},
-   mPMAT      (&aMAT)
+   mPMAT      (&aMAT),
+   mTPtsMerge(nullptr)
 {
    // if the edges tree is no empty, recursively split (a tree with 1 vertex has no edge)
    if (!aTree.Edges().empty())
@@ -129,11 +130,40 @@ cNodeArborTriplets::cNodeArborTriplets(cMakeArboTriplet & aMAT ,const t3G3_Tree 
 
 cNodeArborTriplets:: ~cNodeArborTriplets()
 {
+    FreeMergedTPts();
+
     delete mChildren[0];
     delete mChildren[1];
+
 }
 
+void cNodeArborTriplets::MakeMergedTPts()
+{
+    FreeMergedTPts();
+    if (mPMAT->TPtsStruct()==nullptr) return;   // running without tie-points
 
+    cNodeArborTriplets & aN0 = *(mChildren.at(0));
+    cNodeArborTriplets & aN1 = *(mChildren.at(1));
+
+    for (const auto & aLS : aN0.mLocSols) mVNamesMerge.push_back(mPMAT->MapI2Str(aLS.mNumPose));
+    for (const auto & aLS : aN1.mLocSols) mVNamesMerge.push_back(mPMAT->MapI2Str(aLS.mNumPose));
+    std::sort(mVNamesMerge.begin(),mVNamesMerge.end());
+    mVNamesMerge.erase(std::unique(mVNamesMerge.begin(),mVNamesMerge.end()),mVNamesMerge.end());
+
+    mTPtsMerge = new cComputeMergeMulTieP(*mPMAT->TPtsStruct(),mVNamesMerge);
+
+    //  the sub-structure keeps the selected names in the order of the global dictionnary, which is
+    //  sorted : so its indexes (those used inside the configs) are exactly those of mVNamesMerge.
+    MMVII_INTERNAL_ASSERT_medium(mTPtsMerge->VNames()==mVNamesMerge,
+                                 "MakeMergedTPts : image absent from the global tie-point structure");
+}
+
+void cNodeArborTriplets::FreeMergedTPts()
+{
+    delete mTPtsMerge;
+    mTPtsMerge = nullptr;
+    mVNamesMerge.clear();
+}
 
 void cNodeArborTriplets::ShowPose(const std::string & aPrefix)
 {
@@ -503,12 +533,18 @@ void cNodeArborTriplets::AddEqCommon(cLinearOverCstrSys<tREAL8> * aSys,tREAL8 aW
     }
 }
 
-
+tREAL8 cNodeArborTriplets::ScoreOfTriplet(int aNumTri) const
+{
+    if (aNumTri<0) return -1.0;
+    return mPMAT->GO3().VertexOfNum(aNumTri).Attr().mT0->mScore;
+}
 
 tSim3dR cNodeArborTriplets::EstimateSimTransfert
              (
                   const std::vector<tPairI>& aVPairCommon,
+                  const std::vector<int>&    aVNumTriCommon,
                   const std::vector<tPairI>& aVPairLink2,
+                  const std::vector<int>&    aVNumTriLink2,
                   const std::vector<cOneTripletMerge> &  aVLink3
              )
 {
@@ -532,7 +568,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
         cPt3dr mC0, mC1;
         cPt3dr mCTri0, mCTri1;
         int    mKEq;
-        int    mNumTri = -1;   // triplet id, only meaningful for mCat==TripletLink
+        int    mNumTri = -1;   // triplet this bridge comes from (all categories now).
     };
     std::vector<cBridgeResInfo> aBridgeInfos;
 
@@ -596,8 +632,9 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
 
     int aKWeight=0;
     // [3]   Add the equation corresponding to common pose
-    for (const auto & [aI0Loc,aI1Loc] : aVPairCommon)
+    for (size_t aKCom=0 ; aKCom<aVPairCommon.size() ; aKCom++)
     {
+        const auto & [aI0Loc,aI1Loc] = aVPairCommon.at(aKCom);
         tREAL8 aW= aWeightR.at(aKWeight++);
         cPt3dr aC0 = aN0.mLocSols[aI0Loc].mPose.Tr();  // Centre of I in W0
         cPt3dr aC1 = aN1.mRotateLS[aI1Loc].mPose.Tr(); // centre of I in W1 after rotation W0->W1
@@ -614,7 +651,8 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
         }*/
         // update the 'brudge' structure with current observation
         aBridgeInfos.push_back({eBridgeCat::Common, aN0.mLocSols[aI0Loc].mNumPose, aN1.mRotateLS[aI1Loc].mNumPose,
-                                aC0, aC1, cPt3dr(), cPt3dr(), -1,-1});
+                                aC0, aC1, cPt3dr(), cPt3dr(), -1, aVNumTriCommon.at(aKCom)});
+
     }
     // count the current position of equation for edge/triplet
     int aKEq = 4;
@@ -625,9 +663,11 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
     // the unknown tranfer Edge->W0 and the global unknown W1->W0
     if (withLnk2)
     {
-        for (const auto & [aI0Loc,aI1Loc] : aVPairLink2)
+        for (size_t aKL2=0 ; aKL2<aVPairLink2.size(); aKL2++)
         {
-             tREAL8 aWeight = aWeightR.at(aKWeight++);
+            const auto & [aI0Loc,aI1Loc] = aVPairLink2.at(aKL2);
+            tREAL8 aWeight = aWeightR.at(aKWeight++);
+
              const tPoseR  & aPI0_to_W0 = aN0.mLocSols[aI0Loc].mPose;  //  Pose/Mappoing  I0 -> W0
              const tPoseR  & aPI1_to_W1 = aN1.mRotateLS[aI1Loc].mPose;  // Pose/Mappoing  I1 -> W1  (after rotation)
 
@@ -662,7 +702,8 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
 
              // update the 'brudge' structure with current observation
              aBridgeInfos.push_back({eBridgeCat::EdgeLink, aN0.mLocSols[aI0Loc].mNumPose, aN1.mRotateLS[aI1Loc].mNumPose,
-                                     aC0_in_W0, aC1_in_W0, aCTri0_In_W0, aCTri1_In_W0, aKEq,-1});
+                                     aC0_in_W0, aC1_in_W0, aCTri0_In_W0, aCTri1_In_W0, aKEq, aVNumTriLink2.at(aKL2)});
+
              aKEq += 4;
              if (withSchur)
                 aSys->PublicAddObsWithTmpUK(*aPtrSubst,mPMAT->Cfg().mLVM);
@@ -737,21 +778,32 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
 
     cAutoTimerSegm aTimerSolveSim(mPMAT->TimeSegm(),"SolveSimInit");
 
-    cDenseVect<tREAL8> aSol = aSys->PublicSolve(); //rotation weighting only
+    cDenseVect<tREAL8> aSol = aSys->PublicSolve(); //rotation-based weighting only
     tREAL8 aLambda1 = aSol(3);
     cPt3dr aTr1(aSol(0),aSol(1),aSol(2));
 
-    // [6] re-estimate translation and lambda with weights
 
-    // compute weighting:
-    //    * to favour observations coming from common-poses which have more redundancy
-    //    * to penalise observation based on their (normalised) residuals
-    // notion of redundancy: fraction of a bridge's own local equations that actually check
-    // consistency rather than being absorbed by its private TrTri/LambdaTri unknowns.
-    // Common-pose bridges have none of these unknowns (fraction=1, nothing to hide behind).
-    // Link/triplet bridges share their 4 private unknowns with every other bridge using the
-    // same aKEq (2 links of the same triplet share one block, a standalone edge-link does not)
-    // -> fraction = 1 - 4/(6*nSharing).
+    // -------------------------------------------------------------------------------------
+    // [6] re-estimate translation and lambda with data dependent weights
+    //
+    //        W(bridge) = W_rot * RedFrac * StdWeightResidual({Sigma,2,1},Res)
+    //
+    //   * W_rot   : weight inherited from the rotation estimation
+    //   * RedFrac : fraction of the bridge's own equations that really check something, the rest
+    //               being absorbed by its private TrTri/LambdaTri unknowns
+    //   * Res     : evidence against the bridge.  With tie-points it is a reprojection error in
+    //               pixel, the camera being judged having been excluded from the 3D intersection
+    //               for the common poses.  Without, the residual of the bridge equation itself.
+    // -------------------------------------------------------------------------------------
+
+    //  redundancy of each bridge
+    //  notion of redundancy: fraction of a bridge's own local equations that actually check
+    //  consistency rather than being absorbed by its private TrTri/LambdaTri unknowns.
+    //  Common-pose bridges have none of these unknowns (fraction=1, nothing to hide behind).
+    //  Link/triplet bridges share their 4 private unknowns with every other bridge using the
+    //  same aKEq (2 links of the same triplet share one block, a standalone edge-link does not)
+    //  -> fraction = 1 - 4/(6*nSharing).
+
     std::map<int,int> aKEqCount;
     for (const auto & aBI : aBridgeInfos)
         if (aBI.mCat!=eBridgeCat::Common)
@@ -764,18 +816,14 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
         aRedFrac.at(aI) = (aBI.mCat==eBridgeCat::Common)? 1.0 : (1.0 - 4.0/(6.0*aKEqCount.at(aBI.mKEq)));
     }
 
-    // per-bridge residual, normalized by aScaleRef and redundancy
-    std::vector<tREAL8> aBridgeRes;
-    //for (const auto & aBI : aBridgeInfos)
-    for (size_t aI=0 ; aI<aBridgeInfos.size() ; aI++)
+    //  residual of the bridge equation itself : fallback when there is no tie-point,
+    //            and always available as a diagnostic column
+    auto GeomResOfBridge = [&](size_t aI) -> tREAL8
     {
         const auto & aBI = aBridgeInfos.at(aI);
         tREAL8 aResNorm;
         if (aBI.mCat==eBridgeCat::Common)
-        {
-            cPt3dr aDelta = aBI.mC0 - (aTr1 + aLambda1*aBI.mC1);
-            aResNorm = Norm2(aDelta);
-        }
+            aResNorm = Norm2(aBI.mC0 - (aTr1 + aLambda1*aBI.mC1));
         else
         {
             cPt3dr aTrTri(aSol(aBI.mKEq),aSol(aBI.mKEq+1),aSol(aBI.mKEq+2));
@@ -784,24 +832,287 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
             cPt3dr aRes1 = (aTr1 + aLambda1*aBI.mC1) - (aTrTri + aLambdaTri*aBI.mCTri1);
             aResNorm = std::sqrt(SqN2(aRes0)+SqN2(aRes1));
         }
-        aBridgeRes.push_back( (aResNorm/aScaleRef) / std::sqrt(aRedFrac.at(aI)) );
-    }
+        return (aResNorm/aScaleRef) / std::sqrt(aRedFrac.at(aI));
+    };
 
-    // compute data-dependent observations sigma
-    tREAL8 aSigT = 0.1;
-    int    aMinNbForAdaptiveT = 5;// fallback when too few bridges to estimate a spread
-    if ((int)aBridgeRes.size() >= aMinNbForAdaptiveT)
+    // [6.2]  quality prior of each bridge : the tie-point residual of the triplet it comes from,
+    //   in pixel, measured once at triplet estimation (cAppli_OriRel3Im : RankWeigthedAverage * F).
+    //   Per-triplet, so 2 bridges over the same image pair are distinguishable, and independent of
+    //   (aTr1,aLambda1) so it is available even where the first solve is too far off to reproject.
+    std::vector<tREAL8> aBridgeRes(aBridgeInfos.size(),-1.0);
+    std::vector<tREAL8> aBridgeResTP(aBridgeInfos.size(),-1.0);  // diagnostic only, never weights
+    std::vector<size_t> aNbSampleTP(aBridgeInfos.size(),0);
+    std::vector<size_t> aNbCandTP  (aBridgeInfos.size(),0);
+    std::vector<size_t> aNbRejTP   (aBridgeInfos.size(),0);
+
+    int aNbNoScore = 0;
+    for (size_t aI=0 ; aI<aBridgeInfos.size() ; aI++)
     {
-        std::vector<tREAL8> aResForMed = aBridgeRes;   // because NC_KthVal reorders its argument
-        tREAL8 aMed = NC_KthVal(aResForMed,0.5);
-        if (aMed>1e-8) aSigT = 1.4826*aMed;
+        tREAL8 aSc = ScoreOfTriplet(aBridgeInfos.at(aI).mNumTri);
+        if (aSc<0)                                    // should not happen : every bridge has a triplet
+        {
+            aNbNoScore++;
+            aSc = mPMAT->Cfg().mSigmaAtt;             // neutral value
+        }
+        aBridgeRes.at(aI) = aSc;
+    }
+    if (aNbNoScore)
+    {
+        StdOutLock::lock();
+        StdOut() << "[ArboW] depth=" << mDepth << " : " << aNbNoScore << "/" << aBridgeInfos.size()
+                 << " bridges without triplet score" << std::endl;
+        StdOutLock::unlock();
     }
 
-    // combine with rotation weight
+    // [6.2.bis]  NODE-QUALITY DIAGNOSTIC, not used for weighting.
+    //   Reprojection residual (pixel) of the tie-points seen by each bridge, under the current
+    //   (aTr1,aLambda1).  For a common pose the camera being judged is N1's estimate, which takes
+    //   no part in the intersection -> leave-one-out.  Costs a full tie-point scan per node.
+    static constexpr bool TheDbgTPResidual = false;
+    if (TheDbgTPResidual && (mTPtsMerge!=nullptr))
+    {
+        cAutoTimerSegm aTimerTPRes(mPMAT->TimeSegm(),"SimEstimTPRes");
+
+        auto KOfName = [this](const std::string & aName) -> int
+        {
+            auto anIt = std::lower_bound(mVNamesMerge.begin(),mVNamesMerge.end(),aName);
+            if ((anIt==mVNamesMerge.end()) || (*anIt!=aName)) return -1;
+            return anIt - mVNamesMerge.begin();
+        };
+
+        //  aVCam   : one camera per image, N0 has priority ; these make the intersection
+        //  aVCamN1 : common poses only, N1's competing estimate ; never in the intersection
+        std::vector<cSensorCamPC *> aVCam  (mVNamesMerge.size(),nullptr);
+        std::vector<cSensorCamPC *> aVCamN1(mVNamesMerge.size(),nullptr);
+
+        for (const auto & aLS : aN0.mLocSols)          // already in W0
+        {
+            const std::string & aName = mPMAT->MapI2Str(aLS.mNumPose);
+            int aK = KOfName(aName);
+            if (aK<0) continue;
+            //  one calib instance per call : its calculators hold a mutable buffer, so nothing may
+            //  be shared between the tree workers.  Ownership belongs to the cIPhProj impl -> no delete.
+            aVCam.at(aK) = new cSensorCamPC(aName,aLS.mPose,
+                                            mPMAT->PhProj().InternalCalibFromStdName(aName,false));
+        }
+        for (const auto & aLS : aN1.mRotateLS)         // rotation applied, transfer the center
+        {
+            const std::string & aName = mPMAT->MapI2Str(aLS.mNumPose);
+            int aK = KOfName(aName);
+            if (aK<0) continue;
+            tPoseR aPoseW0(aTr1 + aLambda1*aLS.mPose.Tr(), aLS.mPose.Rot());
+            cSensorCamPC * aCam = new cSensorCamPC(aName,aPoseW0,
+                                                  mPMAT->PhProj().InternalCalibFromStdName(aName,false));
+            if (aVCam.at(aK)==nullptr) aVCam.at(aK)   = aCam;   // image only in N1
+            else                       aVCamN1.at(aK) = aCam;   // common pose : 2 estimations
+        }
+        std::vector<cSensorImage *> aVSens(aVCam.begin(),aVCam.end());
+
+        //  which bridges is an image (common) / a pair of images (link) concerned by
+        std::map<std::pair<int,int>,std::vector<size_t>> aMapPair2Br;
+        std::map<int,std::vector<size_t>>                aMapComm2Br;
+        for (size_t aI=0 ; aI<aBridgeInfos.size() ; aI++)
+        {
+            const auto & aBI = aBridgeInfos.at(aI);
+            int aK0 = KOfName(mPMAT->MapI2Str(aBI.mI0Glob));
+            int aK1 = KOfName(mPMAT->MapI2Str(aBI.mI1Glob));
+            if ((aK0<0) || (aK1<0)) continue;
+            if (aBI.mCat==eBridgeCat::Common)
+            {
+                if (aVCamN1.at(aK0)!=nullptr) aMapComm2Br[aK0].push_back(aI);
+            }
+            else
+                aMapPair2Br[{std::min(aK0,aK1),std::max(aK0,aK1)}].push_back(aI);
+        }
+
+        //  F * sin(angle(Bundle_obs,Bundle_pred)), in pixel ; -1 if not visible
+        auto ResidObs = [](const cSensorCamPC * aCam,const cPt3dr & aBun,const cPt3dr & aP3D) -> tREAL8
+        {
+            if ((aCam==nullptr) || (aCam->DegreeVisibility(aP3D)<=0)) return -1.0;
+            return aCam->InternalCalib()->F() * Norm2( VUnit(aBun) ^ VUnit(aCam->Pt_W2L(aP3D)) );
+        };
+
+        std::vector<std::vector<tREAL8>> aVResOfBr(aBridgeInfos.size());
+
+        for (auto & aPairConf : mTPtsMerge->Pts())   // non const : MakePGroundFromBundles fills mVPGround
+        {
+            const tConfigIm & aConf = aPairConf.first;
+            const size_t aNbIm = aConf.size();
+
+            // hoist the map lookups out of the point loop
+            std::vector<std::pair<size_t,const std::vector<size_t>*>>                   aVComm;
+            std::vector<std::pair<std::pair<size_t,size_t>,const std::vector<size_t>*>> aVLink;
+            for (size_t aKA=0 ; aKA<aNbIm ; aKA++)
+            {
+                auto aItC = aMapComm2Br.find(aConf.at(aKA));
+                if (aItC!=aMapComm2Br.end()) aVComm.push_back({aKA,&(aItC->second)});
+                for (size_t aKB=aKA+1 ; aKB<aNbIm ; aKB++)
+                {
+                    auto aItL = aMapPair2Br.find({std::min(aConf.at(aKA),aConf.at(aKB)),
+                                                  std::max(aConf.at(aKA),aConf.at(aKB))});
+                    if (aItL!=aMapPair2Br.end()) aVLink.push_back({{aKA,aKB},&(aItL->second)});
+                }
+            }
+            if (aVComm.empty() && aVLink.empty()) continue;
+
+            MakePGroundFromBundles(aPairConf,aVSens);
+
+            const cVal1ConfTPM & aVals = aPairConf.second;
+            for (size_t aKPts=0 ; aKPts<aVals.mVPGround.size() ; aKPts++)
+            {
+                const cPt3dr & aP3D = aVals.mVPGround.at(aKPts);
+                auto Bun = [&aVals,aKPts,aNbIm](size_t aKIm)
+                {
+                    return cPt3dr( aVals.mVPIm.at(aKPts*aNbIm+aKIm).x(),
+                                  aVals.mVPIm.at(aKPts*aNbIm+aKIm).y(),
+                                  aVals.mVPZ .at(aKPts*aNbIm+aKIm)     );
+                };
+
+                for (const auto & [aKC,aPtrBr] : aVComm)       // N1's estimate of a common image
+                {
+                    tREAL8 aR = ResidObs(aVCamN1.at(aConf.at(aKC)),Bun(aKC),aP3D);
+                    for (size_t aIB : *aPtrBr) aNbCandTP.at(aIB)++;
+                    if (aR<0) { for (size_t aIB : *aPtrBr) aNbRejTP.at(aIB)++; continue; }
+                    for (size_t aIB : *aPtrBr) aVResOfBr.at(aIB).push_back(aR);
+                }
+                for (const auto & [aPos,aPtrBr] : aVLink)      // link : worst of the 2 endpoints
+                {
+                    const auto & [aKA,aKB] = aPos;
+                    tREAL8 aRA = ResidObs(aVCam.at(aConf.at(aKA)),Bun(aKA),aP3D);
+                    tREAL8 aRB = ResidObs(aVCam.at(aConf.at(aKB)),Bun(aKB),aP3D);
+                    for (size_t aIB : *aPtrBr) aNbCandTP.at(aIB)++;
+                    if ((aRA<0) || (aRB<0))
+                    {
+                        for (size_t aIB : *aPtrBr) aNbRejTP.at(aIB)++;
+                        continue;
+                    }
+                    for (size_t aIB : *aPtrBr) aVResOfBr.at(aIB).push_back(std::max(aRA,aRB));
+                }
+            }
+        }
+
+        //  robust reduction ; no neutral fill : a diagnostic stays -1 when there is no evidence
+        static constexpr size_t TheMinNbPtsBridge = 5;
+        for (size_t aI=0 ; aI<aBridgeInfos.size() ; aI++)
+        {
+            auto & aV = aVResOfBr.at(aI);
+            aNbSampleTP.at(aI) = aV.size();
+            if (aV.size() >= TheMinNbPtsBridge)
+                aBridgeResTP.at(aI) = NC_KthVal(aV,0.5);   // NC_KthVal reorders its argument
+        }
+
+        //  node-level indicator : median over the bridges that have evidence
+        std::vector<tREAL8> aVAllTP;
+        for (const auto & aR : aBridgeResTP) if (aR>=0) aVAllTP.push_back(aR);
+        StdOutLock::lock();
+        StdOut() << "[ArboW-TP] depth=" << mDepth
+                 << " supported=" << aVAllTP.size() << "/" << aBridgeInfos.size()
+                 << " medianRes=" << (aVAllTP.empty() ? -1.0 : NC_KthVal(aVAllTP,0.5)) << std::endl;
+        StdOutLock::unlock();
+
+        for (auto aPtr : aVCam)   delete aPtr;
+        for (auto aPtr : aVCamN1) delete aPtr;
+    }
+
+    // [6.3]  sigma is GLOBAL, not adapted per node : Cfg().mSigmaAtt is ErrAtProp(0.75) over the
+    //   whole mScore distribution (HierarchSfm.cpp:112).  A per-node median would re-centre every
+    //   node on its own triplets and erase the fact that some nodes are built from worse ones.
+    const tREAL8 aSigT = mPMAT->Cfg().mSigmaAtt;
+
+    // [6.4]  combine : rotation agreement x what the equation can hide x intrinsic triplet quality
     std::vector<tREAL8> aWeightFinal(aBridgeInfos.size());
     for (size_t aI=0 ; aI<aBridgeInfos.size() ; aI++)
     {
         aWeightFinal.at(aI) = aWeightR.at(aI) * aRedFrac.at(aI) * StdWeightResidual({aSigT,2,1.0},aBridgeRes.at(aI));
+    }
+
+    // per-bridge diagnostic.  Small nodes -> terminal, worst weight first.
+    //        Big ones (typically the root) -> one CSV per node, because the table scrolls away
+    //        and because appending to a shared file from the tree's worker threads is not safe.
+    static constexpr bool TheDbgBridgeW         = true;   // put to false once tuned
+    static constexpr int  TheDbgBridgeWMaxDepth = 1;      // -1 to disable the terminal table
+    static constexpr size_t TheDbgBridgeWMaxRow = 200;     // above that, dump a file instead
+    if (TheDbgBridgeW)
+    {
+        auto StrOfCat = [](eBridgeCat aCat) -> const char *
+        {
+            switch (aCat)
+            {
+            case eBridgeCat::Common      : return "Com";
+            case eBridgeCat::EdgeLink    : return "Lnk";
+            case eBridgeCat::TripletLink : return "Tri";
+            }
+            return "???";
+        };
+
+        bool aToFile = (aBridgeInfos.size() > TheDbgBridgeWMaxRow);
+        bool aToTerm = (!aToFile) && (mDepth<=TheDbgBridgeWMaxDepth);
+
+        if (aToFile)
+        {
+            // identify the node the same way as the debug merge dump, so both line up
+            int aKTMin = std::numeric_limits<int>::max();
+            for (const auto & aVT : mTree.Vertices())
+                aKTMin = std::min(aKTMin,aVT->Attr().mKT);
+            std::string aNameF = "ArboW_D"+ToStr(mDepth)+"_T"+ToStr(aKTMin)+".csv";
+
+            cMMVII_Ofs aFile(aNameF,eFileModeOut::CreateText);
+            aFile.Ofs() << " mode=mScore"
+                        << " Sigma=" << aSigT << " ScaleRef=" << aScaleRef << "\n";
+            aFile.Ofs() << "cat,I0,I1,numTri,Score,ResGeom,ResTP,nCand,nRej,nPt,Wrot,RedFrac,W\n";
+            for (size_t aI=0 ; aI<aBridgeInfos.size() ; aI++)
+            {
+                const auto & aBI = aBridgeInfos.at(aI);
+                aFile.Ofs() << StrOfCat(aBI.mCat) << ","
+                            << mPMAT->MapI2Str(aBI.mI0Glob) << ","
+                            << mPMAT->MapI2Str(aBI.mI1Glob) << ","
+                            << aBI.mNumTri          << "," << aBridgeRes.at(aI)   << ","
+                            << GeomResOfBridge(aI)  << "," << aBridgeResTP.at(aI) << ","
+                            << aNbCandTP.at(aI)     << "," << aNbRejTP.at(aI)     << ","
+                            << aNbSampleTP.at(aI)   << "," << aWeightR.at(aI)     << ","
+                            << aRedFrac.at(aI)      << "," << aWeightFinal.at(aI) << "\n";
+            }
+
+            StdOutLock::lock();
+            StdOut() << "[ArboW] depth=" << mDepth << " nbBridge=" << aBridgeInfos.size()
+                     << " mode=mScore"
+                     << " Sigma=" << aSigT << " -> " << aNameF << std::endl;
+            StdOutLock::unlock();
+        }
+
+        if (aToTerm)
+        {
+            std::vector<size_t> aVOrder(aBridgeInfos.size());
+            for (size_t aI=0 ; aI<aVOrder.size() ; aI++) aVOrder.at(aI) = aI;
+            std::sort(aVOrder.begin(),aVOrder.end(),
+                      [&aWeightFinal](size_t aA,size_t aB){return aWeightFinal.at(aA)<aWeightFinal.at(aB);});
+
+            StdOutLock::lock();
+            StdOut() << "[ArboW] ---- depth=" << mDepth
+                     << " nbBridge=" << aBridgeInfos.size()
+                     << " mode=mScore"
+                     << " Sigma=" << aSigT << " ScaleRef=" << aScaleRef << std::endl;
+            StdOut() << "[ArboW] cat  I0 / I1  numTri  Score  ResGeom  ResTP  nPt  Wrot  RedFr    W" << std::endl;
+            StdOut() << std::fixed << std::setprecision(3);
+            for (size_t aK=0 ; aK<aVOrder.size() ; aK++)
+            {
+                size_t aI = aVOrder.at(aK);
+                const auto & aBI = aBridgeInfos.at(aI);
+                StdOut() << "[ArboW] " << StrOfCat(aBI.mCat)
+                         << " " << mPMAT->MapI2Str(aBI.mI0Glob)
+                         << " " << mPMAT->MapI2Str(aBI.mI1Glob)
+                         << "  " << aBI.mNumTri
+                         << "  " << aBridgeRes.at(aI)
+                         << "  " << GeomResOfBridge(aI)
+                         << "  " << aBridgeResTP.at(aI)
+                         << "  " << aNbSampleTP.at(aI)
+                         << "  " << aWeightR.at(aI)
+                         << "  " << aRedFrac.at(aI)
+                         << "  " << aWeightFinal.at(aI) << std::endl;
+            }
+            StdOut() << std::defaultfloat << std::setprecision(6);
+            StdOutLock::unlock();
+        }
     }
 
     // replay same equations with new weights
@@ -938,10 +1249,14 @@ void cNodeArborTriplets::MergeChildrenSol()
      //aN1.ShowPose("DoM1 :");
 
      std::vector<tPairI>              aVPairCommon;  //  Store data for vertex present in 2 children
+     std::vector<int>                 aVNumTriCommon;  // triplet each common pose comes from
      std::vector<tPairI>              aVPairLink2;   // store data for edges between 2 children (the 3 vertex being out)
+     std::vector<int>                 aVNumTriLink2;   // triplet each edge-link comes from
      std::vector<cOneTripletMerge>    aVLink3;  // store triplet with 3 vertices doing the link
      std::vector<bool>               aSetIndexTri(mPMAT->GO3().NbVertex(),false);  // marqer to test triplet once
-     std::vector<bool>               aSetIndComN0(aN0.mLocSols.size(),false);      // marqer to have common vertex once
+     //std::vector<bool>               aSetIndComN0(aN0.mLocSols.size(),false);      // marqer to have common vertex once
+     std::vector<int>                 aPosCommon(aN0.mLocSols.size(),-1); // pos in aVPairCommon, -1 if none
+     std::vector<std::pair<tPairI,int>> aVLnk2Tmp;     // (pair,numTri), before deduplication
 
      // before computing the merge, accumulate all the links;  the must be done a priori because the number of
      // unknown will depend of the link (for example on scale unknwon by triplet)
@@ -957,39 +1272,57 @@ void cNodeArborTriplets::MergeChildrenSol()
                  aSetIndexTri.at(aNumTri) = true;  // marq it as explored
                  cOneTripletMerge  a1TM = ComputeTripletLinking(mPMAT->GO3().VertexOfNum(aNumTri)); // compute the linking
 
-                 // memorize the common image to N0-N1
+                 // memorize the common image to N0-N1, keeping the best triplet that witnesses it
                  for (const auto & [aI0,aI1] : a1TM.mVCommon)
                  {
-                     if  (! aSetIndComN0.at(aI0)) // avoid store twice the image
+                     int & aPos = aPosCommon.at(aI0);
+                     if (aPos<0)
                      {
-                         aSetIndComN0.at(aI0) = true; // marq as done,
-                         aVPairCommon.push_back(tPairI(aI0,aI1)); // store
+                         aPos = aVPairCommon.size();
+                         aVPairCommon.push_back(tPairI(aI0,aI1));
+                         aVNumTriCommon.push_back((int)aNumTri);
+                     }
+                     else if (ScoreOfTriplet((int)aNumTri) < ScoreOfTriplet(aVNumTriCommon.at(aPos)))
+                     {
+                         aVNumTriCommon.at(aPos) = (int)aNumTri;
                      }
                  }
                  // add a link if (1) there is link !  (2) there is no common pose
                  if ((! a1TM.mVLinkPose.empty())  && (a1TM.mVCommon.empty()))
                  {
-                     if (a1TM.mVLinkPose.size() == 1) // if only 1 link, this a "edge link"
-                     {
-                        aVPairLink2.push_back(a1TM.mVLinkPose.at(0));
-                     }
-                     else  // else 2 link, it's triplet link
-                     {
-                        aVLink3.push_back(a1TM);
-                     }
+                     if (a1TM.mVLinkPose.size() == 1)   // only 1 link -> "edge link"
+                         aVLnk2Tmp.push_back({a1TM.mVLinkPose.at(0),(int)aNumTri});
+                     else                               // 2 links -> triplet link
+                         aVLink3.push_back(a1TM);
                  }
              }
          }
      }
-     // now the same link edges can have been store many time : supress the duplicata
+     // the same edge can be reached through several triplets : keep the best scored one
      {
-         std::sort(aVPairLink2.begin(),aVPairLink2.end());  // sort
-         auto aEndUniqueLnk2 = std::unique(aVPairLink2.begin(),aVPairLink2.end());  // put duplicata at end
-         aVPairLink2.resize(aEndUniqueLnk2 - aVPairLink2.begin());  // resize
+         std::sort(aVLnk2Tmp.begin(),aVLnk2Tmp.end(),
+                   [this](const std::pair<tPairI,int> & aA,const std::pair<tPairI,int> & aB)
+                   {
+                       if (aA.first != aB.first) return aA.first < aB.first;
+                       return ScoreOfTriplet(aA.second) < ScoreOfTriplet(aB.second);
+                   });
+         auto aEnd = std::unique(aVLnk2Tmp.begin(),aVLnk2Tmp.end(),
+                                 [](const std::pair<tPairI,int> & aA,const std::pair<tPairI,int> & aB)
+                                 { return aA.first==aB.first; });
+         aVLnk2Tmp.erase(aEnd,aVLnk2Tmp.end());
+
+         for (const auto & [aPair,aNumT] : aVLnk2Tmp)
+         {
+             aVPairLink2.push_back(aPair);
+             aVNumTriLink2.push_back(aNumT);
+         }
      }
 
+     // tie-points of the merged node, shared by the similitude estimation and by the BA
+     MakeMergedTPts();
+
      // estimate the tranfser similitude between N0 & N1
-     tSim3dR  aSimTransfer = EstimateSimTransfert(aVPairCommon,aVPairLink2,aVLink3);
+     tSim3dR  aSimTransfer = EstimateSimTransfert(aVPairCommon,aVNumTriCommon,aVPairLink2,aVNumTriLink2,aVLink3);
 
      // [3]   Finnaly do the merge, using N0 system as reference
         // [3.1]  Put Sol0 that are not in Sol1
@@ -1038,6 +1371,7 @@ void cNodeArborTriplets::MergeChildrenSol()
      if (mPMAT->TPtsStruct() !=nullptr)
          RefineCurSolution();
 
+     FreeMergedTPts();   // useless above this node, and big at the root
      //SaveGlobSol("Adj");
 
      //  Free some temporary memory that are  no longer necessary
@@ -1057,7 +1391,8 @@ void cNodeArborTriplets::RefineCurSolution()
 
     int aNbIterEnd = mPMAT->Cfg().mNbIterBA + (mDepth==0 ? mPMAT->Cfg().mNbExtraIterAtRoot : 0);
 
-    cBA_ArboTriplets* aBA = new cBA_ArboTriplets(mPMAT, mLocSols,mDepth,aNbIterEnd,1.0,1.0);
+    //cBA_ArboTriplets* aBA = new cBA_ArboTriplets(mPMAT, mLocSols,mDepth,aNbIterEnd,1.0,1.0);
+    cBA_ArboTriplets* aBA = new cBA_ArboTriplets(mPMAT,mLocSols,mDepth,aNbIterEnd,1.0,1.0,mTPtsMerge);
 
     for (int aIter = 0; aIter < aNbIterEnd; aIter++)
         aBA->OneIteration(aIter);

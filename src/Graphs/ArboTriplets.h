@@ -111,9 +111,14 @@ private :
     tSim3dR EstimateSimTransfert
         (
             const std::vector<tPairI>& aVPairCommon,
+            const std::vector<int>&    aVNumTriCommon,   ///< triplet each common pose comes from
             const std::vector<tPairI>& aVPairLink2,
+            const std::vector<int>&    aVNumTriLink2,    ///< triplet each edge-link comes from
             const std::vector<cOneTripletMerge> &  aVLink3
             );
+
+    /// tie-point residual (pixel) of a triplet, computed once at triplet estimation ; -1 if unknown
+    tREAL8 ScoreOfTriplet(int aNumTri) const;
 
     /** idem, but estimate the similitude (after computing the rotation) */
     tRotR EstimateRotTransfert
@@ -140,6 +145,11 @@ private :
     /// solution of global index , null if dont exist
     cSolLocNode *  SolOfGlobalIndex(int aNumPose) ;
 
+    /// build the tie-point sub-structure of the merged node (union of the 2 children)
+    void MakeMergedTPts();
+    /// release it (not needed once the node has been adjusted)
+    void FreeMergedTPts();
+
     ///
 
     int                       mDepth;     ///< level in the hierarchy, used for pretty printing
@@ -150,7 +160,8 @@ private :
     std::vector<cSolLocNode>  mLocSols;   ///< store the "local" solution
     std::vector<cSolLocNode>  mRotateLS;   ///< store the sol of N1 turned of rotation N1->N0
     std::vector<int>          mTabGlob2LocInd;  ///< index global -> index local (for acces to mLocSols) , -1 if no local homologous
-
+    std::vector<std::string>  mVNamesMerge;   ///< sorted+unique names of the merged node
+    cComputeMergeMulTieP *    mTPtsMerge;     ///< tie-points restricted to mVNamesMerge (owned)
 };
 
 
