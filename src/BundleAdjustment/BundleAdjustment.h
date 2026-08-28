@@ -747,8 +747,11 @@ class cBA_ArboTriplets
 {
     public:
         /// Sets up cameras, collinearity calculators, solver, local tie-points subset.
+        //cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols, int aTDepth, int aNbIterEnd,
+        //                 tREAL8 aSigLooseningMult=1.0, tREAL8 aThrLooseningMult=1.0);
         cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols, int aTDepth, int aNbIterEnd,
-                         tREAL8 aSigLooseningMult=1.0, tREAL8 aThrLooseningMult=1.0);
+                         tREAL8 aSigLooseningMult=1.0, tREAL8 aThrLooseningMult=1.0,
+                         cComputeMergeMulTieP * aTPts = nullptr);   ///< aTPts : shared, NOT owned
         ~cBA_ArboTriplets();
 
         /// One BA iteration. Pre-computes u,v vectors on first call (aIter==0).
@@ -781,6 +784,7 @@ class cBA_ArboTriplets
         std::vector<cCalculator<double>*>                  mVEqCol;
         cResolSysNonLinear<tREAL8>*                        mSys;
         cComputeMergeMulTieP*                              mTPts;   ///< local tie-points subset
+        bool                                               mOwnTPts; ///< own or shared
         std::vector<std::vector<std::pair<cPt3dr,cPt3dr>>> mVecConfUV; ///< precomputed u,v per config
         std::map<int,cPt3dr>*                              mGTPts3D = nullptr; ///< optional GT pts for diagnosis
 
