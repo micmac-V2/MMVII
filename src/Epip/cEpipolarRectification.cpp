@@ -445,7 +445,12 @@ void BenchEpipolar(cParamExeBench & aParam)
     }
 
     // Test that points with same y in master image have same y in slave image, for a random sampling of points on both sensors
-    for (const auto& [aES1,aES2] : {std::make_pair(&aEpipSensor1, &aEpipSensor2),std::make_pair(&aEpipSensor2, &aEpipSensor1)})
+    const std::pair<std::unique_ptr<cSensorImage>*, std::unique_ptr<cSensorImage>*> aPairs[] =
+        {
+            {&aEpipSensor1, &aEpipSensor2},
+            {&aEpipSensor2, &aEpipSensor1}
+        };
+    for (const auto& [aES1,aES2] : aPairs)
     {
         for (const auto& aPt1 : (*aES1)->PtsSampledOnSensor(RandUnif_M_N(5,10),0))
         {

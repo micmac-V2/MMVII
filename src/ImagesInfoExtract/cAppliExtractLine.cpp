@@ -464,7 +464,8 @@ void  cAppliExtractLine::DoOneImage(const std::string & aNameIm)
 void cAppliExtractLine::MakeVisu(const std::string & aNameIm)
 {
     std::string aNameTif = LastPrefix(mNameCurIm) + ".tif";
-    const  cDataIm2D<tREAL4>& aDAccum =mExtrL->Hough().Accum().DIm();
+    const auto aAccum = mExtrL->Hough().Accum();
+    const  cDataIm2D<tREAL4>& aDAccum = aAccum.DIm();
     tREAL8 aVMax=0.0;
 
     // [0]  Print some  statistic to compared the compatcness of histogramm
