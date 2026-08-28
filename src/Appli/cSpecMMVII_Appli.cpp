@@ -190,6 +190,7 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_PseudoIntersect);
         TheVecAll.push_back(&TheSpecEpipGenDenseMatch);
         TheVecAll.push_back(&TheSpecEpipDenseMatchEval);
+        TheVecAll.push_back(&TheSpec_DMSelectBestPairs);
         TheVecAll.push_back(&TheSpecGenSymbDer);
         TheVecAll.push_back(&TheSpecFormatTDEDM_WT);
         TheVecAll.push_back(&TheSpecFormatTDEDM_MDLB);

@@ -42,6 +42,7 @@ extern cSpecMMVII_Appli  TheSpec_ToTiePMul;
 extern cSpecMMVII_Appli  TheSpec_PseudoIntersect;
 extern cSpecMMVII_Appli  TheSpecEpipGenDenseMatch;
 extern cSpecMMVII_Appli  TheSpecEpipDenseMatchEval;
+extern cSpecMMVII_Appli  TheSpec_DMSelectBestPairs;
 extern cSpecMMVII_Appli  TheSpecGenSymbDer;
 extern cSpecMMVII_Appli  TheSpecFormatTDEDM_WT;  // Wu Teng
 extern cSpecMMVII_Appli  TheSpecFormatTDEDM_MDLB; // Middleburry
