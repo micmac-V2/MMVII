@@ -53,7 +53,7 @@ cBA_Topo::cBA_Topo
             if (UCaseEqual(aPost,"obs"))
             {
                 mAllTopoDataIn.InsertCompObsFile( aPhProj->DPTopoMes().FullDirIn() + aInFile );
-            } else {
+            } else if (UCaseEqual(aPost,"xml") || UCaseEqual(aPost,"json")) {
                 cTopoData aTopoData;
                 aTopoData.FromFile( aPhProj->DPTopoMes().FullDirIn() + aInFile );
                 mAllTopoDataIn.InsertTopoData(aTopoData);
