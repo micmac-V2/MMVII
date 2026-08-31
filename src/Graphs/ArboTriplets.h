@@ -172,6 +172,15 @@ private :
     std::vector<int>          mTabGlob2LocInd;  ///< index global -> index local (for acces to mLocSols) , -1 if no local homologous
     std::vector<std::string>  mVNamesMerge;   ///< sorted+unique names of the merged node
     cComputeMergeMulTieP *    mTPtsMerge;     ///< tie-points restricted to mVNamesMerge (owned)
+
+    /// quality metrics of this merge, filled by EstimateRotTransfertV2, reported in [ArboW-SUM]
+    struct cMergeStats
+    {
+        int    mNbExclSeed = 0;    ///< candidates dropped from the pseudo-median seed (bad triplets)
+        tREAL8 mDMaxCom    = -1;   ///< max dist(screened common -> final rotation) ; 0 if healthy
+        tREAL8 mLinkMed    = -1;   ///< median dist(link candidate -> final rotation)
+    };
+    cMergeStats  mMergeStats;
 };
 
 
@@ -179,7 +188,6 @@ struct cMakeArboTripletCfg
 {
     std::vector<tREAL8>  mViscPose  = {-1,-1};   ///< Regularization on poses  [SigmaTr,SigmaRot]
     tREAL8               mLVM       = 0.0;       ///< Levenberg-Marquardt regularization
-    tREAL8               mSigma     = 1.0;       ///< Tie-points sigma (relative to other observations)
     tREAL8               mSigmaAtt  = 2.0;       ///< Sigma attenuation on tie-points
     tREAL8               mThrs   = 10.0;      ///< Outlier threshold
     tREAL8               mSigmaTri  = -1.0;   ///< Sigma for triplet-quality weighting in the merge; <0 -> mSigmaAtt
@@ -195,7 +203,6 @@ struct cMakeArboTripletCfg
         aOS << " ========= BA CONFIG ==========\n"
             << " * ViscPose  = " << mViscPose.at(0) << "," << mViscPose.at(1) << "\n"
             << " * LVM       = " << mLVM       << "\n"
-            << " * Sigma     = " << mSigma  << "\n"
             << " * SigmaAtt  = " << mSigmaAtt  << "\n"
             << " * SigmaTri  = " << SigmaTri() << "\n"
             << " * Threshold = " << mThrs   << "\n"
