@@ -93,7 +93,7 @@ class cFitParabol
     cFitParabol (tREAL8 anYC,tREAL8 anInY,tDIm *,tREAL8 aStep=1.0);
     void SetX(tREAL8 anX,tREAL8 anXAtLim);
 
-    tREAL8 Score(tREAL8 anX0,tREAL8 aXAtLim) ;
+    tREAL8 Score(tREAL8 anX0,tREAL8 aXAtLim,tREAL8 aY0Rel,tREAL8 aY1Rel) ;
 
     cPt2dr PtOfDY(tREAL8 anY) const;
 
@@ -104,8 +104,8 @@ class cFitParabol
        int      mNbY;
        tREAL8   mStepY;
        tDIm*    mDIm;
-        tREAL8   mX0;
-        tREAL8   mXAtLim;
+       tREAL8   mX0;
+       tREAL8   mXAtLim;
 };
 
 cFitParabol::cFitParabol (tREAL8 anYC,tREAL8 anIntervY,tDIm * aDIm,tREAL8 aStepY) :
@@ -131,11 +131,11 @@ cPt2dr  cFitParabol::PtOfDY(tREAL8 aDY) const
 
 
 
-tREAL8 cFitParabol::Score(tREAL8 anX0,tREAL8 aXAtLim)
+tREAL8 cFitParabol::Score(tREAL8 anX0,tREAL8 aXAtLim,tREAL8 aY0Rel,tREAL8 aY1Rel)
 {
     SetX(anX0,aXAtLim);
     tREAL8 aSom = 0;
-    for (int aDY= -mNbY ; aDY<= mNbY ; aDY++)
+    for (int aDY= round_ni(mNbY*aY0Rel) ; aDY<= round_ni(mNbY*aY1Rel) ; aDY++)
     {
         cPt2dr aPt = PtOfDY(aDY*mStepY);
         if (! mDIm->InsideBL(aPt))
@@ -286,6 +286,8 @@ class cAppliFranges : public cMMVII_Appli
         tREAL8 Cost(tREAL8 aValIm) const;
 
         void   ComputeParabol(tREAL8 aX0) ;
+        void   ComputeParabol(tREAL8 aX0,tREAL8 aY0Rel,tREAL8 aY1Rel) ;
+
         tREAL8 ScoreParabol(tREAL8 aX0,int aIntY,tREAL8 aXAtLim) const;
 
 
@@ -814,7 +816,7 @@ class cFitParabol
     cPt2dr PtOfDY(tREAL8 anY) const;
     */
 
-void   cAppliFranges::ComputeParabol(tREAL8 aX0)
+void   cAppliFranges::ComputeParabol(tREAL8 aX0,tREAL8 aYRel0,tREAL8 aYRel1)
 {
     int aNbY = 20;
 
@@ -826,7 +828,7 @@ void   cAppliFranges::ComputeParabol(tREAL8 aX0)
         for (int aXAtLim =0 ; aXAtLim < 800 ; aXAtLim++)
         {
             cPt2dr aParam(aX0+aDX,aXAtLim);
-            tREAL8 aScore = aFitP.Score(aX0+aDX,aXAtLim);
+            tREAL8 aScore = aFitP.Score(aX0+aDX,aXAtLim,aYRel0,aYRel1);
             aWMax.Add(aParam,aScore);
         }
     }
@@ -836,14 +838,21 @@ void   cAppliFranges::ComputeParabol(tREAL8 aX0)
      cPt2dr aParam =  aWMax.IndexExtre();
      aFitP.SetX(aParam.x(),aParam.y());
 
-     for (int aY=-2*aNbY ; aY<=2*aNbY ; aY++)
+     for (int aY= round_ni(2*aNbY*aYRel0) ; aY<= round_ni(2*aNbY*aYRel1) ; aY++)
      {
          cPt2dr aPt = aFitP.PtOfDY(aY);
          if (mImVisuPrgDyn.InsideBL(aPt))
          {
-            mImVisuPrgDyn.SetRGBPix(ToI(aPt),cRGBImage::Orange);
+            mImVisuPrgDyn.SetRGBPix(ToI(aPt),(aYRel0==0) ? cRGBImage::Orange :  cRGBImage::Magenta);
          }
      }
+}
+
+void   cAppliFranges::ComputeParabol(tREAL8 aX0)
+{
+    ComputeParabol(aX0,-1,0);
+    ComputeParabol(aX0,0,1);
+
 }
 
 
