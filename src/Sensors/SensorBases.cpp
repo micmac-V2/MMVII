@@ -231,6 +231,15 @@ void cSensorImage::ToFile(const std::string &) const
     MMVII_INTERNAL_ERROR("cSensorImage::ToFile not implemanted");
 }
 
+cPt3dr  cSensorImage::PseudoCenterOfProj() const
+{
+    double aY = Sz().y() / 2.0;
+    tSeg3dr aBund0 = Image2Bundle(cPt2dr(0,              aY));
+    tSeg3dr aBund1 = Image2Bundle(cPt2dr(Sz().x(), aY));
+    return BundleInters(aBund0, aBund1);
+}
+
+
 
 cPt2dr cSensorImage::GetIntervalZ() const
 {
