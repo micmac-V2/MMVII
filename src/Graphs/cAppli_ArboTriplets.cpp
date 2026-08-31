@@ -465,16 +465,16 @@ tRotR  cNodeArborTriplets::EstimateRotTransfertV2
     {
         tREAL8 aSc = ScoreOfTriplet(aVNumTri.at(aK));
         if (aSc>=0)
-            aVWPrior.at(aK) = StdWeightResidual({mPMAT->Cfg().mSigmaAtt,2,1.0},aSc);
+            aVWPrior.at(aK) = StdWeightResidual({mPMAT->Cfg().mSigmaTri,2,1.0},aSc);
     }
 
     //  --- initialization on the candidates that are not broken
-    static constexpr tREAL8 TheMaxScoreInit = 5.0;      // in units of Cfg().mSigmaAtt
+    static constexpr tREAL8 TheMaxScoreInit = 5.0;      // in units of Cfg().mSigmaTri
     std::vector<tRotR> aVRotInit;
     for (size_t aK=0 ; aK<aVRot.size() ; aK++)
     {
         tREAL8 aSc = ScoreOfTriplet(aVNumTri.at(aK));
-        if ((aSc<0) || (aSc <= TheMaxScoreInit*mPMAT->Cfg().mSigmaAtt))
+        if ((aSc<0) || (aSc <= TheMaxScoreInit*mPMAT->Cfg().mSigmaTri))
             aVRotInit.push_back(aVRot.at(aK));
     }
     if ((int)aVRotInit.size() < aMinNbSamples) aVRotInit = aVRot;
@@ -1127,7 +1127,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
         if (aSc<0)                                    // should not happen : every bridge has a triplet
         {
             aNbNoScore++;
-            aSc = mPMAT->Cfg().mSigmaAtt;             // neutral value
+            aSc = mPMAT->Cfg().mSigmaTri;             // neutral value
         }
         aBridgeRes.at(aI) = aSc;
     }
@@ -1367,10 +1367,10 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
 
     TPDiagnostic(aTr1,aLambda1,"pass1");     // transfer from the rotation-weighted solve
 
-    // [6.3]  sigma is GLOBAL, not adapted per node : Cfg().mSigmaAtt is ErrAtProp(0.75) over the
+    // [6.3]  sigma is GLOBAL, not adapted per node : Cfg().mSigmaTri is ErrAtProp(0.75) over the
     //   whole mScore distribution (HierarchSfm.cpp:112).  A per-node median would re-centre every
     //   node on its own triplets and erase the fact that some nodes are built from worse ones.
-    const tREAL8 aSigT = mPMAT->Cfg().mSigmaAtt;
+    const tREAL8 aSigT = mPMAT->Cfg().mSigmaTri;
 
     // [6.4]  combine : rotation agreement x what the equation can hide x intrinsic triplet quality
     std::vector<tREAL8> aWeightFinal(aBridgeInfos.size());
@@ -1787,7 +1787,7 @@ void cNodeArborTriplets::RefineCurSolution()
     int aNbIterEnd = mPMAT->Cfg().mNbIterBA + (mDepth==0 ? mPMAT->Cfg().mNbExtraIterAtRoot : 0);
 
     //cBA_ArboTriplets* aBA = new cBA_ArboTriplets(mPMAT, mLocSols,mDepth,aNbIterEnd,1.0,1.0);
-    cBA_ArboTriplets* aBA = new cBA_ArboTriplets(mPMAT,mLocSols,mDepth,aNbIterEnd,1.0,1.0,mTPtsMerge);
+    cBA_ArboTriplets* aBA = new cBA_ArboTriplets(mPMAT,mLocSols,mDepth,aNbIterEnd,mTPtsMerge);
 
     for (int aIter = 0; aIter < aNbIterEnd; aIter++)
         aBA->OneIteration(aIter);

@@ -62,12 +62,9 @@ void MThreadForcConcurenceLock()
 /*                                                           */
 /* ********************************************************* */
 
-cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols, int aTDepth, int aNbIterEnd,
-                     tREAL8 aSigLooseningMult, tREAL8 aThrLooseningMult,cComputeMergeMulTieP * aTPts) :
+cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols, int aTDepth, int aNbIterEnd ,cComputeMergeMulTieP * aTPts) :
     mPMAT      (aPMAT),
     mNbIter    (aNbIterEnd),
-    mSigARange  ({2*aSigLooseningMult*aPMAT->Cfg().mSigmaAtt, Sqrt(aSigLooseningMult)*aPMAT->Cfg().mSigmaAtt}), //{max,min} <=> {initial,final}
-    mThrRange   ({2*aThrLooseningMult*aPMAT->Cfg().mThrs,     aThrLooseningMult*aPMAT->Cfg().mThrs}),   //{max,min} <=> {initial,final}
     mSys      (nullptr),
     mTPts     (nullptr),
     mOwnTPts  (false),
@@ -109,6 +106,9 @@ cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocN
     mSys = new cResolSysNonLinear<tREAL8>(eModeSSR::eSSR_LsqNormSparse, mSetIntervUK.GetVUnKnowns());
     // vector of bundles decomposed to orthogonal u,v vectors
     mVecConfUV.resize(mTPts->Pts().size());
+
+    // setup bundle adjustment sigma and thresholds
+    SetLooseningRanges(1.0);
 }
 
 void cBA_ArboTriplets::OneIteration(int aIter)
@@ -186,7 +186,7 @@ void cBA_ArboTriplets::OneIteration(int aIter)
     int aConfigNum=0; //track id of current config
 
     // for every configuration of tie-pts
-    for (auto aAllConfigs : mTPts->Pts())
+    for (auto & aAllConfigs : mTPts->Pts())
     {
         const auto & aConfig = aAllConfigs.first;
         auto & aVals = aAllConfigs.second;
@@ -329,7 +329,7 @@ void cBA_ArboTriplets::UpdateLocSols(std::vector<cSolLocNode>& aLocSols)
     }
 }
 
-tREAL8 cBA_ArboTriplets::RobustResidualScale(size_t aNbSample)
+tREAL8 cBA_ArboTriplets::RobustResidualScale(size_t aNbSample,tREAL8 * aPtrFracInvis)
 {
     size_t aNbObs = 0;
     for (const auto &aAllConfigs : mTPts->Pts())
@@ -340,6 +340,8 @@ tREAL8 cBA_ArboTriplets::RobustResidualScale(size_t aNbSample)
     std::vector<double> aVRes;
     aVRes.reserve(std::min(aNbObs,aNbSample));
     size_t aKObs=0;
+    size_t aNbSampled=0;
+    size_t aNbInvis=0;
 
     for(const auto &aAllConfigs : mTPts->Pts())
     {
@@ -355,8 +357,8 @@ tREAL8 cBA_ArboTriplets::RobustResidualScale(size_t aNbSample)
             {
                 if (aKObs % aStep) continue; /// take only N samples
 
-                cSensorCamPC *aCam = mVCams.at(aConf.at(aKIm));
-                if (aCam->DegreeVisibility(aP3D)<=0) continue; /// point must be visible
+                /*cSensorCamPC *aCam = mVCams.at(aConf.at(aKIm));
+                 * if (aCam->DegreeVisibility(aP3D)<=0) continue; /// point must be visible
 
                 const cPt3dr aPBun( aVals.mVPIm.at(aKPts*aNbIm+aKIm).x(),
                                    aVals.mVPIm.at(aKPts*aNbIm+aKIm).y(),
@@ -365,34 +367,103 @@ tREAL8 cBA_ArboTriplets::RobustResidualScale(size_t aNbSample)
                 // |Unit(Bundle_obs) ^ Unit(Bundle_pred)| = sin(angle): exactly the norm
                 // of the (u,v) residual of OneIteration, without needing u,v
                 tREAL8 aSinA = Norm2( VUnit(aPBun) ^ VUnit(aCam->Pt_W2L(aP3D)) );
-                aVRes.push_back(aCam->InternalCalib()->F() * aSinA);
+                aVRes.push_back(aCam->InternalCalib()->F() * aSinA);  */
+
+                if (aKObs % aStep) continue; /// take only N samples
+
+                cSensorCamPC *aCam = mVCams.at(aConf.at(aKIm));
+
+                const cPt3dr aPBun( aVals.mVPIm.at(aKPts*aNbIm+aKIm).x(),
+                                   aVals.mVPIm.at(aKPts*aNbIm+aKIm).y(),
+                                   aVals.mVPZ .at(aKPts*aNbIm+aKIm) );
+                const tREAL8 aF = aCam->InternalCalib()->F();
+
+                //  An observation that cannot be seen is the STRONGEST evidence that the node is
+                //  badly initialised.  Dropping it made this statistic blind to exactly the case
+                //  it exists for -> saturate at 90 deg instead (sin folds back beyond that).
+                aNbSampled++;
+                if (aCam->DegreeVisibility(aP3D) > 0)
+                {
+                    tREAL8 aSinA = Norm2( VUnit(aPBun) ^ VUnit(aCam->Pt_W2L(aP3D)) );
+                    aVRes.push_back(aF*aSinA);
+                }
+                else
+                {
+                    aNbInvis++;
+                    aVRes.push_back(aF);          // saturated
+                }
 
             }
         }
     }
+
+    if (aPtrFracInvis)
+        *aPtrFracInvis = (aNbSampled==0) ? 0.0 : (tREAL8)aNbInvis/(tREAL8)aNbSampled;
     if (aVRes.size() < 50) return -1; // not enough data => keep nominal weighting
-    return NC_KthVal(aVRes,0.75);      // quantile, in pixels
+
+    return NC_KthVal(aVRes,0.75);  // quantile, in pixels
+
 }
 
-void cBA_ArboTriplets::AdaptWeightingToData()
+//   * sigma is a soft attenuation   -> ends at sqrt(mult) : a mild relaxation
+//   * the threshold is a hard cutoff
+void cBA_ArboTriplets::SetLooseningRanges(tREAL8 aMult)
 {
     const tREAL8 aSigAtt = mPMAT->Cfg().mSigmaAtt;
     const tREAL8 aThr    = mPMAT->Cfg().mThrs;
 
+    static constexpr tREAL8 TheKIni = 4.0;   // width of the schedule at the first iteration
+    static constexpr tREAL8 TheKEnd = 2.0;   //   and at the last
+
+    mSigARange = {TheKIni*aMult*aSigAtt, TheKEnd*std::sqrt(aMult)*aSigAtt};
+    mThrRange  = {TheKIni*aMult*std::sqrt(aMult)*aThr, TheKEnd*aMult*aThr};
+}
+
+
+void cBA_ArboTriplets::AdaptWeightingToData()
+{
+ //   const tREAL8 aSigAtt = mPMAT->Cfg().mSigmaAtt;
+  //  const tREAL8 aThr    = mPMAT->Cfg().mThrs;
+
     /// compute quantile residual over this merged node
-    mResScale = RobustResidualScale();
+    tREAL8 aFracInvis = 0.0;
+    mResScale = RobustResidualScale(1000,&aFracInvis);
     if (mResScale<=0) return;
 
-    static constexpr tREAL8 TheMaxLoosening = 40.0; /// not too sure about this value
-    const tREAL8 aMult = std::clamp(mResScale/aSigAtt,1.0,TheMaxLoosening);
+    static constexpr tREAL8 TheMaxLoosening = 50.0; /// not too sure about this value
+   // static constexpr tREAL8 TheFinalExp     = 0.5;   // final = mult^exp * nominal
+    static constexpr tREAL8 TheFracInvisOk  = 0.05;   // healthy nodes sit at 1-3%
+
+   /* const tREAL8 aMult = std::clamp(mResScale/aSigAtt,1.0,TheMaxLoosening);
 
     StdOutLock::lock();
     StdOut() << aMult << " " << mResScale << " " << aSigAtt << std::endl;
-    StdOutLock::unlock();
+    StdOutLock::unlock(); */
+
+    //  two independent symptoms : large residuals among the visible observations, and a large
+    //  share of observations that cannot be seen at all.  Loosen on whichever is worse.
+    tREAL8 aMultRes = mResScale/1.0; // aSigAtt=1.0
+    tREAL8 aMultVis = 1.0;
+    if (aFracInvis > TheFracInvisOk)
+        aMultVis = 1.0 + (aFracInvis-TheFracInvisOk)/TheFracInvisOk;
+
+    const tREAL8 aMult    = std::clamp(std::max(aMultRes,aMultVis),1.0,TheMaxLoosening);
+ //   const tREAL8 aMultEnd = std::pow(aMult,TheFinalExp);
 
     /// update the SigmaAtt and Threshold ranges
-    mSigARange = {2.0*aMult*aSigAtt, aSigAtt};
-    mThrRange = {2*aMult*aThr, aThr};
+   // mSigARange = {4.0*aMult*aSigAtt, 2*aMultEnd*aSigAtt};
+  //  mThrRange  = {4.0*aMult*aThr, 2*aMultEnd*aThr};
+
+    SetLooseningRanges(aMult);
+
+    StdOutLock::lock();
+    StdOut() << "[BA-Adapt] depth=" << mTreeDepth
+             << " res=" << mResScale << " fracInvis=" << aFracInvis
+             << " multRes=" << aMultRes << " multVis=" << aMultVis
+             << " -> mult=" << aMult
+             << " sigAtt=" << mSigARange
+             << " thrs=" << mThrRange << std::endl;
+    StdOutLock::unlock();
 }
 
 cBA_ArboTriplets::~cBA_ArboTriplets()

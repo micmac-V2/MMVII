@@ -182,9 +182,13 @@ struct cMakeArboTripletCfg
     tREAL8               mSigma     = 1.0;       ///< Tie-points sigma (relative to other observations)
     tREAL8               mSigmaAtt  = 2.0;       ///< Sigma attenuation on tie-points
     tREAL8               mThrs   = 10.0;      ///< Outlier threshold
+    tREAL8               mSigmaTri  = -1.0;   ///< Sigma for triplet-quality weighting in the merge; <0 -> mSigmaAtt
     int                  mNbIterBA  = 5;         ///< Number of BA iterations
     int                  mNbExtraIterAtRoot = 2;  ///< Extra BA iterations at the tree root (all images)
     bool                 mVerbose = false;
+
+    /// sigma used to weight a bridge by the mScore of its triplet ; falls back on mSigmaAtt
+    tREAL8 SigmaTri() const {return (mSigmaTri>0) ? mSigmaTri : mSigmaAtt;}
 
     void Show(std::ostream & aOS = std::cout) const
     {
@@ -193,6 +197,7 @@ struct cMakeArboTripletCfg
             << " * LVM       = " << mLVM       << "\n"
             << " * Sigma     = " << mSigma  << "\n"
             << " * SigmaAtt  = " << mSigmaAtt  << "\n"
+            << " * SigmaTri  = " << SigmaTri() << "\n"
             << " * Threshold = " << mThrs   << "\n"
             << " * NbIterBA  = " << mNbIterBA  << "\n"
             << " * NbExtraIterAtRoot = " << mNbExtraIterAtRoot << "\n\n";
