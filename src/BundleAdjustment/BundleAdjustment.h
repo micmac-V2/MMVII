@@ -750,7 +750,6 @@ class cBA_ArboTriplets
         //cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols, int aTDepth, int aNbIterEnd,
         //                 tREAL8 aSigLooseningMult=1.0, tREAL8 aThrLooseningMult=1.0);
         cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols, int aTDepth, int aNbIterEnd,
-                         tREAL8 aSigLooseningMult=1.0, tREAL8 aThrLooseningMult=1.0,
                          cComputeMergeMulTieP * aTPts = nullptr);   ///< aTPts : shared, NOT owned
         ~cBA_ArboTriplets();
 
@@ -771,7 +770,9 @@ class cBA_ArboTriplets
 
     private:
         /// Compute a residual scaling factor (to be applied to SigmaAtt & Threshold) based on tie-pts residuals
-        tREAL8 RobustResidualScale(size_t aNbSample=1000);
+        tREAL8 RobustResidualScale(size_t aNbSample=1000,tREAL8 * aPtrFracInvis=nullptr);
+        ///
+        void SetLooseningRanges(tREAL8 aMult);
 
         cMakeArboTriplet*                            mPMAT;
         int                                                mNbIter;
