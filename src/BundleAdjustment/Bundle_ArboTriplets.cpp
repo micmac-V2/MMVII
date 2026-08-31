@@ -171,10 +171,6 @@ void cBA_ArboTriplets::OneIteration(int aIter)
     tREAL8 aThr = CurrentVal(aIter,mNbIter,mThrRange.at(0),mThrRange.at(1));
     cStdWeighterResidual aTPtsW(1.0, aSigA, aThr, 2.0);
 
-    //StdOutLock::lock();
-    //StdOut() << "SIIGGGG THRRR " << aSigA << " " << aThr << std::endl;
-    //StdOutLock::unlock();
-
     // add observation equations for all tie-points
     tREAL8 aMaxRes=0;
     int aNumAllTiePts=0;
@@ -430,36 +426,17 @@ void cBA_ArboTriplets::AdaptWeightingToData()
     mResScale = RobustResidualScale(1000,&aFracInvis);
     if (mResScale<=0) return;
 
-    static constexpr tREAL8 TheMaxLoosening = 50.0; /// not too sure about this value
-   // static constexpr tREAL8 TheFinalExp     = 0.5;   // final = mult^exp * nominal
-    static constexpr tREAL8 TheFracInvisOk  = 0.05;   // healthy nodes sit at 1-3%
+    static constexpr tREAL8 TheMaxLoosening = 50.0;
 
-   /* const tREAL8 aMult = std::clamp(mResScale/aSigAtt,1.0,TheMaxLoosening);
-
-    StdOutLock::lock();
-    StdOut() << aMult << " " << mResScale << " " << aSigAtt << std::endl;
-    StdOutLock::unlock(); */
-
-    //  two independent symptoms : large residuals among the visible observations, and a large
-    //  share of observations that cannot be seen at all.  Loosen on whichever is worse.
-    tREAL8 aMultRes = mResScale/1.0; // aSigAtt=1.0
-    tREAL8 aMultVis = 1.0;
-    if (aFracInvis > TheFracInvisOk)
-        aMultVis = 1.0 + (aFracInvis-TheFracInvisOk)/TheFracInvisOk;
-
-    const tREAL8 aMult    = std::clamp(std::max(aMultRes,aMultVis),1.0,TheMaxLoosening);
- //   const tREAL8 aMultEnd = std::pow(aMult,TheFinalExp);
-
-    /// update the SigmaAtt and Threshold ranges
-   // mSigARange = {4.0*aMult*aSigAtt, 2*aMultEnd*aSigAtt};
-  //  mThrRange  = {4.0*aMult*aThr, 2*aMultEnd*aThr};
+    //  aMult is an absolute residual scale in pixels
+    const tREAL8 aMultRes = mResScale;
+    const tREAL8 aMult    = std::clamp(aMultRes,1.0,TheMaxLoosening);
 
     SetLooseningRanges(aMult);
 
     StdOutLock::lock();
     StdOut() << "[BA-Adapt] depth=" << mTreeDepth
-             << " res=" << mResScale << " fracInvis=" << aFracInvis
-             << " multRes=" << aMultRes << " multVis=" << aMultVis
+             << " ResidScale=" << mResScale << " fracInvis=" << aFracInvis   // reported, not used
              << " -> mult=" << aMult
              << " sigAtt=" << mSigARange
              << " thrs=" << mThrRange << std::endl;

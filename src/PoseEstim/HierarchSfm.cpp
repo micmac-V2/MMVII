@@ -42,7 +42,6 @@ class cAppli_HierarchSfm : public cMMVII_Appli
         tREAL8                    mWBalance;
         std::vector<tREAL8>       mViscPose;      ///< regularization on poses in BA
         tREAL8                    mLVM;           ///< levenberg-marquadt
-        tREAL8                    mSigma;
         tREAL8                    mSigmaAtt;
         tREAL8                    mThrs;
         tREAL8                    mSigmaTri;
@@ -60,7 +59,6 @@ cAppli_HierarchSfm::cAppli_HierarchSfm(const std::vector<std::string> & aVArgs,c
     mWBalance    (1.0),
     mViscPose    ({-1,-1}),
     mLVM         (1e-7),
-    mSigma       (1.0),
     mSigmaAtt    (1.0),
     mThrs     (10.0),
     mSigmaTri (1.0),
@@ -88,7 +86,6 @@ cCollecSpecArg2007 & cAppli_HierarchSfm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            <<  mPhProj.DPOrient().ArgDirInOpt("","Ground truth input orientation directory")
            <<  AOpt2007(mViscPose,"ViscPose","Regularization on poses for BA: [SigmaTr,SigmaRot]",{eTA2007::HDV})
            <<  AOpt2007(mLVM,"LVM","Levenberg-marquadt regularization",{eTA2007::HDV})
-           <<  AOpt2007(mSigma,"Sigma","Sigma for tie-points (relative to other obs)",{eTA2007::Tuning,eTA2007::HDV})
            <<  AOpt2007(mSigmaAtt,"SigmaAtt","Reference sigma for tie-points; the BA anneals from 4*m*SigmaAtt down to 2*sqrt(m)*SigmaAtt, m adapting to node quality",{eTA2007::Tuning})
            <<  AOpt2007(mThrs,"Thrs","Reference outlier threshold; the BA anneals from 4*m^1.5*Thrs down to 2*m*Thrs",{eTA2007::Tuning})
            <<  AOpt2007(mSigmaTri,"SigmaTri","Sigma for triplet-quality weighting in the merge (default: same as SigmaAtt)",{eTA2007::Tuning})
@@ -121,7 +118,6 @@ int cAppli_HierarchSfm::Exe()
     aCfg.mLVM      = mLVM;
     aCfg.mNbIterBA = mNbIterBA;
     aCfg.mNbExtraIterAtRoot = mNbExtraIterAtRoot;
-    aCfg.mSigma = IsInit(&mSigma) ? mSigma : 1.0;
     aCfg.mSigmaAtt = IsInit(&mSigmaAtt) ? mSigmaAtt : std::max(2.0,2.0*aQScoreStats.ErrAtProp(0.75));
     aCfg.mThrs  = IsInit(&mThrs)  ? mThrs  : std::max(5.0,4.0*aQScoreStats.ErrAtProp(0.75));
     aCfg.mSigmaTri = IsInit(&mSigmaTri) ? mSigmaTri

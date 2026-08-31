@@ -499,7 +499,6 @@ void cCamSimul::BenchHierchBA(cTimerSegm * aTS,
     cMakeArboTripletCfg aCfg;
     aCfg.mLVM      = 1e-7;
     aCfg.mNbIterBA = 5;
-    aCfg.mSigma    = 2;
     aCfg.mSigmaAtt = 1;
     aCfg.mThrs  = 10;
 
@@ -549,7 +548,6 @@ void cCamSimul::BenchHierchBA_InitOnly(cTimerSegm* aTS, bool isSubVert)
     aCfg.mLVM      = 1e-7;
     aCfg.mNbIterBA = 0;   // spanning tree only — no BA refinement
     aCfg.mNbExtraIterAtRoot = 0;
-    aCfg.mSigma    = 1;
     aCfg.mSigmaAtt = 1;
     aCfg.mThrs  = 10;
 
@@ -592,7 +590,6 @@ void cCamSimul::BenchHierchBA_BAOnly(cTimerSegm* aTS, bool isSubVert)
     cMakeArboTripletCfg aCfg;
     aCfg.mLVM      = 1e-7;
     aCfg.mNbIterBA = aNbIterBA;
-    aCfg.mSigma    = 1;
     aCfg.mSigmaAtt = 1;
     aCfg.mThrs  = 10;
     aCfg.mNbExtraIterAtRoot = 2;
