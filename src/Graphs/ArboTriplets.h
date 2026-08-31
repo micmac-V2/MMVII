@@ -178,6 +178,7 @@ private :
     {
         int    mNbExclSeed = 0;    ///< candidates dropped from the pseudo-median seed (bad triplets)
         tREAL8 mDMaxCom    = -1;   ///< max dist(screened common -> final rotation) ; 0 if healthy
+        tREAL8 mSCom       = 0;   ///< rotation dispersion computed from common poses
         tREAL8 mLinkMed    = -1;   ///< median dist(link candidate -> final rotation)
     };
     cMergeStats  mMergeStats;

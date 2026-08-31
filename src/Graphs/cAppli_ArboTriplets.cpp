@@ -469,8 +469,8 @@ tRotR  cNodeArborTriplets::EstimateRotTransfertV2
 
     //  Each common pose gives an estimate of W1->W0 with no triplet in the loop ; they must agree.
     //  cRotation3D::Dist is chordal :  d = 2*sqrt(2)*sin(angle/2)  (MaxDist = 2*sqrt(2) at 180 deg),
-    //  so 0.15 is about 6 degrees.  A pose agreeing with none of the others is misplaced in one child.
-    static constexpr tREAL8 TheMaxDistCom = 0.15;
+    //  so 0.1 is about 4 degrees.  A pose agreeing with none of the others is misplaced in one child.
+    static constexpr tREAL8 TheMaxDistCom = 0.1;
 
     std::vector<size_t> aVGoodCom;
     for (size_t aA=0 ; aA<aVPairCommon.size() ; aA++)
@@ -541,8 +541,39 @@ tRotR  cNodeArborTriplets::EstimateRotTransfertV2
         if ((aKIt>=1) && (aRotEstim.Dist(aPrev)<1e-4)) break;
     }
 
+    //  The estimate has drifted from commons that agree among themselves?  A common pose is a
+    //  direct observation of the same camera in both frames, with no triplet in the loop ; when
+    //  the link candidates are noise they outvote it, so trust the commons.
+    bool aComOverride = false;      // did we replace the estimate by the commons' consensus ?
+    if (aVGoodCom.size()>=2)
+    {
+        //  dispersion of the screened commons = the noise scale of this evidence
+        for (size_t aA=0 ; aA<aVGoodCom.size() ; aA++)
+            for (size_t aB=aA+1 ; aB<aVGoodCom.size() ; aB++)
+                UpdateMax(mMergeStats.mSCom,aVRot.at(aVGoodCom.at(aA)).Dist(aVRot.at(aVGoodCom.at(aB))));
 
-    for (size_t aK : aVGoodCom)                     // screened commons only : the rejected one is
+        //  distance from the estimate to that evidence
+        tREAL8 aDMax = 0.0;
+        for (size_t aK : aVGoodCom) UpdateMax(aDMax,aRotEstim.Dist(aVRot.at(aK)));
+
+        //  the estimate must agree with the commons about as well as they agree with each other.
+        static constexpr tREAL8 TheKOverride = 5.0;
+        static constexpr tREAL8 TheDMinOverride = 1e-3;      // do not be stricter
+        if (aDMax > std::max(TheKOverride*mMergeStats.mSCom,TheDMinOverride))
+        {
+            aRotEstim = tRotR::Centroid(SubVector(aVRot,aVGoodCom),
+                                        std::vector<tREAL8>(aVGoodCom.size(),1.0));
+            aComOverride = true;
+
+            StdOutLock::lock();
+            StdOut() << "[ArboW-Rot] depth=" << mDepth << " estimate " << aDMax
+                     << " from " << aVGoodCom.size() << " commons agreeing to " << mMergeStats.mSCom
+                     << " -> using the commons" << std::endl;
+            StdOutLock::unlock();
+        }
+    }
+
+    for (size_t aK : aVGoodCom)                     // screened commons only
         UpdateMax(mMergeStats.mDMaxCom,aRotEstim.Dist(aVRot.at(aK)));
 
     // B.3  : ---------- weight the data taking into account the rotation residual --------------------
@@ -555,11 +586,16 @@ tRotR  cNodeArborTriplets::EstimateRotTransfertV2
         // we add some noise to the
         auto SoftMax2 =[](tREAL8 A,tREAL8 B) {return std::sqrt(Square(A)+Square(B));};
 
-        tREAL8 aMedian = SoftMax2(ConstMediane(aWeightR),aMinD);
+        //  When the estimate was taken from the commons, the population median is not a valid
+        //  noise scale : the majority of candidates are the outliers, and normalising by their
+        //  median gives every one of them ca 0.5.  Use the commons' own dispersion instead.
+        tREAL8 aScaleW = aComOverride ? SoftMax2(mMergeStats.mSCom,aMinD)
+                                      : SoftMax2(ConstMediane(aWeightR),aMinD);
+
         for (auto & aW : aWeightR)
         {
             aW = SoftMax2(aMinD,aW);
-            aW = 1/(1+ std::pow(aW/aMedian,2.0));
+            aW = 1/(1+ std::pow(aW/aScaleW,2.0));
         }
     }
 
@@ -864,6 +900,32 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
     tREAL8 aScale1= ScaleOfChild(aN1.mLocSols);
     tREAL8 aScaleRef = (aScale0>1e-8) ? aScale0 : ((aScale1>1e-8) ? aScale1 : 1.0); // avoid degenerate (too small) scale
 
+    //  Scale implied by the common poses alone : |C0a-C0b| / |C1a-C1b|.  Distances are invariant
+    //  under the rotation transfer, so this is the one scale estimate that survives an error in
+    //  aRot_W1_to_W0, and it does not degenerate when Tr and Lambda fight against each other.
+    static constexpr tREAL8 TheWLambdaComRel = 1.0;
+    std::vector<tREAL8> aVLambdaCom;
+    tREAL8 aWLambdaCom = 0.0;
+    for (size_t aA=0 ; aA<aVPairCommon.size() ; aA++)
+        for (size_t aB=aA+1 ; aB<aVPairCommon.size() ; aB++)
+        {
+            const auto & [aI0a,aI1a] = aVPairCommon.at(aA);
+            const auto & [aI0b,aI1b] = aVPairCommon.at(aB);
+            tREAL8 aD0 = Norm2(aN0.mLocSols[aI0a].mPose.Tr() - aN0.mLocSols[aI0b].mPose.Tr());
+            tREAL8 aD1 = Norm2(aN1.mRotateLS[aI1a].mPose.Tr() - aN1.mRotateLS[aI1b].mPose.Tr());
+            if ((aD0<1e-8) || (aD1<1e-8)) continue;
+            tREAL8 aLam = aD0/aD1;
+            aVLambdaCom.push_back(aLam);
+        }
+    //  Weight of the Lambda prior.  aScale1 is the lever arm (an error dLambda displaces the
+    //  centres by dLambda*aScale1, and weights multiply the squared residual).  Scaled by the
+    //  number of common bridges, NOT by their aWeightR : that is the rotation-agreement weight
+    //  and it collapses to 0 exactly on the nodes where this prior is the only scale evidence.
+    aWLambdaCom = TheWLambdaComRel * (tREAL8)aVPairCommon.size() * Square(aScale1);
+
+    tREAL8 aLambdaCom = -1.0;
+    if (!aVLambdaCom.empty())
+        aLambdaCom = NC_KthVal(aVLambdaCom,0.5);   // NC_KthVal reorders ; aVLambdaCom dead after
 
     int aKWeight=0;
     // [3]   Add the equation corresponding to common pose
@@ -1010,6 +1072,10 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
     }
 
     MMVII_INTERNAL_ASSERT_bench(aKWeight==int(aWeightR.size()),"End of rotation weighting");
+
+    //  the common poses also constrain Lambda directly,  equation is 1.0 x Lambda = aLambdaCom on unknown index 3
+    if (aLambdaCom>0)
+        aSys->PublicAddObservation(aWLambdaCom, tSV(tVIV{{3,1.0}}), aLambdaCom);
 
     cAutoTimerSegm aTimerSolveSim(mPMAT->TimeSegm(),"SolveSimInit");
 
@@ -1390,6 +1456,11 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
             AddEqLink(aSys,nullptr,aW,aBI.mKEq,aBI.mC0,aBI.mC1,aBI.mCTri0,aBI.mCTri1);
         }
     }
+
+    //  the common poses also constrain Lambda directly,  equation is 1.0 x Lambda = aLambdaCom on unknown index 3
+    if (aLambdaCom>0)
+        aSys->PublicAddObservation(aWLambdaCom, tSV(tVIV{{3,1.0}}), aLambdaCom);
+
     cAutoTimerSegm aTimerSolveSimFinal(mPMAT->TimeSegm(),"SolveSimFinal");
     aSol = aSys->PublicSolve();
     tREAL8 aLambda = aSol(3);
@@ -1406,20 +1477,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
         StdOutLock::unlock();
     }
 
-    //  scale implied by the common poses alone :  |C0a-C0b| / |C1a-C1b|
-    std::vector<tREAL8> aVLambdaCom;
-    for (size_t aA=0 ; aA<aVPairCommon.size() ; aA++)
-        for (size_t aB=aA+1 ; aB<aVPairCommon.size() ; aB++)
-        {
-            const auto & [aI0a,aI1a] = aVPairCommon.at(aA);
-            const auto & [aI0b,aI1b] = aVPairCommon.at(aB);
-            tREAL8 aD0 = Norm2(aN0.mLocSols[aI0a].mPose.Tr() - aN0.mLocSols[aI0b].mPose.Tr());
-            tREAL8 aD1 = Norm2(aN1.mRotateLS[aI1a].mPose.Tr() - aN1.mRotateLS[aI1b].mPose.Tr());
-            if (aD1>1e-8) aVLambdaCom.push_back(aD0/aD1);
-        }
-    tREAL8 aLambdaCom = -1.0;
-    if (!aVLambdaCom.empty())
-        aLambdaCom = NC_KthVal(aVLambdaCom,0.5);    // NC_KthVal reorders ; aVLambdaCom is dead after
+
 
     StdOutLock::lock();
     StdOut() << "[ArboW-SUM] depth=" << mDepth
@@ -1428,6 +1486,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
              << " nbCommon=" << aVPairCommon.size()
              << " nbExcl="   << mMergeStats.mNbExclSeed
              << " dRotCom="  << mMergeStats.mDMaxCom
+             << " sCom="     << mMergeStats.mSCom
              << " linkMed="  << mMergeStats.mLinkMed   // median link spread
              << " Lambda="   << aLambda
              << " LambdaCom="<< aLambdaCom
