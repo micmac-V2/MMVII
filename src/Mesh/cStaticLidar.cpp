@@ -1755,12 +1755,66 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> * aSup
     //    file1 << aCenter.x() << " " << -aCenter.y() <<"\n";
 }
 
+// set a regular grid, subdivide parts if deep, keep best score in cell
+void cStaticLidar::SelectPatchCenters3(int aNbPatches, cDataIm2D<tU_INT1> * aSupMaskDIm)
+{
+    MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
+
+    if (aSupMaskDIm)
+        MMVII_INTERNAL_ASSERT_tiny(
+            aSupMaskDIm->Sz() == InternalCalib()->SzPix(),
+            "Error: Sup mask must have the same size as TSL mask");
+    mPatchCenters.clear();
+    auto & aRasterMaskData = mRasterMask->DIm();
+    auto & aRasterDistData = mRasterDistance->DIm();
+
+    //fix dist image : d <= d*cos(aPhi)
+    cIm2D<tREAL4> aImDistFix(aRasterDistData.Sz(),0,eModeInitImage::eMIA_Null);
+    auto & aImDistFixData = aImDistFix.DIm();
+    for (int l = 0 ; l < aRasterDistData.Sz().y(); ++l)
+    {
+        tREAL4 aPhi = InternalCalib()->DirBundle({0.,(double)l}).y();
+        for (int c = 0 ; c <aRasterDistData.Sz().x(); ++c)
+        {
+            aImDistFixData.GetLine(l)[c] = aRasterDistData.GetLine(l)[c]*aRasterMaskData.GetLine(l)[c]*cos(aPhi);
+        }
+    }
+    mPatchCenters.clear();
+
+    cQuadTree aQuadTree(&aImDistFixData);
+    aQuadTree.Split(aNbPatches);
+
+    std::cout<<"QuadTree: "<<aQuadTree.GetCurNbCell()<<"\n";
+
+    // make patches, good points on each leafs
+    for (auto& aLeaf: aQuadTree.GetVLeafs())
+    {
+        auto aLeafCenter = (aLeaf->GetArea().P0() + aLeaf->GetArea().P1())/2;
+        cPt2di aBestPt = aLeafCenter;
+        float aBestScore = 0;
+        for (auto &aPx: aLeaf->GetArea())
+        {
+            float aCurScore = aRasterMaskData.GetV(aPx) * aRasterDistData.GetV(aPx) / (1. + Norm2(aPx-aLeafCenter));
+            if (aSupMaskDIm)
+                aCurScore *= aSupMaskDIm->GetV(aPx);
+            if (aCurScore > aBestScore)
+            {
+                aBestScore = aCurScore;
+                aBestPt = aPx;
+            }
+        }
+        if (aBestScore>0)
+            mPatchCenters.push_back(aBestPt);
+    }
+    StdOut() << "Nb patches: " << mPatchCenters.size() <<"\n";
+}
+
 void cStaticLidar::MakeVisu(const cPhotogrammetricProject & aPhProj) const
 {
     MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
     auto & aRasterDistData = mRasterDistance->DIm();
     double aDistMax = 0.;
-    int aPtSize = 1 + mRasterDistance->DIm().SzX()/4000;
+    int aPtSize = 1 + mRasterDistance->DIm().SzX()/1000;
     for (auto & aPt :  aRasterDistData)
     {
         if (aRasterDistData.GetV(aPt)>aDistMax)

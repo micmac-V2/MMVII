@@ -452,9 +452,13 @@ template <class Type,const int Dim> class cDataTypedIm : public cDataGenUnTypedI
         double SqL2Norm(bool Avg=true) const;   ///< Norm square
 
         Type     MinVal() const;
+        Type     MinValNotNull(const cPixBox<Dim> &aBox) const;
         Type     MaxVal() const;
+        Type     MaxVal(const cPixBox<Dim> &aBox) const;
         tREAL16  SomVal() const;
+        tREAL16  SomVal(const cPixBox<Dim> &aBox) const;
         tREAL16  MoyVal() const;
+        tREAL16  MoyVal(const cPixBox<Dim> &aBox) const;
 
         void DupIn(cDataTypedIm<Type,Dim> &) const;  ///< Duplicate raw data
         void ChSignIn(cDataTypedIm<Type,Dim> &) const;  ///< Duplicate with sign change in raw data

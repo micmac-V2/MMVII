@@ -152,6 +152,7 @@ public :
     void MaskBuffer(const cStaticLidarImporter &aSL_importer, tREAL8 aAngBuffer, const std::string &aPhProjDirOut);
     void SelectPatchCenters1(int aNbPatches);
     void SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> *aSupMaskDIm=nullptr);
+    void SelectPatchCenters3(int aNbPatches, cDataIm2D<tU_INT1> *aSupMaskDIm=nullptr);
     void MakeVisu(const cPhotogrammetricProject & aPhProj) const;     ///< show 8bit dist image with patch centers
     void MakePatches(std::list<cLidarRasterPatch> &aLPatches, const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin) const;
     std::tuple<tREAL8,tREAL8,tREAL8> AvgDistNbValidAndNbNotMasked() const; //< return average dist for valid points, number of valid points and number of not-masked points
