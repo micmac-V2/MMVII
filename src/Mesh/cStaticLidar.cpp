@@ -1764,9 +1764,16 @@ void cStaticLidar::SelectPatchCenters3(int aNbPatches, cDataIm2D<tU_INT1> * aSup
         MMVII_INTERNAL_ASSERT_tiny(
             aSupMaskDIm->Sz() == InternalCalib()->SzPix(),
             "Error: Sup mask must have the same size as TSL mask");
-    mPatchCenters.clear();
+
+    //auto [aAvgDist, aNbValid, aNbNotMasked] = AvgDistNbValidAndNbNotMasked();
+    //std::cout<<"aAvgDist="<<aAvgDist<<" aNbValid="<<aNbValid<<
+    //    " aNbNotMasked="<<aNbNotMasked<<"\n";
+
     auto & aRasterMaskData = mRasterMask->DIm();
     auto & aRasterDistData = mRasterDistance->DIm();
+
+    // increase the number of cells to correspond to empty areas
+    float aNbPatchesFactor = 1.1;//sqrt((aRasterDistData.SzX()*aRasterDistData.SzY())/(float(aNbNotMasked+1)));
 
     //fix dist image : d <= d*cos(aPhi)
     cIm2D<tREAL4> aImDistFix(aRasterDistData.Sz(),0,eModeInitImage::eMIA_Null);
@@ -1782,7 +1789,7 @@ void cStaticLidar::SelectPatchCenters3(int aNbPatches, cDataIm2D<tU_INT1> * aSup
     mPatchCenters.clear();
 
     cQuadTree aQuadTree(&aImDistFixData);
-    aQuadTree.Split(aNbPatches);
+    aQuadTree.Split(aNbPatches*aNbPatchesFactor);
 
     std::cout<<"QuadTree: "<<aQuadTree.GetCurNbCell()<<"\n";
 
