@@ -43,14 +43,14 @@ const cPixBox<2> & cQuadTreeCell::GetArea() const
     return mArea;
 }
 
-int cQuadTreeCell::Divide4()
+int cQuadTreeCell::Divide4(int aMinCellSz)
 {
     if (mSubs.empty())
     {
         auto aULPoint = mArea.P0();
         auto aLRPoint = mArea.P1();
         //std::cout<<"  Split "<<aULPoint<<" "<<aLRPoint;
-        if ((aLRPoint.x()-aULPoint.x()<2) || (aLRPoint.y()-aULPoint.y()<2))
+        if ((aLRPoint.x()-aULPoint.x()<aMinCellSz) || (aLRPoint.y()-aULPoint.y()<aMinCellSz))
         {
             //std::cout<<" too small\n";
             return 0; // do not split too small
@@ -79,9 +79,9 @@ int cQuadTreeCell::Divide4()
 /*                    cQuadTree                    */
 /*                                                 */
 /* =============================================== */
-cQuadTree::cQuadTree(cDataIm2D<tREAL4> *aDepthIm):
+cQuadTree::cQuadTree(cDataIm2D<tREAL4> *aDepthIm, int aMinCellSz):
     mDepthIm(aDepthIm), mCurNbCell(1),
-    mRootCell(*mDepthIm)
+    mRootCell(*mDepthIm), mMinCellSz(aMinCellSz)
 {
 
 }
@@ -93,15 +93,16 @@ int cQuadTree::GetCurNbCell() const
 
 void cQuadTree::Split(int aTargetNbCell)
 {
+    std::cout<<"Split into "<<aTargetNbCell<<" cells...\n";
     mVLeafs.clear();
     float aLimit =  mDepthIm->MoyVal() / std::log2(aTargetNbCell) * 2.; // > to what we expect, to make room for variation
-    while (mCurNbCell<aTargetNbCell)
+    while ((mCurNbCell<aTargetNbCell)&&(aLimit>1e-3))
     {
-        std::cout<<"Split step\n";
+        //std::cout<<"Split step\n";
         // loop over all subcells
         mCurNbCell+=RecursiveDiv(&mRootCell, aLimit);
-        aLimit *= 0.95; // change limit to add cells if needed
-        std::cout<<"CurNbCell: "<<mCurNbCell<<"\n";
+        aLimit *= 0.98; // change limit to add cells if needed, slowly to get close to asked number of cells
+        //std::cout<<"CurNbCell: "<<mCurNbCell<<"\n";
     }
 
     RecursiveFillVLeafs(&mRootCell);
@@ -115,10 +116,10 @@ int cQuadTree::RecursiveDiv(cQuadTreeCell *aCell, float aLimit)
         // test if dist_max/level too big, sqrt on dist to limit a little the contrast between close and far?
         float aMax = mDepthIm->MaxVal(aCell->mArea);
         float aMin = mDepthIm->MinValNotNull(aCell->mArea);
-        float aVal = sqrt(aMax * sqrt(1+sqrt((aMax-aMin)/(aMax+1.)))) / aCell->mLevel;
+        float aVal = sqrt(aMax * sqrt(1+sqrt((aMax-aMin)/(aMax+1.)))) / Square(aCell->mLevel);
         //std::cout<<"  aVal="<<aVal<<" aLimit="<<aLimit<<"\n";
         if (aVal > aLimit)
-            aNbCreated += aCell->Divide4() - 1; // lost 1 leaf, made n new leaves
+            aNbCreated += aCell->Divide4(mMinCellSz) - 1; // lost 1 leaf, made n new leaves
     }
     for (auto & aSubCell: aCell->mSubs)
         aNbCreated += RecursiveDiv(&aSubCell, aLimit);
