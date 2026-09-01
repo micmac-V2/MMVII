@@ -921,6 +921,41 @@ template <class TypeMap>  void CheckSzInOut(const  typename TypeMap::tVPts& aVIn
 }
 
 
+class cQuadTreeCell
+{
+    friend class cQuadTree;
+public:
+    bool IsLeaf() const;
+    const cPixBox<2> & GetArea() const;
+protected:
+    cQuadTreeCell(cPixBox<2> aArea, int aLevel);
+    cQuadTreeCell(cPixBox<2> aAreaInit); //for inital level: splits area to get good proportions
+    int Divide4(); // return number of cells created
+    cPixBox<2> mArea;
+    int mLevel;
+    std::vector<cQuadTreeCell> mSubs;
+};
+
+
+
+class cQuadTree
+{
+public:
+    cQuadTree(cDataIm2D<tREAL4> * aDepthIm);
+    void Split(int aTargetNbCell);
+    int GetCurNbCell() const;
+    const std::vector<const cQuadTreeCell*> GetVLeafs() const;
+
+protected:
+    cDataIm2D<tREAL4> * mDepthIm;
+    int mCurNbCell;
+    cQuadTreeCell mRootCell;
+    int RecursiveDiv(cQuadTreeCell * aCell, float aLimit); // returns number of created cells
+    void RecursiveFillVLeafs(cQuadTreeCell * aCell);
+    std::vector<const cQuadTreeCell*> mVLeafs;
+};
+
+
 
 };
 
