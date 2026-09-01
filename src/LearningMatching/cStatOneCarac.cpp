@@ -294,7 +294,7 @@ void cStatAllVecCarac::ShowSepar(const std::string & aPat,cMultipleOfs & aOfs)
 
 void cStatAllVecCarac::SaveCr(int aDeZoom,const std::string &aDir)
 {
-   CreateDirectories(aDir,true);
+   CreateDirectories(aDir);
    for (int aKLab=0; aKLab<int(eModeCaracMatch::eNbVals) ; aKLab++)
    {
        eModeCaracMatch aLabel = (eModeCaracMatch)aKLab;
@@ -308,7 +308,7 @@ void cStatAllVecCarac::SaveCr(int aDeZoom,const std::string &aDir)
 
 void cStatAllVecCarac::SaveHisto(int aSz,const std::string &aDir)
 {
-   CreateDirectories(aDir,true);
+   CreateDirectories(aDir);
    for (int aKLab=0; aKLab<int(eModeCaracMatch::eNbVals) ; aKLab++)
    {
        eModeCaracMatch aLabel = (eModeCaracMatch)aKLab;

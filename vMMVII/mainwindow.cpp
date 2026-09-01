@@ -110,7 +110,8 @@ bool MainWindow::getSpecsFromMMVII(const QString mmviiPath, QByteArray& specsTex
         doError(tr("'%1' terminated with error code %2").arg(mmviiPath).arg(mmviiProc.exitCode()));
 
     auto errorMsg = mmviiProc.readAllStandardError();
-    if (errorMsg.contains("WARNING:"))
+    // MMVII writes "MMVII Warning at line ..." then "THERE WERE WARNINGS", never "WARNING:"
+    if (errorMsg.toUpper().contains("WARNING"))
     {
         QTextStream(stderr) << errorMsg << Qt::endl;
     }

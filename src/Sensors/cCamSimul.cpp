@@ -295,6 +295,8 @@ void Bench_HBA(cParamExeBench & aParam)
     if (aParam.Show())
     {
         aTS = new cTimerSegm(&cMMVII_Appli::CurrentAppli());
+        if (! aParam.Verbose())
+            aTS->SetNoShowAtDel();
     }
 
 
@@ -627,7 +629,7 @@ void cCamSimul::BenchHierchBA_BAOnly(cTimerSegm* aTS, bool isSubVert)
 
         // run BA from GT initial poses
         int aNbIterEnd = aCfg.mNbIterBA + aCfg.mNbExtraIterAtRoot;
-        cBA_ArboTriplets aBA(&aMk3, aLocSols,1.0,aNbIterEnd);
+        cBA_ArboTriplets aBA(&aMk3, aLocSols,1.0,aNbIterEnd,1.0);
         aBA.SetGTPts3D(&aScene.mGTPts3D);
         for (int aIter=0; aIter<aNbIterBA; aIter++)
             aBA.OneIteration(aIter);

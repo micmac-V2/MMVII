@@ -588,6 +588,8 @@ void BenchCalibResection(cParamExeBench & aParam)
    cTimerSegm* aTimeSeg = aParam.Show()                                       ?
                           new cTimerSegm  (&(cMMVII_Appli::CurrentAppli()))   :
                           nullptr                                             ;
+   if (aTimeSeg && !aParam.Verbose())
+       aTimeSeg->SetNoShowAtDel();
 
    for (int aKCal=0 ; aKCal<4 ; aKCal++)  // Test different degree
    {

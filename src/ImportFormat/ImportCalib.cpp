@@ -33,7 +33,7 @@ class cAppli_V2ImportCalib : public cMMVII_Appli
         std::string              mExtFolder;
         std::string              mExtCalib;
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
 };
 
 cAppli_V2ImportCalib::cAppli_V2ImportCalib(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
@@ -85,9 +85,11 @@ int cAppli_V2ImportCalib::Exe()
 }
 
 
-std::vector<std::string>  cAppli_V2ImportCalib::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_V2ImportCalib::Samples() const
 {
-        return {"MMVII V2ImportCalib ../../Pannel/ BA_725 CalibInit725"};
+        return {
+                  {"MMVII V2ImportCalib ../../Pannel/ BA_725 CalibInit725"}
+           };
 }
 
 

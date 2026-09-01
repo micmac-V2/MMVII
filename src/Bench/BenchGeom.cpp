@@ -311,7 +311,7 @@ template<class Type> void TplBenchRotation3D(cParamExeBench & aParam)
    /*  Test rotation aggregation from a set of rotation. Method for generating sample :
 
           - generate a center M , pureley random
-          - generate inlayer arround M, we generate a small perturbation P and add M*P and M*P-1,  this
+          - generate inlayer around M, we generate a small perturbation P and add M*P and M*P-1,  this
             symetry assure that the center is exactly on M
           - idem for outlayer
 

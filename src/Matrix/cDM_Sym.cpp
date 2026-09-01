@@ -364,4 +364,36 @@ INSTANTIATE_SYM_DENSE_MATRICES(tREAL8)
 INSTANTIATE_SYM_DENSE_MATRICES(tREAL16)
 
 
+/// ------------------ utils ------------------
+
+void ShowMatrixWithNames(tDMatR & aMat, std::vector<std::string>& aColNames, std::vector<std::string>& aRowNames)
+{
+    MMVII_INTERNAL_ASSERT_strong(aMat.Sz().x() == (int)aColNames.size(), "Bad size for col names")
+    MMVII_INTERNAL_ASSERT_strong(aMat.Sz().y() == (int)aRowNames.size(), "Bad size for row names")
+    size_t aColWidth = 6;
+    size_t aRowNameWidth = aColWidth;
+    for (const auto& aName : aColNames)
+        if (aName.size() > aColWidth)
+            aColWidth = aName.size();
+    for (const auto& aName : aRowNames)
+        if (aName.size() > aRowNameWidth)
+            aRowNameWidth = aName.size();
+
+    StdOut() << std::setw(aRowNameWidth) << " ";
+
+    for (const auto& aName : aColNames)
+        StdOut() << " " << std::setw(aColWidth) << aName;
+    StdOut() << "\n";
+    for (int j = 0; j<aMat.Sz().y(); ++j)
+    {
+        StdOut() <<  std::setw(aRowNameWidth) << aColNames[j];
+        for (int i = 0; i<aMat.Sz().x(); ++i)
+        {
+            StdOut() << " " << std::setw(aColWidth) << aMat.GetElem(i,j);
+        }
+        StdOut() << "\n";
+    }
+}
+
+
 };

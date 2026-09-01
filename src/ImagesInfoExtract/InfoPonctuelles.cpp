@@ -8,7 +8,7 @@ namespace MMVII
 template <class Type>
 double CubGaussWeightStandardDev(const cDataIm2D<Type>  &anIm,const cPt2di& aC,double aRadius)
 {
-    cRect2 aDBox = cRect2::BoxWindow(round_up(aRadius));  //! Centerd box arround (0,0)
+    cRect2 aDBox = cRect2::BoxWindow(round_up(aRadius));  //! Centered box around (0,0)
     double aSqRad = Square(aRadius);
     cUB_ComputeStdDev<1>  aCSD;
 

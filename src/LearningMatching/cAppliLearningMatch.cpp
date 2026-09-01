@@ -34,10 +34,10 @@ void cAppliLearningMatch::SetNamesProject (const std::string & aNameInput,const 
 {
    mNameInput  = aNameInput;
    mNameOutput = aNameOutput;
-   CreateDirectories(DirVisu(),true);
-   CreateDirectories(DirResult(),true);
-   if (mNameInput!="") CreateDirectories(SubDirResult(true),true);
-   if (mNameOutput!="") CreateDirectories(SubDirResult(false),true);
+   CreateDirectories(DirVisu());
+   CreateDirectories(DirResult());
+   if (mNameInput!="") CreateDirectories(SubDirResult(true));
+   if (mNameOutput!="") CreateDirectories(SubDirResult(false));
 }
 
 std::string cAppliLearningMatch::Prefix(bool isIn) const {return isIn ? mNameInput : mNameOutput;}

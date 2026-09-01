@@ -5,7 +5,7 @@ _mmvii_completion()
   export COMP_LINE COLUMNS
   local cur cword
   _get_comp_words_by_ref -n = cur cword
-  local RESULT="$(python -  "$cur" "$cword" < ${_MMVII_COMPLETION_PYTHON})"
+  local RESULT="$(${_MMVII_COMPLETION_INTERPRETER} -  "$cur" "$cword" "${_MMVII_COMPLETION_CACHE}" < ${_MMVII_COMPLETION_PYTHON})"
   readarray -t COMPREPLY < <(echo -n "$RESULT")
   if [ ${#COMPREPLY[@]} -eq 0 ]; then
     unset COMPREPLY
@@ -25,6 +25,25 @@ _mmvii_completion()
   fi
 }
 
+# Resolve the interpreter once, here, and not on each completion: Ubuntu has provided
+# no "python" at all since 20.04 unless python-is-python3 is installed, while on Windows
+# only "python" exists, and it may be a python2 unable to run the completion script.
+_MMVII_COMPLETION_INTERPRETER=
+if command -v python3 > /dev/null 2>&1 ; then
+  _MMVII_COMPLETION_INTERPRETER=python3
+elif command -v python > /dev/null 2>&1 && python -c 'import sys ; sys.exit(sys.version_info[0] < 3)' > /dev/null 2>&1 ; then
+  _MMVII_COMPLETION_INTERPRETER=python
+fi
+
+# Directory holding the output of the MMVII calls the completion would otherwise make,
+# so that it can complete without running MMVII at all. Left empty here: MMVII is on the
+# PATH in a normal installation. It is set by whoever sources this file in a context
+# where MMVII cannot be run -- the init script of the container image, which fills that
+# directory on the host and points this variable at it.
+: ${_MMVII_COMPLETION_CACHE:=}
+
 _MMVII_COMPLETION_PYTHON=$(dirname ${BASH_SOURCE[0]})/mmvii-completion.py
-complete -F _mmvii_completion MMVII MMVII.exe mmvii mmvii.exe
+if [ -n "${_MMVII_COMPLETION_INTERPRETER}" ] ; then
+  complete -F _mmvii_completion MMVII MMVII.exe mmvii mmvii.exe
+fi
 

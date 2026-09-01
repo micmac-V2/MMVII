@@ -39,10 +39,11 @@ class cAppli_CreateSysCoLoc : public cMMVII_Appli
 
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override {return anArgOpt;}
 
-    std::vector<std::string>  Samples() const override
+    std::vector<cOneHelpSampleCmp>  Samples() const override
     {
-        return {
-             "MMVII SysCoCreateLocal \'RTL*6.1*46.24*0*EPSG:4326\'  CERN"
+        return
+        {
+             {"MMVII SysCoCreateLocal \'RTL*6.1*46.24*0*EPSG:4326\'  CERN"}
         };
     }
     int Exe() override;
@@ -98,7 +99,7 @@ public :
     cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-    std::vector<std::string>  Samples() const override;
+    std::vector<cOneHelpSampleCmp>  Samples() const override;
 private :
 
     cPhotogrammetricProject  mPhProj;
@@ -217,9 +218,12 @@ int cAppli_CreateRTL::Exe()
 }
 
 
-std::vector<std::string>  cAppli_CreateRTL::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_CreateRTL::Samples() const
 {
-    return {"MMVII SysCoCreateRTL AllIM.xml RTL InOri=SatWGS84 z0=0"};
+    return
+    {
+        {"MMVII SysCoCreateRTL AllIM.xml RTL InOri=SatWGS84 z0=0"}
+    };
 }
 
 

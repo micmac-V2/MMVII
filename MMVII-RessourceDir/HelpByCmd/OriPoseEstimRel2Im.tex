@@ -1,0 +1,179 @@
+\documentclass[a4paper]{article}
+\usepackage{MMVII}
+
+\newcommand{\TheCmd}{OriPoseEstimRel2Im}
+
+\begin{document}
+
+\CmdTitle
+%\maketitle
+
+\tableofcontents
+
+
+%=================================================================================
+
+\SecDescr
+
+This command  compute the relative orientation of a pair of images
+using tie points and a known calibration for each images.
+The main purpose of this functionnality it to be used
+when computing  global orientation   by  other commands :
+
+\begin{itemize}
+    \item \FileSty{OriPoseEstimRelPairsOf1Im} 
+    \item \FileSty{OriPoseEstimRelAllPairs}
+\end{itemize}
+
+Having access to thi elementary command is (almost) never done when
+computing a real 3D modelization.
+However, it  may be interesting to run on a specific pair for :
+
+
+\begin{itemize}
+   \item didactic purpose when teaching the methodology for computing global
+         relative orientation;
+
+   \item tuning and testing when developping the complete pipeline.
+
+\end{itemize}
+
+
+Several parameters used for  this command will be used similarly for  other
+command on pair and triplets (see~\ref{Ref:RelCmd}).
+
+The $4$ mandatory parameters are:
+
+\begin{itemize}
+  \item the $2$ images we want to compute relative orientation ( pattern, or triplet for other command);
+
+  \item the input folder for localization of internal calibration of the $2$ images (similar in command of~\ref{Ref:RelCmd});
+
+  \item an output folder for saving the $2$ relative poses as a standard orientation
+       (because of the "didactic" , for other command, it will be saved in folder specific 
+        aspect).
+\end{itemize}
+
+
+%=================================================================================
+
+\section{"Mandatory" Optionnal parameters for input}
+
+\label{Ref:Mand:Opt:TieP}
+
+All these command accept $3$ different way to specify the tie points used to compute orientation :
+
+\begin{itemize}
+   \item  tie point computed from pair of images with parameter \FileSty{InTieP};
+	  this is the \emph{standar} method;
+
+   \item  multiple tie point issued from merged tie points by pair , with
+          parameter \FileSty{InMulTieP};
+	  this can be  used when point by pair have been merged, and initial 
+	  by pair have been "lost";
+
+  \item  points computed from coded target with parameter \FileSty{InObjMesInstr},
+	 this can be used when computing  relative orientation with code-target
+         that have no $3d$ measure associated.
+\end{itemize}
+
+%=================================================================================
+
+\section{Methodology used}
+
+    %  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+\subsection{Introduction}
+
+We give a very brief description of the method used :
+
+\begin{itemize}
+    \item we test different algorithm for initial estimation;
+    \item for each solution we make refinement by bundle adjustment
+    \item we select the best refined solution  using a criteria on
+	    reprojection that try to be robust to outliers.
+\end{itemize}
+
+    %  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+\subsection{Initialization}
+
+We test $2$ method :
+
+\begin{itemize}
+    \item  the essential matrix that works in all case, except when the scene is planar
+    \item  the homographic decomposition that works only when the scene is planar;
+	   is the scene is planar, the method gives $2$ solution that cannot be distinguished;
+\end{itemize}
+
+For each method we make ransac estimation.
+So we obtain $3$ possible initial solutions that are refined using a "specialized bundled adjustment".
+
+    %  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+\subsection{Selection}
+
+Let $r_0,r_1, \dots r_{N-1}$ be the $N$ residual of the reprojection of tie points,
+\emph{sorted} in growing order,
+the formula used for comparing the different solution is : 
+
+\begin{equation}
+	\sum_{k=0}^N  r_k (N-k)
+\end{equation}
+
+
+
+%=================================================================================
+
+\section{Parameters for testing and tuning}
+
+\section{Ground truth}
+
+If the parameter \FileSty{OriGT} is used, it must contain orientation for the $2$ images. These
+orientation is used to compute a ground truth relative orientation and a distance between
+this ground truth and the computed value is printed.
+Typically if the orientation has been computed on a large set of data, it can be exptected to
+be more accurate.
+
+If the folder for internal calibration contain also the ground truth, it's sufficient to indicate
+\FileSty{UseOriGT=1}
+
+When this parameter is used, a distance is measured between the two relative pose (reference
+and computed). This distance is the sum of distance between translation and rotation,
+and the value printed is \emph{multiplied} by focal, making it homogeneous to pixels
+and (hopefully) easier to interpret.
+
+
+\section{Simulation}
+
+It's possible to create artificial data , with parameter \FileSty{NbSimulPt},
+it require that the ground truh orientation is initialized; it will generate
+the required random number of tie point that project perfectly  acccording
+to the ground truth orientation.
+
+These artficial tie points can be cumulated with "real" tie point or used
+alone (this means that "real tie point of~\ref{Ref:Mand:Opt:TieP} become optional).
+
+It possible to add also non prerfect tie point with  parameter \FileSty{OutLayers},
+it indicate the number of un-perfect tie point, and the sigma that is added
+on re-projection.
+
+
+
+ %=================================================================================
+\SecRelatedCmd
+
+\begin{itemize}
+   \item  \FileSty{OriPoseSelecAllPAir}
+   \item  \FileSty{OriPoseEstimRelPairsOf1Im}
+   \item  \FileSty{OriPoseEstimRelAllPairs}
+   \item  \FileSty{OriPoseEstimRel3Im}
+   \item  \FileSty{OriPoseEstimRelTripletssOf1Im}
+   \item  \FileSty{OriPoseEstimRelAllTriplets}
+   \item  \FileSty{OriPoseEstimRelGlob}
+\end{itemize}
+
+And 
+
+
+\end{document}

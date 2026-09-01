@@ -56,7 +56,15 @@ size_t NbPtsMul(const tPairTiePMult & aPair)
 }
 
 
-cPt3dr BundleInter(const tPairTiePMult & aPair,size_t aKPts,const std::vector<cSensorImage *>&  aVSI)
+cPt2dr  KthPt(const tPairTiePMult & aPair, int aKIm,int aKPt)
+{
+   // size_t aMult = Multiplicity(aPair);
+
+   return aPair.second.mVPIm.at(aKIm+Multiplicity(aPair)*aKPt);
+}
+
+
+cPt3dr BundleInter(const tPairTiePMult & aPair,size_t aKPts,const std::vector<cSensorImage *>&  aVSI,std::vector<tREAL8>* aVDistAd)
 {
 
     const auto &  aConfig = Config(aPair);
@@ -78,6 +86,19 @@ cPt3dr BundleInter(const tPairTiePMult & aPair,size_t aKPts,const std::vector<cS
     }
 
     cPt3dr aResInter = BundleInters(aVSeg);
+
+    // if aVDistAd !=0 , add distance
+    if (aVDistAd)
+    {
+        for (size_t aK= 0 ; aK<aMult ; aK++)
+        {
+            cSensorImage * aSI  = aVSI.at(aConfig.at(aK));
+            const cPt3dr *  aCenter = aSI->CenterOfPC();
+            if (aCenter)
+                aVDistAd->push_back(Norm2(aResInter-*aCenter));
+
+        }
+    }
     return aResInter;
 }
 
@@ -110,20 +131,22 @@ cPt3dr BundleDirInter(const tPairTiePMult & aPair,size_t aKPts,const std::vector
     return aResInter;
 }
 
-void MakePGround(tPairTiePMult & aPair,const std::vector<cSensorImage *> & aVSI)
+void MakePGround(tPairTiePMult & aPair,const std::vector<cSensorImage *> & aVSI,std::vector<tREAL8>* aVDistAdd)
 {
     std::vector<cPt3dr> & aVPts = Val(aPair).mVPGround;
+
     aVPts.clear();
     size_t aNbPts = NbPtsMul(aPair);
 
     for (size_t aKP=0 ; aKP<aNbPts; aKP++)
     {
-        aVPts.push_back(BundleInter(aPair,aKP,aVSI));
+        aVPts.push_back(BundleInter(aPair,aKP,aVSI,aVDistAdd));
     }
 }
 
 void MakePGroundFromBundles(tPairTiePMult & aPair,const std::vector<cSensorImage *> & aVSI)
 {
+
     std::vector<cPt3dr> & aVPts = Val(aPair).mVPGround;
     aVPts.clear();
 
@@ -131,7 +154,7 @@ void MakePGroundFromBundles(tPairTiePMult & aPair,const std::vector<cSensorImage
 
     for (size_t aKP=0 ; aKP<aNbPts; aKP++)
     {
-        // change method to take bundles and Z
+        // change method to take bundles and Z  , BundleInter => BundleDirInter
         aVPts.push_back(BundleDirInter(aPair,aKP,aVSI));
     }
 }
@@ -506,10 +529,16 @@ cComputeMergeMulTieP::cComputeMergeMulTieP(int aNbTarget,const cComputeMergeMulT
     }
 }
 
-const std::vector<std::list<std::pair<size_t,tPairTiePMult*>>> & cComputeMergeMulTieP::IndexeOfImages()  const
+const std::vector<std::list<std::pair<size_t,tPairTiePMult*>>> & cComputeMergeMulTieP::IndexesOfImages()  const
 {
         return mImageIndexes;
 }
+
+const std::list<std::pair<size_t,tPairTiePMult*>> & cComputeMergeMulTieP::IndexeOf1Image(size_t aKInd) const
+{
+    return mImageIndexes.at(aKInd);
+}
+
 
 void cComputeMergeMulTieP::SetImageIndexe()
 {

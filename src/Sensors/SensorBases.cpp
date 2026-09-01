@@ -231,6 +231,15 @@ void cSensorImage::ToFile(const std::string &) const
     MMVII_INTERNAL_ERROR("cSensorImage::ToFile not implemanted");
 }
 
+cPt3dr  cSensorImage::PseudoCenterOfProj() const
+{
+    double aY = Sz().y() / 2.0;
+    tSeg3dr aBund0 = Image2Bundle(cPt2dr(0,              aY));
+    tSeg3dr aBund1 = Image2Bundle(cPt2dr(Sz().x(), aY));
+    return BundleInters(aBund0, aBund1);
+}
+
+
 
 cPt2dr cSensorImage::GetIntervalZ() const
 {
@@ -313,7 +322,10 @@ tProjImAndGrad  cSensorImage::DiffGround2Im(const cPt3dr & aPt) const
 
 
 
-
+void cSensorImage::FixPtPxLoopAroundPP(cPt2dr& aPtPx) const
+{
+    return; // nothing to do in general case
+}
 
 const cPt2di & cSensorImage::Sz() const {return PixelDomain().Sz();}
 
@@ -442,6 +454,15 @@ bool cSensorImage:: PairIsVisible(const cPair2D3D & aPair) const
 {
         return IsVisible(aPair.mP3) && IsVisibleOnImFrame(aPair.mP2) ;
 }
+
+void cSensorImage::FixLoopPixelsInImage(std::vector<cPt2dr> &aVPtInOut) const
+{}
+void cSensorImage::FixLoopPixelsInImage(cPt2dr &aPtInOut) const
+{}
+void cSensorImage::FixLoopPixelsResiduals(cPt2dr &aResPx) const
+{}
+void cSensorImage::FixLoopBundle(cPt2dr &aPtBundle) const
+{}
 
 cPt3dr cSensorImage::Image2PlaneInter(const cPlane3D & aPlane,const cPt2dr & aPIm) const
 {

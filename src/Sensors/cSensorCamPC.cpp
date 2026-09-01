@@ -920,6 +920,26 @@ bool cSensorCamPC::DoAddCalibToUk() const
     return true;
 }
 
+void cSensorCamPC::FixLoopPixelsInImage(std::vector<cPt2dr> &aVPtInOut) const
+{
+    InternalCalib()->FixLoopPixelsInImage(aVPtInOut);
+}
+
+void cSensorCamPC::FixLoopPixelsInImage(cPt2dr &aPtInOut) const
+{
+    InternalCalib()->FixLoopPixelsInImage(aPtInOut);
+}
+
+void cSensorCamPC::FixLoopPixelsResiduals(cPt2dr &aResPx) const
+{
+    InternalCalib()->FixLoopPixelsResiduals(aResPx);
+}
+
+void cSensorCamPC::FixLoopBundle(cPt2dr &aPtBundle) const
+{
+    InternalCalib()->FixLoopBundle(aPtBundle);
+}
+
      // =================  becnh ===================
 
 void cSensorCamPC::Bench()

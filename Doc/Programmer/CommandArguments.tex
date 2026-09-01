@@ -1,0 +1,398 @@
+%------------------------------------------------------------------
+%------------------------------------------------------------------
+%------------------------------------------------------------------
+
+\chapter{Command-line arguments}
+
+\section{Local serializable enums}
+
+MMVII does not require every enumerated type to live in
+\texttt{MMVII\_enums.h}.  A command can define its own enum locally and still
+benefit from the usual string conversion, command-line parsing and help display.
+
+The enum declaration must still follow the usual MMVII convention: the last
+enumerator is \texttt{eNbVals}.  The string mapping is then provided once, in one
+translation unit, through \texttt{cE2Str<Enum>::mE2S},
+\texttt{MACRO\_DECLARE\_STRIO\_ENUM} and
+\texttt{MACRO\_INSTANTIATE\_STRIO\_ENUM}.  After that, the enum behaves like a
+regular MMVII enum for textual conversion.
+
+The following example keeps the enum local to one \texttt{.cpp} file:
+
+\begin{lstlisting}[language=C++]
+#include "MMVII_Tpl_ElemStrToVal.h"
+
+enum class eDispExif
+{
+    eSizeType=0,
+    eMainExif,
+    eAllExif,
+    eRawExif,
+    eAllGDALInfo,
+    eNbVals
+};
+
+template<> cE2Str<eDispExif>::tMapE2Str cE2Str<eDispExif>::mE2S
+{
+    {eDispExif::eSizeType,"SizeType"},
+    {eDispExif::eMainExif,"MainExif"},
+    {eDispExif::eAllExif,"AllExif"},
+    {eDispExif::eRawExif,"RawExif"},
+    {eDispExif::eAllGDALInfo,"AllGDALInfo"}
+};
+
+MACRO_INSTANTIATE_STRIO_ENUM(eDispExif,"DispExif")
+\end{lstlisting}
+
+The same pattern can be split between a header and a source file if the enum is
+used in several compilation units.  The header then carries nothing but the enum
+declaration itself, while the string mapping and the instantiation stay in exactly
+one \texttt{.cpp} file:
+
+\begin{lstlisting}[language=C++]
+// toto.h
+enum class eEpipFrm
+{
+    eIntersect,
+    eUnion,
+    eImg_1,
+    eImg_2,
+    eNbVals
+};
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++]
+// toto.cpp
+#include "toto.h"
+
+template<> cE2Str<eEpipFrm>::tMapE2Str cE2Str<eEpipFrm>::mE2S
+{
+    {eEpipFrm::eIntersect,"Intersect"},
+    {eEpipFrm::eUnion,"Union"},
+    {eEpipFrm::eImg_1,"Img_1"},
+    {eEpipFrm::eImg_2,"Img_2"}
+};
+
+MACRO_INSTANTIATE_STRIO_ENUM(eEpipFrm,"EpipFrame")
+\end{lstlisting}
+
+Once instantiated, the enum can be used directly in a command argument.  MMVII
+automatically adds the list of allowed values for enum-typed arguments, so there
+is no need to add \texttt{AC\_ListVal} manually in \texttt{Arg2007} or
+\texttt{AOpt2007}.  If the enum has not been instantiated, the first use in a
+command-line argument or in a string conversion context triggers a compilation
+error, which is the intended failure mode.
+
+%------------------------------------------------------------------
+
+\section{Structured command-line arguments}
+
+\subsection{Purpose}
+
+A command-line parameter usually initializes one scalar value or one
+\texttt{std::vector}.  Some commands, however, need a group of related values that
+should be parsed, documented and completed as a single parameter.  MMVII supports
+such parameters through \texttt{ARG2007\_STRUCT\_FIELDS}.
+
+This mechanism is intended for command-line parsing.  It is independent from the
+archive serialization mechanism described in the chapter on serialization.
+
+A structured argument provides:
+
+\begin{itemize}
+  \item conversion between the structure and its bracketed textual representation;
+  \item field metadata for the integrated help and bash completion;
+  \item an \texttt{eTA2007} semantic list for each field;
+  \item recursive support for structures and vectors of structures;
+  \item optional fields with default values.
+\end{itemize}
+
+The declarations are available through
+\texttt{MMVII\_Tpl\_ElemStrToVal.h}.
+
+%------------------------------------------------------------------
+
+\subsection{Declaring a structured argument}
+
+The following example defines one argument containing an orientation name, an
+operating mode, a scale and an output image:
+
+\begin{lstlisting}[language=C++]
+#include "MMVII_Tpl_ElemStrToVal.h"
+
+enum class eExportMode
+{
+    Fast,
+    Accurate,
+    eNbVals
+};
+
+MACRO_INSTANTIATE_STRIO_ENUM(eExportMode,"ExportMode")
+
+struct cExportOptions
+{
+    std::string Orientation;
+    eExportMode Mode;
+    double      Scale=1.0;
+    int         Offset;
+    std::string Output = "Result.tif";
+
+    ARG2007_STRUCT_FIELDS
+    (
+        Orientation,FieldSem(eTA2007::Orient),
+        Mode,
+        Scale,FieldSem
+               (
+                   {
+                       eTA2007::HDV,
+                       {eTA2007::AllowedValues,"[0.1,1.0,10.0]"},
+		       {eTA2007::AddCom,"Description for field Scale"}
+                   }
+               ),
+	Offset,
+        Output,FieldSem({eTA2007::HDV,eTA2007::FileImage})
+    )
+};
+\end{lstlisting}
+
+Each ordinary expression in \texttt{ARG2007\_STRUCT\_FIELDS} designates one
+field.  Fields are parsed in declaration order.  A \texttt{FieldSem} expression
+applies to the field immediately preceding it and does not consume a value from
+the command line. The \texttt{FieldSem} expression can be omitted if the field 
+has no special semantics.
+
+The macro generates the textual conversion and metadata methods required by
+\texttt{Arg2007} and \texttt{AOpt2007}.  The generated textual representation of
+the example is:
+
+\begin{verbatim}
+[Orientation,Mode,Scale,Offset,Output]
+\end{verbatim}
+
+Consequently, this mechanism must only be used once in a given structure, and all
+values that form the command-line representation must be listed in the macro.
+
+%------------------------------------------------------------------
+
+\subsection{Field semantics}
+
+\texttt{FieldSem} accepts the same \texttt{eTA2007} attributes that are used for
+top-level command arguments.  The supported forms include:
+
+\begin{lstlisting}[language=C++]
+FieldSem(eTA2007::HDV)
+FieldSem({eTA2007::HDV})
+FieldSem({eTA2007::AddCom,"A description"})
+FieldSem
+(
+    {
+        eTA2007::HDV,
+        {eTA2007::AllowedValues,"[A,B,C]"}
+    }
+)
+\end{lstlisting}
+
+The first two forms contain one semantic.  The third form contains one semantic
+with its auxiliary value.  The last form attaches several semantics to one field.
+
+For an enum field, MMVII automatically adds the list of enum values to the field
+metadata.  It is therefore unnecessary to duplicate that list with
+\texttt{eTA2007::AllowedValues}.
+
+One semantic is explicitly refused on a field: \texttt{eTA2007::CanRepeat}.  It
+describes an argument given several times on the command line, which has no meaning
+for a field written once, inside its structure.  The refusal is an
+\texttt{MMVII\_INTERNAL\_ASSERT\_always} raised while the specification is built, so
+\texttt{MMVII GenArgsSpec}, which builds the specification of every command, is the
+exhaustive check.
+
+%------------------------------------------------------------------
+
+\subsection{Optional fields}
+
+A field carrying \texttt{eTA2007::HDV} has a default value and may be omitted from
+the textual representation.  Its current C++ value is preserved when it is
+omitted.  The structure should therefore initialize every field carrying
+\texttt{HDV} before parsing.
+
+For the \texttt{cExportOptions} example, all of these values are valid:
+
+\begin{verbatim}
+[Ori-Initial,Fast,2.0,1,Export.tif]
+[Ori-Initial,Fast,,1,Export.tif]
+[Ori-Initial,Fast,,1,]
+[Ori-Initial,Fast,,1]
+\end{verbatim}
+
+
+%------------------------------------------------------------------
+
+\subsection{Using the structure in a command}
+
+A structured value is registered exactly like another supported argument type:
+
+\begin{lstlisting}[language=C++]
+class cAppliExport : public cMMVII_Appli
+{
+    // ...
+    cExportOptions mOptions;
+};
+
+cCollecSpecArg2007 & cAppliExport::ArgObl
+                     (cCollecSpecArg2007 & anArgObl)
+{
+    return anArgObl
+           << Arg2007(mOptions,"Export options");
+}
+\end{lstlisting}
+
+It can also be a named optional argument:
+
+\begin{lstlisting}[language=C++]
+cCollecSpecArg2007 & cAppliExport::ArgOpt
+                     (cCollecSpecArg2007 & anArgOpt)
+{
+    return anArgOpt
+           << AOpt2007(mOptions,"Options","Export options");
+}
+\end{lstlisting}
+
+%------------------------------------------------------------------
+
+\subsection{Nested structures and vectors}
+
+A field can itself be a structured argument:
+
+\begin{lstlisting}[language=C++]
+struct cExportJob
+{
+    cExportOptions Export;
+    bool           Verbose = false;
+
+    ARG2007_STRUCT_FIELDS
+    (
+        Export,
+        Verbose,FieldSem(eTA2007::HDV)
+    )
+};
+\end{lstlisting}
+
+A corresponding value can be written as:
+
+\begin{verbatim}
+[[Ori-Initial,Fast,,1],true]
+[[Ori-Initial,Fast,,1]]
+\end{verbatim}
+
+The same conversion is applied recursively.  A
+\texttt{std::vector<cExportOptions>} uses one additional bracket level:
+
+\begin{verbatim}
+[[Ori-1,Fast,,2],[Ori-2,Accurate,2.0,4,Second.tif]]
+\end{verbatim}
+
+The element type of a vector of structures must be default-constructible because
+MMVII creates a value-initialized element to obtain its field metadata.
+
+A field may also be a \texttt{std::vector} of scalars, which adds its own bracket
+level in the same way:
+
+\begin{lstlisting}[language=C++]
+struct cSmoothJob
+{
+    std::string         Mode;
+    std::vector<double> Weights;
+    int                 NbIter = 1;
+
+    ARG2007_STRUCT_FIELDS
+    (
+        Mode,
+        Weights,
+        NbIter,FieldSem(eTA2007::HDV)
+    )
+};
+\end{lstlisting}
+
+\begin{verbatim}
+[Gauss,[0.25,0.5,0.25],4]
+[Gauss,[1.0]]
+\end{verbatim}
+
+Prefer such a field to a \texttt{std::string} holding a bracketed encoding split again
+at run time.  The generated metadata then carries the real type, so the help and the
+completion show \texttt{[double,...]} instead of \texttt{string}, and a value written
+without its brackets becomes a parse error instead of silently shifting into the next
+field.
+
+%------------------------------------------------------------------
+
+\subsection{A real-world example}
+
+The bundle-adjustment command \texttt{OriBundleAdj}
+(\texttt{src/BundleAdjustment/cAppliBundAdj.cpp}) uses this mechanism for most of
+its optional constraints. Its \texttt{cGCP3D} structure, for instance:
+
+\begin{lstlisting}[language=C++]
+struct cGCP3D
+{
+    std::string GCPDir;
+    double      Sigma;
+    std::string OutDir = "";
+    double      ExportSigma = 0;
+
+    ARG2007_STRUCT_FIELDS
+    (
+        GCPDir,FieldSem({{eTA2007::AddCom,"World coord GCP dir"},eTA2007::ObjCoordWorld}),
+        Sigma,FieldSem({{eTA2007::AddCom,"Sigma factor SG=0 fix, SG<0 schurr elim, SG>0"},eTA2007::ObjCoordWorld}),
+        OutDir,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Optional output dir"}}),
+        ExportSigma,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Optional compensated sigma"}})
+    )
+};
+\end{lstlisting}
+
+is registered as a repeatable vector of structures:
+
+\begin{lstlisting}[language=C++]
+std::vector<cGCP3D> mGCP3D;
+...
+<< AOpt2007(mGCP3D,"GCP3D","GCP ground",{eTA2007::CanRepeat})
+\end{lstlisting}
+
+Combining a vector of structures with \texttt{eTA2007::CanRepeat} lets the same
+command-line key be given several times, each occurrence accumulating into the
+vector instead of replacing it:
+
+\begin{verbatim}
+GCP3D=[GcpDirA,1.0] GCP3D=[GcpDirB,0.5,OutDirB]
+\end{verbatim}
+
+Each occurrence above carries a single element and is written with one bracket level
+less than a complete vector value.  That tolerance belongs to
+\texttt{eTA2007::CanRepeat} alone, and only for a top-level argument: an argument
+written once is given its whole value, so a vector argument without that semantic
+must always be fully bracketed.  With \texttt{CanRepeat} the fully bracketed form
+stays valid as well, and may carry several elements at once:
+
+\begin{verbatim}
+GCP3D=[[GcpDirA,1.0],[GcpDirB,0.5,OutDirB]]
+\end{verbatim}
+
+The bash completion applies the very same rule, and offers the shortened form only
+for an argument whose specification carries \texttt{CanRepeat}.
+
+%------------------------------------------------------------------
+
+\subsection{Generated help and specification}
+
+The integrated help displays the structured type and a separate field list.  A
+question mark identifies each field carrying \texttt{HDV}.  For example:
+
+\begin{verbatim}
+  * [string,ExportMode,double?,string?] :: Export options
+    - Fields=[Orientation,Mode,Scale?,Offset,Output?]
+\end{verbatim}
+
+\texttt{GenArgsSpec} writes the same structure recursively in the \texttt{fields}
+property of its JSON output.  Each field contains its name, type and semantics.
+Default values and enum values are included when applicable.  This information is
+also consumed by the Bash completion script.

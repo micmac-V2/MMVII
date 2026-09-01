@@ -92,6 +92,9 @@ private :
                    const cPt3dr &aC0_In_W0, const cPt3dr &aC1_In_W0,
                    const cPt3dr &aCTri0_In_W0, const cPt3dr &aCTri1_In_W0
                    );
+    /// add the equation for a "common pose" bridge :  aC0_In_W0 = Tr + Lambda * aC1_In_W0
+    void AddEqCommon(cLinearOverCstrSys<tREAL8> * aSys,tREAL8 aWeight,
+                     const cPt3dr &aC0_In_W0, const cPt3dr &aC1_In_W0);
 
 
     ///  compute the relative pose associated to pair of local index, eventually adpat to ordering
@@ -147,6 +150,7 @@ private :
     std::vector<cSolLocNode>  mLocSols;   ///< store the "local" solution
     std::vector<cSolLocNode>  mRotateLS;   ///< store the sol of N1 turned of rotation N1->N0
     std::vector<int>          mTabGlob2LocInd;  ///< index global -> index local (for acces to mLocSols) , -1 if no local homologous
+
 };
 
 

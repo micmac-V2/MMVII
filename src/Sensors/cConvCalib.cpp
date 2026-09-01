@@ -145,7 +145,7 @@ cV1PCConverter *  cV1PCConverter::AllocV1Converter
      if (aNameCalOut!="")
              aNameCam  = aNameCalOut;
         //  Data part for  internal calibration w/o distorsion
-     cDataPerspCamIntrCalib aDataCalib(aNameCam,aExp.eProj,aDeg,aExp.mFoc,aExp.mSzCam);
+     cDataPerspCamIntrCalib aDataCalib(aNameCam,aExp.eProj,aDeg,aExp.mFoc,aExp.mSzCam,false,aExp.mPP);
      aDataCalib.PushInformation("Converted from MMV1");  // just for info
      cPerspCamIntrCalib * aCalib = cPerspCamIntrCalib::Alloc(aDataCalib); // the calib itself
 

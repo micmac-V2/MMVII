@@ -279,7 +279,7 @@ template <class Type> class  cExtractCurves
 
 
 
-/** Class for extracting a line arround a point, for now its very specialized in the extraction of
+/** Class for extracting a line around a point, for now its very specialized in the extraction of
  * direction in checkboard, may evolve to things more general ?
  */
 

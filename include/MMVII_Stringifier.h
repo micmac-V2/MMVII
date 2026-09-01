@@ -4,6 +4,7 @@
 #include "MMVII_memory.h"
 #include "MMVII_Ptxd.h"
 #include <sstream>
+#include <functional>
 
 namespace MMVII
 {
@@ -28,15 +29,24 @@ class cAuxAr2007;          ///< Auxilary class, only neccessry
     This class handle conversion (two way) between
     atomic type and string.  Contain only static members.
 */
-template <class Type> class  cStrIO
+class StrIOException : public std::runtime_error
+{
+    public :
+        StrIOException(const std::string & aMes) : std::runtime_error(aMes) {}
+};
+
+void ExceptionOrError(bool ExceptionOnError, eTyUEr aType,
+                      const std::string &aMes);
+
+template <class Type, class Enable = void> class  cStrIO
 {
     public :
        /// Atomic -> string
        static std::string ToStr(const Type &);
       /// String -> Atomic object
-       static Type  FromStr(const std::string &);
+       static Type  FromStr(const std::string &, bool ExceptionOnError=false);
       /// Readable name for type
-       static const std::string  msNameType;
+       static std::string msNameType();
 };
 
 /// Facilities when the type is well defined
@@ -60,16 +70,16 @@ std::string ResidualToStr(tREAL8 aRes);
 */
 
 template <>  std::string cStrIO<bool>::ToStr(const bool & anI);
-template <>  bool cStrIO<bool>::FromStr(const std::string & aStr);
-template <>  size_t cStrIO<size_t>::FromStr(const std::string & aStr);
+template <>  bool cStrIO<bool>::FromStr(const std::string & aStr, bool ExceptionOnError);
+template <>  size_t cStrIO<size_t>::FromStr(const std::string & aStr, bool ExceptionOnError);
 template <>  std::string cStrIO<int>::ToStr(const int & anI);
-template <>  int cStrIO<int>::FromStr(const std::string & aStr);
+template <>  int cStrIO<int>::FromStr(const std::string & aStr, bool ExceptionOnError);
 template <>  std::string cStrIO<double>::ToStr(const double & anI);
-template <>  double cStrIO<double>::FromStr(const std::string & aStr);
+template <>  double cStrIO<double>::FromStr(const std::string & aStr, bool ExceptionOnError);
 template <>  std::string cStrIO<std::string>::ToStr(const std::string & anI);
-template <>  std::string cStrIO<std::string>::FromStr(const std::string & aStr);
+template <>  std::string cStrIO<std::string>::FromStr(const std::string & aStr, bool ExceptionOnError);
 template <>  std::string cStrIO<char>::ToStr(const char & anI);
-template <>  char cStrIO<char>::FromStr(const std::string & aStr);
+template <>  char cStrIO<char>::FromStr(const std::string & aStr, bool ExceptionOnError);
 
 // is it a valid string-int, may be templatized , but not sure very curent use ..
 bool  StringIsIntOk(const std::string & aStr);
@@ -82,78 +92,58 @@ template <>  std::string cStrIO<cPt2di>::ToStr(const cPt2di & anI);
 template <>  cPt2di cStrIO<cPt2di>::FromStr(const std::string & aStr);
 */
 
-/*
-* Ch.M: Add explicit specialization declarations
-*   Explicit specialization definitions are already in the Tranlation Unit
-* "Serial/cStrIO.cpp" (via several MACROs)
-*   A declaration is needed to avoid that other TUs implicitly instantiate
-* this template as well.
-*
-* NB: "An explicit specialization of a static data member of a template is a
-* definition if the declaration includes an initializer; otherwise, it is a
-* declaration."
-*/
-
-#ifndef _MSC_VER
-template <>  const std::string cStrIO<tU_INT1>::msNameType;
-template <>  const std::string cStrIO<tINT1>::msNameType;
-template <>  const std::string cStrIO<tU_INT2>::msNameType;
-template <>  const std::string cStrIO<tINT2>::msNameType;
-template <>  const std::string cStrIO<tREAL4>::msNameType;
-template <>  const std::string cStrIO<tREAL8>::msNameType;
-//template <>  const std::string cStrIO<char>::msNameType;
-template <>  const std::string cStrIO<bool>::msNameType;
-template <>  const std::string cStrIO<int>::msNameType;
-template <>  const std::string cStrIO<double>::msNameType;
-template <>  const std::string cStrIO<std::string>::msNameType;
-
-template <>  const std::string cStrIO<std::vector<std::vector<std::string>>>::msNameType;
-template <>  const std::string cStrIO<std::vector<std::string>>::msNameType;
-template <>  const std::string cStrIO<std::vector<int>>::msNameType;
-template <>  const std::string cStrIO<std::vector<double>>::msNameType;
-
-template <>  const std::string cStrIO<cPtxd<int,2>>::msNameType;
-template <>  const std::string cStrIO<cPtxd<double,2>>::msNameType;
-template <>  const std::string cStrIO<cPtxd<int,3>>::msNameType;
-template <>  const std::string cStrIO<cPtxd<double,3>>::msNameType;
-
-template <>  const std::string cStrIO<cTplBox<int,2>>::msNameType;
-template <>  const std::string cStrIO<cTplBox<double,2>>::msNameType;
-template <>  const std::string cStrIO<cTplBox<int,3>>::msNameType;
-template <>  const std::string cStrIO<cTplBox<double,3>>::msNameType;
-
-template <>  const std::string cStrIO<eOpAff>::msNameType;
-template <>  const std::string cStrIO<eModeEpipMatch>::msNameType;
-template <>  const std::string cStrIO<eModePaddingEpip>::msNameType;
-template <>  const std::string cStrIO<eModeCaracMatch>::msNameType;
-
-template <>  const std::string cStrIO<eProjPC>::msNameType;
-template <>  const std::string cStrIO<eModeTestPropCov>::msNameType;
-template <>  const std::string cStrIO<eDCTFilters>::msNameType;
-
-template <>  const std::string cStrIO<eTypeSerial>::msNameType;
-template <>  const std::string cStrIO<eTyCodeTarget>::msNameType;
-template <>  const std::string cStrIO<eSysCo>::msNameType;
-template <>  const std::string cStrIO<eMTDIm>::msNameType;
-
-template <>  const std::string cStrIO<eTypeSensor>::msNameType;
-template <>  const std::string cStrIO<eFormatSensor>::msNameType;
-
-template <>  const std::string cStrIO<eTopoObsType>::msNameType;
-template <>  const std::string cStrIO<eTopoObsSetType>::msNameType;
-template <>  const std::string cStrIO<eTopoStOriStat>::msNameType;
-template <>  const std::string cStrIO<eTyClino>::msNameType;
-template <>  const std::string cStrIO<eTyInstr>::msNameType;
-
-#endif
-
 /** These functions offer an"easy" interface to cStrIO, however I think
 *    cStrIO is still usefull when type inference becomes too compliicated
 */
 template  <class Type> std::string ToS(const Type & aV) {return cStrIO<Type>::ToStr(aV);}
 template  <class Type> void FromS(const std::string & aStr,Type & aV) { aV= cStrIO<Type>::FromStr(aStr);}
 
-/// synomym of  cStrIO<std::vector<std::string>>::FromStr
+/* ==================================== */
+/*                                      */
+/*         std::vector<T>               */
+/*                                      */
+/* ==================================== */
+
+template <class Type>  std::string Vect2Str(const std::vector<Type>  & aV)
+{
+    std::string aRes = "[";
+    char aSep='\0';
+    for (const auto& aVal: aV) {
+        if (aSep != '\0')
+            aRes += aSep;
+        aRes += ToStr(aVal);
+        aSep = ',';
+    }
+    aRes += "]";
+    return aRes;
+}
+
+void Str2VecAlgo(const std::string & aStrGlob, bool ExceptionOnError, const std::function<void(const std::string&, bool)>& f);
+
+template <class Type>  std::vector<Type>
+Str2Vec(const std::string & aStrGlob, bool ExceptionOnError=false)
+{
+    std::vector<Type> aRes;
+
+    Str2VecAlgo(aStrGlob, ExceptionOnError, [&aRes](const std::string& aVal, bool ExceptionOnError){aRes.push_back(cStrIO<Type>::FromStr(aVal,ExceptionOnError));});
+    return aRes;
+}
+
+template<typename T>
+class cStrIO<std::vector<T>>
+{
+public:
+    static std::string ToStr(const std::vector<T>  & aV)
+    {
+        return  Vect2Str(aV);
+    }
+    static std::vector<T> FromStr(const std::string & aStr, bool ExceptionOnError=false)
+    {
+        return Str2Vec<T>(aStr,ExceptionOnError);
+    }
+    static std::string msNameType() { return "vector<"  + cStrIO<T>::msNameType() + ">";}
+};
+
 std::vector<std::string> Str2VStr(const std::string & aS);
 
 
@@ -205,6 +195,36 @@ template <class TypeEnum> class cES_PropertyList
 
 typedef cES_PropertyList<eTA2007> tSemA2007PL;
 
+/// Semantics attached to the preceding field in ARG2007_STRUCT_FIELDS
+struct cArg2007FieldSemantics
+{
+    std::vector<tSemA2007> mValues;
+};
+
+inline cArg2007FieldSemantics FieldSem(eTA2007 aSemantic)
+{
+    return {{tSemA2007(aSemantic)}};
+}
+
+inline cArg2007FieldSemantics FieldSem(const tSemA2007 & aSemantic)
+{
+    return {{aSemantic}};
+}
+
+inline cArg2007FieldSemantics FieldSem(std::initializer_list<eTA2007> aSemantics)
+{
+    std::vector<tSemA2007> aResult;
+    aResult.reserve(aSemantics.size());
+    for (const auto & aSemantic : aSemantics)
+        aResult.emplace_back(aSemantic);
+    return {aResult};
+}
+
+inline cArg2007FieldSemantics FieldSem(std::initializer_list<tSemA2007> aSemantics)
+{
+    return {std::vector<tSemA2007>(aSemantics)};
+}
+
 
 // typedef cEnumAttr<eTA2007> tSemA2007;
 
@@ -215,6 +235,29 @@ std::string  Name4Help(const tSemA2007 & aSem) ;
 /**  The job will be done by template inheriting classes
     who knows how to use a string for computing a value
 */
+class cSpecOneArg2007;
+typedef std::shared_ptr<cSpecOneArg2007>  tPtrArg2007;
+typedef std::vector<tPtrArg2007>          tVecArg2007;
+
+
+/** Class for storing the separator between section of args,
+ *  can be used for specific separation like OriBundleAdj or geneal like Global/Internal ..
+ *  For now only a string but may evolve  (add Origin?)
+ */
+
+class cHeaderSectionArg
+{
+      public :
+         explicit cHeaderSectionArg(const std::string & aComment,bool GlobMMVII=false);
+         const  std::string & GetComment() const; ///< Accessor
+         bool    GlobMMVII() const;
+      private :
+        std::string  mComment;
+        bool         mGlobMMVII;
+};
+typedef std::optional<cHeaderSectionArg> tOptHeadSA;
+
+
 class  cSpecOneArg2007 : public cMemCheck
 {
      public :
@@ -227,13 +270,14 @@ class  cSpecOneArg2007 : public cMemCheck
         virtual ~cSpecOneArg2007(); ///< There is already virtual method, so why not add it
 
         /// Memoize then call type specific V_InitParam
-        void InitParam(const std::string & aStr) ;
+        void InitParam(const std::string & aStr, bool aFirstInit) ;
         virtual void * AdrParam() = 0;    ///< cast to void * of typed adress, used by Application know if init
-        virtual const std::string & NameType() const = 0;  ///< as int, bool, ....
-        virtual std::string  NameValue() const = 0;  ///< Used to print def value
+        virtual std::string NameType() const = 0;  ///< as int, bool, ....
+        virtual std::string  DefaultNameValue() const = 0;  ///< Used to print def value
 
         virtual void  CheckSize(const std::string &) const = 0;  ///< Used to check size of vect from a parameter like "[4,6]"
         virtual bool IsVector() const = 0;                       ///< Used by MMVII_Appli::GenerateOneArgSpec
+        virtual const tVecArg2007 & StructFields() const = 0;
 
         /// Does any of  mVSem contains aType
         bool HasType(const eTA2007 & aType,std::string * aValue=nullptr)            const;
@@ -250,21 +294,28 @@ class  cSpecOneArg2007 : public cMemCheck
 
         void ReInit(); /// The same may be used several with in process call, need initialize again
 
+        // Used for structured args construction
+        void AddSemantics(const tSemA2007PL& aSemPL);
+        void SetComment(const std::string& aCom);
+        void SetName(const std::string& aName);
+
+
+        void SetHeadSep(const cHeaderSectionArg &); ///< Fix the heade (check done once)
+        bool HasHeadSep() const; ///< Is  there a separator
+        const cHeaderSectionArg&  GetHeadSep() const; ///< Accessor to separato (check was set)
      private :
         ///  This action defined in heriting-template class initialize "real" the value from its string value
-         virtual void V_InitParam(const std::string & aStr) = 0;
+         virtual void V_InitParam(const std::string & aStr, bool aFirstInit) = 0;
 
          std::string     mValue;  ///< memorize Value used in init (command parameter)
+         int             mNbMatch;  ///< Number of match, to generate error on multiple names
          std::string     mName; ///< Name for optionnal
          std::string     mCom;  ///< Comment for all
-         int             mNbMatch;  ///< Number of match, to generate error on multiple names
+         tOptHeadSA      mHeadSep; ///< Possible header of separation
 
      protected:
          tSemA2007PL     mSemPL;    ///< Vector of semantic
 };
-
-typedef std::shared_ptr<cSpecOneArg2007>  tPtrArg2007;
-typedef std::vector<tPtrArg2007>          tVecArg2007;
 
 
 /// Collection of arg spec
@@ -283,13 +334,18 @@ class cCollecSpecArg2007
       tPtrArg2007 operator [] (int) const;
       void clear() ;
       cCollecSpecArg2007 & operator << (tPtrArg2007 aVal);
-      cCollecSpecArg2007 & operator << (const std::string & aComment);
+      // cCollecSpecArg2007 & operator << (const std::string & aComment);
+      cCollecSpecArg2007 & operator << (const cHeaderSectionArg& aComment);
+      /// Check that no waiting header remains
+      void CheckNoWaitingHeadSA() const;
    private :
       tVecArg2007 & Vec();
       cCollecSpecArg2007(const cCollecSpecArg2007&) = delete;
       tVecArg2007  mV;
-      std::vector<std::pair<size_t,std::string> > mVComm; ///< comments inserted at a given position in mV
+     // std::vector<std::pair<size_t,std::string> > mVComm; ///< comments inserted at a given position in mV
       cCollecSpecArg2007();
+      /// Possible header SA that has been added to be put in next arg
+      tOptHeadSA mWaitingHeadSA;
 };
 
 
@@ -297,6 +353,7 @@ class cCollecSpecArg2007
 template <class Type> tPtrArg2007 Arg2007(Type &, const std::string & aCom, const cSpecOneArg2007::tAllSemPL & = cSpecOneArg2007::TheEmptySem);
 ///  One for optional args
 template <class Type> tPtrArg2007 AOpt2007(Type &,const std::string & aName, const std::string & aCom,const std::vector<tSemA2007> & = cSpecOneArg2007::TheEmptySem);
+
 
 
 

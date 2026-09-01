@@ -307,7 +307,7 @@ template <class Type,const int Dim>
        }
        else
        {
-          // We restrict the the interval arround minimal value KMin, the new interval will
+          // We restrict the the interval around minimal value KMin, the new interval will
           // be in KMin-1, KMin+1, but truncated when KMin is a bound
           int aKMin = aWM.IndexExtre();
           int aK0 = std::max(0,aKMin-1);
@@ -1106,7 +1106,7 @@ class cTestMapInv : public cDataIterInvertMapping<tREAL8,3>
        cTestMapInv(double aFx,double aFy,double aFz,double aFreqCos,double aMulCos,bool IsRoughInv=false) :
           cDataIterInvertMapping<tREAL8,3>
           (
-              cPt3dr::PCste(1e-3/std::max(1e-5,mFreqCos)),
+              cPt3dr::PCste(1e-3/std::max(1e-5,aFreqCos)),
               (IsRoughInv?nullptr:new cTestMapInv(1.0/aFy,1.0/aFx,1.0/aFz,1.0,0.0,true)),
               1e-4,
               20,

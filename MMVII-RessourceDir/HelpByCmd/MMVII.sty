@@ -1,10 +1,17 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{comment}
+\usepackage{graphicx}
 
-%\newcommand{\MMVII}{{\tt \TheCmd}}
 
-\newcommand{\CmdTitle}{\title{ Help for command \TheCmd}}
+\newcommand{\MMVII}{MMVII}
+
+\newcommand{\CmdTitle}
+{
+   \begin{center}
+    {\Large \bf Help for command \TheCmd}
+   \end{center}
+}
 
 %  A command to unify all the text that correspond to name of files, command
 \newcommand{\FileSty}[1]{{\tt  #1}} 
@@ -25,6 +32,22 @@
 \newcommand{\RefSecVisuRes}{section \ref{\LabelVisuRes}}
 
 
+\newcommand{\SecRelatedCmd}
+{
+  \section{ Command related to  \TheCmd}
+  \label{Ref:RelCmd}
+  See also :
+}
+
+\newcommand{\SubSecTiePRelOr}
+{
+\subsection{optional mandatory parameter}
+
+The selection of pair is based on tie-points. This specification
+of these tie point is similar to all command on relative orientation,
+see \FileSty{OriPoseEstimRel2Im.pdf}.
+
+}
 
 %%\newcommand{\MMVII}{MMVI2007}
 

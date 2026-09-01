@@ -15,17 +15,33 @@ namespace MMVII
 {
 
 
-cDemiConeVert::cDemiConeVert(const cPt3dr & aC,tREAL8 aTgt2Max ):
-  mC (aC),
-  mTgt2 (aTgt2Max)
+cDemiConeVert::cDemiConeVert(const cSensorCamPC & aCam) :
+  mC       (aCam.Center()),
+  mOptAxis (aCam.AxeK()),
+  mTgt2    (0.0)
 {
+    const cPerspCamIntrCalib & aCalib = *aCam.InternalCalib();
+    const cPt2dr & aPP  = aCalib.PP();
+    tREAL8         aF   = aCalib.F();
+    cPt2dr         aSz  = ToR(aCalib.SzPix());
+
+    // Exact max angle to any of the 4 corners = squint (PP to crop-center) + half-FOV (Sz/2/F),
+    // combined per axis then Pythagorean-summed; reduces to the SqN2(PP)/F^2 when PP is centered.
+    cPt2dr aHalfFOV = aSz * 0.5;
+    cPt2dr aSquint  = aHalfFOV - aPP;
+    tREAL8 aDx = std::abs(aSquint.x()) + aHalfFOV.x();
+    tREAL8 aDy = std::abs(aSquint.y()) + aHalfFOV.y();
+
+    mTgt2 = (Square(aDx) + Square(aDy)) / Square(aF);
 }
+
 bool  cDemiConeVert::Inside(const cPt3dr& aPt) const
 {
     cPt3dr aVec = aPt - mC;
-    if (aVec.z()>=0) return false;
+    tREAL8 aDot = Scal(aVec,mOptAxis);   // component of aVec along the optical axis
+    if (aDot<=0) return false;           // behind the camera
 
-    tREAL8 aTg2 =  (Square(aVec.x())+Square(aVec.y())) / Square(aVec.z()) ;
+    tREAL8 aTg2 = (SqN2(aVec)-Square(aDot)) / Square(aDot);   // tan^2 of angle to axis
 
     return aTg2 < mTgt2;
 }
@@ -224,7 +240,6 @@ void cAppli_MMVII_CloudImProj::GenerateSynthImage(cProjPointCloud& aPPC,const cS
 {
     std::string aDirIm = mPhProj.DPOrient().FullDirOut();
     std::string aNameIm = aSensor.NameImage();
-
     aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,aSensor,0.0,true,"",false,false,aDCV);
 
     cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud*mSensDownSample,aSensor);
@@ -236,6 +251,7 @@ void cAppli_MMVII_CloudImProj::GenerateSynthImage(cProjPointCloud& aPPC,const cS
 
 void cAppli_MMVII_CloudImProj::ProcessConikModeWithOri(cPointCloud  & aPC_In,cProjPointCloud& aPPC)
 {
+    aPPC.SetComputeProfMax(false);
 
     std::string aDirIn = mPhProj.DPOrient().FullDirIn();
     std::string aOriPrefix = cSensorImage::PrefixName() + "-" + cSensorCamPC::PrefixName() + "-";
@@ -257,20 +273,17 @@ void cAppli_MMVII_CloudImProj::ProcessConikModeWithOri(cPointCloud  & aPC_In,cPr
 
     for (const auto & aNameIm : aSetNames)
     {
-        StdOut() << aNameIm << std::endl;
         cSensorCamPC * aCam = mPhProj.ReadCamPC(aNameIm,true,false);
-
-        tREAL8 aTgt2 = SqN2(aCam->InternalCalib()->PP()) / Square(aCam->InternalCalib()->F());
 
         std::string aDirIm =  mPhProj.DPOrient().FullDirOut();
 
-        cDemiConeVert aDCV(aCam->Center(),aTgt2);
+        cDemiConeVert aDCV(*aCam);
 
         GenerateSynthImage(aPPC,*aCam,&aDCV);
 
-        //mPhProj.SaveCamPC(*aCam);
+        mPhProj.SaveCamPC(*aCam);
 
-        StdOut() << "Doneee=" << aNameIm << "\n";
+        StdOut() << aNameIm << "\n";
 
     }
 
@@ -296,7 +309,7 @@ void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud  & aPC_In,cProjPoint
                 cPt3di(0,0,0)  // degree
             );
 
-    tREAL8 aTgt2 = SqN2(aPP) / Square(aFocal);
+   // tREAL8 aTgt2 = SqN2(aPP) / Square(aFocal);
 
     tREAL8  aResol = aPC_In.GroundSampling() *  mSensDownSample;
 
@@ -329,13 +342,14 @@ void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud  & aPC_In,cProjPoint
 
              std::string aDirIm =  mPhProj.DPOrient().FullDirOut();
 
-             cDemiConeVert aDCV(aC3,aTgt2);
+             //cDemiConeVert aDCV(aC3,aTgt2);
+             cDemiConeVert aDCV(aCam);
 
             GenerateSynthImage(aPPC,aCam,&aDCV);
 
             mPhProj.SaveCamPC(aCam);
 
-            StdOut() << "Doneee=" << aNameImage << "\n";
+            StdOut() << aNameImage << "\n";
         }
 
     }

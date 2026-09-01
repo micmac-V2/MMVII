@@ -49,6 +49,8 @@ template<class T2,class T3>   cIm2D<T2> operator * (const cIm2D<T2> & aI2,const 
 template<class T2,class T3>   cDenseMatrix<T2> operator * (const cDenseMatrix<T2> & aI2,const  T3 & aV3)   ;
 template<class T2,class T3>   cDenseMatrix<T2> operator * (const  T3 & aV3,const cDenseMatrix<T2> & aI2) ;
 
+template<class T1,class T2,class T3,int Dim>     // I1 = max(I2 , V3)
+      void SetMaxCsteInPlace(cDataTypedIm<T1,Dim> & aI1,const cDataTypedIm<T2,Dim> & aI2,const T3 & aV3);
 
 template<class T1,class T2,class T3,int Dim>   // I1 = I2 +I3
    void MulImageInPlace(cDataTypedIm<T1,Dim> & aI1,const cDataTypedIm<T2,Dim> & aI2,const cDataTypedIm<T3,Dim> & aI3);
@@ -222,7 +224,17 @@ template<class T2>   cDenseVect<T2> & operator += (cDenseVect<T2> & aI2,const cD
       AddIn(aI2.DIm(),aI3.DIm());
       return aI2;
 }
+   //===========   MaxVste ===========
 
+template<class T1,class T2,class T3,int Dim>
+void SetMaxCsteInPlace(cDataTypedIm<T1,Dim> & aI1,const cDataTypedIm<T2,Dim> & aI2,const T3 & aV3)
+{
+    //
+aI1.AssertSameArea(aI2);
+
+for (int aK=0 ; aK<aI1.NbElem() ; aK++)
+    aI1.GetRDL(aK) = std::max(aI2.GetRDL(aK),aV3);
+}
        //===========   MulCste ===========
 
 template<class T1,class T2,class T3,int Dim>

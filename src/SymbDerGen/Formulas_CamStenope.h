@@ -138,7 +138,7 @@ template <typename TypeDist>  class cEqIntr;  // class for generating    Pp-> Pi
 
      - Degre 2 :
 
-          * Rotation arround X  + linear are highly correlated to X2 + affine, so we muste
+          * Rotation around X  + linear are highly correlated to X2 + affine, so we muste
             so avoid X2 in X
           * Idem avoid Y2 in Y
 
@@ -230,7 +230,7 @@ template <typename TypeDist>  class cEqIntr;  // class for generating    Pp-> Pi
            * so we have to select a complementary base, many choice are possible, we select
             [1 0 0 0]  [0 1 0 0] because it is coherent with literature (Fraser's)
      - Degre 2 :
-          * Rotation arround X  + linear are highly correlated to X2 + affine, so we muste
+          * Rotation around X  + linear are highly correlated to X2 + affine, so we muste
             so avoid X2 in X
           * Idem avoid Y2 in Y
 
@@ -285,7 +285,7 @@ class cMMVIIUnivDist
            * the poolynoms existing in radial distorsion
            * the polymoms existing in decentrik distorsion
            * the polymoms modelized by focal an principal points
-          * the polynom that can be approximed by rotation arround projection
+          * the polynom that can be approximed by rotation around projection
        */
 
 
@@ -301,7 +301,7 @@ class cMMVIIUnivDist
             if ((aDegX ==0) && (aDegY==0))
                return false;
 
-            //  because of redundancy with focal & rotation arround Z axe, we must avoid
+            //  because of redundancy with focal & rotation around Z axe, we must avoid
             // 2 out of 4 degree 1 monoms, we suppress arbitrarily the Y function
             // (because its coherent with most current  convention on "fraser" model :
             //  dx = b1 x + b2 y ...
@@ -328,7 +328,7 @@ class cMMVIIUnivDist
             }
 
             // because of redundaucy with non plane rotation, we supress 2 degree 2 function
-            // there many choice possible, for the first one, considering a rotation arround
+            // there many choice possible, for the first one, considering a rotation around
             // x axes + other monomes can create a taylor devlopement of Dx= X2
 
                //  X2 in dX avoid

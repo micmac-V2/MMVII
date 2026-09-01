@@ -430,7 +430,7 @@ class cTplFraserDist : public cCountDist<7>
 
      - Degre 2 :
 
-          * Rotation arround X  + linear are highly correlated to X2 + affine, so we muste
+          * Rotation around X  + linear are highly correlated to X2 + affine, so we muste
             so avoid X2 in X
           * Idem avoid Y2 in Y
 

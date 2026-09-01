@@ -75,6 +75,40 @@ std::vector<tREAL8> cStdWeighterResidual::WeightOfResidual(const tStdVect & aVRe
 }
 
 
+/* ************************************************************************ */
+/*                                                                          */
+/*                        cLinearWeighterResidual                           */
+/*                                                                          */
+/* ************************************************************************ */
+
+cLinearWeighterResidual::cLinearWeighterResidual(tREAL8 aSGlob,tREAL8 aThr1,tREAL8 aThr2) :
+    mWGlob       (1/Square(aSGlob)),
+    mThrs1       (aThr1),
+    mThrs2       (aThr2)
+{
+    if (mThrs1>mThrs2)
+        std::swap(mThrs1, mThrs2);
+}
+
+tREAL8   cLinearWeighterResidual::SingleWOfResidual(tREAL8 aRes) const
+{
+    aRes = fabs(aRes);
+    if (aRes<=mThrs1)
+        return mWGlob;
+    if (aRes>=mThrs2)
+        return 0;
+    return mWGlob*(1-(abs(aRes)-mThrs1)/(mThrs2-mThrs1));
+}
+
+std::vector<tREAL8> cLinearWeighterResidual::WeightOfResidual(const tStdVect & aVResidual) const
+{
+    std::vector<tREAL8> aVW;
+    aVW.reserve(aVResidual.size());
+    for (auto & aRes: aVResidual)
+        aVW.push_back(SingleWOfResidual(aRes));
+    return aVW;
+}
+
 
 /* ************************************************************************ */
 /*                                                                          */
@@ -91,11 +125,9 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     mPatFrozenCenter (""),
     mPatFrozenOrient (""),
     mPatFrozenClinos (""),
-    mPatFrozenTSL    (""),
     //mMesGCP           (nullptr),
     //mSigmaGCP         (-1),
-    mBlRig            (nullptr),
-    mBlClino            (nullptr),
+
     mTopo             (nullptr),
     mFolderRefCam     (""),
     mSigmaTrRefCam    (-1.0),
@@ -103,16 +135,17 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     mPatternRef       (".*"),
     mDirRefCam        (nullptr),
 
-    mUseGauje         (false),
-    mKPoseMainGauje   (-1),
-    mKPoseSecondGauje (-1),
-    mKCoordSecondGauje (-1),
+    mUseGauge         (false),
+    mKPoseMainGauge   (-1),
+    mKPoseSecondGauge (-1),
+    mKCoordSecondGauge (-1),
     mSigmaViscAngles  (-1.0),
     mSigmaViscCenter  (-1.0),
     mNbMaxIter        (-1),
     mIter             (0),
     mVerbose          (true),
     mShow_UC_UK       (false),
+    mCompute_Uncert   (false),
     mRUCSUR           (nullptr),
     mVecLineAdjust    (),
     mNbCamPC          (0)
@@ -129,9 +162,7 @@ cMMVII_BundleAdj::~cMMVII_BundleAdj()
     delete mSys;
     // delete mMesGCP;
     DeleteAllAndClear(mVTieP);
-    delete mBlRig;
     delete mTopo;
-    delete mBlClino;
     delete mRUCSUR;
     // DeleteAllAndClear(mGCP_UK);
     DeleteAllAndClear(mVBA_Lidar);
@@ -321,7 +352,7 @@ void cMMVII_BundleAdj::InitIteration()
        std::string aPatVar =  GetDef(mParam_UC_UK,2,std::string(".*"));  // NameVar selection, def=all
        mCompute_Uncert = cStrIO<bool>::FromStr(GetDef(mParam_UC_UK,3,std::string("1")));  // Compute Uncert, def=true
 
-       StdOut() <<"All unknowns:\n";
+       //StdOut() <<"All unknowns:\n";
        // Parse all "object"
        for (size_t aKObj=0 ; aKObj<  mSetIntervUK.NumberObject() ; aKObj++)
        {
@@ -333,10 +364,10 @@ void cMMVII_BundleAdj::InitIteration()
            aBBNV.mIdObj = aGIP.IdObj();
            aBBNV.mIndVar0 = aIndV0;
            aBBNV.mNamesVar =  aGIP.VNames();
-           StdOut() <<"    "<<aGIP.NameType()<<" "<<aGIP.IdObj()<<": ";
-           for (auto & aS:aGIP.VNames())
-               StdOut() << aS << " ";
-           StdOut() << "\n";
+           //StdOut() <<"    "<<aGIP.NameType()<<" "<<aGIP.IdObj()<<": ";
+           //for (auto & aS:aGIP.VNames())
+           //    StdOut() << aS << " ";
+           //StdOut() << "\n";
            
            if (MatchRegex(aBBNV.mType,aPatType) && MatchRegex(aBBNV.mIdObj,aPatName) ) // If type and ident match
            {
@@ -397,30 +428,27 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
             mR8_Sys->SetFrozenFromPat(*aPtrCal,mPatParamFrozenCalib,true);
         }
     }
-    for (const auto & aVPat : mPatternFreeCalib)
+    for (const auto & aPat : mPatternFreeCalib)
     {
-        std::string aPatNameCam = aVPat.at(0);
-        tREAL8 aWeight = cStrIO<tREAL8>::FromStr(GetDef(aVPat,2,std::string("-1.0")));
-        //if (aVPat.size()>=3)
         for (const  auto & aPtrCal : mVPCIC)
         {
-            if (MatchRegex(aPtrCal->Name(),aPatNameCam))
+            if (MatchRegex(aPtrCal->Name(),aPat.PatCal))
             {
-               mR8_Sys->SetFrozenFromPat(*aPtrCal,aVPat.at(1),false,aWeight);
+               mR8_Sys->SetFrozenFromPat(*aPtrCal,aPat.PatParam,false,aPat.Weight);
             }
         }
     }
 
-    if (mUseGauje)
+    if (mUseGauge)
     {
-        cSensorCamPC * aMainCamGauje   = mVSCPC.at(mKPoseMainGauje);
-        cSensorCamPC * aSecondCamGauje = mVSCPC.at(mKPoseSecondGauje);
+        cSensorCamPC * aMainCamGauge   = mVSCPC.at(mKPoseMainGauge);
+        cSensorCamPC * aSecondCamGauge = mVSCPC.at(mKPoseSecondGauge);
 
-        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauje,aMainCamGauje->Center());
-        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauje,aMainCamGauje->Omega());
+        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauge,aMainCamGauge->Center());
+        mR8_Sys->SetFrozenVarCurVal(*aMainCamGauge,aMainCamGauge->Omega());
 
-        tREAL8 & aCoord = aSecondCamGauje->Center()[mKCoordSecondGauje];
-        mR8_Sys->SetFrozenVarCurVal(*aSecondCamGauje,aCoord);
+        tREAL8 & aCoord = aSecondCamGauge->Center()[mKCoordSecondGauge];
+        mR8_Sys->SetFrozenVarCurVal(*aSecondCamGauge,aCoord);
 
     }
 
@@ -460,34 +488,6 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     // if necessary fix hard cosntraint onf Gauge of Rigid-Block of instrument
     SetHardGaugeBlockInstr();
 
-    if (mPatFrozenClinos != "" && mBlClino)
-    {
-        mBlClino->SetFrozenVar(*mR8_Sys, mPatFrozenClinos);
-    }
-    
-    // if necessary, fix frozen poses of static lidar
-    if (mPatFrozenTSL !="")
-    {
-        // Freeze full pose (TODO: be able to to fix only verticalization)
-        tNameSelector aSel = AllocRegex(mPatFrozenTSL);
-        int nbMatches = 0;
-        for (auto & [aScanName, aLidar] : mMapTSL)
-        {
-            if (aSel.Match(aScanName))
-            {
-                mR8_Sys->SetFrozenVarCurVal(*aLidar,aLidar->Center());
-                mR8_Sys->SetFrozenVarCurVal(*aLidar,aLidar->Omega());
-                nbMatches++;
-            }
-        }
-        if (mVerbose && isFirstIter)
-            StdOut() << "Frozen TSL poses: " << nbMatches << ".\n";
-    }
-
-    if (mBlRig) // RIGIDBLOC
-    {
-        mBlRig->SetFrozenVar(*mR8_Sys);
-    }
 
     if (mTopo) // TOPO
     {
@@ -512,22 +512,10 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
 
     OneItere_GCP();   // add GCP informations
     OneItere_TieP();  // ad tie-points information
+
+
                       //
 
-    if (mBlRig)
-    {
-        mBlRig->AddRigidityEquation(*mR8_Sys);
-    }
-    // StdOut() << "SYS=" << mR8_Sys->GetNbObs() << " " <<  mR8_Sys->NbVar() << std::endl;
-
-    if (mBlClino)
-    {
-        mBlClino->addEquations(*mR8_Sys);
-        if (mVerbose)
-        {
-            mBlClino->printRes();
-        }
-    }
 
     for (const auto & aLidarPh : mVBA_Lidar )
         aLidarPh->AddObs();
@@ -557,19 +545,24 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
         mRUCSUR = new cResult_UC_SUR<tREAL8>(false,false,mIndCompUC);
     }
 
+    mR8_Sys->SysLinear(); // to force SetPhaseEq(); to init constraints if no AddObs
+
     const auto & aVectSol = mR8_Sys->SolveUpdateReset(aLVM,{},{mRUCSUR},doShowCond);
     mSetIntervUK.SetVUnKnowns(aVectSol);
 
     mIter++;
     if(mVerbose)
     {
-        StdOut() << "---------------------- "
+        StdOut() << Color::title
+                 << "---------------------- "
                  << " End Iter" << mIter
-                  << " StdDevLast=" << std::sqrt(mR8_Sys->VarLastSol())
-                  << " StdDevCur=" << std::sqrt(mR8_Sys->VarCurSol())
+                  << " StdDevLast=" <<   Color::end<< std::sqrt(mR8_Sys->VarLastSol()) << Color::title
+                  << " StdDevCur=" <<  Color::end << std::sqrt(mR8_Sys->VarCurSol()) << Color::title
                   //<< " VarLast=" << mR8_Sys->VarLastSol()
                  //<< " ?VarCur?=" << mR8_Sys->VarCurSol()
-                 << " ---------------" << std::endl;
+                 << " ---------------"
+                 << Color::end
+                 <<  std::endl;
     }
 
 }
@@ -609,20 +602,17 @@ void cMMVII_BundleAdj::AddCamPC(cSensorCamPC * aCamPC)
         AddCalib(aCamPC->InternalCalib());
 }
 
-void cMMVII_BundleAdj::AddReferencePoses(const std::vector<std::string> & aVec)
+void cMMVII_BundleAdj::AddReferencePoses(const std::string & aOri, tREAL8 aSigmaTr, tREAL8 aSigmaRot, const std::string & aPatApply)
 {
      MMVII_INTERNAL_ASSERT_tiny(mVSCPC.empty(),"Must Add Ref Pose before any cam");
      AssertPhpAndPhaseAdd();
 
-     mFolderRefCam = aVec.at(0);
+     mFolderRefCam = aOri;
      mDirRefCam  = mPhProj->NewDPIn(eTA2007::Orient,mFolderRefCam);
 
-     mSigmaTrRefCam = cStrIO<tREAL8>::FromStr(aVec.at(1));
-     if (aVec.size() > 2)
-        mSigmaRotRefCam = cStrIO<tREAL8>::FromStr(aVec.at(2));
-
-     if (aVec.size() > 3)
-        mPatternRef =  aVec.at(3);
+     mSigmaTrRefCam = aSigmaTr;
+     mSigmaRotRefCam = aSigmaRot;
+     mPatternRef = aPatApply;
 }
 
 
@@ -674,19 +664,14 @@ void cMMVII_BundleAdj::SetParamFrozenCalib(const std::string & aPattern)
     mPatParamFrozenCalib = aPattern;
 }
 
-void cMMVII_BundleAdj::SetParamFreeCalib(const std::vector<std::vector<std::string>> & aVVPat)
+void cMMVII_BundleAdj::SetParamFreeCalib(const std::vector<cFreeCalibPattern> & aVPat)
 {
-    mPatternFreeCalib = aVVPat;
+    mPatternFreeCalib = aVPat;
 }
 
 void cMMVII_BundleAdj::SetFrozenCenters(const std::string & aPattern)
 {
     mPatFrozenCenter = aPattern;
-}
-
-void cMMVII_BundleAdj::SetFrozenTSL(const std::string & aPattern)
-{
-    mPatFrozenTSL = aPattern;
 }
 
 void cMMVII_BundleAdj::SetFrozenOrients(const std::string & aPattern)
@@ -699,7 +684,7 @@ void cMMVII_BundleAdj::SetFrozenClinos(const std::string & aPattern)
     mPatFrozenClinos = aPattern;
 }
 
-void cMMVII_BundleAdj::SetSharedIntrinsicParams(const std::vector<std::string> & aVParams)
+void cMMVII_BundleAdj::SetSharedIntrinsicParams(const std::vector<cSharedIPParam> & aVParams)
 {
     mVPatShared = aVParams;
 }
@@ -708,11 +693,10 @@ typedef std::tuple<int,std::string,tREAL8 *> tISRP;
 
 void cMMVII_BundleAdj::CompileSharedIntrinsicParams(bool ForAvg)
 {
-    MMVII_INTERNAL_ASSERT_tiny((mVPatShared.size()%2)==0,"Expected even size for shared intrinsic params");
     bool  Show = ForAvg;
 
     // Parse the pair Pattern Name Cam / Pattern Name Params
-    for (size_t aKPat=0 ; aKPat<mVPatShared.size() ; aKPat+=2)
+    for (const auto & aPatShared : mVPatShared)
     {
         std::map<std::string,std::vector<int>> aMapSharedIndexes; // store the shared index of a given param name
         std::map<std::string,std::vector<std::string>> aMapNames; // store the sharing as name, for show
@@ -720,10 +704,10 @@ void cMMVII_BundleAdj::CompileSharedIntrinsicParams(bool ForAvg)
         // Parse the calib and select those which name match the pattern name cam
         for (auto  aPtrCal : mVPCIC)
         {
-            if (MatchRegex(aPtrCal->Name(),mVPatShared[aKPat]))
+            if (MatchRegex(aPtrCal->Name(),aPatShared.PatCal))
             {
                 // Extract information on parameter macthing the pattern of params
-                cGetAdrInfoParam<tREAL8>  aGIP(mVPatShared[aKPat+1],*aPtrCal,false);
+                cGetAdrInfoParam<tREAL8>  aGIP(aPatShared.PatParam,*aPtrCal,false);
                 for (size_t aKParam=0 ; aKParam<aGIP.VAdrs().size() ; aKParam++)
                 {
                     tREAL8 * aAdr                 = aGIP.VAdrs().at(aKParam);
@@ -741,8 +725,8 @@ void cMMVII_BundleAdj::CompileSharedIntrinsicParams(bool ForAvg)
         if (Show)
         {
                 StdOut()  << "=========== Shared params for"
-                          << " PatName ={" << mVPatShared[aKPat] << "}"
-                          << " PatCal={" << mVPatShared[aKPat+1] << "}"
+                          << " PatCal={" << aPatShared.PatCal << "}"
+                          << " PatParam={" << aPatShared.PatParam << "}"
                           << " ============ " << std::endl;
         }
         for (const auto & [aNamePar,aVTuple] : aMapValues)
@@ -776,8 +760,8 @@ void cMMVII_BundleAdj::CompileSharedIntrinsicParams(bool ForAvg)
            if (Show)
            {
                 StdOut()  << "=========== Shared params for"
-                          << " PatName ={" << mVPatShared[aKPat] << "}"
-                          << " PatCal={" << mVPatShared[aKPat+1] << "}"
+                          << " PatCal={" << aPatShared.PatCal << "}"
+                          << " PatParam={" << aPatShared.PatParam << "}"
                           << " ============ " << std::endl;
                 for (const auto & [aNamePar,aVNameCam] : aMapNames)
                 {
@@ -810,24 +794,25 @@ int cMMVII_BundleAdj::IndexOfPCPose(const std::string &aNameIm,bool SVP ) const
     return -1;
 }
 
-void cMMVII_BundleAdj::SetGaujeRelPause(const std::vector<std::string> & aVNames)
+void cMMVII_BundleAdj::SetGaugeRelPause(const cParamFixGauge & aParam)
 {
 
     cWhichMax<cPt3di,tREAL8> aWMaxInd;
 
-    bool aN1Fix =    aVNames.size()>=1;
-    bool aN2Fix =    aVNames.size()>=2;
-    bool aCoordFix = aVNames.size()>=3;
+    //  an empty field means "not fixed" : the system then chooses it
+    const std::string & aN1 = aParam.MainIm;
+    const std::string & aN2 = aParam.SecIm;
 
-    std::string aN1 = aN1Fix ? aVNames.at(0) : "";
-    std::string aN2 = aN2Fix ? aVNames.at(1) : "";
+    bool aN1Fix =    ! aN1.empty();
+    bool aN2Fix =    ! aN2.empty();
+    bool aCoordFix = ! aParam.Coord.empty();
 
     std::vector<std::string> aVCoord{"x","y","z"};
     int aKCoord = -1;
     if (aCoordFix)
     {
-        auto anIter = std::find(aVCoord.begin(),aVCoord.end(),aVNames.at(2));
-        MMVII_INTERNAL_ASSERT_always(anIter!=aVCoord.end(),"SetGaujeRelPause bad coord");
+        auto anIter = std::find(aVCoord.begin(),aVCoord.end(),aParam.Coord);
+        MMVII_INTERNAL_ASSERT_always(anIter!=aVCoord.end(),"SetGaugeRelPause bad coord");
         aKCoord = anIter - aVCoord.begin();
     }
 
@@ -873,17 +858,17 @@ void cMMVII_BundleAdj::SetGaujeRelPause(const std::vector<std::string> & aVNames
 
 
     }
-    mUseGauje = true;
-    mKPoseMainGauje = aIndMax.x();
-    mKPoseSecondGauje = aIndMax.y();
-    mKCoordSecondGauje = aIndMax.z();
+    mUseGauge = true;
+    mKPoseMainGauge = aIndMax.x();
+    mKPoseSecondGauge = aIndMax.y();
+    mKCoordSecondGauge = aIndMax.z();
 
 
 //    aMaxInd
 }
 
 
-//void SetGaujeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
+//void SetGaugeRelPause(int aKPoseMain,int aKposeSec,int aKCoord);
 
 
 bool cMMVII_BundleAdj::CheckGCPConstraints() const
@@ -904,13 +889,12 @@ bool cMMVII_BundleAdj::CheckGCPConstraints() const
                     aNbTopoElementObs += obs->getMeasures().size();
                 }
             }
-            if (aNbImObs*2+aNbTopoElementObs<3)
+            if (aNbImObs+aNbTopoElementObs<3)
                 aNames += aMesGCP.mNamePt + " ";
         }
     }
     if (aNames.size())
-        MMVII_UserError(eTyUEr::eConstraintsError,
-                          "Not enough observations for points: "+aNames);
+        MMVII_USER_WARNING("Not enough observations for points: "+aNames);
 
     return true;
 }
@@ -983,68 +967,25 @@ void cMMVII_BundleAdj::AddConstrainteRefPose(cSensorCamPC & aCam,cSensorCamPC & 
     /*            Rigid Bloc                    */
     /* ---------------------------------------- */
 
-void cMMVII_BundleAdj::AddBlocRig(const std::vector<double>& aSigma,const std::vector<double>& aSigmaRat)  // RIGIDBLOC
-{
-    AssertPhpAndPhaseAdd();
-    mBlRig = new cBA_BlocRig(*mPhProj,aSigma,aSigmaRat);
-
-    mBlRig->AddToSys(mSetIntervUK);
-}
-void cMMVII_BundleAdj::AddCamBlocRig(const std::string & aNameIm) // RIGIDBLOC
-{
-    cSensorCamPC * aCam = mPhProj->ReadCamPC(aNameIm,/*ToDel*/true,/*SVP*/false);
-    if (aCam == nullptr)
-       return;
-
-    mBlRig->AddCam(aCam);
-}
-void cMMVII_BundleAdj::SaveBlocRigid()
-{
-    if (mBlRig  && mPhProj->DPRigBloc().DirOutIsInit())  // RIGIDBLOC
-    {
-       mBlRig->Save();
-    }
-}
 
 
-
-    /* ---------------------------------------- */
-    /*            Clino Bloc                    */
-    /* ---------------------------------------- */
-
-void cMMVII_BundleAdj::AddClinoBloc()
-{
-    AssertPhpAndPhaseAdd();
-    mBlClino = new cBA_Clino(mPhProj);
-
-    mBlClino->AddToSys(mSetIntervUK);
-}
-
-void cMMVII_BundleAdj::AddClinoBloc(cBA_Clino * aBAClino){
-    mBlClino = aBAClino;
-    mBlClino->AddToSys(mSetIntervUK);
-}
-
-void cMMVII_BundleAdj::SaveClino()
-{
-    if (mBlClino)
-    {
-       mBlClino->Save();
-    }
-}
 
 /* ---------------------------------------- */
 /*                 Lidar                    */
 /* ---------------------------------------- */
 
-void cMMVII_BundleAdj::Add1AdjLidarPhotogra(const std::vector<std::string> &aParam)
+void cMMVII_BundleAdj::Add1AdjLidarPhotogra(eImatchCrit aMode, const std::string & aPlyFile, double aSigma,
+                                            const std::vector<std::string> & aInterp, bool aPertubate, int aNbPtsPerPatch)
 {
-    mVBA_Lidar.push_back(new cBA_LidarPhotograTri(mPhProj, *this,aParam));
+    mVBA_Lidar.push_back(new cBA_LidarPhotograTri(mPhProj, *this, aMode, aPlyFile, aSigma, aInterp, aPertubate, aNbPtsPerPatch));
 }
 
-void cMMVII_BundleAdj::Add1AdjLidarPhoto(const std::vector<std::string> &aParam)
+void cMMVII_BundleAdj::Add1AdjLidarPhoto(eImatchCrit aMode, const std::string & aPatScan, double aSigma,
+                                         const std::vector<std::string> & aInterp, double aScaleInit, double aScaleFinal,
+                                         double aThreshold, int aNbPtsPerPatch)
 {
-    mVBA_Lidar.push_back(new cBA_LidarPhotograRaster(mPhProj, *this,aParam));
+    mVBA_Lidar.push_back(new cBA_LidarPhotograRaster(mPhProj, *this, aMode, aPatScan, aSigma, aInterp,
+                                                     aScaleInit, aScaleFinal, aThreshold, aNbPtsPerPatch));
 }
 
 bool cMMVII_BundleAdj::AddStaticLidar(cStaticLidar* aStaticLidar)
@@ -1062,17 +1003,13 @@ bool cMMVII_BundleAdj::AddStaticLidar(cStaticLidar* aStaticLidar)
 
 const std::unordered_map<std::string, cStaticLidar *> &cMMVII_BundleAdj::MapTSL() const {return mMapTSL;}
 
-void cMMVII_BundleAdj::Add1AdjLidarLidar(const std::vector<std::string> &aParam)
+void cMMVII_BundleAdj::Add1AdjLidarLidar(const std::string & aPatScan, double aSigma, double aThresholdInit,
+                                         double aThresholdFinal, double aNormalTolDeg, const std::vector<std::string> & aInterp)
 {
-    mVBA_LidarLidar.push_back(new cBA_LidarLidarRaster(mPhProj, *this,aParam));
+    mVBA_LidarLidar.push_back(new cBA_LidarLidarRaster(mPhProj, *this, aPatScan, aSigma, aThresholdInit,
+                                                       aThresholdFinal, aNormalTolDeg, aInterp));
 }
 
-
-void cMMVII_BundleAdj::SaveTSL()
-{
-    for (auto & [aScanName, aLidar] : mMapTSL)
-        aLidar->ToFile(mPhProj->DPOrient().FullDirOut() + aLidar->NameOriStd());
-}
 
 /* ---------------------------------------- */
 /*                 Topo                     */

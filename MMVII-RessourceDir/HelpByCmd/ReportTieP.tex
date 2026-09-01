@@ -1,0 +1,172 @@
+\documentclass[a4paper]{article}
+\usepackage{MMVII}
+
+\newcommand{\TheCmd}{ReportTieP}
+
+\begin{document}
+
+\CmdTitle
+%\maketitle
+
+\tableofcontents
+
+
+ %=================================================================================
+
+\SecDescr
+
+This command generate report on quality of orientation relative to a set of tie points,
+by default it generates these analysis by image using multiple tie-points, but it can optionnally generate
+result for specific pairs.  It generate result similar to  \FileSty{ReportGCP}, see also
+this command for detailled interpretation of files.
+
+It generate three kind of information :
+
+\begin{itemize}
+  \item statisical information in \FileSty{csv} format , for indvidual images and camera, and possibly for pairs;
+
+
+  \item $2D$ visual information, in  \FileSty{jpg/tiff} format of the residuals, that can be exported as 
+       dense images of field of vectors;  
+
+  \item $3D$ visual information, in  \FileSty{ply} format to see the global spatialisation of the residuals. 
+\end{itemize}
+
+This variety of export is required because the potential problem in orientation can have many different origin :
+problem of internal calibration, problem due to one or several images, problem due to a specific pair of image , problem due
+to some part of the 3d scene....
+Generally, all these export are not generated simultaneously, the user can generate a first report without
+optionnal parameter and then focuss and specific reports.
+
+
+ %=================================================================================
+\section{Run with default parameters}
+
+
+An example of run With the three defautt parameters example on Ramses dataset:
+
+\begin{verbatim}
+MMVII ReportTieP IMG_03.*JPG V1Dense Adjust 
+\end{verbatim}
+
+
+It will generate statistic of residual of residual in folder \FileSty{MMVII-PhgrProj/Reports/ReportTieP/Adjust\_V1Dense}, 
+it will contain :
+
+\begin{itemize}
+   \item  a file  \FileSty{Glob.csv} with statistic on all images;
+   \item  a file  \FileSty{ByCam.csv} with statistic on each individual camera ; in the current case 
+         where there is only one camera these two files will be identicall; 
+   \item  a file  \FileSty{ByImage.csv} with statistic on each individual image.
+\end{itemize}
+
+
+The statisic contains residual for given percentile that can be modified with otional parameter  \FileSty{Perc}.
+It will also generate a dense image for the used cameras in the folder  \FileSty{MMVII-PhgrProj/VISU/ReportTieP/Adjust\_V1Dens}
+if the optional paramete  \FileSty{DoImResCalib} is set to  \FileSty{true} (its default value).
+
+
+ %=================================================================================
+\section{Optional parameters  for  per/image visualisation}
+
+If we are interested by specific pair of images, we must use tie-point that comes
+from initial pairs and not merge tie points. So : 
+
+\begin{itemize}
+
+   \item  statistic  on residual for all pairs of images will be computed, they
+          will be saved in the file   \FileSty{ByPairs.csv} of the  report folder;
+          they can be modified with otional parameter  \FileSty{Perc};
+
+   \item  parameter  \FileSty{PatImFV} , is a pattern that is used as filter for
+          selecting the image for which we generate the residual as a field
+          of $2D$ vector superposed to each image.
+
+   \item  parameter  \FileSty{PatImRes} , is a pattern that is used as filter for
+          selecting pairs of image for which we generate dense visualisation;
+\end{itemize}
+
+An example of use with Ramses dataset :
+
+\begin{verbatim}
+MMVII ReportTieP .*JPG V1Dense Adjust PatImRes="IMG_035.*.JPG"  PatImFV="IMG_035[3-6].JPG"
+\end{verbatim}
+
+Will generate $10$ images of dense residual and $4$ images of vector field. The vector field
+images is controled by parameter \FileSty{ParamFV} , see {\tt ReportGCP}.
+
+
+ %=================================================================================
+\section{Optional parameters  for  per/pair statistic and visualisation}
+
+If we are interested by specific pair of images, we must use tie-point that comes
+from initial pairs and not merged tie points. So : 
+
+\begin{itemize}
+    \item we must use parameter  \FileSty{InTieP} to activate computation by pairs and specify the folder containing the 
+          tie points of pairs pairs;
+
+    \item static for all pairs will be generated in file   \FileSty{ByPairs.csv}, using 
+          parameter  \FileSty{Perc};
+
+    \item the optional parameter \FileSty{PatImRes} specify the images for which we generate 
+          dense visualization;
+
+    \item the optional parameter \FileSty{PairPatFV} specify the images for which we generate 
+          the pair for  which we generate visualisation of residuals as vector's field;
+
+\end{itemize}
+
+An example of use with Ramses dataset :
+
+\begin{verbatim}
+MMVII ReportTieP IMG_03.*JPG V1Dense Adjust InTieP=V1Dense  PairPatRes=IMG_035[0-3].JPG  PairPatFV=IMG_035[1-2].JPG
+\end{verbatim}
+
+will generate  file \FileSty{ByPairs.csv} with $213$ lines corresponding to all pairs having non empty set of tie points,
+one image vector fields for \FileSty{(IMG\_0351.JPG,IMG\_0352.JPG)} and $6$ image dense
+for pairs of  $\{50-51,50-52,\dots,52-53\}$.
+
+ %=================================================================================
+
+\section{Optional parameters  for  $3d$ visualisation}
+
+The $3d$ visualisation cab be used to analyse potentiel correlation between localisation 
+and residual. For this the parameter optional  \FileSty{ParamPly} can used :
+
+\begin{itemize}
+    \item  if it used, a file \FileSty{RTP.ply} will be generated ;
+
+    \item  the $3d$ point will be computed by bundles intersection using ties point and orientations;
+
+    \item the color of each point will depend of the residual .
+           
+\end{itemize}
+
+
+
+The parameter  \FileSty{ParamPly} contains $2$ value, a boolean indicating if generate
+a coloured of a gray file, and an exponent $E$.
+For computing the colour :
+
+\begin{itemize}
+   \item  first we compute a global histogramm $H$ of residuals;
+   \item  then for each point, the residual $r$ is converted to rank  $Rk$ with $Rk \in [0,1]$;
+   \item  then $Rk$ is converted to a quality $Q$ using the formula $Q=1-Rk^E$ (some kind of \emph{gama-correction});
+   \item  in gray mode, the colour is $Q$  (point with high residual are black)
+   \item  in colour mode, $Q$ is used to compute an  abscissa,  on the path $Red-Orange-Green$ 
+         (point with high residual are red).
+\end{itemize}
+
+
+A consequence, of this way of proceeding, is that due to histogramm pre-processing, if we multiply all the
+residual by $2$ or $10$ or \dots , we will obtain exactly the same file.  This visualization is not
+made for  quantitative evaluation, but for qualitative localisation of possible area with problem.
+
+
+
+
+
+
+\end{document}
+

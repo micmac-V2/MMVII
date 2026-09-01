@@ -457,7 +457,7 @@ void  cHoughTransform::Quick_AccumulatePtAndDir(const cPt2dr & aPt,tREAL8 aTetaC
            iTeta1 += mNbTeta;
            aTetaC += 2 * M_PI;
       }
-      //  Polar coordinate Rho-Teta, are defined arround point mMiddle
+      //  Polar coordinate Rho-Teta, are defined around point mMiddle
       tREAL8 aX = aPt.x() - mMiddle.x();
       tREAL8 aY = aPt.y() - mMiddle.y();
 
@@ -485,7 +485,7 @@ void  cHoughTransform::Accurate_AccumulatePtAndDir(const cPt2dr & aPt,tREAL8 aTe
            iTeta1 += mNbTeta;
            aTetaC += 2 * M_PI;
       }
-      //  Polar coordinate Rho-Teta, are defined arround point mMiddle
+      //  Polar coordinate Rho-Teta, are defined around point mMiddle
       tREAL8 aX = aPt.x() - mMiddle.x();
       tREAL8 aY = aPt.y() - mMiddle.y();
 

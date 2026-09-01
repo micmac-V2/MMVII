@@ -1,0 +1,238 @@
+\documentclass[a4paper]{article}
+\usepackage{MMVII}
+
+\newcommand{\TheCmd}{EditProfile}
+
+\begin{document}
+\sloppy
+
+\CmdTitle
+
+\tableofcontents
+
+
+ %=================================================================================
+
+\SecDescr
+
+This command inspects and edits MMVII user profiles.  A user profile is a set of
+key/value preferences used by MMVII commands, for example the default serialization
+formats, the maximum number of parallel processes, or the command used to open PDF
+files.
+
+When \TheCmd\ is called without option, it prints:
+
+\begin{itemize}
+  \item the known profile names, with the current profile shown between square brackets;
+  \item the path of the profile file effectively loaded;
+  \item the key/value pairs of the current profile.
+\end{itemize}
+
+\begin{verbatim}
+MMVII EditProfile
+\end{verbatim}
+
+
+ %=================================================================================
+
+\section{Selecting the current profile}
+
+The optional parameter \FileSty{SetCurrent} makes a profile the default profile for
+subsequent MMVII commands:
+
+\begin{verbatim}
+MMVII EditProfile SetCurrent=Default
+MMVII EditProfile SetCurrent=Test
+\end{verbatim}
+
+The profile name must contain only letters, digits, underscores, or hyphens.  It
+must not be empty.  If the selected profile file does not exist yet, MMVII creates
+it by synchronizing it with the distributed default profile.
+
+The current profile name is stored in the user configuration file
+\FileSty{MMVII-Current-Profile.xml}.
+
+
+ %=================================================================================
+
+\section{Editing profile values}
+
+The optional parameter \FileSty{KeyVal} sets one key/value pair in the selected
+profile.  It must contain exactly two values: the key and the value.
+To specify an empty string for a value, use the special syntax  \FileSty{KeyVal=[Key,,]}.
+
+\begin{verbatim}
+MMVII EditProfile KeyVal=[NbProcMax,8]
+MMVII EditProfile KeyVal=[TaggedSerialMode,json]
+MMVII EditProfile KeyVal=[VectSerialMode,csv]
+MMVII EditProfile KeyVal=[PdfOpen,evince]
+MMVII EditProfile KeyVal=[Empty,,]
+\end{verbatim}
+
+The command writes the modified profile file after applying the change.  Values are
+stored as strings in XML and converted later by the code that reads the key.
+
+The optional parameter \FileSty{DelKey} removes a key from the selected profile:
+
+\begin{verbatim}
+MMVII EditProfile DelKey=PdfOpen
+\end{verbatim}
+
+Removing a key from a user profile does not remove it from the distributed default
+profile.  At the next synchronization, keys present in
+\FileSty{MMVII-Default-Profile.xml} are restored with their default values unless
+the user profile overrides them.
+
+
+ %=================================================================================
+
+\section{Command options}
+
+\begin{center}
+\begin{tabular}{|p{0.20\linewidth}|p{0.18\linewidth}|p{0.52\linewidth}|}
+\hline
+Option & Type & Meaning \\
+\hline
+\FileSty{SetCurrent} & profile name & Name of the profile to make current \\
+\hline
+\FileSty{KeyVal} & vector of two strings & Set a profile value as \FileSty{[Key,Value]} \\
+\hline
+\FileSty{DelKey} & profile key & Delete one key from the selected profile \\
+\hline
+\end{tabular}
+\end{center}
+
+If none of these options is used, \TheCmd\ only displays the current profile
+information and does not modify any profile file.
+
+
+ %=================================================================================
+
+\section{Using a profile for one command}
+
+Every MMVII command has a global \FileSty{Profile} option.  It selects a profile
+only for the current execution:
+
+\begin{verbatim}
+MMVII SomeCommand ... Profile=Test
+\end{verbatim}
+
+This does not modify \FileSty{MMVII-Current-Profile.xml}.  It is useful for scripts
+or for testing profile-specific behavior without changing the user's default
+profile.
+
+Command-line options remain authoritative for one command execution.  For example,
+\FileSty{NbProcMax} is only applied when the command did not explicitly initialize
+the global \FileSty{NbProc} option.  When both are present, the explicit command-line
+option keeps priority.
+
+
+ %=================================================================================
+
+\section{User profile mechanism}
+
+MMVII user profiles store per-user defaults outside the project data directory.
+They are loaded by every MMVII command.  A command normally uses the current
+profile, but it can also select another profile for one execution with the global
+\FileSty{Profile} option.
+
+\subsection{Configuration directory}
+
+User profiles are stored in an operating-system-specific MMVII configuration
+directory:
+
+\begin{center}
+\begin{tabular}{|l|p{0.72\linewidth}|}
+\hline
+System & Directory \\
+\hline
+Linux & \FileSty{\$XDG\_CONFIG\_HOME/MMVII} when \FileSty{XDG\_CONFIG\_HOME} is an absolute path, otherwise \FileSty{\$HOME/.config/MMVII} \\
+\hline
+macOS & \FileSty{\$HOME/Library/Application Support/MMVII} \\
+\hline
+Windows & \FileSty{\%APPDATA\%/MMVII} \\
+\hline
+\end{tabular}
+\end{center}
+
+MMVII creates this directory when it needs to write the current profile selection
+or a user profile file.
+
+\subsection{Profile files}
+
+The profile mechanism uses three file families:
+
+\begin{table}[h]
+\centering
+\caption{Configuration files and their locations}
+\begin{tabular}{|p{0.42\linewidth}|p{0.48\linewidth}|}
+\hline
+File & Location \\
+\hline
+{\tt MMVII-Default-Profile.xml} &
+{\tt MMVII-LocalParameters/} installation directory \\
+\hline
+{\tt MMVII-Current-Profile.xml} &
+user configuration directory \\
+\hline
+{\tt MMVII-profile-\textless Name\textgreater.xml} &
+user configuration directory \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Configuration files and their roles}
+\begin{tabular}{|p{0.42\linewidth}|p{0.48\linewidth}|}
+\hline
+File & Role \\
+\hline
+{\tt MMVII-Default-Profile.xml} &
+Default key/value set distributed with MMVII \\
+\hline
+{\tt MMVII-Current-Profile.xml} &
+Stores the name of the current profile. \\
+\hline
+{\tt MMVII-profile-\textless Name\textgreater.xml} &
+Stores the user-defined values for profile {\tt \textless Name\textgreater}. \\
+\hline
+\end{tabular}
+\end{table}
+
+
+If \FileSty{MMVII-Current-Profile.xml} does not exist, MMVII uses the profile name
+\FileSty{Default}.  When a profile is loaded, MMVII first reads
+\FileSty{MMVII-Default-Profile.xml}, then overlays values from
+\FileSty{MMVII-profile-<Name>.xml} if that file already exists.  It writes the
+merged result back to the user profile file.  This keeps user profile files
+synchronized when new default keys are added by MMVII.
+
+\subsection{Standard keys}
+
+The default profile currently defines these keys:
+
+\begin{center}
+\begin{tabular}{|p{0.22\linewidth}|p{0.14\linewidth}|p{0.54\linewidth}|}
+\hline
+Key & Default & Meaning \\
+\hline
+\FileSty{NbProcMax} & \FileSty{4} & Upper limit for the number of parallel processes used by commands when \FileSty{NbProc} was not explicitly provided \\
+\hline
+\FileSty{TaggedSerialMode} & \FileSty{xml} & Default serialization mode for tagged objects \\
+\hline
+\FileSty{VectSerialMode} & \FileSty{csv} & Default serialization mode for vector-like serialized data \\
+\hline
+\FileSty{PdfOpen} & empty string & Command used by MMVII to open generated PDF files, when configured \\
+\hline
+\end{tabular}
+\end{center}
+
+If a key is absent, MMVII uses the caller-provided default value and emits a user
+warning.  The profile is initialized early enough for help and argument
+specification generation, so profile names and profile keys can be exposed as
+completion or GUI metadata through argument types tagged as
+\FileSty{eTA2007::Profile} and \FileSty{eTA2007::ProfileKey}.
+
+\end{document}
+

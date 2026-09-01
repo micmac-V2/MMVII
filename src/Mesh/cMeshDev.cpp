@@ -589,7 +589,7 @@ void  cDevTriangu3d::OneIterationCompens(bool IsLast)
 
     if (mParam.mWeightEdgeTriDist >0)
     {
-         cResidualWeighter<tREAL8>  aWeighter(mParam.mWeightEdgeTriDist);
+         cBasicWeighter<tREAL8>  aWeighter(mParam.mWeightEdgeTriDist);
          for (const auto & aKF : mVReachedFaces)
          {
              const cFaceDevT3D& aFace = mVFaces.at(aKF);
@@ -646,7 +646,7 @@ void  cDevTriangu3d::OneIterationCompens(bool IsLast)
                aFace.EcMax() = std::max(aEcNorm,aFace.EcMax());
  
                double aWeigth = mParam.mWeightTriRot * (1+ std::min(200.0,aFace.EcMax()*500));
-               cResidualWeighter<tREAL8>  aWeighter(aWeigth);
+               cBasicWeighter<tREAL8>  aWeighter(aWeigth);
                std::vector<double> aVTmp{aRot.Tr().x(),aRot.Tr().y(),aRot.Teta()};
 
                cSetIORSNL_SameTmp<tREAL8>  aSetIO(aVTmp);

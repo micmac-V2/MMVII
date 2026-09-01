@@ -43,7 +43,7 @@ template <class Type> void EnumAddData(const cAuxAr2007 & anAux,Type & anEnum,co
    {
        // modif MPD , if input enum is not init
        std::string aName =   (anAux.Ar().IsSpecif())  ?
-                               ("enum_"+ cStrIO<Type>::msNameType)                   :  // Not sure what to put in case of specification file
+                               ("enum_"+ cStrIO<Type>::msNameType())                   :  // Not sure what to put in case of specification file
                                (anAux.Input() ? std::string("") :E2Str(anEnum) ) ;
        AddData(cAuxAr2007(aTag,anAux),aName);
        if (anAux.Input())
@@ -289,6 +289,14 @@ template <class Type> void AddData(const cAuxAr2007 & anAux,std::vector<Type> & 
 /// cArray interface  AddData -> StdContAddData
 template <class Type,size_t aSz> void AddData(const cAuxAr2007 & anAux,  cArray<Type,aSz> & aL) { AddTabData(anAux, aL.data(), aSz); }
 
+/// pair interface AddData
+template <class Type1,class Type2> void AddData(const cAuxAr2007 & anAux,  std::pair<Type1,Type2> & aPair)
+{
+    AddData(cAuxAr2007("f",anAux),aPair.first);
+    AddData(cAuxAr2007("s",anAux),aPair.second);
+}
+
+
 
 /** Serialization for map (will be) used for cSetMultipleTiePoints, and more ? */
 
@@ -501,7 +509,7 @@ template<class Type> void  SpecificationSaveInFile(const std::string & aName)
 
 template<class Type> void  SpecificationSaveInFile()
 {
-     SpecificationSaveInFile<Type>("Specifications_"+cStrIO<Type>::msNameType+"."+GlobTaggedNameDefSerial());
+     SpecificationSaveInFile<Type>("Specifications_"+cStrIO<Type>::msNameType()+"."+GlobTaggedNameDefSerial());
 }
 
 

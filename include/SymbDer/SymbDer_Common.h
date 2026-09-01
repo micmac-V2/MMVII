@@ -294,11 +294,11 @@ void cCalculator<T>::PushNewEvals(const std::vector<T> &aVUK, const std::vector<
     if (aVUK.size() != NbUk())  // Check size are coherents
     {
             // std::cout << "Sizes " << aVUK.size() << " " << NbUk() << "\n";
-        UserSError("Bad size in Unknowns",Name());
+        UserSError("Bad size in Unknowns, got "+std::to_string(aVUK.size())+" should be "+std::to_string(NbUk()),Name());
     }
     if (aVObs.size() != NbObs())  // Check size are coherents
     {
-        UserSError("Bad size in Observations",Name());
+        UserSError("Bad size in Observations, got "+std::to_string(aVObs.size())+" should be "+std::to_string(NbObs()),Name());
     }
 
     this->SetNewUks(aVUK);

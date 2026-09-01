@@ -447,12 +447,12 @@ template <class TypeImage,class tBase,class TypeFile>  void TplBenchFileImage(co
 
     {   if (0)
         {
-           StdOut() << "TplBenchFileImage "
-                 << cStrIO<TypeImage>::msNameType << "  "
-                 << cStrIO<tBase>::msNameType << " "
-                 << cStrIO<TypeFile>::msNameType << " "
-                 << " N=" << aNameTiff
-                 << "\n";
+           StdOut()  << "TplBenchFileImage "
+                     << cStrIO<TypeImage>::msNameType() << "  "
+                     << cStrIO<tBase>::msNameType() << " "
+                     << cStrIO<TypeFile>::msNameType() << " "
+                     << " N=" << aNameTiff
+                     << "\n";
         }
         cIm2D<TypeFile> aIDup =  cIm2D<TypeFile>::FromFile(aNameTiff);
         auto aPtrI = ReadIm2DGen(aNameTiff);

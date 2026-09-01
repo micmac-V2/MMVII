@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<Root>
+   <Type>"MMVII_Serialization"</Type>
+   <Version>"0.0.0"</Version>
+   <Data>
+      <Pair>
+         <K>"NbProcMax"</K>
+         <V>"-1"</V>
+      </Pair>
+      <Pair>
+         <K>"TaggedSerialMode"</K>
+         <V>"xml"</V>
+      </Pair>
+      <Pair>
+         <K>"HelpColorMode"</K>
+         <V>"Dark"</V>
+      </Pair>
+      <Pair>
+         <K>"VectSerialMode"</K>
+         <V>"csv"</V>
+      </Pair>
+      <Pair>
+         <K>"PdfOpen"</K>
+         <V>""</V>
+      </Pair>
+   </Data>
+</Root>

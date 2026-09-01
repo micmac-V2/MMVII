@@ -590,6 +590,9 @@ template <class Type> class cDenseMatrix : public cUnOptDenseMatrix<Type>
 
 typedef cDenseMatrix<tREAL8> tDMatR;
 
+void ShowMatrixWithNames(tDMatR & aMat, std::vector<std::string>& aColNames, std::vector<std::string>& aRowNames);
+
+
 template <class Type> class cResulEigenDecomp
 {
       public :

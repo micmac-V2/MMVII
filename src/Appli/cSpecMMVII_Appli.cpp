@@ -262,15 +262,15 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_ConvertV1V2_GCPIM);
         TheVecAll.push_back(&TheSpec_SpecSerial);
         TheVecAll.push_back(&TheSpec_PoseCmpReport);
-        TheVecAll.push_back(&TheSpec_ClinoReport);
+        // TheVecAll.push_back(&TheSpec_ClinoReport);
         TheVecAll.push_back(&TheSpec_CGPReport);
         TheVecAll.push_back(&TheSpec_MesImReport);
         TheVecAll.push_back(&TheSpec_TiePReport);
         TheVecAll.push_back(&TheSpec_SegImReport);
-        TheVecAll.push_back(&TheSpec_BlockCamInit);  // RIGIDBLOC    RB_0_0
+        // TheVecAll.push_back(&TheSpec_BlockCamInit);  // RIGIDBLOC    RB_0_0
         TheVecAll.push_back(&TheSpec_BlocReport);
-        TheVecAll.push_back(&TheSpec_CernInitRep);
-        TheVecAll.push_back(&TheSpec_ClinoInit);
+        // TheVecAll.push_back(&TheSpec_CernInitRep);
+        // TheVecAll.push_back(&TheSpec_ClinoInit);
         TheVecAll.push_back(&TheSpecRename);
         TheVecAll.push_back(&TheSpecRenameSubFolder);
         TheVecAll.push_back(&TheSpec_V2ImportCalib);
@@ -295,7 +295,9 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_ExportUndistMesIm);
         TheVecAll.push_back(&TheSpecAppliExtractLine);
         TheVecAll.push_back(&TheSpecAppliBubbles);
-        TheVecAll.push_back(&TheSpecAppliFranges);
+        TheVecAll.push_back(&TheSpecAppliFranges_0);
+        TheVecAll.push_back(&TheSpecAppliFranges_1);
+
         TheVecAll.push_back(&TheSpec_CERN_ImportClino);
         TheVecAll.push_back(&TheSpec_MMV2_MesIm_2_MMV1);
         TheVecAll.push_back(&TheSpec_MergeMesImGCP);
@@ -355,10 +357,11 @@ void cSpecMMVII_Appli::ShowCmdArgs(void)
 {
     if (TheCmdArgs.size() == 0)
         return;
-    std::cout << "========= ARGS OF COMMAND ==========\n";
+    //  std::cerr, and not StdOut : only called by the error handler, as a part of its message
+    std::cerr << "========= ARGS OF COMMAND ==========\n";
     for (const auto& aArg: TheCmdArgs)
-        std::cout << aArg << " ";
-    std::cout << "\n";
+        std::cerr << aArg << " ";
+    std::cerr << "\n";
 }
 
 };

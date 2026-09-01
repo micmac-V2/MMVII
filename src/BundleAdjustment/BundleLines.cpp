@@ -489,19 +489,16 @@ void cUK_Line3D_4BA::AddEquation()
 /*                                                             */
 /* *********************************************************** */
 
-void cMMVII_BundleAdj::AddLineAdjust(const std::vector<std::string> & aVParam)
+void cMMVII_BundleAdj::AddLineAdjust(const std::string & aFolder, tREAL8 aSigmaIm, int aNbPtsSampl)
 {
     for (auto aCam : mVSCPC)
         aCam->InternalCalib()->SetAndGet_EqProjSeg();
 
-    tREAL8 aSigmaIm =  cStrIO<double>::FromStr(aVParam.at(1));
-    int    aNbPts   =  cStrIO<int>::FromStr(aVParam.at(2));
-
-    std::vector<cCam2_Line_2Dto3D*> aVecL =  cCam2_Line_2Dto3D::AllocV(mVSCPC,*mPhProj,aVParam.at(0));
+    std::vector<cCam2_Line_2Dto3D*> aVecL =  cCam2_Line_2Dto3D::AllocV(mVSCPC,*mPhProj,aFolder);
 
     for (const auto & aPtrL : aVecL)
     {
-       mVecLineAdjust.push_back( new cUK_Line3D_4BA(aPtrL,this,aSigmaIm,aNbPts));
+       mVecLineAdjust.push_back( new cUK_Line3D_4BA(aPtrL,this,aSigmaIm,aNbPtsSampl));
         mSetIntervUK.AddOneObj(mVecLineAdjust.back());
     }
 }

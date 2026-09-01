@@ -143,7 +143,7 @@ template <class Type> class cRotation3D
        static cRotation3D<Type> CompleteRON(const tPt & aPt,int aNumP0=0);
        /// Compute a normal repair, first vector being colinear to P1, second in the plane P1,P2
        static cRotation3D<Type> CompleteRON(const tPt & aP0, const tPt & aP1, bool SVP=false); // SVP=return Identity if impossible
-       /// Compute a rotation arround a given axe and with a given angle
+       /// Compute a rotation around a given axe and with a given angle
        static cRotation3D<Type> RotFromAxe(const tPt & anAxe,Type aTeta);
        ///  Axiator close to Rot From but teta=Norm !!  exp(Mat(^Axe))
        static cRotation3D<Type> RotFromAxiator(const tPt & anAxe);
@@ -192,8 +192,8 @@ template <class Type> class cRotation3D
         ///  Call robust avh with PseudoMediane initialization
         static tTypeMap  RobustMedAvg(const std::vector<tTypeMap> & aV,const std::vector<tREAL8> aWeight,int aNbIter,int aNbProg=-1);
 
-       //  0-> arround I, 1->arround J ...
-        static cRotation3D RotArroundKthAxe(int aNum);
+       //  0-> around I, 1->around J ...
+        static cRotation3D RotAroundKthAxe(int aNum);
        
        //// Compute a normal repair, first vector being colinear to P1, second in the plane P1,P2
       // static cRotation3D<Type> CompleteRON(const tPt & aP0,const tPt & aP1);
@@ -213,11 +213,11 @@ template <class Type> class cRotation3D
        /// extrecat Omega Phi Kapa from rotation
        tPt                       ToWPK() const;
 
-       /// Rotation arround X
+       /// Rotation around X
        static cDenseMatrix<Type> RotOmega(const tREAL8 & aOmega);
-       /// Rotation arround Y
+       /// Rotation around Y
        static cDenseMatrix<Type> RotPhi(const tREAL8 & aPhi);
-       /// Rotation arround Z
+       /// Rotation around Z
        static cDenseMatrix<Type> RotKappa(const tREAL8 & aKappa);
 
        ///  0-> Omega   1->Phi  2-> Kappa

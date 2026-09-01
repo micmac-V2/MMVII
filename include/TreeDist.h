@@ -1,3 +1,6 @@
+#ifndef  _MMVII_TreeDist_H_
+#define  _MMVII_TreeDist_H_
+
 /** \file MMVII_TreeDist.h
     \brief  classes for fast computation  of distance in tree
 
@@ -857,3 +860,4 @@ inline void StatTimeBenchFastTreeDist()
 
 
 
+#endif  //  _MMVII_TreeDist_H_

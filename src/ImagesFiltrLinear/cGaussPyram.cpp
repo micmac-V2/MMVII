@@ -74,7 +74,7 @@ template <class Type> void cGP_OneImage<Type>::SetBestEquiv(int aKMaj,tGPIm * aB
 
      //  === Image processing methods
 
-template <class Type> void cGP_OneImage<Type>::ComputGaussianFilter()
+template <class Type> void cGP_OneImage<Type>::ComputGaussianFilterOfImage()
 {
    if (mIsTopPyr)  // Case top image do not need filtering, except if specified in ConvolIm0
    {
@@ -262,10 +262,10 @@ template <class Type> void cGP_OneOctave<Type>::MakeOrigNorm(const tOct & anOct)
 }
 
 
-template <class Type> void cGP_OneOctave<Type>::ComputGaussianFilter()
+template <class Type> void cGP_OneOctave<Type>::ComputGaussianFilterOfAllImages()
 {
    for (auto & aPtrIm : mVIms)
-       aPtrIm->ComputGaussianFilter();
+       aPtrIm->ComputGaussianFilterOfImage();
 }
 
 template <class Type> void cGP_OneOctave<Type>::Show() const
@@ -629,7 +629,7 @@ template <class Type>  std::shared_ptr<cGaussianPyramid<Type>>
     tSP_Pyr aRes(new tPyr(aParam,this,eTyPyrTieP::eTPTP_Corner,mNameIm,mBoxIn,mBoxOut));
 
     ImTop().DIm().DupIn(aRes->ImTop().DIm());
-    aRes->ComputGaussianFilter();
+    aRes->ComputGaussianPyram();
     for (const auto & aSPIm : aRes->mVAllIms)
     {
         aSPIm->MakeCorner();
@@ -669,10 +669,10 @@ template <class Type> void cGaussianPyramid<Type>::Show() const
        aPtrOct->Show();
 }
 
-template <class Type> void cGaussianPyramid<Type>::ComputGaussianFilter()
+template <class Type> void cGaussianPyramid<Type>::ComputGaussianPyram()
 {
    for (const auto & aPtrOct : mVOcts)
-       aPtrOct->ComputGaussianFilter();
+       aPtrOct->ComputGaussianFilterOfAllImages();
 }
 
 template <class Type> cPt2dr cGaussianPyramid<Type>::Pyr2File(const cPt2dr & aP) const

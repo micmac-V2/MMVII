@@ -9,6 +9,7 @@
 
 namespace MMVII
 {
+#define MAINTAIN_OLD_BLOCK 0
 
 
 /** \file MMVII_Sys.h

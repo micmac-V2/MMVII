@@ -433,6 +433,8 @@ template <class Type>  class cIm2D
             Dilate => to change defautl gaussian kernel */
        cIm2D<Type>  GaussDeZoom(int aFact, int aNbIterExp=3,double Dilate=1.0) const;
 
+       /** Method that can use real factor using a bicubic-dilated kernel*/
+       cIm2D<Type>  BiCubicDeZoom(tREAL8 aFact,double Dilate=1.0,tREAL8 aParamBicub=1.0) const;
 
        /**  a more "sophisticated" version, adapted to non integer factor and using interpolator adapted to scaling */
        cIm2D<Type>  Scale(tREAL8 aFX,tREAL8 aFY=-1,tREAL8 aSzSinC=-1,tREAL8 DilateKernel=1.0,
@@ -440,6 +442,8 @@ template <class Type>  class cIm2D
                          ) const;
        /// Version allowing to fix the interpolator (called by version above)
        cIm2D<Type>  Scale(const cInterpolator1D &,tREAL8 aFX,tREAL8 aFY=-1) const;
+
+       cIm2D<Type>  EnlargeInt(int aFactor) const; // just duplicate pixels to zoom
 
 
        /** Transposition, needed it once, maybe usefull later */
@@ -449,6 +453,14 @@ template <class Type>  class cIm2D
        std::shared_ptr<tDIM> mSPtr;  ///< shared pointer to real image , allow automatic deallocation
        tDIM *                mPIm;   ///< raw pointer on mSPtr, a bit faster to store it ?
 };
+
+/** A rather specific case of optimzation the optimal affectation problem
+ *  using "Hungarian's algorithm". Given a square matrix C of cost , find the
+ *  permutation P that minimize :
+ *      Sum C(i,P(i))
+ *  If the matrix has size NxN, computation time is O(N^3).
+ */
+cIm1D<tINT4> OptAffect_HongrAlgo(cIm2D<tINT4>)  ;
 
 
 /**  Mother Class for application that parse an image in small blocs
@@ -551,7 +563,7 @@ class cRGBImage
         void ToJpgFileDeZoom(const std::string & aName,int aDeZoom, const std::vector<std::string>& aOptions={});
 
 
-        static cRGBImage FromFile(const std::string& aName,int aZoom=1);  ///< Allocate and init from file
+        static cRGBImage FromFile(const std::string& aName,int aZoom=1,eForceGray = eForceGray::No);  ///< Allocate and init from file
         static cRGBImage FromFile(const std::string& aName,const cBox2di & ,int aZoom=1);  ///< Allocate and init from file
 
         void Read(const cDataFileIm2D &,const cPt2di & aP0,double aDyn=1,const cRect2& =cRect2::TheEmptyBox);  ///< 1 to 1
@@ -647,6 +659,34 @@ class cRGBImage
         tIm1C  mImR;
         tIm1C  mImG;
         tIm1C  mImB;
+};
+
+
+class cImageVectorField
+{
+   public :
+     cImageVectorField(const std::string & aNameIm,const std::vector<tREAL8> &aVParams);
+     cRGBImage  Im() const;
+     void DrawArrow_P1P2(const cPt2dr & aP1,const cPt2dr& aP2);
+     void DrawArrow_P1Vect(const cPt2dr & aP1,const cPt2dr& aVect);
+
+     void DrawPointsRemarq(const cPt2dr&,const cPt3di & aCoul,const std::vector<tREAL8>& aVRay);
+     void DrawPointsRemarq(const cPt2dr&);
+
+     static const std::vector<tREAL8> &DefParam();
+     static tPtrArg2007  ArgOpt(cCollecSpecArg2007 & anArgOpt,std::vector<tREAL8>  & aParamFsV);
+
+     void Save(const std::string &) ;
+   private :
+     std::string   mNameIm;
+     cRGBImage     mIm;
+     tREAL8        mAmpl;
+     tREAL8        mWidth;
+     tREAL8        mRay;
+     tREAL8        mDeZoom;
+     bool          mJPeg;
+     cPt3di        mColorArrow;
+     cPt3di        mColorCircle;
 };
 
 template <class Type> void SetGrayPix(cRGBImage& aRGBIm,const cPt2di & aPix,const cDataIm2D<Type> & aGrayIm, double aMul=1.0);

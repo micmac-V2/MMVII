@@ -153,6 +153,25 @@ void cDecomposPAdikVar::Bench()
 
    /* -------------------------------------------- */
 
+int SafeConvI(tREAL8 aRR)
+{
+   MMVII_INTERNAL_ASSERT_tiny(aRR< std::numeric_limits<tU_INT4>::max() , "Overflow on iBinomialCoeff");
+   return tU_INT4(aRR);
+}
+
+tREAL8 rFactorial(int aN)
+{
+   tREAL8  aRes=1.0;
+   for (int aK=2; aK<= aN ; aK++)
+     aRes *= aK;
+  return aRes;
+}
+
+int iFactorial(int aN)
+{
+   return SafeConvI(rFactorial(aN));
+}
+
 tREAL8 rBinomialCoeff(int aK,int aN)
 {
   if ((aK<0) || (aK>aN))
@@ -173,10 +192,7 @@ tREAL8 rBinomialCoeff(int aK,int aN)
 
 tU_INT4 iBinomialCoeff(int aK,int aN)
 {
-   tREAL8 aRR = rBinomialCoeff(aK,aN);
-   MMVII_INTERNAL_ASSERT_tiny(aRR< std::numeric_limits<tU_INT4>::max() , "Overflow on iBinomialCoeff");
-
-   return tU_INT4(aRR);
+    return SafeConvI(rBinomialCoeff(aK,aN));
 }
 
 tU_INT8 liBinomialCoeff(int aK,int aN)

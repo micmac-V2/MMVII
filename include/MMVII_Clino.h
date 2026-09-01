@@ -1,6 +1,8 @@
 #ifndef  _MMVII_CLINO_H_
 #define  _MMVII_CLINO_H_
 
+#include "MMVII_Sys.h"
+
 #include "MMVII_Geom3D.h"
 #include "MMVII_PCSens.h"
 #include "MMVII_memory.h"
@@ -85,6 +87,7 @@ class cSetMeasureClino
 void AddData(const  cAuxAr2007 & anAux, cSetMeasureClino & aSet);
 
 
+#if (MAINTAIN_OLD_BLOCK)
 
 /** Relative calibration of 2 clinometers : Orient + name of reference */
 class cOneCalibRelClino
@@ -176,6 +179,7 @@ class cGetVerticalFromClino
 };
 
 
+#endif
 
 
 };

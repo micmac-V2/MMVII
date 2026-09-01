@@ -608,9 +608,9 @@ void BenchFrozenAndShare()
     if (verbose)
         std::cout<<"Freeze r: "<<rOmega.IndUk0()<<"-"<<rOmega.IndUk1()-1<<"\n";
 
-    cCalculator<double> * eqX = EqTopoDX(true,1);
-    cCalculator<double> * eqY = EqTopoDY(true,1);
-    cCalculator<double> * eqZ = EqTopoDZ(true,1);
+    cCalculator<double> * eqX = EqTopoDX(true,1,true);
+    cCalculator<double> * eqY = EqTopoDY(true,1,true);
+    cCalculator<double> * eqZ = EqTopoDZ(true,1,true);
 
     // observations: B-A = (11,11,11)
 
@@ -633,9 +633,6 @@ void BenchFrozenAndShare()
     if (verbose)
         std::cout<<"aVectSol "<<aVectSol<<std::endl;
     aSetIntervMultObj.SIUK_Reset();
-    delete eqX;
-    delete eqY;
-    delete eqZ;
 }
 
 void  BenchLinearConstr(cParamExeBench & aParam)

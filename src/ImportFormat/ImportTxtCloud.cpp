@@ -29,7 +29,7 @@ class cAppli_ImportTxtCloud : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
      private :
 
 
@@ -167,11 +167,11 @@ int cAppli_ImportTxtCloud::Exe()
     return EXIT_SUCCESS;
 }
 
-std::vector<std::string>  cAppli_ImportTxtCloud::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ImportTxtCloud::Samples() const
 {
    return
    {
-         "MMVII ImportTxtCloud 18355_51565.ply \"XYZBla\" NumL0=30 Bytes8=false OffsetIsP0=true"
+         {"MMVII ImportTxtCloud 18355_51565.ply \"XYZBla\" NumL0=30 Bytes8=false OffsetIsP0=true"}
    };
 }
 

@@ -216,11 +216,19 @@ void TreeThreads<T>::Exec(T root, int nbThread)
     mReadyQueue.clear();
     auto rootNode = std::make_shared<Node>(root,std::shared_ptr<Node>(nullptr));		// Create our root node
     rootNode->descend(this,rootNode);													//  and resurvelu build our depandancy tree
-    std::vector<std::thread> threadList;
-    for (int i = 0; i < nbThread; ++i) 													// We start nbThread and each will execute ExecLoop
-        threadList.emplace_back(std::thread(&TreeThreads::ExecLoop, this, i));
-    for (auto& t : threadList)
-        t.join();                       												// We wait that all threads are finished
+    if (nbThread <= 1)
+    {
+        // run on the calling thread instead of spawning one (a barrier of size 1 never blocks)
+        ExecLoop(0);
+    }
+    else
+    {
+        std::vector<std::thread> threadList;
+        for (int i = 0; i < nbThread; ++i) 												// We start nbThread and each will execute ExecLoop
+            threadList.emplace_back(std::thread(&TreeThreads::ExecLoop, this, i));
+        for (auto& t : threadList)
+            t.join();                       											// We wait that all threads are finished
+    }
     ResetNbActive();
 }
 

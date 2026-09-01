@@ -691,6 +691,9 @@ The user will specify an interpolator as a  vector of string, this vector can be
                          (see~\ref{SinCApodInterp});
     \item {\tt [Tabul,Nb, \dots ]} for creating a tabulated interpolator , wher  $Nb$ is the number of value per unit  
           and {\tt \dots} must describe the interpolator to be tabulated
+    \item {\tt [Scale,Factor,Nb, \dots ]} for creating a tabulated interpolator whose kernel is scaled
+          by {\tt Factor}, where $Nb$ is the number of value per unit and {\tt \dots} must describe the
+          interpolator to be scaled.
 \end{itemize}
 
 Here are some example of valid vector of strings :
@@ -703,6 +706,58 @@ Here are some example of valid vector of strings :
 
 Note that it is not recommanded (when not forbiden) to create non tabulated version of {\tt MMVIIK} and 
 {\tt SinCApod}.
+
+    %   -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+
+\subsection{Where this list comes from}
+\label{InterpUserViewRegistry}
+
+The list above is not the reference : each interpolator is declared, next to the class that
+implements it, by a specification object which gives its name, its parameters and the way to
+allocate it (see~\ref{InterpolRegistry}).  These specifications form a \emph{registry} which is
+the single source used by the parsing of the vector of strings, by the help and by the bash
+completion.  Nothing anywhere holds a second list of names.
+
+The practical consequence for the user is that the up to date list, with the type and the meaning
+of each parameter, is always available from {\tt MMVII} itself.  For any command taking an
+interpolator, {\tt MMVII <Command> Help}  prints one line per interpolator :
+
+\begin{verbatim}
+  * [Interpol] vector<string> [Interpol]: Interpolator, [Default=[Cubic,-0.5]]
+    - Interpolator, one of [Cubic,Linear,MMVII,MMVIIK,Scale,SinCApod,Tabul], followed
+      by its parameters
+    -   Cubic,A:double : Cubic kernel, parametrized by its derivative in 1
+    -   Linear : Linear interpolation, kernel of size 1
+    -   MMVII : MMVII kernel, same as MMVIIK with exponent 2
+    -   MMVIIK,Exp:double : MMVII kernel of given exponent, slow, to be tabulated
+    -   Scale,Scale:double,NbTabul:int,<interpolator> : Tabulate a scaled version of
+        the interpolator that follows
+    -   SinCApod,SzSinC:double,SzApod:double : Apodized cardinal sinus, to be tabulated
+    -   Tabul,NbTabul:int,<interpolator> : Tabulate the interpolator that follows
+\end{verbatim}
+
+Note the capital {\tt H} : those lines are additionnal comments, printed by {\tt Help} and not
+by {\tt help}.  The {\tt <interpolator>} at the end of a line marks an interpolator that wraps
+the one written after it.
+
+The bash completion uses the same registry : it proposes the names after {\tt Interpol=[} , then,
+once a name is typed, describes the parameter expected at the current position, for instance
+
+\begin{verbatim}
+    >Expect <int>: Tabul.NbTabul : Number of tabulated values by unity of the kernel (e.g. 1000)
+\end{verbatim}
+
+A malformed expression is rejected with an explicit message when the interpolator is built from
+the vector of strings, rather than silently misread.  The four cases are an unknown name, a
+missing parameter, a wrapper with nothing after it, and a surplus string :
+
+\begin{verbatim}
+Unknown interpolator [Zorglub], expecting one of [Cubic,Linear,MMVII,MMVIIK,Scale,
+                                                  SinCApod,Tabul]
+Interpolator [Cubic] expects 1 parameter(s), got only 0
+Missing interpolator name while parsing [Tabul,1000], expecting one of [Cubic,...]
+Too many strings while parsing interpolator [Cubic,-0.5,junk]
+\end{verbatim}
 
     % = = = = = = = = = = = = = = = = = = = = = = =
     % = = = = = = = = = = = = = = = = = = = = = = =
@@ -735,8 +790,11 @@ can be used for a \emph{fine} specific usage . For {\tt cInterpolator1D} :
           for each phase the value of the kernel $\KernI$  function, it's a pure virtual method
           which will be overided in concrete derivate class;
 
-    \item {\tt const std::vector<std::string> \& VNames() const ;} return a vector of string
-          describing the intepolator, not sure very usefull , maybe for generating message of error ?
+    \item {\tt const std::vector<std::string> \& VNames() const ;} return the vector of string
+          describing the interpolator.  It is exactly the expression that produced it, in the syntax
+          of~\ref{InterpUserView}, so it can always be read back by {\tt AllocFromNames} : it is the
+          textual form of the object, usable for messages, for reporting the parameters really used,
+          and for a round trip test.
 \end{itemize}
 
 For {\tt cDiffInterpolator1D} :
@@ -764,6 +822,42 @@ To create an interpolator using the vector of string as described in~\ref{Interp
 the {\tt static}  method {\tt AllocFromNames} of class {\tt cDiffInterpolator1D} can be used.
 The object returned is of type {\tt cDiffInterpolator1D *} and must be deleted to avoid
 a memory check error.
+
+    % = = = = = = = = = = = = = = = = = = = = = = =
+
+\subsection{Interpolator as an argument of a command}
+\label{InterpolArgOfCmd}
+
+A command that lets the user choose an interpolator declares an ordinary
+{\tt std::vector<std::string>} argument, and gives it the semantics returned by
+{\tt InterpolArgSem()}  ({\tt include/MMVII\_Interpolators.h}) :
+
+\begin{lstlisting}[language=C++]
+   << Arg2007(mArgInterpol,"Argument interpolator ",InterpolArgSem())
+\end{lstlisting}
+
+or, for an optional argument that must also declare a default value :
+
+\begin{lstlisting}[language=C++]
+   << AOpt2007(mInterpol,"Interpol","Interpolator",
+               Append(cSpecOneArg2007::tAllSemPL{eTA2007::HDV},InterpolArgSem()))
+\end{lstlisting}
+
+That function returns the semantic {\tt eTA2007::Interpol}, plus the description of the
+language as additionnal comments, both built from the registry.  It is what buys, for free
+and without any list local to the command, the help of~\ref{InterpUserViewRegistry} and the
+completion of the names and of their parameters.  The value read is then given to
+{\tt AllocFromNames}.
+
+The same semantic is available on a field of a structured argument declared with
+{\tt ARG2007\_STRUCT\_FIELDS} , where it is written directly :
+
+\begin{lstlisting}[language=C++]
+    std::vector<std::string> Interp = {"Tabul","1000","SinCApod","10","10"};
+    ...
+    Interp,FieldSem({eTA2007::HDV,eTA2007::Interpol,
+                     {eTA2007::AddCom,"Interpolator used to sample images"}}),
+\end{lstlisting}
 
     % = = = = = = = = = = = = = = = = = = = = = = =
 
@@ -866,13 +960,75 @@ By maintener's we mean personn that would : make bug correction or make evolve t
 
     % = = = = = = = = = = = = = = = = = = = = = = =
 
+\subsection{The registry of interpolators}
+\label{InterpolRegistry}
+
+Each interpolator is declared by one object of class {\tt cInterpolSpec}, written next to the
+class it describes, in {\tt src/UtiMaths/Interpolators.cpp} .  Such an object registers itself,
+and the set of all of them is the registry mentionned in~\ref{InterpUserViewRegistry}.  A
+specification gives four things : the name used on the command line, a comment, the description
+of the parameters, and a function allocating the object.
+
+There are two forms.  A \emph{leaf} interpolator is self sufficient :
+
+\begin{lstlisting}[language=C++]
+static cInterpolSpec TheSpec_Cubic
+(
+    cCubicInterpolator::TheNameInterpol,
+    "Cubic kernel, parametrized by its derivative in 1",
+    { {"A","double","Derivative in 1, 0 gives a kernel of size 1, else of size 2","-0.5"} },
+    [](const cInterpolParams & aP) -> cInterpolator1D *
+        {return new cCubicInterpolator(aP.Get<tREAL8>(0));}
+);
+\end{lstlisting}
+
+A \emph{wrapper} is an interpolator applying to the one written after it; its allocator simply
+takes one more argument :
+
+\begin{lstlisting}[language=C++]
+static cInterpolSpec TheSpec_Tabul
+(
+    cTabulatedDiffInterpolator::TheNameInterpol,
+    "Tabulate the interpolator that follows",
+    { {"NbTabul","int","Number of tabulated values by unity of the kernel","1000"} },
+    [](const cInterpolParams & aP,const cInterpolator1D & aSub) -> cInterpolator1D *
+        {return new cTabulatedDiffInterpolator(aSub,aP.Get<int>(0));}
+);
+\end{lstlisting}
+
+The four fields of a parameter, of type {\tt cInterpolParamSpec} , are its name, its type as
+printed by the help and the completion, a comment, and an example.  Beware that the last one is
+an \emph{example}, a value that is valid, used by the help, the completion and the bench; it is
+\textbf{not} a default value : an interpolator has no optional parameter.
+
+Two points of the mechanism are worth knowing before touching it :
+
+\begin{itemize}
+    \item the value of a parameter is kept as a string in {\tt cInterpolParams} and converted on
+          demand by {\tt Get<Type>(K)} , which is instantiated for {\tt int} and {\tt tREAL8} .
+          This is deliberate : the declared type is a piece of information for the user, and no
+          parallel type system is needed here;
+    \item a wrapper does \textbf{not} own the interpolator it is given; the parser destroys it
+          afterwards.  Conversely {\tt cInterpolSpec::Alloc} stamps the result with the very
+          expression that produced it, which is what makes {\tt VNames()} always re-readable by
+          {\tt AllocFromNames} , even for {\tt Scale} whose implementation allocates a
+          composition of several objects.
+\end{itemize}
+
+Adding an interpolator is therefore : write the class, declare its {\tt cInterpolSpec} , and
+nothing else.  The parsing, the help, the bash completion and the bench of~\ref{InterpolBench}
+follow the registry and take the new one into account with no further change.  Do not add the
+name to a list somewhere : there is no such list.
+
+    % = = = = = = = = = = = = = = = = = = = = = = =
+
 \subsection{Evolution}
 
 The following evolution can be envisaged :
 
 \begin{itemize}
-    \item \emph{add a new interpolator}, in this case it is recommanded to study the bench library describe
-	    bellow;
+    \item \emph{add a new interpolator}, see~\ref{InterpolRegistry} for the specification to
+	    declare, and study the bench library described bellow;
     \item \emph{Efficiency} the main cost of computation are probably the internal loop  that compute
 	    the  scalar produtc between a line of  image and the coeffx in x (search {\tt SCALARPRODUCT}
 		in function {\tt GetValueInterpol, GetValueAndGradInterpol}
@@ -889,10 +1045,11 @@ The following evolution can be envisaged :
     % = = = = = = = = = = = = = = = = = = = = = = =
 
 \subsection{Bench for interpolator}
+\label{InterpolBench}
 
 Several "bench" method have been written to check the correctness of interpolation. When making evolve the
 libray, they should be at least run again to check that there is no regression, and eventually completed,
-for example when adding new interpolator.
+for example when adding new interpolator.  They are run by {\tt MMVII Bench 1 PatBench=Interpol} .
 
 \begin{itemize}
      \item {\tt TplInterpol\_CmpLinearGetVBL}
@@ -900,7 +1057,14 @@ for example when adding new interpolator.
      \item {\tt TplInterpol\_FuncLowFreq}
      \item {\tt BenchIntrinsiqOneInterpol}
      \item {\tt BenchIntrinsiqMMVIIInterpol}
+     \item {\tt Bench\_InterpolRegistry}
 \end{itemize}
+
+The last one is of a different nature : it is driven by the registry itself.  For every declared
+interpolator it builds an expression from the example values of its own specification, allocates
+it, and checks that the names it publishes give back the same object.  It therefore covers an
+interpolator added later without being modified, which is the reason it does not need to be
+completed like the others.
 
 
 %% GetVBl +ValInterpol

@@ -225,9 +225,9 @@ cRGBImage cRGBImage::FromFile(const std::string& aName,const cBox2di & aBox,int 
      return aRes;
 }
 
-cRGBImage cRGBImage::FromFile(const std::string& aName,int aZoom)
+cRGBImage cRGBImage::FromFile(const std::string& aName,int aZoom,eForceGray aForceGray)
 {
-     cRect2 aRect = cDataFileIm2D::Create(aName,eForceGray::No);
+     cRect2 aRect = cDataFileIm2D::Create(aName,aForceGray);
      return FromFile(aName,aRect,aZoom);
 }
 
@@ -308,16 +308,19 @@ void cRGBImage::ToFile(const std::string & aName, const std::vector<std::string>
 
 void cRGBImage::ToFileDeZoom(const std::string & aName,int aDeZoom, const std::vector<std::string>& aOptions)
 {
+
   if (aDeZoom==1)
   {
       ToFile(aName,aOptions);
       return;
   }
+
   tIm1C  aImR = mImR.GaussDeZoom(aDeZoom);
   tIm1C  aImG = mImG.GaussDeZoom(aDeZoom);
   tIm1C  aImB = mImB.GaussDeZoom(aDeZoom);
 
   aImR.DIm().ToFile(aName,aImG.DIm(),aImB.DIm(),aOptions);
+
 }
 
 void cRGBImage::ToJpgFileDeZoom(const std::string & aName,int aDeZoom, const std::vector<std::string>& aOptions)

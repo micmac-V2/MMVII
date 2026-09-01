@@ -55,7 +55,7 @@ class cAppli_EditSet : public cMMVII_Appli
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override; ///< return spec of optional args
         cAppliBenchAnswer BenchAnswer() const override ; ///< Has it a bench, default : no
         int  ExecuteBench(cParamExeBench &) override ;
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
 
      protected :
         bool AcceptEmptySet(int aK) const override;
@@ -71,11 +71,11 @@ class cAppli_EditSet : public cMMVII_Appli
          size_t                    mNbMinTieP;
 };
 
-std::vector<std::string>  cAppli_EditSet::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_EditSet::Samples() const
 {
    return
    {
-       "MMVII EditSet  CalibBefore.xml += 'CCAM_.*' FFI0=[0010,0011]  PatFFI0=['CCAM_.*_(.*).tif','$1']"
+      cOneHelpSampleCmp("MMVII EditSet  CalibBefore.xml += 'CCAM_.*' FFI0=[0010,0011]  PatFFI0=['CCAM_.*_(.*).tif','$1']")
    };
 }
 
@@ -88,6 +88,29 @@ cAppliBenchAnswer cAppli_EditSet::BenchAnswer() const
 bool cAppli_EditSet::AcceptEmptySet(int) const
 {
     return (mOp==eOpAff::eReset); //accept empty set only if operator is =0
+}
+
+/**  Working directory of the EditSet and EditRel benches.
+
+     Both run the command on a main file and a pattern; the pattern is expanded in the
+     project directory, which is the directory of that main file. So the files being
+     related must sit next to it. They are therefore copied once, from the versioned
+     input directory to the temporary one, and the benches write only there -- the
+     MMVII installation may well be read only, as it is in a container image.
+*/
+static std::string DirBenchEditSetRel()
+{
+    static std::string aDirBench;
+    if (aDirBench.empty())
+    {
+        cMMVII_Appli & anAp = cMMVII_Appli::CurrentAppli();
+        aDirBench = anAp.TmpDirTestMMVII() + "EditSetRel" + StringDirSeparator();
+        CreateDirectories(aDirBench);
+        std::string aDirIn = anAp.InputDirTestMMVII() + "Files/" ;
+        for (const auto & aName : GetFilesFromDir(aDirIn,AllocRegex("F[0-9]*\\.txt")))
+            CopyFile(aDirIn+aName,aDirBench+aName);
+    }
+    return aDirBench;
 }
 
 static void OneBenchEditSet
@@ -109,7 +132,7 @@ static void OneBenchEditSet
 #endif
 
     cMMVII_Appli &  anAp = cMMVII_Appli::CurrentAppli();
-    std::string aDirI = anAp.InputDirTestMMVII() + "Files/" ;
+    std::string aDirI = DirBenchEditSetRel();
     std::string aDirT = anAp.TmpDirTestMMVII()  ;
 
     std::string anExt = (aRealNumOut==2) ? anAp.TaggedNameDefSerial() : "xml";
@@ -133,7 +156,7 @@ static void OneBenchEditSet
     else
     {
        // First time, file may subsist from an old crash
-       RemoveFile(aDirI+Input,true);
+       RemoveFile(aDirI+Input);
     }
 
 
@@ -182,7 +205,7 @@ static void OneBenchEditSet
     );
 
     if (InitInput)
-       RemoveFile(aDirI+Input,false);
+       RemoveFile(aDirI+Input);
    
    for (int aK=0 ; aK<10 ; aK++)
    {
@@ -584,7 +607,7 @@ void OneBenchEditRel
     )
 {
     cMMVII_Appli &  anAp = cMMVII_Appli::CurrentAppli();
-    std::string aDirI = anAp.InputDirTestMMVII() + "Files/" ;
+    std::string aDirI = DirBenchEditSetRel();
     std::string aNameFullFime = aDirI + aNameFile ;
     anAp.ExeCallMMVII
     (
@@ -610,7 +633,8 @@ void OneBenchEditRel
 int cAppli_EditRel::ExecuteBench(cParamExeBench &)
 {
    cMMVII_Appli &  anAp = cMMVII_Appli::CurrentAppli();
-   std::string aDirI = anAp.InputDirTestMMVII() + "Files/" ;
+
+   std::string aDirI = DirBenchEditSetRel();
 
    std::string  anExt = TaggedNameDefSerial();
    std::string aNameRT = "RelTest." + anExt;

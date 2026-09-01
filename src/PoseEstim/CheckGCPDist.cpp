@@ -48,12 +48,12 @@ class cGeomCERNPannel
              bool IsAlmostZ(tREAL8 aZ,tREAL8 aRef) {return std::abs(aZ-aRef) < mDH;}
 };
 
-template <>  const std::string cStrIO<cGeomCERNPannel>::msNameType = "GeomCERNPannel";
+template <>  std::string cStrIO<cGeomCERNPannel>::msNameType() { return "GeomCERNPannel"; }
 
 
 void cGeomCERNPannel::AddData(const cAuxAr2007 & anAux0)
 {
-    cAuxAr2007 anAux(cStrIO<cGeomCERNPannel>::msNameType,anAux0);
+    cAuxAr2007 anAux(cStrIO<cGeomCERNPannel>::msNameType(),anAux0);
 
     MMVII::AddData(cAuxAr2007("H0",anAux),mH0);
     MMVII::AddData(cAuxAr2007("H1",anAux),mH1);
@@ -131,7 +131,6 @@ class cAppli_CheckGCPDist : public cMMVII_Appli
         int                      mNbMinResec;   ///<  minimal number of point for space resection
         tREAL8                   mMinLineResec;  ///< minimal value for non linearity
         std::string              mPrefSave;
-        std::vector<double>      mVSpecCernPanel;
         cPerspCamIntrCalib *     mCalib;
         tREAL8                   mThresholdHomog; ///< Thresholds for homograhic fitting on Z0 && Z1
         std::string              mCurNameIm;
@@ -183,14 +182,12 @@ cCollecSpecArg2007 & cAppli_CheckGCPDist::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
     return    anArgOpt
               << AOpt2007(mNameGCP,"CERNFilter","File for Geometric of CERN-like pannel, for special filtering",
-                              {{eTA2007::XmlOfTopTag,cStrIO<cGeomCERNPannel>::msNameType}})
+                       {{eTA2007::XmlOfTopTag,cStrIO<cGeomCERNPannel>::msNameType()}})
               << AOpt2007(mNbMin11P,"NbMin11P","Number minimal of point for 11 Param",{eTA2007::HDV})
               << AOpt2007(mMinPlan11,"MinPlane11P","Minim planarity index of 11 Param",{eTA2007::HDV})
               << AOpt2007(mNbMinResec,"NbMinResec","Number minimal of point for space resection",{eTA2007::HDV})
               << AOpt2007(mMinLineResec,"MinLineResec","Mimimal linearity index of space resection",{eTA2007::HDV})
               << AOpt2007(mPrefSave,"PrefSave","Prefix for saved files",{eTA2007::HDV})
-              << AOpt2007(mVSpecCernPanel,"SpecCernPan","[H0 H1 Delta Nb Tile Dx Dy] : spec CERN for 11P",
-                          {{eTA2007::ISizeV,"[8,8]"}})
               << AOpt2007(mGenSpecCERN,"GenarateSpecfifCERNPannel","for editing to a usable value",{eTA2007::HDV})
               << mPhProj.DPGndPt2D().ArgDirOutOpt("DirFiltered","Directory for filtered point")
               << mPhProj.DPOrient().ArgDirInOpt("Calib","Internal calibration folder is any")

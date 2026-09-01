@@ -27,7 +27,7 @@ class cAppli_ChSysCoOri : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
      private :
 
         cPhotogrammetricProject  mPhProj;
@@ -100,9 +100,12 @@ int cAppli_ChSysCoOri::Exe()
 }
 
 
-std::vector<std::string>  cAppli_ChSysCoOri::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ChSysCoOri::Samples() const
 {
-   return {"MMVII OriChSysCo ImAerien.xml RTL  InitL93Up RTLD0"};
+   return
+   {
+       {"MMVII OriChSysCo ImAerien.xml RTL  InitL93Up RTLD0"}
+   };
 }
 
 

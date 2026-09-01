@@ -807,17 +807,26 @@ void cAppli_OriRelTripletsOfIm::DoAllTriplet()
 
     // =========== Parse these images to generate a list of command ============
     std::list<cParamCallSys> aListCom;
-    for (const auto& aName : aVecStr)
+
+    for (size_t aKName=0 ; aKName<aVecStr.size() ; aKName++ )
     {
+        const std::string & aName  = aVecStr.at(aKName);
         cParamCallSys aParam(cMMVII_Appli::FullBin(),TheSpec_OriRelTripletsOf1m.Name(),aName);
 
         for (size_t aKP=2 ; aKP<mArgv.size() ; aKP++)
         {
              aParam.AddArgs(mArgv[aKP]);
         }
+        aParam.AddArgs(GIP_LevCall + "=" + ToStr(mLevelCall+1));
+        aParam.AddArgs(GIP_KthCall + "=" +  ToStr(aKName));
+
+
         aListCom.push_back(aParam);
         //StdOut() << aParam.Com() << "\n";
     }
+
+ //   StdOut() << "LLLEVVL=" << mLevelCall << "\n"; getchar();
+
     ExeComParal(aListCom);
     //  Merge the virtual point in a multiple tie poinst
     if (mGenVirtTP)
@@ -1031,6 +1040,10 @@ int cAppli_OriRelTripletsOfIm::Exe()
     mPhProj.FinishInit();
     mTimeSegm    = mShow ? (new cTimerSegm(this)) : nullptr ;
     mGenVirtTP = mPhProj.DPMulTieP().DirOutIsInit();
+
+    // So that is is logged in MMVII-LogCmdModif.txt
+    if (mModeCompute!=0)
+       mPhProj.DPOriRel().SetDirOutInIfNotInit();
 
     if (mModeCompute==0)
     {

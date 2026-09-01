@@ -255,6 +255,8 @@ void BenchDeformIm(cParamExeBench & aParam)
 {
     if (! aParam.NewBench("DeformIm")) return;
 
+   // StdOut() << "BenchDeformImBenchDeformIm\n";
+
     for (int aK=0 ; aK<4 ; aK++)
     {
         cDiffInterpolator1D * anInterpol = nullptr;  // If K==0 -> no interpol, bi-linear mode

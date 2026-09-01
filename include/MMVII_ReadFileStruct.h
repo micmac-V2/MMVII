@@ -162,7 +162,7 @@ class  cNewReadFilesStruct
                                     )
          {
                  if (mDebug)
-                     StdOut() <<  "   " << aNameField << " = [" << aNameValue  << "] T=("<<  cStrIO<Type>::msNameType << ")\n";
+                     StdOut() <<  "   " << aNameField << " = [" << aNameValue  << "] T=("<<  cStrIO<Type>::msNameType() << ")\n";
                  aMap[aNameField].push_back(cStrIO<Type>::FromStr(aNameValue));
 
          }

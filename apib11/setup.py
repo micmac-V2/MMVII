@@ -155,7 +155,6 @@ setup(
                   (module_name+"/MMVII/bin", ["../bin/MMVII"]),
                   (module_name+"/include/XML_MicMac", xml_micmac_files),
                   (module_name+"/MMVII/MMVII-LocalParameters", xml_mmvii_localparamters),
-                  (module_name+"/MMVII/MMVII-LocalParameters/Default", ["../MMVII-LocalParameters/Default/MMVII-UserOfProfile.xml"]),
                   (module_name+"/include/XML_GEN", xml_gen_files)
                  ],
     #extras_require={"test": ["pytest>=6.0"]},

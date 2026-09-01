@@ -62,11 +62,12 @@ void MThreadForcConcurenceLock()
 /*                                                           */
 /* ********************************************************* */
 
-cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols,int aTDepth,int aNbIterEnd):
+cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols,int aTDepth,int aNbIterEnd,
+                                   tREAL8 aSigLooseningMult, tREAL8 aThrLooseningMult):
     mPMAT      (aPMAT),
     mNbIter    (aNbIterEnd),
-    mSigARange  ({2*aPMAT->Cfg().mSigmaAtt,aPMAT->Cfg().mSigmaAtt}), // {max,min} <=> {initial,final}
-    mThrRange   ({2*aPMAT->Cfg().mThrs,aPMAT->Cfg().mThrs}),            // {max,min} <=> {initial,final}
+    mSigARange  ({2*aSigLooseningMult*aPMAT->Cfg().mSigmaAtt, Sqrt(aSigLooseningMult)*aPMAT->Cfg().mSigmaAtt}), //{max,min} <=> {initial,final}
+    mThrRange   ({2*aThrLooseningMult*aPMAT->Cfg().mThrs,     aThrLooseningMult*aPMAT->Cfg().mThrs}),   //{max,min} <=> {initial,final}
     mSys      (nullptr),
     mTPts     (nullptr),
     mTreeDepth(aTDepth)
@@ -152,7 +153,7 @@ void cBA_ArboTriplets::OneIteration(int aIter)
     tREAL8 aSigA = CurrentVal(aIter,mNbIter,mSigARange.at(0) - mSigARange.at(1),mSigARange.at(1));
     tREAL8 aThr = CurrentVal(aIter,mNbIter,mThrRange.at(0) - mThrRange.at(1),mThrRange.at(1));
     cStdWeighterResidual aTPtsW(1.0, aSigA, aThr, 2.0);
-
+  //  StdOut() << "SIIGGGG THRRR " << aSigA << " " << aThr << std::endl;
     // add observation equations for all tie-points
     tREAL8 aMaxRes=0;
     int aNumAllTiePts=0;
