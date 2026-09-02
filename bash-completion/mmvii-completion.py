@@ -461,6 +461,7 @@ def printFiles(word,extensions=None,only_dirs=False) -> None:
     except (FileNotFoundError,PermissionError):
         pass
     matches=[w for w in sorted(files)+sorted(dirs) if w.startswith(word)]
+    option = '-o filenames'
     if len(matches) == 0:
         if printFinishedValue(word,True):
             return
@@ -468,8 +469,9 @@ def printFiles(word,extensions=None,only_dirs=False) -> None:
         printCompletionOptions()
         return
     else:
-        printCompletedValue(word,matches)
-    printCompletionOptions('-o filenames')
+        if printCompletedValue(word,matches):
+            option += " -o nospace"    # an ambiguous value is never finished
+    printCompletionOptions(option)
 
 
 def printDirs(word,path) -> None:
@@ -489,6 +491,7 @@ def printDirs(word,path) -> None:
         pass
 
     matches=[w for w in sorted(dirs) if w.startswith(word)]
+    option = '-o filenames'
     if len(matches) == 0:
         if printFinishedValue(word,True):
             return
@@ -496,8 +499,9 @@ def printDirs(word,path) -> None:
         printCompletionOptions()
         return
     else:
-        printCompletedValue(word,matches)
-    printCompletionOptions('-o filenames')
+        if printCompletedValue(word,matches):
+            option += " -o nospace"    # an ambiguous value is never finished
+    printCompletionOptions(option)
 
 
 
