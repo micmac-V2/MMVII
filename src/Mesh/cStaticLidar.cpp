@@ -317,13 +317,6 @@ bool cStaticLidarImporter::read(const std::string & aName, bool OkNone,
     if (aForceStructured)
         mIsStrucured = true;
 
-    if (!mHasIntensity)
-    {
-        // fake intensity
-        mVectPtsIntens.resize(std::max(mVectPtsXYZ.size(),mVectPtsTPD.size()), 0.5);
-        mHasIntensity = true;
-    }
-
     StdOut() << "Read data: ";
     if (HasCartesian())
         StdOut() << mVectPtsXYZ.size() << " cartesian points";
@@ -678,8 +671,7 @@ void cStaticLidarImporter::MakeIdImage(const std::string & aNameFile) const
             cPt2di aPcl(mVectPtsCol[i],mVectPtsLine[i]);
 
             float aValDist = 127 * (1+cos(2*M_PI*10*(mVectPtsTPD[i].z()-aDistMin)/(aDistMax-aDistMin)));
-            float aVal = (aIntensMin==aIntensMax) ? aValDist :
-                        (mVectPtsIntens[i]-aIntensMin)/(aIntensMax-aIntensMin) * aValDist ;
+            float aVal = HasIntensity() ? (mVectPtsIntens[i]-aIntensMin)/(aIntensMax-aIntensMin) :  aValDist;
             if (aVal<0)
                 aVal =0;
             if (aVal>255)
@@ -821,7 +813,8 @@ bool cStaticLidar::ReadRasters(const std::string & aDataDir)
         return true;
     StdOut() << "Read rasters " << NameImage() <<"..."<<std::endl;
     mRasterDistance = std::make_unique<cIm2D<tREAL4>>(cIm2D<tREAL4>::FromFile(aDataDir+"/"+mRasterDistancePath));
-    mRasterIntensity = std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(aDataDir+"/"+mRasterIntensityPath));
+    if (mRasterIntensityPath.size()>0)
+        mRasterIntensity = std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(aDataDir+"/"+mRasterIntensityPath));
     mRasterMask = std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(aDataDir+"/"+mRasterMaskPath));
     mRasterX = std::make_unique<cIm2D<tREAL4>>(cIm2D<tREAL4>::FromFile(aDataDir+"/"+mRasterXPath));
     mRasterY = std::make_unique<cIm2D<tREAL4>>(cIm2D<tREAL4>::FromFile(aDataDir+"/"+mRasterYPath));
@@ -1315,7 +1308,7 @@ void cStaticLidar::ToPly(const std::string & aName,bool useMask) const
     aSelectionXYZI.reserve(SzPix().x()*SzPix().y());
     MMVII_INTERNAL_ASSERT_tiny(mRasterMask, "Error: mRasterMask must be computed first");
     auto & aMaskImData = mRasterMask->DIm();
-    auto & aRasterIntensityData = mRasterIntensity->DIm();
+    cDataIm2D<tU_INT1> * aRasterIntensityData = mRasterIntensity ? &mRasterIntensity->DIm() : nullptr;
     auto & aRasterXData = mRasterX->DIm();
     auto & aRasterYData = mRasterY->DIm();
     auto & aRasterZData = mRasterZ->DIm();
@@ -1326,7 +1319,8 @@ void cStaticLidar::ToPly(const std::string & aName,bool useMask) const
             cPt2di aPt(c, l);
             if (aMaskImData.GetV(aPt))
                 aSelectionXYZI.push_back(cPt4dr(aRasterXData.GetV(aPt),aRasterYData.GetV(aPt),
-                                                aRasterZData.GetV(aPt),aRasterIntensityData.GetV(aPt)));
+                                                aRasterZData.GetV(aPt),
+                                                aRasterIntensityData?aRasterIntensityData->GetV(aPt):255));
         }
     }
 
@@ -1387,8 +1381,11 @@ void cStaticLidar::FillRasters(const cStaticLidarImporter & aSL_importer)
                             auto aPtAng = aSL_importer.mVectPtsTPD[i];
                             return (aPtAng.z()<aSL_importer.DistMinToExist())?0:255;
                         }, mRasterMask);
-    fillRaster<tU_INT1>(aSL_importer,
-                        [&aSL_importer](int i){return aSL_importer.mVectPtsIntens[i]*255;}, mRasterIntensity);
+
+    if (aSL_importer.HasIntensity())
+        fillRaster<tU_INT1>(aSL_importer,
+                            [&aSL_importer](int i){return aSL_importer.mVectPtsIntens[i]*255;}, mRasterIntensity);
+
     fillRaster<tREAL4>(aSL_importer,
                       [&aSL_importer](int i){auto aPtAng = aSL_importer.mVectPtsTPD[i];return aPtAng.z();},
                        mRasterDistance);
@@ -1423,7 +1420,10 @@ void cStaticLidar::FillRasters(const cStaticLidarImporter & aSL_importer)
 void cStaticLidar::SaveRasters(const cStaticLidarImporter & aSL_importer, const std::string &aPhProjDirOut)
 {
     mRasterDistancePath = NameImage() + "_distance.tif";
-    mRasterIntensityPath = RasterIntensityPath(NameImage());
+    if (aSL_importer.HasIntensity())
+        mRasterIntensityPath = RasterIntensityPath(NameImage());
+    else
+        mRasterIntensityPath = "";
     mRasterMaskPath = NameImage() + "_mask.tif";
     mRasterXPath = NameImage() + "_X.tif";
     mRasterYPath = NameImage() + "_Y.tif";
@@ -1827,7 +1827,9 @@ void cStaticLidar::MakeVisu(const cPhotogrammetricProject & aPhProj) const
         if (aRasterDistData.GetV(aPt)>aDistMax)
             aDistMax=aRasterDistData.GetV(aPt);
     }
-    cRGBImage  aImDist8b = RGBImFromGray(aRasterDistData, 255./aDistMax,1);
+    cRGBImage  aImDist8b = mRasterIntensity?
+        RGBImFromGray(mRasterIntensity->DIm(), 1., 1) :
+        RGBImFromGray(aRasterDistData, 255./aDistMax,1);
     for (auto & aCenter : mPatchCenters)
     {
         //aImDist8b.SetRGBPoint(ToR(aCenter)-cPt2dr(0.,0.), cRGBImage::Red);
@@ -1976,6 +1978,12 @@ cIm2D<tU_INT1> cStaticLidar::projectIntensityFrom(const cStaticLidar& aFrom) con
 {
     StdOut() << "Reproject " << aFrom.NameImage() << " on " << NameImage() << "\n";
     cIm2D<tU_INT1> aProj(Sz(),nullptr,eModeInitImage::eMIA_Null);
+    if (!mRasterIntensity)
+    {
+        MMVII_UserError(eTyUEr::eUnClassedError, std::string("Error, no intensity for scan \"") + NameImage() + "\": ");
+        return aProj;
+    }
+
     auto & aProjDIm = aProj.DIm();
     auto & aFromDIm = aFrom.mRasterIntensity->DIm();
     for (const auto & aP : aProjDIm)

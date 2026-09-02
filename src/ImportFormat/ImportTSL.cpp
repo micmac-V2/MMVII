@@ -647,12 +647,15 @@ int cAppli_ImportTSL::Exe()
     fixLineColRasterDirections();
 
     // export intensity image before decimation
-    std::unique_ptr<cIm2D<tU_INT1>> aRasterIntensityFull;
-    std::string aRasterIntensityPath = cStaticLidar::RasterIntensityPath(mStationName + "-" + mScanName + cStaticLidar::GetIdSuffix());
-    cStaticLidar::fillRaster<tU_INT1>(mSL_importer,
-                                      [this](int i){return this->mSL_importer.mVectPtsIntens[i]*255;},
-                                      aRasterIntensityFull );
-    aRasterIntensityFull->DIm().ToFile(mPhProj.DirStaticLidarRasters()+aRasterIntensityPath);
+    if (mSL_importer.HasIntensity())
+    {
+        std::unique_ptr<cIm2D<tU_INT1>> aRasterIntensityFull;
+        std::string aRasterIntensityPath = cStaticLidar::RasterIntensityPath(mStationName + "-" + mScanName + cStaticLidar::GetIdSuffix());
+        cStaticLidar::fillRaster<tU_INT1>(mSL_importer,
+                                          [this](int i){return this->mSL_importer.mVectPtsIntens[i]*255;},
+                                          aRasterIntensityFull );
+        aRasterIntensityFull->DIm().ToFile(mPhProj.DirStaticLidarRasters()+aRasterIntensityPath);
+    }
 
     mSL_importer.decimXY(mDecimXY);
     mThetaStepApprox *= mDecimXY.x();
