@@ -5,6 +5,10 @@
 
 namespace MMVII
 {
+
+#define MMVII_EXPORT_MMV1 1
+
+
 class cAimeDescriptor;
 class cAimePCar;
 class cSetAimePCAR;
@@ -64,11 +68,14 @@ template <class Type> class cProtoAimeTieP : public cMemCheck
     private :
 };
 
+
+#if (MMVII_EXPORT_MMV1)
 /// Interface class for export Proto Aime
 
 /**  As I want to maintain the principle that only a very minimum
    of code of MMV2 communicate with MMV1, this interface class was created
 */
+
 
 template <class Type> class cInterf_ExportAimeTiep : public cMemCheck
 {
@@ -81,6 +88,8 @@ template <class Type> class cInterf_ExportAimeTiep : public cMemCheck
      protected :
 
 };
+#endif
+
 
 /**  Class to store Aime descriptor, independantly of it caracterization
 */

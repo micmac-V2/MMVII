@@ -151,7 +151,7 @@ template<> void  MMv1_SaveInFile(const tNameSet & aSet,const std::string & aName
 
 /********************************************************/
 
-
+#if (MMVII_EXPORT_MMV1)
 
    // This 3 thresholds are used for size of neighbooring window for selecting points
    // they take into account the local scale (scale in the octave)
@@ -610,6 +610,7 @@ template <class Type> void cImplem_ExportAimeTiep<Type>::FiltrageSpatialPts()
 
 template class cImplem_ExportAimeTiep<tREAL4>;
 template class cImplem_ExportAimeTiep<tINT2>;
+#endif // MMVII_EXPORT_MMV1
 #else // MMVII_KEEP_LIBRARY_MMV1
 template <class Type> cInterf_ExportAimeTiep<Type>::~cInterf_ExportAimeTiep()
 {
@@ -645,8 +646,10 @@ tNameRel  MMV1InitRel(const std::string & aName)
 
 // ============  INSTANTIATION ======================
 
+#if (MMVII_EXPORT_MMV1)
 template class cInterf_ExportAimeTiep<tREAL4>;
 template class cInterf_ExportAimeTiep<tINT2>;
+#endif
 
 };
 
