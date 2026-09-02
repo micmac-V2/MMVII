@@ -47,9 +47,7 @@ private :
     tREAL8 mZMargin = 0.10;
     tREAL8 mTiePMinNbRatio = 0.04;
     int mTiePMinNbFloor = 25;
-    tREAL8 mMaxV1V2ResidIndep = 1.0;
-    tREAL8 mMaxW1ResidIndep = 1.0;
-    tREAL8 mMaxW2ResidIndep = 1.0;
+    tREAL8 mMaxResid = 0.1;
     std::string mOutDir;
     std::string mOutNamePat = "Epip_%1_%2.tif";
     std::vector<std::string> mInterpol = {"Cubic","-0.5"};
@@ -179,20 +177,20 @@ int cAppli_EpipResampling::Exe()
     StdOut() << "V1,V2 errors sigma (indep, px) : " << Color::info << aV1V2ResidIndep << Color::end << std::endl;
     StdOut() << "W1 errors sigma (indep, px) : " << Color::info << aW1ResidIndep << Color::end << std::endl;
     StdOut() << "W2 errors sigma (indep, px) : " << Color::info << aW2ResidIndep << Color::end << std::endl;
-    if (aV1V2ResidIndep > mMaxV1V2ResidIndep)
+    if (aV1V2ResidIndep > mMaxResid)
     {
         MMVII_UserError(eTyUEr::eUnClassedError,
-            "Independent V1/V2 residual too high (" + ToStr(aV1V2ResidIndep) + " > " + ToStr(mMaxV1V2ResidIndep) + ")");
+            "Independent V1/V2 residual too high (" + ToStr(aV1V2ResidIndep) + " > " + ToStr(mMaxResid) + ")");
     }
-    if (aW1ResidIndep > mMaxW1ResidIndep)
+    if (aW1ResidIndep > mMaxResid)
     {
         MMVII_UserError(eTyUEr::eUnClassedError,
-            "Independent W1 residual too high (" + ToStr(aW1ResidIndep) + " > " + ToStr(mMaxW1ResidIndep) + ")");
+            "Independent W1 residual too high (" + ToStr(aW1ResidIndep) + " > " + ToStr(mMaxResid) + ")");
     }
-    if (aW2ResidIndep > mMaxW2ResidIndep)
+    if (aW2ResidIndep > mMaxResid)
     {
         MMVII_UserError(eTyUEr::eUnClassedError,
-            "Independent W2 residual too high (" + ToStr(aW2ResidIndep) + " > " + ToStr(mMaxW2ResidIndep) + ")");
+            "Independent W2 residual too high (" + ToStr(aW2ResidIndep) + " > " + ToStr(mMaxResid) + ")");
     }
 
 
@@ -241,9 +239,7 @@ cCollecSpecArg2007 & cAppli_EpipResampling::ArgOpt(cCollecSpecArg2007 & anArgOpt
            << AOpt2007(mZMargin,"ZMargin","Relative margin added around the raw [Zmin,Zmax] envelope inferred from TieP",{eTA2007::HDV})
            << AOpt2007(mTiePMinNbRatio,"TiePMinNbRatio","Min kept tie points = max(TiePMinNbFloor,ratio*sqrt(W*H))",{eTA2007::HDV})
            << AOpt2007(mTiePMinNbFloor,"TiePMinNbFloor","Absolute floor for the min kept tie point count",{eTA2007::HDV})
-           << AOpt2007(mMaxV1V2ResidIndep,"MaxV1V2ResidIndep","Max independent (held-out) V1/V2 residual (px), error above",{eTA2007::HDV})
-           << AOpt2007(mMaxW1ResidIndep,"MaxW1ResidIndep","Max independent (held-out) W1 residual (px), error above",{eTA2007::HDV})
-           << AOpt2007(mMaxW2ResidIndep,"MaxW2ResidIndep","Max independent (held-out) W2 residual (px), error above",{eTA2007::HDV})
+           << AOpt2007(mMaxResid,"MaxResid","Max independent (held-out) V1/V2, W1 and W2 residual (px), error above",{eTA2007::HDV})
            << AOpt2007(mFrame,"FrameAlgo","Output image height algo",{eTA2007::HDV})
            << AOpt2007(mOutDir,"OutDir","Output directory (Default: VISU/" + Specs().Name()+")")
            << AOpt2007(mOutNamePat,"OutName","Output name pattern", {eTA2007::HDV})
