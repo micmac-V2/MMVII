@@ -1822,15 +1822,17 @@ void cStaticLidar::MakeVisu(const cPhotogrammetricProject & aPhProj) const
     MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
     auto & aRasterDistData = mRasterDistance->DIm();
     double aDistMax = 0.;
-    int aPtSize = 1 + mRasterDistance->DIm().SzX()/1000;
+    int aPtSize = 1 + mRasterDistance->DIm().SzX()/2000;
+
     for (auto & aPt :  aRasterDistData)
     {
         if (aRasterDistData.GetV(aPt)>aDistMax)
             aDistMax=aRasterDistData.GetV(aPt);
     }
-    cRGBImage  aImDist8b = mRasterIntensity?
-        RGBImFromGray(mRasterIntensity->DIm(), 1., 1) :
-        RGBImFromGray(aRasterDistData, 255./aDistMax,1);
+    cRGBImage  aImDist8b =
+            (mRasterIntensity&&(mRasterIntensity->DIm().Sz()==mRasterDistance->DIm().Sz()))?
+                RGBImFromGray(mRasterIntensity->DIm(), 1., 1.) :
+                RGBImFromGray(aRasterDistData, 255./aDistMax,1);
     for (auto & aCenter : mPatchCenters)
     {
         //aImDist8b.SetRGBPoint(ToR(aCenter)-cPt2dr(0.,0.), cRGBImage::Red);

@@ -33,7 +33,7 @@ protected:
 class cQuadTree
 {
 public:
-    cQuadTree(cDataIm2D<tREAL4> * aDepthIm, int aMinCellSz=4);
+    cQuadTree(cDataIm2D<tREAL4> * aDepthIm, int aMinCellSz=8);
     void Split(int aTargetNbCell);
     int GetCurNbCell() const;
     const std::vector<const cQuadTreeCell*> GetVLeafs() const;

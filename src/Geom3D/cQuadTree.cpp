@@ -73,7 +73,7 @@ int cQuadTreeCell::Divide4(int aMinCellSz)
         if ((aLRPoint.x()-aULPoint.x()<aMinCellSz) || (aLRPoint.y()-aULPoint.y()<aMinCellSz))
         {
             //std::cout<<" too small\n";
-            return 0; // do not split too small
+            return 1; // do not split too small
         }
         auto aCCPoint = (aULPoint+aLRPoint)/2;
         auto aUCPoint = cPt2di(aCCPoint.x(), mArea.P0().y());
@@ -88,7 +88,7 @@ int cQuadTreeCell::Divide4(int aMinCellSz)
         return mSubs.size();
     } else {
         // do nothing
-        return 0;
+        return 1;
     }
 }
 
@@ -154,7 +154,13 @@ int cQuadTree::RecursiveDiv(cQuadTreeCell *aCell, float aLimit)
             aCell->mValMin = mDepthIm->MinValNotNull(aCell->mArea);
             aCell->mValsComputed = true;
         }
-        float aVal = (sqrt(sqrt(aCell->mValMax)) * (1+(aCell->mValMax-aCell->mValMin)/(aCell->mValMax+.01))) / Square(Square(aCell->mLevel));
+        float aVal =   log(sqrt(aCell->mValMax) * (1+(aCell->mValMax-aCell->mValMin)/(aCell->mValMax+.1))) / (Square((aCell->mLevel)));
+        //float aVal =   sqrt(sqrt(aCell->mValMax) * (1+(aCell->mValMax-aCell->mValMin)/(aCell->mValMax+.1))) / (Square((aCell->mLevel)));
+        //float aVal =   sqrt(aCell->mValMax * (1+(aCell->mValMax-aCell->mValMin)/(aCell->mValMax+.1))) / Square(Square((aCell->mLevel)));
+
+
+        //float aVal = log(aCell->mValMax) * sqrt(1+(aCell->mValMax-aCell->mValMin)/(aCell->mValMax+.1)) / ((aCell->mLevel));
+        //float aVal = sqrt(aCell->mValMax * sqrt(1+sqrt((aCell->mValMax-aCell->mValMin)/(aCell->mValMax+1.)))) / Square(aCell->mLevel);
         //std::cout<<"  aVal="<<aVal<<" aLimit="<<aLimit<<"\n";
         if (aVal > aLimit)
             aNbCreated += aCell->Divide4(mMinCellSz) - 1; // lost 1 leaf, made n new leaves
