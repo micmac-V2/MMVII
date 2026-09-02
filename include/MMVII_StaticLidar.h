@@ -73,7 +73,7 @@ public:
     std::vector<int> mVectPtsCol;
     // points
     std::vector<cPt3dr> mVectPtsXYZ;
-    std::vector<tREAL8> mVectPtsIntens; // 0-1
+    std::vector<tREAL8> mVectPtsIntens; // 0-1, may be empty if no intensity
     std::vector<cPt3dr> mVectPtsTPD;
 
     // agregated angles per col/line
