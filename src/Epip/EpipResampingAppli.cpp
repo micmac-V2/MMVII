@@ -40,7 +40,6 @@ private :
     std::string  mNameIm2;
     int mDegree = 5;
     int mDegreeInv = mDegree + 4;
-    int mNbByXY = 100;
     int mNbByZ = 5;
     int mMargin = 2;
     cPt2dr mZIntv;
@@ -69,7 +68,6 @@ cAppli_EpipResampling::cAppli_EpipResampling (
 
 
 // TODOCM: Serialisation classes EpipMap EpipModel ?
-// TODOCM: X Steps /= Y Steps. Steps or pixels  => degre liberté * 10 , bonne répartition, Nb min en X et Y.
 // TODOCM: Gestion grosses images : daller ... Cache pour bout d'images ?
 // TODOCM: Enlever margin ? Mieux le définir ?
 // TODOCM: Test d'epipolarisabilite ...
@@ -143,12 +141,12 @@ int cAppli_EpipResampling::Exe()
     StdOut() << " " << aDIm2.Sz() << " "  << ToStr(aDIm2.Type()) << " " << aDIm2.NbChannel() << " chan" << std::endl;
 
     StdOut() << "Degree: " << mDegree << ", DegreeInv: " << mDegreeInv << std::endl;
-    StdOut() << "NbByXY: " << mNbByXY << ", NbByZ: " << mNbByZ << std::endl;
+    StdOut() << "NbByZ: " << mNbByZ << std::endl;
     StdOut() << "Frame: " << ToStr(mFrame) << ", Margin: " << mMargin << std::endl;
     StdOut() << "Interpolator: " << aInterp->VNames() << ", Kernel Size: " << aInterp->SzKernel() << std::endl;
 
     StdOut() << Color::sub_title << "*** Rectification" << Color::end << std::endl;
-    auto aParams = cEpipolarRectification::cParams{mDegree,mDegreeInv,mNbByXY,mNbByZ,mFrame,mMargin};
+    auto aParams = cEpipolarRectification::cParams{mDegree,mDegreeInv,mNbByZ,mFrame,mMargin};
     aParams.mZIntv = aZIntvArg;
     aParams.mTiePMaxRes = mTiePMaxRes;
     aParams.mZMargin = mZMargin;
@@ -167,6 +165,12 @@ int cAppli_EpipResampling::Exe()
 
     StdOut() << "Nb Pairs 1->2 : " << aRectifier.NbPairs12() << std::endl;
     StdOut() << "Nb Pairs 2->1 : " << aRectifier.NbPairs21() << std::endl;
+
+    for (const auto& [aName,aMap] : {std::make_pair("Image_1",&aEpipModel.EpipMap1()), std::make_pair("Image_2",&aEpipModel.EpipMap2())})
+    {
+        StdOut() << "Grid " << aName << " : step=" << aMap->GridStep() << "px, "
+                 << aMap->NbStepX() << "*" << aMap->NbStepY() << "=" << (aMap->NbStepX()*aMap->NbStepY()) << " cells" << std::endl;
+    }
 
     // Independent (held-out) residual check, complementing the train-biased variance above.
     const tREAL8 aV1V2ResidIndep = std::sqrt(aRectifier.V1V2VarIndep());
@@ -229,7 +233,6 @@ cCollecSpecArg2007 & cAppli_EpipResampling::ArgOpt(cCollecSpecArg2007 & anArgOpt
     return anArgOpt
            << AOpt2007(mDegree,"Degree","Poly degree",{eTA2007::HDV})
            << AOpt2007(mDegreeInv,"DegreeInv","Inv Poly degree",{eTA2007::HDV})
-           << AOpt2007(mNbByXY,"XYSteps","Nb XY steps",{eTA2007::HDV})
            << AOpt2007(mNbByZ,"ZSteps","Nb Z steps",{eTA2007::HDV})
            << AOpt2007(mMargin,"Margin","Output image margin",{eTA2007::HDV})
            << AOpt2007(mZIntv,"ZIntv","Z interval [Zmin,Zmax], overrides sensor's own and any TieP-derived one (mandatory when sensor has none, e.g. no RPC, and TieP is not given either)")

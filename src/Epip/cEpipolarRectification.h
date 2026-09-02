@@ -27,14 +27,22 @@ enum class eEpipFrm
 class cEpipolarMapping : public cDataInvertibleMapping<tREAL8,2>
 {
 public:
-    cEpipolarMapping(const cPt2dr& aZInterval) : mZInterval(aZInterval) {}
+    cEpipolarMapping(const cPt2dr& aZInterval, tREAL8 aGridStep, int aNbStepX, int aNbStepY)
+        : mZInterval(aZInterval), mGridStep(aGridStep), mNbStepX(aNbStepX), mNbStepY(aNbStepY) {}
     void SetEpipImFrame(const cRect2& aFrame) { mEpipImFrame = aFrame;}
     cRect2 EpipFrame() const { return mEpipImFrame; }
     cPt2di EpipImSz() const { return mEpipImFrame.Sz(); }
     cPt2dr ZInterval() const { return mZInterval; }
+    /// GenerateData's XY grid : pixel step and step count per axis
+    tREAL8 GridStep() const { return mGridStep; }
+    int NbStepX() const { return mNbStepX; }
+    int NbStepY() const { return mNbStepY; }
 protected:
     cRect2 mEpipImFrame{cPt2di{0,0},cPt2di{0,0},true}; ///< frame in epipolar space (for resampling)
     cPt2dr mZInterval;
+    tREAL8 mGridStep;
+    int    mNbStepX;
+    int    mNbStepY;
 };
 
 
@@ -88,8 +96,9 @@ public:
                      const cPolyXY_Nd& aW,
                      cPt2dr aCenter,
                      cPt2dr aDir,
-                     cPt2dr aZInterval)
-        : cEpipolarMapping(aZInterval)
+                     cPt2dr aZInterval,
+                     tREAL8 aGridStep, int aNbStepX, int aNbStepY)
+        : cEpipolarMapping(aZInterval, aGridStep, aNbStepX, aNbStepY)
         , mV(aV)
         , mW(aW)
         , mCenter{aCenter}
@@ -156,7 +165,6 @@ public:
     {
         int      mPolyDegree    = 3;      ///< degree of V polynomials
         int      mPolyDegreeInv = 7;      ///< degree of inverse W polynomials
-        int      mNbXYSteps     = 100;    ///< number of image grid sampling steps (X & Y)
         int      mNbZLevels     = 3;      ///< number of altitude sampling levels
         eEpipFrm mEpipFrm       = eEpipFrm::eIntersect; ///< Framing type for epipolar images (Resmampling)
         int      mMargin        = 2;      ///< Margin in pixels for epipolar image framing (Resampling)
@@ -210,7 +218,8 @@ private:
                       std::vector<cEpiPair> &aOutPairsTrain,
                       std::vector<cEpiPair> &aOutPairsTest,
                       cPt2dr &aOutCenterM,
-                      cPt2dr &aOutDirS, cPt2dr &aZInterval) const;
+                      cPt2dr &aOutDirS, cPt2dr &aZInterval,
+                      tREAL8 &aOutGridStep, int &aOutNbStepX, int &aOutNbStepY) const;
 
     // ----------------------------------------------------------
     //  Independent residuals of the fitted V1,V2,W1,W2 on the held-out test pairs.
@@ -262,8 +271,8 @@ private:
     const cSensorImage& mCam1;
     const cSensorImage& mCam2;
     cParams             mParams;
-    int mNbPairs12 = 0; ///< number of H-compatible pairs from I1 to I2 (for info only)
-    int mNbPairs21 = 0; ///< number of H-compatible pairs from I2 to I1 (for info only)
+    int mNbPairs12 = 0; ///< number of H-compatible training pairs from I1 to I2 (for info only)
+    int mNbPairs21 = 0; ///< number of H-compatible training pairs from I2 to I1 (for info only)
     double mV1V2Var = 0.0;
     double mW1Var = 0.0;
     double mW2Var = 0.0;
