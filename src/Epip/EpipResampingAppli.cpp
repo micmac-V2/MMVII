@@ -41,7 +41,6 @@ private :
     int mDegree = 5;
     int mDegreeInv = mDegree + 4;
     int mNbByZ = 5;
-    int mMargin = 2;
     cPt2dr mZIntv;
     tREAL8 mTiePMaxRes = 2.0;
     tREAL8 mZMargin = 0.10;
@@ -52,7 +51,6 @@ private :
     std::string mOutNamePat = "Epip_%1_%2.tif";
     std::vector<std::string> mInterpol = {"Cubic","-0.5"};
     eEpipFrm mFrame = eEpipFrm::eIntersect;
-//    cEpipolarModel::eFramingType mFrame = cEpipolarModel::eFramingType::INTERSECT;
 };
 
 cAppli_EpipResampling::cAppli_EpipResampling (
@@ -67,14 +65,10 @@ cAppli_EpipResampling::cAppli_EpipResampling (
 
 // TODOCM: Serialisation classes EpipMap EpipModel ?
 // TODOCM: Gestion grosses images : daller ... Cache pour bout d'images ?
-// TODOCM: Enlever margin ? Mieux le définir ?
 // TODOCM: Test d'epipolarisabilite ...
-// TODOCM: Faire des benchs en utilisant recalcul des RPCs
 // TODOCM: Make output image name generation accessible for other apps
 // TODOCM: Make sure image  file extension is present ? (.tif)
 // TODOCM: Changer nom fichier RPC (RPC-xxx.xml ?)
-// TODOCM: Vraiment tester tabulation pour EpipModel
-// TODOCM : error on too big variance (VAV2Var). Scale of variance ?
 
 void cAppli_EpipResampling::Resample(const std::string& aMasterName,
                                      const std::string& aSlaveName,
@@ -140,11 +134,11 @@ int cAppli_EpipResampling::Exe()
 
     StdOut() << "Degree: " << mDegree << ", DegreeInv: " << mDegreeInv << std::endl;
     StdOut() << "NbByZ: " << mNbByZ << std::endl;
-    StdOut() << "Frame: " << ToStr(mFrame) << ", Margin: " << mMargin << std::endl;
+    StdOut() << "Frame: " << ToStr(mFrame) << std::endl;
     StdOut() << "Interpolator: " << aInterp->VNames() << ", Kernel Size: " << aInterp->SzKernel() << std::endl;
 
     StdOut() << Color::sub_title << "*** Rectification" << Color::end << std::endl;
-    auto aParams = cEpipolarRectification::cParams{mDegree,mDegreeInv,mNbByZ,mFrame,mMargin};
+    auto aParams = cEpipolarRectification::cParams{mDegree,mDegreeInv,mNbByZ,mFrame};
     aParams.mZIntv = aZIntvArg;
     aParams.mTiePMaxRes = mTiePMaxRes;
     aParams.mZMargin = mZMargin;
@@ -229,21 +223,25 @@ cCollecSpecArg2007 & cAppli_EpipResampling::ArgObl(cCollecSpecArg2007 & anArgObl
 cCollecSpecArg2007 & cAppli_EpipResampling::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return anArgOpt
+           << cHeaderSectionArg("Rectification")
            << AOpt2007(mDegree,"Degree","Poly degree",{eTA2007::HDV})
            << AOpt2007(mDegreeInv,"DegreeInv","Inv Poly degree",{eTA2007::HDV})
+           << AOpt2007(mMaxResid,"MaxResid","Max independent (held-out) V1/V2, W1 and W2 residual (px), error above",{eTA2007::HDV})
+           << cHeaderSectionArg("Z interval")
            << AOpt2007(mNbByZ,"ZSteps","Nb Z steps",{eTA2007::HDV})
-           << AOpt2007(mMargin,"Margin","Output image margin",{eTA2007::HDV})
            << AOpt2007(mZIntv,"ZIntv","Z interval [Zmin,Zmax], overrides sensor's own and any TieP-derived one (mandatory when sensor has none, e.g. no RPC, and TieP is not given either)")
+           << cHeaderSectionArg("Tie Points")
            << mPhProj.DPTieP().ArgDirInOpt("TieP","Tie points to infer Z interval from (alternative to ZIntv, overrides sensor's own)")
-           << AOpt2007(mTiePMaxRes,"TiePMaxRes","Max triangulation residual (px) for a tie point kept when inferring Z from TieP",{eTA2007::HDV})
            << AOpt2007(mZMargin,"ZMargin","Relative margin added around the raw [Zmin,Zmax] envelope inferred from TieP",{eTA2007::HDV})
+           << AOpt2007(mTiePMaxRes,"TiePMaxRes","Max triangulation residual (px) for a tie point kept when inferring Z from TieP",{eTA2007::HDV})
            << AOpt2007(mTiePMinNbRatio,"TiePMinNbRatio","Min kept tie points = max(TiePMinNbFloor,ratio*sqrt(W*H))",{eTA2007::HDV})
            << AOpt2007(mTiePMinNbFloor,"TiePMinNbFloor","Absolute floor for the min kept tie point count",{eTA2007::HDV})
-           << AOpt2007(mMaxResid,"MaxResid","Max independent (held-out) V1/V2, W1 and W2 residual (px), error above",{eTA2007::HDV})
+           << cHeaderSectionArg("Resampling")
+           << AOpt2007(mInterpol,"Interpol","Interpolator", Append(cSpecOneArg2007::tAllSemPL{eTA2007::HDV},InterpolArgSem()))
            << AOpt2007(mFrame,"FrameAlgo","Output image height algo",{eTA2007::HDV})
+           << cHeaderSectionArg("Output")
            << AOpt2007(mOutDir,"OutDir","Output directory (Default: VISU/" + Specs().Name()+")")
            << AOpt2007(mOutNamePat,"OutName","Output name pattern", {eTA2007::HDV})
-           << AOpt2007(mInterpol,"Interpol","Interpolator", Append(cSpecOneArg2007::tAllSemPL{eTA2007::HDV},InterpolArgSem()))
         ;
 }
 
