@@ -628,6 +628,7 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
 
         BenchEpipolar(aParam);
         BenchEpipolarNoRPC(aParam);
+        BenchEpipolarZFromTieP(aParam);
 
         Bench_HBA(aParam);
     }

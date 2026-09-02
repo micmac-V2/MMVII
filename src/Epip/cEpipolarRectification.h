@@ -5,6 +5,7 @@
 #include "MMVII_Mappings.h"
 #include "MMVII_AllClassDeclare.h"  // cPt2dr, cPt3dr, cPt2di, etc.
 #include "MMVII_Tpl_ElemStrToVal.h"
+#include "MMVII_MeasuresIm.h"  // cSetHomogCpleIm
 #include <optional>
 
 namespace MMVII {
@@ -156,6 +157,12 @@ public:
         eEpipFrm mEpipFrm       = eEpipFrm::eIntersect; ///< Framing type for epipolar images (Resmampling)
         int      mMargin        = 2;      ///< Margin in pixels for epipolar image framing (Resampling)
         std::optional<cPt2dr> mZIntv = std::nullopt; ///< Override Z interval (Zmin,Zmax); mandatory if sensor has none
+        std::optional<cSetHomogCpleIm> mHomolPts = std::nullopt; ///< Tie points to infer Zmin/Zmax from (alternative to mZIntv, lower priority)
+        tREAL8   mTiePMaxRes     = 2.0;   ///< Max triangulation residual (px) to keep a tie point for Z inference
+        tREAL8   mZMargin        = 0.10;  ///< Relative margin added around the Z envelope inferred from mHomolPts
+        tREAL8   mTiePMinNbRatio = 0.04;  ///< Min kept-tie-point count = max(mTiePMinNbFloor, mTiePMinNbRatio*sqrt(W*H))
+        int      mTiePMinNbFloor = 25;    ///< Absolute floor for the min kept-tie-point count above
+        bool     mNoWarnings     = false; ///< Don't generate warnigs: used by Bench
     };
 
     // --------------------------------------------------------
@@ -175,6 +182,9 @@ public:
     double V1V2Var() const { return mV1V2Var; }
     double W1Var() const { return mW1Var; }
     double W2Var() const { return mW2Var; }
+    /// Z interval actually sampled for each master camera; informational
+    cPt2dr ZIntervalUsed1() const { return mZIntervalUsed1; }
+    cPt2dr ZIntervalUsed2() const { return mZIntervalUsed2; }
 private:
     // --------------------------------------------------------
     //  Private helper : one H-compatible pair in rotated coords
@@ -198,6 +208,21 @@ private:
     void GenerateData(const cSensorImage &aCamM, const cSensorImage &aCamS,
                       std::vector<cEpiPair> &aOutPairs, cPt2dr &aOutCenterM,
                       cPt2dr &aOutDirS) const;
+
+    // ----------------------------------------------------------
+    //  Resolve the Z interval for a master camera : mZIntv > tie-point-derived
+    //  > aCamM's own native interval.
+    // ----------------------------------------------------------
+    cPt2dr EffectiveZInterval(const cSensorImage & aCamM) const;
+
+    // ----------------------------------------------------------
+    //  Z envelope of mParams.mHomolPts, triangulated and filtered by
+    //  residual, plus mZMargin. Memoized.
+    // ----------------------------------------------------------
+    cPt2dr ZIntervalFromHomolPts() const;
+    mutable std::optional<cPt2dr> mCachedHomolZIntv;
+    mutable cPt2dr mZIntervalUsed1 = cPt2dr(0,0);
+    mutable cPt2dr mZIntervalUsed2 = cPt2dr(0,0);
 
     // ----------------------------------------------------------
     //  Estimate forward polynomials V1 (with Y-axis identity

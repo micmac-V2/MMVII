@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cassert>
+#include <algorithm>
 
 namespace MMVII {
 
@@ -285,23 +286,8 @@ void cEpipolarRectification::GenerateData(const cSensorImage &aCamM,
     // Steps on sensors
     const double nXY = mParams.mNbXYSteps;
 
-    // Altitude range: mZIntv overrides the camera's own Z interval if given,
-    // else mandatory when the camera has none (e.g. no RPC).
-    cPt2dr aZInterval;
-    if (mParams.mZIntv)
-    {
-        if (aCamM.HasIntervalZ())
-        {
-            MMVII_USER_WARNING("Provided ZIntv overrides sensor's own Z validity interval");
-        }
-        aZInterval = *mParams.mZIntv;
-    }
-    else
-    {
-        MMVII_INTERNAL_ASSERT_User(aCamM.HasIntervalZ(), eTyUEr::eUnClassedError,
-            "Sensor has no Z validity interval (no RPC); provide ZIntv=[Zmin,Zmax]");
-        aZInterval = aCamM.GetIntervalZ();
-    }
+    // Altitude range for this master camera : mZIntv > tie-point-derived > native.
+    const cPt2dr aZInterval = EffectiveZInterval(aCamM);
     const double Zmin = aZInterval.x();
     const double Zmax = aZInterval.y();
 
@@ -363,6 +349,94 @@ void cEpipolarRectification::GenerateData(const cSensorImage &aCamM,
         "Insufficient number of common points on two images");
     aOutCenterM = aOutCenterM * (1.0 / nAccum);
     aOutDirS = VUnit(aOutDirS);
+}
+
+// ============================================================
+//  EffectiveZInterval : mZIntv > tie-point-derived > aCamM's own native.
+//  Overriding a lower-priority source only warns.
+// ============================================================
+
+cPt2dr cEpipolarRectification::EffectiveZInterval(const cSensorImage & aCamM) const
+{
+    cPt2dr aResult(0,0);
+
+    if (mParams.mZIntv)
+    {
+        if (aCamM.HasIntervalZ() && !mParams.mNoWarnings)
+        {
+            MMVII_USER_WARNING("Provided ZIntv overrides sensor's own Z validity interval");
+        }
+        if (mParams.mHomolPts && !mParams.mNoWarnings)
+        {
+            MMVII_USER_WARNING("Provided ZIntv overrides tie-point-derived Z validity interval");
+        }
+        aResult = *mParams.mZIntv;
+    }
+    else if (mParams.mHomolPts)
+    {
+        aResult = ZIntervalFromHomolPts();
+        if (aCamM.HasIntervalZ() && !mParams.mNoWarnings)
+        {
+            MMVII_USER_WARNING("Tie-point-derived Z validity interval overrides sensor's own Z validity interval");
+        }
+    }
+    else
+    {
+        MMVII_INTERNAL_ASSERT_User(aCamM.HasIntervalZ(), eTyUEr::eUnClassedError,
+            "Sensor has no Z validity interval (no RPC); provide ZIntv=[Zmin,Zmax] or TieP=<dir>");
+        aResult = aCamM.GetIntervalZ();
+    }
+
+    ((&aCamM == &mCam1) ? mZIntervalUsed1 : mZIntervalUsed2) = aResult;
+    return aResult;
+}
+
+// ============================================================
+//  ZIntervalFromHomolPts : Z envelope of triangulated tie points, inflated
+//  by mZMargin. Memoized : identical for both master cameras.
+// ============================================================
+
+cPt2dr cEpipolarRectification::ZIntervalFromHomolPts() const
+{
+    if (mCachedHomolZIntv)
+        return *mCachedHomolZIntv;
+
+    int aNbKept = 0;
+    tREAL8 aZmin = 0.0;
+    tREAL8 aZmax = 0.0;
+    for (const auto & aCple : mParams.mHomolPts->SetH())
+    {
+        const tREAL8 aRes = mCam1.PixResInterBundle(aCple, mCam2);
+        if (aRes > mParams.mTiePMaxRes)
+            continue;
+
+        const tREAL8 aZ = mCam1.PInterBundle(aCple, mCam2).z();
+        if (aNbKept == 0)
+        {
+            aZmin = aZmax = aZ;
+        }
+        else
+        {
+            aZmin = std::min(aZmin, aZ);
+            aZmax = std::max(aZmax, aZ);
+        }
+        ++aNbKept;
+    }
+
+    const cPt2dr aSz = mCam1.PixelDomain().Box().Sz();
+    const int aMinNb = std::max(mParams.mTiePMinNbFloor,
+                                 (int)std::ceil(mParams.mTiePMinNbRatio * std::sqrt(aSz.x() * aSz.y())));
+    MMVII_INTERNAL_ASSERT_User(aNbKept >= aMinNb, eTyUEr::eUnClassedError,
+        "Not enough tie points after residual filtering to infer Z interval (" + ToStr(aNbKept)
+        + " < " + ToStr(aMinNb) + "); provide ZIntv=[Zmin,Zmax], relax TiePMaxRes/TiePMinNb*, or add tie points");
+
+    MMVII_INTERNAL_ASSERT_User((aZmax - aZmin) > 1e-6, eTyUEr::eUnClassedError,
+        "Tie points give a degenerate (near-flat) Z interval [" + ToStr(aZmin) + "," + ToStr(aZmax)
+        + "]; provide ZIntv=[Zmin,Zmax] explicitly for this scene");
+
+    const tREAL8 aMargin = mParams.mZMargin * (aZmax - aZmin);
+    mCachedHomolZIntv = cPt2dr(aZmin - aMargin, aZmax + aMargin);
+    return *mCachedHomolZIntv;
 }
 
 void cEpipolarModel::ComputeCommonFraming(
@@ -579,6 +653,92 @@ void BenchEpipolarNoRPC(cParamExeBench & aParam)
     MMVII_INTERNAL_ASSERT_bench(aEpipSensor1->HasIntervalZ(), "Generated epipolar RPC has no Z interval");
 
     RemoveRecurs(aTmpDir,true);
+
+    aParam.EndBench();
+}
+
+
+// ============================================================
+//  BenchEpipolarZFromTieP : Z inferred from tie points, and priority order
+//  (ZIntv must win over a valid TieP-derived interval).
+// ============================================================
+
+void BenchEpipolarZFromTieP(cParamExeBench & aParam)
+{
+    if (! aParam.NewBench("EpipolarZFromTieP")) return;
+
+    std::unique_ptr<cPerspCamIntrCalib> aCalib(cPerspCamIntrCalib::SimpleCalib("SimulConicZT",cPt2di(4000,3000),4000.0));
+    const cPt3dr aTarget(0.0,0.0,0.0);
+    std::unique_ptr<cSensorCamPC> aCam1(BuildLookAtConicCam("ConicZT1",cPt3dr(-100.0,0.0,500.0),aTarget,aCalib.get()));
+    std::unique_ptr<cSensorCamPC> aCam2(BuildLookAtConicCam("ConicZT2",cPt3dr( 100.0,0.0,500.0),aTarget,aCalib.get()));
+
+    // Synthetic tie points at a random Z within a known range, standing in for
+    // real matched points.
+    const cPt2dr aKnownZ(-30.0,30.0);
+    cSetHomogCpleIm aSetH;
+    int aTries = 0;
+    while ((aSetH.NbH() < 300) && (aTries < 20000))
+    {
+        ++aTries;
+        bool isOk = false;
+        cHomogCpleIm aCple = aCam1->RandomVisibleCple(RandInInterval(aKnownZ),*aCam2,10000,&isOk);
+        if (isOk)
+            aSetH.Add(aCple);
+    }
+    MMVII_INTERNAL_ASSERT_bench(aSetH.NbH() >= 300, "Could not generate enough synthetic tie points");
+
+    // ---- TieP alone : Z interval inferred close to the known range, succeeds
+    {
+        auto aParams = cEpipolarRectification::cParams{3,7,20,3};
+        aParams.mHomolPts = aSetH;
+        auto aRectifier = cEpipolarRectification(*aCam1,*aCam2,aParams);
+        aRectifier.Compute();
+        MMVII_INTERNAL_ASSERT_bench(aRectifier.NbPairs12() > 0, "No H-compatible pairs with TieP-derived Z");
+        MMVII_INTERNAL_ASSERT_bench(aRectifier.NbPairs21() > 0, "No H-compatible pairs with TieP-derived Z");
+
+        const cPt2dr aUsed = aRectifier.ZIntervalUsed1();
+        MMVII_INTERNAL_ASSERT_bench((aUsed.x() <= aKnownZ.x()) && (aUsed.x() > aKnownZ.x()-20.0),
+            "TieP-derived Zmin implausible : " + ToStr(aUsed.x()));
+        MMVII_INTERNAL_ASSERT_bench((aUsed.y() >= aKnownZ.y()) && (aUsed.y() < aKnownZ.y()+20.0),
+            "TieP-derived Zmax implausible : " + ToStr(aUsed.y()));
+    }
+
+    // ---- ZIntv + TieP both given : ZIntv must win (and warn). Checked directly via
+    // ZIntervalUsed1/2, since Compute() could succeed either way here.
+    {
+        const cPt2dr anAbsurdZIntv(1.0e6,1.0e6 + 1.0);
+        auto aParams = cEpipolarRectification::cParams{3,7,20,3};
+        aParams.mHomolPts = aSetH;
+        aParams.mZIntv = anAbsurdZIntv;
+        aParams.mNoWarnings = true;  // suppress the expected warning about ZIntv overriding TieP-derived Z
+        auto aRectifier = cEpipolarRectification(*aCam1,*aCam2,aParams);
+        aRectifier.Compute();
+        MMVII_INTERNAL_ASSERT_bench(aRectifier.ZIntervalUsed1() == anAbsurdZIntv,
+            "ZIntv did not take priority over TieP-derived Z for camera 1");
+        MMVII_INTERNAL_ASSERT_bench(aRectifier.ZIntervalUsed2() == anAbsurdZIntv,
+            "ZIntv did not take priority over TieP-derived Z for camera 2");
+    }
+
+    // ---- Too few tie points after filtering : error, not a silent small interval.
+    {
+        bool aGotExpectedError = false;
+        {
+            cBenchErrorCatcher aCatcher;
+            try
+            {
+                auto aParams = cEpipolarRectification::cParams{3,7,20,3};
+                aParams.mHomolPts = aSetH;
+                aParams.mTiePMaxRes = -1.0;
+                cEpipolarRectification(*aCam1,*aCam2,aParams).Compute();
+            }
+            catch (const cBenchNoZIntvError &)
+            {
+                aGotExpectedError = true;
+            }
+        }
+        MMVII_INTERNAL_ASSERT_bench(aGotExpectedError,
+            "Expected error when too few tie points survive residual filtering");
+    }
 
     aParam.EndBench();
 }

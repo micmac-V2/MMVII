@@ -36,6 +36,10 @@ private :
     int mNbByZ = 3;
     int mMargin = 2;
     cPt2dr mZIntv;
+    tREAL8 mTiePMaxRes = 2.0;
+    tREAL8 mZMargin = 0.10;
+    tREAL8 mTiePMinNbRatio = 0.04;
+    int mTiePMinNbFloor = 25;
     std::string mOutDir;
     std::string mOutNamePat = "Epip_%1_%2.tif";
     std::vector<std::string> mInterpol = {"Cubic","-0.5"};
@@ -107,7 +111,20 @@ int cAppli_EpipResampling::Exe()
     StdOut() << "NbByXY: " << mNbByXY << ", NbByZ: " << mNbByZ << std::endl;
     StdOut() << "Frame: " << ToStr(mFrame) << ", Margin: " << mMargin << std::endl;
 
-    auto aParams = cEpipolarRectification::cParams{mDegree,mDegreeInv,mNbByXY,mNbByZ,mFrame,mMargin,aZIntvArg};
+    auto aParams = cEpipolarRectification::cParams{mDegree,mDegreeInv,mNbByXY,mNbByZ,mFrame,mMargin};
+    aParams.mZIntv = aZIntvArg;
+    aParams.mTiePMaxRes = mTiePMaxRes;
+    aParams.mZMargin = mZMargin;
+    aParams.mTiePMinNbRatio = mTiePMinNbRatio;
+    aParams.mTiePMinNbFloor = mTiePMinNbFloor;
+    if (mPhProj.DPTieP().DirInIsInit())
+    {
+        cSetHomogCpleIm aSetH;
+        bool aHasHom = mPhProj.GenReadHomol(aSetH, mNameIm1, mNameIm2);
+        MMVII_INTERNAL_ASSERT_User(aHasHom && (aSetH.NbH() > 0), eTyUEr::eOpenFile,
+            "No tie points found between the two images in the TieP directory");
+        aParams.mHomolPts = aSetH;
+    }
     auto aRectifier = cEpipolarRectification(*aSI1, *aSI2, aParams);
     auto aEpipModel = aRectifier.Compute();
 
@@ -142,13 +159,13 @@ int cAppli_EpipResampling::Exe()
     StdOut() << "Image_1: " << anEpip1Name << std::endl;
     aIm1Rectif->ToFile(anEpip1Name);
     StdOut() << "RPC_1: " << aRPC1Name << std::endl;
-    auto aResampSI1 = aSI1->GenerateSensorRPC( &anEpipMap1, nullptr, false, anEpip1Name, aZIntvArg);
+    auto aResampSI1 = aSI1->GenerateSensorRPC( &anEpipMap1, nullptr, false, anEpip1Name, aRectifier.ZIntervalUsed1());
     aResampSI1->ToFile(aRPC1Name);
 
     StdOut() << "Image2: " << anEpip2Name << std::endl;
     aIm2Rectif->ToFile(anEpip2Name);
     StdOut() << "RPC_2: " << aRPC2Name << std::endl;
-    auto aResampSI2 = aSI2->GenerateSensorRPC(&anEpipMap2, nullptr, false, anEpip2Name, aZIntvArg);
+    auto aResampSI2 = aSI2->GenerateSensorRPC(&anEpipMap2, nullptr, false, anEpip2Name, aRectifier.ZIntervalUsed2());
     aResampSI2->ToFile(aRPC2Name);
 
 
@@ -181,7 +198,12 @@ cCollecSpecArg2007 & cAppli_EpipResampling::ArgOpt(cCollecSpecArg2007 & anArgOpt
            << AOpt2007(mNbByXY,"XYSteps","Nb XY steps",{eTA2007::HDV})
            << AOpt2007(mNbByZ,"ZSteps","Nb Z steps",{eTA2007::HDV})
            << AOpt2007(mMargin,"Margin","Output image margin",{eTA2007::HDV})
-           << AOpt2007(mZIntv,"ZIntv","Z interval [Zmin,Zmax], overrides sensor's own (mandatory when sensor has none, e.g. no RPC)")
+           << AOpt2007(mZIntv,"ZIntv","Z interval [Zmin,Zmax], overrides sensor's own and any TieP-derived one (mandatory when sensor has none, e.g. no RPC, and TieP is not given either)")
+           << mPhProj.DPTieP().ArgDirInOpt("TieP","Tie points to infer Z interval from (alternative to ZIntv, overrides sensor's own)")
+           << AOpt2007(mTiePMaxRes,"TiePMaxRes","Max triangulation residual (px) for a tie point kept when inferring Z from TieP",{eTA2007::HDV})
+           << AOpt2007(mZMargin,"ZMargin","Relative margin added around the raw [Zmin,Zmax] envelope inferred from TieP",{eTA2007::HDV})
+           << AOpt2007(mTiePMinNbRatio,"TiePMinNbRatio","Min kept tie points = max(TiePMinNbFloor,ratio*sqrt(W*H))",{eTA2007::HDV})
+           << AOpt2007(mTiePMinNbFloor,"TiePMinNbFloor","Absolute floor for the min kept tie point count",{eTA2007::HDV})
            << AOpt2007(mFrame,"FrameAlgo","Output image height algo",{eTA2007::HDV})
            << AOpt2007(mOutDir,"OutDir","Output directory (Default: VISU/" + Specs().Name()+")")
            << AOpt2007(mOutNamePat,"OutName","Output name pattern", {eTA2007::HDV})

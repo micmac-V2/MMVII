@@ -105,6 +105,7 @@ void BenchTSL(cParamExeBench & aParam); ///< Static lidar
 
 void BenchEpipolar(cParamExeBench & aParam);
 void BenchEpipolarNoRPC(cParamExeBench & aParam); ///< Epipolar rectif for sensors with no native Z interval
+void BenchEpipolarZFromTieP(cParamExeBench & aParam); ///< Z interval inferred from tie points, incl. priority over ZIntv
 
 // void cAppli_MMVII_Bench::Bench_0000_String(); => Bench on string-split
 void BenchSerialization(cParamExeBench & aParam,const std::string & aDirOut,const std::string & aDirIn); ///< Bench on seriaization function
