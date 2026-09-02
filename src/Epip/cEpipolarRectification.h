@@ -27,12 +27,14 @@ enum class eEpipFrm
 class cEpipolarMapping : public cDataInvertibleMapping<tREAL8,2>
 {
 public:
-    cEpipolarMapping() {}
+    cEpipolarMapping(const cPt2dr& aZInterval) : mZInterval(aZInterval) {}
     void SetEpipImFrame(const cRect2& aFrame) { mEpipImFrame = aFrame;}
     cRect2 EpipFrame() const { return mEpipImFrame; }
     cPt2di EpipImSz() const { return mEpipImFrame.Sz(); }
+    cPt2dr ZInterval() const { return mZInterval; }
 protected:
     cRect2 mEpipImFrame{cPt2di{0,0},cPt2di{0,0},true}; ///< frame in epipolar space (for resampling)
+    cPt2dr mZInterval;
 };
 
 
@@ -85,8 +87,10 @@ public:
     cEpipPolyMapping(const cPolyXY_Nd& aV,
                      const cPolyXY_Nd& aW,
                      cPt2dr aCenter,
-                     cPt2dr aDir)
-        : mV(aV)
+                     cPt2dr aDir,
+                     cPt2dr aZInterval)
+        : cEpipolarMapping(aZInterval)
+        , mV(aV)
         , mW(aW)
         , mCenter{aCenter}
         , mDir{aDir}
@@ -163,6 +167,7 @@ public:
         tREAL8   mTiePMinNbRatio = 0.04;  ///< Min kept-tie-point count = max(mTiePMinNbFloor, mTiePMinNbRatio*sqrt(W*H))
         int      mTiePMinNbFloor = 25;    ///< Absolute floor for the min kept-tie-point count above
         bool     mNoWarnings     = false; ///< Don't generate warnigs: used by Bench
+        size_t   mMinNbPairs     = 50;    ///< Min accepted pairs required in each of the train/test pools, per master-camera direction
     };
 
     // --------------------------------------------------------
@@ -182,9 +187,10 @@ public:
     double V1V2Var() const { return mV1V2Var; }
     double W1Var() const { return mW1Var; }
     double W2Var() const { return mW2Var; }
-    /// Z interval actually sampled for each master camera; informational
-    cPt2dr ZIntervalUsed1() const { return mZIntervalUsed1; }
-    cPt2dr ZIntervalUsed2() const { return mZIntervalUsed2; }
+    /// Independent (held-out) residuals : mean square of V1(q1)-V2(q2), W1(...)-q1.y, W2(...)-q2.y on the test pool
+    double V1V2VarIndep() const { return mV1V2VarIndep; }
+    double W1VarIndep() const { return mW1VarIndep; }
+    double W2VarIndep() const { return mW2VarIndep; }
 private:
     // --------------------------------------------------------
     //  Private helper : one H-compatible pair in rotated coords
@@ -196,18 +202,23 @@ private:
     };
 
     // ----------------------------------------------------------
-    //  Generate H-compatible pairs (Algorithm 2 of the paper).
-    //
-    //  aCamM = master camera, aCamS = slave camera.
-    //
-    //  Outputs:
-    //    aOutPairs : list of (masterPt, slavePt) pairs
-    //    aOutCenterM : centroid of master image points
-    //    aOutDirS    : average epipolar direction in slave image
+    //  Generate H-compatible pairs (Algorithm 2 of the paper), split into a
+    //  train pool (fits V1/V2/W1/W2) and a test pool (EstimateIndepResiduals).
+    //  Outputs: aOutPairsTrain/Test pairs, aOutCenterM centroid, aOutDirS direction.
     // ----------------------------------------------------------
     void GenerateData(const cSensorImage &aCamM, const cSensorImage &aCamS,
-                      std::vector<cEpiPair> &aOutPairs, cPt2dr &aOutCenterM,
-                      cPt2dr &aOutDirS) const;
+                      std::vector<cEpiPair> &aOutPairsTrain,
+                      std::vector<cEpiPair> &aOutPairsTest,
+                      cPt2dr &aOutCenterM,
+                      cPt2dr &aOutDirS, cPt2dr &aZInterval) const;
+
+    // ----------------------------------------------------------
+    //  Independent residuals of the fitted V1,V2,W1,W2 on the held-out test pairs.
+    // ----------------------------------------------------------
+    void EstimateIndepResiduals(
+            const std::vector<cEpiPair>& aPairsTest,
+            const cPolyXY_Nd& aV1, const cPolyXY_Nd& aV2,
+            const cPolyXY_Nd& aW1, const cPolyXY_Nd& aW2);
 
     // ----------------------------------------------------------
     //  Resolve the Z interval for a master camera : mZIntv > tie-point-derived
@@ -221,8 +232,6 @@ private:
     // ----------------------------------------------------------
     cPt2dr ZIntervalFromHomolPts() const;
     mutable std::optional<cPt2dr> mCachedHomolZIntv;
-    mutable cPt2dr mZIntervalUsed1 = cPt2dr(0,0);
-    mutable cPt2dr mZIntervalUsed2 = cPt2dr(0,0);
 
     // ----------------------------------------------------------
     //  Estimate forward polynomials V1 (with Y-axis identity
@@ -258,6 +267,9 @@ private:
     double mV1V2Var = 0.0;
     double mW1Var = 0.0;
     double mW2Var = 0.0;
+    double mV1V2VarIndep = 0.0;
+    double mW1VarIndep = 0.0;
+    double mW2VarIndep = 0.0;
 };
 
 

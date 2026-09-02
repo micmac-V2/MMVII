@@ -5,6 +5,7 @@
 #include "MMVII_CodeTiming.h"
 #include <vector>
 #include <optional>
+#include <cmath>
 
 /**
    \file EpipGeom.cpp
@@ -27,19 +28,29 @@ public :
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
 
 private :
+    void Resample(const std::string& aMasterName,
+                  const std::string& aSlaveName,
+                  const cSensorImage* aSI,
+                  const cInterpolator1D* aInterp,
+                  const cEpipolarMapping& anEpipMap
+                  );
+
     cPhotogrammetricProject  mPhProj;
     std::string  mNameIm1;
     std::string  mNameIm2;
     int mDegree = 5;
     int mDegreeInv = mDegree + 4;
     int mNbByXY = 100;
-    int mNbByZ = 3;
+    int mNbByZ = 5;
     int mMargin = 2;
     cPt2dr mZIntv;
     tREAL8 mTiePMaxRes = 2.0;
     tREAL8 mZMargin = 0.10;
     tREAL8 mTiePMinNbRatio = 0.04;
     int mTiePMinNbFloor = 25;
+    tREAL8 mMaxV1V2ResidIndep = 1.0;
+    tREAL8 mMaxW1ResidIndep = 1.0;
+    tREAL8 mMaxW2ResidIndep = 1.0;
     std::string mOutDir;
     std::string mOutNamePat = "Epip_%1_%2.tif";
     std::vector<std::string> mInterpol = {"Cubic","-0.5"};
@@ -62,14 +73,38 @@ cAppli_EpipResampling::cAppli_EpipResampling (
 // TODOCM: Gestion grosses images : daller ... Cache pour bout d'images ?
 // TODOCM: Enlever margin ? Mieux le définir ?
 // TODOCM: Test d'epipolarisabilite ...
-// TODOCM: Dans GenerateData, ajouter un point avec Z aléatoire
-// TODOCM: Dans GenerateData creer plus de point et utiliser un point sur 2 pour le calcul des poly et les autres pour la verif
-// TODOCM: Prendre en compte le fait que les 2 images n'ont pas forcement le même intervalle Z
 // TODOCM: Faire des benchs en utilisant recalcul des RPCs
 // TODOCM: Make output image name generation accessible for other apps
 // TODOCM: Make sure image  file extension is present ? (.tif)
 // TODOCM: Changer nom fichier RPC (RPC-xxx.xml ?)
 // TODOCM: Vraiment tester tabulation pour EpipModel
+// TODOCM : error on too big variance (VAV2Var). Scale of variance ?
+
+void cAppli_EpipResampling::Resample(const std::string& aMasterName,
+                                     const std::string& aSlaveName,
+                                     const cSensorImage* aSI,
+                                     const cInterpolator1D* aInterp,
+                                     const cEpipolarMapping& anEpipMap
+                                     )
+{
+    auto aName1 = LastPrefix(FileOfPath(aMasterName,false));
+    auto aName2 = LastPrefix(FileOfPath(aSlaveName,false));
+
+    auto anEpipName = mOutDir + replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",aName1),"%2",aName2);
+    auto aRPCName = anEpipName + ".xml";
+    const auto* aIm = ReadIm2DGen(aMasterName);
+    auto aIm1Rectif = aIm->AllocReSampleGen(*aInterp, anEpipMap, cTplBox(anEpipMap.EpipImSz()));
+    StdOut() << "Name: " << anEpipName << std::endl;
+    StdOut() << "Size: " << anEpipMap.EpipImSz() << std::endl;
+    aIm1Rectif->ToFile(anEpipName);
+    StdOut() << "RPC : " << aRPCName << std::endl;
+    auto aResampSI = aSI->GenerateSensorRPC( &anEpipMap, nullptr, false, anEpipName, anEpipMap.ZInterval());
+    aResampSI->ToFile(aRPCName);
+
+    delete aResampSI;
+    delete aIm1Rectif;
+    delete aIm;
+}
 
 
 int cAppli_EpipResampling::Exe()
@@ -79,16 +114,15 @@ int cAppli_EpipResampling::Exe()
     if (! IsInit(&mDegreeInv))
         mDegreeInv = mDegree + 4;
 
-    std::string aOutDir = mPhProj.DirVisuAppli();
-    if (IsInit(&mOutDir))
+    if (! IsInit(&mOutDir))
     {
-        aOutDir = mOutDir;
+        mOutDir = mPhProj.DirVisuAppli();;
     }
-    if (! aOutDir.empty())
+    if (! mOutDir.empty())
     {
-        aOutDir += "/";
+        mOutDir += "/";
     }
-    CreateDirectories(aOutDir);
+    CreateDirectories(mOutDir);
     const cInterpolator1D* aInterp = cDiffInterpolator1D::AllocFromNames(mInterpol);
 
 
@@ -102,6 +136,7 @@ int cAppli_EpipResampling::Exe()
     auto aDIm1 = cDataFileIm2D::Create(mNameIm1,eForceGray::No);
     auto aDIm2 = cDataFileIm2D::Create(mNameIm2,eForceGray::No);
 
+    StdOut() << Color::sub_title << "*** Inputs" << Color::end << std::endl;
     StdOut() <<  "Image_1: " <<  mNameIm1;
     StdOut() << " " << aDIm1.Sz() << " " << ToStr(aDIm1.Type()) << " " << aDIm1.NbChannel() << " chan" << std::endl;
     StdOut() <<  "Image_2: " <<  mNameIm2;
@@ -110,7 +145,9 @@ int cAppli_EpipResampling::Exe()
     StdOut() << "Degree: " << mDegree << ", DegreeInv: " << mDegreeInv << std::endl;
     StdOut() << "NbByXY: " << mNbByXY << ", NbByZ: " << mNbByZ << std::endl;
     StdOut() << "Frame: " << ToStr(mFrame) << ", Margin: " << mMargin << std::endl;
+    StdOut() << "Interpolator: " << aInterp->VNames() << ", Kernel Size: " << aInterp->SzKernel() << std::endl;
 
+    StdOut() << Color::sub_title << "*** Rectification" << Color::end << std::endl;
     auto aParams = cEpipolarRectification::cParams{mDegree,mDegreeInv,mNbByXY,mNbByZ,mFrame,mMargin};
     aParams.mZIntv = aZIntvArg;
     aParams.mTiePMaxRes = mTiePMaxRes;
@@ -130,52 +167,49 @@ int cAppli_EpipResampling::Exe()
 
     StdOut() << "Nb Pairs 1->2 : " << aRectifier.NbPairs12() << std::endl;
     StdOut() << "Nb Pairs 2->1 : " << aRectifier.NbPairs21() << std::endl;
-    StdOut() << "V1,V2 var : " << aRectifier.V1V2Var() << std::endl;
-    StdOut() << "W1 var : " << aRectifier.W1Var() << std::endl;
-    StdOut() << "W2 var : " << aRectifier.W2Var() << std::endl;
+
+    // Independent (held-out) residual check, complementing the train-biased variance above.
+    const tREAL8 aV1V2ResidIndep = std::sqrt(aRectifier.V1V2VarIndep());
+    const tREAL8 aW1ResidIndep   = std::sqrt(aRectifier.W1VarIndep());
+    const tREAL8 aW2ResidIndep   = std::sqrt(aRectifier.W2VarIndep());
+    StdOut() << "V1,V2 errors sigma (indep, px) : " << Color::info << aV1V2ResidIndep << Color::end << std::endl;
+    StdOut() << "W1 errors sigma (indep, px) : " << Color::info << aW1ResidIndep << Color::end << std::endl;
+    StdOut() << "W2 errors sigma (indep, px) : " << Color::info << aW2ResidIndep << Color::end << std::endl;
+    if (aV1V2ResidIndep > mMaxV1V2ResidIndep)
+    {
+        MMVII_UserError(eTyUEr::eUnClassedError,
+            "Independent V1/V2 residual too high (" + ToStr(aV1V2ResidIndep) + " > " + ToStr(mMaxV1V2ResidIndep) + ")");
+    }
+    if (aW1ResidIndep > mMaxW1ResidIndep)
+    {
+        MMVII_UserError(eTyUEr::eUnClassedError,
+            "Independent W1 residual too high (" + ToStr(aW1ResidIndep) + " > " + ToStr(mMaxW1ResidIndep) + ")");
+    }
+    if (aW2ResidIndep > mMaxW2ResidIndep)
+    {
+        MMVII_UserError(eTyUEr::eUnClassedError,
+            "Independent W2 residual too high (" + ToStr(aW2ResidIndep) + " > " + ToStr(mMaxW2ResidIndep) + ")");
+    }
 
 
     const auto& anEpipMap1 = aEpipModel.EpipMap1();
     const auto& anEpipMap2 = aEpipModel.EpipMap2();
 
-    StdOut() << "Interpolator: " << aInterp->VNames() << ", Kernel Size: " << aInterp->SzKernel() << std::endl;
+    StdOut() << Color::sub_title << "*** Resampling" << Color::end << std::endl;
 
     auto aName1 = LastPrefix(FileOfPath(mNameIm1,false));
     auto aName2 = LastPrefix(FileOfPath(mNameIm2,false));
-    auto anEpip1Name = aOutDir + replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",aName1),"%2",aName2);
-    auto anEpip2Name = aOutDir + replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",aName2),"%2",aName1);
-    auto aRPC1Name = anEpip1Name + ".xml";
-    auto aRPC2Name = anEpip2Name + ".xml";
 
     // Resample Img1
-    const auto* aIm1 = ReadIm2DGen(mNameIm1);
-    StdOut() << "[EpipolarResample] Resampling image 1 "<< anEpipMap1.EpipFrame() << " Sz: " << anEpipMap1.EpipImSz() << std::endl;
-    auto aIm1Rectif = aIm1->AllocReSampleGen(*aInterp, anEpipMap1, cTplBox(anEpipMap1.EpipImSz()));
+    StdOut() << Color::title << "* Image 1" << Color::end << std::endl;
+    Resample(mNameIm1,mNameIm2,aSI1,aInterp,anEpipMap1);
+
     // Resample Img2
-    const auto* aIm2 = ReadIm2DGen(mNameIm2);
-    StdOut() << "[EpipolarResample] Resampling image 2 "<< anEpipMap2.EpipFrame() << " Sz: " << anEpipMap2.EpipImSz() << std::endl;
-    auto aIm2Rectif = aIm2->AllocReSampleGen(*aInterp, anEpipMap2, cTplBox(anEpipMap2.EpipImSz()));
-
-    StdOut() << "Image_1: " << anEpip1Name << std::endl;
-    aIm1Rectif->ToFile(anEpip1Name);
-    StdOut() << "RPC_1: " << aRPC1Name << std::endl;
-    auto aResampSI1 = aSI1->GenerateSensorRPC( &anEpipMap1, nullptr, false, anEpip1Name, aRectifier.ZIntervalUsed1());
-    aResampSI1->ToFile(aRPC1Name);
-
-    StdOut() << "Image2: " << anEpip2Name << std::endl;
-    aIm2Rectif->ToFile(anEpip2Name);
-    StdOut() << "RPC_2: " << aRPC2Name << std::endl;
-    auto aResampSI2 = aSI2->GenerateSensorRPC(&anEpipMap2, nullptr, false, anEpip2Name, aRectifier.ZIntervalUsed2());
-    aResampSI2->ToFile(aRPC2Name);
+    StdOut() << Color::title << "* Image 2" << Color::end << std::endl;
+    Resample(mNameIm2,mNameIm1,aSI2,aInterp,anEpipMap2);
 
 
-    delete aResampSI1;
-    delete aResampSI2;
-    delete aIm1Rectif;
-    delete aIm2Rectif;
     delete aInterp;
-    delete aIm1;
-    delete aIm2;
     return EXIT_SUCCESS;
 }
 
@@ -204,6 +238,9 @@ cCollecSpecArg2007 & cAppli_EpipResampling::ArgOpt(cCollecSpecArg2007 & anArgOpt
            << AOpt2007(mZMargin,"ZMargin","Relative margin added around the raw [Zmin,Zmax] envelope inferred from TieP",{eTA2007::HDV})
            << AOpt2007(mTiePMinNbRatio,"TiePMinNbRatio","Min kept tie points = max(TiePMinNbFloor,ratio*sqrt(W*H))",{eTA2007::HDV})
            << AOpt2007(mTiePMinNbFloor,"TiePMinNbFloor","Absolute floor for the min kept tie point count",{eTA2007::HDV})
+           << AOpt2007(mMaxV1V2ResidIndep,"MaxV1V2ResidIndep","Max independent (held-out) V1/V2 residual (px), error above",{eTA2007::HDV})
+           << AOpt2007(mMaxW1ResidIndep,"MaxW1ResidIndep","Max independent (held-out) W1 residual (px), error above",{eTA2007::HDV})
+           << AOpt2007(mMaxW2ResidIndep,"MaxW2ResidIndep","Max independent (held-out) W2 residual (px), error above",{eTA2007::HDV})
            << AOpt2007(mFrame,"FrameAlgo","Output image height algo",{eTA2007::HDV})
            << AOpt2007(mOutDir,"OutDir","Output directory (Default: VISU/" + Specs().Name()+")")
            << AOpt2007(mOutNamePat,"OutName","Output name pattern", {eTA2007::HDV})

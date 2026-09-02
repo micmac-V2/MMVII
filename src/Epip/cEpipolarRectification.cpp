@@ -76,12 +76,13 @@ cEpipPolyModel cEpipolarRectification::Compute()
     //                                 and epipolar direction in I1
     // ----------------------------------------------------------
 
-    std::vector<cEpiPair> aPairsA, aPairsB;
+    std::vector<cEpiPair> aPairsATrain, aPairsATest, aPairsBTrain, aPairsBTest;
     cPt2dr aCenter1, aCenter2;
     cPt2dr aDir1,    aDir2;
+    cPt2dr aZInterval1, aZInterval2;
 
-    GenerateData(mCam1, mCam2, aPairsA, aCenter1, aDir2);
-    GenerateData(mCam2, mCam1, aPairsB, aCenter2, aDir1);
+    GenerateData(mCam1, mCam2, aPairsATrain, aPairsATest, aCenter1, aDir2, aZInterval1);
+    GenerateData(mCam2, mCam1, aPairsBTrain, aPairsBTest, aCenter2, aDir1, aZInterval2);
 
     // We must inverse aDir2 because it is computed in the direction from I2 to I1, but we want it in the direction from I1 to I2
     aDir2 = - aDir2;
@@ -95,8 +96,8 @@ cEpipPolyModel cEpipolarRectification::Compute()
     // TODOCM: Check d1 and d2 /= 0 ?
     aDir1 = VUnit(aDir1);
     aDir2 = VUnit(aDir2);
-    mNbPairs12 = aPairsA.size();
-    mNbPairs21 = aPairsB.size();
+    mNbPairs12 = aPairsATrain.size() + aPairsATest.size();
+    mNbPairs21 = aPairsBTrain.size() + aPairsBTest.size();
 
     // ----------------------------------------------------------
     //  Step 2 – apply rotation Rₖ to all points (eq. 25)
@@ -110,44 +111,54 @@ cEpipPolyModel cEpipolarRectification::Compute()
         return (p - C) / D;
     };
 
-    // aPairsA already stores (masterPt in I1, slavePt in I2)
-    // aPairsB stores          (masterPt in I2, slavePt in I1)
+    // aPairsA* already store (masterPt in I1, slavePt in I2)
+    // aPairsB* store          (masterPt in I2, slavePt in I1)
     //   => swap to keep the convention (pt1, pt2)
 
-    std::vector<cEpiPair> aRotPairs;
-    aRotPairs.reserve(aPairsA.size() + aPairsB.size());
+    std::vector<cEpiPair> aRotPairsTrain, aRotPairsTest;
+    aRotPairsTrain.reserve(aPairsATrain.size() + aPairsBTrain.size());
+    aRotPairsTest.reserve(aPairsATest.size() + aPairsBTest.size());
 
-    for (const auto& pr : aPairsA)
-        aRotPairs.push_back({ Rotate(pr.mP1, aCenter1, aDir1),
-                              Rotate(pr.mP2, aCenter2, aDir2) });
+    for (const auto& pr : aPairsATrain)
+        aRotPairsTrain.push_back({ Rotate(pr.mP1, aCenter1, aDir1),
+                                   Rotate(pr.mP2, aCenter2, aDir2) });
+    for (const auto& pr : aPairsBTrain)
+        aRotPairsTrain.push_back({ Rotate(pr.mP2, aCenter1, aDir1),   // I1 pt
+                                   Rotate(pr.mP1, aCenter2, aDir2) }); // I2 pt
 
-    for (const auto& pr : aPairsB)
-        aRotPairs.push_back({ Rotate(pr.mP2, aCenter1, aDir1),   // I1 pt
-                              Rotate(pr.mP1, aCenter2, aDir2) }); // I2 pt
+    for (const auto& pr : aPairsATest)
+        aRotPairsTest.push_back({ Rotate(pr.mP1, aCenter1, aDir1),
+                                  Rotate(pr.mP2, aCenter2, aDir2) });
+    for (const auto& pr : aPairsBTest)
+        aRotPairsTest.push_back({ Rotate(pr.mP2, aCenter1, aDir1),
+                                  Rotate(pr.mP1, aCenter2, aDir2) });
 
     // ----------------------------------------------------------
-    //  Step 3 – estimate V1 (with Y-axis identity) and V2
+    //  Step 3 – estimate V1 (with Y-axis identity) and V2 -- train pool only
     // ----------------------------------------------------------
     cPolyXY_N<tREAL8> aV1(mParams.mPolyDegree);
     cPolyXY_N<tREAL8> aV2(mParams.mPolyDegree);
-    EstimateForwardPolynomials(aRotPairs, aV1, aV2);
+    EstimateForwardPolynomials(aRotPairsTrain, aV1, aV2);
 
     // ----------------------------------------------------------
-    //  Step 4 – estimate inverse polynomials W1, W2
+    //  Step 4 – estimate inverse polynomials W1, W2 -- train pool only
     // ----------------------------------------------------------
 
     cPolyXY_N<tREAL8> aW1(mParams.mPolyDegreeInv);
     cPolyXY_N<tREAL8> aW2(mParams.mPolyDegreeInv);
-    EstimateInversePolynomial(aRotPairs, aV1, aW1, UseFromPair::PT1);
-    EstimateInversePolynomial(aRotPairs, aV2, aW2, UseFromPair::PT2);
+    EstimateInversePolynomial(aRotPairsTrain, aV1, aW1, UseFromPair::PT1);
+    EstimateInversePolynomial(aRotPairsTrain, aV2, aW2, UseFromPair::PT2);
+
+    // ----------------------------------------------------------
+    //  Independent residuals on the held-out test pool
+    // ----------------------------------------------------------
+    EstimateIndepResiduals(aRotPairsTest, aV1, aV2, aW1, aW2);
 
     auto anEpipPolyModel = cEpipPolyModel {
-        std::make_unique<cEpipPolyMapping>(aV1,aW1,aCenter1,aDir1),
-        std::make_unique<cEpipPolyMapping>(aV2,aW2,aCenter2,aDir2),
+        std::make_unique<cEpipPolyMapping>(aV1,aW1,aCenter1,aDir1,aZInterval1),
+        std::make_unique<cEpipPolyMapping>(aV2,aW2,aCenter2,aDir2,aZInterval2),
     };
     anEpipPolyModel.ComputeCommonFraming(mCam1.PixelDomain().Box(),mCam2.PixelDomain().Box(),mParams.mEpipFrm, mParams.mMargin);
-
-    // TODOCM: Prendre 1 pt sur 2 pour calcul et les autres pour la verif
 
     return anEpipPolyModel;
 }
@@ -217,7 +228,6 @@ void cEpipolarRectification::EstimateForwardPolynomials(
     }
 
     const cDenseVect<double> aSol = aSolver.PublicSolve();
-    // TODOCM : error on too big variance. Scale of variance ?
     mV1V2Var = aSolver.VarCurSol();
 
     // Restore V1 : locked coefficients are already set in the
@@ -276,10 +286,14 @@ void cEpipolarRectification::EstimateInversePolynomial(
 
 void cEpipolarRectification::GenerateData(const cSensorImage &aCamM,
                                           const cSensorImage &aCamS,
-                                          std::vector<cEpiPair> &aOutPairs,
+                                          std::vector<cEpiPair> &aOutPairsTrain,
+                                          std::vector<cEpiPair> &aOutPairsTest,
                                           cPt2dr &aOutCenterM,
-                                          cPt2dr &aOutDirS) const {
-    aOutPairs.clear();
+                                          cPt2dr &aOutDirS,
+                                          cPt2dr &aZInterval
+                                          ) const {
+    aOutPairsTrain.clear();
+    aOutPairsTest.clear();
     aOutCenterM = cPt2dr(0, 0);
     aOutDirS = cPt2dr(0, 0);
 
@@ -287,68 +301,96 @@ void cEpipolarRectification::GenerateData(const cSensorImage &aCamM,
     const double nXY = mParams.mNbXYSteps;
 
     // Altitude range for this master camera : mZIntv > tie-point-derived > native.
-    const cPt2dr aZInterval = EffectiveZInterval(aCamM);
+    aZInterval = EffectiveZInterval(aCamM);
     const double Zmin = aZInterval.x();
     const double Zmax = aZInterval.y();
 
-    // Altitude step : NbZLevels levels => (NbZLevels-1) intervals
-    const int nZ = mParams.mNbZLevels;
+    // Altitude step : NbZLevels levels for train, NbZLevels-1 for test
+    const int nZ = mParams.mNbZLevels * 2 - 1;
 
-    // Margin
-    // Lambda to convert Z steps to "world" Z
-    auto Step2Z = [&](int aKZ) -> tREAL8 {
-        tREAL8 aW = (aKZ) / (nZ - 1);
-        return (Zmin * (1 - aW)) + Zmax * aW;
-    };
+    // Z interval between 2 successive steps
+    auto aStepZ = (Zmax - Zmin) / (nZ - 1);
 
     std::vector<cPt2dr> aVPts = aCamM.PtsSampledOnSensor(nXY, 0);
 
-    int nAccum = 0;
+    int nCentroid = 0;
     for (const auto &pM : aVPts) {
-        for (int aKZ = 0; aKZ < nZ; aKZ++) {
-            cPt3dr aP13D;
-            const double Z0 = Step2Z(aKZ);
-            const double Z1 = Step2Z(aKZ + 1);
-
-            // 3D point on bundle at altitude Z0 and Z1
-            // cSensorImage::ImageAndZ2Ground expects a cPt3dr
-            // with x=col, y=row, z=altitude
-            const cPt3dr aGround0 =
-                aCamM.ImageAndZ2Ground(TP3z(pM, Z0));
-            const cPt3dr aGround1 =
-                aCamM.ImageAndZ2Ground(TP3z(pM, Z1));
-
-            // Project into the slave image
+        // ---- Regular Z sweep : nZ levels. Alternates train/test by index ; Extra levels are random
+        for (int aKZ = 0; aKZ < nZ + 2; aKZ++) {
+            double Z0 = Zmin + aKZ * aStepZ;
+            if (aKZ >= nZ) {
+                Z0 = RandInInterval(Zmin, Zmax);
+            }
+            const cPt3dr aGround0 = aCamM.ImageAndZ2Ground(TP3z(pM, Z0));
             const cPt2dr pS0 = aCamS.Ground2Image(aGround0);
-            const cPt2dr pS1 = aCamS.Ground2Image(aGround1);
-
             if (!aCamS.IsVisibleOnImFrame(pS0))
                 continue;
+            aOutCenterM = aOutCenterM + pM;
+            ++nCentroid;
+            if (aKZ % 2 == 0)
+                aOutPairsTrain.push_back({pM, pS0});
+            else
+                aOutPairsTest.push_back({pM, pS0});
+
+            const double Z1 = Z0 + aStepZ;
+            if (Z1 > Zmax)
+                continue;
+            const cPt3dr aGround1 = aCamM.ImageAndZ2Ground(TP3z(pM, Z1));
+            const cPt2dr pS1 = aCamS.Ground2Image(aGround1);
             if (!aCamS.IsVisibleOnImFrame(pS1))
                 continue;
-
-            // Store the pair at Z0
-            aOutPairs.push_back({pM, pS0});
-
-            // Accumulate centroid
-            aOutCenterM = aOutCenterM + pM;
-
-            // Accumulate normalised epipolar direction in slave
             cPt2dr aDelta = pS1 - pS0;
             if (SqN2(aDelta) > 1e-16) {
                 aDelta = VUnit(aDelta);
+                aOutDirS = aOutDirS + aDelta;
             }
-            aOutDirS = aOutDirS + aDelta;
-
-            ++nAccum;
         }
     }
 
     MMVII_INTERNAL_ASSERT_User(
-        nAccum > 50, eTyUEr::eUnClassedError,
-        "Insufficient number of common points on two images");
-    aOutCenterM = aOutCenterM * (1.0 / nAccum);
+        aOutPairsTrain.size() > mParams.mMinNbPairs, eTyUEr::eUnClassedError,
+        "Insufficient number of common (train) points on two images");
+    MMVII_INTERNAL_ASSERT_User(
+        aOutPairsTest.size() > mParams.mMinNbPairs, eTyUEr::eUnClassedError,
+        "Insufficient number of common (test) points on two images");
+    aOutCenterM = aOutCenterM * (1.0 / nCentroid);
     aOutDirS = VUnit(aOutDirS);
+}
+
+// ============================================================
+//  EstimateIndepResiduals : evaluate the fitted V1,V2,W1,W2 on the held-out
+//  test pairs.
+// ============================================================
+
+void cEpipolarRectification::EstimateIndepResiduals(
+        const std::vector<cEpiPair>& aPairsTest,
+        const cPolyXY_Nd& aV1, const cPolyXY_Nd& aV2,
+        const cPolyXY_Nd& aW1, const cPolyXY_Nd& aW2)
+{
+    double aSumV = 0.0;
+    double aSumW1 = 0.0;
+    double aSumW2 = 0.0;
+    for (const auto& pr : aPairsTest)
+    {
+        const cPt2dr& q1 = pr.mP1;
+        const cPt2dr& q2 = pr.mP2;
+
+        const double v1 = aV1.Eval(q1);
+        const double v2 = aV2.Eval(q2);
+        const double eV = v1 - v2;
+        aSumV += eV * eV;
+
+        const double eW1 = aW1.Eval(cPt2dr(q1.x(), v1)) - q1.y();
+        aSumW1 += eW1 * eW1;
+
+        const double eW2 = aW2.Eval(cPt2dr(q2.x(), v2)) - q2.y();
+        aSumW2 += eW2 * eW2;
+    }
+
+    const size_t aN = aPairsTest.size();
+    mV1V2VarIndep = aN ? (aSumV  / aN) : 0.0;
+    mW1VarIndep   = aN ? (aSumW1 / aN) : 0.0;
+    mW2VarIndep   = aN ? (aSumW2 / aN) : 0.0;
 }
 
 // ============================================================
@@ -387,7 +429,6 @@ cPt2dr cEpipolarRectification::EffectiveZInterval(const cSensorImage & aCamM) co
         aResult = aCamM.GetIntervalZ();
     }
 
-    ((&aCamM == &mCam1) ? mZIntervalUsed1 : mZIntervalUsed2) = aResult;
     return aResult;
 }
 
@@ -505,6 +546,14 @@ void BenchEpipolar(cParamExeBench & aParam)
     auto aParams = cEpipolarRectification::cParams{5,9,100,3};
     auto aRectifier = cEpipolarRectification(*aSensor1, *aSensor2, aParams);
     auto aEpipModel = aRectifier.Compute();
+
+    // Independent residuals : sanity only, finite and non-negative.
+    MMVII_INTERNAL_ASSERT_bench(aRectifier.V1V2VarIndep() >= 0, "V1V2VarIndep is negative");
+    MMVII_INTERNAL_ASSERT_bench(aRectifier.W1VarIndep() >= 0, "W1VarIndep is negative");
+    MMVII_INTERNAL_ASSERT_bench(aRectifier.W2VarIndep() >= 0, "W2VarIndep is negative");
+    MMVII_INTERNAL_ASSERT_bench(std::sqrt(aRectifier.V1V2VarIndep()) < 1.0, "V1V2VarIndep implausibly high");
+    MMVII_INTERNAL_ASSERT_bench(std::sqrt(aRectifier.W1VarIndep()) < 1.0, "W1VarIndep implausibly high");
+    MMVII_INTERNAL_ASSERT_bench(std::sqrt(aRectifier.W2VarIndep()) < 1.0, "W2VarIndep implausibly high");
 
     // RPCs in epipolar geometry computing test
     auto aEpipName1 = "Epip-" + Name1;
@@ -692,11 +741,11 @@ void BenchEpipolarZFromTieP(cParamExeBench & aParam)
         auto aParams = cEpipolarRectification::cParams{3,7,20,3};
         aParams.mHomolPts = aSetH;
         auto aRectifier = cEpipolarRectification(*aCam1,*aCam2,aParams);
-        aRectifier.Compute();
+        auto anEpipModel = aRectifier.Compute();
         MMVII_INTERNAL_ASSERT_bench(aRectifier.NbPairs12() > 0, "No H-compatible pairs with TieP-derived Z");
         MMVII_INTERNAL_ASSERT_bench(aRectifier.NbPairs21() > 0, "No H-compatible pairs with TieP-derived Z");
 
-        const cPt2dr aUsed = aRectifier.ZIntervalUsed1();
+        const cPt2dr aUsed = anEpipModel.EpipMap1().ZInterval();
         MMVII_INTERNAL_ASSERT_bench((aUsed.x() <= aKnownZ.x()) && (aUsed.x() > aKnownZ.x()-20.0),
             "TieP-derived Zmin implausible : " + ToStr(aUsed.x()));
         MMVII_INTERNAL_ASSERT_bench((aUsed.y() >= aKnownZ.y()) && (aUsed.y() < aKnownZ.y()+20.0),
@@ -712,10 +761,10 @@ void BenchEpipolarZFromTieP(cParamExeBench & aParam)
         aParams.mZIntv = anAbsurdZIntv;
         aParams.mNoWarnings = true;  // suppress the expected warning about ZIntv overriding TieP-derived Z
         auto aRectifier = cEpipolarRectification(*aCam1,*aCam2,aParams);
-        aRectifier.Compute();
-        MMVII_INTERNAL_ASSERT_bench(aRectifier.ZIntervalUsed1() == anAbsurdZIntv,
+        auto aEpipModel = aRectifier.Compute();
+        MMVII_INTERNAL_ASSERT_bench(aEpipModel.EpipMap1().ZInterval() == anAbsurdZIntv,
             "ZIntv did not take priority over TieP-derived Z for camera 1");
-        MMVII_INTERNAL_ASSERT_bench(aRectifier.ZIntervalUsed2() == anAbsurdZIntv,
+        MMVII_INTERNAL_ASSERT_bench(aEpipModel.EpipMap2().ZInterval() == anAbsurdZIntv,
             "ZIntv did not take priority over TieP-derived Z for camera 2");
     }
 
