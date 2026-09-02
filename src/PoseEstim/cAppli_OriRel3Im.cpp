@@ -405,11 +405,21 @@ cOriTriplets::cOriTriplets
 
     for (const auto & aPose01 : *mVPoses01)
     {
-        for (const auto & aPose02 : *mVPoses02)
+        // 2 options for selection of  pair used at initialisation
+        //  was expected to be useful in the case where there is only  two pair
+        if (1)
         {
-            TestSol(tPoseR::Identity(),aPose01,aPose02);
-           /* TestSol(mVPosesRef.at(0),mVPosesRef.at(1),mVPosesRef.at(2));
-            FakeUseIt(aPose01);FakeUseIt(aPose02);*/
+            for (const auto & aPose02 : *mVPoses02)
+            {
+                TestSol(tPoseR::Identity(),aPose01,aPose02);
+            }
+        }
+        else
+        {
+            for (const auto & aPose12 : *mVPoses12)
+            {
+                TestSol(aPose01.MapInverse(),tPoseR::Identity(),aPose12);
+            }
         }
     }
 

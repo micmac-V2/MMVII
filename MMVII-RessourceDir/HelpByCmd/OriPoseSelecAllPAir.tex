@@ -1,0 +1,131 @@
+\documentclass[a4paper]{article}
+\usepackage{MMVII}
+
+\newcommand{\TheCmd}{OriPoseSelecAllPAir}
+
+\begin{document}
+
+\CmdTitle
+%\maketitle
+
+\tableofcontents
+
+
+ %=================================================================================
+
+\SecDescr
+
+This command is used in global relative orientation, it computes a set of pairs  and triplets
+\footnote{probably, later, the triplet computation will be separated} for which relative orientation
+will be computed.
+Generally it will not be called \emph{individually} but rather \emph{implicitelly} inside \FileSty{OriPoseEstimRelGlob}.
+However  there is two possible motivation for \emph{explicit} call to this command :
+
+\begin{itemize}
+   \item {\bf didactic}, to understand step by step the global orientation process
+   \item {\bf fine tuning } when the default parametrization used by \FileSty{OriPoseEstimRelGlob}
+         is not adapted.
+\end{itemize}
+
+
+
+ %=================================================================================
+
+\section{Mandatory Parameters and "optional mandatory" parameter}
+
+ % ---------------------------------------------- 
+\subsection{Mandatory Parameters}
+
+The two mandatory parameters are the set of images and the destination 
+folder that will contain all the result for relative orientation
+(a subfolder of \FileSty{MMVII-PhgrProj/OriRel/}).
+
+
+ % ---------------------------------------------- 
+\SubSecTiePRelOr{The selection of pair is based on tie point.}
+
+ %=================================================================================
+
+\section{Methodology}
+
+\subsection{Introduction}
+
+The approach is quite basic for now and was developped to have a fast
+prototype of global orientation, it will most certainly evolve.
+
+It's difficult to formalize the problem rigourously as the selection
+of pair/triplet  optimal according to criterion.  By the way, practically 
+the requirement is to have sufficient set of pair/triplet, to allow
+a good reconstruction, and not too many to limit computation time.
+
+So the approach used is to have several heuristics corresponding to different criteria
+and to accumulate their results.  These heuristics require some quality evaluation of the 
+pairs, for now it's limited to the  number of tie-point (one aspect that will need to be improved).
+
+
+We create a symetric graph $G_{tp}$ such that :
+
+\begin{itemize}
+   \item there is a vertice for eachf image;
+   \item there is an edge between all image where the number $N$ of tie 
+         points is over the parameter \FileSty{NbMinTieP};
+    \item the weight of each edge is $\frac{1}{1+N}$ (any postive decreasing function will do).
+\end{itemize}
+
+
+ % ---------------------------------------------- 
+\subsection{Pair selection and control parameter}
+
+The pair selection is made of $3$ heuristiks :
+
+\begin{itemize}
+   \item  to assure connectivity a minimal spaning $T_0$ tree is added, 
+          to have better connectivity the optimal the optimal spaning $T_1$ tree in $G_0=G_{tp}-T_0$ is also added,
+          then $T_2$ in  $G_1=G_0-T1$ \dots the number of iteration is controlled by \FileSty{NbMSTree};
+
+   \item   for each image  we select its $K$  \emph{best} neighboors, where $K$ is controled
+           by \FileSty{NbKBest} ;
+
+   \item   using the alphabetic order, let $I_1,..,I_N$  be the images, we add all the pair 
+           $I_j,I_k$ such that $(j-k)\%N|<\delta$  where $\delta$ is controled by \FileSty{NbSuccLines};
+           this heuristic is usefull when the acquisition has some time coherence, which is generally true.
+
+\end{itemize}
+
+Finnaly for reasonably small dataset, we can enforce to select all the pair with parameter \FileSty{AllPair}.
+Let note $E_s$ the edges selected.
+
+
+ % ---------------------------------------------- 
+\subsection{Triplet selection }
+
+Considerring all the $3$ length loops of graph $G_{tp}$,  we add a triplet
+corresponding to this loop is :
+
+
+\begin{itemize}
+   \item the three edges of this loop belong tp $E_s$;
+   \item two  edges of this loop belong to $E_s$, and the missing edge
+         is not the worst of loop.
+\end{itemize}
+
+
+Next step, is to creat a new  command for triplet selection, that will be called after pair orientation.
+
+ %=================================================================================
+
+\section{Result}
+
+
+If \FileSty{REL} is the second mandatory parameter,
+a subfolder of \FileSty{MMVII-PhgrProj/OriRel/}REL/) is created.
+It will  containt file for storing pair and triplet selected.
+
+
+\end{document}
+
+
+
+
+
+
