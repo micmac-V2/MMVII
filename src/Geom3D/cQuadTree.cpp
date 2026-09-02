@@ -154,7 +154,9 @@ int cQuadTree::RecursiveDiv(cQuadTreeCell *aCell, float aLimit)
             aCell->mValMin = mDepthIm->MinValNotNull(aCell->mArea);
             aCell->mValsComputed = true;
         }
-        float aVal = (sqrt(sqrt(aCell->mValMax)) * (1+(aCell->mValMax-aCell->mValMin)/(aCell->mValMax+.01))) / Square(Square(aCell->mLevel));
+        //float aVal = log(aCell->mValMax) * sqrt(1+(aCell->mValMax-aCell->mValMin)/(aCell->mValMax+.1)) / ((aCell->mLevel));
+        float aVal =   sqrt(aCell->mValMax * (1+(aCell->mValMax-aCell->mValMin)/(aCell->mValMax+.1))) / Square(Square((aCell->mLevel)));
+        //float aVal = sqrt(aCell->mValMax * sqrt(1+sqrt((aCell->mValMax-aCell->mValMin)/(aCell->mValMax+1.)))) / Square(aCell->mLevel);
         //std::cout<<"  aVal="<<aVal<<" aLimit="<<aLimit<<"\n";
         if (aVal > aLimit)
             aNbCreated += aCell->Divide4(mMinCellSz) - 1; // lost 1 leaf, made n new leaves
