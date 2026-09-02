@@ -43,6 +43,7 @@ Color Color::argument;
 Color Color::title;
 Color Color::sub_title;
 
+Color Color::info;
 Color Color::success;
 Color Color::error;
 Color Color::warning;
@@ -82,6 +83,7 @@ static void SetColors(eModeHelpColor aMode)
     {
         Color::command = DarkBlue;
         Color::argument = DarkMagenta;
+        Color::info = DarkGreen;
         Color::descr = DarkGreen;
         Color::title = DarkCyan;
         Color::sub_title = Cyan;
@@ -94,6 +96,7 @@ static void SetColors(eModeHelpColor aMode)
     {
         Color::command = DarkGreen;
         Color::argument = DarkGreen;
+        Color::info = Green;
         Color::descr = DarkYellow;
         Color::success = Green;
         Color::title = Blue;
