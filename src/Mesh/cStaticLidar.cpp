@@ -8,10 +8,11 @@
 #include "MMVII_TplGradImFilter.h"
 #include "MMVII_Tpl_Images.h"
 #include "MMVII_ImageInfoExtract.h"
-#include "MMVII_2Include_CSV_Serial_Tpl.h"
 #include "../SymbDerGen/Formulas_CentralProj.h"
 #include "MMVII_Interpolators.h"
 #include "MMVII_util.h"
+#include "MMVII_QuadTree.h"
+
 
 namespace MMVII
 {
