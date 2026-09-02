@@ -4,6 +4,7 @@
 #include "MMVII_Interpolators.h"
 #include "MMVII_CodeTiming.h"
 #include <vector>
+#include <optional>
 
 /**
    \file EpipGeom.cpp
@@ -34,6 +35,7 @@ private :
     int mNbByXY = 100;
     int mNbByZ = 3;
     int mMargin = 2;
+    cPt2dr mZIntv;
     std::string mOutDir;
     std::string mOutNamePat = "Epip_%1_%2.tif";
     std::vector<std::string> mInterpol = {"Cubic","-0.5"};
@@ -87,16 +89,10 @@ int cAppli_EpipResampling::Exe()
 
 
     const cSensorImage *  aSI1 =  mPhProj.ReadSensor(FileOfPath(mNameIm1,false /* Ok Not Exist*/),true/*DelAuto*/,false /* Not SVP*/);
-    if (! aSI1->HasIntervalZ())
-    {
-        MMVII_UserError(eTyUEr::eOpenFile,"Image 1 has no Z validity interval");
-    }
-
     const cSensorImage *  aSI2 =  mPhProj.ReadSensor(FileOfPath(mNameIm2,false /* Ok Not Exist*/),true/*DelAuto*/,false /* Not SVP*/);
-    if (! aSI2->HasIntervalZ())
-    {
-        MMVII_UserError(eTyUEr::eOpenFile,"Image 2 has no Z validity interval");
-    }
+    // Missing Z interval is an error unless ZIntv is given (checked once per sensor
+    // in cEpipolarRectification); ZIntv overriding an existing interval only warns.
+    const std::optional<cPt2dr> aZIntvArg = IsInit(&mZIntv) ? std::optional<cPt2dr>(mZIntv) : std::nullopt;
 
     // Create early to have possible error reported before doing long computations
     auto aDIm1 = cDataFileIm2D::Create(mNameIm1,eForceGray::No);
@@ -111,7 +107,7 @@ int cAppli_EpipResampling::Exe()
     StdOut() << "NbByXY: " << mNbByXY << ", NbByZ: " << mNbByZ << std::endl;
     StdOut() << "Frame: " << ToStr(mFrame) << ", Margin: " << mMargin << std::endl;
 
-    auto aParams = cEpipolarRectification::cParams{mDegree,mDegreeInv,mNbByXY,mNbByZ,mFrame,mMargin};
+    auto aParams = cEpipolarRectification::cParams{mDegree,mDegreeInv,mNbByXY,mNbByZ,mFrame,mMargin,aZIntvArg};
     auto aRectifier = cEpipolarRectification(*aSI1, *aSI2, aParams);
     auto aEpipModel = aRectifier.Compute();
 
@@ -146,13 +142,13 @@ int cAppli_EpipResampling::Exe()
     StdOut() << "Image_1: " << anEpip1Name << std::endl;
     aIm1Rectif->ToFile(anEpip1Name);
     StdOut() << "RPC_1: " << aRPC1Name << std::endl;
-    auto aResampSI1 = aSI1->GenerateSensorRPC( &anEpipMap1, nullptr, false, anEpip1Name);
+    auto aResampSI1 = aSI1->GenerateSensorRPC( &anEpipMap1, nullptr, false, anEpip1Name, aZIntvArg);
     aResampSI1->ToFile(aRPC1Name);
 
     StdOut() << "Image2: " << anEpip2Name << std::endl;
     aIm2Rectif->ToFile(anEpip2Name);
     StdOut() << "RPC_2: " << aRPC2Name << std::endl;
-    auto aResampSI2 = aSI2->GenerateSensorRPC(&anEpipMap2, nullptr, false, anEpip2Name );
+    auto aResampSI2 = aSI2->GenerateSensorRPC(&anEpipMap2, nullptr, false, anEpip2Name, aZIntvArg);
     aResampSI2->ToFile(aRPC2Name);
 
 
@@ -185,6 +181,7 @@ cCollecSpecArg2007 & cAppli_EpipResampling::ArgOpt(cCollecSpecArg2007 & anArgOpt
            << AOpt2007(mNbByXY,"XYSteps","Nb XY steps",{eTA2007::HDV})
            << AOpt2007(mNbByZ,"ZSteps","Nb Z steps",{eTA2007::HDV})
            << AOpt2007(mMargin,"Margin","Output image margin",{eTA2007::HDV})
+           << AOpt2007(mZIntv,"ZIntv","Z interval [Zmin,Zmax], overrides sensor's own (mandatory when sensor has none, e.g. no RPC)")
            << AOpt2007(mFrame,"FrameAlgo","Output image height algo",{eTA2007::HDV})
            << AOpt2007(mOutDir,"OutDir","Output directory (Default: VISU/" + Specs().Name()+")")
            << AOpt2007(mOutNamePat,"OutName","Output name pattern", {eTA2007::HDV})

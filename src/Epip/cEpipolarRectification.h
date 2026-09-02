@@ -5,6 +5,7 @@
 #include "MMVII_Mappings.h"
 #include "MMVII_AllClassDeclare.h"  // cPt2dr, cPt3dr, cPt2di, etc.
 #include "MMVII_Tpl_ElemStrToVal.h"
+#include <optional>
 
 namespace MMVII {
 
@@ -154,6 +155,7 @@ public:
         int      mNbZLevels     = 3;      ///< number of altitude sampling levels
         eEpipFrm mEpipFrm       = eEpipFrm::eIntersect; ///< Framing type for epipolar images (Resmampling)
         int      mMargin        = 2;      ///< Margin in pixels for epipolar image framing (Resampling)
+        std::optional<cPt2dr> mZIntv = std::nullopt; ///< Override Z interval (Zmin,Zmax); mandatory if sensor has none
     };
 
     // --------------------------------------------------------

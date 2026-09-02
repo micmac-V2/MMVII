@@ -2,6 +2,7 @@
 #include "MMVII_Error.h"
 #include "MMVII_Geom2D.h"
 #include "MMVII_Sensor.h"
+#include "MMVII_PCSens.h"
 #include "../Sensors/cExternalSensor.h"
 
 #include <cmath>
@@ -284,8 +285,23 @@ void cEpipolarRectification::GenerateData(const cSensorImage &aCamM,
     // Steps on sensors
     const double nXY = mParams.mNbXYSteps;
 
-    // Altitude range from the master camera's RPC validity interval
-    const cPt2dr aZInterval = aCamM.GetIntervalZ();
+    // Altitude range: mZIntv overrides the camera's own Z interval if given,
+    // else mandatory when the camera has none (e.g. no RPC).
+    cPt2dr aZInterval;
+    if (mParams.mZIntv)
+    {
+        if (aCamM.HasIntervalZ())
+        {
+            MMVII_USER_WARNING("Provided ZIntv overrides sensor's own Z validity interval");
+        }
+        aZInterval = *mParams.mZIntv;
+    }
+    else
+    {
+        MMVII_INTERNAL_ASSERT_User(aCamM.HasIntervalZ(), eTyUEr::eUnClassedError,
+            "Sensor has no Z validity interval (no RPC); provide ZIntv=[Zmin,Zmax]");
+        aZInterval = aCamM.GetIntervalZ();
+    }
     const double Zmin = aZInterval.x();
     const double Zmax = aZInterval.y();
 
@@ -463,6 +479,108 @@ void BenchEpipolar(cParamExeBench & aParam)
 
     aParam.EndBench();
     return;
+}
+
+
+namespace {
+
+// Catches MMVII_UserError/ASSERT_User via a throwing handler instead of abort();
+// RAII-restored, same pattern as cProfileErrorCatcher.
+struct cBenchNoZIntvError {};
+
+void BenchNoZIntvErrorHandler(const std::string &, const std::string &, const char *, int)
+{
+    throw cBenchNoZIntvError{};
+}
+
+class cBenchErrorCatcher
+{
+public:
+    cBenchErrorCatcher() : mPrev(MMVVI_Error) { MMVII_SetErrorHandler(BenchNoZIntvErrorHandler); }
+    ~cBenchErrorCatcher() { MMVII_SetErrorHandler(mPrev); }
+    cBenchErrorCatcher(const cBenchErrorCatcher &) = delete;
+private:
+    PtrMMVII_Error_Handler mPrev;
+};
+
+// Synthetic conic camera looking from aCenter to aTarget. Not cCamSimul: its
+// terrestrial poses are too narrow a footprint for a well-conditioned RPC fit.
+cSensorCamPC * BuildLookAtConicCam(const std::string & aName, const cPt3dr & aCenter,
+                                    const cPt3dr & aTarget, cPerspCamIntrCalib * aCalib)
+{
+    const cPt3dr aK = VUnit(aTarget - aCenter);
+    const cPt3dr aWorldUp(0,0,1);
+    cPt3dr aI = VUnit(aK ^ ((std::abs(aK.z()) > 0.9) ? cPt3dr(1,0,0) : aWorldUp));
+    cPt3dr aJ = VUnit(aK ^ aI);
+    aI = aJ ^ aK;
+    cRotation3D<tREAL8> aRot(M3x3FromCol(aI,aJ,aK),false);
+    return new cSensorCamPC(aName,cIsometry3D<tREAL8>(aCenter,aRot),aCalib);
+}
+
+} // anonymous namespace
+
+
+// ============================================================
+//  BenchEpipolarNoRPC : sensors with no native Z interval (conic camera).
+//  Exercises cParams::mZIntv (mandatory, else user error) and
+//  GenerateSensorRPC's own override.
+// ============================================================
+
+void BenchEpipolarNoRPC(cParamExeBench & aParam)
+{
+    if (! aParam.NewBench("EpipolarNoRPC")) return;
+
+    const std::string aTmpDir = cMMVII_Appli::CurrentAppli().TmpDirTestMMVII() + "EpipolarNoRPC/";
+    CreateDirectories(aTmpDir);
+
+    // Synthetic conic cameras: no RPC, hence no native Z interval.
+    std::unique_ptr<cPerspCamIntrCalib> aCalib(cPerspCamIntrCalib::SimpleCalib("SimulConic",cPt2di(4000,3000),4000.0));
+    const cPt3dr aTarget(0.0,0.0,0.0);
+    std::unique_ptr<cSensorCamPC> aCam1(BuildLookAtConicCam("Conic1",cPt3dr(-100.0,0.0,500.0),aTarget,aCalib.get()));
+    std::unique_ptr<cSensorCamPC> aCam2(BuildLookAtConicCam("Conic2",cPt3dr( 100.0,0.0,500.0),aTarget,aCalib.get()));
+
+    MMVII_INTERNAL_ASSERT_bench(! aCam1->HasIntervalZ(), "Synthetic conic camera unexpectedly has a Z interval");
+    MMVII_INTERNAL_ASSERT_bench(! aCam2->HasIntervalZ(), "Synthetic conic camera unexpectedly has a Z interval");
+
+    // Ground altitude range around the target plane (z=0)
+    const cPt2dr aZIntv(-50.0,50.0);
+
+    // ---- Missing ZIntv, no native interval : must raise a user error
+    {
+        bool aGotExpectedError = false;
+        {
+            cBenchErrorCatcher aCatcher;
+            try
+            {
+                auto aParams = cEpipolarRectification::cParams{3,7,20,3};
+                cEpipolarRectification(*aCam1,*aCam2,aParams).Compute();
+            }
+            catch (const cBenchNoZIntvError &)
+            {
+                aGotExpectedError = true;
+            }
+        }
+        MMVII_INTERNAL_ASSERT_bench(aGotExpectedError, "Expected error when ZIntv is missing and sensor has no Z interval");
+    }
+
+    // ---- ZIntv provided : rectification succeeds
+    auto aParams = cEpipolarRectification::cParams{3,7,20,3};
+    aParams.mZIntv = aZIntv;
+    auto aRectifier = cEpipolarRectification(*aCam1,*aCam2,aParams);
+    auto aEpipModel = aRectifier.Compute();
+    MMVII_INTERNAL_ASSERT_bench(aRectifier.NbPairs12() > 0, "No H-compatible pairs with ZIntv override");
+    MMVII_INTERNAL_ASSERT_bench(aRectifier.NbPairs21() > 0, "No H-compatible pairs with ZIntv override");
+
+    // Also exercise GenerateSensorRPC with the same override; files removed at the end.
+    auto aEpipRPCName1 = aTmpDir + "Epip-Conic1.xml";
+    auto aResampSI1 = std::unique_ptr<cSensorImage>(aCam1->GenerateSensorRPC(&aEpipModel.EpipMap1(), nullptr, false, "Epip-Conic1", aZIntv));
+    aResampSI1->ToFile(aEpipRPCName1);
+    auto aEpipSensor1 = std::unique_ptr<cSensorImage>(ReadExternalSensor(aEpipRPCName1, "Epip-Conic1", false));
+    MMVII_INTERNAL_ASSERT_bench(aEpipSensor1->HasIntervalZ(), "Generated epipolar RPC has no Z interval");
+
+    RemoveRecurs(aTmpDir,true);
+
+    aParam.EndBench();
 }
 
 
