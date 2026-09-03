@@ -46,7 +46,77 @@ cPt2dr cEpipPolyMapping::Inverse(const cPt2dr& aPt) const
     return FromRotatedFrame(cPt2dr(aPtEpip.x(), mW.Eval(aPtEpip)));
 }
 
+// ============================================================
+//  Serialization
+// ============================================================
 
+void AddData(const cAuxAr2007 &anAux, cRect2 &aRect)
+{
+    cPt2di aP0 = aRect.P0();
+    cPt2di aP1 = aRect.P1();
+    MMVII::AddData(cAuxAr2007("P0", anAux), aP0);
+    MMVII::AddData(cAuxAr2007("P1", anAux), aP1);
+    if (anAux.Input())
+        aRect = cRect2(aP0, aP1, true);
+}
+
+void cEpipolarMapping::AddDataBase(const cAuxAr2007 &anAux)
+{
+    MMVII::AddData(cAuxAr2007("ZInterval", anAux), mZInterval);
+    MMVII::AddData(cAuxAr2007("GridStep", anAux), mGridStep);
+    MMVII::AddData(cAuxAr2007("NbStepX", anAux), mNbStepX);
+    MMVII::AddData(cAuxAr2007("NbStepY", anAux), mNbStepY);
+    MMVII::AddData(cAuxAr2007("EpipImFrame", anAux), mEpipImFrame);
+}
+
+void cEpipPolyMapping::AddData(const cAuxAr2007 &anAux)
+{
+    AddDataBase(anAux);
+    MMVII::AddData(cAuxAr2007("V", anAux), mV);
+    MMVII::AddData(cAuxAr2007("W", anAux), mW);
+    MMVII::AddData(cAuxAr2007("Center", anAux), mCenter);
+    MMVII::AddData(cAuxAr2007("Dir", anAux), mDir);
+}
+
+void AddData(const cAuxAr2007 &anAux, cEpipPolyMapping &aMap)
+{
+    aMap.AddData(anAux);
+}
+
+void cEpipSideModel::AddData(const cAuxAr2007 &anAux)
+{
+    MMVII::AddData(cAuxAr2007("Mapping", anAux), mMap);
+    MMVII::AddData(cAuxAr2007("OriName", anAux), mOriName);
+    MMVII::AddData(cAuxAr2007("MasterImage", anAux), mMasterImName);
+    MMVII::AddData(cAuxAr2007("SlaveImage", anAux), mSlaveImName);
+}
+
+void AddData(const cAuxAr2007 &anAux, cEpipSideModel &aSideModel)
+{
+    aSideModel.AddData(anAux);
+}
+
+void cEpipSideModel::ToFile(const std::string &aNameFile) const
+{
+    // Non-fixed formatting avoids std::fixed truncating tiny coefficients to 0.
+    PushPrecTxtSerial(std::numeric_limits<tREAL8>::max_digits10);
+    SetFixedFloatTxtSerial(false);
+    SaveInFile(*this, aNameFile);
+    SetFixedFloatTxtSerial(true);
+    PopPrecTxtSerial();
+}
+
+cEpipSideModel cEpipSideModel::FromFile(const std::string &aNameFile)
+{
+    // Placeholder ; AddData on input overwrites every field.
+    cEpipPolyMapping aPlaceholder(
+            cPolyXY_Nd(1), cPolyXY_Nd(1),
+            cPt2dr(0, 0), cPt2dr(1, 0),
+            cPt2dr(0, 0), 1.0, 1, 1);
+    cEpipSideModel aSideModel(aPlaceholder, "", "", "");
+    ReadFromFile(aSideModel, aNameFile);
+    return aSideModel;
+}
 
 
 // ============================================================
@@ -638,6 +708,46 @@ void BenchEpipolar(cParamExeBench & aParam)
     MMVII_INTERNAL_ASSERT_bench(std::sqrt(aRectifier.V1V2VarIndep()) < 1.0, "V1V2VarIndep implausibly high");
     MMVII_INTERNAL_ASSERT_bench(std::sqrt(aRectifier.W1VarIndep()) < 1.0, "W1VarIndep implausibly high");
     MMVII_INTERNAL_ASSERT_bench(std::sqrt(aRectifier.W2VarIndep()) < 1.0, "W2VarIndep implausibly high");
+
+    // Serialization round-trip, one cEpipSideModel per mapping (as actually shipped).
+    {
+        const std::string aOriName1 = "OriTest1", aOriName2 = "OriTest2";
+        auto aModelFile1 = aTmpDir + "EpipModel1." + GlobTaggedNameDefSerial();
+        auto aModelFile2 = aTmpDir + "EpipModel2." + GlobTaggedNameDefSerial();
+        cEpipSideModel(static_cast<const cEpipPolyMapping&>(aEpipModel.EpipMap1()), aOriName1, Name1, Name2).ToFile(aModelFile1);
+        cEpipSideModel(static_cast<const cEpipPolyMapping&>(aEpipModel.EpipMap2()), aOriName2, Name2, Name1).ToFile(aModelFile2);
+        auto aReloaded1 = cEpipSideModel::FromFile(aModelFile1);
+        auto aReloaded2 = cEpipSideModel::FromFile(aModelFile2);
+
+        MMVII_INTERNAL_ASSERT_bench(aReloaded1.OriName() == aOriName1, "Epip model round-trip : OriName mismatch (1)");
+        MMVII_INTERNAL_ASSERT_bench(aReloaded2.OriName() == aOriName2, "Epip model round-trip : OriName mismatch (2)");
+
+        for (const auto& [aOrig,aReload] : {std::make_pair(&aEpipModel.EpipMap1(),&aReloaded1.Map()),
+                                             std::make_pair(&aEpipModel.EpipMap2(),&aReloaded2.Map())})
+        {
+            MMVII_INTERNAL_ASSERT_bench(aOrig->ZInterval() == aReload->ZInterval(), "Epip model round-trip : ZInterval mismatch");
+            MMVII_INTERNAL_ASSERT_bench(aOrig->GridStep() == aReload->GridStep(), "Epip model round-trip : GridStep mismatch");
+            MMVII_INTERNAL_ASSERT_bench(aOrig->NbStepX() == aReload->NbStepX(), "Epip model round-trip : NbStepX mismatch");
+            MMVII_INTERNAL_ASSERT_bench(aOrig->NbStepY() == aReload->NbStepY(), "Epip model round-trip : NbStepY mismatch");
+            MMVII_INTERNAL_ASSERT_bench(aOrig->EpipFrame().P0() == aReload->EpipFrame().P0(), "Epip model round-trip : EpipImFrame.P0 mismatch");
+            MMVII_INTERNAL_ASSERT_bench(aOrig->EpipFrame().P1() == aReload->EpipFrame().P1(), "Epip model round-trip : EpipImFrame.P1 mismatch");
+        }
+
+        for (const auto& [aS,aOrig,aReload] : {std::make_tuple(&aSensor1,&aEpipModel.EpipMap1(),&aReloaded1.Map()),
+                                                std::make_tuple(&aSensor2,&aEpipModel.EpipMap2(),&aReloaded2.Map())})
+        {
+            for (const auto& aPt : (*aS)->PtsSampledOnSensor(RandUnif_M_N(5,10),0))
+            {
+                auto aV0 = aOrig->Value(aPt);
+                auto aV1 = aReload->Value(aPt);
+                MMVII_INTERNAL_ASSERT_bench(Norm2(aV0-aV1) < 1e-8, "Epip model round-trip : Value mismatch after reload");
+
+                auto aI0 = aOrig->Inverse(aV0);
+                auto aI1 = aReload->Inverse(aV0);
+                MMVII_INTERNAL_ASSERT_bench(Norm2(aI0-aI1) < 1e-8, "Epip model round-trip : Inverse mismatch after reload");
+            }
+        }
+    }
 
     // RPCs in epipolar geometry computing test
     auto aEpipName1 = "Epip-" + Name1;

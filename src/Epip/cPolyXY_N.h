@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cmath>
 #include <MMVII_Matrix.h>
+#include "MMVII_2Include_Serial_Tpl.h"
 
 // ============================================================
 //  2D polynomial in variables (X,Y) of degree <= Degree :
@@ -85,10 +86,20 @@ public:
 
     void SetFromSolution(const cDenseVect<T> &aSol, int aOffset = 0);
 
+    // --------------------------------------------------------
+    //  Serialization : Degree then raw coeff vector (self-resizing on input)
+    // --------------------------------------------------------
+    void AddData(const cAuxAr2007 &anAux);
+
 protected:
     int            mDegree;
     std::vector<T> mCoeffs;
 };
+
+template <typename T> void AddData(const cAuxAr2007 &anAux, cPolyXY_N<T> &aPoly)
+{
+    aPoly.AddData(anAux);
+}
 
 typedef cPolyXY_N<double> cPolyXY_Nd;
 
@@ -178,6 +189,13 @@ inline void cPolyXY_N<T>::SetFromSolution(const cDenseVect<T> &aSol,
 {
     for (int k = 0; k < NbCoeffs(); ++k)
         mCoeffs[k] = aSol(aOffset + k);
+}
+
+template <typename T>
+inline void cPolyXY_N<T>::AddData(const cAuxAr2007 &anAux)
+{
+    MMVII::AddData(cAuxAr2007("Degree", anAux), mDegree);
+    MMVII::AddData(cAuxAr2007("Coeffs", anAux), mCoeffs); // self-resizing on input
 }
 
 
