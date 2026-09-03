@@ -17,12 +17,14 @@
 namespace MMVII
 {
 
+// Shared default pattern : EpipResampling reproduces it from the model's image names.
+static constexpr const char* TheDefaultOutNamePat = "Epip_%1_%2.tif";
 
-class cAppli_EpipResampling : public cMMVII_Appli
+class cAppli_EpipRectification : public cMMVII_Appli
 {
 public :
 
-    cAppli_EpipResampling(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli &);
+    cAppli_EpipRectification(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli &);
     int Exe() override;
     cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
@@ -48,12 +50,15 @@ private :
     int mTiePMinNbFloor = 25;
     tREAL8 mMaxResid = 0.1;
     std::string mOutDir;
-    std::string mOutNamePat = "Epip_%1_%2.tif";
+    std::string mOutNamePat = TheDefaultOutNamePat;
     std::vector<std::string> mInterpol = {"Cubic","-0.5"};
     eEpipFrm mFrame = eEpipFrm::eIntersect;
+    bool mSaveModel = false;
+    bool mNoRPC = false;
+    bool mNoImage = false;
 };
 
-cAppli_EpipResampling::cAppli_EpipResampling (
+cAppli_EpipRectification::cAppli_EpipRectification (
     const std::vector<std::string> &  aVArgs,
     const cSpecMMVII_Appli & aSpec
     )
@@ -63,14 +68,12 @@ cAppli_EpipResampling::cAppli_EpipResampling (
 }
 
 
-// TODOCM: Serialisation classes EpipMap EpipModel ?
 // TODOCM: Gestion grosses images : daller ... Cache pour bout d'images ?
 // TODOCM: Test d'epipolarisabilite ...
 // TODOCM: Make output image name generation accessible for other apps
 // TODOCM: Make sure image  file extension is present ? (.tif)
-// TODOCM: Changer nom fichier RPC (RPC-xxx.xml ?)
 
-void cAppli_EpipResampling::Resample(const std::string& aMasterName,
+void cAppli_EpipRectification::Resample(const std::string& aMasterName,
                                      const std::string& aSlaveName,
                                      const cSensorImage* aSI,
                                      const cInterpolator1D* aInterp,
@@ -80,26 +83,36 @@ void cAppli_EpipResampling::Resample(const std::string& aMasterName,
     auto aName1 = LastPrefix(FileOfPath(aMasterName,false));
     auto aName2 = LastPrefix(FileOfPath(aSlaveName,false));
 
-    auto anEpipName = mOutDir + replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",aName1),"%2",aName2);
-    auto aRPCName = anEpipName + ".xml";
-    const auto* aIm = ReadIm2DGen(aMasterName);
-    auto aIm1Rectif = aIm->AllocReSampleGen(*aInterp, anEpipMap, cTplBox(anEpipMap.EpipImSz()));
-    StdOut() << "Name: " << anEpipName << std::endl;
-    StdOut() << "Size: " << anEpipMap.EpipImSz() << std::endl;
-    aIm1Rectif->ToFile(anEpipName);
-    StdOut() << "RPC : " << aRPCName << std::endl;
-    auto aResampSI = aSI->GenerateSensorRPC( &anEpipMap, nullptr, false, anEpipName, anEpipMap.ZInterval());
-    aResampSI->ToFile(aRPCName);
+    auto aBaseName = replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",aName1),"%2",aName2);
+    auto anEpipName = mOutDir + aBaseName;
 
-    delete aResampSI;
-    delete aIm1Rectif;
-    delete aIm;
+    if (! mNoImage)
+    {
+        const auto* aIm = ReadIm2DGen(aMasterName);
+        auto aIm1Rectif = aIm->AllocReSampleGen(*aInterp, anEpipMap, cTplBox(anEpipMap.EpipImSz()));
+        StdOut() << "Name: " << anEpipName << std::endl;
+        StdOut() << "Size: " << anEpipMap.EpipImSz() << std::endl;
+        aIm1Rectif->ToFile(anEpipName);
+        delete aIm1Rectif;
+        delete aIm;
+    }
+
+    if (! mNoRPC)
+    {
+        auto aRPCName = mOutDir + "RPC_" + aBaseName + ".xml";
+        StdOut() << "RPC : " << aRPCName << std::endl;
+        auto aResampSI = aSI->GenerateSensorRPC( &anEpipMap, nullptr, false, anEpipName, anEpipMap.ZInterval());
+        aResampSI->ToFile(aRPCName);
+        delete aResampSI;
+    }
 }
 
 
-int cAppli_EpipResampling::Exe()
+int cAppli_EpipRectification::Exe()
 {
     mPhProj.FinishInit();
+
+    MMVII_INTERNAL_ASSERT_User(! mOutNamePat.empty(), eTyUEr::eUnClassedError, "OutName must not be empty");
 
     if (! IsInit(&mDegreeInv))
         mDegreeInv = mDegree + 4;
@@ -191,18 +204,38 @@ int cAppli_EpipResampling::Exe()
     const auto& anEpipMap1 = aEpipModel.EpipMap1();
     const auto& anEpipMap2 = aEpipModel.EpipMap2();
 
-    StdOut() << Color::sub_title << "*** Resampling" << Color::end << std::endl;
-
     auto aName1 = LastPrefix(FileOfPath(mNameIm1,false));
     auto aName2 = LastPrefix(FileOfPath(mNameIm2,false));
 
-    // Resample Img1
-    StdOut() << Color::title << "* Image 1" << Color::end << std::endl;
-    Resample(mNameIm1,mNameIm2,aSI1,aInterp,anEpipMap1);
+    if (mSaveModel)
+    {
+        // One file per image, named like the resampled image on that side.
+        StdOut() << Color::sub_title << "*** Model" << Color::end << std::endl;
+        const std::string & aOriName = mPhProj.DPOrient().DirIn();
 
-    // Resample Img2
-    StdOut() << Color::title << "* Image 2" << Color::end << std::endl;
-    Resample(mNameIm2,mNameIm1,aSI2,aInterp,anEpipMap2);
+        auto aBaseName1 = replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",aName1),"%2",aName2);
+        auto aModelName1 = mOutDir + LastPrefix(aBaseName1) + ".EpipModel." + GlobTaggedNameDefSerial();
+        cEpipSideModel(static_cast<const cEpipPolyMapping&>(anEpipMap1), aOriName, mNameIm1, mNameIm2).ToFile(aModelName1);
+        StdOut() << "Image_1: " << aModelName1 << std::endl;
+
+        auto aBaseName2 = replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",aName2),"%2",aName1);
+        auto aModelName2 = mOutDir + LastPrefix(aBaseName2) + ".EpipModel." + GlobTaggedNameDefSerial();
+        cEpipSideModel(static_cast<const cEpipPolyMapping&>(anEpipMap2), aOriName, mNameIm2, mNameIm1).ToFile(aModelName2);
+        StdOut() << "Image_2: " << aModelName2 << std::endl;
+    }
+
+    if ((! mNoImage) || (! mNoRPC))
+    {
+        StdOut() << Color::sub_title << "*** Resampling" << Color::end << std::endl;
+
+        // Resample Img1
+        StdOut() << Color::title << "* Image 1" << Color::end << std::endl;
+        Resample(mNameIm1,mNameIm2,aSI1,aInterp,anEpipMap1);
+
+        // Resample Img2
+        StdOut() << Color::title << "* Image 2" << Color::end << std::endl;
+        Resample(mNameIm2,mNameIm1,aSI2,aInterp,anEpipMap2);
+    }
 
 
     delete aInterp;
@@ -210,7 +243,7 @@ int cAppli_EpipResampling::Exe()
 }
 
 
-cCollecSpecArg2007 & cAppli_EpipResampling::ArgObl(cCollecSpecArg2007 & anArgObl)
+cCollecSpecArg2007 & cAppli_EpipRectification::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return anArgObl
           << Arg2007(mNameIm1,"name first image",{eTA2007::FileImage})
@@ -220,7 +253,7 @@ cCollecSpecArg2007 & cAppli_EpipResampling::ArgObl(cCollecSpecArg2007 & anArgObl
 }
 
 
-cCollecSpecArg2007 & cAppli_EpipResampling::ArgOpt(cCollecSpecArg2007 & anArgOpt)
+cCollecSpecArg2007 & cAppli_EpipRectification::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return anArgOpt
            << cHeaderSectionArg("Rectification")
@@ -241,13 +274,181 @@ cCollecSpecArg2007 & cAppli_EpipResampling::ArgOpt(cCollecSpecArg2007 & anArgOpt
            << AOpt2007(mFrame,"FrameAlgo","Output image height algo",{eTA2007::HDV})
            << cHeaderSectionArg("Output")
            << AOpt2007(mOutDir,"OutDir","Output directory (Default: VISU/" + Specs().Name()+")")
-           << AOpt2007(mOutNamePat,"OutName","Output name pattern", {eTA2007::HDV})
+           << AOpt2007(mOutNamePat,"OutName","Output name pattern for images and other output files (must not be empty)", {eTA2007::HDV})
+           << AOpt2007(mSaveModel,"SaveModel","Serialize the computed model (name derived from OutName)",{eTA2007::HDV})
+           << AOpt2007(mNoRPC,"NoRPC","Don't (re)compute the resampled RPC",{eTA2007::HDV})
+           << AOpt2007(mNoImage,"NoImage","Don't produce the resampled TIF images",{eTA2007::HDV})
         ;
 }
 
 
 
 /* ==================================================== */
+
+tMMVII_UnikPApli Alloc_EpipRectification(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
+{
+    return tMMVII_UnikPApli(new cAppli_EpipRectification(aVArgs,aSpec));
+}
+
+cSpecMMVII_Appli  TheSpec_EpipRectification
+    (
+        "EpipRectification",
+        Alloc_EpipRectification,
+        "Compute the epipolar geometry of two images, and optionally resample them",
+        {eApF::ImProc},
+        {eApDT::Orient,eApDT::Image},
+        {eApDT::Orient,eApDT::Image},
+        __FILE__
+        );
+
+
+
+/* ==================================================== */
+/*         EpipResampling : resampling a posteriori      */
+/* ==================================================== */
+
+// Adds a crop+scale on top of a cEpipolarMapping, at resampling time only (never serialized).
+class cEpipCropScaleMapping : public cDataInvertibleMapping<tREAL8,2>
+{
+public:
+    cEpipCropScaleMapping(const cEpipolarMapping& aMap, cPt2dr aCropP0, tREAL8 aScale)
+        : mMap(aMap), mCropP0(aCropP0), mScale(aScale) {}
+
+    cPt2dr Value(const cPt2dr& aPt) const override
+    {
+        return (mMap.Value(aPt) - mCropP0) * mScale;
+    }
+    cPt2dr Inverse(const cPt2dr& aPt) const override
+    {
+        return mMap.Inverse(aPt / mScale + mCropP0);
+    }
+
+private:
+    const cEpipolarMapping& mMap;
+    cPt2dr mCropP0;
+    tREAL8 mScale;
+};
+
+
+class cAppli_EpipResampling : public cMMVII_Appli
+{
+public :
+
+    cAppli_EpipResampling(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli &);
+    int Exe() override;
+    cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
+    cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
+
+private :
+    cPhotogrammetricProject  mPhProj;
+    std::string  mNameIm;
+    std::string  mNameModel;
+    std::vector<std::string> mInterpol = {"Cubic","-0.5"};
+    std::string  mOutDir;
+    std::string  mOutName;
+    cPt2di       mCropP0{0,0};
+    cPt2di       mCropP1{0,0};
+    tREAL8       mScale = 1.0;
+    bool         mNoRPC = false;
+    bool         mNoImage = false;
+};
+
+cAppli_EpipResampling::cAppli_EpipResampling (
+    const std::vector<std::string> &  aVArgs,
+    const cSpecMMVII_Appli & aSpec
+    )
+    : cMMVII_Appli  (aVArgs,aSpec)
+    , mPhProj       (*this)
+{
+}
+
+int cAppli_EpipResampling::Exe()
+{
+    mPhProj.FinishInit();
+    auto aSideModel = cEpipSideModel::FromFile(mNameModel);
+
+    if (! IsInit(&mOutDir))
+        mOutDir = mPhProj.DirVisuAppli();
+    if (! mOutDir.empty())
+        mOutDir += "/";
+    CreateDirectories(mOutDir);
+
+    const cEpipolarMapping & anEpipMap = aSideModel.Map();
+
+    MMVII_INTERNAL_ASSERT_User(IsInit(&mCropP0) == IsInit(&mCropP1), eTyUEr::eUnClassedError,
+        "CropP0 and CropP1 must be given together");
+    const cPt2dr aCropP0 = IsInit(&mCropP0) ? ToR(mCropP0) : cPt2dr(0,0);
+    const cPt2dr aCropP1 = IsInit(&mCropP1) ? ToR(mCropP1) : ToR(anEpipMap.EpipImSz());
+
+    cEpipCropScaleMapping aResampMap(anEpipMap, aCropP0, mScale);
+    const cPt2di aOutSz( round_ni((aCropP1.x() - aCropP0.x()) * mScale),
+                         round_ni((aCropP1.y() - aCropP0.y()) * mScale) );
+
+    const cInterpolator1D* aInterp = cDiffInterpolator1D::AllocFromNames(mInterpol);
+
+    // Reproduces EpipRectification's own default naming from the model's image names.
+    const std::string aDefaultOutName = replaceFirstOccurrence(replaceFirstOccurrence(
+            std::string(TheDefaultOutNamePat),
+            "%1",LastPrefix(FileOfPath(aSideModel.MasterImName(),false))),
+            "%2",LastPrefix(FileOfPath(aSideModel.SlaveImName(),false)));
+    const std::string aOutBaseName = IsInit(&mOutName) ? mOutName : aDefaultOutName;
+    auto anOutName = mOutDir + aOutBaseName;
+
+    StdOut() << "Name: " << anOutName << std::endl;
+
+    if (! mNoImage)
+    {
+        StdOut() << "Size: " << aOutSz << std::endl;
+        const auto* aIm = ReadIm2DGen(mNameIm);
+        auto aImRectif = aIm->AllocReSampleGen(*aInterp, aResampMap, cTplBox(aOutSz));
+        aImRectif->ToFile(anOutName);
+        delete aImRectif;
+        delete aIm;
+    }
+
+    cSensorImage* aResampSI = nullptr;
+    if (! mNoRPC)
+    {
+        // Two-pass pattern (cf. cAppliMeshImageDevlp::Exe()) : SetDirIn needs a 2nd FinishInit().
+        mPhProj.DPOrient().SetDirIn(aSideModel.OriName());
+        mPhProj.FinishInit();
+        const cSensorImage * aSI = mPhProj.ReadSensor(FileOfPath(mNameIm,false /* Ok Not Exist*/),true/*DelAuto*/,false /* Not SVP*/);
+
+        auto aRPCName = mOutDir + "RPC_" + aOutBaseName + ".xml";
+        StdOut() << "RPC : " << aRPCName << std::endl;
+        aResampSI = aSI->GenerateSensorRPC(&aResampMap, nullptr, false, anOutName, anEpipMap.ZInterval());
+        aResampSI->ToFile(aRPCName);
+    }
+
+    delete aResampSI;
+    delete aInterp;
+    return EXIT_SUCCESS;
+}
+
+cCollecSpecArg2007 & cAppli_EpipResampling::ArgObl(cCollecSpecArg2007 & anArgObl)
+{
+    return anArgObl
+          << Arg2007(mNameIm,"name of the image to resample",{eTA2007::FileImage})
+          << Arg2007(mNameModel,"epipolar model file for that image, as saved by EpipRectification's SaveModel=true",{eTA2007::FileTagged})
+        ;
+}
+
+cCollecSpecArg2007 & cAppli_EpipResampling::ArgOpt(cCollecSpecArg2007 & anArgOpt)
+{
+    return anArgOpt
+           << cHeaderSectionArg("Resampling")
+           << AOpt2007(mInterpol,"Interpol","Interpolator", Append(cSpecOneArg2007::tAllSemPL{eTA2007::HDV},InterpolArgSem()))
+           << AOpt2007(mCropP0,"CropP0","Crop : lower-left corner in the model's epipolar output coordinates (with CropP1 ; default : full frame)")
+           << AOpt2007(mCropP1,"CropP1","Crop : upper-right corner in the model's epipolar output coordinates (with CropP0 ; default : full frame)")
+           << AOpt2007(mScale,"Scale","Resample at a different pixel density over the (possibly cropped) region ; >1 zooms in, <1 zooms out",{eTA2007::HDV})
+           << AOpt2007(mNoRPC,"NoRPC","Don't (re)compute the resampled RPC ; also skips reopening the sensor",{eTA2007::HDV})
+           << AOpt2007(mNoImage,"NoImage","Don't produce the resampled TIF image (e.g. to only regenerate its RPC)",{eTA2007::HDV})
+           << cHeaderSectionArg("Output")
+           << AOpt2007(mOutDir,"OutDir","Output directory (Default: VISU/" + Specs().Name()+")")
+           << AOpt2007(mOutName,"OutName","Output image name (Default: same pattern/name EpipRectification would have used)")
+        ;
+}
+
 
 tMMVII_UnikPApli Alloc_EpipResampling(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
 {
@@ -258,7 +459,7 @@ cSpecMMVII_Appli  TheSpec_EpipResampling
     (
         "EpipResampling",
         Alloc_EpipResampling,
-        "Epipolar geometry of two images",
+        "Resample one image in epipolar geometry from a model saved by EpipRectification (SaveModel=true), with optional crop/scale",
         {eApF::ImProc},
         {eApDT::Orient,eApDT::Image},
         {eApDT::Orient,eApDT::Image},

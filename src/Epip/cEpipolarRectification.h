@@ -12,6 +12,9 @@ namespace MMVII {
 
 class cSensorImage;
 
+/// Serialization for cRect2 (no existing AddData for cTplBox/cPixBox in MMVII)
+void AddData(const cAuxAr2007 &anAux, cRect2 &aRect);
+
 // Common vertical interval for epipolar Image pair resamling
 enum class eEpipFrm
 {
@@ -29,6 +32,11 @@ class cEpipolarMapping : public cDataInvertibleMapping<tREAL8,2>
 public:
     cEpipolarMapping(const cPt2dr& aZInterval, tREAL8 aGridStep, int aNbStepX, int aNbStepY)
         : mZInterval(aZInterval), mGridStep(aGridStep), mNbStepX(aNbStepX), mNbStepY(aNbStepY) {}
+    // Base's copy ctor is deleted but holds no state we rely on ; reconstruct it fresh.
+    cEpipolarMapping(const cEpipolarMapping &aOther)
+        : mEpipImFrame(aOther.mEpipImFrame), mZInterval(aOther.mZInterval)
+        , mGridStep(aOther.mGridStep), mNbStepX(aOther.mNbStepX), mNbStepY(aOther.mNbStepY)
+    {}
     void SetEpipImFrame(const cRect2& aFrame) { mEpipImFrame = aFrame;}
     cRect2 EpipFrame() const { return mEpipImFrame; }
     cPt2di EpipImSz() const { return mEpipImFrame.Sz(); }
@@ -38,6 +46,9 @@ public:
     int NbStepX() const { return mNbStepX; }
     int NbStepY() const { return mNbStepY; }
 protected:
+    /// Serialize the fields common to every cEpipolarMapping ; called by derived classes' own AddData
+    void AddDataBase(const cAuxAr2007 &anAux);
+
     cRect2 mEpipImFrame{cPt2di{0,0},cPt2di{0,0},true}; ///< frame in epipolar space (for resampling)
     cPt2dr mZInterval;
     tREAL8 mGridStep;
@@ -104,9 +115,16 @@ public:
         , mCenter{aCenter}
         , mDir{aDir}
     {}
+    cEpipPolyMapping(const cEpipPolyMapping &aOther)
+        : cEpipolarMapping(aOther)
+        , mV(aOther.mV), mW(aOther.mW), mCenter(aOther.mCenter), mDir(aOther.mDir)
+    {}
 
     cPt2dr Value(const cPt2dr& aPt) const override;
     cPt2dr Inverse(const cPt2dr& aPt) const override;
+
+    /// Serialize : base (ZInterval,GridStep,NbStepX/Y,EpipImFrame) then V,W,Center,Dir
+    void AddData(const cAuxAr2007 &anAux);
 
 private:
     /// (p - C) / D  (complex division = rotation)
@@ -122,6 +140,39 @@ private:
     cPt2dr mCenter;   ///< centroids of the image point sets
     cPt2dr mDir;      ///< unit epipolar direction per image
 };
+
+void AddData(const cAuxAr2007 &anAux, cEpipPolyMapping &aMap);
+
+
+// One image's epipolar mapping + the Ori/image names it was computed from.
+class cEpipSideModel
+{
+public:
+    // aMasterImName/aSlaveImName : this side's image first, then the other one.
+    cEpipSideModel(const cEpipPolyMapping &aMap, const std::string &aOriName,
+                   const std::string &aMasterImName, const std::string &aSlaveImName)
+        : mMap(aMap), mOriName(aOriName)
+        , mMasterImName(aMasterImName), mSlaveImName(aSlaveImName)
+    {}
+
+    const cEpipPolyMapping &Map() const { return mMap; }
+    const std::string &OriName() const { return mOriName; }
+    const std::string &MasterImName() const { return mMasterImName; }
+    const std::string &SlaveImName() const { return mSlaveImName; }
+
+    void AddData(const cAuxAr2007 &anAux);
+    void ToFile(const std::string &aNameFile) const;
+    /// Read back a model saved by ToFile()
+    static cEpipSideModel FromFile(const std::string &aNameFile);
+
+private:
+    cEpipPolyMapping mMap;
+    std::string      mOriName;
+    std::string      mMasterImName;
+    std::string      mSlaveImName;
+};
+
+void AddData(const cAuxAr2007 &anAux, cEpipSideModel &aSideModel);
 
 
 class cEpipPolyModel : public cEpipolarModelTpl<cEpipPolyMapping>
