@@ -753,6 +753,14 @@ class cBA_ArboTriplets
                          cComputeMergeMulTieP * aTPts = nullptr);   ///< aTPts : shared, NOT owned
         ~cBA_ArboTriplets();
 
+        /// Run the whole schedule.  The iteration count may be extended by AdaptWeightingToData at aIter==0
+        void Run();
+        /// Run schedule with stricter weights (final BA iterations)
+        void RunStrict(tREAL8 aSigA,tREAL8 aThr);
+
+        /// Prepare / set BA data-dependent parameters
+        void Prepare();
+
         /// One BA iteration. Pre-computes u,v vectors on first call (aIter==0).
         void OneIteration(int aIter);
 
@@ -763,7 +771,6 @@ class cBA_ArboTriplets
         void AdaptWeightingToData();
 
         size_t NbCams() const { return mVCams.size(); }
-        int    NbIter() const { return mNbIter; }
 
         /// Optional GT 3D points (keyed by tie-point ID) for diagnostic comparison at iter==0.
         void SetGTPts3D(std::map<int,cPt3dr>* aGT) { mGTPts3D = aGT; }
@@ -774,7 +781,11 @@ class cBA_ArboTriplets
         ///
         void SetLooseningRanges(tREAL8 aMult);
 
-        cMakeArboTriplet*                            mPMAT;
+        /// Triangulate the tie-points if they are not already consistent with the current poses
+        void MakePGround();
+        bool mPGroundCurrent = false;   ///< are mVPGround consistent with the current poses ?
+
+        cMakeArboTriplet*                                  mPMAT;
         int                                                mNbIter;
         std::vector<tREAL8>                                mSigARange;  ///< [start, end] dynamic threshold
         std::vector<tREAL8>                                mThrRange;   ///< [start, end] dynamic threshold

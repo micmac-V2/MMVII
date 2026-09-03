@@ -111,6 +111,38 @@ cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocN
     SetLooseningRanges(1.0);
 }
 
+void cBA_ArboTriplets::Prepare()
+{
+    MakePGround(); // AdaptWeightingToData reads mVPGround
+    AdaptWeightingToData();
+
+}
+
+void cBA_ArboTriplets::Run()
+{
+    Prepare();
+    for (int aIter=0 ; aIter<mNbIter ; aIter++)
+        OneIteration(aIter);
+}
+
+void cBA_ArboTriplets::RunStrict(tREAL8 aSigA,tREAL8 aThr)
+{
+    //  no Prepare : the schedule is fixed and the iteration count is the one requested.
+    //  OneIteration re-triangulates every pass, so nothing else is needed.
+    mSigARange = {aSigA,aSigA};
+    mThrRange  = {aThr,aThr};
+    for (int aIter=0 ; aIter<mNbIter ; aIter++)
+        OneIteration(aIter);
+}
+
+void cBA_ArboTriplets::MakePGround()
+{
+    if (mPGroundCurrent) return;        // valid for the current poses, nothing to redo
+    for (auto & aPair : mTPts->Pts())
+        MakePGroundFromBundles(aPair,mVSens);
+    mPGroundCurrent = true;
+}
+
 void cBA_ArboTriplets::OneIteration(int aIter)
 {
     // viscosity
@@ -126,13 +158,9 @@ void cBA_ArboTriplets::OneIteration(int aIter)
         }
     }
 
-    // 3D intersection
-    for (auto& aPair : mTPts->Pts())
-        MakePGroundFromBundles(aPair, mVSens);
+    // 3D intersection (skipped when Prepare has already done it for these poses)
+    MakePGround();
 
-    // adapt the BA weight parameters
-    if (aIter==0)
-        AdaptWeightingToData();
 
     // diagnostic: compare triangulated P3D with GT at first iteration
     if (aIter==0 && mGTPts3D)
@@ -177,6 +205,10 @@ void cBA_ArboTriplets::OneIteration(int aIter)
     int aNumTPts=0;
     int aNumElimDegVis=0;   // eliminated by DegreeVisibility <= 0
     int aNumElimWeight=0;   // eliminated by weight == 0 (DegreeVisibility was > 0)
+    std::vector<size_t>            aNbObsCam(mVCams.size(),0);   // observations that survived
+    std::vector<size_t>            aNbVisCam(mVCams.size(),0);   // rejected by DegreeVisibility
+    std::vector<size_t>            aNbWCam  (mVCams.size(),0);   // rejected by weight==0
+    std::vector<cWeightAv<tREAL8>> aResCam  (mVCams.size());     // weighted residual per camera
     cWeightAv<tREAL8> aWeigthedRes;
 
     int aConfigNum=0; //track id of current config
@@ -272,6 +304,8 @@ void cBA_ArboTriplets::OneIteration(int aIter)
                     if (aWeight>0)
                     {
                         aWeigthedRes.Add(aWeight,aResNorm);//
+                        aResCam.at(aKImSorted).Add(aWeight,aResNorm);     // <--
+                        aNbObsCam.at(aKImSorted)++;                       // <--
                         mSys->R_AddEq2Subst(aStrSubst,aEqCol,aVIndGlob,aVObs,aWeight);//
                         aNbEqAdded++;
                         aNumTPts++;
@@ -280,10 +314,16 @@ void cBA_ArboTriplets::OneIteration(int aIter)
                             aMaxRes=aResNorm;
                     }
                     else
+                    {
                         aNumElimWeight++;
+                        aNbWCam.at(aKImSorted)++;                         // <--
+                    }
                 }
                 else
+                {
                     aNumElimDegVis++;
+                    aNbVisCam.at(aKImSorted)++;
+                }
                 aNumAllTiePts++;
             }
 
@@ -309,11 +349,29 @@ void cBA_ArboTriplets::OneIteration(int aIter)
                  << " " << (100.0*(aNumAllTiePts-aNumTPts)/std::max(1,aNumAllTiePts)) << "%"
                  << " [DegVis<=0: " << aNumElimDegVis << ", Weight==0: " << aNumElimWeight << "]"
                  << std::endl;
+
+
+        for (size_t aKC=0 ; aKC<mVCams.size() ; aKC++)
+        {
+            size_t aNbTot = aNbObsCam.at(aKC)+aNbVisCam.at(aKC)+aNbWCam.at(aKC);
+            bool   aStuck = (aNbObsCam.at(aKC)==0);
+            bool   aBad   = (aNbTot>0) && (aNbObsCam.at(aKC) < aNbTot/4);   // <25% surviving
+            if (aStuck || aBad)
+                StdOut() << "  !! " << mVCams.at(aKC)->NameImage()
+                         << " obs=" << aNbObsCam.at(aKC) << "/" << aNbTot
+                         << " rejVis=" << aNbVisCam.at(aKC)
+                         << " rejW="   << aNbWCam.at(aKC)
+                         << " res="    << (aNbObsCam.at(aKC) ? aResCam.at(aKC).Average() : -1.0)
+                         << std::endl;
+        }
         StdOutLock::unlock();
     }
 
     const auto& aVectSol = mSys->SolveUpdateReset({mPMAT->Cfg().mLVM}, {}, {});
     mSetIntervUK.SetVUnKnowns(aVectSol);
+
+    mPGroundCurrent = false; // the poses moved : the 3D points are stale
+
 }
 
 void cBA_ArboTriplets::UpdateLocSols(std::vector<cSolLocNode>& aLocSols)
@@ -401,15 +459,14 @@ tREAL8 cBA_ArboTriplets::RobustResidualScale(size_t aNbSample,tREAL8 * aPtrFracI
 
 }
 
-//   * sigma is a soft attenuation   -> ends at sqrt(mult) : a mild relaxation
-//   * the threshold is a hard cutoff
+//   * sigma is a soft attenuation
 void cBA_ArboTriplets::SetLooseningRanges(tREAL8 aMult)
 {
     const tREAL8 aSigAtt = mPMAT->Cfg().mSigmaAtt;
     const tREAL8 aThr    = mPMAT->Cfg().mThrs;
 
     static constexpr tREAL8 TheKIni = 4.0;   // width of the schedule at the first iteration
-    static constexpr tREAL8 TheKEnd = 2.0;   //   and at the last
+    static constexpr tREAL8 TheKEnd = 1.0;   //   and at the last
 
     mSigARange = {TheKIni*aMult*aSigAtt, TheKEnd*std::sqrt(aMult)*aSigAtt};
     mThrRange  = {TheKIni*aMult*std::sqrt(aMult)*aThr, TheKEnd*aMult*aThr};
@@ -418,8 +475,6 @@ void cBA_ArboTriplets::SetLooseningRanges(tREAL8 aMult)
 
 void cBA_ArboTriplets::AdaptWeightingToData()
 {
- //   const tREAL8 aSigAtt = mPMAT->Cfg().mSigmaAtt;
-  //  const tREAL8 aThr    = mPMAT->Cfg().mThrs;
 
     /// compute quantile residual over this merged node
     tREAL8 aFracInvis = 0.0;
@@ -431,6 +486,11 @@ void cBA_ArboTriplets::AdaptWeightingToData()
     //  aMult is an absolute residual scale in pixels
     const tREAL8 aMultRes = mResScale;
     const tREAL8 aMult    = std::clamp(aMultRes,1.0,TheMaxLoosening);
+
+    // increase iterations for larger thresholds/sigmas
+    static constexpr tREAL8 TheIterPerOctave = 2.0;
+    if (aMult > 2.0)
+        mNbIter += (int)std::round(TheIterPerOctave*std::log2(aMult));
 
     SetLooseningRanges(aMult);
 

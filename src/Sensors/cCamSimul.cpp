@@ -547,7 +547,6 @@ void cCamSimul::BenchHierchBA_InitOnly(cTimerSegm* aTS, bool isSubVert)
     cMakeArboTripletCfg aCfg;
     aCfg.mLVM      = 1e-7;
     aCfg.mNbIterBA = 0;   // spanning tree only — no BA refinement
-    aCfg.mNbExtraIterAtRoot = 0;
     aCfg.mSigmaAtt = 1;
     aCfg.mThrs  = 10;
 
@@ -592,8 +591,6 @@ void cCamSimul::BenchHierchBA_BAOnly(cTimerSegm* aTS, bool isSubVert)
     aCfg.mNbIterBA = aNbIterBA;
     aCfg.mSigmaAtt = 1;
     aCfg.mThrs  = 10;
-    aCfg.mNbExtraIterAtRoot = 2;
-    //aCfg.mViscPose = {0.1,0.1};
 
     cMMVII_Appli& anAp = cMMVII_Appli::CurrentAppli();
 
@@ -625,8 +622,7 @@ void cCamSimul::BenchHierchBA_BAOnly(cTimerSegm* aTS, bool isSubVert)
         }
 
         // run BA from GT initial poses
-        int aNbIterEnd = aCfg.mNbIterBA + aCfg.mNbExtraIterAtRoot;
-        cBA_ArboTriplets aBA(&aMk3, aLocSols,1,aNbIterEnd);
+        cBA_ArboTriplets aBA(&aMk3, aLocSols,1,aCfg.mNbIterBA);
         aBA.SetGTPts3D(&aScene.mGTPts3D);
         for (int aIter=0; aIter<aNbIterBA; aIter++)
             aBA.OneIteration(aIter);

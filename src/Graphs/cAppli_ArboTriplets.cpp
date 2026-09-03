@@ -1748,16 +1748,19 @@ void cNodeArborTriplets::RefineCurSolution()
 {
     cAutoTimerSegm aTimerBA(mPMAT->TimeSegm(),"RefineBA");
 
-    int aNbIterEnd = mPMAT->Cfg().mNbIterBA + (mDepth==0 ? mPMAT->Cfg().mNbExtraIterAtRoot : 0);
 
-    //cBA_ArboTriplets* aBA = new cBA_ArboTriplets(mPMAT, mLocSols,mDepth,aNbIterEnd,1.0,1.0);
-    cBA_ArboTriplets* aBA = new cBA_ArboTriplets(mPMAT,mLocSols,mDepth,aNbIterEnd,mTPtsMerge);
+    {   //  adaptive pass : may extend its own iteration count if the node started badly
+        cBA_ArboTriplets aBA(mPMAT,mLocSols,mDepth,mPMAT->Cfg().mNbIterBA,mTPtsMerge);
+        aBA.Run();
+        aBA.UpdateLocSols(mLocSols);
+    }
 
-    for (int aIter = 0; aIter < aNbIterEnd; aIter++)
-        aBA->OneIteration(aIter);
-
-    aBA->UpdateLocSols(mLocSols);
-    delete aBA;
+  /*  if ((mDepth==0) && (mPMAT->Cfg().mNbIterStrict>0))
+    {   //  strict pass : nominal precision, once the geometry is in place
+        cBA_ArboTriplets aBAS(mPMAT,mLocSols,mDepth,mPMAT->Cfg().mNbIterStrict,mTPtsMerge);
+        aBAS.RunStrict(mPMAT->Cfg().mSigmaAttStrict,mPMAT->Cfg().mThrsStrict);
+        aBAS.UpdateLocSols(mLocSols);
+    }*/
 
 }
 
@@ -1916,13 +1919,7 @@ cMakeArboTriplet::cMakeArboTriplet(std::vector<cDataSolOriTriplet> & aSet3,bool 
    mNbEdgeTri   (0),
    mTPtsFolder  (""), //to be removed
    mTPtsStruct  (nullptr),
-   //mViscPose    (aCfg.mViscPose),
    mCfg         (aCfg)
-   //mLVM         (aCfg.mLVM),
-   //mSigmaAtt    (aCfg.mSigmaAtt),
-   //mThrs     (aCfg.mThrs),
-   //mNbIterBA    (aCfg.mNbIterBA),
-   //mNbExtraIterAtRoot (aCfg.mNbExtraIterAtRoot)
 {
 }
 
