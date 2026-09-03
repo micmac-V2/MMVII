@@ -193,7 +193,9 @@ struct cMakeArboTripletCfg
     tREAL8               mThrs   = 10.0;      ///< Outlier threshold
     tREAL8               mSigmaTri  = -1.0;   ///< Sigma for triplet-quality weighting in the merge; <0 -> mSigmaAtt
     int                  mNbIterBA  = 5;         ///< Number of BA iterations
-    int                  mNbExtraIterAtRoot = 2;  ///< Extra BA iterations at the tree root (all images)
+    int                  mNbIterStrict =5;  ///< number of final BA iterations with stric params
+    tREAL8               mSigmaAttStrict = 1.0;  ///< strict sigmaAtt
+    tREAL8               mThrsStrict = 10.0; ///< strict threshold
     bool                 mVerbose = false;
 
     /// sigma used to weight a bridge by the mScore of its triplet ; falls back on mSigmaAtt
@@ -208,7 +210,9 @@ struct cMakeArboTripletCfg
             << " * SigmaTri  = " << SigmaTri() << "\n"
             << " * Threshold = " << mThrs   << "\n"
             << " * NbIterBA  = " << mNbIterBA  << "\n"
-            << " * NbExtraIterAtRoot = " << mNbExtraIterAtRoot << "\n\n";
+            << " * mNbIterStrict = " << mNbIterStrict << "\n"
+            << " * mSigmaAttStrict = " << mSigmaAttStrict << "\n"
+            << " * mThrsStrict = " << mThrsStrict << "\n\n";
     }
 };
 
