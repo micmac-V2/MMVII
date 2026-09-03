@@ -8,7 +8,7 @@
 #include "MMVII_PCSens.h"
 #include <unordered_set>
 
-#define EXPORT_RASTER_THETA_PHI
+//#define EXPORT_RASTER_THETA_PHI
 
 namespace MMVII
 {
