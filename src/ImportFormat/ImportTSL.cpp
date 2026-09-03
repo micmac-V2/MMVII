@@ -305,21 +305,13 @@ void cAppli_ImportTSL::computeAngStartStep()
 {
     StdOut() << "computeAngStartStep\n";
     std::cout<<mSL_importer.mVectPtsTPD.size()<<"\n";
-    tREAL8 aMinAngToZenith = 0.1;
     if (mSL_importer.HasRowCol())
     {
+        tREAL8 aMinAngToZenith = 0.1;
         // search for 2 points with diff line/col to estimate steps
         long a1stPti = -1;
         for (size_t i=0; i<mSL_importer.mVectPtsTPD.size(); ++i)
         {
-            /*if (i<10)
-            {
-                std::cout<<i<<" "<<mSL_importer.mVectPtsLine[i]
-                          <<" "<<mSL_importer.mVectPtsCol[i]
-                          <<" "<<mSL_importer.mVectPtsXYZ[i]
-                          <<" "<<mSL_importer.mVectPtsTPD[i]<<"\n";
-            }*/
-
             auto & aPtAng = mSL_importer.mVectPtsTPD[i];
             if ((aPtAng.z()>mSL_importer.DistMinToExist()) && (fabs(fabs(aPtAng.y())-M_PI/2)>aMinAngToZenith))
             {
@@ -344,31 +336,55 @@ void cAppli_ImportTSL::computeAngStartStep()
                 }
             }
         }
-        // make a better approx using a second point near the center (near the end theta may be very close to start because of modulo)
-        for (long i=(long)mSL_importer.mVectPtsTPD.size()/2.1-1; i>a1stPti; --i)
+        // theta step may be bad because of looping between any col. compute median of diff theta between col for several lines near the center
+        // fill theta raster
+        std::unique_ptr<cIm2D<tREAL4>> aRasterTheta;
+        mSL_importer.fillRaster<tREAL4>(
+            [&aVectPtsTPD = mSL_importer.mVectPtsTPD](int i){auto aPtTPD = aVectPtsTPD[i];return aPtTPD.x();},
+            aRasterTheta);
+        //aRasterTheta->DIm().ToFile("dbg_theta.tif");
+        std::vector<tREAL8> aVdiffTheta;
+        aVdiffTheta.reserve(mSL_importer.NbCol());
+        int aY = mSL_importer.NbLine() / 2; // start at center
+        while ((aY< mSL_importer.NbLine()*3./4.) && ((int)aVdiffTheta.size()<mSL_importer.NbCol()))
         {
-            if ((mSL_importer.mVectPtsTPD[i].z()>mSL_importer.DistMinToExist()) && (fabs(fabs(mSL_importer.mVectPtsTPD[i].y())-M_PI/2)>aMinAngToZenith))
+            for (int aX=0;aX<mSL_importer.NbCol()-1;++aX)
             {
-                if ((mSL_importer.mVectPtsCol[i] != mSL_importer.mVectPtsCol[a1stPti]) && (mSL_importer.mVectPtsLine[i] != mSL_importer.mVectPtsLine[a1stPti]))
-                {
-                    auto & a1stPtAng = mSL_importer.mVectPtsTPD[a1stPti];
-                    auto a2ndPtAng = mSL_importer.mVectPtsTPD[i]; // copy to unroll
-                    tREAL8 aTheta = mSL_importer.mVectPtsCol[i]*mSL_importer.mThetaStep + mSL_importer.mThetaStart;
-                    a2ndPtAng.x() = toMinusPiPlusPi(a2ndPtAng.x(), aTheta);
-                    mSL_importer.mPhiStep = (a2ndPtAng.y()-a1stPtAng.y())/(mSL_importer.mVectPtsLine[i]-mSL_importer.mVectPtsLine[a1stPti]);
-                    mSL_importer.mThetaStep = (a2ndPtAng.x()-a1stPtAng.x())/(mSL_importer.mVectPtsCol[i]-mSL_importer.mVectPtsCol[a1stPti]);
-                    mSL_importer.mPhiStart = a1stPtAng.y() - mSL_importer.mPhiStep * mSL_importer.mVectPtsLine[a1stPti];
-                    mSL_importer.mThetaStart = a1stPtAng.x() - mSL_importer.mThetaStep * mSL_importer.mVectPtsCol[a1stPti];
-                    StdOut() << "computeAngStartStep2 " << a1stPti << " " << i << " " <<  mSL_importer.mThetaStep << " " << mSL_importer.mPhiStep << " " << "\n";
-                    StdOut() << "i1 i2: " << a1stPti << " " << i << ", "
-                             << mSL_importer.mVectPtsCol[a1stPti] << " " << mSL_importer.mVectPtsLine[a1stPti] << " "
-                             << mSL_importer.mVectPtsCol[i] << " " << mSL_importer.mVectPtsLine[i] << "\n";
-                    StdOut() << a1stPtAng.x() << " " << a1stPtAng.y() << " "
-                             << a2ndPtAng.x() << " " << a2ndPtAng.y() << "\n";
-                    break;
-                }
+                auto & aTheta1 = aRasterTheta->DIm().GetV(cPt2di(aX,aY));
+                auto & aTheta2 = aRasterTheta->DIm().GetV(cPt2di(aX+1,aY));
+                if ((aTheta1!=0)&&(aTheta2!=0))
+                    aVdiffTheta.push_back(aTheta2 - aTheta1);
             }
+            aY++;
         }
+        mSL_importer.mThetaStep = NonConstMediane(aVdiffTheta);
+
+
+
+        std::unique_ptr<cIm2D<tREAL4>> aRasterPhi;
+        mSL_importer.fillRaster<tREAL4>(
+            [&aVectPtsTPD = mSL_importer.mVectPtsTPD](int i){auto aPtTPD = aVectPtsTPD[i];return aPtTPD.y();},
+            aRasterPhi);
+        //aRasterPhi->DIm().ToFile("dbg_phi.tif");
+        std::vector<tREAL8> aVdiffPhi;
+        aVdiffPhi.reserve(mSL_importer.NbLine()*10);
+        int aX = mSL_importer.NbCol() / 10;
+        while (aX< mSL_importer.NbCol())
+        {
+            for (int aY=0;aY<mSL_importer.NbLine()-1;++aY)
+            {
+                auto & aPhi1 = aRasterPhi->DIm().GetV(cPt2di(aX,aY));
+                auto & aPhi2 = aRasterPhi->DIm().GetV(cPt2di(aX,aY+1));
+                if ((aPhi1!=0)&&(aPhi2!=0))
+                    aVdiffPhi.push_back(aPhi2 - aPhi1);
+            }
+            aX += mSL_importer.NbCol() / 10;
+        }
+        mSL_importer.mPhiStep = NonConstMediane(aVdiffPhi);
+
+
+        StdOut() << "Steps from Row-Col: " << mSL_importer.mThetaStep << " " << mSL_importer.mPhiStep << "\n";
+
     } else {
         if (mSL_importer.AllPointsReturn())
         {
@@ -655,7 +671,7 @@ int cAppli_ImportTSL::Exe()
     {
         std::unique_ptr<cIm2D<tU_INT1>> aRasterIntensityFull;
         std::string aRasterIntensityPath = cStaticLidar::RasterIntensityPath(mStationName + "-" + mScanName + cStaticLidar::GetIdSuffix());
-        cStaticLidar::fillRaster<tU_INT1>(mSL_importer,
+        mSL_importer.fillRaster<tU_INT1>(
                                           [this](int i){return this->mSL_importer.mVectPtsIntens[i]*255;},
                                           aRasterIntensityFull );
         aRasterIntensityFull->DIm().ToFile(mPhProj.DirStaticLidarRasters()+aRasterIntensityPath);
@@ -1264,6 +1280,7 @@ int cAppli_InitTSL::Exe()
         aSupMask= std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(mSupMaskFilename));
 
 
+    //mLidar->SelectPatchCenters2(mNbPatches, aSupMask?&aSupMask->DIm():nullptr);
     mLidar->SelectPatchCenters3(mNbPatches, aSupMask?&aSupMask->DIm():nullptr);
 
     mLidar->MakeVisu(mPhProj);
