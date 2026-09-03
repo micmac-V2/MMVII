@@ -442,6 +442,7 @@ void cAppli_ImportTSL::fixLineColRasterDirections()
 
     if (mSL_importer.mPhiStep > 0)
     {
+        StdOut() << "Flip vertical\n";
         for (auto & aLine: mSL_importer.mVectPtsLine)
             aLine = mSL_importer.NbLine() -1 - aLine;
         // invert start and end
@@ -451,6 +452,7 @@ void cAppli_ImportTSL::fixLineColRasterDirections()
 
     if (mSL_importer.mThetaStep > 0)
     {
+        StdOut() << "Flip horizontal\n";
         for (auto & aCol: mSL_importer.mVectPtsCol)
             aCol = mSL_importer.NbCol() -1 - aCol;
         // invert start and end
@@ -630,6 +632,8 @@ int cAppli_ImportTSL::Exe()
     for (size_t i=0; (i<10)&&(i<mSL_importer.mVectPtsTPD.size()); ++i)
     {
         StdOut() << mSL_importer.mVectPtsTPD[i];
+        if (mSL_importer.HasRowCol())
+            StdOut() << " " << mSL_importer.mVectPtsLine[i] << " " << mSL_importer.mVectPtsCol[i];
         StdOut() << "\n";
     }
     StdOut() << "..." << std::endl;

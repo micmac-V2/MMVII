@@ -1395,6 +1395,10 @@ void cStaticLidar::FillRasters(const cStaticLidarImporter & aSL_importer)
     fillRaster<tREAL4>(aSL_importer, [&aSL_importer](int i){auto aPtXYZ = aSL_importer.mVectPtsXYZ[i];return aPtXYZ.y();}, mRasterY);
     fillRaster<tREAL4>(aSL_importer, [&aSL_importer](int i){auto aPtXYZ = aSL_importer.mVectPtsXYZ[i];return aPtXYZ.z();}, mRasterZ);
 
+#ifdef EXPORT_RASTER_THETA_PHI
+    fillRaster<tREAL4>(aSL_importer, [&aSL_importer](int i){auto aPtTPD = aSL_importer.mVectPtsTPD[i];return aPtTPD.x();}, mRasterTheta);
+    fillRaster<tREAL4>(aSL_importer, [&aSL_importer](int i){auto aPtTPD = aSL_importer.mVectPtsTPD[i];return aPtTPD.y();}, mRasterPhi);
+#endif
     /*fillRaster<tREAL4>(aSL_importer, aPhProjDirOut, mRasterThetaPath, [&aSL_importer](int i){auto aPtAng = aSL_importer.mVectPtsTPD[i];return aPtAng.x();}, saveRasters );
     fillRaster<tREAL4>(aSL_importer, aPhProjDirOut, mRasterPhiPath, [&aSL_importer](int i){auto aPtAng = aSL_importer.mVectPtsTPD[i];return aPtAng.y();}, saveRasters );
     fillRaster<tREAL4>(aSL_importer, aPhProjDirOut, mRasterThetaErrPath, [&aSL_importer](int i)
@@ -1430,8 +1434,6 @@ void cStaticLidar::SaveRasters(const cStaticLidarImporter & aSL_importer, const 
     mRasterYPath = NameImage() + "_Y.tif";
     mRasterZPath = NameImage()+ "_Z.tif";
 
-    //mRasterThetaPath = NameImage() + "_Theta.tif";
-    //mRasterPhiPath = NameImage() + "_Phi.tif";
     //mRasterThetaErrPath = NameImage() + "_ThetaErr.tif";
     //mRasterPhiErrPath = NameImage() + "_PhiErr.tif";
 
@@ -1444,6 +1446,14 @@ void cStaticLidar::SaveRasters(const cStaticLidarImporter & aSL_importer, const 
     mRasterX->DIm().ToFile(aPhProjDirOut + mRasterXPath);
     mRasterY->DIm().ToFile(aPhProjDirOut + mRasterYPath);
     mRasterZ->DIm().ToFile(aPhProjDirOut + mRasterZPath);
+
+#ifdef EXPORT_RASTER_THETA_PHI
+    mRasterThetaPath = NameImage() + "_Theta.tif";
+    mRasterTheta->DIm().ToFile(aPhProjDirOut + mRasterThetaPath);
+    mRasterPhiPath = NameImage() + "_Phi.tif";
+    mRasterPhi->DIm().ToFile(aPhProjDirOut + mRasterPhiPath);
+#endif
+
 }
 
 
@@ -1822,7 +1832,7 @@ void cStaticLidar::MakeVisu(const cPhotogrammetricProject & aPhProj) const
     MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
     auto & aRasterDistData = mRasterDistance->DIm();
     double aDistMax = 0.;
-    int aPtSize = 1 + mRasterDistance->DIm().SzX()/2000;
+    int aPtSize = 1 + mRasterDistance->DIm().SzX()/1000;
 
     for (auto & aPt :  aRasterDistData)
     {

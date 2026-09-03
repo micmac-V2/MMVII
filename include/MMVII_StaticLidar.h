@@ -8,6 +8,8 @@
 #include "MMVII_PCSens.h"
 #include <unordered_set>
 
+#define EXPORT_RASTER_THETA_PHI
+
 namespace MMVII
 {
 
@@ -231,8 +233,13 @@ private :
     std::unique_ptr<cIm2D<tREAL4>> mRasterY;
     std::string mRasterZPath;
     std::unique_ptr<cIm2D<tREAL4>> mRasterZ;
-    //std::string mRasterThetaPath;
-    //std::string mRasterPhiPath;
+
+#ifdef EXPORT_RASTER_THETA_PHI
+    std::string mRasterThetaPath;
+    std::unique_ptr<cIm2D<tREAL4>> mRasterTheta;
+    std::string mRasterPhiPath;
+    std::unique_ptr<cIm2D<tREAL4>> mRasterPhi;
+#endif
     //std::string mRasterThetaErrPath;
     //std::string mRasterPhiErrPath;
 
