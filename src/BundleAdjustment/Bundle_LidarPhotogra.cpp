@@ -1068,9 +1068,15 @@ void cBA_LidarLidarRaster::AddObs()
         for (const auto& aScanA : mVScans)
             for (const auto& aScanB : mVScans)
                 if (aScanA.mLidarRaster!=aScanB.mLidarRaster)
+                {
                     mMapPatchesRasters.try_emplace(aScanA.mLidarRaster->NameImage()+"_to_"+aScanB.mLidarRaster->NameImage(),
                                                    aScanA.mLidarRaster->InternalCalib()->SzPix()/SCANSCANSHOWPATCHES + cPt2di(1,1),
                                                    nullptr,eModeInitImage::eMIA_Null);
+                    auto & aPatchRaster = mMapPatchesRasters.at(aScanA.mLidarRaster->NameImage()+"_to_"+aScanB.mLidarRaster->NameImage()).DIm();
+                    for (int y=0; y<aPatchRaster.SzY();++y)
+                        for (int x=0; x<aPatchRaster.SzX();++x)
+                            aPatchRaster.SetV({x,y}, 999);
+                }
     }
 #endif
 
@@ -1265,6 +1271,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             aData.mScanAName = aScanA->NameImage();
             aData.mScanBName = aScanB->NameImage();
             cPt2dr aPIm = aScanB->Ground2Image(aPGround); // extract the image  projection
+            aScanB->FixLoopPixelsInImage(aPIm);
             #ifdef SCANSCANDEBUG
             std::cout<<" projection :"<<aPIm<<"\n";
             #endif
@@ -1340,9 +1347,20 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                 #endif
                 aAvgRes.Add(1.0,fabs(aResidual));  // compute std deviation
                 aVData.push_back(aData); // memorize the data for this image
+            } else {
+                #ifdef SCANSCANDEBUG
+                std::cout<<" not in interpolator\n";
+                #endif
+                #ifdef SCANSCANSHOWPATCHES
+                                if (mBA.Iter()==mBA.NbMaxIter()-1)
+                                    mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
+                                        aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, -40); // not in interpolator
+                #endif
             }
         } else {
-            //std::cout<<" not visible\n";
+            #ifdef SCANSCANDEBUG
+            std::cout<<" not visible\n";
+            #endif
             #ifdef SCANSCANSHOWPATCHES
             if (mBA.Iter()==mBA.NbMaxIter()-1)
                 mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
