@@ -70,6 +70,9 @@ public:
 
     void MakeIdImage(const std::string & aNameFile) const; // create miniature to select this scan along images
 
+    template <typename TYPE> void fillRaster(
+                           std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE>> & aIm) const; // keep image in memory
+
     // line and col for each point
     std::vector<int> mVectPtsLine;
     std::vector<int> mVectPtsCol;
@@ -214,8 +217,6 @@ public :
     std::tuple<double, double, cPt3dr> getDistSigmaNormalPlane(cPt2dr aCenter, const cPixBox<2> &aPixBox) const; ///< Adjust a plane on defined points
 
 private :
-    template <typename TYPE> static void fillRaster(const cStaticLidarImporter & aSL_importer,
-                    std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE>> & aIm); // keep image in memory
 
     cPt2dr Ground2ImagePrecise(const cPt3dr & aGroundPt) const;
 

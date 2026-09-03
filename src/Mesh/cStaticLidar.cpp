@@ -1350,16 +1350,15 @@ void cStaticLidar::ToPly(const std::string & aName,bool useMask) const
     }
 }
 
-template <typename TYPE> void cStaticLidar::fillRaster(const cStaticLidarImporter & aSL_importer,
-                              std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE> > & aIm)
+template <typename TYPE> void cStaticLidarImporter::fillRaster(std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE> > & aIm) const
 {
-    MMVII_INTERNAL_ASSERT_tiny(aSL_importer.mVectPtsCol.size()==aSL_importer.mVectPtsXYZ.size(), "Error: Compute line/col numbers before fill raster");
+    MMVII_INTERNAL_ASSERT_tiny(mVectPtsCol.size()==mVectPtsXYZ.size(), "Error: Compute line/col numbers before fill raster");
 
-    aIm.reset(new cIm2D<TYPE>(cPt2di(aSL_importer.NbCol(), aSL_importer.NbLine()), 0, eModeInitImage::eMIA_Null));
+    aIm.reset(new cIm2D<TYPE>(cPt2di(NbCol(), NbLine()), 0, eModeInitImage::eMIA_Null));
     auto & aRasterData = aIm->DIm();
-    for (size_t i=0; i<aSL_importer.mVectPtsTPD.size(); ++i)
+    for (size_t i=0; i<mVectPtsTPD.size(); ++i)
     {
-        cPt2di aPcl = {aSL_importer.mVectPtsCol[i], aSL_importer.mVectPtsLine[i]};
+        cPt2di aPcl = {mVectPtsCol[i], mVectPtsLine[i]};
         aRasterData.SetV(aPcl, func(i));
     }
 }
@@ -1376,7 +1375,7 @@ std::string cStaticLidar::RasterIntensityPath(const cPhotogrammetricProject & aP
 
 void cStaticLidar::FillRasters(const cStaticLidarImporter & aSL_importer)
 {
-    fillRaster<tU_INT1>(aSL_importer,
+    aSL_importer.fillRaster<tU_INT1>(
                         [&aSL_importer](int i)
                         {
                             auto aPtAng = aSL_importer.mVectPtsTPD[i];
@@ -1384,38 +1383,22 @@ void cStaticLidar::FillRasters(const cStaticLidarImporter & aSL_importer)
                         }, mRasterMask);
 
     if (aSL_importer.HasIntensity())
-        fillRaster<tU_INT1>(aSL_importer,
+        aSL_importer.fillRaster<tU_INT1>(
                             [&aSL_importer](int i){return aSL_importer.mVectPtsIntens[i]*255;}, mRasterIntensity);
 
-    fillRaster<tREAL4>(aSL_importer,
-                      [&aSL_importer](int i){auto aPtAng = aSL_importer.mVectPtsTPD[i];return aPtAng.z();},
+    aSL_importer.fillRaster<tREAL4>(
+                       [&aSL_importer](int i){auto aPtAng = aSL_importer.mVectPtsTPD[i];return aPtAng.z();},
                        mRasterDistance);
 
-    fillRaster<tREAL4>(aSL_importer, [&aSL_importer](int i){auto aPtXYZ = aSL_importer.mVectPtsXYZ[i];return aPtXYZ.x();}, mRasterX);
-    fillRaster<tREAL4>(aSL_importer, [&aSL_importer](int i){auto aPtXYZ = aSL_importer.mVectPtsXYZ[i];return aPtXYZ.y();}, mRasterY);
-    fillRaster<tREAL4>(aSL_importer, [&aSL_importer](int i){auto aPtXYZ = aSL_importer.mVectPtsXYZ[i];return aPtXYZ.z();}, mRasterZ);
+    aSL_importer.fillRaster<tREAL4>([&aSL_importer](int i){auto aPtXYZ = aSL_importer.mVectPtsXYZ[i];return aPtXYZ.x();}, mRasterX);
+    aSL_importer.fillRaster<tREAL4>([&aSL_importer](int i){auto aPtXYZ = aSL_importer.mVectPtsXYZ[i];return aPtXYZ.y();}, mRasterY);
+    aSL_importer.fillRaster<tREAL4>([&aSL_importer](int i){auto aPtXYZ = aSL_importer.mVectPtsXYZ[i];return aPtXYZ.z();}, mRasterZ);
 
 #ifdef EXPORT_RASTER_THETA_PHI
-    fillRaster<tREAL4>(aSL_importer, [&aSL_importer](int i){auto aPtTPD = aSL_importer.mVectPtsTPD[i];return aPtTPD.x();}, mRasterTheta);
-    fillRaster<tREAL4>(aSL_importer, [&aSL_importer](int i){auto aPtTPD = aSL_importer.mVectPtsTPD[i];return aPtTPD.y();}, mRasterPhi);
+    aSL_importer.fillRaster<tREAL4>([&aSL_importer](int i){auto aPtTPD = aSL_importer.mVectPtsTPD[i];return aPtTPD.x();}, mRasterTheta);
+    aSL_importer.fillRaster<tREAL4>([&aSL_importer](int i){auto aPtTPD = aSL_importer.mVectPtsTPD[i];return aPtTPD.y();}, mRasterPhi);
 #endif
-    /*fillRaster<tREAL4>(aSL_importer, aPhProjDirOut, mRasterThetaPath, [&aSL_importer](int i){auto aPtAng = aSL_importer.mVectPtsTPD[i];return aPtAng.x();}, saveRasters );
-    fillRaster<tREAL4>(aSL_importer, aPhProjDirOut, mRasterPhiPath, [&aSL_importer](int i){auto aPtAng = aSL_importer.mVectPtsTPD[i];return aPtAng.y();}, saveRasters );
-    fillRaster<tREAL4>(aSL_importer, aPhProjDirOut, mRasterThetaErrPath, [&aSL_importer](int i)
-                      {
-                          auto aPtAng = aSL_importer.mVectPtsTPD[i];
-                          tREAL8 aThetaCol = aSL_importer.ThetaStart() + aSL_importer.ThetaStep() * aSL_importer.mVectPtsCol[i];
-                          aThetaCol = toMinusPiPlusPi(aThetaCol);
-                          return aPtAng.x()-aThetaCol;
-                      }, saveRasters );
-    fillRaster<tREAL4>(aSL_importer, aPhProjDirOut, mRasterPhiErrPath, [&aSL_importer](int i)
-                      {
-                          auto aPtAng = aSL_importer.mVectPtsTPD[i];
-                          tREAL8 aPhiLine = aSL_importer.PhiStart() + aSL_importer.PhiStep() * aSL_importer.mVectPtsLine[i];
-                          aPhiLine = toMinusPiPlusPi(aPhiLine);
-                          return aPtAng.y()-aPhiLine;
-                      }, saveRasters );
-    */
+
     mRasterScore.reset(new cIm2D<tREAL4>(cPt2di(aSL_importer.NbCol()+1, aSL_importer.NbLine()+1), 0, eModeInitImage::eMIA_Null));
 
     mAreRastersReady = true;
