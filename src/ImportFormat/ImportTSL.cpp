@@ -412,6 +412,12 @@ void cAppli_ImportTSL::computeAngStartStep()
         }
     }
 
+    // fix theta start modulo
+    while (mSL_importer.mThetaStart > M_PI)
+        mSL_importer.mThetaStart -= 2*M_PI;
+    while (mSL_importer.mThetaStart < -M_PI)
+        mSL_importer.mThetaStart += 2*M_PI;
+
     StdOut() << "PhiStart: " << mSL_importer.mPhiStart << ", "
              << "PhiStep: " << mSL_importer.mPhiStep << ", "
              << "ThetaStart: " << mSL_importer.mThetaStart << ", "

@@ -613,7 +613,7 @@ cPt2dr cStaticLidarImporter::Input3DtoRasterAngle(const cPt3dr &aPt3DInput) cons
     //std::cout<<"Input3DtoRasterAngle: "<<aPt3DInput<<"\n";
     cPt3dr aPt3DInputNorm = aPt3DInput/Norm2(aPt3DInput);
     cPt3dr aPt3DRaster = RotInput2Raster().Value(aPt3DInputNorm);
-    cProj_EquiRect aProjEquiRect(M_PI);
+    cProj_EquiRect aProjEquiRect(2*M_PI);
     auto aThetaPhi = cPt2dr::FromStdVector(aProjEquiRect.Proj(aPt3DRaster.ToStdVector()));
     return aThetaPhi;
 }
