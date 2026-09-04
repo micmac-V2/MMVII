@@ -56,9 +56,7 @@ namespace MMVII
     std::string cSetOfAugCdt::NameFile(const cPhotogrammetricProject& aPhProj, bool aInput)
     {
         return  (aInput ? aPhProj.DPGndPt3D().FullDirIn() : aPhProj.DPGndPt3D().FullDirOut())
-               + "Aug-"
-               +  aPhProj.DPOrient().DirIn()
-               + "."+ cMMVII_Appli::CurrentAppli().TaggedNameDefSerial();
+               + "NetAug" + "."+ cMMVII_Appli::CurrentAppli().TaggedNameDefSerial();
     }
 
     void cSetOfAugCdt::AddData(const cAuxAr2007& anAuxParam)
