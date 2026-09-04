@@ -1278,7 +1278,7 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
                                         : aPtRasterUL.y();
         aPtRaster = {aBetterX, aBetterY};
     }
-
+    FixLoopPixelsInImage(aPtRaster);
     return aPtRaster;
 }
 
