@@ -395,6 +395,8 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         cSensorCamPC*                       mCam;       //-> current camera
         cSetMesPtOf1Im                      mSetImMes;  //-> current image measurements
         tREAL8  mOKCorr;//-> validation threshold for target pattern correlation
+        bool mExpPred;//-> export predicted measurement for comparison
+        bool mExpStd;
         //tU_INT1                             mL1Lim;     //-> L1 limit to consider outliers from ransac TF computation
         //int                                 mMaskDil;   //-> inlier mask dilatation (wrt Ref image)
         cAugCdt* mAugCdt;//-> current augmented coded target when using heuristik correlation
@@ -425,7 +427,9 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         return anArgOpt
                << mPhProj.DPGndPt3D().ArgDirInOpt("AugCdt","targets network augmentation")
                << mPhProj.DPOrient().ArgDirInOpt("AugOri","absolute orientation -> mandatory if using network augmentation")
-               << mPhProj.DPGndPt2D().ArgDirOutOptWithDef("Refine", "OutMes", "targets 2D refined measurements")
+               << mPhProj.DPGndPt2D().ArgDirOutOptWithDef("Refine-Fin", "OutMes", "targets 2D refined measurements")
+               << AOpt2007(mExpPred, "ExpPred", "export predicted image measurements")
+               << AOpt2007(mExpStd, "ExpStd", "export standard detections")
                << AOpt2007(mOKCorr,"OKCorr", "validation threshold for target pattern correlation", {eTA2007::HDV})
                << AOpt2007(mShow,"Show","Show useful details", {eTA2007::HDV})
                << AOpt2007(mVisu,"Visu","Save visualisation of results", {eTA2007::HDV})
@@ -444,6 +448,8 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         mOKCorr (0.6),
         //mL1Lim          (20),
         //mMaskDil        (0),
+        mExpPred (false),
+        mExpStd (true),
         mAugCdt (nullptr)
     //mRefine         (""),
         //mMissedOnly     (false)
@@ -490,11 +496,12 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
             mGIm  = tIm::FromFile(mGImN);
             mDGIm = &mGIm.DIm();
             cSetOfCdTDiscr aSetOfDiscr(mGImN);//-> collection of image CdT discretizations
-            cSetMesPtOf1Im aSet(mGImN);//-> to save final image measurements
+            cSetMesPtOf1Im aSetPred(mGImN);//-> to save predicted image measurements
+            cSetMesPtOf1Im aSetFin(mGImN);//-> to save final image measurements
             tU_INT1 aNbNew = 0;
 
             StdOut() << "(" << mGImN << "):";
-            if (mShow) StdOut() << "\ncdt\t | cscore\t | ok\t | centre\n";
+            if (mShow) StdOut() << "\ncdt\t | cscore\t | ok\t | pred. centre\t\t | fin. centre\n";
 
             //----- load image measurements obtained from standard image processing
             mSetImMes = mPhProj.LoadMeasureIm(mGImN);
@@ -508,7 +515,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                 if (mSetImMes.NameHasMeasure(aCdt.Name()))//-> normally detected
                 {
                     isOk = true;
-                    aSet.AddMeasure(mSetImMes.MeasuresOfName(aCdt.Name()));
+                    if (mExpStd) aSetFin.AddMeasure(mSetImMes.MeasuresOfName(aCdt.Name()));
                 } else if (mSetAugCdt.NameHasAug(aCdt.Name()))//-> if target is augmented
                 {
                     mAugCdt = mSetAugCdt.CdtOfName(aCdt.Name());
@@ -517,22 +524,29 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                         cAugCdtInCam aCdt = mAugCdt->InCam(mCam);
                         if (aCdt.IsVisible()) //-> nb of corners visible on global image
                         {
+                            auto aCPred = aCdt.mRef2Glob.Value(cPt2dr(299.5, 299.5));
                             auto [aC, aV] = AugCdtLocate(isOk);//-> if camera is oriented
                             if (isOk)
                             {
-                                aSet.AddMeasure(cMesIm1Pt(aC, mAugCdt->mName, 1));
+                                aSetFin.AddMeasure(cMesIm1Pt(aC, mAugCdt->mName, 1));
+                                aSetPred.AddMeasure(cMesIm1Pt(aCPred, mAugCdt->mName, 1));
                                 ++aNbNew;
                             }
                             if (mShow) StdOut() << mAugCdt->mName + "\t | "
                                          << std::to_string(aV) + "\t | "
                                          << std::to_string(isOk) + "\t | "
+                                         << aCPred << "\t | "
                                          << aC << '\n';
                         }
                     }
                 }
             }
             StdOut() << " -> " << std::to_string(aNbNew) << " new measures.\n";
-            mPhProj.SaveMeasureIm(aSet);
+            mPhProj.SaveMeasureIm(aSetFin);//-> ok default dir out seems to be used
+            std::string aDirOut = mPhProj.DPGndPt2D().DirOut();
+            mPhProj.DPGndPt2D().SetDirOut("Refine-Pred");//-> change default dir out
+            mPhProj.SaveMeasureIm(aSetPred);
+            mPhProj.DPGndPt2D().SetDirOut(aDirOut);
             /*
             for (const auto& aEll : aVEll)
             {
