@@ -214,6 +214,7 @@ cCamOrthoC * cProjPointCloud::PPC_CamOrtho(int aK,bool  ProfIsZ0,const tRotR & a
    cBox3dr   aBox3 = mPC.Box3d();
    cBox2dr   aBox2 = mPC.Box2d();
    tREAL8 aResol = mPC.GroundSampling() * aMulResol;
+
    cPt2di aSzIm = ToI(aBox2.Sz() * (aMulSz / aResol));
    
    cOrthoProj aProj(aRot,aBox3.Middle(),ToR(aSzIm)/2.0,aResol,ProfIsZ0);

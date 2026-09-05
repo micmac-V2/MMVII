@@ -8,6 +8,7 @@
 #include "MMVII_Linear2DFiltering.h"
 #include "MMVII_Interpolators.h"
 #include "MMVII_PCSens.h"
+#include "MMVII_2Include_Tiling.h"
 #include "../ImagesBase/cGdalApi.h"
 
 #include "cColorateCloud.h"
@@ -35,6 +36,29 @@ enum eModeCloudCol
     eColZ,
     eColOrtho,
     eColXY
+};
+
+/** Light object to put VISIBLE points (with their true ortho colour) in a
+ *  spatial index, so occluded points can borrow the nearest visible colour.
+ *  The index is 2D (on X,Y) because cTiling::GetObjAtDist only supports 2D
+ *  (it uses cRect2==cPixBox<2>), but we keep the full 3D point so candidates
+ *  can be ranked by 3D distance : this avoids borrowing from the canopy point
+ *  located right above an occluded ground point (small XY dist, large Z). */
+class cVisPtCol
+{
+    public :
+        static constexpr int TheDim = 2;      // 2D indexing on (X,Y)
+        typedef cPt2dr tPrimGeom;             // geometric primitive is a 2D point
+        typedef int    tArgPG;                // unused call-back argument
+
+        const tPrimGeom & GetPrimGeom(int =-1) const {return mP2;}
+        cVisPtCol(const cPt3dr & aPt,tREAL8 aCol) : mP2(Proj(aPt)),mP3(aPt),mCol(aCol) {}
+        const cPt3dr & Pt3d() const {return mP3;}
+        tREAL8 Col() const {return mCol;}
+    private :
+        cPt2dr mP2;
+        cPt3dr mP3;
+        tREAL8 mCol;
 };
 
 class cAppli_MMVII_CloudColorate : public cMMVII_Appli
@@ -173,9 +197,22 @@ int  cAppli_MMVII_CloudColorate::Exe()
    }
    else if(mModeCol == eModeCloudCol::eColOrtho)
    {
+        // we colorize with an ortho image, suppose one orthocamera 
+        std::unique_ptr<cCamOrthoC> aCam (aPPC.PPC_CamOrtho(0,mProfIsZ0,cPt3dr(0,0,1.0)));
+
+        aPPC.ProcessOneProj(mSurResol,*aCam,1.0,false,"",false,false);
+
+        // ProcessOneProj only accumulates visibility inside aPPC (mSumRad);
+        // ColorizePC pushes it into aPC_In as DegVis = visible-pixel fraction.
+        aPPC.ColorizePC();
+
+        // Snapshot visibility BEFORE DegVis is reused to store the ortho color.
+        // DegVis==0  => point is occluded (never front-most in the nadir depth buffer).
+        std::vector<bool> aVisible(aPC_In.NbPts(),false);
+        for (size_t aKPt=0 ; aKPt<aPC_In.NbPts() ; aKPt++)
+            aVisible[aKPt] = (aPC_In.GetDegVis(aKPt) > 0.0);
+
         // read ortho image and use it to colorate the cloud
-
-
         StdOut() << "Colorate in Ortho mode, using file " << mOrthoFile << "\n";
 
         cDataFileIm2D aFOrtho = cDataFileIm2D::Create(mOrthoFile,eForceGray::No);
@@ -197,19 +234,61 @@ int  cAppli_MMVII_CloudColorate::Exe()
                             cPt2dr(aTransform[1],0.0),
                             cPt2dr(0.0,aTransform[5]));
 
-        //cBoundVals<tREAL8> aBounds;                    
+        // -------- Pass 1 : colour the VISIBLE points from their own ortho pixel.
+        // A point's own ortho pixel is only its true colour when the point is on
+        // the top surface. For an occluded point (e.g. ground under a tree) that
+        // pixel is the canopy colour, so occluded points are handled in pass 2.
+        std::vector<tREAL8> aVCol(aPC_In.NbPts(),0.0);
+
+        // 2D spatial index of the visible points (storing their full 3D point)
+        cBox2dr aBox2d = aPC_In.Box2d();
+        cTiling<cVisPtCol> aTilVis(aBox2d,true,std::max<size_t>(1,aPC_In.NbPts()/20),-1);
+
         for(size_t aKPt=0 ; aKPt<aPC_In.NbPts() ; aKPt++)
         {
-            cPt3dr aPt = aPC_In.KthPt(aKPt);
-            cPt2dr aPIm = aTF.Inverse(Proj(aPt));
-
-            if (aIDmOrtho.InsideBL(aPIm))
+            cPt3dr aPGr = aPC_In.KthPt(aKPt);
+            cPt2dr aPIm = aTF.Inverse(Proj(aPGr)); // ortho pixel
+            if (aVisible[aKPt] && aIDmOrtho.InsideBL(aPIm))
             {
-                tREAL8 aCol = aIDmOrtho.GetVBL(aPIm);
-                aPC_In.SetDegVis(aKPt,aCol/255.0);
-                //aBounds.Add(aPC_In.GetDegVis(aKPt) );
+                aVCol[aKPt] = aIDmOrtho.GetVBL(aPIm) / 255.0;
+                aTilVis.Add(cVisPtCol(aPGr,aVCol[aKPt]));
             }
         }
+
+        // -------- Pass 2 : occluded points borrow the nearest visible colour,
+        // giving a near-realistic ground colour instead of the canopy/black.
+        // Search is done on the 2D index but ranked by 3D distance : since
+        // 3Ddist >= XYdist, once the best 3D distance found is <= the current
+        // search radius, no unseen point can be closer, so it is the 3D nearest.
+        tREAL8 aGSD  = aPC_In.GroundSampling();       // ~ mean point spacing
+        tREAL8 aRMax = aBox2d.Sz().x() + aBox2d.Sz().y();
+        for(size_t aKPt=0 ; aKPt<aPC_In.NbPts() ; aKPt++)
+        {
+            if (aVisible[aKPt])
+                continue;                             // already coloured in pass 1
+
+            cPt3dr aP3  = aPC_In.KthPt(aKPt);
+            cPt2dr aP2  = Proj(aP3);
+            tREAL8 aBestD2 = 1e30;
+            for (tREAL8 aRay=4*aGSD ; ; aRay*=2.0)
+            {
+                for (const cVisPtCol * aV : aTilVis.GetObjAtDist(aP2,aRay))
+                {
+                    tREAL8 aD2 = SqN2(aV->Pt3d()-aP3);   // full 3D distance
+                    if (aD2 < aBestD2)
+                    {
+                        aBestD2 = aD2;
+                        aVCol[aKPt] = aV->Col();
+                    }
+                }
+                if (aBestD2 <= aRay*aRay)  // true 3D nearest guaranteed found
+                    break;
+                if (aRay > aRMax)          // safety : no visible point at all
+                    break;
+            }
+        }
+        for(size_t aKPt=0 ; aKPt<aPC_In.NbPts() ; aKPt++)
+            aPC_In.SetDegVis(aKPt,aVCol[aKPt]);
    }
    else
    {
