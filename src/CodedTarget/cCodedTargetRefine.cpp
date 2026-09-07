@@ -451,6 +451,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         //mMaskDil        (0),
         mExpPred (false),
         mExpStd (true),
+        mMaskB (0),
         mAugCdt (nullptr)
     //mRefine         (""),
         //mMissedOnly     (false)
