@@ -785,7 +785,7 @@ int cAppli_ImportTSL::Exe()
         aPP.x() += mSL_importer.NbCol();
     //find F: scale from angle to pixels
     tREAL8 aFx = 1./fabs(mSL_importer.mThetaStep); //TODO: add polynomial disto for different angular steps
-    tREAL8 aFy = 1./fabs(mSL_importer.mPhiStep);
+    //tREAL8 aFy = 1./fabs(mSL_importer.mPhiStep);
 
     StdOut()<<"Angular steps: "<<fabs(mSL_importer.mThetaStep) << " " << fabs(mSL_importer.mPhiStep)<<"\n";
     if (fabs((fabs(mSL_importer.mPhiStep)-fabs(mSL_importer.mThetaStep))/mSL_importer.mPhiStep)>1e-2)
@@ -798,7 +798,8 @@ int cAppli_ImportTSL::Exe()
                                             + "_" + cStaticLidar::PrefixName()
                                             + "-" + aScanName, eProjPC::eEquiRect,
                                         cPt2di(mSL_importer.NbCol(), mSL_importer.NbLine()),
-        cPt3dr(aPP.x(),aPP.y(),(aFx+aFy)/2), cPt3di(0,0,0));
+                                        cPt3dr(aPP.x(),aPP.y(),aFx), // use theta step, more precise?
+                                        cPt3di(0,0,0));
 
     cStaticLidar aSL_data(aScanName, mStationName, mScanName,
                           cIsometry3D<tREAL8>({}, cRotation3D<tREAL8>::Identity()),

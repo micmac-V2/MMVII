@@ -1223,6 +1223,7 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
     //std::cout<<"  UV th: "<<aDirCam3DTheoretical<<"\n";
     cPt3dr aPtRasterApprox =cSensorCamPC::Ground2ImageAndDepth(aGroundPt);
     cPt2dr aPtRaster = {aPtRasterApprox.x(), aPtRasterApprox.y()};
+    FixLoopPixelsInImage(aPtRaster);
 
     // test if int value
     cPt2di aPtRasterRounded(round(aPtRaster.x()),round(aPtRaster.y()));
@@ -1277,8 +1278,8 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
                                                *(aPtRasterLR.y()-aPtRasterUL.y())
                                         : aPtRasterUL.y();
         aPtRaster = {aBetterX, aBetterY};
+        FixLoopPixelsInImage(aPtRaster);
     }
-    FixLoopPixelsInImage(aPtRaster);
     return aPtRaster;
 }
 

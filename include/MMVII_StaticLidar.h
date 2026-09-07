@@ -8,7 +8,8 @@
 #include "MMVII_PCSens.h"
 #include <unordered_set>
 
-//#define EXPORT_RASTER_THETA_PHI
+// #define EXPORT_RASTER_THETA_PHI
+// #define SCANSCANSHOWPATCHES 8 // make rasters of patches residuals and rejection for each pair, downscale raster by value
 
 namespace MMVII
 {

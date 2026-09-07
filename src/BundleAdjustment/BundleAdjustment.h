@@ -695,7 +695,6 @@ struct cWeighterParam
  * Class for adjustment between two lidar scans
  */
 
-// #define SCANSCANSHOWPATCHES 16 // make rasters of patches residuals and rejection for each pair, downscale raster by value
 
 class cBA_LidarLidarRaster: public cBA_LidarBase, public cBA_LidarRaster
 {
