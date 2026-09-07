@@ -397,6 +397,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         tREAL8  mOKCorr;//-> validation threshold for target pattern correlation
         bool mExpPred;//-> export predicted measurement for comparison
         bool mExpStd;
+        int mMaskB;//-> size of border to exclude using mask
         //tU_INT1                             mL1Lim;     //-> L1 limit to consider outliers from ransac TF computation
         //int                                 mMaskDil;   //-> inlier mask dilatation (wrt Ref image)
         cAugCdt* mAugCdt;//-> current augmented coded target when using heuristik correlation
