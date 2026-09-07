@@ -426,14 +426,15 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
     {
         return anArgOpt
                << mPhProj.DPGndPt3D().ArgDirInOpt("AugCdt","targets network augmentation")
-               << mPhProj.DPOrient().ArgDirInOpt("AugOri","absolute orientation -> mandatory if using network augmentation")
+               << mPhProj.DPOrient().ArgDirInOpt("AugOri","camera absolute orientation -> mandatory if using network augmentation")
                << mPhProj.DPGndPt2D().ArgDirOutOptWithDef("Refine-Fin", "OutMes", "targets 2D refined measurements")
                << AOpt2007(mExpPred, "ExpPred", "export predicted image measurements")
                << AOpt2007(mExpStd, "ExpStd", "export standard detections")
                << AOpt2007(mOKCorr,"OKCorr", "validation threshold for target pattern correlation", {eTA2007::HDV})
                << AOpt2007(mShow,"Show","Show useful details", {eTA2007::HDV})
                << AOpt2007(mVisu,"Visu","Save visualisation of results", {eTA2007::HDV})
-               //<< AOpt2007(mMaskDil,"MaskDil","Dilate Ref image to filter inliers", {eTA2007::HDV})
+               << AOpt2007(mMaskB,"MaskBorder","Value of border size to generate mask wrt target model", {eTA2007::HDV})
+            //<< AOpt2007(mMaskDil,"MaskDil","Dilate Ref image to filter inliers", {eTA2007::HDV})
                //<< AOpt2007(mRefine,"Refine","H-euristik (=cross-correl),G-radient(=LSM)")
                //<< AOpt2007(mMissedOnly,"MissedOnly","Only process undetected targets")
             ;
@@ -755,13 +756,14 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 
             //--2-- template target correlation in global image
 
-            cMaskO2I aMask(aOBox, aIBox, aCdt.mRef2Glob.MapInverse());
+            cMaskO2I aMask(aOBox, aIBox, aCdt.mRef2Glob.MapInverse(), mMaskB);
 
             cPatch aPatch(mGIm, cPixBox<2>(aP0, aP0 + aDTpl->Sz()));
 
             cOptCorrelThIm<tU_INT1> aOptMap(*aDTpl, *mDGIm, aMask.Im().DIm(), aPatch.BBox());
-            cOptimByStep aOpt(aOptMap, false, 2.0);
-            auto [aV, aDelta] = aOpt.Optim(ToR(aP0), 4, .1);
+            cOptimByStep aOpt(aOptMap, false, 2.0);//-> 2.0 = max distance from original point
+
+            auto [aV, aDelta] = aOpt.Optim(ToR(aP0), 1, 1e-5, .1);
 
             if (aV >= mOKCorr) isOk = true;
 
@@ -771,8 +773,8 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                 aDTpl->ToFile(mPhProj.DirVisuAppli() + mAugCdt->mName + "-Samp-" + mGImN);
                 aPatch.SaveIm(mPhProj.DirVisuAppli() + mAugCdt->mName + "-Patch-" + mGImN, isOk);
             }
-
-            aRes = aDelta + ToR(aDTpl->Sz())/2.0;
+            //aRes = aDelta + ToR(aDTpl->Sz())/2.0;
+            aRes = aDelta + (aCdt.mRef2Glob.Value(aCdt.Center()) - ToR(aP0));
             aVal = aV;
         }
         return std::pair<cPt2dr, tREAL8> (aRes, aVal);
@@ -1076,16 +1078,17 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 */
 /******************************************************************************/
 
-    cMaskO2I::cMaskO2I(const cPixBox<2>& aOBox, const cPixBox<2>& aIBox, const tAff2Dr& aO2IMap):
+    cMaskO2I::cMaskO2I(const cPixBox<2>& aOBox, const cPixBox<2>& aIBox, const tAff2Dr& aO2IMap, const tU_INT1 aBorder):
         mOBox (aOBox),
         mIBox (aIBox),
         mO2IMap (aO2IMap),
         mIm (aOBox.Sz())
     {
+        auto aNBox = aIBox.Dilate(-aBorder);//-> new input box
         for (const auto& aOPx : aOBox)
         {
             cPt2di aIPx = ToI(aO2IMap.Value(ToR(aOPx)));
-            tU_INT1 aVal = aIBox.Inside(aIPx) ? MaskOutV : MaskInV;
+            tU_INT1 aVal = aNBox.Inside(aIPx) ? MaskOutV : MaskInV;
             mIm.DIm().SetV(aOPx - aOBox.P0(), aVal);
         }
     }

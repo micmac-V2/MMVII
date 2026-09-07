@@ -91,7 +91,7 @@ namespace MMVII
     class cMaskO2I
     {
     public:
-        cMaskO2I(const cPixBox<2>& aOBox, const cPixBox<2>& aIBox, const tAff2Dr& aO2IMap);
+        cMaskO2I(const cPixBox<2>& aOBox, const cPixBox<2>& aIBox, const tAff2Dr& aO2IMap, const tU_INT1 aBorder=0);
         void SaveAsIm(const std::string& aDir);
         tIm Im();
     private:
