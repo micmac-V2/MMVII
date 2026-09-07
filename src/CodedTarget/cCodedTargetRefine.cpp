@@ -527,7 +527,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                         cAugCdtInCam aCdt = mAugCdt->InCam(mCam);
                         if (aCdt.IsVisible()) //-> nb of corners visible on global image
                         {
-                            auto aCPred = aCdt.mRef2Glob.Value(cPt2dr(299.5, 299.5));
+                            auto aCPred = aCdt.mRef2Glob.Value(mAugCdt->Center());
                             auto [aC, aV] = AugCdtLocate(isOk);//-> if camera is oriented
                             if (isOk)
                             {
