@@ -49,7 +49,8 @@ cAppli_PoseCmp::cAppli_PoseCmp
     cMMVII_Appli  (aVArgs,aSpec),
     mPhProj       (*this),
     mPropStat     ({50,75}),
-    mDoRel        (false)
+    mDoRel        (false),
+    mVerbose      (false)
 {
 }
 
