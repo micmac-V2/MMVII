@@ -608,6 +608,16 @@ void Bench_Nums(cParamExeBench & aParam)
    aParam.EndBench();
 }
 
+template <class Type> Type  NonConstAvgWithoutExtr(std::vector<Type> & aV, double aExtrLimit)
+{
+    std::sort(aV.begin(),aV.end());
+    size_t aSz = aV.size();
+    size_t aCutExtreme = aSz/10;
+    tREAL8 aAvg = std::accumulate(aV.begin()+aCutExtreme,aV.end()-aCutExtreme,0.);
+    return aAvg / (aSz-2*aCutExtreme);
+}
+
+
 template <class Type> Type  NonConstMediane(std::vector<Type> & aV)
 {
    std::sort(aV.begin(),aV.end());
@@ -623,6 +633,7 @@ template <class Type> Type  ConstMediane(const std::vector<Type> & aV)
     return NonConstMediane(aDup);
 }
 
+template  double NonConstAvgWithoutExtr(std::vector<double> &, double);
 template  double NonConstMediane(std::vector<double> &);
 template  double ConstMediane(const std::vector<double> &);
 

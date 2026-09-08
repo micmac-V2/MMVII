@@ -147,8 +147,8 @@ void cAppli_ImportTSL::estimatePhiStep()
         previousPhi = aPtAng.y();
         aPreviousWasMissing = false;
     }
-    mPhiStepApprox = NonConstMediane(allPhiDiff);
-    StdOut() << "phiStep " << mPhiStepApprox << "\n";
+    mPhiStepApprox = NonConstAvgWithoutExtr(allPhiDiff);
+    StdOut() << "phiStep " << mPhiStepApprox << "   median=" << NonConstMediane(allPhiDiff) << "\n";
 
     // estimate mThetaStepApprox
     // search for nb points in one col
@@ -295,7 +295,7 @@ void cAppli_ImportTSL::computeLineCol()
     std::vector<tREAL8> allThetaDiff(mSL_importer.mNbCol);
     for (unsigned int i=0;i<allThetaDiff.size();++i)
         allThetaDiff[i] = allThetaAvg[i+1]-allThetaAvg[i];
-    tREAL8 aThetaStep = NonConstMediane(allThetaDiff);
+    tREAL8 aThetaStep = NonConstAvgWithoutExtr(allThetaDiff);
     StdOut() << "ThetaStep: " << aThetaStep << "\n";
     mSL_importer.checkLineCol();
 }
@@ -357,7 +357,7 @@ void cAppli_ImportTSL::computeAngStartStep()
             }
             aY++;
         }
-        mSL_importer.mThetaStep = NonConstMediane(aVdiffTheta);
+        mSL_importer.mThetaStep = NonConstAvgWithoutExtr(aVdiffTheta);
 
 
 
@@ -380,7 +380,7 @@ void cAppli_ImportTSL::computeAngStartStep()
             }
             aX += mSL_importer.NbCol() / 10;
         }
-        mSL_importer.mPhiStep = NonConstMediane(aVdiffPhi);
+        mSL_importer.mPhiStep = NonConstAvgWithoutExtr(aVdiffPhi);
 
 
         StdOut() << "Steps from Row-Col: " << mSL_importer.mThetaStep << " " << mSL_importer.mPhiStep << "\n";
