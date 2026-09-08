@@ -39,8 +39,9 @@ class cAppli_CompareGCP : public cMMVII_Appli
 
         std::string              mGndCoord2;
         std::string              mFilterName;  // pattern to filter names of GCP
-        std::string              mFilterAdd;  // pattern to filter GCP by additional info
+        std::string              mFilterAdd;   // pattern to filter GCP by additional info
         bool                     mVerbose;
+        bool                     mAdjustSim;   // try to adjust a similarity?
 
 };
 
@@ -53,7 +54,8 @@ cAppli_CompareGCP::cAppli_CompareGCP
     mPhProj       (*this),
     mFilterName   (),
     mFilterAdd    (),
-    mVerbose      (false)
+    mVerbose      (false),
+    mAdjustSim    (false)
 {
 }
 
@@ -70,9 +72,10 @@ cCollecSpecArg2007 & cAppli_CompareGCP::ArgObl(cCollecSpecArg2007 & anArgObl)
 cCollecSpecArg2007 & cAppli_CompareGCP::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return anArgOpt
-               << AOpt2007(mFilterName, "Filter", "Pattern to filter GCP by name")
-               << AOpt2007(mFilterAdd, "FilterAdd", "Pattern to filter GCP by additional info")
-               << AOpt2007(mVerbose, "Verbose"  ,"Do show each difference",{eTA2007::HDV})
+                << AOpt2007(mFilterName, "Filter", "Pattern to filter GCP by name")
+                << AOpt2007(mFilterAdd, "FilterAdd", "Pattern to filter GCP by additional info")
+                << AOpt2007(mVerbose, "Verbose"  ,"Do show each difference",{eTA2007::HDV})
+                << AOpt2007(mAdjustSim, "AdjSim"  ,"Adjust a similarity",{eTA2007::HDV})
             ;
 
 }
@@ -106,24 +109,62 @@ int cAppli_CompareGCP::Exe()
     mPhProj.LoadGCP3DFromFolder(aDirGndCoord2.FullDirIn(), aSetMes2, nullptr, "", mFilterName, mFilterAdd);
 
 
-    cAvgAndBoundVals<tREAL8>  aVDiff;
+    std::vector<cPt3dr> aVPts1;
+    std::vector<cPt3dr> aVPts2;
+    std::vector<std::string> aVPtsNames;
+
+
     for (auto& aGCPGnd1: aSetMes1.MesGCP())
     {
         for (auto& aGCPGnd2: aSetMes2.MesGCP())
         {
             if (aGCPGnd1.mNamePt == aGCPGnd2.mNamePt)
             {
-                auto aDiff = aGCPGnd2.mPt - aGCPGnd1.mPt;
-                auto aNormDiff = Norm2(aDiff);
-                if (mVerbose)
-                    StdOut() << aGCPGnd1.mNamePt << ": "<< aNormDiff << "   " << aDiff <<"\n";
-                aVDiff.Add(aNormDiff);
+                aVPts1.push_back(aGCPGnd1.mPt);
+                aVPts2.push_back(aGCPGnd2.mPt);
+                aVPtsNames.push_back(aGCPGnd1.mNamePt);
             }
         }
     }
 
-    StdOut() << "\n"<< mGndCoord2 << " - " << mPhProj.DPGndPt3D().DirIn()
-             <<" =>   Average: "<< aVDiff.Avg() << "   Max: "<< aVDiff.VMax() <<"\n";
+    if (mAdjustSim && (aVPts1.size()>=3))
+    {
+        cSimilitud3D<tREAL8>  aSim;
+        double                mRes2;
+        //estimate 3d similarity
+        aSim = aSim.StdGlobEstimate(aVPts1,aVPts2,&mRes2,nullptr,cParamCtrlOpt::Default());
+        StdOut() << "Similarity residual = " << mRes2 << "\n";
+        StdOut() << "Similarity scale = "        << aSim.Scale() << "\n";
+        StdOut() << "Similarity translation = "  << aSim.Tr() << "\n";
+        StdOut() << "Similarity rotation Mat = "     << aSim.Rot().Mat();
+        StdOut() << "Similarity rotation WKP deg = "<< aSim.Rot().ToWPK() * (180./M_PI) <<"\n\n";
+        for (auto &aPt2: aVPts2)
+            aPt2 = aSim.Inverse(aPt2);
+        StdOut() << "Points diff AFTER similarity\n";
+    }
+    if (mAdjustSim && (mGndCoord2.size()<3))
+    {
+        StdOut() << "Not enought common point for similarity estimation\n\n";
+    }
+
+    cAvgAndBoundVals<tREAL8>  aVDiff;
+    cAvgAndBoundVals<tREAL8>  aVDiff2;
+
+    for (size_t i=0; i<aVPts1.size();++i)
+    {
+        auto aDiff = aVPts2[i] - aVPts1[i];
+        auto aNormDiff = Norm2(aDiff);
+        if (mVerbose)
+            StdOut() << aVPtsNames[i] << ": "<< aNormDiff << "   " << aDiff <<"\n";
+        aVDiff.Add(aNormDiff);
+        aVDiff2.Add(Square(aNormDiff));
+    }
+    if (mVerbose)
+        StdOut() << "\n";
+
+    StdOut() << mGndCoord2 << " - " << mPhProj.DPGndPt3D().DirIn()
+             << " => "<<aVPts1.size()<<" common points, " << Color::descr << "AVG="<< Color::end << sqrt(aVDiff2.Avg())
+             << Color::descr <<" RMSE=" << Color::end << sqrt(aVDiff2.Avg()) << Color::descr << " MAX="<< Color::end << aVDiff.VMax() <<"\n";
 
    return EXIT_SUCCESS;
 }
