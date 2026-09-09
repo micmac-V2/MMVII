@@ -685,6 +685,7 @@ template <class Type> cPt2dr cGaussianPyramid<Type>::File2Pyr(const cPt2dr & aP)
     return aP- ToR(mBoxIn.P0()) ;
 }
 
+#if (MMVII_EXPORT_MMV1)
 template <class Type> void ScaleAndAdd
                            (
                                 cInterf_ExportAimeTiep<Type> * aIExp,
@@ -704,15 +705,18 @@ template <class Type> void ScaleAndAdd
        aIExp->AddAimeTieP(aPATPCom);
     }
 }
+#endif
+
 
 template <class Type> void cGaussianPyramid<Type>::SaveInFile (int aPowSPr,bool ForInspect) const
 {
    bool DoPrint = (aPowSPr>=0) && ForInspect;
    bool DoExport = (mTypePyr!= eTyPyrTieP::eTPTP_Init);
 
+#if  (MMVII_EXPORT_MMV1)
    std::unique_ptr<cInterf_ExportAimeTiep<Type>> aPtrExpMin(cInterf_ExportAimeTiep<Type>::Alloc(SzIm0(),false ,mTypePyr,E2Str(mTypePyr),ForInspect,mParams));
    std::unique_ptr<cInterf_ExportAimeTiep<Type>> aPtrExpMax(cInterf_ExportAimeTiep<Type>::Alloc(SzIm0(),true ,mTypePyr,E2Str(mTypePyr),ForInspect,mParams));
-
+#endif
    if (DoPrint)
       StdOut() <<  "\n ######  STAT FOR " << E2Str(mTypePyr)  << " Pow " << aPowSPr << " ######" << std::endl;
 
@@ -771,9 +775,10 @@ template <class Type> void cGaussianPyramid<Type>::SaveInFile (int aPowSPr,bool 
                // tOct * aOctH = mPyrOrig->OctHom(aPtrIm->Oct());
                // std::string aNameMaster = aOctH->GPImTop()->NameSave();
 
+#if  (MMVII_EXPORT_MMV1)
                ScaleAndAdd(aPtrExpMin.get(),aResE3.mPtsMin,aPtrIm.get());
                ScaleAndAdd(aPtrExpMax.get(),aResE3.mPtsMax,aPtrIm.get());
-
+#endif
                aNbMinTot += aResE3.mPtsMin.size();
                aNbMaxTot += aResE3.mPtsMax.size();
            }
@@ -790,6 +795,8 @@ template <class Type> void cGaussianPyramid<Type>::SaveInFile (int aPowSPr,bool 
    // std::string aPref =     mParams.mPrefixSave + "-AimePCar-";
    // std::string aPost =   E2Str(TypePyr()) + "-" + std::string("Tiiiiiiiiiiiiiiiiiiiiil") +".dmp";
 
+#if  (MMVII_EXPORT_MMV1)
+
    aPtrExpMin->FiltrageSpatialPts();
    aPtrExpMax->FiltrageSpatialPts();
 
@@ -798,6 +805,7 @@ template <class Type> void cGaussianPyramid<Type>::SaveInFile (int aPowSPr,bool 
 
    aPtrExpMin->Export(mNameIm,ForInspect);
    aPtrExpMax->Export(mNameIm,ForInspect);
+#endif
 }
 
 template <class Type>  cGP_OneOctave<Type> * cGaussianPyramid<Type>::OctHom(tOct *anOct)
