@@ -17,6 +17,10 @@ class cAppliCalcDescPCar;
 template <class Type> class  cTplAppliCalcDescPCar
 {
     public :
+        // Dirty trick, but when above types are template, cannot follow links in QT
+       // typedef  tREAL4  Type;
+
+
         typedef cIm2D<Type>            tIm;
         typedef cGP_OneImage<Type>     tGPIm;
         typedef cGP_OneOctave<Type>    tOct;
@@ -78,6 +82,7 @@ class cAppliCalcDescPCar : public cMMVII_Appli
         int         mSzTile;    ///<  sz of tiles for spliting in sub processe
         int         mOverlap;   ///< sz of  overlap between tiles
         int         mNbOct;
+        int         mNbMaxOct;
         int         mSzMinOct;  ///< Avoid too small octave who generate bugs
         int         mNbLevByOct;
         int         mNbOverLapByO;
@@ -115,7 +120,9 @@ template<class Type> cTplAppliCalcDescPCar<Type>::cTplAppliCalcDescPCar(cAppliCa
       double aRatioLarg = MinAbsCoord(mDFI.Sz()) / double(anAppli.mSzMinOct) ;
       double aLog2Larg = std::log(aRatioLarg) / std::log(2);
 
-      anAppli.mNbOct = std::min(anAppli.mNbOct,round_down(aLog2Larg));
+      StdOut() << " CALNBO , " <<  MinAbsCoord(mDFI.Sz())  << " " <<  double(anAppli.mSzMinOct) << " R=" << aRatioLarg << " L="  << aLog2Larg << "\n";
+
+      anAppli.mNbOct = std::min(anAppli.mNbMaxOct,1+round_ni(aLog2Larg));
    }
 }
 
@@ -141,6 +148,7 @@ template<class Type>  void cTplAppliCalcDescPCar<Type>::ExeOneBox(const cPt2di &
     mBoxOut = aPBI.BoxOutput(anIndex);
     cGP_Params aGP(mSzIn,mAppli.mNbOct,mAppli.mNbLevByOct,mAppli.mNbOverLapByO,&mAppli,true);
 
+    // StdOut() << "NBOCTAVE=" << mAppli.mNbOct << "\n";
     // Value cPt2di(-1,-1) : special value indicating that tiles must not be written at end
     aGP.mNumTile    = (mNbTiles==1) ? cPt2di(-1,-1)  : anIndex;
     // aGP.mPrefixSave = mAppli.mPrefixOut ;
@@ -201,7 +209,10 @@ template<class Type>  void cTplAppliCalcDescPCar<Type>::ExeOneBox(const cPt2di &
        StdOut() << "   ######   NAME="  <<    mAppli.mNameIm  << std::endl;
        StdOut() << "   ############################################ " << std::endl;
     }
+
     mPyr->SaveInFile(0,mAppli.mSaveIms);
+
+//    return;
 
     // Compute Normalized Original Image required
     if (mAppli.mDoOriNorm)
@@ -260,7 +271,8 @@ cAppliCalcDescPCar:: cAppliCalcDescPCar(const std::vector<std::string> &  aVArgs
   mIntPyram     (false),
   mSzTile       (7000),
   mOverlap      (300),
-  mNbOct        (7),
+  mNbOct        (-1),
+  mNbMaxOct     (8),
   mSzMinOct     (20),
   mNbLevByOct   (5),
   mNbOverLapByO (3),
@@ -291,8 +303,10 @@ cCollecSpecArg2007 & cAppliCalcDescPCar::ArgOpt(cCollecSpecArg2007 & anArgOpt)
        << AOpt2007(mIntPyram,"IntPyr","Gauss Pyramid is integer",{eTA2007::HDV})
        << AOpt2007(mSzTile,"TileSz","Size of tile for spliting computation",{eTA2007::HDV})
        << AOpt2007(mOverlap,"TileOL","Overlao of tile to limit sides effects",{eTA2007::HDV})
-       << AOpt2007(mNbOct,"PyrNbO","Number of octaves in Pyramid",{eTA2007::HDV})
-       << AOpt2007(mSzMinOct,"SzMinOct","Minimal size for an octave",{eTA2007::HDV})
+       << AOpt2007(mNbOct,"PyrNbO","Force number of octaves in Pyramid")
+        << AOpt2007(mNbMaxOct,"PyrMaxNbO","Number max of octaves in Pyramid (when commputed auto)",{eTA2007::HDV})
+
+       << AOpt2007(mSzMinOct,"PyrSzMinOct","Minimal size for an octave",{eTA2007::HDV})
        << AOpt2007(mNbLevByOct,"PyrNbL","Number of level/Octaves in Pyramid",{eTA2007::HDV})
        << AOpt2007(mNbOverLapByO,"PyrNbOverL","Number of overlap  in Pyram(change only for Save Image)",{eTA2007::HDV})
 
