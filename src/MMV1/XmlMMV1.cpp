@@ -612,6 +612,8 @@ template class cImplem_ExportAimeTiep<tREAL4>;
 template class cImplem_ExportAimeTiep<tINT2>;
 #endif // MMVII_EXPORT_MMV1
 #else // MMVII_KEEP_LIBRARY_MMV1
+
+#if (MMVII_EXPORT_MMV1)
 template <class Type> cInterf_ExportAimeTiep<Type>::~cInterf_ExportAimeTiep()
 {
 }
@@ -622,6 +624,7 @@ template <class Type> cInterf_ExportAimeTiep<Type> * cInterf_ExportAimeTiep<Type
     MMVII_INTERNAL_ERROR("Creating cInterf_ExportAimeTiep  is deprecated");
     return nullptr;
 }
+#endif
 
 template<> void  MMv1_SaveInFile(const tNameRel & aSet,const std::string & aName)
 {
