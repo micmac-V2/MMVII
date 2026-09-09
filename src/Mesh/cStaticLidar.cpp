@@ -957,6 +957,8 @@ cPt3dr cStaticLidar::Image2NormalInstr(const cPt2dr & aRasterPx) const
     // all computation is done in Raster frame
     cDataGenUnTypedIm<2> & aGenDImDist = getRasterDistance();
     const auto aInterpN = getNormalInterpolator( aRasterPx);
+    if (!aGenDImDist.InsideInterpolator(*aInterpN,aRasterPx,0.0))
+        return cPt3dr::Dummy();
     auto [aDist, aDistGr] = aGenDImDist.GetValueAndGradInterpol(*aInterpN,aRasterPx);
     auto aTPD = Image2ThetaPhiDist(aRasterPx);
     // differencial of cartesian point regarding theta and phi
