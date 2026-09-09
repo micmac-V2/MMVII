@@ -245,7 +245,9 @@ void AddData(const  cAuxAr2007 & anAux,cDataSolOriTriplet & aDSOT)
    MMVII::AddData(cAuxAr2007("Pose01",anAux),aDSOT.mP01);
    MMVII::AddData(cAuxAr2007("Pose02",anAux),aDSOT.mP02);
    MMVII::AddData(cAuxAr2007("ScorePix",anAux),aDSOT.mScore);
+//   MMVII::AddOptData(anAux,"NbPts3",aDSOT.mNbPts3);
    MMVII::AddOptData(anAux,"GTDisTrRot",aDSOT.mDistGT);
+   MMVII::AddOptData(anAux,"NbPts3",aDSOT.mNbPts3);
 }
 
 
@@ -595,6 +597,7 @@ void cOriTriplets::TestSol
     }
     // memorize the residual of thi sol, and update best residus
     aSol.mScore =  RankWeigthedAverage(aVRes,1.0,false);
+    aSol.mNbPts3  = int(aVRes.size());
     UpdateMin(mBestScore,aSol.mScore );
 }
 

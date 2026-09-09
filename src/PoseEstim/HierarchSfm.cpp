@@ -44,6 +44,7 @@ class cAppli_HierarchSfm : public cMMVII_Appli
         tREAL8                    mLVM;           ///< levenberg-marquadt
         tREAL8                    mSigmaAtt;
         tREAL8                    mThrs;
+        tREAL8                    mCycleThr;   ///< max disagreement with the consensus, degrees
         tREAL8                    mSigmaTri;
         int                       mNbIterBA;
 
@@ -60,6 +61,7 @@ cAppli_HierarchSfm::cAppli_HierarchSfm(const std::vector<std::string> & aVArgs,c
     mLVM         (1e-7),
     mSigmaAtt    (1.0),
     mThrs     (10.0),
+    mCycleThr (5),
     mSigmaTri (1.0),
     mNbIterBA    (5),
     mVerbose    (false)
@@ -86,11 +88,14 @@ cCollecSpecArg2007 & cAppli_HierarchSfm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            <<  AOpt2007(mLVM,"LVM","Levenberg-marquadt regularization",{eTA2007::HDV})
            <<  AOpt2007(mSigmaAtt,"SigmaAtt","Reference sigma for tie-points; the BA anneals from 4*m*SigmaAtt down to 2*sqrt(m)*SigmaAtt, m adapting to node quality",{eTA2007::Tuning})
            <<  AOpt2007(mThrs,"Thrs","Reference outlier threshold",{eTA2007::Tuning})
+           << AOpt2007(mCycleThr,"CycleThr","Max inconsistency (deg) with neighbouring triplets, 0=no filter",{eTA2007::HDV,eTA2007::Tuning})
            <<  AOpt2007(mSigmaTri,"SigmaTri","Sigma for triplet-quality weighting in the merge (default: same as SigmaAtt)",{eTA2007::Tuning})
            <<  AOpt2007(mNbIterBA,"NbIterBA","Number of iteration in BA refinement",{eTA2007::HDV})
            <<  AOpt2007(mVerbose,"Verbose","More messages prints",{eTA2007::Tuning,eTA2007::HDV})
         ;
 }
+
+
 
 int cAppli_HierarchSfm::Exe()
 {
@@ -113,6 +118,11 @@ int cAppli_HierarchSfm::Exe()
     a3Set.erase(std::remove_if(a3Set.begin(),a3Set.end(),
                                [aSMax](const cDataSolOriTriplet & aT){return aT.mScore>aSMax;}),
                 a3Set.end());
+
+    //  drop triplets that disagree with the other triplets sharing their image pairs :
+    //  coherent mismatches on repeated structure, which mScore cannot see
+    if (mCycleThr>0)
+        FilterTripletsByCycleConsistency(a3Set,mCycleThr,IsInit(&mVerbose) ? mVerbose : false);
 
      // pre-calculate max and median 'quality' scores over all triplets
     cStdStatRes aQScoreStats;
@@ -168,6 +178,7 @@ int cAppli_HierarchSfm::Exe()
         }
         aMk3.InitTPtsStruct(new cComputeMergeMulTieP(aSortedIm,&aMIIH));
     }
+
 
     TimeSegm().SetIndex("MakeGraphPose");
     aMk3.MakeGraphPose();

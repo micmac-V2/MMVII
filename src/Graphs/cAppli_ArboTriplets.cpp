@@ -83,6 +83,98 @@ void DbgFlushMergeSol(cMakeArboTriplet& aPMAT)
 }
 #endif //
 
+static constexpr size_t TheMinTriPerImage = 3;    ///< never disconnect an image
+
+/// Drop the triplets whose relative rotations disagree with the other triplets sharing their pairs
+void FilterTripletsByCycleConsistency(std::vector<cDataSolOriTriplet> & a3Set,tREAL8 aCycleThr,bool aVerbose)
+{
+    if (a3Set.size()<2) return;
+
+    //  cRotation3D::Dist is the Frobenius norm |R1-R2| = 2*sqrt(2)*sin(theta/2)
+    const tREAL8 aThrDist = 2.0*std::sqrt(2.0)*std::sin((aCycleThr*M_PI/180.0)/2.0);
+
+    //  ---  every estimate of every image pair, keyed by the pair of names  ---
+    typedef std::pair<std::string,std::string>            tKeyPair;
+    typedef std::pair<size_t,cRotation3D<tREAL8>>         tEstim;   //< num of triplet, rotation>
+    std::map<tKeyPair,std::vector<tEstim>> aEstimOfPair;
+    for (size_t aKT=0 ; aKT<a3Set.size() ; aKT++)
+    {
+        const cDataSolOriTriplet & a3 = a3Set.at(aKT);
+        for (int aKA=0 ; aKA<3 ; aKA++)
+            for (int aKB=aKA+1 ; aKB<3 ; aKB++)
+            {
+                //  rotation taking B into the frame of A, inside this triplet
+                tPoseR aBtoA = PoseOfDSOT(a3,aKA).MapInverse() * PoseOfDSOT(a3,aKB);
+                //  orient it by name order, so that all triplets describe the pair the same way
+                bool aDirect = (a3.mVNames.at(aKA) < a3.mVNames.at(aKB));
+                tKeyPair aKey = aDirect ? tKeyPair(a3.mVNames.at(aKA),a3.mVNames.at(aKB))
+                                        : tKeyPair(a3.mVNames.at(aKB),a3.mVNames.at(aKA));
+                aEstimOfPair[aKey].push_back
+                    (tEstim(aKT, aDirect ? aBtoA.Rot() : aBtoA.Rot().MapInverse()));
+            }
+    }
+
+    //  ---  for each estimate, its median distance to the other estimates of the same pair  ---
+    std::vector<std::vector<tREAL8>> aVIncOfTri(a3Set.size());
+    for (const auto & [aKey,aVEst] : aEstimOfPair)
+    {
+        if (aVEst.size()<2) continue;   // a pair seen by a single triplet says nothing
+        for (size_t aKI=0 ; aKI<aVEst.size() ; aKI++)
+        {
+            std::vector<tREAL8> aVD;
+            for (size_t aKJ=0 ; aKJ<aVEst.size() ; aKJ++)
+                if (aKJ!=aKI)
+                    aVD.push_back(aVEst.at(aKI).second.Dist(aVEst.at(aKJ).second));
+            aVIncOfTri.at(aVEst.at(aKI).first).push_back(NonConstMediane(aVD));
+        }
+    }
+
+    //  ---  score of a triplet : median over its (at most 3) judged pairs  ---
+    std::vector<tREAL8> aVScore(a3Set.size(),-1.0);   // -1 : no judged pair, do not judge
+    for (size_t aKT=0 ; aKT<a3Set.size() ; aKT++)
+        if (! aVIncOfTri.at(aKT).empty())
+            aVScore.at(aKT) = NonConstMediane(aVIncOfTri.at(aKT));
+
+    //  ---  drop, worst first, never disconnecting an image  ---
+    std::vector<size_t> aVOrder;
+    for (size_t aKT=0 ; aKT<a3Set.size() ; aKT++)
+        if (aVScore.at(aKT)>aThrDist) aVOrder.push_back(aKT);
+    std::sort(aVOrder.begin(),aVOrder.end(),
+              [&aVScore](size_t aI,size_t aJ){return aVScore.at(aI)>aVScore.at(aJ);});
+
+    std::map<std::string,size_t> aNbOfIm;
+    for (const auto & a3 : a3Set)
+        for (const auto & aName : a3.mVNames) aNbOfIm[aName]++;
+
+    std::vector<bool> aDrop(a3Set.size(),false);
+    size_t aNbDrop=0;
+    for (size_t aKT : aVOrder)
+    {
+        bool aCanDrop = true;
+        for (const auto & aName : a3Set.at(aKT).mVNames)
+            aCanDrop = aCanDrop && (aNbOfIm.at(aName)>TheMinTriPerImage);
+        if (! aCanDrop) continue;
+        aDrop.at(aKT) = true;
+        aNbDrop++;
+        for (const auto & aName : a3Set.at(aKT).mVNames) aNbOfIm.at(aName)--;
+        if (aVerbose)
+            StdOut() << "  [Cycle] drop " << a3Set.at(aKT).mVNames.at(0)
+                     << " " << a3Set.at(aKT).mVNames.at(1)
+                     << " " << a3Set.at(aKT).mVNames.at(2)
+                     << " inc=" << 2.0*std::asin(std::min(1.0,aVScore.at(aKT)/(2.0*std::sqrt(2.0))))*180.0/M_PI
+                     << "deg mScore=" << a3Set.at(aKT).mScore << std::endl;
+    }
+
+    std::vector<cDataSolOriTriplet> aKept;
+    aKept.reserve(a3Set.size()-aNbDrop);
+    for (size_t aKT=0 ; aKT<a3Set.size() ; aKT++)
+        if (! aDrop.at(aKT)) aKept.push_back(a3Set.at(aKT));
+    if (aVerbose)
+        StdOut() << "[Cycle] triplets " << a3Set.size() << " -> " << aKept.size()
+                 << " (dropped " << aNbDrop << " inconsistent with their neighbours), aThrDist=" << aThrDist << std::endl;
+    a3Set = aKept;
+}
+
 /* ********************************************************* */
 /*                                                           */
 /*                     cNodeArborTriplets                    */
@@ -809,6 +901,27 @@ tREAL8 cNodeArborTriplets::ScoreOfTriplet(int aNumTri) const
     return mPMAT->GO3().VertexOfNum(aNumTri).Attr().mT0->mScore;
 }
 
+tREAL8 WeightedMediane(const std::vector<tREAL8> & aVVal,const std::vector<tREAL8> & aVWeight)
+{
+    MMVII_INTERNAL_ASSERT_medium(aVVal.size()==aVWeight.size(),"WeightedMediane : size mismatch");
+    std::vector<size_t> aVI(aVVal.size());
+    for (size_t aK=0 ; aK<aVI.size() ; aK++) aVI.at(aK) = aK;
+    std::sort(aVI.begin(),aVI.end(),
+              [&aVVal](size_t aA,size_t aB){return aVVal.at(aA)<aVVal.at(aB);});
+
+    tREAL8 aWTot = 0.0;
+    for (const auto & aW : aVWeight) aWTot += aW;
+    if (aWTot<=0) return aVVal.empty() ? -1.0 : aVVal.at(aVI.at(aVI.size()/2));
+
+    tREAL8 aCum = 0.0;
+    for (const size_t & aK : aVI)
+    {
+        aCum += aVWeight.at(aK);
+        if (aCum >= aWTot/2.0) return aVVal.at(aK);
+    }
+    return aVVal.at(aVI.back());
+}
+
 tSim3dR cNodeArborTriplets::EstimateSimTransfert
              (
                   const std::vector<tPairI>& aVPairCommon,
@@ -904,7 +1017,8 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
     //  under the rotation transfer, so this is the one scale estimate that survives an error in
     //  aRot_W1_to_W0, and it does not degenerate when Tr and Lambda fight against each other.
     static constexpr tREAL8 TheWLambdaComRel = 1.0;
-    std::vector<tREAL8> aVLambdaCom;
+    static constexpr tREAL8 TheMinRelSepCom  = 1e-3;
+    std::vector<tREAL8> aVLambdaCom, aVWLambdaCom;
     tREAL8 aWLambdaCom = 0.0;
     for (size_t aA=0 ; aA<aVPairCommon.size() ; aA++)
         for (size_t aB=aA+1 ; aB<aVPairCommon.size() ; aB++)
@@ -914,18 +1028,30 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
             tREAL8 aD0 = Norm2(aN0.mLocSols[aI0a].mPose.Tr() - aN0.mLocSols[aI0b].mPose.Tr());
             tREAL8 aD1 = Norm2(aN1.mRotateLS[aI1a].mPose.Tr() - aN1.mRotateLS[aI1b].mPose.Tr());
             if ((aD0<1e-8) || (aD1<1e-8)) continue;
+
+            //  aD0/aD1 is a ratio of two short baselines : it is unstable long before either is zero.
+            tREAL8 aRel = std::min(aD0/std::max(aScale0,1e-8), aD1/std::max(aScale1,1e-8));
+            aRel = std::min(aRel,1.0);
+
+            if (aRel < TheMinRelSepCom) continue;  //   coincidence
             tREAL8 aLam = aD0/aD1;
             aVLambdaCom.push_back(aLam);
+            aVWLambdaCom.push_back(Square(aRel));
         }
+
     //  Weight of the Lambda prior.  aScale1 is the lever arm (an error dLambda displaces the
     //  centres by dLambda*aScale1, and weights multiply the squared residual).  Scaled by the
-    //  number of common bridges, NOT by their aWeightR : that is the rotation-agreement weight
-    //  and it collapses to 0 exactly on the nodes where this prior is the only scale evidence.
-    aWLambdaCom = TheWLambdaComRel * (tREAL8)aVPairCommon.size() * Square(aScale1);
+    //  summed relative separations of the common pairs -- an *effective* number of usable
+    //  pairs -- NOT by their aWeightR : that is the rotation-agreement weight and it collapses
+    //  to 0 exactly on the nodes where this prior is the only scale evidence.
+    tREAL8 aWSumLambdaCom = 0.0;
+    for (const auto & aW : aVWLambdaCom) aWSumLambdaCom += aW;
+    aWLambdaCom = TheWLambdaComRel * aWSumLambdaCom * Square(aScale1);
 
     tREAL8 aLambdaCom = -1.0;
     if (!aVLambdaCom.empty())
-        aLambdaCom = NC_KthVal(aVLambdaCom,0.5);   // NC_KthVal reorders ; aVLambdaCom dead after
+        //aLambdaCom = NC_KthVal(aVLambdaCom,0.5);   // NC_KthVal reorders ; aVLambdaCom dead after
+        aLambdaCom = WeightedMediane(aVLambdaCom,aVWLambdaCom);
 
     int aKWeight=0;
     // [3]   Add the equation corresponding to common pose
@@ -1165,172 +1291,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
         StdOutLock::unlock();
     }
 
-    // [6.2.bis]  NODE-QUALITY DIAGNOSTIC, not used for weighting.
-    //   Reprojection residual (pixel) of the tie-points seen by each bridge, under the transfer
-    //   (aTrD,aLambdaD) passed in.  For a common pose the camera being judged is N1's estimate,
-    //   which takes no part in the intersection -> leave-one-out.  Costs a full tie-point scan.
-    static constexpr bool TheDbgTPResidual = false;
 
-    auto TPDiagnostic = [&](const cPt3dr & aTrD,tREAL8 aLambdaD,const char * aTag)
-    {
-        if ((!TheDbgTPResidual) || (mTPtsMerge==nullptr)) return;
-
-        cAutoTimerSegm aTimerTPRes(mPMAT->TimeSegm(),"SimEstimTPRes");
-
-        //  reset the accumulators : the lambda is called once per solve
-        std::fill(aBridgeResTP.begin(),aBridgeResTP.end(),-1.0);
-        std::fill(aNbSampleTP.begin(),aNbSampleTP.end(),0);
-        std::fill(aNbCandTP.begin(),aNbCandTP.end(),0);
-        std::fill(aNbRejTP.begin(),aNbRejTP.end(),0);
-
-        auto KOfName = [this](const std::string & aName) -> int
-        {
-            auto anIt = std::lower_bound(mVNamesMerge.begin(),mVNamesMerge.end(),aName);
-            if ((anIt==mVNamesMerge.end()) || (*anIt!=aName)) return -1;
-            return anIt - mVNamesMerge.begin();
-        };
-
-        //  aVCam   : one camera per image, N0 has priority ; these make the intersection
-        //  aVCamN1 : common poses only, N1's competing estimate ; never in the intersection
-        std::vector<cSensorCamPC *> aVCam  (mVNamesMerge.size(),nullptr);
-        std::vector<cSensorCamPC *> aVCamN1(mVNamesMerge.size(),nullptr);
-
-        for (const auto & aLS : aN0.mLocSols)          // already in W0
-        {
-            const std::string & aName = mPMAT->MapI2Str(aLS.mNumPose);
-            int aK = KOfName(aName);
-            if (aK<0) continue;
-            //  one calib instance per call : its calculators hold a mutable buffer, so nothing may
-            //  be shared between the tree workers.  Ownership belongs to the cIPhProj impl -> no delete.
-            aVCam.at(aK) = new cSensorCamPC(aName,aLS.mPose,
-                                            mPMAT->PhProj().InternalCalibFromStdName(aName,false));
-        }
-        for (const auto & aLS : aN1.mRotateLS)         // rotation applied, transfer the center
-        {
-            const std::string & aName = mPMAT->MapI2Str(aLS.mNumPose);
-            int aK = KOfName(aName);
-            if (aK<0) continue;
-            tPoseR aPoseW0(aTrD + aLambdaD*aLS.mPose.Tr(), aLS.mPose.Rot());
-            cSensorCamPC * aCam = new cSensorCamPC(aName,aPoseW0,
-                                                  mPMAT->PhProj().InternalCalibFromStdName(aName,false));
-            if (aVCam.at(aK)==nullptr) aVCam.at(aK)   = aCam;   // image only in N1
-            else                       aVCamN1.at(aK) = aCam;   // common pose : 2 estimations
-        }
-        std::vector<cSensorImage *> aVSens(aVCam.begin(),aVCam.end());
-
-        //  F * sin(angle(Bundle_obs,Bundle_pred)), in pixel ; -1 if not visible
-        auto ResidObs = [](const cSensorCamPC * aCam,const cPt3dr & aBun,const cPt3dr & aP3D) -> tREAL8
-        {
-            if ((aCam==nullptr) || (aCam->DegreeVisibility(aP3D)<=0)) return -1.0;
-            return aCam->InternalCalib()->F() * Norm2( VUnit(aBun) ^ VUnit(aCam->Pt_W2L(aP3D)) );
-        };
-
-
-        //  which bridges is an image (common) / a pair of images (link) concerned by
-        std::map<std::pair<int,int>,std::vector<size_t>> aMapPair2Br;
-        std::map<int,std::vector<size_t>>                aMapComm2Br;
-        for (size_t aI=0 ; aI<aBridgeInfos.size() ; aI++)
-        {
-            const auto & aBI = aBridgeInfos.at(aI);
-            int aK0 = KOfName(mPMAT->MapI2Str(aBI.mI0Glob));
-            int aK1 = KOfName(mPMAT->MapI2Str(aBI.mI1Glob));
-            if ((aK0<0) || (aK1<0)) continue;
-            if (aBI.mCat==eBridgeCat::Common)
-            {
-                if (aVCamN1.at(aK0)!=nullptr) aMapComm2Br[aK0].push_back(aI);
-            }
-            else
-                aMapPair2Br[{std::min(aK0,aK1),std::max(aK0,aK1)}].push_back(aI);
-        }
-
-
-
-        std::vector<std::vector<tREAL8>> aVResOfBr(aBridgeInfos.size());
-
-        for (auto & aPairConf : mTPtsMerge->Pts())   // non const : MakePGroundFromBundles fills mVPGround
-        {
-            const tConfigIm & aConf = aPairConf.first;
-            const size_t aNbIm = aConf.size();
-
-            // hoist the map lookups out of the point loop
-            std::vector<std::pair<size_t,const std::vector<size_t>*>>                   aVComm;
-            std::vector<std::pair<std::pair<size_t,size_t>,const std::vector<size_t>*>> aVLink;
-            for (size_t aKA=0 ; aKA<aNbIm ; aKA++)
-            {
-                auto aItC = aMapComm2Br.find(aConf.at(aKA));
-                if (aItC!=aMapComm2Br.end()) aVComm.push_back({aKA,&(aItC->second)});
-                for (size_t aKB=aKA+1 ; aKB<aNbIm ; aKB++)
-                {
-                    auto aItL = aMapPair2Br.find({std::min(aConf.at(aKA),aConf.at(aKB)),
-                                                  std::max(aConf.at(aKA),aConf.at(aKB))});
-                    if (aItL!=aMapPair2Br.end()) aVLink.push_back({{aKA,aKB},&(aItL->second)});
-                }
-            }
-            if (aVComm.empty() && aVLink.empty()) continue;
-
-            MakePGroundFromBundles(aPairConf,aVSens);
-
-
-
-            const cVal1ConfTPM & aVals = aPairConf.second;
-            for (size_t aKPts=0 ; aKPts<aVals.mVPGround.size() ; aKPts++)
-            {
-                const cPt3dr & aP3D = aVals.mVPGround.at(aKPts);
-                auto Bun = [&aVals,aKPts,aNbIm](size_t aKIm)
-                {
-                    return cPt3dr( aVals.mVPIm.at(aKPts*aNbIm+aKIm).x(),
-                                  aVals.mVPIm.at(aKPts*aNbIm+aKIm).y(),
-                                  aVals.mVPZ .at(aKPts*aNbIm+aKIm)     );
-                };
-
-                for (const auto & [aKC,aPtrBr] : aVComm)       // N1's estimate of a common image
-                {
-                    tREAL8 aR = ResidObs(aVCamN1.at(aConf.at(aKC)),Bun(aKC),aP3D);
-                    for (size_t aIB : *aPtrBr) aNbCandTP.at(aIB)++;
-                    if (aR<0) { for (size_t aIB : *aPtrBr) aNbRejTP.at(aIB)++; continue; }
-                    for (size_t aIB : *aPtrBr) aVResOfBr.at(aIB).push_back(aR);
-                }
-                for (const auto & [aPos,aPtrBr] : aVLink)      // link : worst of the 2 endpoints
-                {
-                    const auto & [aKA,aKB] = aPos;
-                    tREAL8 aRA = ResidObs(aVCam.at(aConf.at(aKA)),Bun(aKA),aP3D);
-                    tREAL8 aRB = ResidObs(aVCam.at(aConf.at(aKB)),Bun(aKB),aP3D);
-                    for (size_t aIB : *aPtrBr) aNbCandTP.at(aIB)++;
-                    if ((aRA<0) || (aRB<0))
-                    {
-                        for (size_t aIB : *aPtrBr) aNbRejTP.at(aIB)++;
-                        continue;
-                    }
-                    for (size_t aIB : *aPtrBr) aVResOfBr.at(aIB).push_back(std::max(aRA,aRB));
-                }
-            }
-        }
-
-        //  robust reduction ; no neutral fill : a diagnostic stays -1 when there is no evidence
-        static constexpr size_t TheMinNbPtsBridge = 5;
-        for (size_t aI=0 ; aI<aBridgeInfos.size() ; aI++)
-        {
-            auto & aV = aVResOfBr.at(aI);
-            aNbSampleTP.at(aI) = aV.size();
-            if (aV.size() >= TheMinNbPtsBridge)
-                aBridgeResTP.at(aI) = NC_KthVal(aV,0.5);   // NC_KthVal reorders its argument
-        }
-
-        //  node-level indicator : median over the bridges that have evidence
-        std::vector<tREAL8> aVAllTP;
-        for (const auto & aR : aBridgeResTP) if (aR>=0) aVAllTP.push_back(aR);
-        StdOutLock::lock();
-        StdOut() << "[ArboW-TP] " << aTag << " depth=" << mDepth
-                 << " supported=" << aVAllTP.size() << "/" << aBridgeInfos.size()
-                 << " medianRes=" << (aVAllTP.empty() ? -1.0 : NC_KthVal(aVAllTP,0.5))
-                 << " Lambda=" << aLambdaD << " Tr=" << aTrD << std::endl;
-        StdOutLock::unlock();
-
-        for (auto aPtr : aVCam)   delete aPtr;
-        for (auto aPtr : aVCamN1) delete aPtr;
-    };
-
-    TPDiagnostic(aTr1,aLambda1,"pass1");     // transfer from the rotation-weighted solve
 
     // [6.3]  sigma is GLOBAL, not adapted per node : Cfg().mSigmaTri is ErrAtProp(0.75) over the
     //   whole mScore distribution (HierarchSfm.cpp:112).  A per-node median would re-centre every
@@ -1466,8 +1427,6 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
     tREAL8 aLambda = aSol(3);
     cPt3dr aTr(aSol(0),aSol(1),aSol(2));
 
-    TPDiagnostic(aTr,aLambda,"pass2");       // transfer actually returned by this node
-
     if ((aLambda<=0) || (aLambda>1e3) || (aLambda<1e-3))
     {
         StdOutLock::lock();
@@ -1490,6 +1449,8 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
              << " linkMed="  << mMergeStats.mLinkMed   // median link spread
              << " Lambda="   << aLambda
              << " LambdaCom="<< aLambdaCom
+             << " LambdaCVecSz=" << aVLambdaCom.size()
+             << " LCVals=" << aVLambdaCom
              << " ratio="    << (aLambdaCom>0 ? aLambda/aLambdaCom : -1.0)
              << std::endl;
     StdOutLock::unlock();
@@ -2027,6 +1988,7 @@ void cMakeArboTriplet::InitTPtsStruct(cComputeMergeMulTieP* aTPts)
     if (mCfg.mVerbose) StdOut() << "Nb tie points=" << mTPtsStruct->Pts().size() << std::endl;
     ConvertTPtsToBundles();
 }
+
 
 void cMakeArboTriplet::MakeGraphPose()
 {

@@ -38,6 +38,9 @@ inline tPoseR PoseOfDSOT(const cDataSolOriTriplet& a3, int k) {
     return a3.mP02;
 }
 
+/// Drop the triplets whose relative rotations disagree with the other triplets sharing their
+///  image pairs.  Catches coherent mismatches (repeated structure), which mScore cannot see.
+void FilterTripletsByCycleConsistency(std::vector<cDataSolOriTriplet> & a3Set,tREAL8 aCycleThr,bool aVerbose);
 
 ///   Store the pose and an ident (int) to the image
 class  cSolLocNode

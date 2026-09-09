@@ -516,6 +516,10 @@ void cCamSimul::BenchHierchBA(cTimerSegm * aTS,
         if (PerfInter)
             aScene.mCamSim->mRandInterK = 0.0;
 
+        //  drop triplets that disagree with the other triplets sharing their image pairs :
+        //  coherent mismatches on repeated structure, which mScore cannot see
+        FilterTripletsByCycleConsistency(aScene.m3Set,5.0,false);
+
         //StdOut() << "Start Hierarchical SfM" << std::endl;
         cMakeArboTriplet aMk3(aScene.m3Set, false, 1.0, aMemPhProj, anAp, aCfg);
         aMk3.InitTPtsStruct("", aScene.mSetIm);
