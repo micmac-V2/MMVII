@@ -909,14 +909,16 @@ void cAppli_OriRelTripletsOfIm::Generate5Pts(const cOriTriplets* aOri3,cSaveNPoi
 
     const cOneSolOriTriplet* aBSol = aOri3->BestSol();
     const cElemBA & aEBA = aBSol->mEBA;
-    tREAL8 aBestScore = aOri3->BestScore();
+    tREAL8 aBestScore = std::max(aOri3->BestScore(),1e-8);
 
-    // construct an elliposoid over the 3D points
-    cEllipse3D aEllipse;
-    //cStrStat2<double> aCovMat(3);
+    std::vector<cPt3dr> aVP; ///< 3D points
+    std::vector<tREAL8> aVW; ///< weights
+    std::vector<tREAL8> aVDist; ///< distance to camera
 
     for (auto &[aConf,aPts] : aOri3->TiepMFull()->Pts())
     {
+        if (aConf.size()!=3) continue;
+
         size_t aNbPts = aPts.mVPIm.size();
         int aNbIm = aConf.size();
 
@@ -925,75 +927,93 @@ void cAppli_OriRelTripletsOfIm::Generate5Pts(const cOriTriplets* aOri3,cSaveNPoi
             const cPt3dr* aPtrPts = aPts.mVPGround.data()+aKPts;
 
             auto [aRes1,aPGr] = aEBA.InterBundles(aConf,aPtrPts,1e-6);
-            tREAL8 aW = 1.0/(1.0 + Square(aRes1/(4.0*aBestScore)));
 
-            aEllipse.AddData(aPGr,aW);
+            if (aRes1<0) continue;
 
-            //StdOut() << "aW " << aW << ", aRes1 " << aRes1 << ", aBestScore " << aBestScore << std::endl;
-            //getchar();
+            aVP.push_back(aPGr);
+            aVW.push_back(1.0/(1.0 + Square(aRes1/(4.0*aBestScore))));
+            aVDist.push_back(Norm2(aPGr-aBSol->mP0.Tr()));
+
         }
 
     }
+    if (aVP.size()<10) return; ///< do nothing if less than 5 points
 
+    std::vector<tREAL8> aVDistSort = aVDist;
+    const tREAL8 aDMax = 5 * NC_KthVal(aVDistSort,0.75);
+
+    // construct an elliposoid over the 3D points
+    // igore too far points
+    cEllipse3D aEllipse;
+    for (size_t aK=0; aK<aVP.size(); aK++)
+    {
+        if (aVDist.at(aK)<=aDMax)
+        {
+            aEllipse.AddData(aVP.at(aK),aVW.at(aK));
+        }
+    }
     aEllipse.Normalise();
 
     // generate 5 virtual points
-    double aScale = 1.0;
-    std::vector<cPt3dr> aV5pts;
-    int aNbMaxTry = 3;
 
     cGenGauss3D aG3D(aEllipse);
+    if (aG3D.ValP(0) <= 1e-12 * aG3D.ValP(2)) return; // NaN eigenvalue
 
+    const cPt2dr aSz = ToR(aOri3->Calib(0)->SzPix());
+    const tREAL8 TheMarginPix = 0.05 * std::min(aSz.x(),aSz.y());
+    const int NbSplits=10; ///< number of times the split on scale
 
-    // find the optimal scale to fit all virtual tie points in image domain
-    for (int aTry=0; aTry<aNbMaxTry; aTry++)
+    auto Project = [&](const std::vector<cPt3dr>& aV5,
+                       std::vector<std::vector<cPt2dr>>& aVProj) -> bool
     {
-        aV5pts.clear();
-        aG3D.GetDistrib5Pts(aV5pts, aScale);
-
-        bool aAllVisible = true;
-        for (size_t aK=0; aK<aV5pts.size(); aK++)
+        aVProj.clear();
+        for (const auto & aP : aV5)
         {
-
-            cPt3dr aP0 = aBSol->mP0.Inverse(aV5pts.at(aK));
-            cPt3dr aP1 = aBSol->mP01.Inverse(aV5pts.at(aK));
-            cPt3dr aP2 = aBSol->mP02.Inverse(aV5pts.at(aK));
-
-            if (aOri3->Calib(0)->DegreeVisibility(aP0) > 0 &&
-                aOri3->Calib(1)->DegreeVisibility(aP1) > 0 &&
-                aOri3->Calib(2)->DegreeVisibility(aP2) > 0)
-                continue;
-            aAllVisible = false;
-            break;
+            std::vector<cPt2dr> aVIm;
+            for (int aKC=0; aKC<3; aKC++)
+            {
+                const tPoseR & aPose = (aKC==0)? aBSol->mP0 : (aKC==1)? aBSol->mP01 : aBSol->mP02;
+                const cPt3dr aPL = aPose.Inverse(aP);
+                if (aOri3->Calib(aKC)->DegreeVisibility(aPL) <= TheMarginPix) return false;
+                cPt2dr aPIm = aOri3->Calib(aKC)->Value(aPL);
+                aVIm.push_back(aPIm);
+            }
+            aVProj.push_back(aVIm);
         }
-        if (aAllVisible) break;
-        aScale *= 0.9;
+        return true;
+    };
+
+    std::vector<cPt3dr> aV5Pts;
+    std::vector<std::vector<cPt2dr>> aVProj, aVBestProj;
+    tREAL8 aLow=0.0;
+    tREAL8 aHigh=1.0;
+
+    aG3D.GetDistrib5Pts(aV5Pts,1.0);
+
+    if (Project(aV5Pts,aVBestProj))
+        aLow=1.0;
+    else
+    {
+        for (int aK=0; aK<NbSplits; aK++)
+        {
+            tREAL8 aMid = (aLow+aHigh)/2.0;
+            aG3D.GetDistrib5Pts(aV5Pts,aMid);
+            if (Project(aV5Pts,aVProj))
+            {
+                aLow=aMid;
+                aVBestProj = aVProj;
+            }
+            else
+                aHigh = aMid;
+        }
     }
 
+    if (aLow <= 0.0) return;// all five or none
 
-    // back project to images (all points are now visible)
-    for (size_t aK=0; aK<aV5pts.size(); aK++)
-    {
-        cPt3dr aP0 = aBSol->mP0.Inverse(aV5pts.at(aK));
-        cPt3dr aP1 = aBSol->mP01.Inverse(aV5pts.at(aK));
-        cPt3dr aP2 = aBSol->mP02.Inverse(aV5pts.at(aK));
 
-        std::vector<cPt2dr> aVPtIm;
+    for (const auto & aVIm : aVBestProj)
+        aSaveNP.AddPts(aVIm);
 
-        if (aOri3->Calib(0)->DegreeVisibility(aP0) > 0 &&
-            aOri3->Calib(1)->DegreeVisibility(aP1) > 0 &&
-            aOri3->Calib(2)->DegreeVisibility(aP2) > 0)
-        {
-            aVPtIm.push_back(aOri3->Calib(0)->Value(aP0));
-            aVPtIm.push_back(aOri3->Calib(1)->Value(aP1));
-            aVPtIm.push_back(aOri3->Calib(2)->Value(aP2));
-
-            aSaveNP.AddPts(aVPtIm);
-
-            //StdOut() << aV5pts.at(aK) << std::endl;
-
-        }
-    }
 }
 
 

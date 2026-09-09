@@ -409,8 +409,6 @@ tREAL8 cBA_ArboTriplets::RobustResidualScale(size_t aNbSample,tREAL8 * aPtrFracI
             const cPt3dr& aP3D = aVals.mVPGround.at(aKPts);
             for (size_t aKIm=0; aKIm<aNbIm; aKIm++,aKObs++)
             {
-                if (aKObs % aStep) continue; /// take only N samples
-
                 /*cSensorCamPC *aCam = mVCams.at(aConf.at(aKIm));
                  * if (aCam->DegreeVisibility(aP3D)<=0) continue; /// point must be visible
 
@@ -454,6 +452,7 @@ tREAL8 cBA_ArboTriplets::RobustResidualScale(size_t aNbSample,tREAL8 * aPtrFracI
     if (aPtrFracInvis)
         *aPtrFracInvis = (aNbSampled==0) ? 0.0 : (tREAL8)aNbInvis/(tREAL8)aNbSampled;
     if (aVRes.size() < 50) return -1; // not enough data => keep nominal weighting
+
 
     return NC_KthVal(aVRes,0.75);  // quantile, in pixels
 
