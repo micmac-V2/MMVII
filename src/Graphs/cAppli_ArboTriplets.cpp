@@ -654,6 +654,9 @@ tRotR  cNodeArborTriplets::EstimateRotTransfertV2
         static constexpr tREAL8 TheDMinOverride = 1e-3;      // do not be stricter
 
         tREAL8 aThrOver =  std::clamp(TheKOverride*mMergeStats.mSCom, TheDMinOverride, TheDMaxOverrideThr);
+        StdOutLock::lock();
+        StdOut() << "[ArboW-Rot] depth=" << mDepth << " aDMax " << aDMax << std::endl;
+        StdOutLock::unlock();
         if (aDMax > aThrOver)
         {
             aRotEstim = tRotR::Centroid(SubVector(aVRot,aVGoodCom),
@@ -1269,7 +1272,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfertV2
     /// Solve again if discrepancy between bridge solve and common pose prediction
     /// ==============================================================
     ///
-    //    Lambda override
+    //  NOT ACTIVE FOR NOW ====>  Lambda override
     //  Mirrors the rotation override in EstimateRotTransfertV2 : a common pose is a direct
     //  observation of the same camera in both frames, with no triplet in the loop.  When
     //  >=2 of them agree AMONG THEMSELVES and the bridge solve does not agree with them,
