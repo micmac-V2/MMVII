@@ -23,13 +23,6 @@ cQuadTreeCell::cQuadTreeCell(cPixBox<2> aArea, int aLevel):
 cQuadTreeCell::cQuadTreeCell(cPixBox<2> aAreaInit):
 mArea(aAreaInit), mLevel(1), mValsComputed(false), mValMin(NAN), mValMax(NAN)
 {
-    auto aULPoint = mArea.P0();
-    auto aLRPoint = mArea.P1();
-    auto aCCPoint = (aULPoint+aLRPoint)/2;
-    auto aUCPoint = cPt2di(aCCPoint.x(), mArea.P0().y());
-    auto aLCPoint = cPt2di(aCCPoint.x(), mArea.P1().y());
-    mSubs.push_back(cQuadTreeCell(cPixBox<2>(aULPoint,aLCPoint),mLevel+1));
-    mSubs.push_back(cQuadTreeCell(cPixBox<2>(aUCPoint,aLRPoint),mLevel+1));
 }
 
 
@@ -43,17 +36,20 @@ const cPixBox<2> & cQuadTreeCell::GetArea() const
     return mArea;
 }
 
-int cQuadTreeCell::DivideHV(int aNbX, int aNbY)
+int cQuadTreeCell::DivideHV(int aNbX, int aNbY, cPt2di aOffset)
 {
     if (mSubs.empty())
     {
-        auto aStep = cPt2di(mArea.P1() - mArea.P0())/aNbX;
-
+        auto aStep = cPt2di(mArea.P1() - mArea.P0());
+        aStep.x()/=aNbX;
+        aStep.y()/=aNbY;
         for (int aY=0;aY<aNbY;aY++)
             for (int aX=0;aX<aNbX;aX++)
             {
-                auto aUL = cPt2di(mArea.P0().x() + aStep.x()*aX, mArea.P0().y() + aStep.y()*aY);
-                auto aLR = cPt2di(mArea.P0().x() + aStep.x()*(aX+1), mArea.P0().y() + aStep.y()*(aY+1));
+                auto aUL = cPt2di(mArea.P0().x() + aStep.x()*aX + aOffset.x(),
+                                  mArea.P0().y() + aStep.y()*aY + aOffset.y());
+                auto aLR = cPt2di(mArea.P0().x() + aStep.x()*(aX+1) + aOffset.x(),
+                                  mArea.P0().y() + aStep.y()*(aY+1) + aOffset.y());
                 mSubs.push_back(cQuadTreeCell(cPixBox<2>(aUL,aLR),mLevel+1));
             }
         return mSubs.size();
@@ -111,7 +107,7 @@ int cQuadTree::GetCurNbCell() const
     return mCurNbCell;
 }
 
-void cQuadTree::Split(int aTargetNbCell)
+void cQuadTree::Split(int aTargetNbCell, cPt2di aOffset)
 {
     std::cout<<"Split into "<<aTargetNbCell<<" cells...\n";
     mVLeafs.clear();
@@ -123,7 +119,7 @@ void cQuadTree::Split(int aTargetNbCell)
     int aStartNumberCell = std::min(100,aTargetNbCell);
     int aStartNX = sqrt(aStartNumberCell * mDepthIm->SzX() / mDepthIm->SzY());
     int aStartNY = sqrt(aStartNumberCell * mDepthIm->SzY() / mDepthIm->SzX());
-    mRootCell.DivideHV(aStartNX, aStartNY);
+    mRootCell.DivideHV(aStartNX, aStartNY, aOffset);
 
     while ((mCurNbCell<aTargetNbCell)&&(aIter<1000))
     {
