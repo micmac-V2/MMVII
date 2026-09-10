@@ -62,6 +62,20 @@ public :
     int                  mNumTri;     ///< num of the triplet in the graph of triplet
 };
 
+enum class eBridgeCat { Common, EdgeLink, TripletLink };
+
+///  One "bridge" : a piece of evidence linking child 0's frame to child 1's.
+struct cBridgeResInfo
+{
+    eBridgeCat mCat;
+    int    mI0Glob, mI1Glob;   ///< global image indices this bridge connects
+    cPt3dr mC0, mC1;           ///< the two centre estimates, in W0 and rotated-W1
+    cPt3dr mCTri0, mCTri1;     ///< triplet centres (link bridges only)
+    int    mKEq;               ///< index of this bridge's 4 private unknowns, -1 for Common
+    int    mNumTri = -1;       ///< triplet this bridge comes from
+    tREAL8 mWRot   = 1.0;   ///< weight inherited from the rotation estimation
+};
+
 /// store the hierarchical decomposition
 class  cNodeArborTriplets : public cMemCheck
 {
@@ -112,6 +126,14 @@ private :
             do not come from cOneTripletMerge because come merge has been done
         */
     tSim3dR EstimateSimTransfert
+        (
+            const std::vector<tPairI>& aVPairCommon,
+            const std::vector<int>&    aVNumTriCommon,   ///< triplet each common pose comes from
+            const std::vector<tPairI>& aVPairLink2,
+            const std::vector<int>&    aVNumTriLink2,    ///< triplet each edge-link comes from
+            const std::vector<cOneTripletMerge> &  aVLink3
+            );
+    tSim3dR EstimateSimTransfertV2
         (
             const std::vector<tPairI>& aVPairCommon,
             const std::vector<int>&    aVNumTriCommon,   ///< triplet each common pose comes from
