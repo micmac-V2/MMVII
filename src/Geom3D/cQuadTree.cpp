@@ -20,16 +20,9 @@ cQuadTreeCell::cQuadTreeCell(cPixBox<2> aArea, int aLevel):
     mSubs.reserve(4);
 }
 
-cQuadTreeCell::cQuadTreeCell(cPixBox<2> aAreaInit):
+cQuadTreeCell::cQuadTreeCell(cPixBox<2> aAreaInit, cPt2di aOffset):
 mArea(aAreaInit), mLevel(1), mValsComputed(false), mValMin(NAN), mValMax(NAN)
 {
-    auto aULPoint = mArea.P0();
-    auto aLRPoint = mArea.P1();
-    auto aCCPoint = (aULPoint+aLRPoint)/2;
-    auto aUCPoint = cPt2di(aCCPoint.x(), mArea.P0().y());
-    auto aLCPoint = cPt2di(aCCPoint.x(), mArea.P1().y());
-    mSubs.push_back(cQuadTreeCell(cPixBox<2>(aULPoint,aLCPoint),mLevel+1));
-    mSubs.push_back(cQuadTreeCell(cPixBox<2>(aUCPoint,aLRPoint),mLevel+1));
 }
 
 
@@ -47,8 +40,9 @@ int cQuadTreeCell::DivideHV(int aNbX, int aNbY)
 {
     if (mSubs.empty())
     {
-        auto aStep = cPt2di(mArea.P1() - mArea.P0())/aNbX;
-
+        auto aStep = cPt2di(mArea.P1() - mArea.P0());
+        aStep.x()/=aNbX;
+        aStep.y()/=aNbY;
         for (int aY=0;aY<aNbY;aY++)
             for (int aX=0;aX<aNbX;aX++)
             {
@@ -99,9 +93,9 @@ int cQuadTreeCell::Divide4(int aMinCellSz)
 /*                    cQuadTree                    */
 /*                                                 */
 /* =============================================== */
-cQuadTree::cQuadTree(cDataIm2D<tREAL4> *aDepthIm, int aMinCellSz):
+cQuadTree::cQuadTree(cDataIm2D<tREAL4> *aDepthIm, cPt2di aOffset, int aMinCellSz):
     mDepthIm(aDepthIm), mCurNbCell(1),
-    mRootCell(*mDepthIm), mMinCellSz(aMinCellSz)
+    mRootCell(*mDepthIm, aOffset), mMinCellSz(aMinCellSz)
 {
 
 }
