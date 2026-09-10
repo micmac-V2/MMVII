@@ -139,7 +139,6 @@ class cProjPointCloud
 
 	// int                    mNbPts;    ///<  Dynamic, change with SetOk
 	std::vector<cPt3dr> mGlobPtsInit; ///< initial point cloud (stores once  for all in 64-byte, for efficienciency)
-	std::vector<cPt3dr>* mVPtsInit;	  /// Dynamic, change with SetOk
 	// const tREAL8           mSurResol;
 	const tREAL8 mAvgD; ///< Avg 2D-Distance between points in 3D Cloud
 	// const tREAL8           mStepProf;  ///< Step for computing depth-images

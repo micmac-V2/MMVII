@@ -105,11 +105,7 @@ class cAppli_MMVII_CloudImProj : public cMMVII_Appli
 	cPt2dr mPropRayLeaf;
 	tREAL8 mSurResol_albedo;
 	int mNbSampS;
-	bool mShowMsg;
-	bool mExportIm;
 	bool mProfIsZ0;
-	int mIMCol;
-	eModeCloudCol mModeCol;
 };
 
 cAppli_MMVII_CloudImProj::cAppli_MMVII_CloudImProj(const std::vector<std::string>& aVArgs, const cSpecMMVII_Appli& aSpec,
