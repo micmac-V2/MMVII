@@ -18,7 +18,7 @@ protected:
     cQuadTreeCell(cPixBox<2> aArea, int aLevel);
     cQuadTreeCell(cPixBox<2> aAreaInit); //for inital level: splits area to get good proportions
     int Divide4(int aMinCellSz); // return number of cells created
-    int DivideHV(int aNbX, int aNbY); // return number of cells created
+    int DivideHV(int aNbX, int aNbY, cPt2di aOffset={0,0}); // return number of cells created
     cPixBox<2> mArea;
     int mLevel;
     std::vector<cQuadTreeCell> mSubs;
@@ -34,7 +34,7 @@ class cQuadTree
 {
 public:
     cQuadTree(cDataIm2D<tREAL4> * aDepthIm, int aMinCellSz=8);
-    void Split(int aTargetNbCell);
+    void Split(int aTargetNbCell, cPt2di aOffset={0,0});
     int GetCurNbCell() const;
     const std::vector<const cQuadTreeCell*> GetVLeafs() const;
 
