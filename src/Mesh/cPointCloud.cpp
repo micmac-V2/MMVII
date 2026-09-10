@@ -1,6 +1,6 @@
-#include "MMVII_PointCloud.h"
 #include "MMVII_2Include_Serial_Tpl.h"
 #include "MMVII_Geom2D.h"
+#include "MMVII_PointCloud.h"
 #include "MMVII_util_tpl.h"
 
 #include "MMVII_2Include_Tiling.h"
@@ -8,349 +8,335 @@
 namespace MMVII
 {
 
-cPointCloud::cPointCloud(bool isM8) :
-   mOffset     (0,0,0),
-   mMode8      (isM8),
-   mMulDegVis  (-1),
-   mDensity    (-1),
-   mBox3dOfPts (),
-   mLeavesUnit (-1)
+cPointCloud::cPointCloud(bool isM8) : mOffset(0, 0, 0), mMode8(isM8), mMulDegVis(-1), mDensity(-1), mBox3dOfPts(), mLeavesUnit(-1)
 {
 }
 
-tREAL8   cPointCloud::CurBasicDensity() const
-{
-          return NbPts() / Box2d().NbElem() ;
-}
-tREAL8   cPointCloud::CurStdDensity() const
-{
-    return (mDensity>0) ? mDensity : CurBasicDensity();
-}
+tREAL8 cPointCloud::CurBasicDensity() const { return NbPts() / Box2d().NbElem(); }
+tREAL8 cPointCloud::CurStdDensity() const { return (mDensity > 0) ? mDensity : CurBasicDensity(); }
 
 //====================================================================================
 
 class cTil2D_PC
 {
-    public :
-        typedef cTiling<cTil2D_PC> tTiling;
-        static constexpr int TheDim = 2;          // Pre-requite for instantite cTilingIndex
-        typedef cPt2dr             tPrimGeom;     // Pre-requite for instantite cTilingIndex
-        typedef const  cPointCloud *  tArgPG; // Pre-requite for instantite cTilingIndex
+  public:
+	typedef cTiling<cTil2D_PC> tTiling;
+	static constexpr int TheDim = 2;   // Pre-requite for instantite cTilingIndex
+	typedef cPt2dr tPrimGeom;		   // Pre-requite for instantite cTilingIndex
+	typedef const cPointCloud* tArgPG; // Pre-requite for instantite cTilingIndex
 
-        /**  Pre-requite for instantite cTilingIndex : indicate how we extract geometric primitive from one object */
+	/**  Pre-requite for instantite cTilingIndex : indicate how we extract geometric primitive from one object */
 
-        tPrimGeom  GetPrimGeom(tArgPG aPtrPC) const {return Proj(ToR(aPtrPC->KthPt(mInd)));}
+	tPrimGeom GetPrimGeom(tArgPG aPtrPC) const { return Proj(ToR(aPtrPC->KthPt(mInd))); }
 
-        cTil2D_PC(size_t anInd) : mInd(anInd) {}
-        size_t  Ind() const {return mInd;}
+	cTil2D_PC(size_t anInd) : mInd(anInd) {}
+	size_t Ind() const { return mInd; }
 
-        static tTiling *  ComputeTiling(const cPointCloud & aPC,int aNbByCase=20);
+	static tTiling* ComputeTiling(const cPointCloud& aPC, int aNbByCase = 20);
 
-    private :
-        size_t  mInd;
+  private:
+	size_t mInd;
 };
 
-
-
-cTiling<cTil2D_PC> *  cTil2D_PC::ComputeTiling(const cPointCloud & aPC,int aNbByCase)
+cTiling<cTil2D_PC>* cTil2D_PC::ComputeTiling(const cPointCloud& aPC, int aNbByCase)
 {
-     cBox2dr aBox = aPC.Box2d();
-     int aNbCase = aPC.NbPts() / aNbByCase;
+	cBox2dr aBox = aPC.Box2d();
+	int aNbCase = aPC.NbPts() / aNbByCase;
 
-     tTiling *  aTil = new tTiling (aBox,true,aNbCase,&aPC);
-     for (size_t aKPt=0 ; aKPt<aPC.NbPts() ; aKPt++)
-         aTil->Add(cTil2D_PC(aKPt));
+	tTiling* aTil = new tTiling(aBox, true, aNbCase, &aPC);
+	for (size_t aKPt = 0; aKPt < aPC.NbPts(); aKPt++)
+		aTil->Add(cTil2D_PC(aKPt));
 
-     return aTil;
+	return aTil;
 }
 
-tREAL8  ComputeDensity
-     (
-         const cPointCloud & aPC,
-         cTiling<cTil2D_PC> *  aTilInit=nullptr
-     )
+tREAL8 ComputeDensity(const cPointCloud& aPC, cTiling<cTil2D_PC>* aTilInit = nullptr)
 {
-    cTiling<cTil2D_PC> * aTil = (aTilInit == nullptr) ? cTil2D_PC::ComputeTiling(aPC,10) : aTilInit;
+	cTiling<cTil2D_PC>* aTil = (aTilInit == nullptr) ? cTil2D_PC::ComputeTiling(aPC, 10) : aTilInit;
 
-    tREAL8 aDist = std::sqrt(5 / (M_PI * aPC.CurStdDensity()));
-    cWeightAv<tREAL8>  aWSz;
+	tREAL8 aDist = std::sqrt(5 / (M_PI * aPC.CurStdDensity()));
+	cWeightAv<tREAL8> aWSz;
 
-    for (size_t aKPt=0 ; aKPt< aPC.NbPts() ; aKPt++)
-    {
-        int aNb = aTil->GetObjAtDist(Proj(aPC.KthPt(aKPt)),aDist).size();
-        aWSz.Add(1.0,aNb-1);
-    }
-    tREAL8 aNbAv =  aWSz.Average();
-    // Surf * Density = NB
-    tREAL8 aDensity =  aNbAv / (M_PI * Square(aDist));
+	for (size_t aKPt = 0; aKPt < aPC.NbPts(); aKPt++)
+	{
+		int aNb = aTil->GetObjAtDist(Proj(aPC.KthPt(aKPt)), aDist).size();
+		aWSz.Add(1.0, aNb - 1);
+	}
+	tREAL8 aNbAv = aWSz.Average();
+	// Surf * Density = NB
+	tREAL8 aDensity = aNbAv / (M_PI * Square(aDist));
 
+	if (aTilInit == nullptr)
+		delete aTil;
 
-    if (aTilInit == nullptr)
-       delete aTil;
-
-    return aDensity;
+	return aDensity;
 }
 
-tREAL8   cPointCloud::ComputeCurFineDensity() const
-{
-    return ComputeDensity(*this);
-}
+tREAL8 cPointCloud::ComputeCurFineDensity() const { return ComputeDensity(*this); }
 
-tREAL8   cPointCloud::GroundSampling() const
-{
-    return 1 / std::sqrt(CurStdDensity());
-}
+tREAL8 cPointCloud::GroundSampling() const { return 1 / std::sqrt(CurStdDensity()); }
 
+tREAL8 cPointCloud::GetDensity() { return mDensity; }
 
-
+void cPointCloud::UpdateFineDensity() { mDensity = ComputeCurFineDensity(); }
 
 // --------------------- Colours access ------------------------------------------
 void cPointCloud::SetNbColours(int aNbC)
 {
-    mColors.resize(aNbC);
-    for (auto & aCol :mColors)
-        aCol.resize(NbPts());
+	mColors.resize(aNbC);
+	for (auto& aCol : mColors)
+		aCol.resize(NbPts());
 }
-int  cPointCloud::GetNbColours() const {return mColors.size();}
-std::vector<tU_INT1> & cPointCloud::GrayColors()
+int cPointCloud::GetNbColours() const { return mColors.size(); }
+std::vector<tU_INT1>& cPointCloud::GrayColors()
 {
-    MMVII_INTERNAL_ASSERT_always(GetNbColours()==1,"Bad Nb channel in cPointCloud::GrayColors");
-    return mColors.at(0);
+	MMVII_INTERNAL_ASSERT_always(GetNbColours() == 1, "Bad Nb channel in cPointCloud::GrayColors");
+	return mColors.at(0);
 }
 // --------------------- Colours access ------------------------------------------
 
+void cPointCloud::InitDegVis(tREAL8 aMulDegVis)
+{
+	mDegVis.resize(NbPts(), 0);
+	mMulDegVis = aMulDegVis;
+}
+
 void cPointCloud::SetMulDegVis(tREAL8 aMulDegVis)
 {
-    if (mDegVis.empty())
-    {
-        mDegVis.resize(NbPts(),0);
-        mMulDegVis = aMulDegVis;
-    }
-    else
-    {
-        MMVII_INTERNAL_ASSERT_always(aMulDegVis==mMulDegVis,"cPointCloud::SetMulDegVis chg MulDegVis");
-    }
+	if (mDegVis.empty())
+	{
+		mDegVis.resize(NbPts(), 0);
+		mMulDegVis = aMulDegVis;
+	}
+	else
+	{
+		MMVII_INTERNAL_ASSERT_always(aMulDegVis == mMulDegVis, "cPointCloud::SetMulDegVis chg MulDegVis");
+	}
 }
-void cPointCloud::SetDegVis(int aK,tREAL8 aDeg) { mDegVis.at(aK) = round_ni(aDeg*mMulDegVis); }
-tREAL8 cPointCloud::GetDegVis(int aK) const {return mDegVis.at(aK) / mMulDegVis;}
+void cPointCloud::SetDegVis(int aK, tREAL8 aDeg) { mDegVis.at(aK) = round_ni(aDeg * mMulDegVis); }
+tREAL8 cPointCloud::GetDegVis(int aK) const { return mDegVis.at(aK) / mMulDegVis; }
 
-bool   cPointCloud::DegVisIsInit() const {return ! mDegVis.empty();}
-
-
+bool cPointCloud::DegVisIsInit() const { return !mDegVis.empty(); }
 
 // --------------------- Leaves  ------------------------------------------
 
-void cPointCloud::SetLeavesUnit(tREAL8 aPropAvgD,bool SVP)
+void cPointCloud::SetLeavesUnit(tREAL8 aPropAvgD, bool SVP)
 {
-    if (! mSzLeaves.empty())
-    {
-        MMVII_INTERNAL_ASSERT_always(SVP,"cPointCloud::SetLeavesUnit");
-        return;
-    }
-    mLeavesUnit = aPropAvgD / std::sqrt(mDensity);
-    mSzLeaves.resize(NbPts(),0);
+	if (!mSzLeaves.empty())
+	{
+		MMVII_INTERNAL_ASSERT_always(SVP, "cPointCloud::SetLeavesUnit");
+		return;
+	}
+
+	StdOut() << ">> leaves mDensity: " << mDensity << std::endl;
+	mLeavesUnit = aPropAvgD / std::sqrt(mDensity);
+	mSzLeaves.resize(NbPts(), 0);
 }
-void cPointCloud::SetSzLeaves(int aK,tREAL8 aSz)
+void cPointCloud::SetSzLeaves(int aK, tREAL8 aSz) { mSzLeaves.at(aK) = std::min(255, round_ni(aSz / mLeavesUnit)); }
+void cPointCloud::InitSzLeaves(tREAL8 aSz) { mSzLeaves.resize(NbPts(), 0); }
+
+tREAL8 cPointCloud::GetLeavesUnit() const { return mLeavesUnit; }
+tREAL8 cPointCloud::GetSzLeave(int aK) const { return mSzLeaves.at(aK) * mLeavesUnit; }
+
+tU_INT1 cPointCloud::GetIntSzLeave(int aK) const { return mSzLeaves.at(aK); }
+tREAL8 cPointCloud::ConvertInt2SzLeave(int aInd) const
 {
-     mSzLeaves.at(aK) = std::min(255,round_ni(aSz/mLeavesUnit));
-}
 
-
-tREAL8 cPointCloud::GetSzLeave(int aK) const {return mSzLeaves.at(aK) * mLeavesUnit;}
-
-tU_INT1 cPointCloud::GetIntSzLeave(int aK) const {return mSzLeaves.at(aK);}
-tREAL8  cPointCloud::ConvertInt2SzLeave(int aInd) const
-{
-  
-   MMVII_INTERNAL_ASSERT_User_UndefE(mLeavesUnit>=0,"mLeavesUnit not itialized");
-   return mLeavesUnit * aInd;
-}
-
-bool  cPointCloud::LeavesIsInit() const
-{
-    return ! mSzLeaves.empty();
+	MMVII_INTERNAL_ASSERT_User_UndefE(mLeavesUnit >= 0, "mLeavesUnit not initialized");
+	return mLeavesUnit * aInd;
 }
 
+bool cPointCloud::LeavesIsInit() const { return !mSzLeaves.empty(); }
 
-
-
-
-cBox3dr  cPointCloud::Box3d()   const  {return mBox3dOfPts.CurBox();}
-cBox2dr  cPointCloud::Box2d()   const
+cBox3dr cPointCloud::Box3d() const { return mBox3dOfPts.CurBox(); }
+cBox2dr cPointCloud::Box2d() const
 {
-    cBox3dr aB3 = Box3d();
-    return cBox2dr(Proj(aB3.P0()),Proj(aB3.P1()));
+	cBox3dr aB3 = Box3d();
+	return cBox2dr(Proj(aB3.P0()), Proj(aB3.P1()));
 }
 
-cPt3dr   cPointCloud::Centroid() const
+cPt3dr cPointCloud::Centroid() const { return mSumPt / tREAL8(NbPts()); }
+
+void cPointCloud::ToPly(const std::string& aName, bool WithOffset) const
 {
-   return mSumPt / tREAL8(NbPts());
-}
+	cMMVII_Ofs anOfs(aName, eFileModeOut::CreateText);
 
+	size_t aNbP = NbPts();
+	size_t aNbC = mColors.size();
+	StdOut() << " NcOlToPly=" << aNbC << "\n";
+	bool WithVis = (mMulDegVis > 0);
+	if (WithVis)
+	{
+		MMVII_INTERNAL_ASSERT_always(aNbC == 0, "Colors & DegVis ...");
+		aNbC = 1;
+	}
+	// with use 8 byte if initially 8 byte, or if we use the offset that creat big coord
+	bool aMode8 = mMode8 || WithOffset;
 
-void cPointCloud::ToPly(const std::string & aName,bool WithOffset) const
-{
-    cMMVII_Ofs anOfs(aName,eFileModeOut::CreateText);
+	std::string aSpecCoord = aMode8 ? "float64" : "float32";
+	anOfs.Ofs() << "ply\n";
+	anOfs.Ofs() << "format ascii 1.0\n";
+	anOfs.Ofs() << "comment Generated by MMVVI\n";
+	anOfs.Ofs() << "element vertex " << aNbP << "\n";
+	anOfs.Ofs() << "property " << aSpecCoord << " x\n";
+	anOfs.Ofs() << "property " << aSpecCoord << " y\n";
+	anOfs.Ofs() << "property " << aSpecCoord << " z\n";
+	if (aNbC)
+	{
+		anOfs.Ofs() << "property uchar red\n";
+		anOfs.Ofs() << "property uchar green\n";
+		anOfs.Ofs() << "property uchar blue\n";
+	}
+	anOfs.Ofs() << "end_header\n";
 
-    size_t aNbP = NbPts();
-    size_t aNbC = mColors.size();
-    StdOut() << " NcOlToPly=" << aNbC << "\n";
-    bool  WithVis = (mMulDegVis>0);
-    if (WithVis)
-    {
-        MMVII_INTERNAL_ASSERT_always(aNbC==0,"Colors & DegVis ...");
-        aNbC=1;
-    }
-    // with use 8 byte if initially 8 byte, or if we use the offset that creat big coord
-    bool  aMode8 =  mMode8 || WithOffset;
-
-    std::string aSpecCoord = aMode8 ? "float64" : "float32";
-    anOfs.Ofs() <<  "ply\n";
-    anOfs.Ofs() <<  "format ascii 1.0\n";
-    anOfs.Ofs() <<  "comment Generated by MMVVI\n";
-    anOfs.Ofs() <<  "element vertex " << aNbP << "\n";
-    anOfs.Ofs() <<  "property " <<  aSpecCoord  <<" x\n";
-    anOfs.Ofs() <<  "property " <<  aSpecCoord  <<" y\n";
-    anOfs.Ofs() <<  "property " <<  aSpecCoord  <<" z\n";
-    if (aNbC)
-    {
-        anOfs.Ofs() <<  "property uchar red\n";
-        anOfs.Ofs() <<  "property uchar green\n";
-        anOfs.Ofs() <<  "property uchar blue\n";
-    }
-    anOfs.Ofs() <<  "end_header\n";
-
-
-    for (size_t aKPt=0 ; aKPt<aNbP ; aKPt++)
-    {
-        if (aMode8)
-        {
-            cPt3dr aPt = WithOffset ? KthPt(aKPt) :  KthPtWoOffs(aKPt);
-            anOfs.Ofs() <<  aPt.x() << " " << aPt.y() << " " << aPt.z();
-        }
-        else
-        {
-            const cPt3df&  aPt = mPtsF.at(aKPt);
-            anOfs.Ofs() <<  aPt.x() << " " << aPt.y() << " " << aPt.z();
-        }
-        if (aNbC)
-        {
-           if (aNbC==1)
-           {
-              size_t aC =  WithVis ? round_ni(GetDegVis(aKPt) *255)  : mColors.at(0).at(aKPt);
-              anOfs.Ofs() << " " << aC << " " << aC << " " << aC;
-           }
-           else if (aNbC==3)
-           {
-               for (size_t aKC=0 ; aKC<aNbC ; aKC++)
-                  anOfs.Ofs() << " " << (size_t)  mColors.at(aKC).at(aKPt);
-           }
-           else
-           {
-               MMVII_INTERNAL_ERROR("Bad number of channel in ply generate : " + ToStr(aNbC));
-           }
-        }
-        anOfs.Ofs() << "\n";
-    }
+	for (size_t aKPt = 0; aKPt < aNbP; aKPt++)
+	{
+		if (aMode8)
+		{
+			cPt3dr aPt = WithOffset ? KthPt(aKPt) : KthPtWoOffs(aKPt);
+			anOfs.Ofs() << aPt.x() << " " << aPt.y() << " " << aPt.z();
+		}
+		else
+		{
+			const cPt3df& aPt = mPtsF.at(aKPt);
+			anOfs.Ofs() << aPt.x() << " " << aPt.y() << " " << aPt.z();
+		}
+		if (aNbC)
+		{
+			if (aNbC == 1)
+			{
+				size_t aC = WithVis ? round_ni(GetDegVis(aKPt) * 255) : mColors.at(0).at(aKPt);
+				anOfs.Ofs() << " " << aC << " " << aC << " " << aC;
+			}
+			else if (aNbC == 3)
+			{
+				for (size_t aKC = 0; aKC < aNbC; aKC++)
+					anOfs.Ofs() << " " << (size_t)mColors.at(aKC).at(aKPt);
+			}
+			else
+			{
+				MMVII_INTERNAL_ERROR("Bad number of channel in ply generate : " + ToStr(aNbC));
+			}
+		}
+		anOfs.Ofs() << "\n";
+	}
 }
 
 void cPointCloud::AddPt(const cPt3dr& aPt0)
 {
 
-  mBox3dOfPts.Add(aPt0);
-  mSumPt += aPt0;
+	mBox3dOfPts.Add(aPt0);
+	mSumPt += aPt0;
 
-  cPt3dr aPt = aPt0 - mOffset;
-  
-  if (mMode8)
-     mPtsR.push_back(aPt);
-  else
-     mPtsF.push_back(cPt3df::FromPtR(aPt));
+	cPt3dr aPt = aPt0 - mOffset;
+
+	if (mMode8)
+		mPtsR.push_back(aPt);
+	else
+		mPtsF.push_back(cPt3df::FromPtR(aPt));
 }
 
-void cPointCloud::Clip(cPointCloud& aPC,const cBox2dr & aBox) const
+void cPointCloud::AddPtColored(const cPt3dr& aPt0, const tU_INT2& deg_vis, const tU_INT1& leaf)
 {
-    // MMVII_INTERNAL_ERROR("cPointCloud::Clip  2 Finalize");
-    aPC = cPointCloud(mMode8);
-    aPC.mDensity = mDensity;
-    
-    // aPC.mBox2d   = aBox;
-    // aPC.mPtsR.clear();
-    // aPC.mPtsF.clear();
-    size_t aNbCol = mColors.size();
-    aPC.mColors = std::vector<std::vector<tU_INT1>>(aNbCol);
 
-    aPC.SetOffset(mOffset);
-    // aPC.mOffset = mOffset;
-    // aPC.mMode8 = mMode8;
-    aPC.mMulDegVis = mMulDegVis;
-    aPC.mLeavesUnit = mLeavesUnit;
+	mBox3dOfPts.Add(aPt0);
+	mSumPt += aPt0;
 
-    for (size_t aKPt=0 ; aKPt<NbPts() ; aKPt++)
-    {
-        cPt3dr aPt = KthPt(aKPt);
-        if (aBox.Inside(Proj(aPt)))
-        {
-           aPC.AddPt(aPt);
-           for (size_t aKC=0 ; aKC<aNbCol ; aKC++)
-           {
-               aPC.mColors.at(aKC).push_back(mColors.at(aKC).at(aKPt));
-           }
-           if (mMulDegVis>0)
-              aPC.mDegVis.push_back(mDegVis.at(aKPt));
-           if (mLeavesUnit>0)
-              aPC.mSzLeaves.push_back(mSzLeaves.at(aKPt));
-        }
-    }
+	cPt3dr aPt = aPt0 - mOffset;
+
+	if (mMode8)
+	{
+		mPtsR.push_back(aPt);
+		mDegVis.push_back(deg_vis);
+		mSzLeaves.push_back(leaf);
+	}
+	else
+	{
+		mPtsF.push_back(cPt3df::FromPtR(aPt));
+		mDegVis.push_back(deg_vis);
+		mSzLeaves.push_back(leaf);
+	}
+}
+
+void cPointCloud::Clip(cPointCloud& aPC, const cBox2dr& aBox) const
+{
+	// MMVII_INTERNAL_ERROR("cPointCloud::Clip  2 Finalize");
+	aPC = cPointCloud(mMode8);
+	aPC.mDensity = mDensity;
+
+	// aPC.mBox2d   = aBox;
+	// aPC.mPtsR.clear();
+	// aPC.mPtsF.clear();
+	size_t aNbCol = mColors.size();
+	aPC.mColors = std::vector<std::vector<tU_INT1>>(aNbCol);
+
+	aPC.SetOffset(mOffset);
+	// aPC.mOffset = mOffset;
+	// aPC.mMode8 = mMode8;
+	aPC.mMulDegVis = mMulDegVis;
+	aPC.mLeavesUnit = mLeavesUnit;
+
+	for (size_t aKPt = 0; aKPt < NbPts(); aKPt++)
+	{
+		cPt3dr aPt = KthPt(aKPt);
+		if (aBox.Inside(Proj(aPt)))
+		{
+			aPC.AddPt(aPt);
+			for (size_t aKC = 0; aKC < aNbCol; aKC++)
+			{
+				aPC.mColors.at(aKC).push_back(mColors.at(aKC).at(aKPt));
+			}
+			if (mMulDegVis > 0)
+				aPC.mDegVis.push_back(mDegVis.at(aKPt));
+			if (mLeavesUnit > 0)
+				aPC.mSzLeaves.push_back(mSzLeaves.at(aKPt));
+		}
+	}
 }
 
 // template <class Type,const int Dim>  void  AddData(const  cAuxAr2007 & anAux,cTplBox<Type,Dim> & aBox) { aBox.AddData(anAux); }
 
-void cPointCloud::SetOffset(const cPt3dr & anOffset)
+void cPointCloud::SetOffset(const cPt3dr& anOffset)
 {
-    MMVII_INTERNAL_ASSERT_always(NbPts()==0,"cPointCloud::SetOffset not empty");
-    mOffset = anOffset;
+	MMVII_INTERNAL_ASSERT_always(NbPts() == 0, "cPointCloud::SetOffset not empty");
+	mOffset = anOffset;
 }
 
-void cPointCloud::AddData(const  cAuxAr2007 & anAux)
+void cPointCloud::AddData(const cAuxAr2007& anAux)
 {
-    MMVII::AddData(cAuxAr2007("M8",anAux),mMode8);
-    MMVII::AddData(cAuxAr2007("Params",anAux),mParams);
-    MMVII::AddData(cAuxAr2007("Offset",anAux),mOffset);
-    MMVII::AddData(cAuxAr2007("PtsR",anAux),mPtsR);
-    MMVII::AddData(cAuxAr2007("PtsF",anAux),mPtsF);
-    MMVII::AddData(cAuxAr2007("Colors",anAux),mColors);
+	MMVII::AddData(cAuxAr2007("M8", anAux), mMode8);
+	MMVII::AddData(cAuxAr2007("Params", anAux), mParams);
+	MMVII::AddData(cAuxAr2007("Offset", anAux), mOffset);
+	MMVII::AddData(cAuxAr2007("PtsR", anAux), mPtsR);
+	MMVII::AddData(cAuxAr2007("PtsF", anAux), mPtsF);
+	MMVII::AddData(cAuxAr2007("Colors", anAux), mColors);
 
-    MMVII::AddData(cAuxAr2007("MulDegVis",anAux),mMulDegVis);
+	MMVII::AddData(cAuxAr2007("MulDegVis", anAux), mMulDegVis);
 
-    MMVII::AddData(cAuxAr2007("DegVis",anAux),mDegVis);
+	MMVII::AddData(cAuxAr2007("DegVis", anAux), mDegVis);
 
-    MMVII::AddData(cAuxAr2007("Density",anAux),mDensity);
+	MMVII::AddData(cAuxAr2007("Density", anAux), mDensity);
 
-    MMVII::AddData(cAuxAr2007("Box3d",anAux),mBox3dOfPts);
-    MMVII::AddData(cAuxAr2007("SumPt",anAux),mSumPt);
+	MMVII::AddData(cAuxAr2007("Box3d", anAux), mBox3dOfPts);
+	MMVII::AddData(cAuxAr2007("SumPt", anAux), mSumPt);
 
-    MMVII::AddData(cAuxAr2007("LeavesUnit",anAux),mLeavesUnit);
-    MMVII::AddData(cAuxAr2007("LeavesSize",anAux),mSzLeaves);
+	MMVII::AddData(cAuxAr2007("LeavesUnit", anAux), mLeavesUnit);
+	MMVII::AddData(cAuxAr2007("LeavesSize", anAux), mSzLeaves);
 }
 
-void AddData(const  cAuxAr2007 & anAux,cPointCloud & aPC)
-{
-   aPC.AddData(anAux);
-}
+void AddData(const cAuxAr2007& anAux, cPointCloud& aPC) { aPC.AddData(anAux); }
 
 /*
 cBox3dr  cPointCloud::Box() const
 {
    cTplBoxOfPts<tREAL8,3> aTplB;
    for (size_t aK=0 ; aK<NbPts() ; aK++)
-       aTplB.Add(KthPt(aK));
+	   aTplB.Add(KthPt(aK));
    return aTplB.CurBox();
 }
 */
 
 #if (0)
-
 
 /* =============================================== */
 /*                                                 */
@@ -363,81 +349,61 @@ cBox3dr  cPointCloud::Box() const
 
 class cAppli_MMVII_CloudSimpulSin : public cMMVII_Appli
 {
-     public :
+  public:
+	cAppli_MMVII_CloudSimpulSin(const std::vector<std::string>& aVArgs, const cSpecMMVII_Appli& aSpec);
 
-        cAppli_MMVII_CloudSimpulSin(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec);
+  private:
+	int Exe() override;
+	cCollecSpecArg2007& ArgObl(cCollecSpecArg2007& anArgObl) override;
+	cCollecSpecArg2007& ArgOpt(cCollecSpecArg2007& anArgOpt) override;
 
-     private :
-        int Exe() override;
-        cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
-        cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
-
-        // --- Mandatory ----
-    std::string   mNameCloudIn;
-        // --- Optionnal ----
-        std::string mNameCloudOut;
-
+	// --- Mandatory ----
+	std::string mNameCloudIn;
+	// --- Optionnal ----
+	std::string mNameCloudOut;
 };
 
-cAppli_MMVII_CloudSimpulSin::cAppli_MMVII_CloudSimpulSin
-(
-     const std::vector<std::string> & aVArgs,
-     const cSpecMMVII_Appli & aSpec
-) :
-     cMMVII_Appli      (aVArgs,aSpec)
+cAppli_MMVII_CloudSimpulSin::cAppli_MMVII_CloudSimpulSin(const std::vector<std::string>& aVArgs, const cSpecMMVII_Appli& aSpec)
+	: cMMVII_Appli(aVArgs, aSpec)
 {
 }
 
-cCollecSpecArg2007 & cAppli_MMVII_CloudSimpulSin::ArgObl(cCollecSpecArg2007 & anArgObl)
+cCollecSpecArg2007& cAppli_MMVII_CloudSimpulSin::ArgObl(cCollecSpecArg2007& anArgObl)
 {
- return anArgObl
-      <<   Arg2007(mNameCloudIn,"Name of input cloud/mesh", {eTA2007::FileDirProj,eTA2007::FileDmp})
-   ;
+	return anArgObl << Arg2007(mNameCloudIn, "Name of input cloud/mesh", {eTA2007::FileDirProj, eTA2007::FileDmp});
 }
 
-
-cCollecSpecArg2007 & cAppli_MMVII_CloudSimpulSin::ArgOpt(cCollecSpecArg2007 & anArgOpt)
+cCollecSpecArg2007& cAppli_MMVII_CloudSimpulSin::ArgOpt(cCollecSpecArg2007& anArgOpt)
 {
-   return anArgOpt
-          << AOpt2007(mNameCloudOut,CurOP_Out,"Name of output file, def=Clip_+InPut")
-   ;
+	return anArgOpt << AOpt2007(mNameCloudOut, CurOP_Out, "Name of output file, def=Clip_+InPut");
 }
 
-int  cAppli_MMVII_CloudSimpulSin::Exe()
+int cAppli_MMVII_CloudSimpulSin::Exe()
 {
-   if (! IsInit(&mNameCloudOut))
-      mNameCloudOut = LastPrefix(mNameCloudIn) + ".ply";
+	if (!IsInit(&mNameCloudOut))
+		mNameCloudOut = LastPrefix(mNameCloudIn) + ".ply";
 
-   cPointCloud   mPC_In;
-   ReadFromFile(mPC_In,mNameCloudIn);
+	cPointCloud mPC_In;
+	ReadFromFile(mPC_In, mNameCloudIn);
 
-   mPC_In.ToPly(mNameCloudOut,false);
+	mPC_In.ToPly(mNameCloudOut, false);
 
-
-   return EXIT_SUCCESS;
+	return EXIT_SUCCESS;
 }
 
-     /* =============================================== */
-     /*                       ::                        */
-     /* =============================================== */
+/* =============================================== */
+/*                       ::                        */
+/* =============================================== */
 
-tMMVII_UnikPApli Alloc_MMVII_CloudSimulSin(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec)
+tMMVII_UnikPApli Alloc_MMVII_CloudSimulSin(const std::vector<std::string>& aVArgs, const cSpecMMVII_Appli& aSpec)
 {
-   return tMMVII_UnikPApli(new cAppli_MMVII_CloudSimpulSin(aVArgs,aSpec));
+	return tMMVII_UnikPApli(new cAppli_MMVII_CloudSimpulSin(aVArgs, aSpec));
 }
 
-cSpecMMVII_Appli  TheSpec_MMVII_CloudSimulSin
-(
-     "CloudMMVII2Ply",
-      Alloc_MMVII_CloudSimulSin,
-      "Generate a ply version of  MMVII-Cloud",
-      {eApF::Cloud},
-      {eApDT::Ply},
-      {eApDT::Ply},
-      __FILE__
-);
+cSpecMMVII_Appli TheSpec_MMVII_CloudSimulSin("CloudMMVII2Ply", Alloc_MMVII_CloudSimulSin,
+											 "Generate a ply version of  MMVII-Cloud", {eApF::Cloud}, {eApDT::Ply}, {eApDT::Ply},
+											 __FILE__);
 
 #endif
 
-};
-
+}; // namespace MMVII

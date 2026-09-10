@@ -1,49 +1,46 @@
-#include "cMMVII_Appli.h"
+#include "MMVII_2Include_Serial_Tpl.h"
 #include "MMVII_DeclareCste.h"
 #include "MMVII_Geom3D.h"
-#include "MMVII_Sensor.h"
-#include "MMVII_2Include_Serial_Tpl.h"
-#include "MMVII_Tpl_Images.h"
-#include "MMVII_PointCloud.h"
-#include "MMVII_Linear2DFiltering.h"
 #include "MMVII_Interpolators.h"
+#include "MMVII_Linear2DFiltering.h"
 #include "MMVII_PCSens.h"
+#include "MMVII_PointCloud.h"
+#include "MMVII_Sensor.h"
+#include "MMVII_Tpl_Images.h"
+#include "cMMVII_Appli.h"
 
 #include "cColorateCloud.h"
 
 namespace MMVII
 {
 
-
-cDemiConeVert::cDemiConeVert(const cSensorCamPC & aCam) :
-  mC       (aCam.Center()),
-  mOptAxis (aCam.AxeK()),
-  mTgt2    (0.0)
+cDemiConeVert::cDemiConeVert(const cSensorCamPC& aCam) : mC(aCam.Center()), mOptAxis(aCam.AxeK()), mTgt2(0.0)
 {
-    const cPerspCamIntrCalib & aCalib = *aCam.InternalCalib();
-    const cPt2dr & aPP  = aCalib.PP();
-    tREAL8         aF   = aCalib.F();
-    cPt2dr         aSz  = ToR(aCalib.SzPix());
+	const cPerspCamIntrCalib& aCalib = *aCam.InternalCalib();
+	const cPt2dr& aPP = aCalib.PP();
+	tREAL8 aF = aCalib.F();
+	cPt2dr aSz = ToR(aCalib.SzPix());
 
-    // Exact max angle to any of the 4 corners = squint (PP to crop-center) + half-FOV (Sz/2/F),
-    // combined per axis then Pythagorean-summed; reduces to the SqN2(PP)/F^2 when PP is centered.
-    cPt2dr aHalfFOV = aSz * 0.5;
-    cPt2dr aSquint  = aHalfFOV - aPP;
-    tREAL8 aDx = std::abs(aSquint.x()) + aHalfFOV.x();
-    tREAL8 aDy = std::abs(aSquint.y()) + aHalfFOV.y();
+	// Exact max angle to any of the 4 corners = squint (PP to crop-center) + half-FOV (Sz/2/F),
+	// combined per axis then Pythagorean-summed; reduces to the SqN2(PP)/F^2 when PP is centered.
+	cPt2dr aHalfFOV = aSz * 0.5;
+	cPt2dr aSquint = aHalfFOV - aPP;
+	tREAL8 aDx = std::abs(aSquint.x()) + aHalfFOV.x();
+	tREAL8 aDy = std::abs(aSquint.y()) + aHalfFOV.y();
 
-    mTgt2 = (Square(aDx) + Square(aDy)) / Square(aF);
+	mTgt2 = (Square(aDx) + Square(aDy)) / Square(aF);
 }
 
-bool  cDemiConeVert::Inside(const cPt3dr& aPt) const
+bool cDemiConeVert::Inside(const cPt3dr& aPt) const
 {
-    cPt3dr aVec = aPt - mC;
-    tREAL8 aDot = Scal(aVec,mOptAxis);   // component of aVec along the optical axis
-    if (aDot<=0) return false;           // behind the camera
+	cPt3dr aVec = aPt - mC;
+	tREAL8 aDot = Scal(aVec, mOptAxis); // component of aVec along the optical axis
+	if (aDot <= 0)
+		return false; // behind the camera
 
-    tREAL8 aTg2 = (SqN2(aVec)-Square(aDot)) / Square(aDot);   // tan^2 of angle to axis
+	tREAL8 aTg2 = (SqN2(aVec) - Square(aDot)) / Square(aDot); // tan^2 of angle to axis
 
-    return aTg2 < mTgt2;
+	return aTg2 < mTgt2;
 }
 
 /* =============================================== */
@@ -52,493 +49,527 @@ bool  cDemiConeVert::Inside(const cPt3dr& aPt) const
 /*                                                 */
 /* =============================================== */
 
+enum eModeCloudCol
+{
+	eColShade,
+	eColZ,
+	eColXY
+};
 class cAppli_MMVII_CloudImProj : public cMMVII_Appli
 {
-     public :
+  public:
+	cAppli_MMVII_CloudImProj(const std::vector<std::string>& aVArgs, const cSpecMMVII_Appli& aSpec, int aMode);
 
-        cAppli_MMVII_CloudImProj(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec,int aMode);
+  private:
+	int Exe() override;
+	cCollecSpecArg2007& ArgObl(cCollecSpecArg2007& anArgObl) override;
+	cCollecSpecArg2007& ArgOpt(cCollecSpecArg2007& anArgOpt) override;
 
-     private :
-        int Exe() override;
-        cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
-        cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
+	void ProcessOrthoMode(cPointCloud&, cProjPointCloud&);
+	void ProcessConikMode(cPointCloud&, cProjPointCloud&);
+	void ProcessConikModeWithOri(const std::string&, cProjPointCloud&);
 
-        void ProcessOrthoMode(cPointCloud  &,cProjPointCloud&);
-        void ProcessConikMode(cPointCloud  &,cProjPointCloud&);
-        void ProcessConikModeWithOri(cPointCloud  &,cProjPointCloud&);
+	void GenerateSynthImage(cProjPointCloud&, const cSensorImage&, const cDemiConeVert*);
 
-        void GenerateSynthImage(cProjPointCloud&,const cSensorImage &,const cDemiConeVert*);
+	int mMode;
+	cPhotogrammetricProject mPhProj;
+	// --- Mandatory ----
+	std::string mDirCloudsIn; // Changed from file to directory
+	// --- Optionnal ----
+	tREAL8 mSurResolSun;
+	std::string mPrefixOut;
+	bool mMakeImRectified;
+	bool mSaveImDepth;
+	std::string mPrefixImGen;
+	std::string mPatIm;
 
+	tREAL8 mResolOrthoC;
+	cPt2di mSzIm;
+	cPt2dr mOverLap;
+	tREAL8 mRInsideMin;
+	tREAL8 mFOV;
+	// cPt2di        mNbBande;
+	// cPt2dr        mBSurH;
 
-        int                     mMode;
-        cPhotogrammetricProject mPhProj;
-        // --- Mandatory ----
-        std::string   mNameCloudIn;
-        // --- Optionnal ----
-        tREAL8  mSurResolSun;
-        std::string   mPrefixOut;
-        bool mMakeImRectified;
-        bool mSaveImDepth;
-        std::string mPrefixImGen ;
-        std::string mPatIm;
+	cPerspCamIntrCalib* mCalib;
 
+	cPt3dr mSun;
+	std::string mNameSavePCSun;
+	std::vector<tREAL8> mParamP;
+	std::vector<int> mVDeltaPax; /// Delta for computing depth like paralax
+	bool mShow;
 
-        tREAL8        mResolOrthoC;
-        cPt2di        mSzIm;
-        cPt2dr        mOverLap;
-        tREAL8        mRInsideMin;
-        tREAL8        mFOV;
-        //cPt2di        mNbBande;
-        //cPt2dr        mBSurH;
-        
-        cPerspCamIntrCalib * mCalib;
+	tREAL8 mSensDownSample; /// Sub
+	tREAL8 mSurResCloud;
 
-        cPt3dr        mSun;
-        std::string   mNameSavePCSun;
-        std::vector<tREAL8>  mParamP;
-        std::vector<int>     mVDeltaPax;  /// Delta for computing depth like paralax
-        bool                 mShow;
-
-
-        tREAL8               mSensDownSample; /// Sub
-        tREAL8               mSurResCloud;
+	cPt2dr mPropRayLeaf;
+	tREAL8 mSurResol_albedo;
+	int mNbSampS;
+	bool mShowMsg;
+	bool mExportIm;
+	bool mProfIsZ0;
+	int mIMCol;
+	eModeCloudCol mModeCol;
 };
 
-cAppli_MMVII_CloudImProj::cAppli_MMVII_CloudImProj
-(
-     const std::vector<std::string> &    aVArgs,
-     const cSpecMMVII_Appli &            aSpec,
-     int                                 aMode
-) :
-     cMMVII_Appli      (aVArgs,aSpec),
-     mMode             (aMode),
-     mPhProj           (*this),
-     mSurResolSun      (2.0),
-     mMakeImRectified  (false),
-     mSaveImDepth      (false),
-     mPrefixImGen      ("C_"),
-     mPatIm            (""),
-     mResolOrthoC      (0.2),
-     mOverLap          (0.8,0.6),
-     mRInsideMin      (0.5),
-     mFOV              (0.7),
-  //   mNbBande          (5,1),
-  //   mBSurH            (0.1,0.2),
-   //  mFocal            (-1),
-     mCalib            (nullptr),
-     mVDeltaPax        {-1,1},
-     mShow             (false),
-     mSensDownSample   (2.0),
-     mSurResCloud      (2.0)
+cAppli_MMVII_CloudImProj::cAppli_MMVII_CloudImProj(const std::vector<std::string>& aVArgs, const cSpecMMVII_Appli& aSpec,
+												   int aMode)
+	: cMMVII_Appli(aVArgs, aSpec), mMode(aMode), mPhProj(*this), mSurResolSun(2.0), mMakeImRectified(false), mSaveImDepth(false),
+	  mPrefixImGen("C_"), mPatIm(""), mResolOrthoC(0.2), mOverLap(0.8, 0.6), mRInsideMin(0.5), mFOV(0.7),
+	  //   mNbBande          (5,1),
+	  //   mBSurH            (0.1,0.2),
+	  //  mFocal            (-1),
+	  mCalib(nullptr), mVDeltaPax{-1, 1}, mShow(false), mSensDownSample(2.0), mSurResCloud(2.0), mPropRayLeaf(1.0, 1.0),
+	  mSurResol_albedo(2.0), mNbSampS(5), mShowMsg(false), mExportIm(false), mProfIsZ0(false), mIMCol(0),
+	  mModeCol(eModeCloudCol::eColShade)
 
 {
-    FakeUseIt(mResolOrthoC);
+	FakeUseIt(mResolOrthoC);
 }
 
-cCollecSpecArg2007 & cAppli_MMVII_CloudImProj::ArgObl(cCollecSpecArg2007 & anArgObl)
+cCollecSpecArg2007& cAppli_MMVII_CloudImProj::ArgObl(cCollecSpecArg2007& anArgObl)
 {
-  anArgObl
-          <<   Arg2007(mNameCloudIn,"Name of input cloud/mesh", {eTA2007::FileDirProj,eTA2007::FileDmp})
-   ;
+	anArgObl << Arg2007(mDirCloudsIn, "Folder containing input point clouds", {eTA2007::FolderAny});
 
-  if (mMode==0)
-  {
-     anArgObl
-        <<  Arg2007(mParamP,"Param of projection [Phi,Nb,Teta1,Teta2?=-T1],",{{eTA2007::ISizeV,"[3,4]"}})
-      ;
-  }
-  else if (mMode==1)
-  {
-      anArgObl
-          << Arg2007(mSzIm,"Size of resulting image")
-          << mPhProj.DPOrient().ArgDirOutMand()
-      ;
-  }
+	if (mMode == 0)
+	{
+		anArgObl << Arg2007(mParamP, "Param of projection [Phi,Nb,Teta1,Teta2?=-T1],", {{eTA2007::ISizeV, "[3,4]"}});
+	}
+	else if (mMode == 1)
+	{
+		anArgObl << Arg2007(mSzIm, "Size of resulting image") << mPhProj.DPOrient().ArgDirOutMand();
+	}
 
-   return anArgObl;
+	return anArgObl;
 }
 
-cCollecSpecArg2007 & cAppli_MMVII_CloudImProj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
+cCollecSpecArg2007& cAppli_MMVII_CloudImProj::ArgOpt(cCollecSpecArg2007& anArgOpt)
 {
-   anArgOpt
-          << mPhProj.DPOrient().ArgDirInOpt("","Input orientations")
-          << AOpt2007(mPrefixOut,CurOP_Out,"Preifix for out images, def= Ima+Input")
-          << AOpt2007(mSun,"Sun","Sun : Dir3D=(x,y,1)  ,  Z=WEIGHT !! ")
-          << AOpt2007(mNameSavePCSun,"CloudSun","Name of cloud with sun, if sun was added")
-          << AOpt2007(mShow,"Show","Show images &  messages for tuning",{eTA2007::HDV})
-   ;
+	anArgOpt << mPhProj.DPOrient().ArgDirInOpt("", "Input orientations")
+			 << AOpt2007(mPrefixOut, CurOP_Out, "Preifix for out images, def= Ima+Input")
+			 << AOpt2007(mSun, "Sun", "Sun : Dir3D=(x,y,1)  ,  Z=WEIGHT !! ")
+			 << AOpt2007(mNameSavePCSun, "CloudSun", "Name of cloud with sun, if sun was added")
+			 << AOpt2007(mShow, "Show", "Show images &  messages for tuning", {eTA2007::HDV});
 
-   if (mMode==0)
-   {
-       anArgOpt
-           << AOpt2007(mVDeltaPax,"DeltaPax","Delta between image were compte paralax",{eTA2007::HDV})
-           << AOpt2007(mMakeImRectified,"MkImSupRect","Generate Superposed Rectified Images",{eTA2007::HDV})
-           << AOpt2007(mSaveImDepth,"SaveImD","Save depth per image",{eTA2007::HDV})
-       ;
-   }
-   else if (mMode==1)
-   {
-       anArgOpt
-           << AOpt2007(mOverLap,"Overlap","Ratio of overlap between images",{eTA2007::HDV})
-           << AOpt2007(mRInsideMin,"MinInside","Minimal insideness ratio ",{eTA2007::HDV})
-           << AOpt2007(mFOV,"FOV","Field of view, in radian",{eTA2007::HDV})
-           << AOpt2007(mPrefixImGen,"PrefixIm","Prefix for generating names",{eTA2007::HDV})
-           << AOpt2007(mPatIm,"PatIm","Pattern of images for generation from known orientations")
-       ;
-   }
+	if (mMode == 0)
+	{
+		anArgOpt << AOpt2007(mVDeltaPax, "DeltaPax", "Delta between image were compte paralax", {eTA2007::HDV})
+				 << AOpt2007(mMakeImRectified, "MkImSupRect", "Generate Superposed Rectified Images", {eTA2007::HDV})
+				 << AOpt2007(mSaveImDepth, "SaveImD", "Save depth per image", {eTA2007::HDV});
+	}
+	else if (mMode == 1)
+	{
+		anArgOpt << AOpt2007(mOverLap, "Overlap", "Ratio of overlap between images", {eTA2007::HDV})
+				 << AOpt2007(mRInsideMin, "MinInside", "Minimal insideness ratio ", {eTA2007::HDV})
+				 << AOpt2007(mFOV, "FOV", "Field of view, in radian", {eTA2007::HDV})
+				 << AOpt2007(mPrefixImGen, "PrefixIm", "Prefix for generating names", {eTA2007::HDV})
+				 << AOpt2007(mPatIm, "PatIm", "Pattern of images for generation from known orientations");
+	}
 
-   return anArgOpt;
-
+	return anArgOpt;
 }
 
-int  cAppli_MMVII_CloudImProj::Exe()
+int cAppli_MMVII_CloudImProj::Exe()
 {
-   mPhProj.FinishInit();
-   if (!IsInit(&mPrefixOut))
-      mPrefixOut =  "ImProj_" + LastPrefix(mNameCloudIn) ;
+	mPhProj.FinishInit();
+	if (!IsInit(&mPrefixOut))
+		mPrefixOut = "ImProj_" + LastPrefix(mDirCloudsIn);
 
+	// Load all .dmp files from the directory
+	std::vector<std::string> aCloudFiles = GetFilesFromDir(mDirCloudsIn, AllocRegex(".*\\." + PostF_DumpFiles + "$"), false);
 
-   cPointCloud   aPC_In ;
-   ReadFromFile(aPC_In,mNameCloudIn);
+	if (aCloudFiles.empty())
+	{
+		StdOut() << "No point cloud files found in directory: " << mDirCloudsIn << std::endl;
+		return EXIT_FAILURE;
+	}
 
-   cProjPointCloud  aPPC(aPC_In,1.0);
+	// Compute camera ground footprint
+	std::string aDirIm = mPhProj.DPOrient().FullDirOut();
+	std::string aDirIn = mPhProj.DPOrient().FullDirIn();
+	std::string aOriPrefix = cSensorImage::PrefixName() + "-" + cSensorCamPC::PrefixName() + "-";
+	std::string aOriSuffix = "." + GlobTaggedNameDefSerial();
 
+	// Get all CamPC orientation files from the input dir
+	auto aVOriFiles = GetFilesFromDir(aDirIn, AllocRegex(aOriPrefix + ".*"));
 
-   if  (IsInit(&mSun))
-   {
-      //cPt3dr aDirSun = VUnit(cPt3dr(mSun.x(),mSun.y(),1.0));
+	// Extract image names and filter by mPatIm
+	tNameSelector aSel = AllocRegex(mPatIm);
+	std::vector<std::string> aSetNames;
+	for (const auto& aF : aVOriFiles)
+	{
+		std::string aImName = aF.substr(aOriPrefix.size(), aF.size() - aOriPrefix.size() - aOriSuffix.size());
+		if (aSel.Match(aImName))
+			aSetNames.push_back(aImName);
+	}
 
-       cPt3dr aDirSun = VertSphericalDir(mSun);
-       if (mShow)
-          StdOut() << " SUN, cart:" << aDirSun  << "\n";
-       std::unique_ptr<cCamOrthoC> aCam (aPPC.PPC_CamOrtho(0,false,aDirSun));
+	// For each camera
+	for (const auto& aNameIm : aSetNames)
+	{
+		StdOut() << "Processing camera: " << aNameIm << std::endl;
 
-       aPPC.ProcessOneProj(mSurResolSun,*aCam,mSun.z(),false,"",false,false);
+		cSensorCamPC* aCam = mPhProj.ReadCamPC(aNameIm, true, false);
 
-       aPPC.ColorizePC();
+		// Init merged pointcloud
+		cPointCloud aPC_In;
+		StdOut() << "Reading pointcloud: " << aCloudFiles[0] << std::endl;
+		// ReadFromFile(aPC_In, mDirCloudsIn + "/" + aCloudFiles[0]);
+		StdOut() << "Read pointcloud: " << aCloudFiles[0] << std::endl;
 
-       if (IsInit(&mNameSavePCSun))
-           SaveInFile(aPC_In,mNameSavePCSun);
-   }
+		// Merge remaining point clouds into aPC_In
+		for (size_t i = 0; i < aCloudFiles.size(); i++)
+		{
+			StdOut() << "Reading pointcloud: " << aCloudFiles[i] << std::endl;
+			cPointCloud aPC_Temp;
+			ReadFromFile(aPC_Temp, mDirCloudsIn + "/" + aCloudFiles[i]);
 
-   if (mMode==0)
-   {
-       ProcessOrthoMode(aPC_In,aPPC);
-   }
-   else
-   {
-        if (mPhProj.DPOrient().DirInIsInit())
-            ProcessConikModeWithOri(aPC_In,aPPC);
-       else
-            ProcessConikMode(aPC_In,aPPC);
-   }
+			size_t aNbPts = aPC_Temp.NbPts();
+			for (size_t j = 0; j < aNbPts; j++)
+			{
+				// Add point to merged pointcloud only if visile from the camera
+				if (aCam->DegreeVisibility(aPC_Temp.KthPt(j)) > 0.0)
+				{
+					aPC_In.AddPt(aPC_Temp.KthPt(j));
+					// aPC_In.AddPtColored(aPC_Temp.KthPt(j), aPC_Temp.KthDegVis(j), aPC_Temp.KthSzLeaf(j));
+				}
+			}
+			StdOut() << "Read pointcloud: " << aCloudFiles[i] << std::endl;
+		}
 
-   return EXIT_SUCCESS;
+		StdOut() << "Updating density..." << std::endl;
+		aPC_In.UpdateFineDensity();
+		StdOut() << "Updating density ok: " << aPC_In.GetDensity() << std::endl;
+
+		StdOut() << "Processing albedo..." << std::endl;
+		// generate the sz of leaves
+		if (!aPC_In.LeavesIsInit())
+		{
+			StdOut() << ">> initializing leaves..." << std::endl;
+			aPC_In.SetLeavesUnit(0.05, SVP::Yes); // fix unit step,
+
+			StdOut() << ">> initializing leaves..." << std::endl;
+			for (size_t aKPt = 0; aKPt < aPC_In.NbPts(); aKPt++)
+			{
+				tREAL8 aRayLeaf = RandInInterval(mPropRayLeaf) * aPC_In.GroundSampling();
+				aPC_In.SetSzLeaves(aKPt, aRayLeaf);
+			}
+			StdOut() << ">> initializing leaves ok" << std::endl;
+		}
+
+		StdOut() << ">> leaves unit: " << aPC_In.GetLeavesUnit() << std::endl;
+
+		// mNbSampS = 2;
+
+		cAutoTimerSegm aTSInit(TimeSegm(), "Init");
+		tREAL8 aWeightInit = (mNbSampS == 0);
+		cProjPointCloud aPPC(aPC_In, aWeightInit);
+		cAutoTimerSegm aTSProj(TimeSegm(), "1Proj");
+
+		aPC_In.SetMulDegVis(1e4);
+		if (mNbSampS > 0)
+		{
+			cSampleSphere3D aSampS(mNbSampS);
+			StdOut() << ">> aSampS.NbSamples(): " << aSampS.NbSamples() << std::endl;
+			for (int aK = 0; aK < aSampS.NbSamples(); aK++)
+			{
+				cPt3dr aDir = VUnit(aSampS.KthPt(aK));
+				if (aDir.z() >= 0.2)
+				{
+					StdOut() << ">> aK: " << aK << std::endl;
+					std::unique_ptr<cCamOrthoC> aCam_albedo(aPPC.PPC_CamOrtho(aK, mProfIsZ0, aDir));
+					aPPC.ProcessOneProj(mSurResol_albedo, *aCam_albedo, 1.0, false, "", false, false);
+					StdOut() << "Still " << aSampS.NbSamples() - aK << "\n";
+				}
+			}
+		}
+		aPPC.ColorizePC();
+		StdOut() << "Processing albedo ok" << std::endl;
+
+		StdOut() << "Processing sun..." << std::endl;
+		// Colorize pointcloud accordint to sun
+		if (IsInit(&mSun))
+		{
+			// Convert sun to spherical coordinates
+			cPt3dr aDirSun = VertSphericalDir(mSun);
+
+			// Project pointcloud to image frame
+			std::unique_ptr<cCamOrthoC> aCam_sun(aPPC.PPC_CamOrtho(0, false, aDirSun));
+			aPPC.ProcessOneProj(mSurResolSun, *aCam_sun, mSun.z(), false, "", false, false);
+
+			aPPC.ColorizePC();
+		}
+		StdOut() << "Sun ok" << std::endl;
+
+		// generate synthetic image
+		StdOut() << "Processing image..." << std::endl;
+		ProcessConikModeWithOri(aNameIm, aPPC);
+		StdOut() << "Image ok" << std::endl;
+	}
+
+	return EXIT_SUCCESS;
 }
 
-void cAppli_MMVII_CloudImProj::GenerateSynthImage(cProjPointCloud& aPPC,const cSensorImage &aSensor,const cDemiConeVert* aDCV)
+void cAppli_MMVII_CloudImProj::GenerateSynthImage(cProjPointCloud& aPPC, const cSensorImage& aSensor, const cDemiConeVert* aDCV)
 {
-    std::string aDirIm = mPhProj.DPOrient().FullDirOut();
-    std::string aNameIm = aSensor.NameImage();
-    aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,aSensor,0.0,true,"",false,false,aDCV);
+	std::string aDirIm = mPhProj.DPOrient().FullDirOut();
+	std::string aNameIm = aSensor.NameImage();
 
-    cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud*mSensDownSample,aSensor);
+	StdOut() << ">> ProcessOneProj...\n";
+	int status = aPPC.ProcessOneProj(mSurResCloud * mSensDownSample, aSensor, 0.0, true, "", false, false, aDCV);
+	StdOut() << ">> ProcessOneProj ok\n";
 
-    aResIm.mImRadiom.DIm().ToFile(aDirIm+aNameIm);
-    aResIm.mImWeight.DIm().ToFile(aDirIm+aNameIm+"Weight-"+".tif");
-    aResIm.mImDepth.DIm().ToFile (aDirIm+aNameIm+"Depth-" +".tif");
+	StdOut() << ">> ProcessImage...\n";
+	if (status == 0)
+	{
+		cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud * mSensDownSample, aSensor);
+
+		aResIm.mImRadiom.DIm().ToFile(aDirIm + aNameIm);
+		aResIm.mImWeight.DIm().ToFile(aDirIm + aNameIm + "Weight-" + ".tif");
+		aResIm.mImDepth.DIm().ToFile(aDirIm + aNameIm + "Depth-" + ".tif");
+	}
+	StdOut() << ">> ProcessImage ok\n";
 }
 
-void cAppli_MMVII_CloudImProj::ProcessConikModeWithOri(cPointCloud  & aPC_In,cProjPointCloud& aPPC)
+void cAppli_MMVII_CloudImProj::ProcessConikModeWithOri(const std::string& aNameIm, cProjPointCloud& aPPC)
 {
-    aPPC.SetComputeProfMax(false);
+	aPPC.SetComputeProfMax(false);
 
-    std::string aDirIn = mPhProj.DPOrient().FullDirIn();
-    std::string aOriPrefix = cSensorImage::PrefixName() + "-" + cSensorCamPC::PrefixName() + "-";
-    std::string aOriSuffix = "." + GlobTaggedNameDefSerial();
+	cSensorCamPC* aCam = mPhProj.ReadCamPC(aNameIm, true, false);
 
-    // Get all CamPC orientation files from the input dir
-    auto aVOriFiles = GetFilesFromDir(aDirIn, AllocRegex(aOriPrefix + ".*"));
+	std::string aDirIm = mPhProj.DPOrient().FullDirOut();
 
-    // Extract image names and filter by mPatIm
-    tNameSelector aSel = AllocRegex(mPatIm);
-    std::vector<std::string> aSetNames;
-    for (const auto & aF : aVOriFiles)
-    {
-        std::string aImName = aF.substr(aOriPrefix.size(),
-                                        aF.size() - aOriPrefix.size() - aOriSuffix.size());
-        if (aSel.Match(aImName))
-            aSetNames.push_back(aImName);
-    }
+	cDemiConeVert aDCV(*aCam);
 
-    for (const auto & aNameIm : aSetNames)
-    {
-        cSensorCamPC * aCam = mPhProj.ReadCamPC(aNameIm,true,false);
+	StdOut() << ">> Generating synthetic image...\n";
+	GenerateSynthImage(aPPC, *aCam, &aDCV);
+	StdOut() << ">> Ssynthetic image ok...\n";
 
-        std::string aDirIm =  mPhProj.DPOrient().FullDirOut();
+	mPhProj.SaveCamPC(*aCam);
 
-        cDemiConeVert aDCV(*aCam);
-
-        GenerateSynthImage(aPPC,*aCam,&aDCV);
-
-        mPhProj.SaveCamPC(*aCam);
-
-        StdOut() << aNameIm << "\n";
-
-    }
-
-
+	StdOut() << aNameIm << "\n";
 }
 
-
-void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud  & aPC_In,cProjPointCloud& aPPC)
+void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud& aPC_In, cProjPointCloud& aPPC)
 {
-    aPPC.SetComputeProfMax(false);
-    //cBox3dr   aBox3 = aPC_In.Box3d();
-    cBox2dr   aBox2Glob = aPC_In.Box2d();
-    cPt3dr aCenter = aPC_In.Centroid();
+	aPPC.SetComputeProfMax(false);
+	// cBox3dr   aBox3 = aPC_In.Box3d();
+	cBox2dr aBox2Glob = aPC_In.Box2d();
+	cPt3dr aCenter = aPC_In.Centroid();
 
-    tREAL8 aFocal = Norm2(mSzIm) / mFOV ;
-    cPt2dr aPP (mSzIm.x()/2.0,mSzIm.y()/2.0);
-    mCalib = cPerspCamIntrCalib::SimpleCalib
-            (
-                "Cam-" + mPrefixImGen,
-                eProjPC::eStenope,
-                mSzIm,  // sz
-                TP3z(aPP,aFocal),  // PP + F
-                cPt3di(0,0,0)  // degree
-            );
+	tREAL8 aFocal = Norm2(mSzIm) / mFOV;
+	cPt2dr aPP(mSzIm.x() / 2.0, mSzIm.y() / 2.0);
+	mCalib = cPerspCamIntrCalib::SimpleCalib("Cam-" + mPrefixImGen, eProjPC::eStenope,
+											 mSzIm,				// sz
+											 TP3z(aPP, aFocal), // PP + F
+											 cPt3di(0, 0, 0)	// degree
+	);
 
-   // tREAL8 aTgt2 = SqN2(aPP) / Square(aFocal);
+	// tREAL8 aTgt2 = SqN2(aPP) / Square(aFocal);
 
-    tREAL8  aResol = aPC_In.GroundSampling() *  mSensDownSample;
+	tREAL8 aResol = aPC_In.GroundSampling() * mSensDownSample;
 
-    tREAL8  aHeight = aResol * aFocal;
-    tREAL8  aZ     = aCenter.z() + aHeight;
-    cPt2dr aGFootP = ToR(mSzIm) * aResol;   // Ground Foot Print
-    cPt2dr aDeltaIm = MulCByC(aGFootP,cPt2dr(1.0,1.0) - mOverLap);
+	tREAL8 aHeight = aResol * aFocal;
+	tREAL8 aZ = aCenter.z() + aHeight;
+	cPt2dr aGFootP = ToR(mSzIm) * aResol; // Ground Foot Print
+	cPt2dr aDeltaIm = MulCByC(aGFootP, cPt2dr(1.0, 1.0) - mOverLap);
 
-    cPt2di aNb = Pt_round_up(DivCByC(aBox2Glob.Sz(),aDeltaIm*2.0));
+	cPt2di aNb = Pt_round_up(DivCByC(aBox2Glob.Sz(), aDeltaIm * 2.0));
 
+	cRect2 aRect(-aNb, aNb + cPt2di(1, 1));
 
-    cRect2  aRect(-aNb,aNb+cPt2di(1,1));
+	for (const auto& aPix : aRect)
+	{
+		cPt2dr aC2 = aBox2Glob.Middle() + MulCByC(ToR(aPix), aDeltaIm);
+		cBox2dr aBoxLoc(aC2 - aGFootP / 2.0, aC2 + aGFootP / 2.0);
+		cBox2dr aBoxI = aBoxLoc.Inter(aBox2Glob);
+		tREAL8 aRatio = aBoxI.NbElem() / aBoxLoc.NbElem();
 
-    for (const auto & aPix : aRect)
-    {
-        cPt2dr aC2 = aBox2Glob.Middle() + MulCByC(ToR(aPix),aDeltaIm);
-        cBox2dr aBoxLoc(aC2-aGFootP/2.0,aC2+aGFootP/2.0);
-        cBox2dr aBoxI = aBoxLoc.Inter(aBox2Glob);
-        tREAL8 aRatio = aBoxI.NbElem() / aBoxLoc.NbElem();
+		if (aRatio > mRInsideMin)
+		{
+			cPt3dr aC3(aC2.x(), aC2.y(), aZ);
+			tPoseR aPose(aC3, tRotR::RotFromCanonicalAxes("i-j-k"));
+			std::string aPrefix = mPrefixImGen + ToStr(aPix.x() + aNb.x()) + "-" + ToStr(aPix.y() + aNb.y());
 
-        if (aRatio > mRInsideMin)
-        {
-            cPt3dr aC3(aC2.x(),aC2.y(),aZ);
-            tPoseR aPose(aC3,tRotR::RotFromCanonicalAxes("i-j-k"));
-            std::string aPrefix =  mPrefixImGen + ToStr(aPix.x()+aNb.x()) + "-" +  ToStr(aPix.y()+aNb.y());
+			std::string aNameImage = aPrefix + "-Radiom-" + ".tif";
+			cSensorCamPC aCam(aNameImage, aPose, mCalib);
 
-            std::string aNameImage = aPrefix +"-Radiom-"+".tif";
-            cSensorCamPC aCam(aNameImage,aPose,mCalib);
+			std::string aDirIm = mPhProj.DPOrient().FullDirOut();
 
+			// cDemiConeVert aDCV(aC3,aTgt2);
+			cDemiConeVert aDCV(aCam);
 
-             std::string aDirIm =  mPhProj.DPOrient().FullDirOut();
+			GenerateSynthImage(aPPC, aCam, &aDCV);
 
-             //cDemiConeVert aDCV(aC3,aTgt2);
-             cDemiConeVert aDCV(aCam);
+			mPhProj.SaveCamPC(aCam);
 
-            GenerateSynthImage(aPPC,aCam,&aDCV);
+			StdOut() << aNameImage << "\n";
+		}
+	}
+	// mOverLap
+	StdOut() << " RESOL= " << aResol << " H=" << aHeight << " aNb=" << aNb << " DELTAIM=" << aDeltaIm << "\n";
+	// aPC_In.Centroid()
 
-            mPhProj.SaveCamPC(aCam);
-
-            StdOut() << aNameImage << "\n";
-        }
-
-    }
-    //mOverLap
-    StdOut() << " RESOL= " << aResol << " H=" << aHeight << " aNb=" << aNb  << " DELTAIM=" << aDeltaIm << "\n";
-            //aPC_In.Centroid()
-
-    delete mCalib;
-
+	delete mCalib;
 }
 
-
-void cAppli_MMVII_CloudImProj::ProcessOrthoMode(cPointCloud  & aPC_In,cProjPointCloud& aPPC)
+void cAppli_MMVII_CloudImProj::ProcessOrthoMode(cPointCloud& aPC_In, cProjPointCloud& aPPC)
 {
-    // Prof is Z0 is required for depth to have the same meaning in both image for paralax compute
-    bool mProfIsZ0 = true;
+	// Prof is Z0 is required for depth to have the same meaning in both image for paralax compute
+	bool mProfIsZ0 = true;
 
+	//   int aNbPos = 1;
+	// tREAL8 aSensDownSample = 2.0;
+	// tREAL8 aSurResCloud = 2.0;
+	// tREAL8 aSousResIm = 0.5;
 
-//   int aNbPos = 1;
-  // tREAL8 aSensDownSample = 2.0;
-  // tREAL8 aSurResCloud = 2.0;
-   // tREAL8 aSousResIm = 0.5;
+	// [Phi,Nb,Teta1,Teta2?=-T1,NbE?=1], [Phi,Nb,Teta1,Teta2?=-T1,NbE?=1],
+	tREAL8 aPhi = mParamP.at(0) * M_PI / 2;
+	int aNb = round_ni(mParamP.at(1));
+	tREAL8 aTeta1 = mParamP.at(2);
+	tREAL8 aTeta2 = GetDef(mParamP, 3, -aTeta1);
 
-   // [Phi,Nb,Teta1,Teta2?=-T1,NbE?=1], [Phi,Nb,Teta1,Teta2?=-T1,NbE?=1],
-   tREAL8 aPhi = mParamP.at(0) * M_PI/2;
-   int    aNb = round_ni(mParamP.at(1));
-   tREAL8 aTeta1 = mParamP.at(2);
-   tREAL8 aTeta2 = GetDef(mParamP,3,-aTeta1);
+	// Compute the orthographic camera in aVCamO, we do it in advance for epip
+	std::vector<cCamOrthoC*> aVCamO;
+	for (int aKT = 0; aKT <= aNb; aKT++)
+	{
+		tREAL8 aTeta = (aTeta1 * (aNb - aKT) + aTeta2 * aKT) / aNb;
+		aTeta = M_PI / 2 + aTeta;
+		cPt3dr aAxeK = spher2cart(cPt3dr(aPhi, aTeta, 1.0));
+		cPt3dr aAxeI = spher2cart(cPt3dr(aPhi, aTeta + 0.5, 1.0));
+		cPt3dr aAxeJ = VUnit(aAxeK ^ aAxeI);
+		aAxeI = VUnit(aAxeJ ^ aAxeK);
+		tRotR aRot(aAxeI, aAxeJ, aAxeK, false);
 
-   // Compute the orthographic camera in aVCamO, we do it in advance for epip
-   std::vector<cCamOrthoC *> aVCamO;
-   for (int aKT=0 ; aKT<= aNb ; aKT++)
-   {
-       tREAL8 aTeta =  (aTeta1*(aNb-aKT) + aTeta2*aKT) / aNb;
-       aTeta = M_PI/2 + aTeta;
-       cPt3dr aAxeK = spher2cart(cPt3dr(aPhi,aTeta,1.0));
-       cPt3dr aAxeI = spher2cart(cPt3dr(aPhi,aTeta+0.5,1.0));
-       cPt3dr aAxeJ = VUnit(aAxeK ^ aAxeI);
-       aAxeI = VUnit(aAxeJ^aAxeK);
-       tRotR aRot(aAxeI,aAxeJ,aAxeK,false);
+		cCamOrthoC* aCamO = aPPC.PPC_CamOrtho(aKT, mProfIsZ0, aRot, mSensDownSample);
+		aVCamO.push_back(aCamO);
+	}
 
+	typedef std::pair<cPt2di, cIm2D<tREAL4>> tPPax;
+	std::vector<cIm2D<tU_INT1>> aVImRad;
+	std::vector<tPPax> aVPPax;
+	std::string aDir = mPhProj.DirVisuAppli();
+	// use them to generate images
+	for (size_t aKC1 = 0; aKC1 < aVCamO.size(); aKC1++)
+	{
+		cCamOrthoC* aCam1 = aVCamO.at(aKC1);
 
-       cCamOrthoC* aCamO = aPPC.PPC_CamOrtho(aKT,mProfIsZ0,aRot,mSensDownSample);
-       aVCamO.push_back(aCamO);
-   }
+		if (mShow)
+			StdOut() << "Doing image : " << aCam1->NameImage() << " SzPixInit=" << aCam1->Sz() << "\n";
+		aPPC.ProcessOneProj(mSurResCloud * mSensDownSample, *aCam1, 0.0, true, "", false, false); // HERE
+		cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud * mSensDownSample, *aCam1);
 
-   typedef std::pair<cPt2di,cIm2D<tREAL4>> tPPax;
-   std::vector<cIm2D<tU_INT1>> aVImRad;
-   std::vector<tPPax>          aVPPax;
-   std::string aDir = mPhProj.DirVisuAppli();
-   // use them to generate images
-   for (size_t aKC1=0 ; aKC1<aVCamO.size() ; aKC1++)
-   {
-       cCamOrthoC* aCam1 =  aVCamO.at(aKC1);
+		std::string aPost = aCam1->NameImage() + ".tif";
 
-       if (mShow)
-           StdOut() << "Doing image : " << aCam1->NameImage() << " SzPixInit=" << aCam1->Sz() << "\n";
-       aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,*aCam1,0.0,true,"",false,false); // HERE
-       cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud*mSensDownSample,*aCam1);
+		aResIm.mImRadiom.DIm().ToFile(aDir + mPrefixOut + "Radiom" + aPost);
+		if (mMakeImRectified)
+			aVImRad.push_back(aResIm.mImRadiom);
 
-      std::string aPost =aCam1->NameImage()+".tif";
+		aResIm.mImWeight.DIm().ToFile(aDir + mPrefixOut + "Weight" + aPost);
 
-      aResIm.mImRadiom.DIm().ToFile(aDir+mPrefixOut+ "Radiom"+aPost);
-      if (mMakeImRectified)
-          aVImRad.push_back(aResIm.mImRadiom);
+		if (mSaveImDepth)
+		{
+			aResIm.mImDepth.DIm().ToFile(aDir + mPrefixOut + "Depth" + aPost);
+		}
 
-      aResIm.mImWeight.DIm().ToFile(aDir+mPrefixOut+ "Weight"+aPost);
+		// compute the vector images of pax
+		for (const auto aDeltaPx : mVDeltaPax)
+		{
+			// cCamOrthoC * aCam2 = aVCamO.at(aKPax);
+			int aKC2 = (int)aKC1 + aDeltaPx;
+			if ((aKC2 >= 0) && (aKC2 < int(aVCamO.size())))
+			{
+				if (mShow)
+					StdOut() << "  * doing pair : " << aCam1->NameImage() << " " << aCam1->NameImage() << "\n";
+				tREAL8 aMaxPxTrsv;
+				cCamOrthoC* aCam2 = aVCamO.at(aKC2);
+				cIm2D<tREAL4> aImPax = aCam1->ImageDepth2ImagePax(aResIm.mImDepth, *aCam2, &aMaxPxTrsv);
 
-      if (mSaveImDepth)
-      {
-         aResIm.mImDepth.DIm().ToFile(aDir+mPrefixOut+ "Depth"+aPost);
-      }
+				/* StdOut()  << "KKPax " << aCam1->NameImage()
+						   << aCam2->NameImage()
+						   << " " << aMaxPxTrsv << "\n";*/
 
+				aImPax.DIm().ToFile(aDir + mPrefixOut + "Px" + aCam1->NameImage() + "-" + aCam2->NameImage() + ".tif");
 
-      // compute the vector images of pax
-      for (const auto aDeltaPx : mVDeltaPax)
-      {
-          // cCamOrthoC * aCam2 = aVCamO.at(aKPax);
-          int aKC2 = (int)aKC1 + aDeltaPx;
-          if ((aKC2>=0)&& (aKC2<int(aVCamO.size())))
-          {
-              if (mShow)
-                  StdOut() << "  * doing pair : " << aCam1->NameImage() << " " << aCam1->NameImage() << "\n";
-              tREAL8 aMaxPxTrsv;
-              cCamOrthoC * aCam2 = aVCamO.at(aKC2);
-              cIm2D<tREAL4> aImPax =  aCam1->ImageDepth2ImagePax(aResIm.mImDepth,*aCam2,&aMaxPxTrsv);
+				if (mMakeImRectified)
+				{
+					aVPPax.push_back(tPPax(cPt2di(aKC1, aKC2), aImPax));
+				}
+			}
+		}
+	}
 
-             /* StdOut()  << "KKPax " << aCam1->NameImage()
-                        << aCam2->NameImage()
-                        << " " << aMaxPxTrsv << "\n";*/
+	if (mMakeImRectified)
+	{
+		auto anInterp = new cTabulatedDiffInterpolator(cSinCApodInterpolator(5.0, 5.0));
 
-              aImPax.DIm().ToFile(aDir+mPrefixOut+"Px"+aCam1->NameImage()+"-"+aCam2->NameImage()+".tif");
+		for (const auto& [aPt, aImPax] : aVPPax)
+		{
+			cCamOrthoC* aCam1 = aVCamO.at(aPt.x());
+			cCamOrthoC* aCam2 = aVCamO.at(aPt.y());
 
-              if (mMakeImRectified)
-              {
-                  aVPPax.push_back(tPPax(cPt2di(aKC1,aKC2),aImPax));
-              }
-          }
-      }
-   }
+			const cDataIm2D<tU_INT1>& aDI1 = aVImRad.at(aPt.x()).DIm();
+			const cDataIm2D<tU_INT1>& aDI2 = aVImRad.at(aPt.y()).DIm();
+			const cDataIm2D<tREAL4>& aDPax = aImPax.DIm();
+			cRGBImage aImSuperp(aDI1.Sz());
 
-   if (mMakeImRectified)
-   {
-       auto anInterp = new   cTabulatedDiffInterpolator(cSinCApodInterpolator(5.0,5.0));
+			for (const auto& aPix1 : aDI1)
+			{
+				tREAL8 aR1 = aDI1.GetV(aPix1);
+				cPt2dr aPix2 = ToR(aPix1) + cPt2dr(aDPax.GetV(aPix1), 0.0);
+				tREAL8 aR2 = 0.0;
+				if (aDI2.InsideInterpolator(*anInterp, aPix2))
+					aR2 = aDI2.GetValueInterpol(*anInterp, aPix2);
+				aImSuperp.SetRGBPix(aPix1, aR1, aR2, aR2);
+			}
 
-       for (const auto & [aPt,aImPax] : aVPPax)
-       {
-           cCamOrthoC* aCam1 =  aVCamO.at(aPt.x());
-           cCamOrthoC* aCam2 =  aVCamO.at(aPt.y());
+			aImSuperp.ToFile(aDir + mPrefixOut + "Superp" + aCam1->NameImage() + "-" + aCam2->NameImage() + ".tif");
+			StdOut() << " SZ=" << aDI1.Sz() << aDI2.Sz() << "\n";
+		}
+		delete anInterp;
+	}
 
-           const cDataIm2D<tU_INT1> & aDI1 = aVImRad.at(aPt.x()).DIm();
-           const cDataIm2D<tU_INT1> & aDI2 = aVImRad.at(aPt.y()).DIm();
-           const cDataIm2D<tREAL4> & aDPax = aImPax.DIm();
-           cRGBImage aImSuperp(aDI1.Sz());
+	// We test the "perfect" epipolarity of the geometry ...
+	for (size_t aKC1 = 0; aKC1 < aVCamO.size(); aKC1++)
+	{
+		for (size_t aKC2 = aKC1 + 1; aKC2 < aVCamO.size(); aKC2++)
+		{
+			cBox3dr aBox3 = aPC_In.Box3d();
+			for (int aKPt = 0; aKPt < 5; aKPt++)
+			{
+				cPt3dr aPt = aBox3.GeneratePointInside();
+				cPt2dr aPIm1 = aVCamO.at(aKC1)->Ground2Image(aPt);
+				cPt2dr aPIm2 = aVCamO.at(aKC2)->Ground2Image(aPt);
 
-           for (const auto & aPix1 : aDI1)
-           {
-               tREAL8 aR1 = aDI1.GetV(aPix1);
-               cPt2dr aPix2 = ToR(aPix1) + cPt2dr(aDPax.GetV(aPix1),0.0);
-               tREAL8 aR2 = 0.0;
-               if (aDI2.InsideInterpolator(*anInterp,aPix2))
-                   aR2 = aDI2.GetValueInterpol(*anInterp,aPix2);
-               aImSuperp.SetRGBPix(aPix1,aR1,aR2,aR2);
-           }
+				tREAL8 aDY = std::abs(aPIm1.y() - aPIm2.y());
+				MMVII_INTERNAL_ASSERT_always(aDY < 1e-5, "Epip in CloudMMVIIImProj");
+			}
+		}
+	}
+	DeleteAllAndClear(aVCamO);
 
-           aImSuperp.ToFile(aDir+mPrefixOut+"Superp" +aCam1->NameImage()+"-"+aCam2->NameImage() + ".tif");
-           StdOut() << " SZ=" << aDI1.Sz()  << aDI2.Sz() << "\n";
-       }
-       delete anInterp;
-   }
-
-   // We test the "perfect" epipolarity of the geometry ...
-   for (size_t aKC1=0 ; aKC1<aVCamO.size() ; aKC1++)
-   {
-       for (size_t aKC2=aKC1+1 ; aKC2<aVCamO.size() ; aKC2++)
-       {
-           cBox3dr   aBox3 = aPC_In.Box3d();
-           for (int aKPt =0 ; aKPt < 5 ; aKPt++)
-           {
-               cPt3dr aPt = aBox3.GeneratePointInside();
-               cPt2dr aPIm1 = aVCamO.at(aKC1)->Ground2Image(aPt);
-               cPt2dr aPIm2 = aVCamO.at(aKC2)->Ground2Image(aPt);
-
-               tREAL8 aDY = std::abs(aPIm1.y()-aPIm2.y());
-               MMVII_INTERNAL_ASSERT_always(aDY<1e-5,"Epip in CloudMMVIIImProj");
-           }
-       }
-   }
-   DeleteAllAndClear(aVCamO);
-
-   StdOut() << "NbLeaves "<< aPC_In.LeavesIsInit () << "\n";
-
+	StdOut() << "NbLeaves " << aPC_In.LeavesIsInit() << "\n";
 }
 
-     /* =============================================== */
-     /*                       MMVII                     */
-     /* =============================================== */
+/* =============================================== */
+/*                       MMVII                     */
+/* =============================================== */
 
-tMMVII_UnikPApli Alloc_MMVII_GT_EpipOrthoC(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec)
+tMMVII_UnikPApli Alloc_MMVII_GT_EpipOrthoC(const std::vector<std::string>& aVArgs, const cSpecMMVII_Appli& aSpec)
 {
-   return tMMVII_UnikPApli(new cAppli_MMVII_CloudImProj(aVArgs,aSpec,0));
+	return tMMVII_UnikPApli(new cAppli_MMVII_CloudImProj(aVArgs, aSpec, 0));
 }
 
-cSpecMMVII_Appli  TheSpec_MMVII_GT_EpipOrthoC
-(
-     "CloudMMVII_GT_EpipOrthoC",
-      Alloc_MMVII_GT_EpipOrthoC,
-      "Generate Epipolar Ground Truth of Ortho-Centric camera",
-      {eApF::Cloud,eApF::Simul},
-      {eApDT::MMVIICloud},
-      {eApDT::Image},
-      __FILE__
-);
+cSpecMMVII_Appli TheSpec_MMVII_GT_EpipOrthoC("CloudMMVII_GT_EpipOrthoC", Alloc_MMVII_GT_EpipOrthoC,
+											 "Generate Epipolar Ground Truth of Ortho-Centric camera", {eApF::Cloud, eApF::Simul},
+											 {eApDT::MMVIICloud}, {eApDT::Image}, __FILE__);
 
-tMMVII_UnikPApli Alloc_MMVII_GT_MultiView(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec)
+tMMVII_UnikPApli Alloc_MMVII_GT_MultiView(const std::vector<std::string>& aVArgs, const cSpecMMVII_Appli& aSpec)
 {
-   return tMMVII_UnikPApli(new cAppli_MMVII_CloudImProj(aVArgs,aSpec,1));
+	return tMMVII_UnikPApli(new cAppli_MMVII_CloudImProj(aVArgs, aSpec, 1));
 }
 
-cSpecMMVII_Appli  TheSpec_MMVII_GT_MultiView
-(
-     "CloudMMVII_GT_MultiView",
-      Alloc_MMVII_GT_MultiView,
-      "Generate Multi-view Ground Truth with conik camera",
-      {eApF::Cloud,eApF::Simul},
-      {eApDT::MMVIICloud},
-      {eApDT::Image,eApDT::Orient},
-      __FILE__
-);
+cSpecMMVII_Appli TheSpec_MMVII_GT_MultiView("CloudMMVII_GT_MultiView", Alloc_MMVII_GT_MultiView,
+											"Generate Multi-view Ground Truth with conik camera", {eApF::Cloud, eApF::Simul},
+											{eApDT::MMVIICloud}, {eApDT::Image, eApDT::Orient}, __FILE__);
 
-
-};
+}; // namespace MMVII
