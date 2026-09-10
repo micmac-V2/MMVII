@@ -116,8 +116,7 @@ cAppli_MMVII_CloudImProj::cAppli_MMVII_CloudImProj(const std::vector<std::string
 	  //   mBSurH            (0.1,0.2),
 	  //  mFocal            (-1),
 	  mCalib(nullptr), mVDeltaPax{-1, 1}, mShow(false), mSensDownSample(2.0), mSurResCloud(2.0), mPropRayLeaf(1.0, 1.0),
-	  mSurResol_albedo(2.0), mNbSampS(5), mShowMsg(false), mExportIm(false), mProfIsZ0(false), mIMCol(0),
-	  mModeCol(eModeCloudCol::eColShade)
+	  mSurResol_albedo(2.0), mNbSampS(5)
 
 {
 	FakeUseIt(mResolOrthoC);
