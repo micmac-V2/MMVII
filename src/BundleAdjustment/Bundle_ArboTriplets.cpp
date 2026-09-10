@@ -432,7 +432,6 @@ tREAL8 cBA_ArboTriplets::RobustResidualScale(size_t aNbSample,tREAL8 * aPtrFracI
 
                 //  An observation that cannot be seen is the STRONGEST evidence that the node is
                 //  badly initialised.  Dropping it made this statistic blind to exactly the case
-                //  it exists for -> saturate at 90 deg instead (sin folds back beyond that).
                 aNbSampled++;
                 if (aCam->DegreeVisibility(aP3D) > 0)
                 {
@@ -442,19 +441,23 @@ tREAL8 cBA_ArboTriplets::RobustResidualScale(size_t aNbSample,tREAL8 * aPtrFracI
                 else
                 {
                     aNbInvis++;
-                    aVRes.push_back(aF);          // saturated
+                 //   aVRes.push_back(aF);          // saturated
                 }
 
             }
         }
     }
 
-    if (aPtrFracInvis)
-        *aPtrFracInvis = (aNbSampled==0) ? 0.0 : (tREAL8)aNbInvis/(tREAL8)aNbSampled;
-    if (aVRes.size() < 50) return -1; // not enough data => keep nominal weighting
+    const tREAL8 aFracInvis = (aNbSampled==0) ? 0.0 : (tREAL8)aNbInvis/(tREAL8)aNbSampled;
 
+    if (aPtrFracInvis) *aPtrFracInvis = aFracInvis;
+    if ((aNbSampled < 50) || (aVRes.size() < 20)) return -1;  // not enough data => keep nominal weighting
 
-    return NC_KthVal(aVRes,0.75);  // quantile, in pixels
+    // taking the 75 quantile of a 'reduced' population (population - invisible points)
+    // is actually lowering the effective quantile; thus, modify the quantile to compensate for that
+    const tREAL8 aQ = std::min(0.95, 0.75/(1.0-aFracInvis));
+
+    return NC_KthVal(aVRes,aQ);  // quantile, in pixels
 
 }
 
@@ -481,6 +484,8 @@ void cBA_ArboTriplets::AdaptWeightingToData()
     if (mResScale<=0) return;
 
     static constexpr tREAL8 TheMaxLoosening = 50.0;
+    static constexpr int TheMoreIterFracInvis = 20;
+    static constexpr int TheMaxNbIter = 40;
 
     //  aMult is an absolute residual scale in pixels
     const tREAL8 aMultRes = mResScale;
@@ -491,6 +496,13 @@ void cBA_ArboTriplets::AdaptWeightingToData()
     if (aMult > 2.0)
         mNbIter += (int)std::round(TheIterPerOctave*std::log2(aMult));
 
+    // more iterations if many points are invisible
+    mNbIter += (int)std::round( aFracInvis*TheMoreIterFracInvis );
+
+    // capt the number of iterations
+    mNbIter = std::min(TheMaxNbIter, mNbIter);
+
+    // set SigmaAtt and Thresh ranges accoridngly
     SetLooseningRanges(aMult);
 
     StdOutLock::lock();
