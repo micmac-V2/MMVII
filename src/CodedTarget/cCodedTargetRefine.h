@@ -31,7 +31,7 @@ namespace MMVII
     {
     public:
         typedef  cDataIm2D<Type> tDIm;
-        cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1>& aMaskDIm, cPixBox<2> aBBox);
+        cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1>& aMaskDIm, cPixBox<2> aBBox, tU_INT1 aDiv=1);
         cPt1dr Value(const cPt2dr& aPt) const override;//-> correl score from aPt position
     private:
         tDIm& mThDIm;//-> theoretical image of the target generated from detected deformation
@@ -39,6 +39,7 @@ namespace MMVII
         tDIm& mDMask;//-> mask for correlation computation
         cPixBox<2> mBBox;//-> bbox of predicted target wrt global image
         cPt2dr mP0;//-> initial bbox up corner to compute translation
+        tU_INT1 mUSampleWSz;//-> for correlation computation parse each pixel with 1/mDiv step
     };
 
     /**
@@ -82,6 +83,7 @@ namespace MMVII
         cPatch(tIm& aGlobIm, cPixBBox aGlobBBox);
         tIm Patch();
         void SaveIm(std::string aDir, bool isOk);
+        bool CheckSz(cPt2di aSz);
         cPixBox<2> BBox();
     private:
         tIm& mGIm;
@@ -109,5 +111,14 @@ namespace MMVII
     private:
         cPixBox<2>& mIBox;
         tAff2Dr mMap;
+    };
+
+    class cPixSub
+    {
+    public:
+        cPixSub(cPt2di aC, tU_INT1 a);
+        std::vector<cPt2dr> mVCs;
+    private:
+        tREAL8 mDiv;
     };
 }

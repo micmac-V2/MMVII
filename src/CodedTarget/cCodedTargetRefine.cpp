@@ -378,6 +378,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
     private:
         //------ MMVII mandatory/usual stuff
         int Exe() override;
+        int ExeTest();
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
         cPhotogrammetricProject mPhProj;
@@ -398,9 +399,14 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         bool mExpPred;//-> export predicted measurement for comparison
         bool mExpStd;
         int mMaskB;//-> size of border to exclude using mask
-        //tU_INT1                             mL1Lim;     //-> L1 limit to consider outliers from ransac TF computation
-        //int                                 mMaskDil;   //-> inlier mask dilatation (wrt Ref image)
         cAugCdt* mAugCdt;//-> current augmented coded target when using heuristik correlation
+        int mUSampleWSz;//-> window size for image upsample
+        cPt2di mMinPatchSz;//-> minimal size of a target image
+        std::string mIMesFinPat;//-> pattern for input measurements to refine
+        std::string mOutSuf;//-> suffix for output measurements
+        bool mTest;//-> ExeTest execution
+        //int                                 mMaskDil;   //-> inlier mask dilatation (wrt Ref image)
+        //tU_INT1                             mL1Lim;     //-> L1 limit to consider outliers from ransac TF computation
         //std::string mRefine;//-> refine method to choose (corr, lsm)
         //bool mMissedOnly;//-> only refine missed ctd
 
@@ -428,13 +434,17 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         return anArgOpt
                << mPhProj.DPGndPt3D().ArgDirInOpt("AugCdt","targets network augmentation")
                << mPhProj.DPOrient().ArgDirInOpt("AugOri","camera absolute orientation -> mandatory if using network augmentation")
-               << mPhProj.DPGndPt2D().ArgDirOutOptWithDef("Refine-Fin", "OutMes", "targets 2D refined measurements")
+               //<< mPhProj.DPGndPt2D().ArgDirOutOptWithDef("Refine-Fin", "OutMes", "targets 2D refined measurements")
+               << AOpt2007(mOutSuf, "OutSuf", "ouput suffix for targets 2D refined measurements")
                << AOpt2007(mExpPred, "ExpPred", "export predicted image measurements")
                << AOpt2007(mExpStd, "ExpStd", "export standard detections")
                << AOpt2007(mOKCorr,"OKCorr", "validation threshold for target pattern correlation", {eTA2007::HDV})
                << AOpt2007(mShow,"Show","Show useful details", {eTA2007::HDV})
                << AOpt2007(mVisu,"Visu","Save visualisation of results", {eTA2007::HDV})
                << AOpt2007(mMaskB,"MaskBorder","Value of border size to generate mask wrt target model", {eTA2007::HDV})
+               << AOpt2007(mUSampleWSz,"USampleWSz", "upsample target image for correlation 1 -> 1/3, 2 -> 1/5 ...", {eTA2007::HDV})
+               << AOpt2007(mIMesFinPat,"IMesFinPat", "Pattern to refine input image measurements")
+               << AOpt2007(mTest,"TEST", "test execution")
             //<< AOpt2007(mMaskDil,"MaskDil","Dilate Ref image to filter inliers", {eTA2007::HDV})
                //<< AOpt2007(mRefine,"Refine","H-euristik (=cross-correl),G-radient(=LSM)")
                //<< AOpt2007(mMissedOnly,"MissedOnly","Only process undetected targets")
@@ -453,7 +463,12 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         mExpPred (false),
         mExpStd (true),
         mMaskB (0),
-        mAugCdt (nullptr)
+        mAugCdt (nullptr),
+        mUSampleWSz (0),
+        mMinPatchSz (10,10),
+        mIMesFinPat ("aaa"),
+        mOutSuf (""),
+        mTest (false)
     //mRefine         (""),
         //mMissedOnly     (false)
     {
@@ -477,9 +492,9 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         aStrV == "J" ? aIm.ToJpgFileDeZoom(aNameV, 1, {"QUALITY=90"}) : aIm.ToFile(aNameV);
     }
 
-
     int cAppli_CodedTargetRefine::Exe()
     {
+        if (mTest) return ExeTest();
         //----- PhProj primitives
         mPhProj.FinishInit();
         std::vector<std::string> aVIm = VectMainSet(0);
@@ -490,6 +505,8 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
             ReadFromFile(mSetAugCdt, cSetOfAugCdt::NameFile(mPhProj, true));
             for (auto& aCdt : mSetAugCdt.Cdts()) aCdt.SetFSpec(mFSpec);
         }
+        //----- output directories
+        std::string aOutMes = mPhProj.DPGndPt2D().DirIn() + (mOutSuf == "" ? "" : "-" + mOutSuf);
 
         //----- single image process
         for (const auto& aIm : aVIm)
@@ -502,6 +519,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
             cSetMesPtOf1Im aSetPred(mGImN);//-> to save predicted image measurements
             cSetMesPtOf1Im aSetFin(mGImN);//-> to save final image measurements
             tU_INT1 aNbNew = 0;
+            tNameSelector aSel = AllocRegex(mIMesFinPat);
 
             StdOut() << "(" << mGImN << "):";
             if (mShow) StdOut() << "\ncdt\t | cscore\t | ok\t | pred. centre\t\t | fin. centre\n";
@@ -515,7 +533,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
             for (const auto& aCdt : mFSpec->Encodings())
             {
                 bool isOk = false;
-                if (mSetImMes.NameHasMeasure(aCdt.Name()))//-> normally detected
+                if (mSetImMes.NameHasMeasure(aCdt.Name()) && !aSel.Match(aCdt.Name()))//-> normally detected
                 {
                     isOk = true;
                     if (mExpStd) aSetFin.AddMeasure(mSetImMes.MeasuresOfName(aCdt.Name()));
@@ -545,11 +563,10 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                 }
             }
             StdOut() << " -> " << std::to_string(aNbNew) << " new measures.\n";
-            mPhProj.SaveMeasureIm(aSetFin);//-> ok default dir out seems to be used
-            std::string aDirOut = mPhProj.DPGndPt2D().DirOut();
-            mPhProj.DPGndPt2D().SetDirOut("Refine-Pred");//-> change default dir out
+            mPhProj.DPGndPt2D().SetDirOut(aOutMes + "-FINE");//-> change default dir out
+            mPhProj.SaveMeasureIm(aSetFin);
+            mPhProj.DPGndPt2D().SetDirOut(aOutMes + "-PRED");//-> change default dir out
             mPhProj.SaveMeasureIm(aSetPred);
-            mPhProj.DPGndPt2D().SetDirOut(aDirOut);
             /*
             for (const auto& aEll : aVEll)
             {
@@ -752,7 +769,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
             cPixBox<2> aIBox(aRef.DIm());//-> box of target pattern dimensions
 
             cSampler aSampler(aRef, aIBox, aCdt.mRef2Glob);//->
-            auto [aTpl, aP0] = aSampler.Sample();//-> P0 is top left corner of template image wrt to global image
+            auto [aTpl, aP0] = aSampler.Sample();//-> P0 is top left corner of bbox of template image wrt to global image
             tDIm* aDTpl = &aTpl.DIm();
             cPixBox<2> aOBox(aP0, aP0 + aDTpl->Sz());
 
@@ -762,12 +779,20 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 
             cPatch aPatch(mGIm, cPixBox<2>(aP0, aP0 + aDTpl->Sz()));
 
-            cOptCorrelThIm<tU_INT1> aOptMap(*aDTpl, *mDGIm, aMask.Im().DIm(), aPatch.BBox());
-            cOptimByStep aOpt(aOptMap, false, 2.0);//-> 2.0 = max distance from original point
+            if (aPatch.CheckSz(mMinPatchSz))
+            {
+                cOptCorrelThIm<tU_INT1> aOptMap(*aDTpl, *mDGIm, aMask.Im().DIm(), aPatch.BBox(), mUSampleWSz);
+                cOptimByStep aOpt(aOptMap, false, 2.0);//-> 2.0 = max distance from original point
 
-            auto [aV, aDelta] = aOpt.Optim(ToR(aP0), 1, 1e-5, .1);
+                auto [aV, aP1] = aOpt.Optim(ToR(aP0), 2, 1e-5, .1);//-> we find a shift between original P0 and final P0 (=P1)
 
-            if (aV >= mOKCorr) isOk = true;
+                if (aV >= mOKCorr) isOk = true;
+
+                aRes = aCdt.mRef2Glob.Value(aCdt.Center()) - (ToR(aP0) - aP1);//-> report calculated shift on predicted center
+                aVal = aV;
+            } else {
+                aRes = aCdt.mRef2Glob.Value(aCdt.Center());
+            }
 
             if (mVisu)
             {
@@ -775,12 +800,15 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                 aDTpl->ToFile(mPhProj.DirVisuAppli() + mAugCdt->mName + "-Samp-" + mGImN);
                 aPatch.SaveIm(mPhProj.DirVisuAppli() + mAugCdt->mName + "-Patch-" + mGImN, isOk);
             }
-            //aRes = aDelta + ToR(aDTpl->Sz())/2.0;
-            aRes = aDelta + (aCdt.mRef2Glob.Value(aCdt.Center()) - ToR(aP0));
-            aVal = aV;
         }
         return std::pair<cPt2dr, tREAL8> (aRes, aVal);
     }
+
+    int cAppli_CodedTargetRefine::ExeTest()
+    {
+        StdOut() << "un deux un deux" << std::endl;
+        return EXIT_SUCCESS;
+    };
 
     //----- memory allocation
     tMMVII_UnikPApli Alloc_CodedTargetRefine(const std::vector<std::string> & aVArgs,
@@ -977,11 +1005,12 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 /******************************************************************************/
 
     template <class Type>
-    cOptCorrelThIm<Type>::cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1> &aMaskDIm, cPixBox<2> aBBox):
+    cOptCorrelThIm<Type>::cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1> &aMaskDIm, cPixBox<2> aBBox, tU_INT1 aWSz):
         mThDIm (aTheorDIm),
         mGDIm (aGlobDIm),
         mDMask (aMaskDIm),
-        mBBox (aBBox)
+        mBBox (aBBox),
+        mUSampleWSz (aWSz)
     {
         mP0 = ToR(mBBox.P0());
     }
@@ -990,10 +1019,15 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
     cPt1dr cOptCorrelThIm<Type>::Value(const cPt2dr& aNewP0) const
     {
         cMatIner2Var<tREAL8>  aMat;//-> class to compute correl of 2 variables
-        for (const auto& aP : tRect2(mBBox.Sz()))
+        for (const auto& aP : tRect2(tRect2(mBBox.Sz()).Dilate(-1)))
         {
             if (mDMask.GetV(aP) == MaskInV) continue;//-> reject pixels that are in the mask
-            aMat.Add(mGDIm.GetVBL(ToR(aP) + aNewP0), mThDIm.GetV(aP));
+
+            cPixSub aPS(aP, mUSampleWSz);
+            for (const auto aC : aPS.mVCs)
+            {
+                aMat.Add(mGDIm.GetVBL(ToR(aC) + aNewP0), mThDIm.GetVBL(aC));
+            }
         }
         return cPt1dr(aMat.Correl());//-> similarity score for aNewP0
     }
@@ -1073,6 +1107,11 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
     }
 
     cPixBox<2> cPatch::BBox() {return mBBox;}
+
+    bool cPatch::CheckSz(cPt2di aSz)
+    {
+        return mBBox.Sz().x() > aSz.x() && mBBox.Sz().y() > aSz.y();
+    }
 
 /******************************************************************************/
 /*
@@ -1174,6 +1213,26 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         return cPixBox<2>::FromVect(aVOCs);
     }
 
+/******************************************************************************/
+/*
+* cPixSub
+*/
+/******************************************************************************/
+
+    cPixSub::cPixSub(cPt2di aC, tU_INT1 aWSz)
+    {
+        std::vector<tREAL8> aVDelta = {};
+        mVCs = {};
+        for (tREAL8 ix=-aWSz; ix<=aWSz; ix++) aVDelta.push_back(ix);
+        tREAL8 aN = 1./(2.*aWSz + 1.);
+        for (const auto& aDx : aVDelta)
+        {
+            for (const auto& aDy : aVDelta)
+            {
+                mVCs.push_back(ToR(aC) + cPt2dr(aDx*aN, aDy*aN));
+            }
+        }
+    }
 }
 
 
