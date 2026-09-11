@@ -35,7 +35,7 @@ private :
     /** make the report  by image, for each image a cvs file with all GCP,
      * optionnaly make a visualisation of the residual fielsd for each image */
     void  MakeOneIm(const std::string & aNameIm);
-
+    void MakeOneReport(const std::string& aNameIm, cStdStatRes aStatIm);//-> make detailed report
     /** Make a report with an average for each GCP */
     /** Make a visualization of residual in sensor plane*/
 
@@ -63,6 +63,8 @@ private :
     tREAL8                   mExagRes;
     tREAL8                   mScaleImage;
     std::string              mSuffix;
+
+    bool mImDetail;//-> add detailed residual file for each image
 };
 
 cAppli_MesImReport::cAppli_MesImReport
@@ -82,7 +84,8 @@ cAppli_MesImReport::cAppli_MesImReport
     mNbUndetectedGlob         (0),
     mNbFalseDetGlob           (0),
     mNbRefGlob                (0),
-    mScaleImage               (1.0)
+    mScaleImage               (1.0),
+    mImDetail (false)
 {
 }
 
@@ -106,7 +109,8 @@ cCollecSpecArg2007 & cAppli_MesImReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
             << AOpt2007(mScaleImage,"ScaleIma","Is any,scale having been applied to image before extract",{eTA2007::HDV})
             << AOpt2007(mSuffix,"Suffix","Suffix for output name",{eTA2007::HDV})
             << AOpt2007(mThresholdMatch,"ThresholdMatch","Threshold for matching points",{eTA2007::HDV})
-               ;
+           << AOpt2007(mImDetail,"ImDetail", "Add detailed report file for each image")
+        ;
 }
 
 
@@ -125,8 +129,7 @@ void cAppli_MesImReport::MakeOneIm(const std::string & aNameIm)
         aIm.ResetGray();
     }
 
-
-    cSetMesPtOf1Im  aSet2Test = mPhProj.LoadMeasureIm(aNameIm);
+    cSetMesPtOf1Im aSet2Test = mPhProj.LoadMeasureIm(aNameIm);
     cSetMesPtOf1Im  aSetRef   = mPhProj.LoadMeasureImFromFolder(mRefFolder,aNameIm);
     cStdStatRes     aStatIm;
     int             nbUnDetected=0;
@@ -166,6 +169,7 @@ void cAppli_MesImReport::MakeOneIm(const std::string & aNameIm)
         }
     }
 
+
     int aNbFalseDet=0;
     for (const auto & aTest : aSet2Test.Measures())
     {
@@ -200,6 +204,16 @@ void cAppli_MesImReport::MakeOneIm(const std::string & aNameIm)
 
     if (doImage)
         aIm.ToFile(DirReport()+ aNameIm);
+
+    if (mImDetail){
+        std::string aImReport = mNameReportDetail + '_' + aNameIm;
+        InitReportCSV(aImReport,"csv",false);
+        for (const auto aRes : aStatIm.VRes())
+        {
+            AddOneReportCSV(aImReport, {ToStr(aRes)});
+        }
+    }
+
 }
 
 
