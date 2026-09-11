@@ -133,6 +133,8 @@ namespace MMVII
 
     const std::string cAugCdtInCam::Name() {return mCdt.mName;}
 
+    const cPt2dr cAugCdtInCam::Center() {return mCdt.Center();}
+
 /******************************************************************************/
 /*
  * cAugCdt
