@@ -305,7 +305,7 @@ class cAppli_Rename : public cMMVII_Appli
         std::string ComputeReplace(const std::string & aNameIn) const;
         bool mModeRecurs;  // false => old  Dir + pat    , true : new for recursive with pattern in folder
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
 
         void TestSet(const std::string & aName);
 
@@ -364,11 +364,11 @@ void cAppli_Rename::TestSet(const std::string & aNameOut)
     mSetOut.insert(aNameOut);
 }
 
-std::vector<std::string>  cAppli_Rename::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_Rename::Samples() const
 {
   return {
-             "MMVII UtiRename \"948_(.*).JPG\" \"\\$&\" AR=[-,1,1] DoReplace=true",
-             "MMVII UtiRename  'CCAM_(.*)' 'CCAMBefore_$1'  FFI0=[0000,0030]  PatFFI0=['CCAM_.*_(.*).tif','$1'] DoReplace=true"
+            { "MMVII UtiRename \"948_(.*).JPG\" \"\\$&\" AR=[-,1,1] DoReplace=true"},
+            { "MMVII UtiRename  'CCAM_(.*)' 'CCAMBefore_$1'  FFI0=[0000,0030]  PatFFI0=['CCAM_.*_(.*).tif','$1'] DoReplace=true"}
          };
 }
 

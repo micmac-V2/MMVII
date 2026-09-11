@@ -433,6 +433,8 @@ template <class Type>  class cIm2D
             Dilate => to change defautl gaussian kernel */
        cIm2D<Type>  GaussDeZoom(int aFact, int aNbIterExp=3,double Dilate=1.0) const;
 
+       /** Method that can use real factor using a bicubic-dilated kernel*/
+       cIm2D<Type>  BiCubicDeZoom(tREAL8 aFact,double Dilate=1.0,tREAL8 aParamBicub=1.0) const;
 
        /**  a more "sophisticated" version, adapted to non integer factor and using interpolator adapted to scaling */
        cIm2D<Type>  Scale(tREAL8 aFX,tREAL8 aFY=-1,tREAL8 aSzSinC=-1,tREAL8 DilateKernel=1.0,

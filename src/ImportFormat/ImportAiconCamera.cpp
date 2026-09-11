@@ -335,7 +335,7 @@ class cAppli_ImportAiconCamera : public cMMVII_Appli
         std::string              mNameAiconFile;
         std::string              mExtCalib;
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
 };
 
 cAppli_ImportAiconCamera::cAppli_ImportAiconCamera(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
@@ -418,14 +418,14 @@ int cAppli_ImportAiconCamera::Exe()
 }
 
 
-std::vector<std::string>  cAppli_ImportAiconCamera::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ImportAiconCamera::Samples() const
 {
      return
      {
-          "MMVII ImportAiconCalib Data-Input/20250627_CCAM01.ior [.*_1065.tif]",
-          "MMVII ImportAiconCalib Data-Input/20250627_CCAM01.ior [043_1065.tif,671_1065.tif,948_1065.tif,949_1065.tif]",
-          "MMVII ImportAiconCalib Data-Input/20250627_CCAM01.ior [,671_1065.tif,,949_1065.tif]",
-          "MMVII ImportAiconCalib Data-Input/20250627_CCAM01.ior [043_1065.tif,,948_1065.tif,,]"
+         { "MMVII ImportAiconCalib Data-Input/20250627_CCAM01.ior [.*_1065.tif]"},
+         { "MMVII ImportAiconCalib Data-Input/20250627_CCAM01.ior [043_1065.tif,671_1065.tif,948_1065.tif,949_1065.tif]"},
+         { "MMVII ImportAiconCalib Data-Input/20250627_CCAM01.ior [,671_1065.tif,,949_1065.tif]"},
+         { "MMVII ImportAiconCalib Data-Input/20250627_CCAM01.ior [043_1065.tif,,948_1065.tif,,]"}
      };
 }
 

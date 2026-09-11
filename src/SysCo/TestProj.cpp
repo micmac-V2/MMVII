@@ -27,7 +27,7 @@ public :
     cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-    std::vector<std::string>  Samples() const override;
+    std::vector<cOneHelpSampleCmp>  Samples() const override;
 private :
     cPhotogrammetricProject  mPhProj;
 
@@ -80,9 +80,12 @@ int cAppli_TestProj::Exe()
 }
 
 
-std::vector<std::string>  cAppli_TestProj::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_TestProj::Samples() const
 {
-    return {"MMVII TestProj \"L93\" \"EPSG:5698\" TestPoint=[657723,6860710,0] # check if able to convert L93+height into L93+altitude"};
+    return
+    {
+        {"MMVII TestProj \"L93\" \"EPSG:5698\" TestPoint=[657723,6860710,0] # check if able to convert L93+height into L93+altitude"}
+    };
 }
 
 

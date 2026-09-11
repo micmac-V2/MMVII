@@ -640,11 +640,13 @@ void cBA_BlockInstr::OneItere()
       }
    }
 
+   StdOut() << Color::argument << " *[InstrBloc]: " << Color::end << "\n";
+
    // Orthognal constraint
    if (mWithClino)
    {
-      int aNbResOC=0;  // Number of constraint on clino
-      std::string aMsg = "Clino-Ortho : ";
+      StdOut() << Color::argument << "   --Clinos-- " << Color::end << "\n";
+      std::vector<std::vector<std::string>> aVMsg ;
       for (const auto& [aPair, aCstr] : mCalBl->CstrOrthog())
       {
           const cIrb_Desc1Intsr &  aSI1 = mCalBl->DescrIndiv(aPair.V1());
@@ -652,34 +654,40 @@ void cBA_BlockInstr::OneItere()
           if ((aSI1.Type()==eTyInstr::eClino) && (aSI2.Type()==eTyInstr::eClino))
           {
               tREAL8 aRes = AddConstrOrthogClino(aPair.V1(),aPair.V2(),aCstr);
-              aNbResOC ++;
-              aMsg += "[" +aPair.V1()+ "," +aPair.V2() + ":" + ToStr(Rad2DMgon(aRes)) + "" ;
+              aVMsg.push_back({aPair.V1(),aPair.V2(),ToStr(Rad2DMgon(aRes))});
           }
           else
               MMVII_INTERNAL_ERROR("Unhandled combination of instrument in  Orthog constraint");
       }
-      if (aNbResOC)
-          StdOut() << "  * " << aMsg << "\n";
-
+      if (aVMsg.size())
       {
-         StdOut() << "  * ResClino : " ;
+          StdOut() << Color::argument << "     -Orthogonality in DMgon -" << Color::end ;
+          for (const auto & aMsg: aVMsg)
+                 StdOut() << " "<< Color::descr << aMsg.at(0)<<  "/" << aMsg.at(1) << "=" << Color::end  << aMsg.at(2);
+          StdOut() << "\n";
+      }
+      {
+         StdOut() << Color::argument << "     -ResidualMeasures in DMgon :-" << Color::end ;
          cWeightAv<tREAL8,tREAL8> aAvgGlob;
          for (auto & [aName,anAvg] : aMapClino)
          {
              tREAL8 aVAv = anAvg.Average();
              aAvgGlob.Add(1.0,aVAv);
-              StdOut() << "[" << aName << " : "  << Rad2DMgon(aVAv) << "] " ;
+             StdOut() << Color::descr << aName << "=" << Color::end << Rad2DMgon(aVAv) << " " ;
          }
+         StdOut()   << Color::descr << " AVG=" << Color::end  << Rad2DMgon(aAvgGlob.Average()) ;
+
          if (mVertClinoFree)
          {
-              StdOut() << " DVert=" << Rad2DMgon(Norm2(mVertical.GetPNorm()-mVertInit)) ;
+              StdOut()  << Color::descr << " DifVert=" << Color::end << Rad2DMgon(Norm2(mVertical.GetPNorm()-mVertInit)) ;
          }
-         StdOut() << " ---- Glob=" << Rad2DMgon(aAvgGlob.Average()) ;
+         StdOut() << "\n";
+
       }
 
-      StdOut() << "\n";
 
-    //  StdOut() << "==========================================VVVVVV " << mVertClinoFree << "\n";
+      // Maybe to put back, or in option ?
+      if (0)
       {
          StdOut() <<  "  * EvolClino ";
          cWeightAv<tREAL8,tREAL8> aAvgGlob;
@@ -701,14 +709,14 @@ void cBA_BlockInstr::OneItere()
    // Eventually had "soft" gauge
    AddGauge(true);
 
-   StdOut() << "  * Residual IntrBlocCam;  Pair: "
-            << " Tr=" << std::sqrt(mAvgTrPair.Average())
-            << " Rot=" << std::sqrt(mAvgRotPair.Average());
+   StdOut() << Color::argument << "   --Cameras-- SigmaPair" << Color::end
+            << Color::descr  << " Tr=" << Color::end << std::sqrt(mAvgTrPair.Average())
+            << Color::descr  << " Rot=" << Color::end << std::sqrt(mAvgRotPair.Average());
    if (mUseRat2CurrBR)
    {
-       StdOut() << "  Cur : "
-                << " Tr=" << std::sqrt(mAvgTrCur.Average())
-                << " Rot=" << std::sqrt(mAvgRotCur.Average());
+       StdOut()   << Color::argument << "  DifInit : " << Color::end
+                   << Color::descr  << " Tr=" << Color::end << std::sqrt(mAvgTrCur.Average())
+                  << Color::descr  << " Rot=" << Color::end << std::sqrt(mAvgRotCur.Average());
    }
    StdOut() << "\n";
 }

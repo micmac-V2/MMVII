@@ -241,6 +241,10 @@ NS_SymbolicDerivative::cCalculator<double> * EqTSL_GCP(bool WithDerive,int aSzBu
 NS_SymbolicDerivative::cCalculator<double> * EqTSL_GCPD(bool WithDerive,int aSzBuf,bool ReUse);
 
 
+// Print the possible degree for each camera model
+void PrintGeneratedDegree();
+
+
 };
 
 #endif  //  _MMVII_PHGR_DIST_H_

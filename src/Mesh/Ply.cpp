@@ -591,11 +591,11 @@ void cAppli_VisuPoseStr3D::AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulT
 
     // add camera centers
     std::vector<cPt3dr> aVCenters;
-    cPt3dr aCenter;
+//    cPt3dr aCenter;
     for (auto aCam : aVSens)
     {
         // pushbroom sensor
-        if (aCam->CenterOfPC() == nullptr)
+       /* if (aCam->CenterOfPC() == nullptr)
         {
             // Two bundles at the same scan-line Y but opposite X ends converge at the
             // perspective center of that line (unlike cross-track pairs which are near-parallel).
@@ -603,9 +603,11 @@ void cAppli_VisuPoseStr3D::AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulT
             tSeg3dr aBund0 = aCam->Image2Bundle(cPt2dr(0,              aY));
             tSeg3dr aBund1 = aCam->Image2Bundle(cPt2dr(aCam->Sz().x(), aY));
             aCenter = BundleInters(aBund0, aBund1);
+            aCenter = aCam->PseudoCenterOfProj();
         } // perspective sensor
-        else aCenter = aCam->PseudoCenterOfProj();
+        else aCenter = aCam->PseudoCenterOfProj(); */
 
+        cPt3dr aCenter = aCam->PseudoCenterOfProj();
         aPlyverts.AddVert(aCenter, {1.,0.,0.});
 
         aVCenters.push_back(aCenter);
@@ -741,7 +743,8 @@ void cAppli_VisuPoseStr3D::AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulT
 
 double cAppli_VisuPoseStr3D::CalculateFDepth(const cPt2di& aSz, const double& aF)
 {
-    double aDiag = std::sqrt(std::pow(aSz[0],2)+std::pow(aSz[1],2));
+    //    double aDiag = std::sqrt(std::pow(aSz[0],2)+std::pow(aSz[1],2));
+    double aDiag = Norm2(aSz) ;  // MPDER : simpler
     double aRatioDiagF = aDiag/aF ;
 
     return aRatioDiagF*mCamScale;

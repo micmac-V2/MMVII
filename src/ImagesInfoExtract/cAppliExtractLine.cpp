@@ -112,7 +112,7 @@ class cAppliExtractLine : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
         virtual ~cAppliExtractLine();
 
 
@@ -201,10 +201,10 @@ cCollecSpecArg2007 & cAppliExtractLine::ArgOpt(cCollecSpecArg2007 & anArgOpt)
             ;
 }
 
-std::vector<std::string>  cAppliExtractLine::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppliExtractLine::Samples() const
 {
    return {
-              "MMVII ExtractLine AllImFil.xml true BA_311_C Fils"
+              {"MMVII ExtractLine AllImFil.xml true BA_311_C Fils"}
         };
 }
 
@@ -464,7 +464,8 @@ void  cAppliExtractLine::DoOneImage(const std::string & aNameIm)
 void cAppliExtractLine::MakeVisu(const std::string & aNameIm)
 {
     std::string aNameTif = LastPrefix(mNameCurIm) + ".tif";
-    const  cDataIm2D<tREAL4>& aDAccum =mExtrL->Hough().Accum().DIm();
+    const auto aAccum = mExtrL->Hough().Accum();
+    const  cDataIm2D<tREAL4>& aDAccum = aAccum.DIm();
     tREAL8 aVMax=0.0;
 
     // [0]  Print some  statistic to compared the compatcness of histogramm

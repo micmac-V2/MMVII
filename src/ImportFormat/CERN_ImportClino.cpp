@@ -34,7 +34,7 @@ class cAppli_CERN_ImportClino : public cMMVII_Appli
         // Mandatory Arg
         std::string               mDirData;
         std::string               mNameRes;
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
 
         std::vector<std::string>  mNamesClino;
         std::string               mNameFile;
@@ -138,9 +138,12 @@ int cAppli_CERN_ImportClino::Exe()
 }
 
 
-std::vector<std::string>  cAppli_CERN_ImportClino::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_CERN_ImportClino::Samples() const
 {
-    return {"MMVII CERN_ImportClino  ./ MMC.txt PatIm=\"043.*\" NameClino=[A,B,C,D]  NameFile=ClinoValue.json"};
+    return
+    {
+        {"MMVII CERN_ImportClino  ./ MMC.txt PatIm=\"043.*\" NameClino=[A,B,C,D]  NameFile=ClinoValue.json"}
+    };
 }
 
 

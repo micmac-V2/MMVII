@@ -28,7 +28,7 @@ class cAppli_ImportM32 : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
      private :
 
         cPhotogrammetricProject  mPhProj;
@@ -126,11 +126,11 @@ int cAppli_ImportM32::Exe()
     return EXIT_SUCCESS;
 }
 
-std::vector<std::string>  cAppli_ImportM32::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ImportM32::Samples() const
 {
    return
    {
-          "MMVII ImportM32 verif_1B.txt SjiXYZ XingB NumL0=13 NumLast=30 NameIm=SPOT_1B.tif"
+          {"MMVII ImportM32 verif_1B.txt SjiXYZ XingB NumL0=13 NumLast=30 NameIm=SPOT_1B.tif"}
    };
 }
 

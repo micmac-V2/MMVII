@@ -114,7 +114,8 @@ extern cSpecMMVII_Appli  TheSpec_ImportMesImGCP;
 extern cSpecMMVII_Appli  TheSpec_ImportM32;
 extern cSpecMMVII_Appli  TheSpec_ConvertV1V2_GCPIM;
 extern cSpecMMVII_Appli  TheSpec_SpecSerial;
-extern cSpecMMVII_Appli  TheSpec_CGPReport;
+extern cSpecMMVII_Appli  TheSpec_GCPReport;
+extern cSpecMMVII_Appli  TheSpec_CompareGCP;
 extern cSpecMMVII_Appli  TheSpec_MesImReport;
 extern cSpecMMVII_Appli  TheSpec_TiePReport;
 extern cSpecMMVII_Appli  TheSpec_SegImReport;
@@ -145,7 +146,9 @@ extern cSpecMMVII_Appli  TheSpec_TutoFormalDeriv;
 extern cSpecMMVII_Appli  TheSpec_ExportUndistMesIm;
 extern cSpecMMVII_Appli  TheSpecAppliExtractLine;
 extern cSpecMMVII_Appli  TheSpecAppliBubbles;
-extern cSpecMMVII_Appli  TheSpecAppliFranges;
+extern cSpecMMVII_Appli  TheSpecAppliFranges_0;
+extern cSpecMMVII_Appli  TheSpecAppliFranges_1;
+
 
 extern cSpecMMVII_Appli  TheSpec_CERN_ImportClino;
 extern cSpecMMVII_Appli  TheSpec_MMV2_MesIm_2_MMV1;

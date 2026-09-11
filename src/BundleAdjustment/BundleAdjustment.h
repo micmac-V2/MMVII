@@ -639,7 +639,7 @@ protected:
     std::map<std::string, int>        mIndexesScans; ///< indexes in mVScans
     std::map<std::string,cIm2D<tREAL4>> mMapZbuf; ///< fusion of all zbuffers for one image/scan B name
     std::map<std::string,std::unique_ptr<cBasicWeighter<tREAL8>>> mWeightersMap;   ///< map from "nameScanA-nameScanB" to the appropriate weighter
-    tREAL8                            mThresholdInit, mThresholdFinal;   ///< distance where scan points are supposed to be hidden
+    tREAL8                            mThreshold, mThresholdInit, mThresholdFinal;   ///< distance where scan points are supposed to be hidden
     std::map<std::pair<std::string,std::string>, int> mMapNbUsedPatches; // indexed by scan/im names (name_a, name_b). Number of patches used for this couple
 };
 
@@ -679,11 +679,22 @@ protected:
 };
 
 
+struct cWeighterParam
+{
+    eModeWeighter Mode = eModeWeighter::eStd;
+    std::vector<double> VParams = {-1,-1};
+
+    ARG2007_STRUCT_FIELDS (
+        Mode,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Weighter mode"}}),
+        VParams,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Weighter params, some expressed relative to current threshold : Expl=[], Std=[SigAtt_factor,Exp], Lin=[final_Th_factor]"}})
+        )
+};
+
+
 /**
  * Class for adjustment between two lidar scans
  */
 
-// #define SCANSCANSHOWPATCHES 16 // make rasters of patches residuals and rejection for each pair, downscale raster by value
 
 class cBA_LidarLidarRaster: public cBA_LidarBase, public cBA_LidarRaster
 {
@@ -691,7 +702,7 @@ public :
     /// constructor, take the global bundle struct + typed lidar/lidar parameters
     cBA_LidarLidarRaster(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj&, const std::string & aPatScan,
                          double aSigma, double aThresholdInit, double aThresholdFinal,
-                         double aNormalTolDeg, const std::vector<std::string> & aInterp);
+                         double aNormalTolDeg, const std::vector<std::string> & aInterpD, const cWeighterParam & aWParam);
     /// destuctor, free interopaltor, calculator ....
     virtual ~cBA_LidarLidarRaster();
 
@@ -715,6 +726,7 @@ protected :
          ) override;
 
     tREAL8 mNormalDiffMinCos = cos(15*M_PI/180);
+    cWeighterParam mWParam;
 
 #ifdef SCANSCANSHOWPATCHES
     std::map<std::string,cIm2D<tREAL4>> mMapPatchesRasters; ///< indexed by "nameA>nameB"
@@ -840,7 +852,7 @@ class cMMVII_BundleAdj
                                  const std::vector<std::string> & aInterp, double aScaleInit, double aScaleFinal,
                                  double aThreshold, int aNbPtsPerPatch);
           void Add1AdjLidarLidar(const std::string & aPatScan, double aSigma, double aThresholdInit,
-                                 double aThresholdFinal, double aNormalTolDeg, const std::vector<std::string> & aInterp);
+                                 double aThresholdFinal, double aNormalTolDeg, const std::vector<std::string> & aInterpD, const cWeighterParam &aWParam);
 
           ///  ============  Add multiple tie point ============
           void AddMTieP(const std::string & aName,cComputeMergeMulTieP  * aMTP,const cStdWeighterResidual & aWIm);

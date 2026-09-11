@@ -184,13 +184,14 @@ cRGBImage  cAppliCheckBoardTargetExtract::GenImaRadiom(cCdRadiom & aCdR,int aSzI
     // Parse all pixel, read radiom, and modify it to "maximize" dynamic
     if (aLocalDyn)
     {
-          const auto & aDImR = aIm.ImR().DIm();
-          for (const auto & aPix : cRect2(cPt2di(0,0),aSz) )
-          {
-              tREAL8 aGray = aDImR.GetV(aPix*mZoomVisuDetec);
-              aGray = 255.0 * (aGray-aCdR.mBlack) /(aCdR.mWhite-aCdR.mBlack);
-              aIm.SetGrayPix(aPix,round_ni(aGray));
-          }
+        auto aImR = aIm.ImR();  // avoid a false dangling reference report on next line from g++ > 13
+        const auto & aDImR = aImR.DIm();
+        for (const auto & aPix : cRect2(cPt2di(0,0),aSz) )
+        {
+            tREAL8 aGray = aDImR.GetV(aPix*mZoomVisuDetec);
+            aGray = 255.0 * (aGray-aCdR.mBlack) /(aCdR.mWhite-aCdR.mBlack);
+            aIm.SetGrayPix(aPix,round_ni(aGray));
+        }
     }
     
 
@@ -605,13 +606,13 @@ void  cAppliCheckBoardTargetExtract::DoExport()
                      break;
                  case eTargetDistanceEstim::ePlaneEstim:
                  {
-                     auto aEllipseBBox = anEl.GetBoundingBox();
+                     auto aEllipseBBox = anEl.GetBoundingBox(aImFactor);
                      std::cout<< "Ellipse " << aCdtM.Code()->Name() << " "
                                << anEl.LGa() * anEl.VGa() << " " << anEl.LSa() * anEl.VSa() <<"\n";
                      auto [aD,aS,aN] = aLidar->getDistSigmaNormalPlane(aMesIm.mPt,aEllipseBBox);
                      std::cout<< "Diff " << aCdtM.Code()->Name() << " " << aD - aLidar->Image2Distance(aMesIm.mPt)<<"    "<<
                          aLidar->Image2Distance(aMesIm.mPt)<< " " <<
-                         aLidar->Image2NormalInstr(aMesIm.mPt, *aLidar->getLineraInterpolator()) << " => "
+                         aLidar->Image2NormalInstr(aMesIm.mPt) << " => "
                                << aD <<" " << aS << " " << aN<<"\n";
 
                      aMesIm.mDistWithSigma.emplace( aD, aS );

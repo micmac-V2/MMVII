@@ -135,16 +135,16 @@ template class cSetIm4SparseDist<tREAL8>;
 /*                                                      */
 /* ==================================================== */
 
-class cAppli_CGPReport : public cMMVII_Appli
+class cAppli_GCPReport : public cMMVII_Appli
 {
      public :
 
-        cAppli_CGPReport(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli &);
+        cAppli_GCPReport(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli &);
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
 
 
      private :
@@ -160,7 +160,6 @@ class cAppli_CGPReport : public cMMVII_Appli
         std::string              mSpecImIn;   ///  Pattern of xml file
         cPhotogrammetricProject  mPhProj;
 
-        std::vector<double>      mGeomFiedlVec;
         tREAL8                   mFactRed; ///< Reduction factor
         std::vector<int>         mPropStat;
 
@@ -183,7 +182,7 @@ class cAppli_CGPReport : public cMMVII_Appli
         std::string             mPatternParamIVF;
 };
 
-cAppli_CGPReport::cAppli_CGPReport
+cAppli_GCPReport::cAppli_GCPReport
 (
      const std::vector<std::string> &  aVArgs,
      const cSpecMMVII_Appli & aSpec
@@ -202,7 +201,7 @@ cAppli_CGPReport::cAppli_CGPReport
 
 
 
-cCollecSpecArg2007 & cAppli_CGPReport::ArgObl(cCollecSpecArg2007 & anArgObl)
+cCollecSpecArg2007 & cAppli_GCPReport::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return anArgObl
                 << Arg2007(mSpecImIn,"Pattern/file for images",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
@@ -211,26 +210,27 @@ cCollecSpecArg2007 & cAppli_CGPReport::ArgObl(cCollecSpecArg2007 & anArgObl)
                 << mPhProj.DPOrient().ArgDirInMand();
 }
 
-cCollecSpecArg2007 & cAppli_CGPReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
+cCollecSpecArg2007 & cAppli_GCPReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return anArgOpt
                 << AOpt2007(mPropStat,"Perc","Percentil for stat exp",{eTA2007::HDV})
-                << AOpt2007(mGeomFiedlVec,"GFV","Geom Fiel Vect for visu [Mul,Witdh,Ray,Zoom?=2,JPeg?=1]",{{eTA2007::ISizeV,"[3,5]"}})
                 << AOpt2007(mMarginMiss,"MargMiss","Margin to border for counting missed target",{eTA2007::HDV})
                 << AOpt2007(mSuffixReportSubDir, "Suffix", "Suffix to report subdirectory name")
                 << AOpt2007(mFilterName, "Filter", "Pattern to filter GCP by name")
                 << AOpt2007(mFilterAdd, "FilterAdd", "Pattern to filter GCP by additional info")
                 << AOpt2007(mFactRed, "RedFact", "Factor of reduction for sensor images (dist & bias)",{eTA2007::HDV})
+
+                 << cHeaderSectionArg("Image of field vector")
                 << cImageVectorField::ArgOpt(anArgOpt,mParamVF)
                 <<  AOpt2007( mPatternParamIVF,"PatImFV","Pattern of  images  where we generat field vector (if any)")
             ;
 
 }
 
-std::vector<std::string>  cAppli_CGPReport::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_GCPReport::Samples() const
 {
     return {
-        "MMVII ReportGCP \"C2_0002.*JPG\" targets-out-wiSigma Targets-2D BA-Block  GFV=[100,1,1,1,0] "
+        {"MMVII ReportGCP C2_0002.*JPG targets-out-wiSigma Targets-2D BA-Block  PatImFV=C2_00021.JPG GFV=[100,1,1,1,0]"}
     };
 }
 
@@ -238,7 +238,7 @@ std::vector<std::string>  cAppli_CGPReport::Samples() const
 //================================================
 
 
-void cAppli_CGPReport::MakeOneIm(const std::string & aNameIm)
+void cAppli_GCPReport::MakeOneIm(const std::string & aNameIm)
 {
     if (! ExistFile(mPhProj.NameMeasureGCPIm(aNameIm,true)) )
        return ;
@@ -266,7 +266,7 @@ void cAppli_CGPReport::MakeOneIm(const std::string & aNameIm)
             cPt2dr aProj = aCam->Ground2Image(aPGr);
             if (Norm2(aProj-aP2)>10)
             {
-                StdOut() << aP2 << aProj << "\n";
+//                 StdOut() << aP2 << aProj << "\n";
                  aIVF->Im().DrawLine(aP2,aProj,cRGBImage::Red);
             }
         }
@@ -364,7 +364,7 @@ void cAppli_CGPReport::MakeOneIm(const std::string & aNameIm)
 
 
 
-void cAppli_CGPReport::ReportsByGCP()
+void cAppli_GCPReport::ReportsByGCP()
 {
    cSetMesGndPt             aSetMes;
    mPhProj.LoadGCP3D(aSetMes,nullptr,"",mFilterName,mFilterAdd);
@@ -392,7 +392,9 @@ void cAppli_CGPReport::ReportsByGCP()
 
         for (size_t aKIm = 0 ; aKIm<  aVIndI.size() ; aKIm++)
         {
-            aStat.Add(Norm2( aMesIm.VMeasures()[aKIm]  - aVSens[aVIndI[aKIm]]->Ground2Image(aGCP.mPt)));
+            cPt2dr  aVec = aMesIm.VMeasures()[aKIm]  - aVSens[aVIndI[aKIm]]->Ground2Image(aGCP.mPt);
+            aVSens[aVIndI[aKIm]]->FixLoopPixelsResiduals(aVec);
+            aStat.Add(Norm2(aVec));
         }
         AddStdStatCSV(mNameReportGCP,aGCP.mNamePt,aStat,mPropStat);
     if (aVIndI.size()>1)
@@ -414,7 +416,7 @@ void cAppli_CGPReport::ReportsByGCP()
         AddStdStatCSV(mNameReportGCP_Ground_Glob,aVCoord[aKC],aVStatXYZ[aKC],{});
 }
 
-void cAppli_CGPReport::ReportsByCam()
+void cAppli_GCPReport::ReportsByCam()
 {
    std::map<cPerspCamIntrCalib*,std::vector<cSensorCamPC*>>  aMapCam;
    cSetMesGndPt             aSetMes;
@@ -463,7 +465,7 @@ void cAppli_CGPReport::ReportsByCam()
 
 
 
-int cAppli_CGPReport::Exe()
+int cAppli_GCPReport::Exe()
 {
    mPhProj.FinishInit();
 
@@ -526,15 +528,15 @@ int cAppli_CGPReport::Exe()
 
 
 
-tMMVII_UnikPApli Alloc_CGPReport(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
+tMMVII_UnikPApli Alloc_GCPReport(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
 {
-   return tMMVII_UnikPApli(new cAppli_CGPReport(aVArgs,aSpec));
+   return tMMVII_UnikPApli(new cAppli_GCPReport(aVArgs,aSpec));
 }
 
-cSpecMMVII_Appli  TheSpec_CGPReport
+cSpecMMVII_Appli  TheSpec_GCPReport
 (
      "ReportGCP",
-      Alloc_CGPReport,
+      Alloc_GCPReport,
       "Reports on GCP projection",
       {eApF::GCP, eApF::Ori},
       {eApDT::ObjCoordWorld, eApDT::ObjMesInstr, eApDT::Orient},

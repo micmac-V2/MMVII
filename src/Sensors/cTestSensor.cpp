@@ -24,7 +24,7 @@ class cAppliTestSensor : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
 
 
         void  DoOneImage(const std::string & aNameIm);
@@ -57,10 +57,10 @@ class cAppliTestSensor : public cMMVII_Appli
         cSet2D3D                 mCurS23;      // current set of "3d-2d" correspondance
 };
 
-std::vector<std::string>  cAppliTestSensor::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppliTestSensor::Samples() const
 {
    return {
-              "MMVII TestSensor SPOT_1B.tif SPOT_Init InPointsMeasure=XingB"
+              {"MMVII TestSensor SPOT_1B.tif SPOT_Init InPointsMeasure=XingB"}
         };
 }
 

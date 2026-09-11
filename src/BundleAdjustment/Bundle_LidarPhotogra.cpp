@@ -11,7 +11,7 @@ namespace MMVII
 //#define EXPORTREPROJLIDAR
 
 cBA_LidarBase::cBA_LidarBase(cPhotogrammetricProject * aPhProj,
-                                     cMMVII_BundleAdj& aBA, double aSigma, const std::vector<std::string> & aInterp) :
+                             cMMVII_BundleAdj& aBA, double aSigma, const std::vector<std::string> & aInterp) :
     mPhProj     (aPhProj),
     mBA         (aBA),                                 // memorize the bundel adj class itself (access to optimizer)
     mParamInterpol (aInterp),
@@ -257,7 +257,7 @@ cBA_LidarPhotograRaster::cBA_LidarPhotograRaster(cPhotogrammetricProject * aPhPr
 {
     InitEq(true);
 
-    mThresholdInit = mThresholdFinal = aThreshold;
+    mThreshold = mThresholdInit = mThresholdFinal = aThreshold;
 
     tNameSelector aSel =   AllocRegex(aPatScan);
     for (const auto & aPtrCam : mBA.VSCPC())
@@ -278,7 +278,7 @@ cBA_LidarPhotograRaster::cBA_LidarPhotograRaster(cPhotogrammetricProject * aPhPr
     for (auto & aScanData: mVScans)
     {
         auto &aScan = aScanData.mLidarRaster;
-        aScan->MakePatches(aScanData.mLPatches,aBA.VSCPC(),mNbPointByPatch,5,*mInterp);
+        aScan->MakePatches(aScanData.mLPatches,aBA.VSCPC(),mNbPointByPatch,5);
         StdOut() << "Nb patches for " << aScan->NameImage() << ": " << aScanData.mLPatches.size() << "\n";
     }
 }
@@ -353,16 +353,16 @@ void cBA_LidarPhotograRaster::UpdateInterpolatorScale(const cMMVII_BundleAdj& aB
 
 void cBA_LidarPhotograRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, double aWFactor)
 {
-    tREAL4 aTh = aBA.NbMaxIter() < 2 ? mThresholdFinal :
+    mThreshold = aBA.NbMaxIter() < 2 ? mThresholdFinal :
                      mThresholdInit + (mThresholdFinal - mThresholdInit)*float(aBA.Iter())/(aBA.NbMaxIter()-1);
-    std::cout << "up weighters, th="<<aTh<<"\n";
-    if (aTh>10000)
-        aTh = -1;
+    std::cout << "up weighters, th="<<mThreshold<<"\n";
+    if (mThreshold>10000)
+        mThreshold = -1;
     for (auto & aScanDataA: mVScans)
     {
         auto &aScanA = aScanDataA.mLidarRaster;
         tREAL8 aSigma = 1.; // TODO use image res for W? aScanA->Sigma() converted with incidence?
-        mWeightersMap[aScanA->NameImage()].reset(new cStdWeighterResidual(sqrt(aWFactor)*aSigma, aTh / 2., aTh, 1));
+        mWeightersMap[aScanA->NameImage()].reset(new cStdWeighterResidual(sqrt(aWFactor)*aSigma, mThreshold / 2., mThreshold, 1));
     }
 }
 
@@ -962,13 +962,15 @@ std::pair<int, tREAL8> cBA_LidarPhotograRaster::AddPatchCorrel(const cBasicWeigh
 cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
                                            cMMVII_BundleAdj& aBA, const std::string & aPatScan, double aSigma,
                                            double aThresholdInit, double aThresholdFinal,
-                                           double aNormalTolDeg, const std::vector<std::string> & aInterp) :
-    cBA_LidarBase(aPhProj, aBA, aSigma, aInterp)
+                                           double aNormalTolDeg, const std::vector<std::string> & aInterpD,
+                                           const cWeighterParam & aWParam) :
+    cBA_LidarBase(aPhProj, aBA, aSigma, aInterpD), mWParam(aWParam)
 {
     mEq = EqEqLidarLidar (true,1,true);
 
     mThresholdInit = (aThresholdInit<0) ? INFINITY : aThresholdInit;
     mThresholdFinal = (aThresholdFinal<0) ? INFINITY : aThresholdFinal;
+    mThreshold = mThresholdInit;
 
     MMVII_INTERNAL_ASSERT_User((aNormalTolDeg>=0) && (aNormalTolDeg<=180),
                                eTyUEr::eBadOptParam,"Normal tolerance must be inside [0,180], got "+ToStr(aNormalTolDeg));
@@ -995,7 +997,7 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
     for (auto & aScanData: mVScans)
     {
         auto & aScan = aScanData.mLidarRaster;
-        aScan->MakePatches(aScanData.mLPatches,aBA.VSCPC(),1,5, *mInterp);
+        aScan->MakePatches(aScanData.mLPatches,aBA.VSCPC(),1,5);
         StdOut() << "Nb patches for " << aScan->NameImage()<< ": " << aScanData.mLPatches.size() << "\n";
 
         //for (auto &aTestRasterPoint: {cPt2di(10672,2238), cPt2di(2552,2121) })
@@ -1011,11 +1013,11 @@ cBA_LidarLidarRaster::~cBA_LidarLidarRaster()
 
 void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, double aWFactor)
 {
-    tREAL4 aTh = aBA.NbMaxIter() < 2 ? mThresholdFinal :
+    mThreshold = aBA.NbMaxIter() < 2 ? mThresholdFinal :
                      mThresholdInit + (mThresholdFinal - mThresholdInit)*float(aBA.Iter())/(aBA.NbMaxIter()-1);
     //std::cout << "up weighters, th="<<aTh<<"\n";
-    if (aTh>10000)
-        aTh = -1;
+    if (mThreshold>10000)
+        mThreshold = -1;
     for (auto & aScanDataA: mVScans)
     {
         auto &aScanA = aScanDataA.mLidarRaster;
@@ -1024,12 +1026,28 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
             auto &aScanB = aScanDataB.mLidarRaster;
             tREAL8 aSigmaAB = sqrt(aScanA->Sigma()*aScanA->Sigma()
                                    +aScanB->Sigma()*aScanB->Sigma());
-            mWeightersMap[aScanA->NameImage()+"-"+aScanB->NameImage()].reset(
+            //mWeightersMap[aScanA->NameImage()+"-"+aScanB->NameImage()].reset(
                 //= cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh / 30., aTh, 1); // simulate least L1 with 1/31 of weight before exclusion
                 //= cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh / 9., aTh, 1); // simulate least L1 with 1/10 of weight before exclusion
                 //new cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, -1, aTh, 1) // least squares better for final convergence since exclusion methods are efficient
-                new cLinearWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh, aTh*10)
-                );
+                //new cLinearWeighterResidual(sqrt(aWFactor)*aSigmaAB, aTh, aTh*10)
+                //);
+
+            cBasicWeighter<tREAL8> * aW = nullptr;
+            switch (mWParam.Mode) {
+            case eModeWeighter::eStd:
+                MMVII_INTERNAL_ASSERT_User(mWParam.VParams.size()==2,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParam.Mode)+" must have 2 params");
+                aW = new cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, mThreshold*mWParam.VParams.at(0), mThreshold, mWParam.VParams.at(1));
+                break;
+            case eModeWeighter::eLin:
+                MMVII_INTERNAL_ASSERT_User(mWParam.VParams.size()==1,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParam.Mode)+" must have 1 param");
+                aW = new cLinearWeighterResidual(sqrt(aWFactor)*aSigmaAB, mThreshold, mThreshold*mWParam.VParams.at(0));
+                break;
+            case eModeWeighter::eNbVals:
+                MMVII_INTERNAL_ASSERT_User(false,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParam.Mode)+" not allowed!");
+                break;
+            }
+            mWeightersMap[aScanA->NameImage()+"-"+aScanB->NameImage()].reset( aW );
         }
     }
 }
@@ -1050,9 +1068,15 @@ void cBA_LidarLidarRaster::AddObs()
         for (const auto& aScanA : mVScans)
             for (const auto& aScanB : mVScans)
                 if (aScanA.mLidarRaster!=aScanB.mLidarRaster)
+                {
                     mMapPatchesRasters.try_emplace(aScanA.mLidarRaster->NameImage()+"_to_"+aScanB.mLidarRaster->NameImage(),
                                                    aScanA.mLidarRaster->InternalCalib()->SzPix()/SCANSCANSHOWPATCHES + cPt2di(1,1),
                                                    nullptr,eModeInitImage::eMIA_Null);
+                    auto & aPatchRaster = mMapPatchesRasters.at(aScanA.mLidarRaster->NameImage()+"_to_"+aScanB.mLidarRaster->NameImage()).DIm();
+                    for (int y=0; y<aPatchRaster.SzY();++y)
+                        for (int x=0; x<aPatchRaster.SzX();++x)
+                            aPatchRaster.SetV({x,y}, 999);
+                }
     }
 #endif
 
@@ -1201,14 +1225,17 @@ void cBA_LidarLidarRaster::SetVUkVObs
 tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cStaticLidarBAData & aScanAData)
 {
     auto & aScanA = aScanAData.mLidarRaster;
-    cPt3dr aPGround = aScanA->Image2Ground(*aPatch.mLPatchesP.begin());
+    cPt2dr aPatchCenterA = ToR(*aPatch.mLPatchesP.begin());
+    // TODO: use mInterpolD or normal (adaptative) interpol??
+    //auto aInterpolA = aScanA->getNormalInterpolator(aPatchCenterA);
+    cPt3dr aPGround = aScanA->Image2Ground(aPatchCenterA); // TODO why Image2Ground works better than Image2Ground_Interpol??
     std::vector<cData1ImLidPhgr> aVData; // for each image where patch is visible will store the data
     cWeightAv<tREAL8>   aAvgRes;    // compute average residual
     tREAL8 aMinResidual = INFINITY;
     cPt3dr aNormalGndA = aScanA->Pose().Rot().Value(aPatch.mNormalInstr);
 
     #ifdef SCANSCANDEBUG
-    std::cout<<"ScanA: "<<aScanA->NameImage()<<" Patch "<<aPatch.mId<<": "<<*aPatch.mLPatchesP.begin()<<" -> Gnd: "<<aPGround<<"\n";
+    std::cout<<"ScanA: "<<aScanA->NameImage()<<" Patch "<<aPatch.mId<<": "<<aPatchCenterA<<" -> Gnd: "<<aPGround<<"\n";
     #endif
     //  Parse all the scans B, we will select the ones where the patch is visible
     for (auto & aScanBData: mVScans)
@@ -1260,11 +1287,13 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                 #endif
                 continue;
             }
-            if (aGenDImDist.InsideInterpolator(*mInterp,aPIm,1.0))  // is it sufficiently inside
+            //auto aInterpolB = aScanB->getNormalInterpolator(aPIm);
+            if (aGenDImDist.InsideInterpolator(*mInterp,aPIm,1.0)
+                && aScanB->isInsideNormalInterpolator(aPIm))  // is it sufficiently inside for each interpolators
             {
-                auto aVGr = aGenDImDist.GetValueAndGradInterpol(*aScanB->getLineraInterpolator(),aPIm); // extract pair Value/Grad of image
+                auto aVGr = aGenDImDist.GetValueAndGradInterpol(*mInterp,aPIm); // works better than normal interp for gradient, why?
 
-                aData.mVGr = {aVGr};
+                aData.mVGr = { aVGr };
                 #ifdef SCANSCANDEBUG
                 std::cout<<aPIm<<" GetValueAndGradInterpol: "<<aVGr.first<<" "<<aVGr.second.x()*1940<<" "<<aVGr.second.y()*1940<<"\n";
                 #endif
@@ -1272,7 +1301,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                 tREAL8 aValIm = aData.mVGr.at(0).first;   // value of first/central pixel in this image
                 tREAL8 aResidual = aValIm-aDist;
 
-                if (fabs(aResidual)<std::max(0.1,mThresholdInit*20)) // suppose that 10cm is always an error
+                if (fabs(aResidual)<std::max(0.1,mThreshold*20)) // suppose that 10cm is always an error
                     mNbUsableObs++;
 
                 if (fabs(aResidual)<fabs(aMinResidual))
@@ -1291,7 +1320,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                     #endif
                     continue;
                 }
-                cPt3dr aNormalInstrB = aScanB->Image2NormalInstr(aPIm, *mInterp);
+                cPt3dr aNormalInstrB = aScanB->Image2NormalInstr(aPIm);
                 cPt3dr aNormalGndB = aScanB->Pose().Rot().Value(aNormalInstrB);
                 if (Scal(aNormalGndA,aNormalGndB)<mNormalDiffMinCos)
                 {
@@ -1317,9 +1346,20 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                 #endif
                 aAvgRes.Add(1.0,fabs(aResidual));  // compute std deviation
                 aVData.push_back(aData); // memorize the data for this image
+            } else {
+                #ifdef SCANSCANDEBUG
+                std::cout<<" not in interpolator\n";
+                #endif
+                #ifdef SCANSCANSHOWPATCHES
+                                if (mBA.Iter()==mBA.NbMaxIter()-1)
+                                    mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(
+                                        aPatch.mLPatchesP[0]/SCANSCANSHOWPATCHES, -40); // not in interpolator
+                #endif
             }
         } else {
-            //std::cout<<" not visible\n";
+            #ifdef SCANSCANDEBUG
+            std::cout<<" not visible\n";
+            #endif
             #ifdef SCANSCANSHOWPATCHES
             if (mBA.Iter()==mBA.NbMaxIter()-1)
                 mMapPatchesRasters.at(aScanA->NameImage()+"_to_"+aScanB->NameImage()).DIm().SetV(

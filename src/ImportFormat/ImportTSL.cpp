@@ -26,7 +26,7 @@ public :
     cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-    std::vector<std::string>  Samples() const override;
+    std::vector<cOneHelpSampleCmp>  Samples() const override;
 
     void getAnglesMinMax();
     void estimatePhiStep();
@@ -70,11 +70,11 @@ cAppli_ImportTSL::cAppli_ImportTSL(const std::vector<std::string> & aVArgs,const
     mForceStructured(false), // skip all checks, suppose all the points are present and ordered by col
     mDoVerticalize  (false),
     mForceGreenAsIntensity (false),
-    mIntensityMinMax({0.03,0.98}),
-    mDistanceMinMax ({0.,100.}),
-    mIncidenceMin   (0.05),
+    mIntensityMinMax({0.01,0.98}),
+    mDistanceMinMax ({0.,200.}),
+    mIncidenceMin   (0.01),
     mMaskBufferSteps(1.),
-    mSigma          (0.001),
+    mSigma          (0.002),
     mDecimXY        (1,1),
     mDistNoiseSigma  (0.),
     mPhiStepApprox  (NAN)
@@ -147,8 +147,8 @@ void cAppli_ImportTSL::estimatePhiStep()
         previousPhi = aPtAng.y();
         aPreviousWasMissing = false;
     }
-    mPhiStepApprox = NonConstMediane(allPhiDiff);
-    StdOut() << "phiStep " << mPhiStepApprox << "\n";
+    mPhiStepApprox = NonConstAvgWithoutExtr(allPhiDiff);
+    StdOut() << "phiStep " << mPhiStepApprox << "   median=" << NonConstMediane(allPhiDiff) << "\n";
 
     // estimate mThetaStepApprox
     // search for nb points in one col
@@ -295,7 +295,7 @@ void cAppli_ImportTSL::computeLineCol()
     std::vector<tREAL8> allThetaDiff(mSL_importer.mNbCol);
     for (unsigned int i=0;i<allThetaDiff.size();++i)
         allThetaDiff[i] = allThetaAvg[i+1]-allThetaAvg[i];
-    tREAL8 aThetaStep = NonConstMediane(allThetaDiff);
+    tREAL8 aThetaStep = NonConstAvgWithoutExtr(allThetaDiff);
     StdOut() << "ThetaStep: " << aThetaStep << "\n";
     mSL_importer.checkLineCol();
 }
@@ -305,21 +305,13 @@ void cAppli_ImportTSL::computeAngStartStep()
 {
     StdOut() << "computeAngStartStep\n";
     std::cout<<mSL_importer.mVectPtsTPD.size()<<"\n";
-    tREAL8 aMinAngToZenith = 0.1;
     if (mSL_importer.HasRowCol())
     {
+        tREAL8 aMinAngToZenith = 0.1;
         // search for 2 points with diff line/col to estimate steps
         long a1stPti = -1;
         for (size_t i=0; i<mSL_importer.mVectPtsTPD.size(); ++i)
         {
-            /*if (i<10)
-            {
-                std::cout<<i<<" "<<mSL_importer.mVectPtsLine[i]
-                          <<" "<<mSL_importer.mVectPtsCol[i]
-                          <<" "<<mSL_importer.mVectPtsXYZ[i]
-                          <<" "<<mSL_importer.mVectPtsTPD[i]<<"\n";
-            }*/
-
             auto & aPtAng = mSL_importer.mVectPtsTPD[i];
             if ((aPtAng.z()>mSL_importer.DistMinToExist()) && (fabs(fabs(aPtAng.y())-M_PI/2)>aMinAngToZenith))
             {
@@ -344,31 +336,55 @@ void cAppli_ImportTSL::computeAngStartStep()
                 }
             }
         }
-        // make a better approx using a second point near the end
-        for (long i=(long)mSL_importer.mVectPtsTPD.size()-1; i>a1stPti; --i)
+        // theta step may be bad because of looping between any col. compute median of diff theta between col for several lines near the center
+        // fill theta raster
+        std::unique_ptr<cIm2D<tREAL4>> aRasterTheta;
+        mSL_importer.fillRaster<tREAL4>(
+            [&aVectPtsTPD = mSL_importer.mVectPtsTPD](int i){auto aPtTPD = aVectPtsTPD[i];return aPtTPD.x();},
+            aRasterTheta);
+        //aRasterTheta->DIm().ToFile("dbg_theta.tif");
+        std::vector<tREAL8> aVdiffTheta;
+        aVdiffTheta.reserve(mSL_importer.NbCol());
+        int aY = mSL_importer.NbLine() / 2; // start at center
+        while ((aY< mSL_importer.NbLine()*3./4.) && ((int)aVdiffTheta.size()<mSL_importer.NbCol()))
         {
-            if ((mSL_importer.mVectPtsTPD[i].z()>mSL_importer.DistMinToExist()) && (fabs(fabs(mSL_importer.mVectPtsTPD[i].y())-M_PI/2)>aMinAngToZenith))
+            for (int aX=0;aX<mSL_importer.NbCol()-1;++aX)
             {
-                if ((mSL_importer.mVectPtsCol[i] != mSL_importer.mVectPtsCol[a1stPti]) && (mSL_importer.mVectPtsLine[i] != mSL_importer.mVectPtsLine[a1stPti]))
-                {
-                    auto & a1stPtAng = mSL_importer.mVectPtsTPD[a1stPti];
-                    auto a2ndPtAng = mSL_importer.mVectPtsTPD[i]; // copy to unroll
-                    tREAL8 aTheta = mSL_importer.mVectPtsCol[i]*mSL_importer.mThetaStep + mSL_importer.mThetaStart;
-                    a2ndPtAng.x() = toMinusPiPlusPi(a2ndPtAng.x(), aTheta);
-                    mSL_importer.mPhiStep = (a2ndPtAng.y()-a1stPtAng.y())/(mSL_importer.mVectPtsLine[i]-mSL_importer.mVectPtsLine[a1stPti]);
-                    mSL_importer.mThetaStep = (a2ndPtAng.x()-a1stPtAng.x())/(mSL_importer.mVectPtsCol[i]-mSL_importer.mVectPtsCol[a1stPti]);
-                    mSL_importer.mPhiStart = a1stPtAng.y() - mSL_importer.mPhiStep * mSL_importer.mVectPtsLine[a1stPti];
-                    mSL_importer.mThetaStart = a1stPtAng.x() - mSL_importer.mThetaStep * mSL_importer.mVectPtsCol[a1stPti];
-                    StdOut() << "computeAngStartStep2 " << a1stPti << " " << i << " " <<  mSL_importer.mThetaStep << " " << mSL_importer.mPhiStep << " " << "\n";
-                    StdOut() << "i1 i2: " << a1stPti << " " << i << ", "
-                             << mSL_importer.mVectPtsCol[a1stPti] << " " << mSL_importer.mVectPtsLine[a1stPti] << " "
-                             << mSL_importer.mVectPtsCol[i] << " " << mSL_importer.mVectPtsLine[i] << "\n";
-                    StdOut() << a1stPtAng.x() << " " << a1stPtAng.y() << " "
-                             << a2ndPtAng.x() << " " << a2ndPtAng.y() << "\n";
-                    break;
-                }
+                auto & aTheta1 = aRasterTheta->DIm().GetV(cPt2di(aX,aY));
+                auto & aTheta2 = aRasterTheta->DIm().GetV(cPt2di(aX+1,aY));
+                if ((aTheta1!=0)&&(aTheta2!=0))
+                    aVdiffTheta.push_back(aTheta2 - aTheta1);
             }
+            aY++;
         }
+        mSL_importer.mThetaStep = NonConstAvgWithoutExtr(aVdiffTheta);
+
+
+
+        std::unique_ptr<cIm2D<tREAL4>> aRasterPhi;
+        mSL_importer.fillRaster<tREAL4>(
+            [&aVectPtsTPD = mSL_importer.mVectPtsTPD](int i){auto aPtTPD = aVectPtsTPD[i];return aPtTPD.y();},
+            aRasterPhi);
+        //aRasterPhi->DIm().ToFile("dbg_phi.tif");
+        std::vector<tREAL8> aVdiffPhi;
+        aVdiffPhi.reserve(mSL_importer.NbLine()*10);
+        int aX = mSL_importer.NbCol() / 10;
+        while (aX< mSL_importer.NbCol())
+        {
+            for (int aY=0;aY<mSL_importer.NbLine()-1;++aY)
+            {
+                auto & aPhi1 = aRasterPhi->DIm().GetV(cPt2di(aX,aY));
+                auto & aPhi2 = aRasterPhi->DIm().GetV(cPt2di(aX,aY+1));
+                if ((aPhi1!=0)&&(aPhi2!=0))
+                    aVdiffPhi.push_back(aPhi2 - aPhi1);
+            }
+            aX += mSL_importer.NbCol() / 10;
+        }
+        mSL_importer.mPhiStep = NonConstAvgWithoutExtr(aVdiffPhi);
+
+
+        StdOut() << "Steps from Row-Col: " << mSL_importer.mThetaStep << " " << mSL_importer.mPhiStep << "\n";
+
     } else {
         if (mSL_importer.AllPointsReturn())
         {
@@ -395,6 +411,12 @@ void cAppli_ImportTSL::computeAngStartStep()
             //MMVII_INTERNAL_ASSERT_tiny(false, "No computeAngStartEnd() for sparse cloud for now")
         }
     }
+
+    // fix theta start modulo
+    while (mSL_importer.mThetaStart > M_PI)
+        mSL_importer.mThetaStart -= 2*M_PI;
+    while (mSL_importer.mThetaStart < -M_PI)
+        mSL_importer.mThetaStart += 2*M_PI;
 
     StdOut() << "PhiStart: " << mSL_importer.mPhiStart << ", "
              << "PhiStep: " << mSL_importer.mPhiStep << ", "
@@ -442,6 +464,7 @@ void cAppli_ImportTSL::fixLineColRasterDirections()
 
     if (mSL_importer.mPhiStep > 0)
     {
+        StdOut() << "Flip vertical\n";
         for (auto & aLine: mSL_importer.mVectPtsLine)
             aLine = mSL_importer.NbLine() -1 - aLine;
         // invert start and end
@@ -451,6 +474,7 @@ void cAppli_ImportTSL::fixLineColRasterDirections()
 
     if (mSL_importer.mThetaStep > 0)
     {
+        StdOut() << "Flip horizontal\n";
         for (auto & aCol: mSL_importer.mVectPtsCol)
             aCol = mSL_importer.NbCol() -1 - aCol;
         // invert start and end
@@ -630,6 +654,8 @@ int cAppli_ImportTSL::Exe()
     for (size_t i=0; (i<10)&&(i<mSL_importer.mVectPtsTPD.size()); ++i)
     {
         StdOut() << mSL_importer.mVectPtsTPD[i];
+        if (mSL_importer.HasRowCol())
+            StdOut() << " " << mSL_importer.mVectPtsLine[i] << " " << mSL_importer.mVectPtsCol[i];
         StdOut() << "\n";
     }
     StdOut() << "..." << std::endl;
@@ -647,12 +673,15 @@ int cAppli_ImportTSL::Exe()
     fixLineColRasterDirections();
 
     // export intensity image before decimation
-    std::unique_ptr<cIm2D<tU_INT1>> aRasterIntensityFull;
-    std::string aRasterIntensityPath = cStaticLidar::RasterIntensityPath(mStationName + "-" + mScanName + cStaticLidar::GetIdSuffix());
-    cStaticLidar::fillRaster<tU_INT1>(mSL_importer,
-                                      [this](int i){return this->mSL_importer.mVectPtsIntens[i]*255;},
-                                      aRasterIntensityFull );
-    aRasterIntensityFull->DIm().ToFile(mPhProj.DirStaticLidarRasters()+aRasterIntensityPath);
+    if (mSL_importer.HasIntensity())
+    {
+        std::unique_ptr<cIm2D<tU_INT1>> aRasterIntensityFull;
+        std::string aRasterIntensityPath = cStaticLidar::RasterIntensityPath(mStationName + "-" + mScanName + cStaticLidar::GetIdSuffix());
+        mSL_importer.fillRaster<tU_INT1>(
+                                          [this](int i){return this->mSL_importer.mVectPtsIntens[i]*255;},
+                                          aRasterIntensityFull );
+        aRasterIntensityFull->DIm().ToFile(mPhProj.DirStaticLidarRasters()+aRasterIntensityPath);
+    }
 
     mSL_importer.decimXY(mDecimXY);
     mThetaStepApprox *= mDecimXY.x();
@@ -756,7 +785,7 @@ int cAppli_ImportTSL::Exe()
         aPP.x() += mSL_importer.NbCol();
     //find F: scale from angle to pixels
     tREAL8 aFx = 1./fabs(mSL_importer.mThetaStep); //TODO: add polynomial disto for different angular steps
-    tREAL8 aFy = 1./fabs(mSL_importer.mPhiStep);
+    //tREAL8 aFy = 1./fabs(mSL_importer.mPhiStep);
 
     StdOut()<<"Angular steps: "<<fabs(mSL_importer.mThetaStep) << " " << fabs(mSL_importer.mPhiStep)<<"\n";
     if (fabs((fabs(mSL_importer.mPhiStep)-fabs(mSL_importer.mThetaStep))/mSL_importer.mPhiStep)>1e-2)
@@ -769,7 +798,8 @@ int cAppli_ImportTSL::Exe()
                                             + "_" + cStaticLidar::PrefixName()
                                             + "-" + aScanName, eProjPC::eEquiRect,
                                         cPt2di(mSL_importer.NbCol(), mSL_importer.NbLine()),
-        cPt3dr(aPP.x(),aPP.y(),(aFx+aFy)/2), cPt3di(0,0,0));
+                                        cPt3dr(aPP.x(),aPP.y(),aFx), // use theta step, more precise?
+                                        cPt3di(0,0,0));
 
     cStaticLidar aSL_data(aScanName, mStationName, mScanName,
                           cIsometry3D<tREAL8>({}, cRotation3D<tREAL8>::Identity()),
@@ -816,7 +846,7 @@ int cAppli_ImportTSL::Exe()
 
 }
 
-std::vector<std::string>  cAppli_ImportTSL::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ImportTSL::Samples() const
 {
     return
         {
@@ -862,9 +892,10 @@ public :
     cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-    std::vector<std::string>  Samples() const override;
+    std::vector<cOneHelpSampleCmp>  Samples() const override;
     void poseFromXYZ();
     void poseFromXYZv4();
+    void poseFromMat4x4(bool aInverse);
     void poseFromGCP();
 
 private :
@@ -876,10 +907,13 @@ private :
 
     // Optional Arg
     int                      mNbPatches;
-    std::string              mPoseXYZFilename;
-    std::string              mPoseXYZv4Filename;
+    std::string              mPoseXYZFilename;     ///< give a Comp3Dv5 XYZ file
+    std::string              mPoseXYZv4Filename;   ///< give a Comp3Dv4 XYZ file
     bool                     mSupposeVerticalized; ///< need only 2 GCP for approx init
-    std::string              mSupMaskFilename; ///< a suplementary mask for patch detection
+    std::string              mSupMaskFilename;     ///< a suplementary mask for patch detection
+    bool                     mIsPoseId;            ///< set pose to identity
+    std::string              mPoseMat4x4Filename;  ///< give a 4x4 matrix text file name
+    bool                     mPoseMat4x4Inverse;   ///< if the matrix given has to be inverted
 
     // data
     tPoseR                   mForcedPose;
@@ -890,7 +924,9 @@ cAppli_InitTSL::cAppli_InitTSL(const std::vector<std::string> & aVArgs,const cSp
     cMMVII_Appli    (aVArgs,aSpec),
     mPhProj         (*this),
     mLidar          (nullptr),
-    mNbPatches      (1000),
+    mNbPatches      (5000),
+    mIsPoseId       (false),
+    mPoseMat4x4Inverse(false),
     mForcedPose     (tPoseR::Identity()),
     mIsForcedPoseInit(false)
 {
@@ -910,6 +946,9 @@ cCollecSpecArg2007 & cAppli_InitTSL::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            << AOpt2007(mNbPatches,"NbPatches","Approx nb patches to make",{{eTA2007::HDV}})
            << AOpt2007(mPoseXYZFilename,"PoseXYZ","Set initial pose from a Comp3D .xyz file",{{eTA2007::FileAny}})
            << AOpt2007(mPoseXYZv4Filename,"PoseXYZv4","Set initial pose from a Comp3D v4 .xyz file",{{eTA2007::FileAny}})
+           << AOpt2007(mIsPoseId,"PoseId","Set initial pose to Id",{{eTA2007::HDV}})
+           << AOpt2007(mPoseMat4x4Filename,"PoseMat4x4","Set initial pose from a 4x4 matrix text file",{{eTA2007::FileAny}})
+           << AOpt2007(mPoseMat4x4Inverse,"InvMat4x4","Invert pose from 4x4 matrix",{{eTA2007::HDV}})
            << mPhProj.DPGndPt3D().ArgDirInOpt("GCP3D","GCPs 3D coords")
            << mPhProj.DPGndPt2D().ArgDirInOpt("GCP2D","GCPs 3D coords")
            << AOpt2007(mSupposeVerticalized,"SupposeVerticalized","Initialize supposing verticalized station (only 2 GCP needed)",{{eTA2007::HDV}})
@@ -969,6 +1008,73 @@ void cAppli_InitTSL::poseFromGCP()
     }
     StdOut() << "Isometry residual: " << std::sqrt(aWeightedSqRes.Average())<<"m\n";
 }
+
+
+void cAppli_InitTSL::poseFromMat4x4(bool aInverse)
+{
+    StdOut() << "Pose from 4x4 Mat file\n";
+    /* file format :
+ r11 r12 r13 t1
+ r21 r22 r23 t2
+ r31 r32 r33 t3
+  0   0   0  1
+     */
+
+    std::ifstream aMatfile(mPoseMat4x4Filename);
+    MMVII_INTERNAL_ASSERT_tiny(aMatfile.is_open(),"Error opening "+mPoseMat4x4Filename);
+    std::string aLine;
+    tREAL8 x,y,z, t;
+    cPt3dr aT;
+    cPt3dr aR1, aR2, aR3;
+    {
+        std::getline(aMatfile, aLine);
+        std::istringstream iss(aLine);
+        iss >> x >> y >> z >> t;
+        aR1 = {x, y, z};
+        aT.x() = t;
+    }
+    {
+        std::getline(aMatfile, aLine);
+        std::istringstream iss(aLine);
+        iss >> x >> y >> z >> t;
+        aR2 = {x, y, z};
+        aT.y() = t;
+    }
+    {
+        std::getline(aMatfile, aLine);
+        std::istringstream iss(aLine);
+        iss >> x >> y >> z >> t;
+        aR3 = {x, y, z};
+        aT.z() = t;
+    }
+    {
+        std::getline(aMatfile, aLine);
+        std::istringstream iss(aLine);
+        iss >> x >> y >> z >> t;
+        MMVII_INTERNAL_ASSERT_tiny( (Norm2(cPt3dr(x, y, z))<1e-10) && (fabs(t-1.)<1e-10),
+                                   "Error reading last line, should be 0 0 0 1, got: '"+aLine+"'");
+    }
+    MMVII_INTERNAL_ASSERT_tiny(!aMatfile.bad(),"Error reading "+mPoseMat4x4Filename);
+
+    cRotation3D<tREAL8> aRotTSL2MM = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j");
+
+    auto aRot = cRotation3D<tREAL8>({aR1.x(), aR2.x(), aR3.x()},
+                                    {aR1.y(), aR2.y(), aR3.y()},
+                                    {aR1.z(), aR2.z(), aR3.z()}, true);
+
+
+    if (aInverse)
+    {
+        aRot = aRot.MapInverse();
+        aT = aRot.Value(-aT);
+    }
+
+    mForcedPose.Rot() = (aRotTSL2MM * aRot).MapInverse();
+    mForcedPose.Tr() = aRot.Inverse(-aT);
+
+    mIsForcedPoseInit = true;
+}
+
 
 void cAppli_InitTSL::poseFromXYZv4()
 {
@@ -1141,6 +1247,16 @@ int cAppli_InitTSL::Exe()
         StdOut() << "Read XYZ v4 pose file: " << mPoseXYZv4Filename << std::endl;
         poseFromXYZv4();
     }
+
+    MMVII_INTERNAL_ASSERT_tiny(
+        (!IsInit(&mPoseMat4x4Inverse)) || IsInit(&mPoseMat4x4Filename), // inv => 4x4file
+        "Error: can not inverse 4x4 Mat if not given.");
+    if (IsInit(&mPoseMat4x4Filename))
+    {
+        StdOut() << "Read 4x4 Mat pose file: " << mPoseMat4x4Filename << std::endl;
+        poseFromMat4x4(IsInit(&mPoseMat4x4Inverse)?mPoseMat4x4Inverse:false);
+    }
+
     MMVII_INTERNAL_ASSERT_tiny(
         mPhProj.DPGndPt3D().DirInIsInit() == mPhProj.DPGndPt2D().DirInIsInit(),
         "Error: needs GCP3D and GCP2D for init from GCP");
@@ -1148,6 +1264,14 @@ int cAppli_InitTSL::Exe()
     if (mPhProj.DPGndPt3D().DirInIsInit() && mPhProj.DPGndPt2D().DirInIsInit())
     {
         poseFromGCP();
+    }
+
+    if (IsInit(&mIsPoseId))
+    {
+        StdOut() << "Pose is set to Identity" << std::endl;
+        mForcedPose.Tr() = {0.,0.,0.};
+        mForcedPose.Rot() = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j").MapInverse();
+        mIsForcedPoseInit = true;
     }
 
     if (mIsForcedPoseInit)
@@ -1163,7 +1287,8 @@ int cAppli_InitTSL::Exe()
         aSupMask= std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(mSupMaskFilename));
 
 
-    mLidar->SelectPatchCenters2(mNbPatches, aSupMask?&aSupMask->DIm():nullptr);
+    //mLidar->SelectPatchCenters2(mNbPatches, aSupMask?&aSupMask->DIm():nullptr);
+    mLidar->SelectPatchCenters3(mNbPatches, aSupMask?&aSupMask->DIm():nullptr);
 
     mLidar->MakeVisu(mPhProj);
 
@@ -1173,7 +1298,7 @@ int cAppli_InitTSL::Exe()
     return EXIT_SUCCESS;
 }
 
-std::vector<std::string>  cAppli_InitTSL::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_InitTSL::Samples() const
 {
     return
         {

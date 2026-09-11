@@ -18,7 +18,7 @@ cAppli_VisuPoseStr3D::cAppli_VisuPoseStr3D(const std::vector<std::string> & aVAr
     cMMVII_Appli (aVArgs,aSpec),
     mPhProj      (*this),
     mErrProjMax  (10.0),
-    mCamScale    (0.1),
+    mCamScale    (0.1), /// replaced by mEstimmLengthPyrCam
     mTSLCloudDezoom(0),
     mOutfile     ("VisuPose3D_${ori}_${features}.ply"),
     mBinary      (true),
@@ -38,17 +38,54 @@ cCollecSpecArg2007 & cAppli_VisuPoseStr3D::ArgObl(cCollecSpecArg2007 & anArgObl)
 cCollecSpecArg2007 & cAppli_VisuPoseStr3D::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return    anArgOpt
-           << AOpt2007(mErrProjMax,"ErrMax","Outlier threshold",{eTA2007::HDV})
+
+            << cHeaderSectionArg("Pose visualisation")
            << AOpt2007(mCamScale,"CamScale","Scale camera frustum",{eTA2007::HDV})
-           << AOpt2007(mTSLCloudDezoom,"TSLcloudDezoom","Add TSL point clouds with DeZoom (0 for no points)",{eTA2007::HDV})
-           << AOpt2007(mOutfile,"Outfile","Output filename",{eTA2007::HDV})
-           << AOpt2007(mBinary,"Bin","Output in binary format",{eTA2007::HDV})
-           << AOpt2007(mWithRGB,"RGB","Output colored pointcloud",{eTA2007::HDV})
-           << AOpt2007(mWithAvgRGB,"AvgRGB","RGB values averaged over all images",{eTA2007::Tuning,eTA2007::HDV})
+           << AOpt2007(mEstimmLengthPyrCam,"ELPFD","Param for estimate lenght pyram from depth",{eTA2007::HDV})
+
+           << cHeaderSectionArg("Point cloud")
+           << AOpt2007(mErrProjMax,"ErrMax","Outlier threshold",{eTA2007::HDV})
            << mPhProj.DPMulTieP().ArgDirInOpt("","Input features (multiple tie-points format)")
            << mPhProj.DPGndPt2D().ArgDirInOpt("","Input features (image measurements format)")
-        ;
+           << AOpt2007(mWithRGB,"RGB","Output colored pointcloud",{eTA2007::HDV})
+           << AOpt2007(mWithAvgRGB,"AvgRGB","RGB values averaged over all images",{eTA2007::Tuning,eTA2007::HDV})
+           << AOpt2007(mTSLCloudDezoom,"TSLcloudDezoom","Add TSL point clouds with DeZoom (0 for no points)",{eTA2007::HDV})
+
+           << cHeaderSectionArg("Output control")
+           << AOpt2007(mOutfile,"Outfile","Output filename",{eTA2007::HDV})
+           << AOpt2007(mBinary,"Bin","Output in binary format",{eTA2007::HDV})
+
+         ;
 }
+
+
+std::vector<cOneHelpSampleCmp>  cAppli_VisuPoseStr3D::Samples() const
+{
+    return {
+
+            cOneHelpSampleCmp::Header("Examples with Ramses data set"),
+
+            {
+                 "MMVII VisuPose3D  \".*JPG\" Adjust InMulTieP=V1Dense"
+            },
+            {
+                 "MMVII VisuPose3D  \".*JPG\" Adjust InMulTieP=V1Dense ELPFD=[0.1,0.2] ",
+                {
+                  "Cam scale : 1st auto, 2nd fix estim parameter"
+                }
+            },
+
+            cOneHelpSampleCmp::Header("Examples with niche data set"),
+            {
+                "MMVII VisuPose3D \".*JPG\" GlobDist InMulTieP=V1 CamScale=0.02",
+                {
+                  "Cam scale is \"hard fixed\""
+                }
+            }
+
+    };
+}
+
 
 int cAppli_VisuPoseStr3D::Exe()
 {
@@ -117,8 +154,20 @@ int cAppli_VisuPoseStr3D::Exe()
     // intersect in 3d
     TimeSegm().SetIndex("INTERSECT 3D TIE-POINTS");
     if (aTPts)
+     {
+        std::vector<tREAL8> aVDist;
         for (auto & aPair : aTPts->Pts())
-            MakePGround(aPair,aVSens);
+        {
+            MakePGround(aPair,aVSens,&aVDist);
+        }
+
+        if (! aVDist.empty() && (!IsInit(&mCamScale)))
+        {
+            mCamScale = mEstimmLengthPyrCam.mMult * NC_KthVal(aVDist,mEstimmLengthPyrCam.mProp);
+            StdOut()  << "Camera scal fixed to " << mCamScale << "\n";
+        }
+       // StdOut()  << " VDIST-SZ=" << aVDist.size() << " CS=" << mCamScale << "\n";
+    }
 
 
     std::string aPrintRGB = (mWithRGB) ? "+RGB": "";

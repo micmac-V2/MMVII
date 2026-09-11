@@ -1,0 +1,117 @@
+\documentclass[a4paper]{article}
+\usepackage{MMVII}
+
+\newcommand{\TheCmd}{ImageMetadata}
+
+\begin{document}
+
+\CmdTitle
+%\maketitle
+
+\tableofcontents
+
+
+ %=================================================================================
+
+\SecDescr
+
+This command print on the console  the meta-data 
+on images that \MMVII can extract.  
+Meta-data on images are used at different step of images calculation :
+
+\begin{itemize}
+   \item as initial value for computing the focal length in pixel;
+   \item to decide which images correspond to the same camera,
+   \item in radiometric processing
+\end{itemize}
+
+
+These meta data can come from :
+
+\begin{itemize}
+   \item value stored in the  \FileSty{xif} part of the  file
+   \item rules added by user with command  \FileSty{EditCalcMTDI};
+\end{itemize}
+
+ %=================================================================================
+
+\section{Display of values}
+
+The printing depend of the different origin of the value :
+
+\begin{itemize}
+      \item case value \emph{exist} in xif and is \emph{not specified}  by \MMVII : print the value ;
+      \item case value \emph{does not exist} in xif and is \emph{not specified} by \MMVII : print \FileSty{null};
+      \item value  \emph{does not exist}   in xif and  \emph{is specified} bt \MMVII : print the value
+            and indicate \FileSty{MMVII, SetByUserRule}
+      \item value  \emph{exist}   in xif and  \emph{is modified} by \MMVII : 
+             indicate with \emph{warning} color \FileSty{MMVII, ModifiedByUserRule},
+            print the initial and modified values;
+\end{itemize}
+
+
+The otionnal parameter  \FileSty{Disp} control which meta-data information 
+are printed, its default value  \FileSty{MainExif} prints the tags possibly involved in photogrammetric
+or phototometric processing. 
+The value  \FileSty{PhgrExif} prints only the tags used in photogrammetric computation.
+
+If there is multiple file, the command groups the images by sets having exactly the same values
+in all the meta-data specfied by  \FileSty{Disp}. For example with the ramses data set:
+
+\begin{itemize}
+   \item  \FileSty{MMVII ImageMetadata .*JPG } will generate $9$ group because there is different values of
+          exposure time;
+   \item  \FileSty{MMVII ImageMetadata .*JPG  Disp=PhgrExif} will generate $1$ group because all the images
+          are acquired with the same camera;
+\end{itemize}
+
+ %=================================================================================
+
+\section{Values specific to \MMVII}
+
+There is values,  specific to \MMVII, usefull in processing that are not part
+of exif information. When they exist they are printed :
+
+\begin{itemize}
+    \item if the  camera is in the data base (see  \FileSty{ EditCamDataBase}), the size
+            of the sensor, and the size of the pixel are printed;
+
+    \item if the  camera identifier is known it is printed, this identifier depend
+          of the focal length, the camera model and the possible additionnal name created
+          with \FileSty{AdditionalName} in   \FileSty{EditCalcMTDI};
+\end{itemize}
+
+Note that when merging the images having the same meta data, when it 
+exist, the camera identifier is used to decided is two images belong to the same subset.
+For example with polygon data set :
+
+\begin{itemize}
+    \item \FileSty{  MMVII ImageMetadata C.*JPG Disp=PhgrExif }
+    \item all images have same focal and same camera model, but there is two
+          camera, they have been  distinguished  using \FileSty{EditCalcMTDI},
+          and we have two different identifier of camera  
+
+    \begin{itemize}
+             \item \FileSty{CalibIntr\_CamILCE-6400\_AddC1\_Foc16000}
+             \item \FileSty{CalibIntr\_CamILCE-6400\_AddC2\_Foc16000}
+    \end{itemize}
+
+     \item so we will print in $2$ groups;
+\end{itemize}
+
+
+
+
+ %=================================================================================
+
+
+\SecRelatedCmd
+
+\begin{itemize}
+   \item  \FileSty{ EditCalcMTDI}
+   \item  \FileSty{ EditCamDataBase}
+\end{itemize}
+
+ %=================================================================================
+
+\end{document}

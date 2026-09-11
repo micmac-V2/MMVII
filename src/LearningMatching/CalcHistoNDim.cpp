@@ -293,7 +293,7 @@ class cAppliCalcHistoNDim : public cAppliLearningMatch
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
-        std::vector<std::string>  Samples() const  override;
+        std::vector<cOneHelpSampleCmp>  Samples() const  override;
 
         void AddHistoOneFile(const std::string &,int aKFile,int aNbFile);
         // print performance : Separibility + (If computed) Correctness
@@ -426,15 +426,14 @@ void cAppliCalcHistoNDim::ShowPerf(cMultipleOfs & anOfs) const
     anOfs << "-------------------------------------------------\n";
 }
 
-std::vector<std::string>  cAppliCalcHistoNDim::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppliCalcHistoNDim::Samples() const
 {
-    return std::vector<std::string>
-           (
+    return
                {
-                   "MMVII DM3CalcHistoNDim \".*\"  Test Test [xx] # Generate enum values",
-                   "MMVII DM3CalcHistoNDim DMTrain.*LDHAime0.dmp  AllMDLB2014 AllMDLB2014 [.*]"
+                   {"MMVII DM3CalcHistoNDim \".*\"  Test Test [xx] # Generate enum values"},
+                   {"MMVII DM3CalcHistoNDim DMTrain.*LDHAime0.dmp  AllMDLB2014 AllMDLB2014 [.*]"}
                }
-          );
+          ;
 
 }
 

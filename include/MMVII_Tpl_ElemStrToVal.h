@@ -5,7 +5,7 @@
 #include "MMVII_enums.h"
 #include "MMVII_Stringifier.h"
 #include "cMMVII_Appli.h"
-
+//#include "MMVII_Tpl_ElemStrToVal.h"
 /** \file uti_e2string.cpp
     \brief Implementation enum <=> string conversion
 
@@ -236,6 +236,7 @@ struct is_vector_of_struct_args<T,std::enable_if_t<is_vector_v<T>>>
 };
 template<class T> inline constexpr bool is_vector_of_struct_args_v = is_vector_of_struct_args<T>::value;
 
+
 template <class Type> class cInstReadOneArgCL2007 : public cSpecOneArg2007
 {
     public :
@@ -335,6 +336,18 @@ template <class Type> tPtrArg2007 AOpt2007(Type & aVal,const std::string & aName
    return  tPtrArg2007(new cInstReadOneArgCL2007<Type>(aVal,aName,aCom,aVSem));
 }
 
+/*
+int * NullIntPtr() ;
+tPtrArg2007   ArgPureComment(const std::string & aCom)
+{
+    return tPtrArg2007(new cInstReadOneArgCL2007<int>(*NullIntPtr(),"",aCom,{}));
+}
+
+int * NullIntPtr() {return nullptr;}
+*/
+
+
+
 #define MACRO_INSTANTIATE_ARG2007(Type)\
 template tPtrArg2007 Arg2007<Type>(Type &, const std::string & aCom,const cSpecOneArg2007::tAllSemPL & aVSem);\
 template tPtrArg2007 AOpt2007<Type>(Type &,const std::string & aName, const std::string & aCom,const cSpecOneArg2007::tAllSemPL & aVSem);
@@ -404,7 +417,7 @@ void FromStr
     {
         ExceptionOrError(ExceptionOnError,eTyUEr::eBadSize4Vect,
                          "Too many arguments [" + aStr+ "]: got "
-                             + std::to_string(aValues.size()) + ", expected a maximum of"
+                             + std::to_string(aValues.size()) + ", expected a maximum of "
                              + std::to_string(aFields.size()));
     }
 

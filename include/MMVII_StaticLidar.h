@@ -8,6 +8,9 @@
 #include "MMVII_PCSens.h"
 #include <unordered_set>
 
+// #define EXPORT_RASTER_THETA_PHI
+// #define SCANSCANSHOWPATCHES 8 // make rasters of patches residuals and rejection for each pair, downscale raster by value
+
 namespace MMVII
 {
 
@@ -68,12 +71,15 @@ public:
 
     void MakeIdImage(const std::string & aNameFile) const; // create miniature to select this scan along images
 
+    template <typename TYPE> void fillRaster(
+                           std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE>> & aIm) const; // keep image in memory
+
     // line and col for each point
     std::vector<int> mVectPtsLine;
     std::vector<int> mVectPtsCol;
     // points
     std::vector<cPt3dr> mVectPtsXYZ;
-    std::vector<tREAL8> mVectPtsIntens; // 0-1
+    std::vector<tREAL8> mVectPtsIntens; // 0-1, may be empty if no intensity
     std::vector<cPt3dr> mVectPtsTPD;
 
     // agregated angles per col/line
@@ -152,25 +158,29 @@ public :
     void MaskBuffer(const cStaticLidarImporter &aSL_importer, tREAL8 aAngBuffer, const std::string &aPhProjDirOut);
     void SelectPatchCenters1(int aNbPatches);
     void SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> *aSupMaskDIm=nullptr);
+    void SelectPatchCenters3(int aNbPatches, cDataIm2D<tU_INT1> *aSupMaskDIm=nullptr);
     void MakeVisu(const cPhotogrammetricProject & aPhProj) const;     ///< show 8bit dist image with patch centers
-    void MakePatches(std::list<cLidarRasterPatch> &aLPatches,
-                     const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin,
-                     const cDiffInterpolator1D &aInterp) const;
+    void MakePatches(std::list<cLidarRasterPatch> &aLPatches, const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin) const;
     std::tuple<tREAL8,tREAL8,tREAL8> AvgDistNbValidAndNbNotMasked() const; //< return average dist for valid points, number of valid points and number of not-masked points
 
     cPt3dr Image2InputXYZ(cPt2di aRasterPxI) const; // in input frame
-    cPt3dr Image2InputXYZ(cPt2dr aRasterPx) const;
+    cPt3dr Image2InputXYZ(cPt2dr aRasterPx) const; // in input frame
+    cPt3dr Image2InputXYZ_InterpoleDist(cPt2dr aRasterPx, const cInterpolator1D *anInterpol) const; // just fix distance with interpolator on dist image
 
     template <typename TYPE>
     cPt3dr Image2Camera3D(const TYPE & aRasterPx) const; // in sensor frame (Z forward)
-    cPt3dr Image2NormalInstr(const cPt2dr &aRasterPx, const cDiffInterpolator1D &aInterp) const; //< normal in sensor frame
+    cPt3dr Image2Camera3D_InterpoleDist(const cPt2dr & aRasterPx, const cInterpolator1D *anInterpol) const; // in sensor frame (Z forward)
+    cPt3dr Image2NormalInstr(const cPt2dr &aRasterPx) const; //< normal in sensor frame
 
     template <typename TYPE>
         cPt3dr Image2ThetaPhiDist(const TYPE & aRasterPx) const;
 
     cPt3dr Image2Ground(const cPt2di &aRasterPxI) const;
     cPt3dr Image2Ground(cPt2dr aRasterPx) const;
+    cPt3dr Image2Ground_InterpoleDist(cPt2dr aRasterPx, const cInterpolator1D *anInterpol) const;
+
     tREAL4 Image2Distance(cPt2dr aRasterPx) const;
+    tREAL4 Image2DistanceInterpol(cPt2dr aRasterPx, const cInterpolator1D *anInterpol) const;
     cPt3dr ImageAndDepth2Ground(const cPt3dr & ) const override;
 
     cPt2dr Ground2Image(const cPt3dr &aGroundPt) const override;
@@ -193,7 +203,11 @@ public :
     tREAL8 Sigma() const;
     const std::vector<cPt2di> & PatchCenters() const;
 
+    bool isInsideNormalInterpolator(cPt2dr & aPt) const;
+    cDiffInterpolator1D * getNormalInterpolator(const cPt2dr &aPt) const;
+
     void Show() const override;
+    void initInterpolators();
     static std::string GetIdSuffix();
     static std::string GetIdSuffixRegex();
 
@@ -201,13 +215,9 @@ public :
 
     virtual bool DoAddCalibToUk() const override;
 
-    cDiffInterpolator1D * getLineraInterpolator() const;
-
     std::tuple<double, double, cPt3dr> getDistSigmaNormalPlane(cPt2dr aCenter, const cPixBox<2> &aPixBox) const; ///< Adjust a plane on defined points
 
 private :
-    template <typename TYPE> static void fillRaster(const cStaticLidarImporter & aSL_importer,
-                    std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE>> & aIm); // keep image in memory
 
     cPt2dr Ground2ImagePrecise(const cPt3dr & aGroundPt) const;
 
@@ -225,8 +235,13 @@ private :
     std::unique_ptr<cIm2D<tREAL4>> mRasterY;
     std::string mRasterZPath;
     std::unique_ptr<cIm2D<tREAL4>> mRasterZ;
-    //std::string mRasterThetaPath;
-    //std::string mRasterPhiPath;
+
+#ifdef EXPORT_RASTER_THETA_PHI
+    std::string mRasterThetaPath;
+    std::unique_ptr<cIm2D<tREAL4>> mRasterTheta;
+    std::string mRasterPhiPath;
+    std::unique_ptr<cIm2D<tREAL4>> mRasterPhi;
+#endif
     //std::string mRasterThetaErrPath;
     //std::string mRasterPhiErrPath;
 
@@ -243,7 +258,7 @@ private :
     // triangulation for patches selection
     cTriangulation3D<tREAL8> * mTriangulation; ///< triangulation of the raster, for zbuffer
 
-    cDiffInterpolator1D * mLinearInterpolator;
+    std::vector<std::pair<double,cDiffInterpolator1D *>> mVInterpN;         ///< Interpolators, used to get normal of the images, with min dist to use them (must be sorted by dist)
     cCalculator<double> * mEqDistColinearityDist;
 };
 

@@ -204,7 +204,7 @@ class cAppli_ImportClino : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
      private :
 
         cPhotogrammetricProject  mPhProj;
@@ -404,12 +404,12 @@ int cAppli_ImportClino::Exe()
     return EXIT_SUCCESS;
 }
 
-std::vector<std::string>  cAppli_ImportClino::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ImportClino::Samples() const
 {
    return
    {
-       "MMVII ImportClino Data-Input/ClinoValue.txt \"Im AS AS AS AS\" CernInit   ICC=[[0,3],[1,2]]",
-       "MMVII ImportMeasuresClino Data-Input/ClinoMeasures.txt \"Im NAS NAS NAS NAS\" Measure0   "
+       {"MMVII ImportClino Data-Input/ClinoValue.txt \"Im AS AS AS AS\" CernInit   ICC=[[0,3],[1,2]]"},
+       {"MMVII ImportMeasuresClino Data-Input/ClinoMeasures.txt \"Im NAS NAS NAS NAS\" Measure0   "}
    };
 }
 

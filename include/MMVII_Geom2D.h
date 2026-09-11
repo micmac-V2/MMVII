@@ -782,7 +782,7 @@ class cEllipse
        /// get points on ellipse that are +- less regularly sampled at a given step
        void GetTetasRegularSample(std::vector<tREAL8> & aVTetas,const tREAL8 & aDist);
 
-       cPixBox<2> GetBoundingBox() const;
+       cPixBox<2> GetBoundingBox(const cPt2dr& aScale={1.,1.}) const;
 
     private :
        inline void AssertOk() const;
@@ -919,8 +919,6 @@ template <class TypeMap>  void CheckSzInOut(const  typename TypeMap::tVPts& aVIn
    MMVII_INTERNAL_ASSERT_medium(aVIn.size()==aVOut.size(),"Bad sizes in cMapEstimate");
    MMVII_INTERNAL_ASSERT_medium(aVIn.size()>= TypeMap::NbPtsMin,"Not enough obs in cMapEstimate");
 }
-
-
 
 };
 

@@ -360,9 +360,13 @@ public :
     std::vector<std::string>    VNamesObs() const
     {
         if (mWithDistance)
-            return Append(NamesP2("Im"),{"D","F"},NamesP2("PP"),NamesMatr("M",cPt2di(3,3)));
+            return Append(NamesP2("Im"),NamesP2("ErrProj"),
+                          Append({"D","F"},NamesP2("PP"),NamesMatr("M",cPt2di(3,3)))
+                          );
         else
-            return Append(NamesP2("Im"),{"F"},NamesP2("PP"),NamesMatr("M",cPt2di(3,3)));
+            return Append(NamesP2("Im"),NamesP2("ErrProj"),
+                          Append({"F"},NamesP2("PP"),NamesMatr("M",cPt2di(3,3)))
+                          );
     }
 
     template <typename tUk>
@@ -377,6 +381,7 @@ public :
         size_t aIndObs = 0;
 
         auto  aPtIm    = VtoP2AutoIncr(aVObs,&aIndObs);
+        auto  aPtErrorProj = VtoP2AutoIncr(aVObs,&aIndObs); // error between ground2imagePrecise and projection
         tUk  aDistance   =  0;
         if (mWithDistance)
             aDistance = aVObs.at(aIndObs++);
@@ -404,7 +409,7 @@ public :
         MMVII_INTERNAL_ASSERT_always(aIndUk=aVUk.size(),"cEqColinearityTSL_GCPD : Uk-size");
         MMVII_INTERNAL_ASSERT_always(aIndObs== aVObs.size(),"cEqColinearityTSL_GCPD : Obs-size");
 
-        cPtxd<tUk,2> aResidual2D = aPPix - aPtIm;  // compare to mesured point
+        cPtxd<tUk,2> aResidual2D = aPPix  + aPtErrorProj - aPtIm;  // compare to mesured point
         auto aResidualDistance = mWithDistance ? (aGndDistance - aDistance) : 0;
 
         if (mWithDistance)

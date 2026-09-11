@@ -95,7 +95,7 @@ class cAppli_TiePConvert : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
      private :
         std::string              mSpecIm;
         eFormatExtern            mFormat;
@@ -144,10 +144,10 @@ cCollecSpecArg2007 & cAppli_TiePConvert::ArgOpt(cCollecSpecArg2007 & anArgObl)
            ;
 }
 
-std::vector<std::string>  cAppli_TiePConvert::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_TiePConvert::Samples() const
 {
     return {
-               "MMVII TiePConvert IMG_5.*JPG MMV1 V1 Post=dat"
+               {"MMVII TiePConvert IMG_5.*JPG MMV1 V1 Post=dat"}
 
     };
 }

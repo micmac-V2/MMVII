@@ -53,7 +53,7 @@ cBA_Topo::cBA_Topo
             if (UCaseEqual(aPost,"obs"))
             {
                 mAllTopoDataIn.InsertCompObsFile( aPhProj->DPTopoMes().FullDirIn() + aInFile );
-            } else {
+            } else if (UCaseEqual(aPost,"xml") || UCaseEqual(aPost,"json")) {
                 cTopoData aTopoData;
                 aTopoData.FromFile( aPhProj->DPTopoMes().FullDirIn() + aInFile );
                 mAllTopoDataIn.InsertTopoData(aTopoData);
@@ -231,7 +231,11 @@ void cBA_Topo::printObs(bool withDetails)
             if (withDetails)
                 StdOut() << obs->toString()<< "\n";
         }
-    StdOut() << "Topo sigma0: " << mSigma0 << " (" << mNbTopoObs + mNbSetContraints + mNbGCPConstraints <<  " obs)\n";
+    StdOut()  << Color::argument << " *[Topo]: " << Color::end
+              << Color::descr << " sigma0="  << Color::end<< mSigma0
+               << Color::descr << " NbObs="  << Color::end<<  mNbTopoObs + mNbSetContraints + mNbGCPConstraints
+              << "\n";
+            // << " (" << mNbTopoObs + mNbSetContraints + mNbGCPConstraints <<  " obs)\n";
 }
 
 std::vector<cTopoObs*> cBA_Topo::GetObsPoint(std::string aPtName) const

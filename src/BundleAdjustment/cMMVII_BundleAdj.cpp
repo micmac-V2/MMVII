@@ -553,13 +553,16 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     mIter++;
     if(mVerbose)
     {
-        StdOut() << "---------------------- "
+        StdOut() << Color::title
+                 << "---------------------- "
                  << " End Iter" << mIter
-                  << " StdDevLast=" << std::sqrt(mR8_Sys->VarLastSol())
-                  << " StdDevCur=" << std::sqrt(mR8_Sys->VarCurSol())
+                  << " StdDevLast=" <<   Color::end<< std::sqrt(mR8_Sys->VarLastSol()) << Color::title
+                  << " StdDevCur=" <<  Color::end << std::sqrt(mR8_Sys->VarCurSol()) << Color::title
                   //<< " VarLast=" << mR8_Sys->VarLastSol()
                  //<< " ?VarCur?=" << mR8_Sys->VarCurSol()
-                 << " ---------------" << std::endl;
+                 << " ---------------"
+                 << Color::end
+                 <<  std::endl;
     }
 
 }
@@ -1001,10 +1004,11 @@ bool cMMVII_BundleAdj::AddStaticLidar(cStaticLidar* aStaticLidar)
 const std::unordered_map<std::string, cStaticLidar *> &cMMVII_BundleAdj::MapTSL() const {return mMapTSL;}
 
 void cMMVII_BundleAdj::Add1AdjLidarLidar(const std::string & aPatScan, double aSigma, double aThresholdInit,
-                                         double aThresholdFinal, double aNormalTolDeg, const std::vector<std::string> & aInterp)
+                                         double aThresholdFinal, double aNormalTolDeg, const std::vector<std::string> & aInterpD,
+                                         const cWeighterParam & aWParam)
 {
     mVBA_LidarLidar.push_back(new cBA_LidarLidarRaster(mPhProj, *this, aPatScan, aSigma, aThresholdInit,
-                                                       aThresholdFinal, aNormalTolDeg, aInterp));
+                                                       aThresholdFinal, aNormalTolDeg, aInterpD, aWParam));
 }
 
 

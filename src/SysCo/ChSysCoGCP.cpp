@@ -27,7 +27,7 @@ class cAppli_ChSysCoGCP : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
      private :
 
         cPhotogrammetricProject  mPhProj;
@@ -98,9 +98,12 @@ int cAppli_ChSysCoGCP::Exe()
 }
 
 
-std::vector<std::string>  cAppli_ChSysCoGCP::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ChSysCoGCP::Samples() const
 {
-   return {"MMVII GCPChSysCo RTL ORGI RTLSat SysIn=Geog"};
+   return
+   {
+       {"MMVII GCPChSysCo RTL ORGI RTLSat SysIn=Geog"}
+   };
 }
 
 

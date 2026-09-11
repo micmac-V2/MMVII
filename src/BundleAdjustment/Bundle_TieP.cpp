@@ -123,21 +123,24 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
        }
 
    }
-   StdOut() <<  "  # " << aBA_TieP.mName << ": Weighted Residual=" << aWeigthedRes.Average(-1)
-            << " (" << aWeigthedRes.Nb() << " obs)" 
-            << " UnWeitghRes=" << aUnWeightedRed.Average(-1);
+   StdOut() << Color::argument << " *[TieP]: " << Color::end
+            << Color::descr <<  "  Name=" << Color::end << aBA_TieP.mName
+            << Color::descr << " Weighted="  << Color::end << aWeigthedRes.Average(-1)
+            << Color::descr << " UnWeighted=" << Color::end << aUnWeightedRed.Average(-1)
+            << Color::descr << " NbObs=" << Color::end  << aWeigthedRes.Nb()
+     ;
 
    /// MPD :done quick & dirty,  amelioration : user fix %% + put in MMVII lib the format
    if (aStatResidual.NbMeasures()!=0)
    {
-       StdOut() << " ;; ResAt[x%%]=YY, {";
+       StdOut()  << Color::descr << " ;; ResAt[x%%]=YY, {" << Color::end;
        for (const auto & aPerMil : mTiePShowPerMil)
        {
             tREAL8 aR = aStatResidual.ErrAtProp(aPerMil/1000.0) ;
 
-            StdOut() <<  aPerMil << ":" << ResidualToStr(aR)  << "  ";
+            StdOut()  << Color::descr<<  aPerMil << ":"  << Color::end << ResidualToStr(aR)  << "  ";
        }
-       StdOut() << "}";
+       StdOut() << Color::descr << "}" << Color::end;
    }
 
    StdOut() << std::endl;

@@ -730,7 +730,7 @@ class cAppli_OriRelPairOfIm : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
-         std::vector<std::string>  Samples() const override;
+         std::vector<cOneHelpSampleCmp>  Samples() const override;
 
      private :
 
@@ -848,15 +848,22 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgObl(cCollecSpecArg2007 & anArgObl
 cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     anArgOpt
+            << cHeaderSectionArg("Input for tie points")
             <<  mPhProj.DPTieP().ArgDirInOpt()
-            <<  mPhProj.DPGndPt2D().ArgDirInOpt()
             <<  mPhProj.DPMulTieP().ArgDirInOpt()
+            <<  mPhProj.DPGndPt2D().ArgDirInOpt();
 
-            <<  mPhProj.DPTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
+     if (mModeCompute!=0)
+            anArgOpt << cHeaderSectionArg("Export virtual")
+             <<  mPhProj.DPTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points");
 
+
+     anArgOpt << cHeaderSectionArg("Fine parametrization")
             <<  AOpt2007(mNbMinHom,"NbMinHom","Number minimal of homologous point required",{eTA2007::HDV})
             <<  AOpt2007(mDensitySol,"CompForce","How much computation do we pay?",{eTA2007::HDV})
             <<  AOpt2007(mNbIterBA,"NbIterBA","Number of iteration in Bundle/Adj",{eTA2007::HDV})
+
+            << cHeaderSectionArg("Testing")
 
             <<  AOpt2007(mUseOri4GT,"UseOriGT","Set if orientation contains also exterior as a ground truth",{eTA2007::HDV})
             <<  AOpt2007(mFolderOriGT,"OriGT","If ground truth ori != calib")
@@ -867,9 +874,9 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt
 
     if (mModeCompute==0)
     {
-        anArgOpt  //<< mPhProj.DPOrient().ArgDirOutOpt("OriOut","For saving relative or as orientations")
-                 << AOpt2007(mKSaveOri,"KSaveOri","Num of sol to save",{eTA2007::HDV})  ;
+        anArgOpt      << AOpt2007(mKSaveOri,"KSaveOri","Num of sol to save",{eTA2007::HDV,eTA2007::Tuning})  ;
     }
+
 
     return anArgOpt;
 }
@@ -884,13 +891,34 @@ cPt2dr  cAppli_OriRelPairOfIm::RandomizePt(const cPt2dr& aP0,const cSensorCamPC&
     return aBox.Proj(aRes);
 }
 
-std::vector<std::string>  cAppli_OriRelPairOfIm::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_OriRelPairOfIm::Samples() const
 {
     if (mModeCompute==0)
     {
-        return {
-           std::string("MMVII OriPoseEstimRel2Im 043_1012_CalibInit.tif 043_1015_CalibInit.tif")
+        return
+        {
+            cOneHelpSampleCmp::Header("Examples with Ramses data set"),
+            {
+                 "MMVII OriPoseEstimRel2Im IMG_0350.JPG IMG_0351.JPG Calib_Init T_5051 InTieP=V1 "
+            },
+            {
+                 "MMVII OriPoseEstimRel2Im IMG_0350.JPG IMG_0351.JPG Calib_Init T_5051 InMulTieP=V1 OriGT=Adjust "
+            },
+            {
+                "MMVII OriPoseEstimRel2Im IMG_0350.JPG IMG_0351.JPG Adjust T_5051 InMulTieP=V1 UseOriGT=1",
+
+                {"Use with single and multiple tie points, in 2nd & 3rd use a ground truh to measure quality"}
+            },
+            {
+                "MMVII OriPoseEstimRel2Im IMG_0350.JPG IMG_0351.JPG Adjust T_5051  UseOriGT=1  NbSimulPt=100  OutLayers=[400,2]",
+                {"Use goud truh and simulation "}
+            }
+
+
+ /*          {
+                 std::string("MMVII OriPoseEstimRel2Im 043_1012_CalibInit.tif 043_1015_CalibInit.tif")
               + " BA1-CalibInit_311 InObjMesInstr=Pannel OriGT=BA1-CalibInit_311 NbSol0=5 OutLayers=[5,100]"
+            }*/
         };
     }
     return {};

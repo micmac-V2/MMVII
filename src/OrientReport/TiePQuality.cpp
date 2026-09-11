@@ -4,6 +4,8 @@
 #include "MMVII_PCSens.h"
 #include "MMVII_Tpl_Images.h"
 
+#include "MMVII_Tpl_ElemStrToVal.h"
+
 
 /**
    \file GCPQuality.cpp
@@ -100,6 +102,18 @@ struct cStatRes2D
 
 };
 
+
+
+struct cTPQ_ParamPly
+{
+    bool   mIsColored;
+    double mExQual;
+    ARG2007_STRUCT_FIELDS (
+        mIsColored,FieldSem({eTA2007::AddCom,"Generate a BW/Colored ply file"}),
+        mExQual,FieldSem({eTA2007::AddCom,"Exposant  for fomula : Qual = 1-Prop^Exp"})
+        )
+};
+
 class cAppli_TiePReport : public cMMVII_Appli
 {
      public :
@@ -108,7 +122,7 @@ class cAppli_TiePReport : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
 
 
 
@@ -151,7 +165,8 @@ class cAppli_TiePReport : public cMMVII_Appli
              std::string              mPatternVFByPair;
              std::string              mPatternResByPair;
 
-             std::vector<tREAL8>      mParamPly;
+             cTPQ_ParamPly            mParamPly;
+            // std::vector<tREAL8>      mParamPly;
              cPlyVertices             mPlyFile;
 
              std::vector<tREAL8>      mParamsFV;  /// Parameters for fields of vectors
@@ -197,12 +212,13 @@ cAppli_TiePReport::cAppli_TiePReport
 {
 }
 
-std::vector<std::string>  cAppli_TiePReport::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_TiePReport::Samples() const
 {
-    return {
-        "MMVII ReportTieP .*JPG V1 Adjust  ParamPly=[1,4.0]",
-        "MMVII ReportTieP IMG_03.*JPG V1Dense Adjust InTieP=V1Dense  PairPatRes=IMG_035[0-3].JPG  PairPatFV=IMG_035[1-2].JPG"
-    }   ;
+    return
+    {
+        {"MMVII ReportTieP .*JPG V1 Adjust  ParamPly=[1,4.0]"},
+        {"MMVII ReportTieP IMG_03.*JPG V1Dense Adjust InTieP=V1Dense  PairPatRes=IMG_035[0-3].JPG  PairPatFV=IMG_035[1-2].JPG"}
+    };
 }
 
 cCollecSpecArg2007 & cAppli_TiePReport::ArgObl(cCollecSpecArg2007 & anArgObl)
@@ -220,20 +236,18 @@ cCollecSpecArg2007 & cAppli_TiePReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
     return   anArgOpt
 
-          <<  "Parameters for per/image stas/visu"
+          << cHeaderSectionArg ("Parameters for per/image stas/visu")
           << AOpt2007(mPatImRes,"PatImRes","Pattern of  images  where we generat residual (if any)")
           << AOpt2007(mPatImFV,"PatImFV","Pattern of  images  where we generat field vector (if any)")
           << AOpt2007(mDoImResCalib,"DoImResCalib","Do we generate images of residual by calibration ?",{eTA2007::HDV})
 
-          << "Parameters by pairs "
+          << cHeaderSectionArg("Parameters by pairs ")
           << mPhProj.DPTieP().ArgDirInOpt("","Tie point in pair format for by pair stat/visu")
           << AOpt2007(mPatternVFByPair,"PairPatFV","Pattern for pairs generatin vector fiels by pair")
           << AOpt2007(mPatternResByPair,"PairPatRes","Pattern for pairs generating residual images")
 
 
-
-
-          << "General pameters (for per-images and pairs)"
+          << cHeaderSectionArg("General pameters (for per-images and pairs)")
           << AOpt2007(mPropStat,"Perc","Percentil for stat exp",{eTA2007::HDV})
           << cImageVectorField::ArgOpt(anArgOpt,mParamsFV)
              /*
@@ -245,8 +259,8 @@ cCollecSpecArg2007 & cAppli_TiePReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
                  {{eTA2007::HDV},{eTA2007::ISizeV,"[1,5]"}}
              )*/
 
-          << "3D pameters"
-          << AOpt2007(mParamPly,"ParamPly","Generate a 3D visualization of ply files [Colored,ExpQual]",{{eTA2007::ISizeV,"[2,2]"}})
+          << cHeaderSectionArg("3D pameters")
+          << AOpt2007(mParamPly,"ParamPly","Generate a 3D visualization of ply files")
     ;
 }
 
@@ -325,11 +339,11 @@ cPt3dr cAppli_TiePReport::ColourOfResidual(tREAL8 aRes)
 {
    tREAL8 aProp=    mHistoRes.PropCumul(aRes/mStepHisto);
 
-   tREAL8 aQual = 1.0 - std::pow(aProp,mParamPly.at(1));
+   tREAL8 aQual = 1.0 - std::pow(aProp,mParamPly.mExQual);
 
-   if (mParamPly.at(0)==0.0)
+   if (! mParamPly.mIsColored)
    {
-      return cPt3dr::PCste(1.0 -aQual);
+      return cPt3dr::PCste(aQual);
    }
    else
    {

@@ -466,6 +466,20 @@ struct  cAttrReport
 };
 
 
+struct cOneHelpSampleCmp
+{
+    public :
+
+       static cOneHelpSampleCmp Header(const std::string &);
+       cOneHelpSampleCmp(const std::string & aCmd) ;
+       cOneHelpSampleCmp(const std::string & aCmd,const std::vector<std::string> & aVComs) ;
+
+       bool                       mIsHeader;
+       std::string                mCmd;
+       std::vector<std::string>  mVComs;
+};
+
+
 
 class cMMVII_Appli : public cMMVII_Ap_NameManip,
                      public cMMVII_Ap_CPU
@@ -522,7 +536,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
 
         void LogCommandAbortOnError(std::string &aMessage);  ///< Used in MMVII_errors.cpp to log error message in main log
 
-        virtual std::vector<std::string>  Samples() const; ///< For help, gives samples of "good" use
+        virtual std::vector<cOneHelpSampleCmp>  Samples() const; ///< For help, gives samples of "good" use
         bool ModeHelp() const;              ///< If we are in help mode, don't execute
         bool ModeArgsSpec() const;          ///< If called only to output args specs, don't execute
         virtual ~cMMVII_Appli();            ///< Always virtual Dstrctr for "big" classes
@@ -558,6 +572,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         static void SignalInputFormat(int); ///< indicate that a xml file was read in the given version
         static bool        OutV2Format() ;  ///<  Do we write in V2 Format
 
+        void BeginParamFacShared();
         void InitParam(cGenArgsSpecContext *aArgsSpec = nullptr);  ///< Parse the parameter list, aArgsSpecs must be nullptr. (only cMMVII_GenArgsSpec use aArgsSpec)
         void SetNot4Exe(); ///< Indicate that the appli was not fully initialized
 
@@ -715,6 +730,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         void GenerateOneArgSpec(cCollecSpecArg2007& aSpecArgs, const std::string& aSpecName, bool aOptional, cGenArgsSpecContext *aArgsSpec);
 
         void                                      GenerateHelp(); ///< In Help mode print the help
+        void SectionHelp(const std::string & aNameSec);
         void PrintAdditionnalComments(tPtrArg2007 anArg); ///< Print the optional comm in mode glob help
 
         void                                      InitProject();  ///< Create Dir (an other ressources) that may be used by all processe
@@ -855,6 +871,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
 
         std::string                        mPatternInitGMA;
         static bool                        mIsMultiThread;  /// memorize the multi thread state
+        bool                               mArgGlobHasBegun; /// To make once separation with arg glob
 };
 
 #define ASSERT_NO_MUTI_THREAD() \

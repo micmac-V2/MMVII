@@ -143,7 +143,7 @@ class cAppli_ReduceVideo : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
 
-        std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
 
      private :
          std::string               mPat;         ///< Pattern of input file
@@ -183,7 +183,7 @@ cCollecSpecArg2007 & cAppli_ReduceVideo::ArgOpt(cCollecSpecArg2007 & anArgOpt)
    ;
 }
 
-std::vector<std::string>  cAppli_ReduceVideo::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ReduceVideo::Samples() const
 {
         return {};
 // mm3d MapCmd  S=1  ffmpeg -i "P=(.*)\.mp4" -vf scale=1280:720 "c=Reduced-\$1.mp4"

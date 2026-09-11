@@ -171,6 +171,26 @@ Typiquement si l'image initiale est tr\`e floue, il faudrait la d\'econvoluer, i
 il faudra la flouter.  Je ne vois pas d'autre solution que de faire une hypoth\`ese sur la largeur de la t\^ache image.
 Voir chapitre suivant pour voir comment le calcul de la convolutin sur $I_0$ est g\'er\'e.
 
+
+    % ==================================================================================
+
+\subsection{Localisation du code}
+
+Le calcule de la pyrmide se fait dans l'appelr de {\tt ComputGaussianPyram} de la
+classe {\tt cGaussianPyramid}.  Celle ci appelle iterativement le calcul dans
+chaque octave, c.a.d la méthode {\tt ComputGaussianFilterOfAllImages} de la classe {\tt cGP\_OneOctave},
+qui a sont tour appelle it\'erarivement le calcul  dans chaque image, c.a.d la méthode
+{\tt ComputGaussianFilterOfImage} de la classe {\tt cGP\_OneImage}.
+
+
+C'est donc dans {\tt ComputGaussianFilterOfImage} qu'est impément\'ee l'ensemble des r\`egles 
+précédentes.
+
+  %template <class Type> void cGP_OneImage<Type>::ComputGaussianFilter()
+
+%template <class Type> void cGaussianPyramid<Type>::ComputGaussianFilter()
+
+
     % ==================================================================================
 
 \subsection{Extraction de points caract\'eristiques}

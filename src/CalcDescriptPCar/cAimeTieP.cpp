@@ -305,7 +305,11 @@ template<class Type> float cProtoAimeTieP<Type>::ScaleAbs() const {return mGPI->
 template<class Type>  const cGaussianPyramid<Type> & cProtoAimeTieP<Type>::Pyram() const {return mGPI->Pyr();}
 template<class Type>  const cGP_Params&  cProtoAimeTieP<Type>::Params() const {return Pyram().Params();}
 
+
+
 ///  ALP  Aime Log Pol
+///
+/// Compute the orientation reference of point
 
 double CalcOrient(const cDataIm2D<tREAL4>&  aDIm,eModeNormOr aMode)
 {
@@ -354,6 +358,8 @@ double CalcOrient(const cDataIm2D<tREAL4>&  aDIm,eModeNormOr aMode)
     double aRes =  mod_real(aIRes + aDelta,aNbTeta);
     return aRes;
 }
+
+
 
 template<class Type> bool   cProtoAimeTieP<Type>::FillAPC(const cFilterPCar& aFPC,cAimePCar & aPC,bool ForTest)
 {

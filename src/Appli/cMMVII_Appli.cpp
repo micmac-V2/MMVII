@@ -1,7 +1,7 @@
 #include "cMMVII_Appli.h"
 #include "MMVII_Sys.h"
 #include "MMVII_DeclareCste.h"
-#include "MMVII_2Include_Serial_Tpl.h"
+#include "MMVII_Tpl_ElemStrToVal.h"
 
 
 #include <thread>
@@ -9,6 +9,8 @@
 
 namespace MMVII
 {
+
+
 
 extern std::string MMVII_SysTempDir();   ///< defined in uti_sysdep.cpp
 
@@ -306,7 +308,8 @@ cMMVII_Appli::cMMVII_Appli
    mTiePPrefIn    (MMVII_StdDest),
    mIsInBenchMode (false),
    mReportSubDir   (""),
-   mPatternInitGMA (MMVII_NONE)
+   mPatternInitGMA (MMVII_NONE),
+   mArgGlobHasBegun (false)
 {
    mNumCallInsideP = TheNbCallInsideP;
    TheNbCallInsideP++;
@@ -440,6 +443,17 @@ void cMMVII_Appli::SetNot4Exe()
    mForExe = false;
 }
 
+void cMMVII_Appli::BeginParamFacShared()
+{
+    /// MPD2ARGS
+
+   if (! mArgGlobHasBegun)
+   {
+       mArgGlobHasBegun = true;
+       mArgFac << cHeaderSectionArg("Shared Args",true) ;
+   }
+}
+
 void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
 {
   //  StdOut() << "XXXXXXXXXXInitParam" << "\n";
@@ -474,12 +488,15 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
   cSpecOneArg2007::tAllSemPL aGlob{eTA2007::Global}; // just to make shorter lines
   cSpecOneArg2007::tAllSemPL aGlobHDV{eTA2007::Global,eTA2007::HDV}; // just to make shorter lines
 
+
   if (HasSharedSPO(eSharedPO::eSPO_CarPO))
   {
+     BeginParamFacShared();
      mArgFac << AOpt2007(mCarPPrefOut,"CarPOut","Name for Output caracteristic points",{eTA2007::HDV});
   }
   if (HasSharedSPO(eSharedPO::eSPO_CarPI))
   {
+     BeginParamFacShared();
      mArgFac << AOpt2007(mCarPPrefIn,"CarPIn","Name for Input caracteristic points",{eTA2007::HDV});
   }
 
@@ -495,6 +512,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
       TestMainSet(anArgFac,HasMain0,HasMain1);
       if (HasMain0)
       {
+        BeginParamFacShared();
         mArgFac <<  AOpt2007(mIntervFilterMS[0],GOP_Int0,"File Filter Interval, Main Set"  ,{eTA2007::Shared,{eTA2007::FFI,"0"}});
         mArgFac <<  AOpt2007(mTransfoFFI[0],"Pat"+GOP_Int0,"Pattern Transfo File Filter Interval, Main Set"  ,{eTA2007::Shared,{eTA2007::ISizeV,"[2,2]"}});
       }
@@ -504,48 +522,8 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
         mArgFac <<  AOpt2007(mTransfoFFI[1],"Pat"+GOP_Int1,"Pattern Transfo File Filter Interval, Main Set"  ,{eTA2007::Shared,{eTA2007::ISizeV,"[2,2]"}});
       }
   }
-  if  (The_MMVII_DebugLevel >= The_MMVII_DebugLevel_InternalError_micro)
-  {
-      mArgFac
-         <<  AOpt2007(mNumTagObjCr,"NTOC4ML","Num of tagged object at creation for memory leak",{eTA2007::Global});
-  }
-  mArgFac
-      <<  AOpt2007(mNumOutPut,GOP_NumVO,"Num version for output format (1 or 2)",{eTA2007::Global,{eTA2007::Range,"[1,2]"}})
-      <<  AOpt2007(mSeedRand,GOP_SeedRand,"Seed for random,if <=0 init from time",aGlobHDV)
-      <<  AOpt2007(mExtendPattern,"ExtPatFile","Do we extend patterns for files (or interpret them literally)",aGlobHDV)
 
-      <<  AOpt2007(msWithWarning,GOP_WW,"Do we print warnings",aGlobHDV)
-      <<  AOpt2007(mNbProcAllowed,GOP_NbProc,"Number of process allowed in parallelisation",aGlobHDV)
-      <<  AOpt2007(mShowTimePerThread,"ShowTimePerThread","Show per-thread breakdown in TimerSegm timing reports",aGlobHDV)
-      <<  AOpt2007(aDP ,GOP_DirProj,"Project Directory",{eTA2007::DirProject,eTA2007::Global})
-      <<  AOpt2007(mParamStdOut,GOP_StdOut,"Redirection of Ouput (+File for terminal and file output, 0File to reset file, "+ MMVII_NONE + " for no out)",aGlob)
-
-      <<  AOpt2007(mProfileName,"Profile","Apply specific user profile for this command",{eTA2007::Global,eTA2007::HDV,{eTA2007::AllowedValues,ToS(GlobProfileNames())}})
-
-      <<  AOpt2007(mLevelCall,GIP_LevCall," Level Of Call",aInternal)
-      <<  AOpt2007(mKthCall,GIP_KthCall," Ordre Of Call when multiple call",aInternal)
-      <<  AOpt2007(mPatternInitGMA,GIP_PatternGMA,"Initial pattern of global main appli ",aInternal)
-      <<  AOpt2007(mShowAll,GIP_ShowAll,"",aInternal)
-      <<  AOpt2007(mPrefixGMA,GIP_PGMA," Prefix Global Main Appli",aInternal)
-      <<  AOpt2007(mPrefix_TIM_GMA,GIP_TIM_GMA," Prefix for Time of Global Main Appli",aInternal)
-      <<  AOpt2007(mDirProjGMA,GIP_DirProjGMA," Folder Project Global Main Appli",aInternal)
-      <<  AOpt2007(mExecFrom,GIP_ExecFrom," Name of the frontend that launched this command",aInternal)
-  ;
-
-  // Check that names of optionnal parameters begin with alphabetic caracters
-  for (const auto & aSpec : mArgFac.Vec())
-  {
-      aSpec->ReInit();
-      if (!std::isalpha(aSpec->Name()[0]))
-      {
-         MMVII_INTERNAL_ASSERT_always
-         (
-             false,
-             "Name of optional param must begin with alphabetic => ["+aSpec->Name()+"]"
-         );
-      }
-  }
-
+  //  MPD : test move here to use mModeHelp in add comment
   mNbMinusInHelp=0;
   // Test if we are in help mode
   for (int aKArg=0 ; aKArg<mArgc ; aKArg++)
@@ -567,6 +545,71 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
          SplitStringAround(aName,mPatHelp,aArgK,'=',true,false);
       }
   }
+
+  /// MPD2ARGS
+
+  if (mDoGlobHelp)
+      mArgFac << cHeaderSectionArg( "Global Args",true);
+
+//  StdOut() << "mDoGlobHelpmDoGlobHelp " << mDoGlobHelp << "\n";
+
+  if  (The_MMVII_DebugLevel >= The_MMVII_DebugLevel_InternalError_micro)
+  {
+
+      mArgFac
+         <<  AOpt2007(mNumTagObjCr,"NTOC4ML","Num of tagged object at creation for memory leak",{eTA2007::Global});
+  }
+  mArgFac
+      <<  AOpt2007(mNumOutPut,GOP_NumVO,"Num version for output format (1 or 2)",{eTA2007::Global,{eTA2007::Range,"[1,2]"}})
+      <<  AOpt2007(mSeedRand,GOP_SeedRand,"Seed for random,if <=0 init from time",aGlobHDV)
+      <<  AOpt2007(mExtendPattern,"ExtPatFile","Do we extend patterns for files (or interpret them literally)",aGlobHDV)
+
+      <<  AOpt2007(msWithWarning,GOP_WW,"Do we print warnings",aGlobHDV)
+      <<  AOpt2007(mNbProcAllowed,GOP_NbProc,"Number of process allowed in parallelisation",aGlobHDV)
+      <<  AOpt2007(mShowTimePerThread,"ShowTimePerThread","Show per-thread breakdown in TimerSegm timing reports",aGlobHDV)
+      <<  AOpt2007(aDP ,GOP_DirProj,"Project Directory",{eTA2007::DirProject,eTA2007::Global})
+      <<  AOpt2007(mParamStdOut,GOP_StdOut,"Redirection of Ouput (+File for terminal and file output, 0File to reset file, "+ MMVII_NONE + " for no out)",aGlob)
+
+      <<  AOpt2007
+          (
+              mProfileName,"Profile","Apply specific user profile for this command",
+              {eTA2007::Global,eTA2007::HDV,{eTA2007::AllowedValues,ToS(GlobProfileNames())}}
+           );
+
+  /// MPD2ARGS
+
+  if (mDoInternalHelp)
+      mArgFac << cHeaderSectionArg("Internal Args",true);
+
+   mArgFac
+      <<  AOpt2007(mLevelCall,GIP_LevCall," Level Of Call",aInternal)
+      <<  AOpt2007(mKthCall,GIP_KthCall," Ordre Of Call when multiple call",aInternal)
+      <<  AOpt2007(mPatternInitGMA,GIP_PatternGMA,"Initial pattern of global main appli ",aInternal)
+      <<  AOpt2007(mShowAll,GIP_ShowAll,"",aInternal)
+      <<  AOpt2007(mPrefixGMA,GIP_PGMA," Prefix Global Main Appli",aInternal)
+      <<  AOpt2007(mPrefix_TIM_GMA,GIP_TIM_GMA," Prefix for Time of Global Main Appli",aInternal)
+      <<  AOpt2007(mDirProjGMA,GIP_DirProjGMA," Folder Project Global Main Appli",aInternal)
+      <<  AOpt2007(mExecFrom,GIP_ExecFrom," Name of the frontend that launched this command",aInternal)
+  ;
+
+   // Check no header was added that is associated to nothing
+   mArgFac.CheckNoWaitingHeadSA();
+
+  // Check that names of optionnal parameters begin with alphabetic caracters
+  for (const auto & aSpec : mArgFac.Vec())
+  {
+      aSpec->ReInit();
+      if (!std::isalpha(aSpec->Name()[0]))
+      {
+         MMVII_INTERNAL_ASSERT_always
+         (
+             false,
+             "Name of optional param must begin with alphabetic => ["+aSpec->Name()+"]"
+         );
+      }
+  }
+
+  // HERE WAS HELP INIT BEFORE MPD MOVE
 
   if (mModeHelp)
   {
@@ -1507,6 +1550,13 @@ static void PrintStructuredFieldsComment4Help
    anOut << "\n";
 }
 
+void cMMVII_Appli::SectionHelp(const std::string & aNameSec)
+{
+    HelpOut() << "\n";
+    HelpOut() << Color::title << " == " << aNameSec << " : ==\n" << Color::end;
+
+}
+
 void cMMVII_Appli::GenerateHelp()
 {
    HelpOut() << "\n";
@@ -1521,9 +1571,9 @@ void cMMVII_Appli::GenerateHelp()
    HelpOut() << Color::title << "  For command : " << Color::command << mSpecs.Name() << Color::end << " \n";
    HelpOut() << "   => " << Color::descr << mSpecs.Comment() << Color::end << "\n";
    HelpOut() << "   => Srce code entry in :" << mSpecs.NameFile() << "\n";
-   HelpOut() << "\n";
 
-   HelpOut() << Color::title << " == Mandatory unnamed args : ==\n" << Color::end;
+
+   SectionHelp("Mandatory unnamed args");
 
    for (const auto & Arg : mArgObl.Vec())
    {
@@ -1534,123 +1584,111 @@ void cMMVII_Appli::GenerateHelp()
 
    tNameSelector  aSelName =  AllocRegex(mPatHelp);
 
-   HelpOut() << "\n";
-   HelpOut() << Color::title << " == Optional named args : ==\n" << Color::end;
-   //  Help to write only once the #### XXXX ###
-   bool InternalMet = false;
-   bool GlobalMet   = false;
-   bool TuningMet   = false;
-   for (int aKTime=0 ; aKTime<2; aKTime++)
+   SectionHelp("Optional named args");
+
+   bool AlreadyGotGlobArg = false;
+   for (const auto & Arg : mArgFac.Vec())
    {
-      size_t aArgNum = 0;
-      size_t aCommNum = 0;
-      for (const auto & Arg : mArgFac.Vec())
-      {
-          const std::string & aNameA = Arg->Name();
-          if (aSelName.Match(aNameA))
-          {
-             bool IsIinternal = Arg->HasType(eTA2007::Internal);
-             bool IsTuning = Arg->HasType(eTA2007::Tuning);
-             if ((! (IsIinternal || IsTuning)) || mDoInternalHelp)
+       bool ArgIsInternal = Arg->HasType(eTA2007::Internal);
+       bool ArgIsGlobal = Arg->HasType(eTA2007::Global);
+       // The rule :
+       //   - if ArgIsInternal : print if mDoInternalHelp (used for internal MMVII purpose)
+       //   - if ArgIsGlobal   :  print if  mDoGlobHelp   (usefull but alwayse the same)
+       //    - else print
+
+       bool DoIt =     ((!ArgIsInternal) && (!ArgIsGlobal))
+                    || (mDoGlobHelp && (!ArgIsInternal))
+                    ||  mDoInternalHelp ;
+
+       if (DoIt)
+       {
+         if (Arg->HasHeadSep())
+         {
+             //  To have a separation between  header of commans and global MMVII header*
+             // we print a new line the first time we enconter a global header
+             if ((!AlreadyGotGlobArg) &&  Arg->GetHeadSep().GlobMMVII())
              {
-                bool IsGlobHelp = Arg->HasType(eTA2007::Global);
-                // First time do std args, second time to others (tune,glob,inter ...)
-                bool DoIt = (aKTime==0) ^  (IsIinternal || IsTuning || IsGlobHelp);
-                if (DoIt && ((!IsGlobHelp) || mDoGlobHelp))
-                {
-                   while ((aCommNum<mArgFac.mVComm.size()) &&(mArgFac.mVComm.at(aCommNum).first==aArgNum) )
-                   {
-                      std::string aDeco1 = "----------------";
-                      std::string aDeco2 = "===";
-                      HelpOut() << Color::title  << aDeco1 << aDeco2 << " ["
-                                << mArgFac.mVComm.at(aCommNum).second
-                                <<  "] " << aDeco2 << aDeco1 << Color::end << "\n" ;
-                      aCommNum++;
-                   }
-                   if (IsTuning && (!TuningMet))
-                   {
-                      HelpOut() << Color::title << "       ####### TUNING #######\n" << Color::end ;
-                      TuningMet = true;
-                   }
-                   else if (IsIinternal && (!InternalMet))
-                   {
-                      HelpOut() << Color::title << "       ####### INTERNAL #######\n" << Color::end ;
-                      InternalMet = true;
-                   }
-                   else if (IsGlobHelp && (!GlobalMet))
-                   {
-                      HelpOut() << Color::title << "       ####### GLOBAL   #######\n" << Color::end ;
-                      GlobalMet = true;
-                   }
-
-                   HelpOut()  << "  * [" << Color::argument << Arg->Name() << Color::end << "] " << Arg->NameType() << Arg->Name4Help() << ": " ;
-                   if (IsIinternal)
-                       HelpOut()  << "(!!== INTERNAL DONT USE DIRECTLY ==!!)";
-                   HelpOut()  << Color::descr <<  Arg->Com() << Color::end ;
-                   bool HasDefVal = Arg->HasType(eTA2007::HDV);
-                   if (HasDefVal)
-                   {
-                      HelpOut() << ", [Default="  << Color::descr << Arg->DefaultNameValue() << Color::end << "]";
-                   }
-
-                   HelpOut()  << "\n";
-                   PrintStructuredFieldsComment4Help(HelpOut(),Arg);
-
-                   // Check tuning comes at end =  when tuning is reached, we have non standard param
-/*
-                if (TuningMet)
-                {
-                   MMVII_INTERNAL_ASSERT_always
-                   (
-                       (IsIinternal||IsGlobHelp||IsTuning),
-                       "Tuning parameter must comes at end"
-                   );
-                }
-*/
-                }
-                if (DoIt)
-                    PrintAdditionnalComments(Arg);
+               AlreadyGotGlobArg = true;
+               HelpOut() << "\n";
              }
+             std::string aDeco1 = "----------------";
+             std::string aDeco2 = "===";
+             HelpOut() << " " << Color::sub_title  << aDeco1 << aDeco2 << " ["
+                       << Arg->GetHeadSep().GetComment()
+                       <<  "] " << aDeco2 << aDeco1 << Color::end << "\n" ;
+
+         }
+         HelpOut()  << "  * [" << Color::argument << Arg->Name() << Color::end << "] " << Arg->NameType() << Arg->Name4Help() << ": " ;
+
+         if (ArgIsInternal)
+         {
+              HelpOut() << Color::warning  << "(!!== INTERNAL DONT USE DIRECTLY ==!!)" << Color::end ;
           }
-          aArgNum++;
-      }
+          if ( Arg->HasType(eTA2007::Tuning))
+          {
+               HelpOut() << Color::warning  << "(Tuning) " << Color::end ;
+          }
+
+
+          HelpOut()  << Color::descr <<  Arg->Com() << Color::end ;
+          bool HasDefVal = Arg->HasType(eTA2007::HDV);
+          if (HasDefVal)
+          {
+             HelpOut() << ", [Default="  << Color::descr << Arg->DefaultNameValue() << Color::end << "]";
+          }
+
+          HelpOut()  << "\n";
+          PrintStructuredFieldsComment4Help(HelpOut(),Arg);
+          PrintAdditionnalComments(Arg);
+
+       }
    }
-   // HelpOut() << "\n";
+
+
+   std::string aPdfFile =  mDirHelpByCmd + mSpecs.Name() + ".pdf";
+
+   if (ExistFile(aPdfFile))
+   {
+       //  StdOut()  << " PatH=" << mPatHelp << "\n";
+       SectionHelp("Detailled help exist for this command in file");
+
+       HelpOut()  << Color::descr << "       "  << aPdfFile << Color::end << "\n";
+
+       std::string aPdfOpen = mParamProfile.Get("PdfOpen",std::string());
+       //  StdOut() << "HHHHHhh " << aPdfOpen.has_value()  << " UN " << mParamProfile.mUserName << "\n";
+       if (aPdfOpen.size() && (mPatHelp=="pdf"))
+       {
+           cParamCallSys aCom(aPdfOpen,aPdfFile);
+           int aResult = aCom.Execute(true);
+//           int aResult = system(aCom.Com().c_str());
+           if (aResult!= EXIT_SUCCESS)
+           {
+               StdOut() << "Can't run command : '" << aCom.Com() << "'\n";
+           }
+       }
+   }
 
    // Eventually, print samples of "good" uses , only with Help
    if (mDoGlobHelp)
    {
-       std::vector<std::string> aVS = Samples ();
-       if (! aVS.empty())
+       std::vector<cOneHelpSampleCmp> aVSample = Samples ();
+       if (! aVSample.empty())
        {
-          HelpOut() << Color::title <<  "       #######  EXAMPLES  ##########\n" << Color::end ;
-          for (const auto & aStr : aVS)
+          SectionHelp("Examples of use");
+
+          for (const auto & aSample : aVSample)
           {
-              HelpOut() << " - " <<  aStr  << "\n";
+              if (aSample.mIsHeader)
+                  HelpOut() << Color::sub_title << "  --- " <<  aSample.mCmd  << "---"<<  Color::end << "\n";
+              else
+                  HelpOut() << "   - " <<  aSample.mCmd  << "\n";
+              for (const auto & aCom : aSample.mVComs)
+                  HelpOut() << "      * " <<  Color::descr << aCom << Color::end << "\n";
+
           }
        }
-       HelpOut() << "\n";
    }
 
-    std::string aPdfFile =  mDirHelpByCmd + mSpecs.Name() + ".pdf";
-
-    if (ExistFile(aPdfFile))
-    {
-        //  StdOut()  << " PatH=" << mPatHelp << "\n";
-        HelpOut() <<  Color::title  << " ### Detailled help for this command in : \n" << "    * " << Color::descr << aPdfFile  << Color::end << "\n";
-        std::string aPdfOpen = mParamProfile.Get("PdfOpen",std::string());
-        //  StdOut() << "HHHHHhh " << aPdfOpen.has_value()  << " UN " << mParamProfile.mUserName << "\n";
-        if (aPdfOpen.size() && (mPatHelp=="pdf"))
-        {
-            cParamCallSys aCom(aPdfOpen,aPdfFile);
-            int aResult = aCom.Execute(true);
- //           int aResult = system(aCom.Com().c_str());
-            if (aResult!= EXIT_SUCCESS)
-            {
-                StdOut() << "Can't run command : '" << aCom.Com() << "'\n";
-            }
-        }
-    }
 }
 
 void cMMVII_Appli::ShowAllParams()
@@ -1821,7 +1859,7 @@ bool  cMMVII_Appli::IsInSpec(const void * aPtr)
 void cMMVII_Appli::MMVII_WARNING(const std::string & aMes)
 {
    StdOut() << "===================================================================" << std::endl;
-   StdOut() <<  aMes << std::endl;
+   StdOut() <<  Color::warning << aMes << Color::end << std::endl;
    StdOut() << "===================================================================" << std::endl;
 }
 
@@ -2252,9 +2290,9 @@ cParamCallSys cMMVII_Appli::CommandOfMain() const
     return aRes;
 }
 
-std::vector<std::string>  cMMVII_Appli::Samples() const
+std::vector<cOneHelpSampleCmp>  cMMVII_Appli::Samples() const
 {
-   return std::vector<std::string>();
+    return {};
 }
 
 bool IsInit(const void * anAdr)
@@ -2267,6 +2305,42 @@ int  cMMVII_Appli::ExeOnParsedBox()
     MMVII_INTERNAL_ERROR("Call to undefined method ExeOnParsedBox()");
     return EXIT_FAILURE;
 }
+
+/* ******************************************************* */
+/*                                                         */
+/*                    cOneHelpSampleCmp                    */
+/*                                                         */
+/* ******************************************************* */
+
+
+cOneHelpSampleCmp::cOneHelpSampleCmp(const std::string & aCmd) :
+    cOneHelpSampleCmp(aCmd,{})
+{
+}
+
+cOneHelpSampleCmp::cOneHelpSampleCmp(const std::string & aCmd,const std::vector<std::string> & aVComs) :
+    mIsHeader    (false),
+    mCmd (aCmd),
+    mVComs (aVComs)
+{
+}
+
+cOneHelpSampleCmp cOneHelpSampleCmp::Header(const std::string & aCom)
+{
+    cOneHelpSampleCmp aRes(aCom);
+    aRes.mIsHeader = true;
+    return aRes;
+}
+
+
+/*
+cOneHelpSampleCmp::cOneHelpSampleCmp(bool IsHeader,const std::string & aCmd) :
+    cOneHelpSampleCmp(aCmd,{})
+
+{
+    mIsHeader = IsHeader;
+}
+*/
 
 
 };

@@ -125,8 +125,8 @@ void cMMVII_BundleAdj::OneItere_GCP()
 
 
     int aNbGCPVis = 0;
-    int aAvgVis = 0;
-    int aAvgNonVis = 0;
+    int aNbVisib = 0;
+    [[maybe_unused]] int aAvgNonVis = 0; // supress the print , see if we maintain
     if (aNbGCP!=0)
     {
         aNewGCP = aSet; //copy
@@ -231,11 +231,25 @@ void cMMVII_BundleAdj::OneItere_GCP()
 
                 aUW_SqRes.Add(1.0,SqN2(aResidual));
                 cCalculator<double> * anEqColin = nullptr;
+
                 // the "obs" are made of 2 point and, possibily, current rotation (for PC cams)
                 std::vector<double> aVObs = aPIm.ToStdVector();
 
                 // will use dist only if this is as cStaticLidar and we have a distance in mesInstr
                 cStaticLidar * aStaticLidar = dynamic_cast<cStaticLidar*>(aSens);
+                if (aStaticLidar)
+                {
+                    // compute error between precise projection and simple projection
+                    // because formula uses simple projection for derivation
+                    // that is not correct due to approx internal calib
+                    cPt2dr aGCPImPrecise = aStaticLidar->Ground2Image(aPGr);
+                    cPt2dr aGCPImApprox = aStaticLidar->cSensorCamPC::Ground2Image(aPGr);
+                    cPt2dr aErrProj = aGCPImPrecise-aGCPImApprox;
+                    aSens->FixLoopPixelsResiduals(aErrProj);
+                    //std::cout<<" diff "<<aGCPImPrecise<<" "<<aGCPImApprox<<" -> "<<aErrProj<<"\n";
+                    aErrProj.PushInStdVector(aVObs);
+                }
+
                 if (!aDistWithSigma.has_value())
                     aStaticLidar = nullptr;
                 anEqColin = aStaticLidar ? aStaticLidar->GetEqColinearityDist() : aSens->GetEqColinearity();
@@ -262,7 +276,7 @@ void cMMVII_BundleAdj::OneItere_GCP()
                 }
             }
         }
-        aAvgVis += aNbImVis;
+        aNbVisib += aNbImVis;
         aAvgNonVis += aVPIm.size() -aNbImVis;
         aNbGCPVis += (aNbImVis !=0);
 
@@ -306,15 +320,19 @@ void cMMVII_BundleAdj::OneItere_GCP()
 
     if (mVerbose && (aNbGCP!=0))
     {
-
+        // ---------- Print residual on 2D-Proj of GGP ------
         if (aWeightedSqRes.Nb()!=0)
-            StdOut() << "  WeightedGcp=" << std::sqrt(aWeightedSqRes.Average())
-                     << "  UWGcp=" << std::sqrt(aUW_SqRes.Average()) ; // getchar();
+            StdOut() << Color::argument << " *[GGP ]: " << Color::end
+                     << Color::descr << " Weighted=" << Color::end <<  std::sqrt(aWeightedSqRes.Average())
+                     << Color::descr  << "  Un-Weigthed=" << Color::end  << std::sqrt(aUW_SqRes.Average()) ;
+
+        // For LIDAR print 3D resisdual
         if (aWeightedSqResDist.Nb()>0)
-            StdOut() << "  ResDist=" << std::sqrt(aWeightedSqResDist.Average());
-        StdOut() << "  PropVis1Im=" << aNbGCPVis /double(aNbGCP)
-                 << "  Avg vis/GCP=" << aAvgVis/double(aNbGCP)
-                 << "  Mes used="<<aAvgVis<<" / not used="<<aAvgNonVis
+            StdOut()   << Color::descr << "  ResDist="  << Color::end << std::sqrt(aWeightedSqResDist.Average());
+        // F
+        StdOut()  << Color::descr << "  PropVis1Im="  << Color::end << aNbGCPVis /double(aNbGCP)
+                  << Color::descr  << "  Avg vis/GCP=" << Color::end <<  aNbVisib/double(aNbGCP)
+                //  << "  Mes used="<<aAvgVis<<" / not used="<<aAvgNonVis
         ;
         StdOut() << std::endl;
     }
