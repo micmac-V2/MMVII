@@ -188,6 +188,8 @@ public :
 
     void FixPtPxLoopAroundPP(cPt2dr &aPtPx) const override;
 
+    double Image2Intensity(cPt2di aRasterPx) const;
+
     void TriangulateRegular(const std::string &aVisuPath, int aFactor=16);
     void Triangulate(const std::string &aVisuPath, int aFactor=16);
     cTriangulation3D<tREAL8> * getTriangulation() const;

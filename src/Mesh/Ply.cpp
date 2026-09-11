@@ -457,7 +457,7 @@ void cAppli_VisuPoseStr3D::AddPointCould(cPlyVertices& aPlyverts, cStaticLidar* 
         for (int c = 0 ; c < aScan->PixelDomain().Sz().x(); c+=aStep)
         {
             if ((!aOnlyEdges) || (Norm2(aMask.Grad(cPt2di(c,l)))>0.01))
-                aPlyverts.AddVert(aScan->Image2Ground(cPt2di(c,l)), aScanColor);
+                aPlyverts.AddVert(aScan->Image2Ground(cPt2di(c,l)), aScanColor * aScan->Image2Intensity(cPt2di(c,l)));
         }
 }
 

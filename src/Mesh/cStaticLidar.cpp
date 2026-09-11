@@ -996,6 +996,11 @@ cPt3dr cStaticLidar::Image2NormalInstr(const cPt2dr & aRasterPx) const
 }
 
 
+double cStaticLidar::Image2Intensity(cPt2di aRasterPx) const
+{
+    return mRasterIntensity->DIm().GetV(aRasterPx)/255.;
+}
+
 
 void cStaticLidar::TriangulateRegular(const std::string & aVisuPath, int aFactor)
 {
