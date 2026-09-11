@@ -7,7 +7,7 @@
 #include <mutex>
 #include <condition_variable>
 
-#define MMVII_DBG_ARBOTRIPLETS
+//#define MMVII_DBG_ARBOTRIPLETS
 
 struct Barrier {
     int n, count = 0, generation = 0;
@@ -353,8 +353,10 @@ void cBA_ArboTriplets::OneIteration(int aIter)
                  << " " << (100.0*(aNumAllTiePts-aNumTPts)/std::max(1,aNumAllTiePts)) << "%"
                  << " [DegVis<=0: " << aNumElimDegVis << ", Weight==0: " << aNumElimWeight << "]"
                  << std::endl;
+        StdOutLock::unlock();
 
-
+#ifdef MMVII_DBG_ARBOTRIPLETS
+        StdOutLock::lock();
         for (size_t aKC=0 ; aKC<mVCams.size() ; aKC++)
         {
             size_t aNbTot = aNbObsCam.at(aKC)+aNbVisCam.at(aKC)+aNbWCam.at(aKC);
@@ -369,6 +371,7 @@ void cBA_ArboTriplets::OneIteration(int aIter)
                          << std::endl;
         }
         StdOutLock::unlock();
+#endif
     }
 
     const auto& aVectSol = mSys->SolveUpdateReset({mPMAT->Cfg().mLVM}, {}, {});
