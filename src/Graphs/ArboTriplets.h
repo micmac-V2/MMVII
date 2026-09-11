@@ -133,14 +133,6 @@ private :
             const std::vector<int>&    aVNumTriLink2,    ///< triplet each edge-link comes from
             const std::vector<cOneTripletMerge> &  aVLink3
             );
-    tSim3dR EstimateSimTransfertV2
-        (
-            const std::vector<tPairI>& aVPairCommon,
-            const std::vector<int>&    aVNumTriCommon,   ///< triplet each common pose comes from
-            const std::vector<tPairI>& aVPairLink2,
-            const std::vector<int>&    aVNumTriLink2,    ///< triplet each edge-link comes from
-            const std::vector<cOneTripletMerge> &  aVLink3
-            );
 
     /// tie-point residual (pixel) of a triplet, computed once at triplet estimation ; -1 if unknown
     tREAL8 ScoreOfTriplet(int aNumTri) const;
