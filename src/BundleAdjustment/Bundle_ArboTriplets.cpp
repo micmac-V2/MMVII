@@ -7,6 +7,8 @@
 #include <mutex>
 #include <condition_variable>
 
+#define MMVII_DBG_ARBOTRIPLETS
+
 struct Barrier {
     int n, count = 0, generation = 0;
     std::mutex m;
@@ -182,11 +184,13 @@ void cBA_ArboTriplets::OneIteration(int aIter)
                 UpdateMax(aMaxDist, (double)aDist);
             }
         }
+#ifdef MMVII_DBG_ARBOTRIPLETS
         if (aNComp>0)
             StdOut() << "[DiagP3D] GT-vs-triangulated: avg=" << aTotDist/aNComp
                      << " max=" << aMaxDist << " over " << aNComp << " pts\n";
         else
             StdOut() << "[DiagP3D] no matching GT pts found (mVIdPts empty or no overlap)\n";
+#endif
     }
 
     auto CurrentVal = [&](int aIterCur,int aIterMax,tREAL8 aV0,tREAL8 aV1)
@@ -505,6 +509,7 @@ void cBA_ArboTriplets::AdaptWeightingToData()
     // set SigmaAtt and Thresh ranges accoridngly
     SetLooseningRanges(aMult);
 
+#ifdef MMVII_DBG_ARBOTRIPLETS
     StdOutLock::lock();
     StdOut() << "[BA-Adapt] depth=" << mTreeDepth
              << " ResidScale=" << mResScale << " fracInvis=" << aFracInvis   // reported, not used
@@ -512,6 +517,7 @@ void cBA_ArboTriplets::AdaptWeightingToData()
              << " sigAtt=" << mSigARange
              << " thrs=" << mThrRange << std::endl;
     StdOutLock::unlock();
+#endif
 }
 
 cBA_ArboTriplets::~cBA_ArboTriplets()

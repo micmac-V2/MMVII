@@ -787,7 +787,7 @@ cOriTriplets * cAppli_OriRelTripletsOfIm::Do1Triplet(const std::vector<std::stri
     {
         const cOneSolOriTriplet* aBSol = anOri3->BestSol();
 
-        StdOut() << "OUT=" << mPhProj.DPOrient().DirOut() << "\n";
+        if (mShow) StdOut() << "OUT=" << mPhProj.DPOrient().DirOut() << "\n";
 
         cSensorCamPC aCam1(a3Names.at(0),aBSol->mP0,anOri3->Calib(0));
         mPhProj.SaveCamPC(aCam1);
@@ -889,7 +889,7 @@ void cAppli_OriRelTripletsOfIm::Generate5PtsV2(const cOriTriplets* aOri3,cSaveNP
         for (size_t aKPts=0; aKPts<aNbPts; aKPts+=aNbIm)
         {
             const cPt3dr* aPtrPts = aPts.mVPGround.data()+aKPts;
-            StdOut() << aPtrPts->x() << " " << aPtrPts->y() << aPtrPts->z() << std::endl;
+            //StdOut() << aPtrPts->x() << " " << aPtrPts->y() << aPtrPts->z() << std::endl;
 
             auto [aRes1,aPGr] = aEBA.InterBundles(aConf,aPtrPts,1e-6);
             tREAL8 aW = 1.0/(1.0 + Square(aRes1/(4.0*aBestScore)));

@@ -1,13 +1,13 @@
 #include "ArboTriplets.h"
 
-// DEBUG ONLY - see the anonymous namespace below
-#define MMVII_DBG_HSFM_SAVE_MERGE 0
-
+// Debug switches (uncomment to enable)
+#define MMVII_DBG_HSFM_SAVE_MERGE 0 ///< save intermediary merged poses to disk (DbgMerge_D*_T* folders)
+#define MMVII_DBG_ARBOTRIPLETS 0 ///< terminal traces of merge / rotation / lambda estimation
 
 namespace MMVII
 {
 
-#if MMVII_DBG_HSFM_SAVE_MERGE
+#ifdef MMVII_DBG_HSFM_SAVE_MERGE
 namespace
 {
 /// save nodes of depth (root=0)
@@ -576,11 +576,13 @@ tRotR  cNodeArborTriplets::EstimateRotTransfertV2
         else
         {
             const auto & [aI0,aI1] = aVPairCommon.at(aA);
+#ifdef MMVII_DBG_ARBOTRIPLETS
             StdOutLock::lock();
             StdOut() << "[ArboW-Rot] depth=" << mDepth << " common pose rejected : "
                      << mPMAT->MapI2Str(aN0.mLocSols[aI0].mNumPose)
                      << " dMin=" << aDMin << std::endl;
             StdOutLock::unlock();
+#endif
         }
     }
 
@@ -654,15 +656,17 @@ tRotR  cNodeArborTriplets::EstimateRotTransfertV2
         static constexpr tREAL8 TheDMinOverride = 1e-3;      // do not be stricter
 
         tREAL8 aThrOver =  std::clamp(TheKOverride*mMergeStats.mSCom, TheDMinOverride, TheDMaxOverrideThr);
+#ifdef MMVII_DBG_ARBOTRIPLETS
         StdOutLock::lock();
         StdOut() << "[ArboW-Rot] depth=" << mDepth << " aDMax " << aDMax << std::endl;
         StdOutLock::unlock();
+#endif
         if (aDMax > aThrOver)
         {
             aRotEstim = tRotR::Centroid(SubVector(aVRot,aVGoodCom),
                                         std::vector<tREAL8>(aVGoodCom.size(),1.0));
             aComOverride = true;
-
+#ifdef MMVII_DBG_ARBOTRIPLETS
             StdOutLock::lock();
             StdOut() << "[ArboW-Rot] depth=" << mDepth << " estimate " << aDMax
                      << " > thr " << aThrOver
@@ -670,6 +674,7 @@ tRotR  cNodeArborTriplets::EstimateRotTransfertV2
                      << " from " << aVGoodCom.size() << " commons agreeing to " << mMergeStats.mSCom
                      << " -> using the commons" << std::endl;
             StdOutLock::unlock();
+#endif
         }
     }
 
@@ -1310,7 +1315,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfertV2
 
         const tREAL8 aLambdaBefore = aLambda;
         std::tie(aTr,aLambda) = SolveSim(aWPin);   // same weights, Lambda constrained
-
+#ifdef MMVII_DBG_ARBOTRIPLETS
         StdOutLock::lock();
         StdOut() << "[ArboW-Lam] depth=" << mDepth
                  << " estimate " << aLambdaBefore
@@ -1318,6 +1323,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfertV2
                  << " -> using the commons " << aLambdaCom
                  << " (got " << aLambda << ")" << std::endl;
         StdOutLock::unlock();
+#endif
     }
 
     if ((aLambda<=0) || (aLambda>1e3) || (aLambda<1e-3))
@@ -1702,10 +1708,12 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
     }
     if (aNbNoScore)
     {
+#ifdef MMVII_DBG_ARBOTRIPLETS
         StdOutLock::lock();
         StdOut() << "[ArboW] depth=" << mDepth << " : " << aNbNoScore << "/" << aBridgeInfos.size()
                  << " bridges without triplet score" << std::endl;
         StdOutLock::unlock();
+#endif
     }
 
 
@@ -1733,6 +1741,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
     // per-bridge diagnostic.  Small nodes -> terminal, worst weight first.
     //        Big ones (typically the root) -> one CSV per node, because the table scrolls away
     //        and because appending to a shared file from the tree's worker threads is not safe.
+#ifdef MMVII_DBG_ARBOTRIPLETS
     static constexpr bool TheDbgBridgeW         = false;   // put to false once tuned
     static constexpr int  TheDbgBridgeWMaxDepth = 0;      // -1 to disable the terminal table
     static constexpr size_t TheDbgBridgeWMaxRow = 200;     // above that, dump a file instead
@@ -1818,6 +1827,7 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
             StdOutLock::unlock();
         }
     }
+#endif
 
     // replay same equations with new weights
     aSys->PublicReset();
@@ -1846,11 +1856,13 @@ tSim3dR cNodeArborTriplets::EstimateSimTransfert
 
     if ((aLambda<=0) || (aLambda>1e3) || (aLambda<1e-3))
     {
+#ifdef MMVII_DBG_ARBOTRIPLETS
         StdOutLock::lock();
         StdOut() << "[ArboW] *** depth=" << mDepth << " INVALID transfer, Lambda=" << aLambda
                  << " nbCommon=" << aVPairCommon.size() << " nbBridge=" << aBridgeInfos.size()
                  << std::endl;
         StdOutLock::unlock();
+#endif
     }
 
 
@@ -2093,7 +2105,7 @@ void cNodeArborTriplets::MergeChildrenSol()
          mLocSols.push_back(cSolLocNode(aPoseInS0,aSol1.mNumPose));
      }
 
-#if MMVII_DBG_HSFM_SAVE_MERGE
+#ifdef MMVII_DBG_HSFM_SAVE_MERGE
      if (mDepth <= TheDbgMergeMaxDepth)
      {
         // identify the node by its depth + its smallest triplet number
@@ -2394,7 +2406,7 @@ void cMakeArboTriplet::ConvertTPtsToBundles()
 void cMakeArboTriplet::InitTPtsStruct(const std::string& aFolder, std::vector<std::string>& aVNames)
 {
     mTPtsStruct = AllocStdFromMTPFromFolder(aFolder,aVNames,mPhProj,true,false,true);
-    StdOut() << "Nb tie points=" << mTPtsStruct->Pts().size() << std::endl;
+    if (mCfg.mVerbose) StdOut() << "Nb tie points=" << mTPtsStruct->Pts().size() << std::endl;
     ConvertTPtsToBundles();
 }
 
@@ -2506,10 +2518,11 @@ void cMakeArboTriplet::MakeGraphPose()
             a3.mP0  = tPoseR(aNTrs[0], a3.mP0.Rot());
             a3.mP01 = tPoseR(aNTrs[1], a3.mP01.Rot());
             a3.mP02 = tPoseR(aNTrs[2], a3.mP02.Rot());
-
+#ifdef MMVII_DBG_ARBOTRIPLETS
             // Check if 2 iteration
             if (aKIter==1)
                StdOut() << "   CCCC=" << aCdg << " SS=" << aSumD << "\n";
+#endif
         }
 
 
@@ -2817,7 +2830,7 @@ void cMakeArboTriplet::ComputeArbor()
    mAppli.SetMultiThread(false);
    cMemManager::SetActiveMemoryCount(true);
 
-#if MMVII_DBG_HSFM_SAVE_MERGE
+#ifdef MMVII_DBG_HSFM_SAVE_MERGE
     DbgFlushMergeSol(*this);
 #endif
 
