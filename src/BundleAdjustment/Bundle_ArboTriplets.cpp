@@ -167,7 +167,8 @@ void cBA_ArboTriplets::OneIteration(int aIter)
     // diagnostic: compare triangulated P3D with GT at first iteration
     if (aIter==0 && mGTPts3D)
     {
-        double aTotDist=0; int aNComp=0;
+        [[maybe_unused]] double aTotDist=0;
+        [[maybe_unused]] int aNComp=0;
         double aMaxDist=0;
         for (auto& aAllConfigs : mTPts->Pts())
         {
