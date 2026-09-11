@@ -131,6 +131,7 @@ public:
     bool operator       <(const cAugCdt& aAug) const;
     tAff2Dr Ref2GImEstim(cSensorCamPC* aCam) const;
     std::vector<cPt2di> Corners() const;
+    cPt2dr Center() const; //-> model target center
     bool IsInside(const cSensorCamPC *aCam) const;
     tIm RefIm() const;
     void SetFSpec(std::shared_ptr<cFullSpecifTarget> aFSpec);
@@ -155,6 +156,7 @@ public:
     tAff2Dr mRef2Glob;
     tU_INT1 Visibility();
     std::vector<cPt2dr> Corners();
+    const cPt2dr Center();
     const std::string Name();
     const bool IsVisible();
 private:

@@ -178,6 +178,8 @@ namespace MMVII
         return aRes;
     }
 
+    cPt2dr cAugCdt::Center() const {return mCenter;}
+
     std::vector<cPt3dr> cAugCdt::GndCorners() const
     {
         std::vector<cPt3dr> aRes = {};
@@ -386,7 +388,6 @@ namespace MMVII
         for (const auto& aAug : aOKAugSet.Cdts())
         {
             if (!aAug.mOKInter) continue;
-            StdOut() << "cdt:" << aAug.mName << '\n';
             if (aAug.IsInside(aCam))
             {
                 cAugCdtInCam aCdt(aAug, aCam);
