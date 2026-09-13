@@ -639,8 +639,9 @@ int cAppli_ImportTSL::Exe()
         MMVII_INTERNAL_ASSERT_tiny(mSL_importer.mVectPtsXYZ.size()==mSL_importer.mVectPtsIntens.size(),"Error reading "+mNameFile);
     }
 
+    size_t aNbShowSamples = 0;
     StdOut() << "Cartesian sample:\n";
-    for (size_t i=0; (i<10)&&(i<mSL_importer.mVectPtsXYZ.size()); ++i)
+    for (size_t i=0; (i<aNbShowSamples)&&(i<mSL_importer.mVectPtsXYZ.size()); ++i)
     {
         StdOut() << mSL_importer.mVectPtsXYZ.at(i);
         if (mSL_importer.HasIntensity())
@@ -651,7 +652,7 @@ int cAppli_ImportTSL::Exe()
 
     // check theta-phi :
     StdOut() << "Spherical sample:\n";
-    for (size_t i=0; (i<10)&&(i<mSL_importer.mVectPtsTPD.size()); ++i)
+    for (size_t i=0; (i<aNbShowSamples)&&(i<mSL_importer.mVectPtsTPD.size()); ++i)
     {
         StdOut() << mSL_importer.mVectPtsTPD[i];
         if (mSL_importer.HasRowCol())
