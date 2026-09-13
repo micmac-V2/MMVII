@@ -105,24 +105,26 @@ template <class Type> void cGP_OneImage<Type>::ComputGaussianFilterOfImage()
    }
 }
 
-template <class Type> void cGP_OneImage<Type>::MakeCorner()
+template <class Type> void cGP_OneImage<Type>::MakeCorner(tREAL8 anExpoNormS)
 {
     // Compute Curvature tangent to level lines
     SelfCourbTgt(mImG);
     // Normalise of scale; theory && experiment show a dependance in pow 3
-    SelfMulImageCsteInPlace(mImG.DIm(),pow(mScaleInO,3));
+    SelfMulImageCsteInPlace(mImG.DIm(),pow(mScaleInO,anExpoNormS));
 }
 
 
 
-template <class Type> void cGP_OneImage<Type>::MakeDiff(const tGPIm &  aImDif)
+template <class Type> void cGP_OneImage<Type>::MakeDiff(const tGPIm &  aImDif,tREAL8 anExpoNormS)
 {
    MMVII_INTERNAL_ASSERT_strong(aImDif.mDown!=nullptr,"Down Image in MakeDiff");
 
    DiffImageInPlace(mImG.DIm(),aImDif.mImG.DIm(),aImDif.mDown->mImG.DIm());
+   SelfMulImageCsteInPlace(mImG.DIm(),pow(mScaleInO,anExpoNormS));
+
 }
 
-template <class Type> void cGP_OneImage<Type>::MakeOrigNorm(const tGPIm &  aOriGPI)
+template <class Type> void cGP_OneImage<Type>::MakeOrigNorm(const tGPIm &  aOriGPI,tREAL8 anExpoNormS)
 {
     // Create a duplicata of original image
     tIm aImBlur = aOriGPI.mImG.Dup();
@@ -132,7 +134,7 @@ template <class Type> void cGP_OneImage<Type>::MakeOrigNorm(const tGPIm &  aOriG
     // Put In Res, diff between gaussian filter an Ori
     DiffImageInPlace(mImG.DIm(),aOriGPI.mImG.DIm(),aImBlur.DIm());
     // Multiply by ScaleInO
-    SelfMulImageCsteInPlace(mImG.DIm(),pow(mScaleInO,1));
+    SelfMulImageCsteInPlace(mImG.DIm(),pow(mScaleInO,anExpoNormS));
 }
 
      //  === Export
@@ -245,19 +247,19 @@ template <class Type> cGP_OneImage<Type>* cGP_OneOctave<Type>::ImageOfScaleAbs(d
   return nullptr;
 }
 
-template <class Type> void cGP_OneOctave<Type>::MakeDiff(const tOct & anOct)
+template <class Type> void cGP_OneOctave<Type>::MakeDiff(const tOct & anOct,tREAL8 anExpoNormS)
 {
     for (int aKIm=0 ; aKIm<int(mVIms.size()) ; aKIm++)
     {
-         mVIms.at(aKIm)->MakeDiff(*anOct.mVIms.at(aKIm));
+         mVIms.at(aKIm)->MakeDiff(*anOct.mVIms.at(aKIm),anExpoNormS);
     }
 }
 
-template <class Type> void cGP_OneOctave<Type>::MakeOrigNorm(const tOct & anOct)
+template <class Type> void cGP_OneOctave<Type>::MakeOrigNorm(const tOct & anOct,tREAL8 anExpoNorm)
 {
     for (int aKIm=0 ; aKIm<int(mVIms.size()) ; aKIm++)
     {
-         mVIms.at(aKIm)->MakeOrigNorm(*anOct.mVIms.at(aKIm));
+         mVIms.at(aKIm)->MakeOrigNorm(*anOct.mVIms.at(aKIm),anExpoNorm);
     }
 }
 
@@ -592,7 +594,7 @@ template <class Type>  std::shared_ptr<cGaussianPyramid<Type>>
 }
 
 template <class Type>  std::shared_ptr<cGaussianPyramid<Type>>
-      cGaussianPyramid<Type>::PyramDiff()
+      cGaussianPyramid<Type>::PyramDiff(tREAL8 anExpNormScale)
 {
     cGP_Params aParam = mParams;
     // Require one overlap less because  of diff
@@ -604,7 +606,7 @@ template <class Type>  std::shared_ptr<cGaussianPyramid<Type>>
 
     for (int aKo=0 ; aKo<int(mVOcts.size()) ; aKo++)
     {
-        aRes->mVOcts.at(aKo)->MakeDiff(*mVOcts.at(aKo));
+        aRes->mVOcts.at(aKo)->MakeDiff(*mVOcts.at(aKo),anExpNormScale);
     }
 
     return aRes;
@@ -612,7 +614,7 @@ template <class Type>  std::shared_ptr<cGaussianPyramid<Type>>
 
 
 template <class Type>  std::shared_ptr<cGaussianPyramid<Type>>
-      cGaussianPyramid<Type>::PyramCorner()
+      cGaussianPyramid<Type>::PyramCorner(tREAL8 anExpNormScale)
 {
     cGP_Params aParam = mParams;
     aParam.mConvolIm0 = mParams.mConvolC0;
@@ -632,14 +634,14 @@ template <class Type>  std::shared_ptr<cGaussianPyramid<Type>>
     aRes->ComputGaussianPyram();
     for (const auto & aSPIm : aRes->mVAllIms)
     {
-        aSPIm->MakeCorner();
+        aSPIm->MakeCorner(anExpNormScale);
     }
 
     return aRes;
 }
 
 template <class Type>  std::shared_ptr<cGaussianPyramid<Type>>
-      cGaussianPyramid<Type>::PyramOrigNormalize()
+      cGaussianPyramid<Type>::PyramOrigNormalize(tREAL8 anExpoNormScale)
 {
     cGP_Params aParam = mParams;
     // Standard has created one overlap that we dont need
@@ -651,7 +653,7 @@ template <class Type>  std::shared_ptr<cGaussianPyramid<Type>>
 
     for (int aKo=0 ; aKo<int(mVOcts.size()) ; aKo++)
     {
-        aRes->mVOcts.at(aKo)->MakeOrigNorm(*mVOcts.at(aKo));
+        aRes->mVOcts.at(aKo)->MakeOrigNorm(*mVOcts.at(aKo),anExpoNormScale);
     }
 
     return aRes;
@@ -725,6 +727,12 @@ template <class Type> void cGaussianPyramid<Type>::SaveInFile (int aPowSPr,bool 
    int aNbMinTot = 0;
    int aNbMaxTot = 0;
 
+   // Coefficient for showing the number of extrem, adjust to be of order of magnitude of 1
+   // and to be independant of size of image
+   tREAL8 aCoeffExtr = MulCoord(mVAllIms.at(0)->ImG().DIm().Sz()) / 50.0;
+   tREAL8 aCoeffE3   = aCoeffExtr/20.0;
+
+
    for (auto & aPtrIm : mVAllIms)
    {
        if (ForInspect)
@@ -737,7 +745,7 @@ template <class Type> void cGaussianPyramid<Type>::SaveInFile (int aPowSPr,bool 
            double aML =  MoyAbs(aI);
            double aS =  aPtrIm->ScaleInO();
 
-           double aRadiusMM = 3.0; // Radius for Min/Max
+           double aRadiusMM = 3.0 * aPtrIm->ScaleInO(); // Radius for Min/Max
            int aNbE = 0;
            if (DoPrint)
            {
@@ -746,13 +754,14 @@ template <class Type> void cGaussianPyramid<Type>::SaveInFile (int aPowSPr,bool 
                  cAutoTimerSegm aATS("1Extremum");
                  ExtractExtremum1(aI.DIm(),aResE,aRadiusMM);
               }
-              aNbE = aResE.mPtsMin.size() + aResE.mPtsMax.size();
+              aNbE = (aResE.mPtsMin.size() + aResE.mPtsMax.size())   ;
 
-              StdOut()  <<  " Scale " <<  FixDigToStr(aS  ,2,2)
+              StdOut() << "Radius= " << FixDigToStr(aRadiusMM,2,2)
+                       <<  " Scale " <<  FixDigToStr(aS  ,2,2)
                        << " M- " << FixDigToStr(aML * pow(aS,aPowSPr-1),3,8 )
                        << " M= " << FixDigToStr(aML * pow(aS,aPowSPr  ),3,8 )
                        << " M+ " << FixDigToStr(aML * pow(aS,aPowSPr+1),3,8 )
-                       << " E= " << FixDigToStr(aNbE * pow(aPtrIm->ScaleAbs(),1),6,2) ;
+                       << " E= " << FixDigToStr(aNbE * pow(aPtrIm->ScaleAbs(),2) / aCoeffExtr ,2,4) ;
            }
            if (aPtrIm->Up() && aPtrIm->Down())
            {
@@ -770,7 +779,8 @@ template <class Type> void cGaussianPyramid<Type>::SaveInFile (int aPowSPr,bool 
                }
                int aNbE3 = aResE3.mPtsMin.size() + aResE3.mPtsMax.size();
                if (DoPrint)
-                  StdOut()  << " PROP=" << aNbE3 << " " << aNbE3 / double(aNbE) ;
+                  StdOut()  << " E3=" << FixDigToStr(aNbE3*pow(aPtrIm->ScaleAbs(),2)/aCoeffE3,2,4)
+                            << " E3/E=" << (20.0* aNbE3 / std::max(1e-2,double(aNbE))) ;
                
                // tOct * aOctH = mPyrOrig->OctHom(aPtrIm->Oct());
                // std::string aNameMaster = aOctH->GPImTop()->NameSave();

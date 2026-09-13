@@ -249,6 +249,8 @@ template<class T1,class T2,class T3,int Dim>
 template<class T2,class T3,int Dim>
    void SelfMulImageCsteInPlace(cDataTypedIm<T2,Dim> & aI2,const T3 & aV3)
 {
+    if (aV3==T3(1.0))
+        return;
     for (int aK=0 ; aK<aI2.NbElem() ; aK++)
         aI2.GetRDL(aK) *=  aV3;
 }

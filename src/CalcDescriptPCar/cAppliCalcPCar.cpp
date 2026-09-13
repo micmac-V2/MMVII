@@ -1,5 +1,6 @@
 #include "MMVII_AimeTieP.h"
 #include "MMVII_Tpl_Images.h"
+#include "MMVII_Tpl_ElemStrToVal.h"
 
 namespace MMVII
 {
@@ -14,11 +15,31 @@ class cAppliCalcDescPCar;
     code that require specialisation is done in cTplAppliCalcDescPCar
 */
 
-template <class Type> class  cTplAppliCalcDescPCar
+struct cParamPyram
+{
+    bool mDoIt;
+    tREAL8 mExpMulScale;
+
+    cParamPyram(bool doIt,tREAL8 anExpScale) :
+        mDoIt (doIt),
+        mExpMulScale (anExpScale)
+    {
+    }
+
+    cParamPyram() : cParamPyram(true,0.0) {}
+
+    ARG2007_STRUCT_FIELDS (
+        mDoIt,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Do the pyram"}}),
+        mExpMulScale,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Exponent of scale in post norm"}})
+    )
+};
+
+
+template <class TypeTpl> class  cTplAppliCalcDescPCar
 {
     public :
         // Dirty trick, but when above types are template, cannot follow links in QT
-       // typedef  tREAL4  Type;
+        typedef  tREAL4  Type;
 
 
         typedef cIm2D<Type>            tIm;
@@ -87,9 +108,12 @@ class cAppliCalcDescPCar : public cMMVII_Appli
         int         mNbLevByOct;
         int         mNbOverLapByO;
         bool        mSaveIms;
-        bool        mDoLapl;
-        bool        mDoCorner;
-        bool        mDoOriNorm;
+       // bool        mDoLapl;
+       // bool        mDoCorner;
+       // bool        mDoOriNorm;
+        cParamPyram mParamLapl;
+        cParamPyram mParamCorner;
+        cParamPyram mParamOriNorm;
         double      mEstSI0; // Estimation of Sigma of first image
         double      mSDON;  ///< Scale 4 Orig Normalized
         double      mCI0;   ///<  Convol Im0
@@ -215,31 +239,31 @@ template<class Type>  void cTplAppliCalcDescPCar<Type>::ExeOneBox(const cPt2di &
 //    return;
 
     // Compute Normalized Original Image required
-    if (mAppli.mDoOriNorm)
+    if (mAppli.mParamOriNorm.mDoIt)
     {
        {
           cAutoTimerSegm aATS("ImOriNorm");
-          mPyrOriNom =  mPyr->PyramOrigNormalize();
+          mPyrOriNom =  mPyr->PyramOrigNormalize(mAppli.mParamOriNorm.mExpMulScale);
        }
        mPyrOriNom->SaveInFile(0,mAppli.mSaveIms);
     }
 
     // Compute Lapl by diff of gauss if required
-    if (mAppli.mDoLapl)
+    if (mAppli.mParamLapl.mDoIt)
     {
        {
           cAutoTimerSegm aATS("ImDifLapl");
-          mPyrLapl =  mPyr->PyramDiff();
+          mPyrLapl =  mPyr->PyramDiff(mAppli.mParamLapl.mExpMulScale);
        }
        mPyrLapl->SaveInFile(0,mAppli.mSaveIms);
     }
 
     // Compute corner images required
-    if (mAppli.mDoCorner)
+    if (mAppli.mParamCorner.mDoIt)
     {
        {
           cAutoTimerSegm aATS("ImCorner");
-          mPyrCorner =  mPyr->PyramCorner();
+          mPyrCorner =  mPyr->PyramCorner(mAppli.mParamCorner.mExpMulScale);
        }
        mPyrCorner->SaveInFile(0,mAppli.mSaveIms);
     }
@@ -277,9 +301,13 @@ cAppliCalcDescPCar:: cAppliCalcDescPCar(const std::vector<std::string> &  aVArgs
   mNbLevByOct   (5),
   mNbOverLapByO (3),
   mSaveIms      (false),
-  mDoLapl       (true),
-  mDoCorner     (true),
-  mDoOriNorm    (true),
+  //mDoLapl       (true),
+  //mDoCorner     (true),
+
+ // mDoOriNorm    (true),
+  mParamLapl     (true,0.0),
+  mParamCorner   (true,3.0),
+  mParamOriNorm  (true,1.0),
   mSDON         (20.0),
   mCI0          (0.7),
   mCC0          (0.7),
@@ -312,9 +340,14 @@ cCollecSpecArg2007 & cAppliCalcDescPCar::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
         << cHeaderSectionArg("Selection of carac")
 
-       << AOpt2007(mDoLapl,"DoLapl","Do laplacien",{eTA2007::HDV})
-       << AOpt2007(mDoOriNorm,"DoOri","Do Original Normalized images, experimental",{eTA2007::HDV})
-       << AOpt2007(mDoCorner,"DoCorner","Do corner images",{eTA2007::HDV})
+       //<< AOpt2007(mDoLapl,"DoLapl","Do laplacien",{eTA2007::HDV})
+      // << AOpt2007(mDoOriNorm,"DoOri","Do Original Normalized images, experimental",{eTA2007::HDV})
+
+       << AOpt2007(mParamLapl,"ParLapl","Parameters for laplacien (+- std sift)")
+       << AOpt2007(mParamCorner,"ParCorner","Parameters for corner extraction ")
+       << AOpt2007(mParamOriNorm,"ParOriN","Parameters for Original Normalized images, experimental")
+
+       //<< AOpt2007(mDoCorner,"DoCorner","Do corner images",{eTA2007::HDV})
 
 
 
