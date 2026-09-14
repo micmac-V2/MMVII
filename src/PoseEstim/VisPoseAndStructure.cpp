@@ -179,14 +179,15 @@ int cAppli_VisuPoseStr3D::Exe()
 
     AddCameras(aPlyverts,aTPts,aVSens);
 
+    double aCurrHue = 0.;
+
     if (mTSLCloudDezoom>0)
         for (auto &aSens : aVSens)
         {
             cStaticLidar* aScan = dynamic_cast<cStaticLidar*>(aSens);
             if (aScan)
             {
-                cPt3dr aColor(RandUnif_0_1(),RandUnif_0_1(), RandUnif_0_1());
-                AddPointCould(aPlyverts, aScan, mTSLCloudDezoom, aColor);
+                AddPointCould(aPlyverts, aScan, mTSLCloudDezoom, getNextColor(aCurrHue));
             }
         }
 

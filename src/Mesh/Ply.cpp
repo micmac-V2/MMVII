@@ -435,6 +435,33 @@ void cPlyVertices::ToPly(const std::string & aFileName, bool aIsBinary)
 }
 
 
+// ----------------------------------------------------------------------
+
+cPt3dr getNextColor(double& aCurrHue) {
+    // add golden ratio to maximize hue difference
+    aCurrHue = std::fmod(aCurrHue + 0.61803398874989, 1.);
+
+    double s = 0.85; // saturation
+    double v = 0.95; // value
+
+    // HSV to RGB
+    int i = aCurrHue * 6;
+    double f = aCurrHue * 6 - i;
+    double p = v * (1. - s);
+    double q = v * (1. - f * s);
+    double t = v * (1. - (1. - f) * s);
+
+    switch (i % 6) {
+        case 0: return {v, t, p};
+        case 1: return {q, v, p};
+        case 2: return {p, v, t};
+        case 3: return {p, q, v};
+        case 4: return {t, p, v};
+        default: return {v, p, q};
+    }
+}
+
+
 /* ********************************************************** */
 /*                                                            */
 /*                   cAppli_VisuPoseStr3D                     */
