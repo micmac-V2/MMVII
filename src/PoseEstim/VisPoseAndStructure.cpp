@@ -204,30 +204,35 @@ void cAppli_VisuPoseStr3D::HandleGCP3D(
 
     if (!mPhProj.DPTopoMes().DirInIsInit()) return;
 
-    cTopoData mAllTopoDataIn;
-    mAllTopoDataIn.InsertTopoDataFromPhProj(mPhProj);
+    cBA_Topo aBA_Topo(&mPhProj,nullptr);
+    aBA_Topo.AddPointsFromDataToGCP(&mPhProj);
 
-    for (auto &aObsSet: mAllTopoDataIn.mAllObsSetStations)
+    for (auto &aObsSet: aBA_Topo.getAllObsSets())
     {
-        for (auto &aObs: aObsSet.mObs)
+        for (auto &aObs: aObsSet->getAllObs())
         {
-            if (aObs.mPtsNames.size()<2)
+            if (aObs->getPointNames().size()<2)
                 continue;
-            const auto & aPtFrom = aSetMes.MesGCPOfName(aObs.mPtsNames[0]).mPt;
-            const auto & aPtTo = aSetMes.MesGCPOfName(aObs.mPtsNames[1]).mPt;
-            aPlyverts.AddLine(aPtFrom, aPtTo, {0.,1.,0.5});
+            const auto & aPtFrom = aSetMes.MesGCPOfName(aObs->getPointNames()[0]).mPt;
+            const auto & aPtTo = aSetMes.MesGCPOfName(aObs->getPointNames()[1]).mPt;
+
+            cPt3dr aColor = {0.,1.,0.5};
+
+            switch (aObs->getType()) {
+            case eTopoObsType::eDH:
+            case eTopoObsType::eDX:
+            case eTopoObsType::eDY:
+            case eTopoObsType::eDZ:
+            case eTopoObsType::eDist:
+            case eTopoObsType::eHz:
+            case eTopoObsType::eZen:
+                aColor = {1.,0.,0.5};
+                break;
+            case eTopoObsType::eNbVals:
+                MMVII_INTERNAL_ASSERT_User(false,eTyUEr::eBadEnum,"Error unknown topo mes type for: "+aObs->toString());
+            }
+            aPlyverts.AddLine(aPtFrom, aPtTo, aColor);
         }
-    }
-
-    auto & aObsSet = mAllTopoDataIn.mObsSetSimple;
-    for (auto &aObs: aObsSet.mObs)
-    {
-        if (aObs.mPtsNames.size()<2)
-            continue;
-        const auto & aPtFrom = aSetMes.MesGCPOfName(aObs.mPtsNames[0]).mPt;
-        const auto & aPtTo = aSetMes.MesGCPOfName(aObs.mPtsNames[1]).mPt;
-
-        aPlyverts.AddLine(aPtFrom, aPtTo, {1.,0.5,0.5});
     }
 }
 

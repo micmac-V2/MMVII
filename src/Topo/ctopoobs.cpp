@@ -126,19 +126,19 @@ cTopoObs::cTopoObs(cTopoObsSet* set, cBA_Topo *aBA_Topo, eTopoObsType type, cons
 std::string cTopoObs::toString() const
 {
     std::ostringstream oss;
-    tREAL8 aObsLen = getLength();
+    //tREAL8 aObsLen = getLength();
     oss<<"TopoObs "<<E2Str(mType)<<" ";
     for (auto & pt: mPtsNames)
         oss<<pt<<" ";
     oss<<"val: ";
     for (auto & val: mMeasures)
         oss<<val<<" ";
-    oss<<"sigma: ";
+    /*oss<<"sigma: ";
     for (auto & sig: getTopoSigmas())
         oss<<sig.getTotalSigma(*this, aObsLen)<<" ";
     oss<<"prev res norm: ";
     for (unsigned int i=0; i<mLastResiduals.size(); ++i)
-        oss<<mLastResiduals.at(i)/getTopoSigmas()[i].getTotalSigma(*this, aObsLen)<<" ";
+        oss<<mLastResiduals.at(i)/getTopoSigmas()[i].getTotalSigma(*this, aObsLen)<<" ";*/
     return oss.str();
 }
 

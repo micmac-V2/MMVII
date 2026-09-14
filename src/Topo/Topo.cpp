@@ -132,6 +132,11 @@ void cBA_Topo::AddPointsFromDataToGCP(cPhotogrammetricProject *aPhProj)
         mAllPts[aPointName] = cTopoPoint(aPointName);
     }
 
+    mAllTopoDataIn.clear(); // if this function is called again, nothing more to add
+
+    if (!mBA_GCP) // when not having a real BA
+        return;
+
     // add new points to GCP
     std::set<std::string> aAllPointsNamesNotFound;
     for (auto & aPointName: aAllPointsNames)
@@ -167,8 +172,6 @@ void cBA_Topo::AddPointsFromDataToGCP(cPhotogrammetricProject *aPhProj)
         aMes3D.mMesDirInfo = aMes3DDirInfo;
         mBA_GCP->getMesGCP().Add1GCP( aMes3D ); // points non-init
     }
-
-    mAllTopoDataIn.clear(); // if this function is called again, nothing more to add
 
     // init uk/obs info
     mNbTopoObs =0;

@@ -26,11 +26,6 @@ class cBA_Topo : public cMemCheck
 {
     friend class cTopoData;
 public :
-    static void ReadAllTopoDataInto(
-        cPhotogrammetricProject *aPhProj,
-        cTopoData &aTopoData
-    );
-
     cBA_Topo(cPhotogrammetricProject *aPhProj, cBA_GCP * aBA_GCP);
     ~cBA_Topo();
     void clear();
@@ -63,7 +58,8 @@ public :
     cCalculator<double>* getEquation(eTopoObsType tot) const;
     tPtrSysCo getSysCo() const { return mSysCo; }
     const tStationsMap& getAllStations() const { return mAllStations; }
-    const tSimpleObsMap& gAllSimpleObs() const { return mAllSimpleObs; }
+    const tSimpleObsMap& getAllSimpleObs() const { return mAllSimpleObs; }
+    const std::vector<cTopoObsSet*>& getAllObsSets() const { return mAllObsSets; }
 
     friend void BenchTopoComp1example(const std::pair<cTopoData, cSetMesGnd3D>& aBenchData, tREAL4 targetSigma0);
 private :

@@ -486,7 +486,7 @@ cPt3dr cTopoObsSetStation::obs2InstrVector(const std::string & aPtToName) const
     if (obs_dx && obs_dy && obs_dz)
         return {obs_dx->getMeasures().front(), obs_dy->getMeasures().front(), obs_dz->getMeasures().front()};
 
-    auto & allSimpleObs = mBA_Topo->gAllSimpleObs();
+    auto & allSimpleObs = mBA_Topo->getAllSimpleObs();
     if (allSimpleObs.count(mPtOrigin))
     {
         for (auto & aObs: allSimpleObs.at(mPtOrigin))
