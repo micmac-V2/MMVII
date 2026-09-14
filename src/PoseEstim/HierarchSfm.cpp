@@ -61,7 +61,7 @@ cAppli_HierarchSfm::cAppli_HierarchSfm(const std::vector<std::string> & aVArgs,c
     mLVM         (1e-7),
     mSigmaAtt    (1.0),
     mThrs     (10.0),
-    mCycleThr (5),
+    mCycleThr (3),
     mSigmaTri (1.0),
     mNbIterBA    (5),
     mVerbose    (false)

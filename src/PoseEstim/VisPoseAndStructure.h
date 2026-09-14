@@ -65,9 +65,7 @@ private:
     bool                      mWithRGB;
     bool                      mWithAvgRGB; //RGB values averaged over all images, slower? but less noisy
 
-    void AddCameras(cPlyVertices& aPlyverts, cComputeMergeMulTieP * &, const std::vector<cSensorImage *>& );
     void AddPointCould(cPlyVertices& aPlyverts, cStaticLidar* aScan, int aTSLCloudDezoom, cPt3dr aScanColor, bool aOnlyEdges=false);
-    double CalculateFDepth(const cPt2di&, const double&);
 };
 
 }
