@@ -691,7 +691,6 @@ class cAppli_OriRelTripletsOfIm : public cMMVII_Appli
         void DoAllTriplet();
 
         void Generate5Pts(const cOriTriplets*,cSaveNPoint&);
-        void Generate5PtsV2(const cOriTriplets*,cSaveNPoint&);
 
 
         int                       mModeCompute;
@@ -882,51 +881,26 @@ void cAppli_OriRelTripletsOfIm::DoAllTriplet()
     //StdOut() <<  mArgv << "\n";
 
 }
-void cAppli_OriRelTripletsOfIm::Generate5PtsV2(const cOriTriplets* aOri3,cSaveNPoint& aSaveNP)
-{
-    const cOneSolOriTriplet* aBSol = aOri3->BestSol();
-    const cElemBA & aEBA = aBSol->mEBA;
-    tREAL8 aBestScore = aOri3->BestScore();
-
-    // construct an elliposoid over the 3D points
-    cStrStat2<double> aCovMat(3);
-
-    for (auto &[aConf,aPts] : aOri3->TiepMFull()->Pts())
-    {
-        size_t aNbPts = aPts.mVPIm.size();
-        int aNbIm = aConf.size();
-
-        for (size_t aKPts=0; aKPts<aNbPts; aKPts+=aNbIm)
-        {
-            const cPt3dr* aPtrPts = aPts.mVPGround.data()+aKPts;
-            //StdOut() << aPtrPts->x() << " " << aPtrPts->y() << aPtrPts->z() << std::endl;
-
-            auto [aRes1,aPGr] = aEBA.InterBundles(aConf,aPtrPts,1e-6);
-            tREAL8 aW = 1.0/(1.0 + Square(aRes1/(4.0*aBestScore)));
-
-            aCovMat.WeightedAdd(aPGr.ToVect(),aW);
-        }
-
-    }
-    aCovMat.Normalise(true);
-    cResulSymEigenValue<double>  aVp = aCovMat.DoEigen();
-
-
-}
-
 void cAppli_OriRelTripletsOfIm::Generate5Pts(const cOriTriplets* aOri3,cSaveNPoint& aSaveNP)
 {
-
     const cOneSolOriTriplet* aBSol = aOri3->BestSol();
     const cElemBA & aEBA = aBSol->mEBA;
     tREAL8 aBestScore = std::max(aOri3->BestScore(),1e-8);
+
+    const cPt2dr aSz = ToR(aOri3->Calib(0)->SzPix());
+    const tREAL8 TheMarginPix = 0.05 * std::min(aSz.x(),aSz.y());
+    const int NbSplits=10; ///< number of times the split on scale
 
     std::vector<cPt3dr> aVP; ///< 3D points
     std::vector<tREAL8> aVW; ///< weights
     std::vector<tREAL8> aVDist; ///< distance to camera
 
+    // construct a covariace matrix (ellipsoid) over the 3D points
+    cStrStat2<double> aCovMat(3);
+
     for (auto &[aConf,aPts] : aOri3->TiepMFull()->Pts())
     {
+
         if (aConf.size()!=3) continue;
 
         size_t aNbPts = aPts.mVPIm.size();
@@ -945,33 +919,29 @@ void cAppli_OriRelTripletsOfIm::Generate5Pts(const cOriTriplets* aOri3,cSaveNPoi
             aVDist.push_back(Norm2(aPGr-aBSol->mP0.Tr()));
 
         }
-
     }
+
     if (aVP.size()<10) return; ///< do nothing if less than 5 points
 
     std::vector<tREAL8> aVDistSort = aVDist;
     const tREAL8 aDMax = 5 * NC_KthVal(aVDistSort,0.75);
 
-    // construct an elliposoid over the 3D points
+    // construct the covariance matrix over the 3D points
     // igore too far points
-    cEllipse3D aEllipse;
     for (size_t aK=0; aK<aVP.size(); aK++)
     {
         if (aVDist.at(aK)<=aDMax)
         {
-            aEllipse.AddData(aVP.at(aK),aVW.at(aK));
+            aCovMat.WeightedAdd(aVP.at(aK).ToVect(),aVW.at(aK));
         }
     }
-    aEllipse.Normalise();
 
-    // generate 5 virtual points
+    aCovMat.Normalise(true);
+    cResulSymEigenValue<double>  aVp = aCovMat.DoEigen();
 
-    cGenGauss3D aG3D(aEllipse);
-    if (aG3D.ValP(0) <= 1e-12 * aG3D.ValP(2)) return; // NaN eigenvalue
+    if (aVp.EigenValues().ToStdVect()[0] <= 1e-12 * aVp.EigenValues().ToStdVect()[2]) return; // NaN eigenvalue
 
-    const cPt2dr aSz = ToR(aOri3->Calib(0)->SzPix());
-    const tREAL8 TheMarginPix = 0.05 * std::min(aSz.x(),aSz.y());
-    const int NbSplits=10; ///< number of times the split on scale
+    cGenGauss3D aG3D(aVp.EigenVectors(),aVp.EigenValues(),aCovMat.Moy());
 
     auto Project = [&](const std::vector<cPt3dr>& aV5,
                        std::vector<std::vector<cPt2dr>>& aVProj) -> bool
@@ -999,6 +969,7 @@ void cAppli_OriRelTripletsOfIm::Generate5Pts(const cOriTriplets* aOri3,cSaveNPoi
     tREAL8 aHigh=1.0;
 
     aG3D.GetDistrib5Pts(aV5Pts,1.0);
+
 
     if (Project(aV5Pts,aVBestProj))
         aLow=1.0;

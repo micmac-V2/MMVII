@@ -240,16 +240,12 @@ cGenGauss3D::cGenGauss3D(const cEllipse3D & aEl ) :
 }
 
 cGenGauss3D::cGenGauss3D(const cDenseMatrix<double> & aVecEig,
-                         const cDenseMatrix<double> & aValEig,
-                         const cDenseMatrix<double> & aCG) :
-    mCDG(cPt3dr(aCG.V_GetElem(0,0),
-                aCG.V_GetElem(1,0),
-                aCG.V_GetElem(2,0))),
-    mVP(cDenseVect<tREAL8>(3,eModeInitImage::eMIA_Null)),
-    mVecP(cDenseMatrix<tREAL8>(3,3,eModeInitImage::eMIA_Null))
+                         const cDenseVect<double> & aValEig,
+                         const cDenseVect<double> & aCG) :
+    mCDG(cPt3dr(aCG(0), aCG(1), aCG(2))),
+    mVP(aValEig),
+    mVecP(aVecEig)
 {
-    //mVP = aValEig;
-    //mVecP = aVecEig;
 }
 
 void cGenGauss3D::GetDistribGaus(std::vector<cPt3dr> & aVPts,int aN1,int aN2,int aN3)
