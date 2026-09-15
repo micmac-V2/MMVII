@@ -741,8 +741,8 @@ class cAppli_OriRelPairOfIm : public cMMVII_Appli
         /// Randomize the poistion of a point, while maintaining it inside camera
         cPt2dr  RandomizePt(const cPt2dr&,const cSensorCamPC&) const;
 
-        /// Generate virtual 5 tie-points per motion
-        void Generate5Pts(const tPoseR&);
+        /// Generate virtual tie-points per pair
+        void GenerateVirtualTieP(const tPoseR&);
 
         int                       mModeCompute;
         cPhotogrammetricProject   mPhProj;
@@ -755,7 +755,8 @@ class cAppli_OriRelPairOfIm : public cMMVII_Appli
         int                       mNbAvg;
         cSetHomogCpleIm           mCpleHSmall;
         int                       mNbSmall;
-        bool                      mDo5Pts;
+        bool                      mDoVirTPs;
+        eDistrVirTPs              mDistribVirTPs;
 
 
 
@@ -789,7 +790,8 @@ cAppli_OriRelPairOfIm::cAppli_OriRelPairOfIm(const std::vector<std::string> & aV
     mNbBig        (2000),
     mNbAvg        (500),
     mNbSmall      (150),
-    mDo5Pts       (false),
+    mDoVirTPs       (false),
+    mDistribVirTPs(eDistrVirTPs::e5Pts),
     mCalib1       (nullptr),
     mCalib2       (nullptr),
     mEstimatePose (nullptr),
@@ -855,7 +857,8 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt
 
      if (mModeCompute!=0)
             anArgOpt << cHeaderSectionArg("Export virtual")
-             <<  mPhProj.DPTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points");
+             <<  mPhProj.DPTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
+             << AOpt2007(mDistribVirTPs,"DistribVirTP","Distribution of virtual tie points",{eTA2007::HDV});
 
 
      anArgOpt << cHeaderSectionArg("Fine parametrization")
@@ -933,7 +936,7 @@ int cAppli_OriRelPairOfIm::Exe()
 
     mTimeSegm = mShow ? new cTimerSegm(this) : nullptr ;
     mPhProj.FinishInit();
-    mDo5Pts = mPhProj.DPTieP().DirOutIsInit();
+    mDoVirTPs = mPhProj.DPTieP().DirOutIsInit();
 
 
 
@@ -1118,8 +1121,9 @@ cAppli_OriRelPairOfIm::tRes1Pair
 
      cCdtFinalPoseRel2Im aCdt = mEstimatePose->MakeDecision(mShow);
 
-     if (mDo5Pts)
-         Generate5Pts(aCdt.mVCdt.at(0).mPose);
+     if (mDoVirTPs)
+         GenerateVirtualTieP(aCdt.mVCdt.at(0).mPose);
+
 
      if (mPhProj.DPOrient().DirOutIsInit())
      {
@@ -1143,86 +1147,42 @@ cAppli_OriRelPairOfIm::tRes1Pair
      return tRes1Pair(EXIT_SUCCESS,aCdt);
 }
 
-void cAppli_OriRelPairOfIm::Generate5Pts(const tPoseR& aPoseR)
+void cAppli_OriRelPairOfIm::GenerateVirtualTieP(const tPoseR& aPoseR)
 {
-//#if (0)
-
-    // structure containing the virtual points
-    cSetHomogCpleIm aCpleH5Pts;
-
-    // construct an elliposoid over the 3D points
-    cEllipse3D aEllipse;
-
     // left image pose
     tPoseR aPoseL = tPoseR::Identity();
+    // tie points
+    const auto & aCple = mEstimatePose->SetFullCpleDir();
 
-    int aNbHPts = mEstimatePose->SetFullCpleDir().VDir1().size();
-    for (int aK=0; aK<aNbHPts; aK++)
+    // 3D points from bundle intersection
+    std::vector<cPt3dr> aVP;
+    std::vector<tREAL8> aVW;
+
+    for (size_t aK=0; aK<aCple.VDir1().size(); aK++)
     {
         // intersect in 3D
-        tSeg3dr aSeg1( aPoseL.Tr(),aPoseL.Value(mEstimatePose->SetFullCpleDir().VDir1()[aK]));
-        tSeg3dr aSeg2( aPoseR.Tr(),aPoseR.Value(mEstimatePose->SetFullCpleDir().VDir2()[aK]));
+        tSeg3dr aSeg1( aPoseL.Tr(),aPoseL.Value(aCple.VDir1()[aK]));
+        tSeg3dr aSeg2( aPoseR.Tr(),aPoseR.Value(aCple.VDir2()[aK]));
         cPt3dr aCoeffI;
 
-        cPt3dr aP = BundleInters(aCoeffI,aSeg1,aSeg2);
-
-        // add 3D point to the ellipsoid
-        aEllipse.AddData(aP,1.0);
+        aVP.push_back(BundleInters(aCoeffI,aSeg1,aSeg2));
+        aVW.push_back(1.0);
 
     }
-    aEllipse.Normalise();
 
-    // generate 5 virtual points
-    double aScale = 1.0;
-    std::vector<cPt3dr> aV5pts;
-    int aNbMaxTry = 3;
+    // generate virtual points
+    std::vector<std::vector<cPt2dr>> aVVProj;
+    if (! GenerateVirtualPts(aVP,aVW,{aPoseL,aPoseR},{mCalib1,mCalib2},mDistribVirTPs,aVVProj))
+        return;
 
-    cGenGauss3D aG3D(aEllipse);
-    //aG3D.GetDistrib5Pts(aV5pts,1.0);
-
-    // find the optimal scale to fit all virtual tie points in image domain
-    for (int aTry=0; aTry<aNbMaxTry; aTry++)
-    {
-        aV5pts.clear();
-        aG3D.GetDistrib5Pts(aV5pts, aScale);
-
-        bool aAllVisible = true;
-        for (size_t aK=0; aK<aV5pts.size(); aK++)
-        {
-            cPt3dr aPCamL = aPoseL.Inverse(aV5pts.at(aK));
-            cPt3dr aPCamR = aPoseR.Inverse(aV5pts.at(aK));
-            if (mCalib1->DegreeVisibility(aPCamL) > 0 &&
-                mCalib2->DegreeVisibility(aPCamR) > 0)
-                continue;
-            aAllVisible = false;
-            break;
-        }
-        if (aAllVisible) break;
-        aScale *= 0.9;
-    }
-
-    // back project to images (all points are now visible)
-    cHomogCpleIm aVHCple5Pts;
-    for (size_t aK=0; aK<aV5pts.size(); aK++)
-    {
-        cPt3dr aPCamL = aPoseL.Inverse(aV5pts.at(aK));
-        cPt3dr aPCamR = aPoseR.Inverse(aV5pts.at(aK));
-
-        if (mCalib1->DegreeVisibility(aPCamL) > 0 &&
-            mCalib2->DegreeVisibility(aPCamR) > 0)
-        {
-            aVHCple5Pts.mP1 = mCalib1->Value(aPCamL);
-            aVHCple5Pts.mP2 = mCalib2->Value(aPCamR);
-            aCpleH5Pts.Add(aVHCple5Pts);
-        }
-    }
+    // save to disk
+    cSetHomogCpleIm aCpleH5Pts;
+    for (const auto & aVIm : aVVProj)
+        aCpleH5Pts.Add(cHomogCpleIm(aVIm.at(0),aVIm.at(1)));
 
     std::string aDirPath = mPhProj.DPTieP().FullDirOut() + mIm1 + "/";
     CreateDirectories(aDirPath);
-    aCpleH5Pts.ToFile( aDirPath + mIm2 + ".csv");
-
-
-//#endif
+    aCpleH5Pts.ToFile(aDirPath + mIm2 + ".csv");
 }
 
 /* ====================================================== */

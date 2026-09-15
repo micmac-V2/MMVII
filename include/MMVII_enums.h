@@ -715,6 +715,15 @@ enum class eModResBund
 bool ModResBund_IsMode12(eModResBund);
 bool ModResBund_IsModeGen(eModResBund);
 
+/// Distribution of virtual points generated on the ellipsoid of a 3D pointcloud
+enum class eDistrVirTPs
+{
+    e5Pts,
+    e9Pts,
+    e27Pts,
+    eNbVals
+};
+
 const std::string & E2Str(const eModeFusionData &);
 const std::string & E2Str(const eTyClino &);
 const std::string & E2Str(const eTyInstr &);
@@ -750,6 +759,7 @@ const std::string & E2Str(const eModeCaracMatch &);
 const std::string & E2Str(const eModeSSR &);
 const std::string & E2Str(const eModResBund &);
 const std::string & E2Str(const eTypeDBCam &);
+const std::string & E2Str(const eDistrVirTPs &);
 
 
 

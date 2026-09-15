@@ -3,167 +3,6 @@
 namespace MMVII
 {
 
-/* *********************************************************** */
-/*                                                             */
-/*                         cEllipse3D                          */
-/*                                                             */
-/* *********************************************************** */
-
-cEllipse3D::cEllipse3D() :
-    mCDG(cPt3dr(0,0,0)),
-    mSxx(0),
-    mSyy(0),
-    mSzz(0),
-    mSxy(0),
-    mSxz(0),
-    mSyz(0),
-    mPds(0),
-    mNorm(false)
-{}
-
-void cEllipse3D::AddData(const cPt3dr& aP, double aPds)
-{
-    MMVII_INTERNAL_ASSERT_strong(!mNorm, "Ellipse3D is normalised");
-    mCDG +=  aP*aPds;
-
-    mSxx += aPds *aP.x() * aP.x();
-    mSyy += aPds *aP.y() * aP.y();
-    mSzz += aPds *aP.z() * aP.z();
-    mSxy += aPds *aP.x() * aP.y();
-    mSxz += aPds *aP.x() * aP.z();
-    mSyz += aPds *aP.y() * aP.z();
-
-    mPds += aPds;
-}
-
-void cEllipse3D::Normalise()
-{
-    MMVII_INTERNAL_ASSERT_strong(!mNorm, "Ellipse3D is normalised");
-
-    mNorm = true;
-
-    double aPds = mPds;
-    mCDG = mCDG/aPds;
-    cPt3dr aCdg = mCDG;
-
-    mSxx = mSxx/aPds - aCdg.x() * aCdg.x();
-    mSyy = mSyy/aPds - aCdg.y() * aCdg.y();
-    mSzz = mSzz/aPds - aCdg.z() * aCdg.z();
-    mSxy = mSxy/aPds - aCdg.x() * aCdg.y();
-    mSxz = mSxz/aPds - aCdg.x() * aCdg.z();
-    mSyz = mSyz/aPds - aCdg.y() * aCdg.z();
-
-}
-
-void cEllipse3D::Reset()
-{
-    mCDG = cPt3dr(0,0,0);
-    mSxx = 0;
-    mSyy = 0;
-    mSzz = 0;
-    mSxy = 0;
-    mSxz = 0;
-    mSyz = 0;
-    mPds = 0;
-    mNorm = false;
-}
-
-cPt3dr & cEllipse3D::CDG()
-{
-    return mCDG;
-}
-
-const cPt3dr & cEllipse3D::CDG()const
-{
-    return mCDG;
-}
-
-
-double & cEllipse3D::Sxx()
-{
-    return mSxx;
-}
-
-const double & cEllipse3D::Sxx()const
-{
-    return mSxx;
-}
-
-
-double & cEllipse3D::Syy()
-{
-    return mSyy;
-}
-
-const double & cEllipse3D::Syy()const
-{
-    return mSyy;
-}
-
-
-double & cEllipse3D::Szz()
-{
-    return mSzz;
-}
-
-const double & cEllipse3D::Szz()const
-{
-    return mSzz;
-}
-
-
-double & cEllipse3D::Sxy()
-{
-    return mSxy;
-}
-
-const double & cEllipse3D::Sxy()const
-{
-    return mSxy;
-}
-
-
-double & cEllipse3D::Sxz()
-{
-    return mSxz;
-}
-
-const double & cEllipse3D::Sxz()const
-{
-    return mSxz;
-}
-
-
-double & cEllipse3D::Syz()
-{
-    return mSyz;
-}
-
-const double & cEllipse3D::Syz()const
-{
-    return mSyz;
-}
-double & cEllipse3D::Pds()
-{
-    return mPds;
-}
-
-const double & cEllipse3D::Pds()const
-{
-    return mPds;
-}
-
-
-bool & cEllipse3D::Norm()
-{
-    return mNorm;
-}
-
-const bool & cEllipse3D::Norm()const
-{
-    return mNorm;
-}
-
 // value that corrects for the fact that the function is an approximation
 static const double A = 0.147;
 
@@ -210,35 +49,6 @@ static double FactCorrectif(int aNb)
 /*                                                             */
 /* *********************************************************** */
 
-cGenGauss3D::cGenGauss3D(const cEllipse3D & aEl ) :
-    mCDG(aEl.CDG()),
-    mVP(cDenseVect<tREAL8>(3,eModeInitImage::eMIA_Null)),
-    mVecP(cDenseMatrix<tREAL8>(3,3,eModeInitImage::eMIA_Null))
-{
-    MMVII_INTERNAL_ASSERT_strong(aEl.Norm(), "Ellipse3D is normalised");
-
-    cDenseMatrix<double> aCov(3,3,eModeInitImage::eMIA_Null);
-
-    aCov.SetElem(0,0,aEl.Sxx());
-    aCov.SetElem(1,1,aEl.Syy());
-    aCov.SetElem(2,2,aEl.Szz());
-
-    aCov.SetElem(0,1,aEl.Sxy());
-    aCov.SetElem(1,0,aEl.Sxy());
-    aCov.SetElem(0,2,aEl.Sxz());
-    aCov.SetElem(2,0,aEl.Sxz());
-    aCov.SetElem(1,2,aEl.Syz());
-    aCov.SetElem(2,1,aEl.Syz());
-
-    // eigenvalue decomposition
-    cResulSymEigenValue<tREAL8> aRSEV = aCov.SymEigenValue();
-
-    // update member variables
-    mVP = aRSEV.EigenValues();
-    mVecP = aRSEV.EigenVectors();
-
-}
-
 cGenGauss3D::cGenGauss3D(const cDenseMatrix<double> & aVecEig,
                          const cDenseVect<double> & aValEig,
                          const cDenseVect<double> & aCG) :
@@ -277,6 +87,17 @@ void cGenGauss3D::GetDistribGaus(std::vector<cPt3dr> & aVPts,int aN1,int aN2,int
         }
     }
 
+}
+
+void cGenGauss3D::GetDistribNPts(std::vector<cPt3dr> & aVPts,eDistrVirTPs aType,double aSca)
+{
+    switch (aType)
+    {
+        case eDistrVirTPs::e5Pts : GetDistrib5Pts(aVPts,aSca); break;
+        case eDistrVirTPs::e9Pts : GetDistrib9Pts(aVPts,aSca); break;
+        case eDistrVirTPs::e27Pts : GetDistrib27Pts(aVPts,aSca); break;
+        default : MMVII_INTERNAL_ERROR("cGenGauss3D::GetDistribNPts: unhandled eDistrVirTPs value");
+    }
 }
 /*
  *     _____
@@ -343,7 +164,17 @@ void cGenGauss3D::GetDistrib5Pts(std::vector<cPt3dr> & aVPts,double aScale)
 
 }
 
-void cEllipse3D::Bench()
+void cGenGauss3D::GetDistrib9Pts(std::vector<cPt3dr> & aVPts,double aScale)
+{
+
+}
+
+void cGenGauss3D::GetDistrib27Pts(std::vector<cPt3dr> & aVPts,double aScale)
+{
+
+}
+
+void cGenGauss3D::Bench()
 {
     int aNbIter=5;
 
@@ -352,7 +183,8 @@ void cEllipse3D::Bench()
         //StdOut() << "==== Iter " << aKI << std::endl;
         int aNbPts = 5 + RandUnif_N(20);
 
-        cEllipse3D aEllipse;
+        // weighted covariance of the 3D points
+        cStrStat2<tREAL8> aCovMat(3);
 
         cPt3dr aC0 (RandUnif_C(),RandUnif_C(),RandUnif_C());
         cPt3dr aU0 (RandUnif_C(),RandUnif_C(),RandUnif_C());
@@ -366,48 +198,41 @@ void cEllipse3D::Bench()
             aP.x() *= 10;
             aP.y() *= 10;
             aP.z() *= 10;
-            aEllipse.AddData(aP,1.0);
+            aCovMat.WeightedAdd(aP.ToVect(),1.0);
         }
-        aEllipse.Normalise();
+        aCovMat.Normalise();
 
-        cGenGauss3D aG3D(aEllipse);
+        cResulSymEigenValue<tREAL8> aVp = aCovMat.DoEigen();
 
-        for (int aKMethod=0; aKMethod<2; aKMethod++)
+        cGenGauss3D aG3D(aVp.EigenVectors(),aVp.EigenValues(),aCovMat.Moy());
+
+        for (int aK=0; aK<int(eDistrVirTPs::eNbVals); aK++)
         {
+            eDistrVirTPs aDistrib = eDistrVirTPs(aK);
+
             std::vector<cPt3dr> aVPts;
+            aG3D.GetDistribNPts(aVPts,aDistrib,1.0);
 
-            if (aKMethod==0)
+            if (aVPts.empty()) continue; // distribution not implemented yet
+
+            cStrStat2<tREAL8> aCovMat2(3);
+            for (const auto & aP : aVPts)
+                aCovMat2.WeightedAdd(aP.ToVect(),1.0);
+            aCovMat2.Normalise();
+
+            cResulSymEigenValue<tREAL8> aVp2 = aCovMat2.DoEigen();
+
+            cGenGauss3D aG3D2(aVp2.EigenVectors(),aVp2.EigenValues(),aCovMat2.Moy());
+
+            for(int aKV=0; aKV<3; aKV++)
             {
-                //StdOut() << "GetDistribGaus" << std::endl;
-                aG3D.GetDistribGaus(aVPts,1+RandUnif_N(2),2+RandUnif_N(2),3+RandUnif_N(2));
-            }
-            else if (aKMethod==1)
-            {
-                //StdOut() << "GetDistrib5Pts" << std::endl;
-                aG3D.GetDistrib5Pts(aVPts,1.0);
-            }
-
-            aEllipse.Reset();
-
-            for (size_t aK=0; aK<aVPts.size(); aK++)
-                aEllipse.AddData(aVPts.at(aK),1.0);
-
-            aEllipse.Normalise();
-            cGenGauss3D aG3D2(aEllipse);
-
-            for(int aK=0; aK<3; aK++)
-            {
-                double aDistVec = Sqrt(Square(aG3D.VecP(aK)(0)-aG3D2.VecP(aK)(0)) +
-                                       Square(aG3D.VecP(aK)(1)-aG3D2.VecP(aK)(1)) +
-                                       Square(aG3D.VecP(aK)(2)-aG3D2.VecP(aK)(2)));
-                /*StdOut() << "Ratio=" << aG3D.ValP(aK) / aG3D2.ValP(aK) << " "
-                         << " dist=" << aDistVec << " "
-                         << " ValP=" << aG3D.ValP(aK) << std::endl;*/
-                MMVII_INTERNAL_ASSERT_bench(aDistVec<1e-10,"cEllipse3D::Bench");
+                double aDistVec = Sqrt(Square(aG3D.VecP(aKV)(0)-aG3D2.VecP(aKV)(0)) +
+                                       Square(aG3D.VecP(aKV)(1)-aG3D2.VecP(aKV)(1)) +
+                                       Square(aG3D.VecP(aKV)(2)-aG3D2.VecP(aKV)(2)));
+                MMVII_INTERNAL_ASSERT_bench(aDistVec<1e-10,"cGenGauss3D::Bench");
             }
         }
     }
-
 }
 
 };

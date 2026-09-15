@@ -305,6 +305,12 @@ template<> cE2Str<eTypeDBCam>::tMapE2Str cE2Str<eTypeDBCam>::mE2S
                 {eTypeDBCam::eGlobalMMVII,"GlobalMMVII"}
            };
 
+template<> cE2Str<eDistrVirTPs>::tMapE2Str cE2Str<eDistrVirTPs>::mE2S
+    {
+        {eDistrVirTPs::e5Pts,"5Pts"},
+        {eDistrVirTPs::e9Pts,"9Pts"},
+        {eDistrVirTPs::e27Pts,"27Pts"}
+    };
 
 template<> cE2Str<eModeFusionData>::tMapE2Str cE2Str<eModeFusionData>::mE2S
            {
@@ -1475,6 +1481,6 @@ MACRO_INSTANTIATE_STRIO_ENUM(eModeSSR,"ModeSRR")
 MACRO_INSTANTIATE_STRIO_ENUM(eImatchCrit,"ImatchCrit")
 MACRO_INSTANTIATE_STRIO_ENUM(eTargetDistanceEstim,"TargetDistanceEstim")
 MACRO_INSTANTIATE_STRIO_ENUM(eModeWeighter,"ModeWeighter")
-
+MACRO_INSTANTIATE_STRIO_ENUM(eDistrVirTPs,"DistrVirTPs")
 
 };

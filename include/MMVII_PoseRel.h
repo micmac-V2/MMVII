@@ -357,6 +357,20 @@ class cDataSolOriTriplet
 
 void AddData(const cAuxAr2007&, cDataSolOriTriplet&);
 
+/// Generate virtual tie points from a weighted 3D point cloud : the points are placed
+/// on the ellipsoid of the cloud according to a distribution, then scaled down (bisection)
+/// until all of them are visible in all cameras with a margin.
+/// Return false (and leave aVVProj empty) if no valid configuration exists.
+bool GenerateVirtualPts
+    (
+        const std::vector<cPt3dr> & aVPts,    ///< 3D points
+        const std::vector<tREAL8> & aVW,      ///< weights, same size as aVPts
+        const std::vector<tPoseR> & aVPoses,  ///< camera poses
+        const std::vector<const cPerspCamIntrCalib*> & aVCalib,  ///< internal calibrations
+        eDistrVirTPs                       aDistrib, ///< distribution (5, 9, 27 pts, ...)
+        std::vector<std::vector<cPt2dr>> & aVVProj   ///< result : [virtual pt][camera]
+        );
+
 };
 #endif // _MMVII_POSE_REL_H_
 
