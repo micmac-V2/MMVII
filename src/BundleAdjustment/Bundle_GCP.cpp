@@ -91,7 +91,7 @@ void cMMVII_BundleAdj::InitItereGCP()
 {
     for (const auto & aGCP : mGCP.getMesGCP().MesGCP())
     {
-        if (aGCP.mMesDirInfo->mSGlob>0)
+        if ((!aGCP.mMesDirInfo) || (aGCP.mMesDirInfo->mSGlob>0))
         {
             cPt3dr_UK * aPtrUK = new cPt3dr_UK(aGCP.mPt,aGCP.mNamePt);
             mGCP.mGCP_UK.push_back(aPtrUK);
