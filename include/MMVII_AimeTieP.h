@@ -6,7 +6,7 @@
 namespace MMVII
 {
 
-#define MMVII_EXPORT_MMV1 0
+#define MMVII_EXPORT_MMV1 1
 
 
 class cAimeDescriptor;

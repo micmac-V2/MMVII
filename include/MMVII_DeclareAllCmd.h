@@ -31,6 +31,7 @@ extern cSpecMMVII_Appli  TheSpec_ComputeParamIndexBinaire;
 extern cSpecMMVII_Appli  TheSpecTestRecall;
 extern cSpecMMVII_Appli  TheSpecScaleImage_Basic;
 extern cSpecMMVII_Appli  TheSpecScaleImage_Std;
+extern cSpecMMVII_Appli  TheSpec_cAppliGenRandomImage;
 extern cSpecMMVII_Appli  TheSpec_StackIm;
 extern cSpecMMVII_Appli  TheSpec_StackDep;
 extern cSpecMMVII_Appli  TheSpecCalcDiscIm;
