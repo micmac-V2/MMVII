@@ -3,6 +3,7 @@
 
 #include "MMVII_Triangles.h"
 #include "MMVII_Matrix.h"
+#include "MMVII_enums.h"
 
 namespace happly
 {
@@ -678,62 +679,9 @@ class cSampleSphere3D
 };
 
 
-class cEllipse3D
-{
-    public:
-        static void Bench();
-
-        cEllipse3D();
-
-        void AddData(const cPt3dr&, double);
-        void Normalise();
-        void Reset();
-
-
-        cPt3dr & CDG();
-        const cPt3dr & CDG()const ;
-
-        double & Sxx();
-        const double & Sxx()const ;
-
-        double & Syy();
-        const double & Syy()const ;
-
-        double & Szz();
-        const double & Szz()const ;
-
-        double & Sxy();
-        const double & Sxy()const ;
-
-        double & Sxz();
-        const double & Sxz()const ;
-
-        double & Syz();
-        const double & Syz()const ;
-
-        double & Pds();
-        const double & Pds()const ;
-
-        bool & Norm();
-        const bool & Norm()const ;
-
-    private:
-        cPt3dr mCDG;
-        double mSxx;
-        double mSyy;
-        double mSzz;
-        double mSxy;
-        double mSxz;
-        double mSyz;
-        double mPds;
-        bool mNorm;
-
-};
-
 class cGenGauss3D
 {
     public :
-        cGenGauss3D(const cEllipse3D & );
         cGenGauss3D(const cDenseMatrix<double> &aVecEig,
                     const cDenseVect<double> &aValEig,
                     const cDenseVect<double> &aCG);
@@ -746,8 +694,19 @@ class cGenGauss3D
         //indiqué par (2*aN1+1),(2*aN2+1),(2*aN3+1) et Gauss
         void GetDistribGaus(std::vector<cPt3dr> &,int,int,int);
 
+        //generate a requested distribution
+        void GetDistribNPts(std::vector<cPt3dr> &,eDistrVirTPs,double aSca=1.0);
+
         //5-pts distribution
         void GetDistrib5Pts(std::vector<cPt3dr> &,double aSca=1.0);
+
+        //9-pts distribution
+        void GetDistrib9Pts(std::vector<cPt3dr> &,double aSca=1.0);
+
+        //27-pts distribution
+        void GetDistrib27Pts(std::vector<cPt3dr> &,double aSca=1.0);
+
+        static void Bench();
 
     private :
 
