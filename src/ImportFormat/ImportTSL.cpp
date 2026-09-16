@@ -503,8 +503,8 @@ tREAL8 cAppli_ImportTSL::doVerticalize()
     int aCurrCol = 0;
     int aCurrLine = 0;
     std::vector<std::tuple<cPt3dr, cPt3dr, cPt3dr>> aVPtsPlanes; // list of triplets to find vertical planes
-    cPt3dr * aPtBottom = nullptr;
-    cPt3dr * aPtTop = nullptr;
+    cPt3df * aPtBottom = nullptr;
+    cPt3df * aPtTop = nullptr;
     for (size_t i=0; i<mSL_importer.mVectPtsTPD.size(); ++i)
     {
         // TODO: factorize xyz points list to linecol!
@@ -536,7 +536,7 @@ tREAL8 cAppli_ImportTSL::doVerticalize()
             else if ((aCurrLine>aTargetLine)&&(!aPtTop))
             {
                 aPtTop = &mSL_importer.mVectPtsXYZ[i];
-                aVPtsPlanes.push_back( {cPt3dr(0.,0.,0.),(*aPtBottom)/Norm2(*aPtBottom), (*aPtTop)/Norm2(*aPtTop)} );
+                aVPtsPlanes.push_back( {cPt3dr(0.,0.,0.),ToR((*aPtBottom)/Norm2(*aPtBottom)), ToR((*aPtTop)/Norm2(*aPtTop))} );
                 aPtBottom = nullptr;
                 aPtTop = nullptr;
                 aTargetCol = aCurrCol + aColPlaneStep;
@@ -559,7 +559,7 @@ tREAL8 cAppli_ImportTSL::doVerticalize()
     // update xyz and tpd coordinates
     for (size_t i=0; i<mSL_importer.mVectPtsXYZ.size(); ++i)
     {
-        mSL_importer.mVectPtsXYZ[i] = mSL_importer.mVertRot.Inverse(mSL_importer.mVectPtsXYZ[i]);
+        mSL_importer.mVectPtsXYZ[i] = ToF(mSL_importer.mVertRot.Inverse(ToR(mSL_importer.mVectPtsXYZ[i])));
     }
     mSL_importer.convertToThetaPhiDist();
     // update line col
