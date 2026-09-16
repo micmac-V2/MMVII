@@ -1,4 +1,5 @@
 #include "VisPoseAndStructure.h"
+#include "MMVII_PlyExport.h"
 #include "MMVII_StaticLidar.h"
 
 /**
@@ -177,7 +178,16 @@ int cAppli_VisuPoseStr3D::Exe()
     TimeSegm().SetIndex(aPrintPtsRGBCam);
     cPlyVertices aPlyverts;
 
-    AddCameras(aPlyverts,aTPts,aVSens);
+    if (aTPts)
+    {
+        cPlyExportTiePoints aExpTieP(mErrProjMax,mWithRGB,mWithAvgRGB);
+        aExpTieP.AddTiePoints(aPlyverts,*aTPts,aVSens);
+    }
+
+    cPlyExportCamGeom aExpCamGeom(mCamScale);
+    aExpCamGeom.AddCameras(aPlyverts,aVSens);
+
+    double aCurrHue = 0.;
 
     if (mTSLCloudDezoom>0)
         for (auto &aSens : aVSens)
@@ -185,8 +195,7 @@ int cAppli_VisuPoseStr3D::Exe()
             cStaticLidar* aScan = dynamic_cast<cStaticLidar*>(aSens);
             if (aScan)
             {
-                cPt3dr aColor(RandUnif_0_1(),RandUnif_0_1(), RandUnif_0_1());
-                AddPointCould(aPlyverts, aScan, mTSLCloudDezoom, aColor);
+                AddPointCould(aPlyverts, aScan, mTSLCloudDezoom, getNextColor(aCurrHue));
             }
         }
 

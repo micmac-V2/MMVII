@@ -639,8 +639,9 @@ int cAppli_ImportTSL::Exe()
         MMVII_INTERNAL_ASSERT_tiny(mSL_importer.mVectPtsXYZ.size()==mSL_importer.mVectPtsIntens.size(),"Error reading "+mNameFile);
     }
 
+    size_t aNbShowSamples = 0;
     StdOut() << "Cartesian sample:\n";
-    for (size_t i=0; (i<10)&&(i<mSL_importer.mVectPtsXYZ.size()); ++i)
+    for (size_t i=0; (i<aNbShowSamples)&&(i<mSL_importer.mVectPtsXYZ.size()); ++i)
     {
         StdOut() << mSL_importer.mVectPtsXYZ.at(i);
         if (mSL_importer.HasIntensity())
@@ -651,7 +652,7 @@ int cAppli_ImportTSL::Exe()
 
     // check theta-phi :
     StdOut() << "Spherical sample:\n";
-    for (size_t i=0; (i<10)&&(i<mSL_importer.mVectPtsTPD.size()); ++i)
+    for (size_t i=0; (i<aNbShowSamples)&&(i<mSL_importer.mVectPtsTPD.size()); ++i)
     {
         StdOut() << mSL_importer.mVectPtsTPD[i];
         if (mSL_importer.HasRowCol())
@@ -914,6 +915,7 @@ private :
     bool                     mIsPoseId;            ///< set pose to identity
     std::string              mPoseMat4x4Filename;  ///< give a 4x4 matrix text file name
     bool                     mPoseMat4x4Inverse;   ///< if the matrix given has to be inverted
+    cPt2di                   mPatchesOffset;       ///< to randomize patches distrib
 
     // data
     tPoseR                   mForcedPose;
@@ -927,6 +929,7 @@ cAppli_InitTSL::cAppli_InitTSL(const std::vector<std::string> & aVArgs,const cSp
     mNbPatches      (5000),
     mIsPoseId       (false),
     mPoseMat4x4Inverse(false),
+    mPatchesOffset  (0,0),
     mForcedPose     (tPoseR::Identity()),
     mIsForcedPoseInit(false)
 {
@@ -953,6 +956,7 @@ cCollecSpecArg2007 & cAppli_InitTSL::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            << mPhProj.DPGndPt2D().ArgDirInOpt("GCP2D","GCPs 3D coords")
            << AOpt2007(mSupposeVerticalized,"SupposeVerticalized","Initialize supposing verticalized station (only 2 GCP needed)",{{eTA2007::HDV}})
            << AOpt2007(mSupMaskFilename,"SupMask","Supplementary mask for patch selection",{{eTA2007::FileImage}})
+           << AOpt2007(mPatchesOffset,"Offset","Patches raster offset, to randomize distribution",{{eTA2007::HDV}})
         ;
 }
 
@@ -1288,7 +1292,7 @@ int cAppli_InitTSL::Exe()
 
 
     //mLidar->SelectPatchCenters2(mNbPatches, aSupMask?&aSupMask->DIm():nullptr);
-    mLidar->SelectPatchCenters3(mNbPatches, aSupMask?&aSupMask->DIm():nullptr);
+    mLidar->SelectPatchCenters3(mNbPatches, aSupMask?&aSupMask->DIm():nullptr, mPatchesOffset);
 
     mLidar->MakeVisu(mPhProj);
 

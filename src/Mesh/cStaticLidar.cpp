@@ -957,6 +957,8 @@ cPt3dr cStaticLidar::Image2NormalInstr(const cPt2dr & aRasterPx) const
     // all computation is done in Raster frame
     cDataGenUnTypedIm<2> & aGenDImDist = getRasterDistance();
     const auto aInterpN = getNormalInterpolator( aRasterPx);
+    if (!aGenDImDist.InsideInterpolator(*aInterpN,aRasterPx,0.0))
+        return cPt3dr::Dummy();
     auto [aDist, aDistGr] = aGenDImDist.GetValueAndGradInterpol(*aInterpN,aRasterPx);
     auto aTPD = Image2ThetaPhiDist(aRasterPx);
     // differencial of cartesian point regarding theta and phi
@@ -993,6 +995,11 @@ cPt3dr cStaticLidar::Image2NormalInstr(const cPt2dr & aRasterPx) const
     return aN;
 }
 
+
+double cStaticLidar::Image2Intensity(cPt2di aRasterPx) const
+{
+    return mRasterIntensity->DIm().GetV(aRasterPx)/255.;
+}
 
 
 void cStaticLidar::TriangulateRegular(const std::string & aVisuPath, int aFactor)
@@ -1751,7 +1758,7 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> * aSup
 }
 
 // set a regular grid, subdivide parts if deep, keep best score in cell
-void cStaticLidar::SelectPatchCenters3(int aNbPatches, cDataIm2D<tU_INT1> * aSupMaskDIm)
+void cStaticLidar::SelectPatchCenters3(int aNbPatches, cDataIm2D<tU_INT1> * aSupMaskDIm, cPt2di aOffset)
 {
     MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
 
@@ -1784,7 +1791,7 @@ void cStaticLidar::SelectPatchCenters3(int aNbPatches, cDataIm2D<tU_INT1> * aSup
     mPatchCenters.clear();
 
     cQuadTree aQuadTree(&aImDistFixData);
-    aQuadTree.Split(aNbPatches*aNbPatchesFactor);
+    aQuadTree.Split(aNbPatches*aNbPatchesFactor, aOffset);
 
     std::cout<<"QuadTree: "<<aQuadTree.GetCurNbCell()<<"\n";
 

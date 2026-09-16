@@ -843,6 +843,8 @@ protected:
 };
 
 
+cPt3dr getNextColor(double& aCurrHue);
+
 };
 
 #endif  //  _MMVII_GEOM3D_H_
