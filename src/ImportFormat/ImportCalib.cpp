@@ -12,6 +12,65 @@
 namespace MMVII
 {
 
+
+
+class cAppli_CalibIndiv : public cMMVII_Appli
+{
+     public :
+        cAppli_CalibIndiv(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec);
+        int Exe() override;
+        cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
+        cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
+     private :
+
+        cPhotogrammetricProject  mPhProj;
+
+        // Optionnal Arg
+        std::string              mPatIm;
+        std::string              mPatternDup;
+      //  std::vector<std::string>              mPatter;
+
+        // std::vector<cOneHelpSampleCmp>  Samples() const override;
+};
+
+
+cCollecSpecArg2007 & cAppli_CalibIndiv::ArgObl(cCollecSpecArg2007 & anArgObl)
+{
+    return anArgObl
+           << Arg2007(mPatIm,"Pattern of images",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
+           <<  mPhProj.DPOrient().ArgDirInMand()
+           <<  mPhProj.DPOrient().ArgDirOutMand()
+        ;
+}
+
+
+cCollecSpecArg2007 & cAppli_CalibIndiv::ArgOpt(cCollecSpecArg2007 & anArgObl)
+{
+
+    return anArgObl
+             << AOpt2007(mPatternDup,"PatInit","Pattern of images for wich we maitain ")
+        //  << AOpt2007(mNbDigName,"NbDigName","Number of digit for name, if fixed size required (only if int)")
+        //  << AOpt2007(mL0,"NumL0","Num of first line to read",{eTA2007::HDV})
+        //  << AOpt2007(mLLast,"NumLast","Num of last line to read (-1 if at end of file)",{eTA2007::HDV})
+        //  << AOpt2007(mPatternTransfo,"PatName","Pattern for transforming name (first sub-expr)")
+        ;
+}
+
+
+int cAppli_CalibIndiv::Exe()
+{
+    mPhProj.FinishInit();
+
+    std::vector aVstr = VectMainSet(0);
+
+    for (const std::string & aNameIm : aVstr)
+    {
+        StdOut() << "  INIT " << aNameIm << "\n";
+    }
+
+    return EXIT_SUCCESS;
+}
+
    /* ********************************************************** */
    /*                                                            */
    /*                 cAppli_V2ImportCalib                       */
