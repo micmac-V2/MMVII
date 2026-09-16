@@ -95,9 +95,9 @@ template <class Type> class cGP_OneImage : public cMemCheck
 
               // =======   Image processing for creation
         void  ComputGaussianFilterOfImage();  ///< Generate computation of gauss image
-        void  MakeDiff(const tGPIm & ); ///< Put in this the difference between anIm and anIm.mDown
-        void  MakeCorner(); ///< Compute an indice of corner image
-        void  MakeOrigNorm(const tGPIm & ); ///< Create an image, almost orig, but normalized
+        void  MakeDiff(const tGPIm & ,tREAL8 anExpoNormS); ///< Put in this the difference between anIm and anIm.mDown
+        void  MakeCorner(tREAL8 anExpoNormS); ///< Compute an indice of corner image
+        void  MakeOrigNorm(const tGPIm & ,tREAL8 anExpoNormS); ///< Create an image, almost orig, but normalized
 
               // =======   Description
         void SaveInFile() const;  ///< Save image on file, tuning/teaching
@@ -172,10 +172,10 @@ template <class Type> class cGP_OneOctave : public cMemCheck
         void ComputGaussianFilterOfAllImages();  ///< Generate computation of gauss pyram
 
         /** Put in all image of this, the  image  whic are differences of consecutive image in anOct */
-        void  MakeDiff(const tOct & anOct);
+        void  MakeDiff(const tOct & anOct,tREAL8 anExpoNormS);
 
         /**  Put in all image of this, image original normalized */
-        void  MakeOrigNorm(const tOct & anOct);
+        void  MakeOrigNorm(const tOct & anOct,tREAL8 anExpoNormS);
 
 
         //  ====  Accessors  ===========
@@ -313,11 +313,11 @@ template <class Type> class  cGaussianPyramid : public cMemCheck
 
         static tSP_Pyr Alloc(const cGP_Params &,const std::string & aNameIm,const cRect2 & aBIn,const cRect2 & aBOut); ///< Allocator
         /** Generate a Pyramid made of the difference, typically for laplacian from gaussian */
-        tSP_Pyr  PyramDiff() ;
+        tSP_Pyr  PyramDiff(tREAL8 anExpNormScale) ;
         /** Generate a Pyramid of corner points */
-        tSP_Pyr  PyramCorner() ;
+        tSP_Pyr  PyramCorner(tREAL8 anExpNormScale) ;
         /** Generate a Pyramid "almost" original but with normalized values */
-        tSP_Pyr  PyramOrigNormalize() ;
+        tSP_Pyr  PyramOrigNormalize(tREAL8 anExpNormScale) ;
 
 
         cPt2dr Pyr2File(const cPt2dr &) const; ///< To geomtry of global file
