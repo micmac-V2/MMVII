@@ -40,9 +40,12 @@ template <class Type> inline cPtxd<Type,3> PSymXY (const cPtxd<Type,3> & aP)
 cPt3dr Cart2Cyl(const cPt3dr & aPtCart);
 cPt3dr Cyl2Cart(const cPt3dr & aPtspher);
 ///  Phi-longitude[0,2PI],Teta-latitude [-PI/2,PI/2] ,Rho  =>  x,y,z
-cPt3dr spher2cart(const cPt3dr & aPtspher);
+
+template <class Type>
+cPtxd<Type,3> spher2cart(const cPtxd<Type,3> & aPtspher);
 /// Invert spher2cart
-cPt3dr cart2spher(const cPt3dr & aPtCart);
+template <class Type>
+cPtxd<Type,3> cart2spher(const cPtxd<Type,3> & aPtCart);
 
 
 

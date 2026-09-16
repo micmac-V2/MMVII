@@ -16,8 +16,8 @@
 
 namespace MMVII
 {
-
-cPt3dr cart2spher(const cPt3dr & aPtCart)
+template <class Type>
+cPtxd<Type,3> cart2spher(const cPtxd<Type,3> & aPtCart)
 {
     tREAL8 dist = Norm2(aPtCart);
     tREAL8 theta =  atan2(aPtCart.y(),aPtCart.x());
@@ -26,7 +26,8 @@ cPt3dr cart2spher(const cPt3dr & aPtCart)
     return {theta, phi, dist};
 }
 
-cPt3dr spher2cart(const cPt3dr & aPtspher)
+template <class Type>
+cPtxd<Type,3> spher2cart(const cPtxd<Type,3> & aPtspher)
 {
     tREAL8 dhz = aPtspher.z()*cos(aPtspher.y());
     tREAL8 x = dhz* cos(aPtspher.x());
@@ -34,6 +35,11 @@ cPt3dr spher2cart(const cPt3dr & aPtspher)
     tREAL8 z = aPtspher.z()*sin(aPtspher.y());
     return {x, y, z};
 }
+
+template cPt3df cart2spher(const cPt3df & aPtspher);
+template cPt3dr cart2spher(const cPt3dr & aPtspher);
+template cPt3df spher2cart(const cPt3df & aPtspher);
+template cPt3dr spher2cart(const cPt3dr & aPtspher);
 
 tREAL8 toMinusPiPlusPi(tREAL8 aAng, tREAL8 aOffset)
 {
@@ -79,7 +85,7 @@ void cStaticLidarImporter::readPlyPoints(std::string aPlyFileName, bool aForceGr
             mVectPtsXYZ.resize(aVecPts.size());
             for (size_t i=0; i<aVecPts.size(); ++i)
             {
-                mVectPtsXYZ[i] = cPt3dr(aVecPts[i][0],aVecPts[i][1],aVecPts[i][2]);
+                mVectPtsXYZ[i] = cPt3df(aVecPts[i][0],aVecPts[i][1],aVecPts[i][2]);
             }
         }
 
@@ -101,7 +107,7 @@ void cStaticLidarImporter::readPlyPoints(std::string aPlyFileName, bool aForceGr
             if (aPropGreenName!= aVertProps.end())
             {
                 mHasIntensity = true;
-                mVectPtsIntens = aPlyF.getElement("vertex").getProperty<tREAL8>(*aPropGreenName);
+                mVectPtsIntens = aPlyF.getElement("vertex").getProperty<tREAL4>(*aPropGreenName);
                 for (size_t i=0; i<mVectPtsIntens.size(); ++i)
                 {
                     mVectPtsIntens[i] = mVectPtsIntens[i]/255.;
@@ -111,7 +117,7 @@ void cStaticLidarImporter::readPlyPoints(std::string aPlyFileName, bool aForceGr
             if (aPropIntensityName!= aVertProps.end())
             {
                 mHasIntensity = true;
-                mVectPtsIntens = aPlyF.getElement("vertex").getProperty<tREAL8>(*aPropIntensityName);
+                mVectPtsIntens = aPlyF.getElement("vertex").getProperty<tREAL4>(*aPropIntensityName);
             }
         }
 
@@ -335,13 +341,13 @@ bool cStaticLidarImporter::read(const std::string & aName, bool OkNone,
         // apply rotframe to original points
         for (auto & aPtXYZ : mVectPtsXYZ)
         {
-            aPtXYZ = mRotInput2TSL.Value(aPtXYZ);
+            aPtXYZ = ToF(mRotInput2TSL.Value(ToR(aPtXYZ)));
         }
         convertToThetaPhiDist();
         // go back to original xyz
         for (auto & aPtXYZ : mVectPtsXYZ)
         {
-            aPtXYZ = mRotInput2TSL.Inverse(aPtXYZ);
+            aPtXYZ = ToF(mRotInput2TSL.Inverse(ToR(aPtXYZ)));
         }
     } else if (!HasCartesian() && HasSpherical()) // mTransfoIJK not used if spherical
     {
@@ -473,11 +479,11 @@ void cStaticLidarImporter::decimXY(const cPt2di & aDecimXY)
     aNewVectPtsLine.reserve(aNewNbPts);
     std::vector<int> aNewVectPtsCol;
     aNewVectPtsCol.reserve(aNewNbPts);
-    std::vector<cPt3dr> aNewVectPtsXYZ;
+    std::vector<cPt3df> aNewVectPtsXYZ;
     aNewVectPtsXYZ.reserve(aNewNbPts);
-    std::vector<tREAL8> aNewVectPtsIntens;
+    std::vector<tREAL4> aNewVectPtsIntens;
     aNewVectPtsIntens.reserve(aNewNbPts);
-    std::vector<cPt3dr> aNewVectPtsTPD;
+    std::vector<cPt3df> aNewVectPtsTPD;
     aNewVectPtsTPD.reserve(aNewNbPts);
     size_t j = 0;
     cPt2di aDecimMid(aDecimXY.x() / 2,aDecimXY.y() / 2);

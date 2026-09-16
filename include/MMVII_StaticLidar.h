@@ -78,13 +78,13 @@ public:
     std::vector<int> mVectPtsLine;
     std::vector<int> mVectPtsCol;
     // points
-    std::vector<cPt3dr> mVectPtsXYZ;
-    std::vector<tREAL8> mVectPtsIntens; // 0-1, may be empty if no intensity
-    std::vector<cPt3dr> mVectPtsTPD;
+    std::vector<cPt3df> mVectPtsXYZ;
+    std::vector<tREAL4> mVectPtsIntens; // 0-1, may be empty if no intensity
+    std::vector<cPt3df> mVectPtsTPD;
 
     // agregated angles per col/line
-    std::vector<tREAL8> mVectPhisCol;
-    std::vector<tREAL8> mVectThetasLine;
+    std::vector<tREAL4> mVectPhisCol;
+    std::vector<tREAL4> mVectThetasLine;
 
 protected:
     // data
