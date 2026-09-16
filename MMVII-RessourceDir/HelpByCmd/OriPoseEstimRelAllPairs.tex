@@ -1,0 +1,60 @@
+\documentclass[a4paper]{article}
+\usepackage{MMVII}
+
+\newcommand{\TheCmd}{OriPoseEstimRelAllPairs}
+
+\begin{document}
+
+\CmdTitle
+
+\tableofcontents
+
+
+ %=================================================================================
+
+\SecDescr
+
+This command compute the relative orientation of all 
+pairs selected by \FileSty{OriPoseSelecAllPAir} using 
+\FileSty{OriPoseEstimRel2Im}. As other command relative
+to relative orientation, it will generally be called
+impliciely by \FileSty{OriPoseEstimRelGlob}. But it can
+be called explicitely for didactic reason, tuning oe fine
+parametrizatioN.
+
+ %=================================================================================
+
+\section{Parametrisation}
+
+The parametrisation is almost the same than \FileSty{OriPoseEstimRel2Im},
+see this command.
+The main difference is that :
+
+\begin{itemize}
+  \item instead of the name of $2$ images, it take the localisation
+       of the result of \FileSty{OriPoseSelecAllPAir}, to run relative orientation
+        on all selected pairs, it will be used also for saving the result;
+
+  \item it does not take an output orientation \FileSty{[Ori,Out]}.
+\end{itemize}
+
+
+%=================================================================================
+
+\SecRelatedCmd
+
+\begin{itemize}
+   \item  \FileSty{OriPoseEstimRel2Im}
+   \item  \FileSty{OriPoseSelecAllPAir}
+   \item  \FileSty{OriPoseEstimRelGlob}
+\end{itemize}
+
+
+
+\end{document}
+
+
+
+
+
+

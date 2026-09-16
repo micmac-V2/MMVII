@@ -469,6 +469,7 @@ def printFiles(word,extensions=None,only_dirs=False) -> None:
     except (FileNotFoundError,PermissionError):
         pass
     matches=[w for w in sorted(files)+sorted(dirs) if w.startswith(word)]
+    option = '-o filenames'
     if len(matches) == 0:
         if printFinishedValue(word,True):
             return
@@ -476,8 +477,9 @@ def printFiles(word,extensions=None,only_dirs=False) -> None:
         printCompletionOptions()
         return
     else:
-        printCompletedValue(word,matches)
-    printCompletionOptions('-o filenames')
+        if printCompletedValue(word,matches):
+            option += " -o nospace"    # an ambiguous value is never finished
+    printCompletionOptions(option)
 
 
 def printDirs(word,path) -> None:
@@ -497,6 +499,7 @@ def printDirs(word,path) -> None:
         pass
 
     matches=[w for w in sorted(dirs) if w.startswith(word)]
+    option = '-o filenames'
     if len(matches) == 0:
         if printFinishedValue(word,True):
             return
@@ -504,8 +507,9 @@ def printDirs(word,path) -> None:
         printCompletionOptions()
         return
     else:
-        printCompletedValue(word,matches)
-    printCompletionOptions('-o filenames')
+        if printCompletedValue(word,matches):
+            option += " -o nospace"    # an ambiguous value is never finished
+    printCompletionOptions(option)
 
 
 
@@ -586,8 +590,12 @@ def printSpecHelp(all_specs, spec, value) -> None:
                        (f' : {spec.get("comment")}' if spec.get("comment") else '') +
                        (f' [Default: {spec.get("default")}]' if spec.get("default") else ''))
         else:
-            msg.append(f'>Expect <{msg_type}>: {spec.get("name","structured field")}' +
-                       (f' : {spec.get("comment")}' if spec.get("comment") else '') +
+            # A mandatory (positional) argument has no 'name': fall back to its comment
+            # instead of a filler string, as a struct field's own name never comes up here.
+            name = spec.get("name")
+            comment = spec.get("comment")
+            desc = f'{name} : {comment}' if name and comment else name or comment or ''
+            msg.append(f'>Expect <{msg_type}>: {desc}' +
                        (f' [Default: {spec.get("default")}]' if spec.get("default") else ''))
 
     if vector and vsize[0] and vsize[0]>1:

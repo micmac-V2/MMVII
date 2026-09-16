@@ -1,5 +1,6 @@
 #if MMVII_USE_LIBTORCH
 // Tool for calculating disparity between two Tiles using a CNN Trained Model
+
 #include <torch/torch.h>
 #include <torch/script.h>
 #include <ATen/ATen.h>
@@ -15,19 +16,14 @@ namespace MMVII
 aCnnModelPredictor::aCnnModelPredictor(std::string anArchitecture, std::string aModelBinDir, bool Cuda):
     mArchitecture(anArchitecture),IsCuda(Cuda)
 {
-    // FILL THE SET OF BINARY FILES NAMES
-    std::string aModelPat,aDirModel;
-        SplitDirAndFile(aDirModel, aModelPat, aModelBinDir,false);
-        cInterfChantierNameManipulateur * aICNMModel=cInterfChantierNameManipulateur::BasicAlloc(aDirModel);
-        mSetModelBinaries = *(aICNMModel->Get(aModelPat));
-    mDirModel=aDirModel;
+    mSetModelBinaries = ToVect(SetNameFromPat(aModelBinDir,true));
 }
 
 /***********************************************************************/
 void aCnnModelPredictor::PopulateModelMSNetHead(/*MSNetHead Network*/ torch::jit::script::Module & Network)
 {
     //StdOut()<<"TO LOAD MODEL "<<"\n";
-    std::string aModel=mDirModel+mSetModelBinaries.at(0); // just one pickled model
+    std::string aModel= mSetModelBinaries.at(0);
     Network=torch::jit::load(aModel);
     auto cuda_available = torch::cuda::is_available();
     torch::Device device(cuda_available ? torch::kCUDA : torch::kCPU);
@@ -47,19 +43,16 @@ void aCnnModelPredictor::PopulateModelFeatures(torch::jit::script::Module & Netw
     {
         if (mSetModelBinaries.at(i).find("FEATURES") != std::string::npos)
         {
-            aModel=mDirModel+mSetModelBinaries.at(i);
+            aModel=mSetModelBinaries.at(i);
             std::cout<<"Models checked "<<mSetModelBinaries.at(i)<<std::endl;
             break;
         }
     }
-    //<$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$>
-    //auto cuda_available =torch::cuda::is_available();
-    //<$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$>
     StdOut()<<"Model Name "<<aModel<<"\n";
     torch::Device device(IsCuda ? torch::kCUDA : torch::kCPU);
     Network=torch::jit::load(aModel);
     Network.to(device);
-    StdOut()<<"MODEL FEATURES LOADED !!!!!! "<<"\n";
+    StdOut()<<"Loaded Model Feature Learning !!!!!! "<<"\n";
 }
 
 /***********************************************************************/
@@ -71,7 +64,7 @@ void aCnnModelPredictor::PopulateModelFeatures(torch::jit::script::Module & Netw
     {
         if (mSetModelBinaries.at(i).find("FEATURES") != std::string::npos)
         {
-            aModel=mDirModel+mSetModelBinaries.at(i);
+            aModel=mSetModelBinaries.at(i);
             std::cout<<"Models checked "<<mSetModelBinaries.at(i)<<std::endl;
             break;
         }
@@ -105,7 +98,7 @@ void aCnnModelPredictor::PopulateModelDecision(torch::jit::script::Module & Netw
         if (mSetModelBinaries.at(i).find("DECISION_NET") != std::string::npos)
         {
             std::cout<<"Models checked for the decision NEtwork"<<mSetModelBinaries.at(i)<<std::endl;
-            aModel=mDirModel+mSetModelBinaries.at(i);
+            aModel=mSetModelBinaries.at(i);
             break;
         }
     }
@@ -127,7 +120,7 @@ void aCnnModelPredictor::PopulateModelDecision(torch::jit::script::Module & Netw
         if (mSetModelBinaries.at(i).find("DECISION_NET") != std::string::npos)
         {
             std::cout<<"Models checked for the decision NEtwork"<<mSetModelBinaries.at(i)<<std::endl;
-            aModel=mDirModel+mSetModelBinaries.at(i);
+            aModel=mSetModelBinaries.at(i);
             break;
         }
     }
@@ -147,7 +140,7 @@ void aCnnModelPredictor::PopulateModelMatcher(torch::jit::script::Module & Netwo
         if (mSetModelBinaries.at(i).find("MATCHER_NET") != std::string::npos)
         {
             std::cout<<"Models checked for the decision NEtwork"<<mSetModelBinaries.at(i)<<std::endl;
-            aModel=mDirModel+mSetModelBinaries.at(i);
+            aModel=mSetModelBinaries.at(i);
             break;
         }
     }
@@ -157,41 +150,14 @@ void aCnnModelPredictor::PopulateModelMatcher(torch::jit::script::Module & Netwo
     Network.to(device);
     StdOut()<<"MODEL MATCHER LOADED !!  "<<"\n";
 }
-/**********************************************************************************************************************/
-torch::Tensor aCnnModelPredictor::PredictMSNet(MSNet mNet, std::vector<tTImV2> aPatchLV, cPt2di aPSz)
-{
-        torch::Device device(torch::kCPU);
-        torch::NoGradGuard no_grad;
-        mNet->eval();
-    torch::Tensor aPAllScales=torch::empty({1,4,aPSz.y(),aPSz.x()}, torch::TensorOptions().dtype(torch::kFloat32));;
-    for (int cc=0;cc<(int) aPatchLV.size();cc++)
-    {
-        tREAL4 ** mPatchLData=aPatchLV.at(cc).DIm().ExtractRawData2D();
-        torch::Tensor aPL=torch::from_blob((*mPatchLData), {1,1,aPSz.y(),aPSz.x()}, torch::TensorOptions().dtype(torch::kFloat32));
-        aPAllScales.index_put_({cc},aPL);
-    }
 
-    // 4 scale tensor is needed for now test by passing the same tensor at each stage of the network
-    /*torch::Tensor a4ScaleTens=aPL.repeat_interleave(4,1);
-    std::cout<<" a4ScaleTens size "<<a4ScaleTens.sizes()<<std::endl;
-    assert
-    (
-      (a4ScaleTens.size(1)==4)
-    );*/
-    auto output=mNet->forward(aPAllScales).squeeze();
-    return output;
-    
-}
 /**********************************************************************************************************************/
-torch::Tensor aCnnModelPredictor::PredictUNetWDecision(torch::jit::script::Module mNet, std::vector<tTImV2> aMasterP,std::vector<tTImV2> aPatchLV, cPt2di aPSz)
+torch::Tensor aCnnModelPredictor::PredictUNetWDecision(torch::jit::script::Module mNet, 
+                                                        std::vector<tTImV2> aMasterP,
+                                                        std::vector<tTImV2> aPatchLV, 
+                                                        cPt2di aPSz)
 {
-    //auto cuda_available = torch::cuda::is_available();
-    //<$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$>
     auto cuda_available=false;
-    //<$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$>
-    //std::cout<<"Cuda is available ? "<<cuda_available<<std::endl;
-    //std::cout<<"master vector sizes <<   "<<aMasterP.size()<<std::endl;
-    //std::cout<<"slaves vector sizes <<   "<<aPatchLV.size()<<std::endl;
     torch::Device device(cuda_available ? torch::kCUDA : torch::kCPU);
     torch::NoGradGuard no_grad;
     mNet.eval();
@@ -226,7 +192,7 @@ torch::Tensor aCnnModelPredictor::PredictUNetWDecision(torch::jit::script::Modul
         aPL=(aPL.sub(0.4353755468)).div(0.19367880);
         aPAllSlaves.index_put_({cc},aPL);
     }
-    auto aPAll=torch::cat({aPAllMasters.unsqueeze(0),aPAllSlaves.unsqueeze(0)},0).to(device); // tensor of size 2,1,W,H
+    auto aPAll=torch::cat({aPAllMasters.unsqueeze(0),aPAllSlaves.unsqueeze(0)},0).to(device); 
     //StdOut()<<"Patches "<<aPAll.sizes()<<"\n";
     torch::jit::IValue inp(aPAll);
     std::vector<torch::jit::IValue> allinp={inp};
@@ -236,10 +202,10 @@ torch::Tensor aCnnModelPredictor::PredictUNetWDecision(torch::jit::script::Modul
 }
 
 /**********************************************************************************************************************/
-torch::Tensor aCnnModelPredictor::PredictUnetFeaturesOnly(torch::jit::script::Module mNet,std::vector<tTImV2> aPatchLV, cPt2di aPSz)
+torch::Tensor aCnnModelPredictor::PredictUnetFeaturesOnly(torch::jit::script::Module mNet,
+                                                            std::vector<tTImV2> aPatchLV, 
+                                                            cPt2di aPSz)
 {
-    //<$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$>
-    //std::cout<<"Cuda is available ? "<<cuda_available<<std::endl;
     torch::Device device(IsCuda ? torch::kCUDA : torch::kCPU);
     torch::NoGradGuard no_grad;
     mNet.eval();
@@ -250,26 +216,7 @@ torch::Tensor aCnnModelPredictor::PredictUnetFeaturesOnly(torch::jit::script::Mo
         tREAL4 ** mPatchLData=aPatchLV.at(cc).DIm().ExtractRawData2D();
         torch::Tensor aPL=torch::from_blob((*mPatchLData), {1,aPSz.y(),aPSz.x()},
                                            torch::TensorOptions().dtype(torch::kFloat32));
-        //aPL=aPL.div(255.0);
         aPL=((aPL.div(255.0)).mul(2.0)).sub(1.0);
-        //aPL=(aPL.sub(at::min(aPL))).div(at::max(aPL)-at::min(aPL));
-        //aPL=(aPL.sub(0.4353755468)).div(0.19367880); //0.434583236,0.1948717255
-        //aPL=(aPL.sub(0.434583236)).div(0.1948717255);
-        // Aerial data 22 cm resolution
-        // Images Gregoire Maillet :
-        //     ----> aPL=(aPL.sub(0.20912810375666974)).div(0.08828173006933751);
-        //aPL=(aPL.sub(0.49877)).div(0.0895);
-        //aPL=(aPL.sub(0.3489)).div(0.25);
-        // Images Vaihingen
-        //aPL=(aPL.sub(0.37205569556786616)).div(0.15318937508043667);
-        // Zone 1 Toulouse
-        //aPL=(aPL.sub(0.27758397098638876)).div(0.19629460091512405);
-        // Zone urbaine Toulouse
-        //aPL=(aPL.sub(0.31662110673531746)).div(0.22801173902559266);
-        // Toulouse umbra Urban Dense
-         //aPL=(aPL.sub(0.38217)).div(0.307);
-         //aPL=(aPL.sub(0.42512)).div(0.18);
-        //aPL=(aPL.sub(at::mean(aPL))).div(at::std(aPL)+1e-6);
         aPAllSlaves.index_put_({cc},aPL.to(device));
     }
     // rotate by 90°
@@ -278,13 +225,12 @@ torch::Tensor aCnnModelPredictor::PredictUnetFeaturesOnly(torch::jit::script::Mo
     std::vector<torch::jit::IValue> allinp={inp};
     auto out=mNet.forward(allinp);
     auto output=out.toTensor().squeeze();
-    //output=output.rot90(3,{1,2});
-    // annuler la rotation de 90°
-    return output;//.to(torch::kCPU);
+    return output;
 }
 
 /**********************************************************************************************************************/
-torch::Tensor aCnnModelPredictor::PredictUnetFeaturesOnly(torch::jit::script::Module mNet,torch::Tensor aPAllSlaves)
+torch::Tensor aCnnModelPredictor::PredictUnetFeaturesOnly(torch::jit::script::Module mNet,
+                                                            torch::Tensor aPAllSlaves)
 {
     //std::cout<<"Cuda is available ? "<<cuda_available<<std::endl;
     torch::Device device(IsCuda ? torch::kCUDA : torch::kCPU);
@@ -306,7 +252,8 @@ torch::Tensor aCnnModelPredictor::PredictMSNetTile(torch::jit::script::Module mN
     torch::NoGradGuard no_grad;
     mNet.eval();
     tREAL4 ** mPatchLData=aPatchLV.DIm().ExtractRawData2D();
-    torch::Tensor aPL=torch::from_blob((*mPatchLData), {1,1,aPSz.y(),aPSz.x()}, torch::TensorOptions().dtype(torch::kFloat32)).to(device);
+    torch::Tensor aPL=torch::from_blob((*mPatchLData), {1,1,aPSz.y(),aPSz.x()},
+                                         torch::TensorOptions().dtype(torch::kFloat32)).to(device);
     torch::jit::IValue inp(aPL);
     std::vector<torch::jit::IValue> allinp={inp};
     auto out=mNet.forward(allinp);
@@ -315,7 +262,9 @@ torch::Tensor aCnnModelPredictor::PredictMSNetTile(torch::jit::script::Module mN
 }
 /**********************************************************************************************************************/
 /**********************************************************************************************************************/
-torch::Tensor aCnnModelPredictor::PredictMSNetTileFeatures(torch::jit::script::Module mNet, tTImV2 aPatchLV, cPt2di aPSz)
+torch::Tensor aCnnModelPredictor::PredictMSNetTileFeatures(torch::jit::script::Module mNet, 
+                                                            tTImV2 aPatchLV, 
+                                                            cPt2di aPSz)
 {
     #ifdef _WIN32
     if(IsCuda)
@@ -332,38 +281,22 @@ torch::Tensor aCnnModelPredictor::PredictMSNetTileFeatures(torch::jit::script::M
     torch::Tensor aPL=torch::from_blob((*mPatchLData),
                                          {1,1,aPSz.y(),aPSz.x()},
                                          torch::TensorOptions().dtype(torch::kFloat32)).to(device);
-    // Normalize The tile with respect to the dataset configuration
-    // print image content
-    //std::cout<<"TILE CONTENT  ========= >  "<<aPL<<std::endl;
     aPL=((aPL.div(255.0)).mul(2.0)).sub(1.0);//.sub(0.5);
-    //StdOut()<< "MIN MAX OF aPL "<<torch::max(aPL)<<" "<<torch::min(aPL)<<"\n";
-
-    // legacy 31/10/2024 trained on all data
-    //aPL=(aPL.sub(0.4357159999)).div(0.1951853861);
-    //aPL=(aPL.sub(at::min(aPL))).div(at::max(aPL)-at::min(aPL));
-    //***********************************aPL=(aPL.sub(0.4357159999)).div(0.1951853861); //0.4357159999,0.1951853861 0.434583236,0.1948717255
-
-    //normalize with MONTPELLIER PLEAIDES 50 CM DATASET
-
-    //aPL=(aPL.sub(0.3489)).div(0.25); //0.4357159999,0.1951853861 0.434583236,0.1948717255
-    //aPL=(aPL.sub(0.45)).div(0.117);
-    //aPL=(aPL.sub(aPL.mean())).div(aPL.std()+1e-8);
     torch::jit::IValue inp(aPL);
     std::vector<torch::jit::IValue> allinp={inp};
     //std::cout<<"IVALUE CREATED "<<std::endl;
     auto out=mNet.forward(allinp);
     auto output=out.toTensor().squeeze();
-    return output;  // not to KCPU because some calculation on similarity is to be perfomed
+    return output;  
 }
 /**********************************************************************************************************************/
 /*********************************************************************************************************************/
-torch::Tensor aCnnModelPredictor::PredictDecisionNet(torch::jit::script::Module mNet, torch::Tensor Left, torch::Tensor Right)
+torch::Tensor aCnnModelPredictor::PredictDecisionNet(torch::jit::script::Module mNet, 
+                                                    torch::Tensor Left, 
+                                                    torch::Tensor Right)
 {
     auto cuda_available = torch::cuda::is_available();
-    //std::cout<<"Cuda is available ? "<<cuda_available<<std::endl;
     torch::Device device(cuda_available ? torch::kCUDA : torch::kCPU);
-    //Left=Left.to(device);
-    //Right=Right.to(device);
     torch::NoGradGuard no_grad;
     mNet.eval();
     auto CatTensor=torch::cat({Left,Right},1); // to get a size of {1,FeatsSIZE}
@@ -375,7 +308,7 @@ torch::Tensor aCnnModelPredictor::PredictDecisionNet(torch::jit::script::Module 
 }
 
 /*********************************************************************************************************************/
-torch::Tensor aCnnModelPredictor::PredictONCUBE(torch::jit::script::Module mMlp,/*torch::jit::script::Module mMatcher,*/ torch::Tensor & aCube)
+torch::Tensor aCnnModelPredictor::PredictONCUBE(torch::jit::script::Module mMlp, torch::Tensor & aCube)
 {
     //torch::Device device(torch::kCUDA);
     torch::NoGradGuard no_grad;
@@ -383,18 +316,6 @@ torch::Tensor aCnnModelPredictor::PredictONCUBE(torch::jit::script::Module mMlp,
     torch::jit::IValue inp(aCube);
     std::vector<torch::jit::IValue> allinp={inp};
     torch::Tensor OutSimBrut=mMlp.forward(allinp).toTensor().sigmoid();
-    // construct CONCAT CUBE AND SIMIL
-    /*auto ConcatCube=torch::cat({aCube.unsqueeze(0),OutSimBrut.unsqueeze(0).unsqueeze(0)},1);
-    std::cout<<"THE AGGREGATED CUBE OF DATA "<<ConcatCube.sizes()<<std::endl;
-    // Second Forward
-    //torch::jit::IValue inp2(OutSimBrut.unsqueeze(0).unsqueeze(0));
-    torch::jit::IValue inp2(ConcatCube);
-    //std::cout<<"Similarity  before match shape "<<OutSimBrut.sizes()<<std::endl;
-    allinp.clear();
-    allinp.push_back(inp2);
-    mMatcher.eval();
-    torch::Tensor OutSim=mMatcher.forward(allinp).toTensor().sigmoid().squeeze();
-    allinp.clear();*/
     return OutSimBrut.to(torch::kCPU);
 }
 /**********************************************************************************************************************/
@@ -409,46 +330,34 @@ torch::Tensor aCnnModelPredictor::PredictMSNetAtt(MSNet_Attention mNet, std::vec
     {
         StdOut()<<"Size of tile Mul Scale is "<<aPatchLV.at(cc).DIm().Sz()<<"\n";
         tREAL4 ** mPatchLData=aPatchLV.at(cc).DIm().ExtractRawData2D();
-        torch::Tensor aPL=torch::from_blob((*mPatchLData), {1,aPSz.y(),aPSz.x()}, torch::TensorOptions().dtype(torch::kFloat32));
+        torch::Tensor aPL=torch::from_blob((*mPatchLData), {1,aPSz.y(),aPSz.x()}, 
+                                            torch::TensorOptions().dtype(torch::kFloat32));
         aPAllScales.index_put_({cc},aPL);
     }
-    //downscale and upscale
-
-
     aPAllScales=aPAllScales.unsqueeze(0);
-    // 4 scale tensor is needed for now test by passing the same tensor at each stage of the network
-    /*torch::Tensor a4ScaleTens=aPL.repeat_interleave(4,1);
-    std::cout<<" a4ScaleTens size "<<a4ScaleTens.sizes()<<std::endl;
-    assert
-    (
-      (a4ScaleTens.size(1)==4)
-    );*/
 
     auto output=mNet->forward(aPAllScales).squeeze();
     return output;
 }
 /**********************************************************************************************************************/
-torch::Tensor aCnnModelPredictor::PredictMSNetHead(/*MSNetHead*/ torch::jit::script::Module mNet, std::vector<tTImV2> aPatchLV, cPt2di aPSz)
+torch::Tensor aCnnModelPredictor::PredictMSNetHead(torch::jit::script::Module mNet, 
+                                                std::vector<tTImV2> aPatchLV, 
+                                                cPt2di aPSz)
 {
     auto cuda_available = torch::cuda::is_available();
     std::cout<<"Cuda is available ? "<<cuda_available<<std::endl;
     torch::Device device(cuda_available ? torch::kCUDA : torch::kCPU);
         torch::NoGradGuard no_grad;
         mNet.eval();
-    torch::Tensor aPAllScales=torch::empty({(int) aPatchLV.size(),aPSz.y(),aPSz.x()}, torch::TensorOptions().dtype(torch::kFloat32));;
+    torch::Tensor aPAllScales=torch::empty({(int) aPatchLV.size(),aPSz.y(),aPSz.x()},
+                                         torch::TensorOptions().dtype(torch::kFloat32));;
     for (int cc=0;cc<(int) aPatchLV.size();cc++)
     {
         tREAL4 ** mPatchLData=aPatchLV.at(cc).DIm().ExtractRawData2D();
-        torch::Tensor aPL=torch::from_blob((*mPatchLData), {1,aPSz.y(),aPSz.x()}, torch::TensorOptions().dtype(torch::kFloat32));
+        torch::Tensor aPL=torch::from_blob((*mPatchLData), {1,aPSz.y(),aPSz.x()}, 
+                                            torch::TensorOptions().dtype(torch::kFloat32));
         aPAllScales.index_put_({cc},aPL);
     }
-    // 4 scale tensor is needed for now test by passing the same tensor at each stage of the network
-    /*torch::Tensor a4ScaleTens=aPL.repeat_interleave(4,1);
-    std::cout<<" a4ScaleTens size "<<a4ScaleTens.sizes()<<std::endl;
-    assert
-    (
-      (a4ScaleTens.size(1)==4)
-    );*/
     aPAllScales=aPAllScales.unsqueeze(0).to(device);
     StdOut()<<"Patches "<<aPAllScales.sizes()<<"\n";
     torch::jit::IValue inp(aPAllScales);

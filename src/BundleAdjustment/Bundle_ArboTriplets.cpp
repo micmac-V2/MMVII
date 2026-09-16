@@ -7,6 +7,8 @@
 #include <mutex>
 #include <condition_variable>
 
+//#define MMVII_DBG_ARBOTRIPLETS
+
 struct Barrier {
     int n, count = 0, generation = 0;
     std::mutex m;
@@ -62,14 +64,12 @@ void MThreadForcConcurenceLock()
 /*                                                           */
 /* ********************************************************* */
 
-cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols,int aTDepth,int aNbIterEnd,
-                                   tREAL8 aSigLooseningMult, tREAL8 aThrLooseningMult):
+cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocNode>& aLocSols, int aTDepth, int aNbIterEnd ,cComputeMergeMulTieP * aTPts) :
     mPMAT      (aPMAT),
     mNbIter    (aNbIterEnd),
-    mSigARange  ({2*aSigLooseningMult*aPMAT->Cfg().mSigmaAtt, Sqrt(aSigLooseningMult)*aPMAT->Cfg().mSigmaAtt}), //{max,min} <=> {initial,final}
-    mThrRange   ({2*aThrLooseningMult*aPMAT->Cfg().mThrs,     aThrLooseningMult*aPMAT->Cfg().mThrs}),   //{max,min} <=> {initial,final}
     mSys      (nullptr),
     mTPts     (nullptr),
+    mOwnTPts  (false),
     mTreeDepth(aTDepth)
 {
     // get image names in current node
@@ -79,7 +79,18 @@ cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocN
     Sort2VectFirstOne(aVNames, aLocSols);
 
     // recover tie-points corresponding to the set of images
-    mTPts = new cComputeMergeMulTieP(*mPMAT->TPtsStruct(), aVNames);
+    if (aTPts)
+    {
+        // built once per node in MergeChildrenSol and shared with the similitude estimation
+        mTPts = aTPts;
+        MMVII_INTERNAL_ASSERT_medium(mTPts->VNames()==aVNames,
+                                     "cBA_ArboTriplets : tie-points do not match the images of the node");
+    }
+    else
+    {
+        mTPts = new cComputeMergeMulTieP(*mPMAT->TPtsStruct(), aVNames);
+        mOwnTPts = true;
+    }
 
     // push initial values of intrinsics for your image set
     for (auto & aSol : aLocSols)
@@ -97,6 +108,41 @@ cBA_ArboTriplets::cBA_ArboTriplets(cMakeArboTriplet* aPMAT, std::vector<cSolLocN
     mSys = new cResolSysNonLinear<tREAL8>(eModeSSR::eSSR_LsqNormSparse, mSetIntervUK.GetVUnKnowns());
     // vector of bundles decomposed to orthogonal u,v vectors
     mVecConfUV.resize(mTPts->Pts().size());
+
+    // setup bundle adjustment sigma and thresholds
+    SetLooseningRanges(1.0);
+}
+
+void cBA_ArboTriplets::Prepare()
+{
+    MakePGround(); // AdaptWeightingToData reads mVPGround
+    AdaptWeightingToData();
+
+}
+
+void cBA_ArboTriplets::Run()
+{
+    Prepare();
+    for (int aIter=0 ; aIter<mNbIter ; aIter++)
+        OneIteration(aIter);
+}
+
+void cBA_ArboTriplets::RunStrict(tREAL8 aSigA,tREAL8 aThr)
+{
+    //  no Prepare : the schedule is fixed and the iteration count is the one requested.
+    //  OneIteration re-triangulates every pass, so nothing else is needed.
+    mSigARange = {aSigA,aSigA};
+    mThrRange  = {aThr,aThr};
+    for (int aIter=0 ; aIter<mNbIter ; aIter++)
+        OneIteration(aIter);
+}
+
+void cBA_ArboTriplets::MakePGround()
+{
+    if (mPGroundCurrent) return;        // valid for the current poses, nothing to redo
+    for (auto & aPair : mTPts->Pts())
+        MakePGroundFromBundles(aPair,mVSens);
+    mPGroundCurrent = true;
 }
 
 void cBA_ArboTriplets::OneIteration(int aIter)
@@ -114,14 +160,15 @@ void cBA_ArboTriplets::OneIteration(int aIter)
         }
     }
 
-    // 3D intersection
-    for (auto& aPair : mTPts->Pts())
-        MakePGroundFromBundles(aPair, mVSens);
+    // 3D intersection (skipped when Prepare has already done it for these poses)
+    MakePGround();
+
 
     // diagnostic: compare triangulated P3D with GT at first iteration
     if (aIter==0 && mGTPts3D)
     {
-        double aTotDist=0; int aNComp=0;
+        [[maybe_unused]] double aTotDist=0;
+        [[maybe_unused]] int aNComp=0;
         double aMaxDist=0;
         for (auto& aAllConfigs : mTPts->Pts())
         {
@@ -138,34 +185,41 @@ void cBA_ArboTriplets::OneIteration(int aIter)
                 UpdateMax(aMaxDist, (double)aDist);
             }
         }
+#ifdef MMVII_DBG_ARBOTRIPLETS
         if (aNComp>0)
             StdOut() << "[DiagP3D] GT-vs-triangulated: avg=" << aTotDist/aNComp
                      << " max=" << aMaxDist << " over " << aNComp << " pts\n";
         else
             StdOut() << "[DiagP3D] no matching GT pts found (mVIdPts empty or no overlap)\n";
+#endif
     }
 
-    auto CurrentVal = [&](int iterCur,int iterMax,tREAL8 delta,tREAL8 bias)
+    auto CurrentVal = [&](int aIterCur,int aIterMax,tREAL8 aV0,tREAL8 aV1)
     {
-        return delta*(1 - double(iterCur)/(iterMax-1)) + bias;
+        if (aIterMax<=1) return aV1;
+        return aV0 * std::pow(aV1/aV0, double(aIterCur)/(aIterMax-1));
     };
 
-    tREAL8 aSigA = CurrentVal(aIter,mNbIter,mSigARange.at(0) - mSigARange.at(1),mSigARange.at(1));
-    tREAL8 aThr = CurrentVal(aIter,mNbIter,mThrRange.at(0) - mThrRange.at(1),mThrRange.at(1));
+    tREAL8 aSigA = CurrentVal(aIter,mNbIter,mSigARange.at(0),mSigARange.at(1));
+    tREAL8 aThr = CurrentVal(aIter,mNbIter,mThrRange.at(0),mThrRange.at(1));
     cStdWeighterResidual aTPtsW(1.0, aSigA, aThr, 2.0);
-  //  StdOut() << "SIIGGGG THRRR " << aSigA << " " << aThr << std::endl;
+
     // add observation equations for all tie-points
     tREAL8 aMaxRes=0;
     int aNumAllTiePts=0;
     int aNumTPts=0;
     int aNumElimDegVis=0;   // eliminated by DegreeVisibility <= 0
     int aNumElimWeight=0;   // eliminated by weight == 0 (DegreeVisibility was > 0)
+    std::vector<size_t>            aNbObsCam(mVCams.size(),0);   // observations that survived
+    std::vector<size_t>            aNbVisCam(mVCams.size(),0);   // rejected by DegreeVisibility
+    std::vector<size_t>            aNbWCam  (mVCams.size(),0);   // rejected by weight==0
+    std::vector<cWeightAv<tREAL8>> aResCam  (mVCams.size());     // weighted residual per camera
     cWeightAv<tREAL8> aWeigthedRes;
 
     int aConfigNum=0; //track id of current config
 
     // for every configuration of tie-pts
-    for (auto aAllConfigs : mTPts->Pts())
+    for (auto & aAllConfigs : mTPts->Pts())
     {
         const auto & aConfig = aAllConfigs.first;
         auto & aVals = aAllConfigs.second;
@@ -255,6 +309,8 @@ void cBA_ArboTriplets::OneIteration(int aIter)
                     if (aWeight>0)
                     {
                         aWeigthedRes.Add(aWeight,aResNorm);//
+                        aResCam.at(aKImSorted).Add(aWeight,aResNorm);     // <--
+                        aNbObsCam.at(aKImSorted)++;                       // <--
                         mSys->R_AddEq2Subst(aStrSubst,aEqCol,aVIndGlob,aVObs,aWeight);//
                         aNbEqAdded++;
                         aNumTPts++;
@@ -263,10 +319,16 @@ void cBA_ArboTriplets::OneIteration(int aIter)
                             aMaxRes=aResNorm;
                     }
                     else
+                    {
                         aNumElimWeight++;
+                        aNbWCam.at(aKImSorted)++;                         // <--
+                    }
                 }
                 else
+                {
                     aNumElimDegVis++;
+                    aNbVisCam.at(aKImSorted)++;
+                }
                 aNumAllTiePts++;
             }
 
@@ -293,10 +355,31 @@ void cBA_ArboTriplets::OneIteration(int aIter)
                  << " [DegVis<=0: " << aNumElimDegVis << ", Weight==0: " << aNumElimWeight << "]"
                  << std::endl;
         StdOutLock::unlock();
+
+#ifdef MMVII_DBG_ARBOTRIPLETS
+        StdOutLock::lock();
+        for (size_t aKC=0 ; aKC<mVCams.size() ; aKC++)
+        {
+            size_t aNbTot = aNbObsCam.at(aKC)+aNbVisCam.at(aKC)+aNbWCam.at(aKC);
+            bool   aStuck = (aNbObsCam.at(aKC)==0);
+            bool   aBad   = (aNbTot>0) && (aNbObsCam.at(aKC) < aNbTot/4);   // <25% surviving
+            if (aStuck || aBad)
+                StdOut() << "  !! " << mVCams.at(aKC)->NameImage()
+                         << " obs=" << aNbObsCam.at(aKC) << "/" << aNbTot
+                         << " rejVis=" << aNbVisCam.at(aKC)
+                         << " rejW="   << aNbWCam.at(aKC)
+                         << " res="    << (aNbObsCam.at(aKC) ? aResCam.at(aKC).Average() : -1.0)
+                         << std::endl;
+        }
+        StdOutLock::unlock();
+#endif
     }
 
     const auto& aVectSol = mSys->SolveUpdateReset({mPMAT->Cfg().mLVM}, {}, {});
     mSetIntervUK.SetVUnKnowns(aVectSol);
+
+    mPGroundCurrent = false; // the poses moved : the 3D points are stale
+
 }
 
 void cBA_ArboTriplets::UpdateLocSols(std::vector<cSolLocNode>& aLocSols)
@@ -308,13 +391,148 @@ void cBA_ArboTriplets::UpdateLocSols(std::vector<cSolLocNode>& aLocSols)
     }
 }
 
+tREAL8 cBA_ArboTriplets::RobustResidualScale(size_t aNbSample,tREAL8 * aPtrFracInvis)
+{
+    size_t aNbObs = 0;
+    for (const auto &aAllConfigs : mTPts->Pts())
+        aNbObs+=aAllConfigs.second.mVPIm.size();
+
+    const size_t aStep = std::max<size_t>(1,(aNbObs+aNbSample-1)/aNbSample);
+
+    std::vector<double> aVRes;
+    aVRes.reserve(std::min(aNbObs,aNbSample));
+    size_t aKObs=0;
+    size_t aNbSampled=0;
+    size_t aNbInvis=0;
+
+    for(const auto &aAllConfigs : mTPts->Pts())
+    {
+        const auto &aConf = aAllConfigs.first;
+        const auto &aVals = aAllConfigs.second;
+        const size_t aNbIm = aConf.size();
+        const size_t aNbPts = aVals.mVPGround.size();
+
+        for (size_t aKPts=0; aKPts<aNbPts; aKPts++)
+        {
+            const cPt3dr& aP3D = aVals.mVPGround.at(aKPts);
+            for (size_t aKIm=0; aKIm<aNbIm; aKIm++,aKObs++)
+            {
+                /*cSensorCamPC *aCam = mVCams.at(aConf.at(aKIm));
+                 * if (aCam->DegreeVisibility(aP3D)<=0) continue; /// point must be visible
+
+                const cPt3dr aPBun( aVals.mVPIm.at(aKPts*aNbIm+aKIm).x(),
+                                   aVals.mVPIm.at(aKPts*aNbIm+aKIm).y(),
+                                   aVals.mVPZ .at(aKPts*aNbIm+aKIm) );
+
+                // |Unit(Bundle_obs) ^ Unit(Bundle_pred)| = sin(angle): exactly the norm
+                // of the (u,v) residual of OneIteration, without needing u,v
+                tREAL8 aSinA = Norm2( VUnit(aPBun) ^ VUnit(aCam->Pt_W2L(aP3D)) );
+                aVRes.push_back(aCam->InternalCalib()->F() * aSinA);  */
+
+                if (aKObs % aStep) continue; /// take only N samples
+
+                cSensorCamPC *aCam = mVCams.at(aConf.at(aKIm));
+
+                const cPt3dr aPBun( aVals.mVPIm.at(aKPts*aNbIm+aKIm).x(),
+                                   aVals.mVPIm.at(aKPts*aNbIm+aKIm).y(),
+                                   aVals.mVPZ .at(aKPts*aNbIm+aKIm) );
+                const tREAL8 aF = aCam->InternalCalib()->F();
+
+                //  An observation that cannot be seen is the STRONGEST evidence that the node is
+                //  badly initialised.  Dropping it made this statistic blind to exactly the case
+                aNbSampled++;
+                if (aCam->DegreeVisibility(aP3D) > 0)
+                {
+                    tREAL8 aSinA = Norm2( VUnit(aPBun) ^ VUnit(aCam->Pt_W2L(aP3D)) );
+                    aVRes.push_back(aF*aSinA);
+                }
+                else
+                {
+                    aNbInvis++;
+                 //   aVRes.push_back(aF);          // saturated
+                }
+
+            }
+        }
+    }
+
+    const tREAL8 aFracInvis = (aNbSampled==0) ? 0.0 : (tREAL8)aNbInvis/(tREAL8)aNbSampled;
+
+    if (aPtrFracInvis) *aPtrFracInvis = aFracInvis;
+    if ((aNbSampled < 50) || (aVRes.size() < 20)) return -1;  // not enough data => keep nominal weighting
+
+    // taking the 75 quantile of a 'reduced' population (population - invisible points)
+    // is actually lowering the effective quantile; thus, modify the quantile to compensate for that
+    const tREAL8 aQ = std::min(0.95, 0.75/(1.0-aFracInvis));
+
+    return NC_KthVal(aVRes,aQ);  // quantile, in pixels
+
+}
+
+//   * sigma is a soft attenuation
+void cBA_ArboTriplets::SetLooseningRanges(tREAL8 aMult)
+{
+    const tREAL8 aSigAtt = mPMAT->Cfg().mSigmaAtt;
+    const tREAL8 aThr    = mPMAT->Cfg().mThrs;
+
+    static constexpr tREAL8 TheKIni = 4.0;   // width of the schedule at the first iteration
+    static constexpr tREAL8 TheKEnd = 1.0;   //   and at the last
+
+    mSigARange = {TheKIni*aMult*aSigAtt, TheKEnd*std::sqrt(aMult)*aSigAtt};
+    mThrRange  = {TheKIni*aMult*std::sqrt(aMult)*aThr, TheKEnd*aMult*aThr};
+}
+
+
+void cBA_ArboTriplets::AdaptWeightingToData()
+{
+
+    /// compute quantile residual over this merged node
+    tREAL8 aFracInvis = 0.0;
+    mResScale = RobustResidualScale(1000,&aFracInvis);
+    if (mResScale<=0) return;
+
+    static constexpr tREAL8 TheMaxLoosening = 50.0;
+    static constexpr int TheMoreIterFracInvis = 20;
+    static constexpr int TheMaxNbIter = 40;
+
+    //  aMult is an absolute residual scale in pixels
+    const tREAL8 aMultRes = mResScale;
+    const tREAL8 aMult    = std::clamp(aMultRes,1.0,TheMaxLoosening);
+
+    // increase iterations for larger thresholds/sigmas
+    static constexpr tREAL8 TheIterPerOctave = 2.0;
+    if (aMult > 2.0)
+        mNbIter += (int)std::round(TheIterPerOctave*std::log2(aMult));
+
+    // more iterations if many points are invisible
+    mNbIter += (int)std::round( aFracInvis*TheMoreIterFracInvis );
+
+    // capt the number of iterations
+    mNbIter = std::min(TheMaxNbIter, mNbIter);
+
+    // set SigmaAtt and Thresh ranges accoridngly
+    SetLooseningRanges(aMult);
+
+#ifdef MMVII_DBG_ARBOTRIPLETS
+    StdOutLock::lock();
+    StdOut() << "[BA-Adapt] depth=" << mTreeDepth
+             << " ResidScale=" << mResScale << " fracInvis=" << aFracInvis   // reported, not used
+             << " -> mult=" << aMult
+             << " sigAtt=" << mSigARange
+             << " thrs=" << mThrRange << std::endl;
+    StdOutLock::unlock();
+#endif
+}
+
 cBA_ArboTriplets::~cBA_ArboTriplets()
 {
     mSetIntervUK.SIUK_Reset();
     delete mSys;
-    delete mTPts;
+
     for (auto p : mVEqCol) delete p;
     for (auto p : mVCams)  delete p;
+
+    if (mOwnTPts) delete mTPts;
 }
 
 };

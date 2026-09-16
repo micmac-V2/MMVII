@@ -8,10 +8,11 @@
 #include "MMVII_TplGradImFilter.h"
 #include "MMVII_Tpl_Images.h"
 #include "MMVII_ImageInfoExtract.h"
-#include "MMVII_2Include_CSV_Serial_Tpl.h"
 #include "../SymbDerGen/Formulas_CentralProj.h"
 #include "MMVII_Interpolators.h"
 #include "MMVII_util.h"
+#include "MMVII_QuadTree.h"
+
 
 namespace MMVII
 {
@@ -317,13 +318,6 @@ bool cStaticLidarImporter::read(const std::string & aName, bool OkNone,
     if (aForceStructured)
         mIsStrucured = true;
 
-    if (!mHasIntensity)
-    {
-        // fake intensity
-        mVectPtsIntens.resize(std::max(mVectPtsXYZ.size(),mVectPtsTPD.size()), 0.5);
-        mHasIntensity = true;
-    }
-
     StdOut() << "Read data: ";
     if (HasCartesian())
         StdOut() << mVectPtsXYZ.size() << " cartesian points";
@@ -619,7 +613,7 @@ cPt2dr cStaticLidarImporter::Input3DtoRasterAngle(const cPt3dr &aPt3DInput) cons
     //std::cout<<"Input3DtoRasterAngle: "<<aPt3DInput<<"\n";
     cPt3dr aPt3DInputNorm = aPt3DInput/Norm2(aPt3DInput);
     cPt3dr aPt3DRaster = RotInput2Raster().Value(aPt3DInputNorm);
-    cProj_EquiRect aProjEquiRect(M_PI);
+    cProj_EquiRect aProjEquiRect(2*M_PI);
     auto aThetaPhi = cPt2dr::FromStdVector(aProjEquiRect.Proj(aPt3DRaster.ToStdVector()));
     return aThetaPhi;
 }
@@ -678,8 +672,7 @@ void cStaticLidarImporter::MakeIdImage(const std::string & aNameFile) const
             cPt2di aPcl(mVectPtsCol[i],mVectPtsLine[i]);
 
             float aValDist = 127 * (1+cos(2*M_PI*10*(mVectPtsTPD[i].z()-aDistMin)/(aDistMax-aDistMin)));
-            float aVal = (aIntensMin==aIntensMax) ? aValDist :
-                        (mVectPtsIntens[i]-aIntensMin)/(aIntensMax-aIntensMin) * aValDist ;
+            float aVal = HasIntensity() ? (mVectPtsIntens[i]-aIntensMin)/(aIntensMax-aIntensMin) :  aValDist;
             if (aVal<0)
                 aVal =0;
             if (aVal>255)
@@ -705,17 +698,17 @@ cStaticLidar::cStaticLidar(const std::string & aNameFile, const std::string & aS
     mSigma(aSigma),
     mRotInput2Raster(aRotInput2Raster),
     mTriangulation(nullptr),
-    mLinearInterpolator(cDiffInterpolator1D::AllocFromNames({"Linear"})),
     mEqDistColinearityDist(nullptr)
 {
+
 }
 
 cStaticLidar::~cStaticLidar()
 {
     if (mTriangulation)
         delete mTriangulation;
-    if (mLinearInterpolator)
-        delete mLinearInterpolator;
+    for (auto & [aDistMin, aInterp] : mVInterpN)
+        delete aInterp;
 }
 
 std::string cStaticLidar::GetIdSuffix()
@@ -733,11 +726,6 @@ bool cStaticLidar::DoAddCalibToUk() const
     return false; // F and PP fixed on lidar for now
 }
 
-cDiffInterpolator1D * cStaticLidar::getLineraInterpolator() const
-{
-    return mLinearInterpolator;
-}
-
 std::tuple<double, double, cPt3dr> cStaticLidar::getDistSigmaNormalPlane(cPt2dr aCenter, const cPixBox<2> & aPixBox) const
 {
     //static std::pair<cPlane3D,tREAL8> LSQEstimate(const std::vector<cPt3dr> & aP0,const std::vector<tREAL8>* =nullptr);
@@ -753,7 +741,7 @@ std::tuple<double, double, cPt3dr> cStaticLidar::getDistSigmaNormalPlane(cPt2dr 
     if (IsValidPoint(aCenter) && (aVPtCam.size()<3))
     {
         return std::make_tuple(Image2Distance(aCenter), Sigma(),
-                               Pose().Rot().Value(Image2NormalInstr(aCenter,*getLineraInterpolator())));
+                               Pose().Rot().Value(Image2NormalInstr(aCenter))); // which interpolator to use for Target extract?
     }
 
     std::cout<<"Box "<<aPixBox<<" => "<<aPixBox.Sz().x()*aPixBox.Sz().y()
@@ -766,6 +754,19 @@ std::tuple<double, double, cPt3dr> cStaticLidar::getDistSigmaNormalPlane(cPt2dr 
     return std::make_tuple(aDist, (aRes+Sigma())/2., aNormalGnd);
 }
 
+cDiffInterpolator1D * cStaticLidar::getNormalInterpolator(const cPt2dr & aPt) const
+{
+    if (!getRasterDistance().InsideBL(aPt))
+    {
+        return mVInterpN.front().second; // if impossible to get dist, return any interpolator
+    }
+    double aDist = Image2Distance(aPt);
+    size_t i = 0;
+    while ((i<mVInterpN.size()) && (aDist>mVInterpN[i].first))
+        ++i;
+    return mVInterpN.at(i-1).second;
+}
+
 void cStaticLidar::Show() const
 {
     cSensorCamPC::Show();
@@ -773,6 +774,20 @@ void cStaticLidar::Show() const
     StdOut()<<"   Scan   : " << mScanName << std::endl;
 }
 
+void cStaticLidar::initInterpolators()
+{
+    // init interpolators
+    double aNormalPrec = 5. * M_PI / 180.;
+    std::vector< std::pair<double,double>> aV_Start_Mid_dist_class = {{0,1.25},{2,4},{6,12}}; // distances classes for normal interpolator (start and middle)
+    //std::vector<std::string> aParamInterpolN = {"Scale","3","1000","Linear"};
+    std::vector<std::string> aParamInterpolN = {"Scale","3","1000","Cubic","-0.5"};
+    for (auto & [aStart,aMid]: aV_Start_Mid_dist_class)
+    {
+        int aSz = pow(mSigma/(tan(aNormalPrec)*aMid*1./InternalCalib()->F()),2./3.)+1;
+        aParamInterpolN[1] = std::to_string(aSz);
+        mVInterpN.emplace_back(aStart,cDiffInterpolator1D::AllocFromNames(aParamInterpolN));
+    }
+}
 
 cStaticLidar * cStaticLidar::FromFile(const std::string & aNameScanOriFile, bool aSVP)
 {
@@ -788,6 +803,8 @@ cStaticLidar * cStaticLidar::FromFile(const std::string & aNameScanOriFile, bool
                                                               + aRes->mTmpNameCalib + "." + GlobTaggedNameDefSerial());
     aRes->mInternalCalib = aCalib;
 
+    aRes->initInterpolators();
+
     return aRes;
 }
 
@@ -797,7 +814,8 @@ bool cStaticLidar::ReadRasters(const std::string & aDataDir)
         return true;
     StdOut() << "Read rasters " << NameImage() <<"..."<<std::endl;
     mRasterDistance = std::make_unique<cIm2D<tREAL4>>(cIm2D<tREAL4>::FromFile(aDataDir+"/"+mRasterDistancePath));
-    mRasterIntensity = std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(aDataDir+"/"+mRasterIntensityPath));
+    if (mRasterIntensityPath.size()>0)
+        mRasterIntensity = std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(aDataDir+"/"+mRasterIntensityPath));
     mRasterMask = std::make_unique<cIm2D<tU_INT1>>(cIm2D<tU_INT1>::FromFile(aDataDir+"/"+mRasterMaskPath));
     mRasterX = std::make_unique<cIm2D<tREAL4>>(cIm2D<tREAL4>::FromFile(aDataDir+"/"+mRasterXPath));
     mRasterY = std::make_unique<cIm2D<tREAL4>>(cIm2D<tREAL4>::FromFile(aDataDir+"/"+mRasterYPath));
@@ -840,12 +858,19 @@ cPt3dr cStaticLidar::Image2InputXYZ(cPt2dr aRasterPx) const
     };
 }
 
+cPt3dr cStaticLidar::Image2InputXYZ_InterpoleDist(cPt2dr aRasterPx,
+                                                  const cInterpolator1D *anInterpol) const
+{
+    cPt3dr aPtXYZ = Image2InputXYZ(aRasterPx);
+    tREAL8 aDistFactor = Image2DistanceInterpol(aRasterPx, anInterpol) / Norm2(aPtXYZ);
+    aPtXYZ = aPtXYZ * aDistFactor;
+    return aPtXYZ;
+}
+
 cPt3dr cStaticLidar::Image2Ground(const cPt2di & aRasterPxI) const
 {
     cPt2dr aRasterPx = ToR(aRasterPxI);
-    InternalCalib()->FixLoopPixelsInImage(aRasterPx);
-    cPt3dr aCam3DPt = Image2Camera3D(aRasterPx);
-    return Pose().Value(aCam3DPt);
+    return Image2Ground(aRasterPx);
 }
 
 cPt3dr cStaticLidar::Image2Ground(cPt2dr aRasterPx) const
@@ -855,10 +880,24 @@ cPt3dr cStaticLidar::Image2Ground(cPt2dr aRasterPx) const
     return Pose().Value(aCam3DPt);
 }
 
+cPt3dr cStaticLidar::Image2Ground_InterpoleDist(cPt2dr aRasterPx,
+                                                const cInterpolator1D *anInterpol) const
+{
+    InternalCalib()->FixLoopPixelsInImage(aRasterPx);
+    cPt3dr aCam3DPt = Image2Camera3D_InterpoleDist(aRasterPx, anInterpol);
+    return Pose().Value(aCam3DPt);
+}
+
 tREAL4 cStaticLidar::Image2Distance(cPt2dr aRasterPx) const
 {
     InternalCalib()->FixLoopPixelsInImage(aRasterPx);
     return getRasterDistance().GetVBL(aRasterPx);
+}
+
+tREAL4 cStaticLidar::Image2DistanceInterpol(cPt2dr aRasterPx, const cInterpolator1D *anInterpol) const
+{
+    InternalCalib()->FixLoopPixelsInImage(aRasterPx);
+    return getRasterDistance().GetValueInterpol(*anInterpol, aRasterPx);
 }
 
 cPt3dr cStaticLidar::ImageAndDepth2Ground(const cPt3dr & aPIm3) const
@@ -874,6 +913,15 @@ cPt3dr cStaticLidar::ImageAndDepth2Ground(const cPt3dr & aPIm3) const
         return cSensorCamPC::ImageAndDepth2Ground(aPIm3);
     }
 }
+
+cPt3dr cStaticLidar::Image2Camera3D_InterpoleDist(const cPt2dr & aRasterPx,
+                                                  const cInterpolator1D *anInterpol) const
+{
+    cPt3dr aPtInput3D = Image2InputXYZ_InterpoleDist(aRasterPx, anInterpol);
+    cPt3dr aPtCam3D = mRotInput2Raster.Value(aPtInput3D);
+    return aPtCam3D;
+}
+
 
 std::tuple<tREAL8,tREAL8,tREAL8> cStaticLidar::AvgDistNbValidAndNbNotMasked() const
 {
@@ -899,7 +947,7 @@ std::tuple<tREAL8,tREAL8,tREAL8> cStaticLidar::AvgDistNbValidAndNbNotMasked() co
 
 
 /// normal in sensor frame
-cPt3dr cStaticLidar::Image2NormalInstr(const cPt2dr & aRasterPx, const cDiffInterpolator1D & aInterp) const
+cPt3dr cStaticLidar::Image2NormalInstr(const cPt2dr & aRasterPx) const
 {
     //std::cout<<"normal for im pt "<<aRasterPx<<"\n";
     //std::cout<<"gnd pt "<<Image2Ground(aRasterPx)<<"\n";
@@ -908,7 +956,8 @@ cPt3dr cStaticLidar::Image2NormalInstr(const cPt2dr & aRasterPx, const cDiffInte
 
     // all computation is done in Raster frame
     cDataGenUnTypedIm<2> & aGenDImDist = getRasterDistance();
-    auto [aDist, aDistGr] = aGenDImDist.GetValueAndGradInterpol(aInterp,aRasterPx);
+    const auto aInterpN = getNormalInterpolator( aRasterPx);
+    auto [aDist, aDistGr] = aGenDImDist.GetValueAndGradInterpol(*aInterpN,aRasterPx);
     auto aTPD = Image2ThetaPhiDist(aRasterPx);
     // differencial of cartesian point regarding theta and phi
     // x = d cos(phi) sin(theta)
@@ -1174,6 +1223,7 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
     //std::cout<<"  UV th: "<<aDirCam3DTheoretical<<"\n";
     cPt3dr aPtRasterApprox =cSensorCamPC::Ground2ImageAndDepth(aGroundPt);
     cPt2dr aPtRaster = {aPtRasterApprox.x(), aPtRasterApprox.y()};
+    FixLoopPixelsInImage(aPtRaster);
 
     // test if int value
     cPt2di aPtRasterRounded(round(aPtRaster.x()),round(aPtRaster.y()));
@@ -1228,8 +1278,8 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
                                                *(aPtRasterLR.y()-aPtRasterUL.y())
                                         : aPtRasterUL.y();
         aPtRaster = {aBetterX, aBetterY};
+        FixLoopPixelsInImage(aPtRaster);
     }
-
     return aPtRaster;
 }
 
@@ -1260,7 +1310,7 @@ void cStaticLidar::ToPly(const std::string & aName,bool useMask) const
     aSelectionXYZI.reserve(SzPix().x()*SzPix().y());
     MMVII_INTERNAL_ASSERT_tiny(mRasterMask, "Error: mRasterMask must be computed first");
     auto & aMaskImData = mRasterMask->DIm();
-    auto & aRasterIntensityData = mRasterIntensity->DIm();
+    cDataIm2D<tU_INT1> * aRasterIntensityData = mRasterIntensity ? &mRasterIntensity->DIm() : nullptr;
     auto & aRasterXData = mRasterX->DIm();
     auto & aRasterYData = mRasterY->DIm();
     auto & aRasterZData = mRasterZ->DIm();
@@ -1271,7 +1321,8 @@ void cStaticLidar::ToPly(const std::string & aName,bool useMask) const
             cPt2di aPt(c, l);
             if (aMaskImData.GetV(aPt))
                 aSelectionXYZI.push_back(cPt4dr(aRasterXData.GetV(aPt),aRasterYData.GetV(aPt),
-                                                aRasterZData.GetV(aPt),aRasterIntensityData.GetV(aPt)));
+                                                aRasterZData.GetV(aPt),
+                                                aRasterIntensityData?aRasterIntensityData->GetV(aPt):255));
         }
     }
 
@@ -1300,16 +1351,15 @@ void cStaticLidar::ToPly(const std::string & aName,bool useMask) const
     }
 }
 
-template <typename TYPE> void cStaticLidar::fillRaster(const cStaticLidarImporter & aSL_importer,
-                              std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE> > & aIm)
+template <typename TYPE> void cStaticLidarImporter::fillRaster(std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE> > & aIm) const
 {
-    MMVII_INTERNAL_ASSERT_tiny(aSL_importer.mVectPtsCol.size()==aSL_importer.mVectPtsXYZ.size(), "Error: Compute line/col numbers before fill raster");
+    MMVII_INTERNAL_ASSERT_tiny(mVectPtsCol.size()==mVectPtsXYZ.size(), "Error: Compute line/col numbers before fill raster");
 
-    aIm.reset(new cIm2D<TYPE>(cPt2di(aSL_importer.NbCol(), aSL_importer.NbLine()), 0, eModeInitImage::eMIA_Null));
+    aIm.reset(new cIm2D<TYPE>(cPt2di(NbCol(), NbLine()), 0, eModeInitImage::eMIA_Null));
     auto & aRasterData = aIm->DIm();
-    for (size_t i=0; i<aSL_importer.mVectPtsTPD.size(); ++i)
+    for (size_t i=0; i<mVectPtsTPD.size(); ++i)
     {
-        cPt2di aPcl = {aSL_importer.mVectPtsCol[i], aSL_importer.mVectPtsLine[i]};
+        cPt2di aPcl = {mVectPtsCol[i], mVectPtsLine[i]};
         aRasterData.SetV(aPcl, func(i));
     }
 }
@@ -1326,39 +1376,30 @@ std::string cStaticLidar::RasterIntensityPath(const cPhotogrammetricProject & aP
 
 void cStaticLidar::FillRasters(const cStaticLidarImporter & aSL_importer)
 {
-    fillRaster<tU_INT1>(aSL_importer,
+    aSL_importer.fillRaster<tU_INT1>(
                         [&aSL_importer](int i)
                         {
                             auto aPtAng = aSL_importer.mVectPtsTPD[i];
                             return (aPtAng.z()<aSL_importer.DistMinToExist())?0:255;
                         }, mRasterMask);
-    fillRaster<tU_INT1>(aSL_importer,
-                        [&aSL_importer](int i){return aSL_importer.mVectPtsIntens[i]*255;}, mRasterIntensity);
-    fillRaster<tREAL4>(aSL_importer,
-                      [&aSL_importer](int i){auto aPtAng = aSL_importer.mVectPtsTPD[i];return aPtAng.z();},
+
+    if (aSL_importer.HasIntensity())
+        aSL_importer.fillRaster<tU_INT1>(
+                            [&aSL_importer](int i){return aSL_importer.mVectPtsIntens[i]*255;}, mRasterIntensity);
+
+    aSL_importer.fillRaster<tREAL4>(
+                       [&aSL_importer](int i){auto aPtAng = aSL_importer.mVectPtsTPD[i];return aPtAng.z();},
                        mRasterDistance);
 
-    fillRaster<tREAL4>(aSL_importer, [&aSL_importer](int i){auto aPtXYZ = aSL_importer.mVectPtsXYZ[i];return aPtXYZ.x();}, mRasterX);
-    fillRaster<tREAL4>(aSL_importer, [&aSL_importer](int i){auto aPtXYZ = aSL_importer.mVectPtsXYZ[i];return aPtXYZ.y();}, mRasterY);
-    fillRaster<tREAL4>(aSL_importer, [&aSL_importer](int i){auto aPtXYZ = aSL_importer.mVectPtsXYZ[i];return aPtXYZ.z();}, mRasterZ);
+    aSL_importer.fillRaster<tREAL4>([&aSL_importer](int i){auto aPtXYZ = aSL_importer.mVectPtsXYZ[i];return aPtXYZ.x();}, mRasterX);
+    aSL_importer.fillRaster<tREAL4>([&aSL_importer](int i){auto aPtXYZ = aSL_importer.mVectPtsXYZ[i];return aPtXYZ.y();}, mRasterY);
+    aSL_importer.fillRaster<tREAL4>([&aSL_importer](int i){auto aPtXYZ = aSL_importer.mVectPtsXYZ[i];return aPtXYZ.z();}, mRasterZ);
 
-    /*fillRaster<tREAL4>(aSL_importer, aPhProjDirOut, mRasterThetaPath, [&aSL_importer](int i){auto aPtAng = aSL_importer.mVectPtsTPD[i];return aPtAng.x();}, saveRasters );
-    fillRaster<tREAL4>(aSL_importer, aPhProjDirOut, mRasterPhiPath, [&aSL_importer](int i){auto aPtAng = aSL_importer.mVectPtsTPD[i];return aPtAng.y();}, saveRasters );
-    fillRaster<tREAL4>(aSL_importer, aPhProjDirOut, mRasterThetaErrPath, [&aSL_importer](int i)
-                      {
-                          auto aPtAng = aSL_importer.mVectPtsTPD[i];
-                          tREAL8 aThetaCol = aSL_importer.ThetaStart() + aSL_importer.ThetaStep() * aSL_importer.mVectPtsCol[i];
-                          aThetaCol = toMinusPiPlusPi(aThetaCol);
-                          return aPtAng.x()-aThetaCol;
-                      }, saveRasters );
-    fillRaster<tREAL4>(aSL_importer, aPhProjDirOut, mRasterPhiErrPath, [&aSL_importer](int i)
-                      {
-                          auto aPtAng = aSL_importer.mVectPtsTPD[i];
-                          tREAL8 aPhiLine = aSL_importer.PhiStart() + aSL_importer.PhiStep() * aSL_importer.mVectPtsLine[i];
-                          aPhiLine = toMinusPiPlusPi(aPhiLine);
-                          return aPtAng.y()-aPhiLine;
-                      }, saveRasters );
-    */
+#ifdef EXPORT_RASTER_THETA_PHI
+    aSL_importer.fillRaster<tREAL4>([&aSL_importer](int i){auto aPtTPD = aSL_importer.mVectPtsTPD[i];return aPtTPD.x();}, mRasterTheta);
+    aSL_importer.fillRaster<tREAL4>([&aSL_importer](int i){auto aPtTPD = aSL_importer.mVectPtsTPD[i];return aPtTPD.y();}, mRasterPhi);
+#endif
+
     mRasterScore.reset(new cIm2D<tREAL4>(cPt2di(aSL_importer.NbCol()+1, aSL_importer.NbLine()+1), 0, eModeInitImage::eMIA_Null));
 
     mAreRastersReady = true;
@@ -1368,14 +1409,15 @@ void cStaticLidar::FillRasters(const cStaticLidarImporter & aSL_importer)
 void cStaticLidar::SaveRasters(const cStaticLidarImporter & aSL_importer, const std::string &aPhProjDirOut)
 {
     mRasterDistancePath = NameImage() + "_distance.tif";
-    mRasterIntensityPath = RasterIntensityPath(NameImage());
+    if (aSL_importer.HasIntensity())
+        mRasterIntensityPath = RasterIntensityPath(NameImage());
+    else
+        mRasterIntensityPath = "";
     mRasterMaskPath = NameImage() + "_mask.tif";
     mRasterXPath = NameImage() + "_X.tif";
     mRasterYPath = NameImage() + "_Y.tif";
     mRasterZPath = NameImage()+ "_Z.tif";
 
-    //mRasterThetaPath = NameImage() + "_Theta.tif";
-    //mRasterPhiPath = NameImage() + "_Phi.tif";
     //mRasterThetaErrPath = NameImage() + "_ThetaErr.tif";
     //mRasterPhiErrPath = NameImage() + "_PhiErr.tif";
 
@@ -1388,6 +1430,14 @@ void cStaticLidar::SaveRasters(const cStaticLidarImporter & aSL_importer, const 
     mRasterX->DIm().ToFile(aPhProjDirOut + mRasterXPath);
     mRasterY->DIm().ToFile(aPhProjDirOut + mRasterYPath);
     mRasterZ->DIm().ToFile(aPhProjDirOut + mRasterZPath);
+
+#ifdef EXPORT_RASTER_THETA_PHI
+    mRasterThetaPath = NameImage() + "_Theta.tif";
+    mRasterTheta->DIm().ToFile(aPhProjDirOut + mRasterThetaPath);
+    mRasterPhiPath = NameImage() + "_Phi.tif";
+    mRasterPhi->DIm().ToFile(aPhProjDirOut + mRasterPhiPath);
+#endif
+
 }
 
 
@@ -1700,18 +1750,83 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> * aSup
     //    file1 << aCenter.x() << " " << -aCenter.y() <<"\n";
 }
 
+// set a regular grid, subdivide parts if deep, keep best score in cell
+void cStaticLidar::SelectPatchCenters3(int aNbPatches, cDataIm2D<tU_INT1> * aSupMaskDIm)
+{
+    MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
+
+    if (aSupMaskDIm)
+        MMVII_INTERNAL_ASSERT_tiny(
+            aSupMaskDIm->Sz() == InternalCalib()->SzPix(),
+            "Error: Sup mask must have the same size as TSL mask");
+
+    //auto [aAvgDist, aNbValid, aNbNotMasked] = AvgDistNbValidAndNbNotMasked();
+    //std::cout<<"aAvgDist="<<aAvgDist<<" aNbValid="<<aNbValid<<
+    //    " aNbNotMasked="<<aNbNotMasked<<"\n";
+
+    auto & aRasterMaskData = mRasterMask->DIm();
+    auto & aRasterDistData = mRasterDistance->DIm();
+
+    // increase the number of cells to correspond to empty areas
+    float aNbPatchesFactor = 1.1;//sqrt((aRasterDistData.SzX()*aRasterDistData.SzY())/(float(aNbNotMasked+1)));
+
+    //fix dist image : d <= d*cos(aPhi)
+    cIm2D<tREAL4> aImDistFix(aRasterDistData.Sz(),0,eModeInitImage::eMIA_Null);
+    auto & aImDistFixData = aImDistFix.DIm();
+    for (int l = 0 ; l < aRasterDistData.Sz().y(); ++l)
+    {
+        tREAL4 aPhi = InternalCalib()->DirBundle({0.,(double)l}).y();
+        for (int c = 0 ; c <aRasterDistData.Sz().x(); ++c)
+        {
+            aImDistFixData.GetLine(l)[c] = aRasterDistData.GetLine(l)[c]*aRasterMaskData.GetLine(l)[c]*cos(aPhi);
+        }
+    }
+    mPatchCenters.clear();
+
+    cQuadTree aQuadTree(&aImDistFixData);
+    aQuadTree.Split(aNbPatches*aNbPatchesFactor);
+
+    std::cout<<"QuadTree: "<<aQuadTree.GetCurNbCell()<<"\n";
+
+    // make patches, good points on each leafs
+    for (auto& aLeaf: aQuadTree.GetVLeafs())
+    {
+        auto aLeafCenter = (aLeaf->GetArea().P0() + aLeaf->GetArea().P1())/2;
+        cPt2di aBestPt = aLeafCenter;
+        float aBestScore = 0;
+        for (auto &aPx: aLeaf->GetArea())
+        {
+            float aCurScore = aRasterMaskData.GetV(aPx) * aRasterDistData.GetV(aPx) / (1. + Norm2(aPx-aLeafCenter));
+            if (aSupMaskDIm)
+                aCurScore *= aSupMaskDIm->GetV(aPx);
+            if (aCurScore > aBestScore)
+            {
+                aBestScore = aCurScore;
+                aBestPt = aPx;
+            }
+        }
+        if (aBestScore>0)
+            mPatchCenters.push_back(aBestPt);
+    }
+    StdOut() << "Nb patches: " << mPatchCenters.size() <<"\n";
+}
+
 void cStaticLidar::MakeVisu(const cPhotogrammetricProject & aPhProj) const
 {
     MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
     auto & aRasterDistData = mRasterDistance->DIm();
     double aDistMax = 0.;
-    int aPtSize = 1 + mRasterDistance->DIm().SzX()/4000;
+    int aPtSize = 1 + mRasterDistance->DIm().SzX()/1000;
+
     for (auto & aPt :  aRasterDistData)
     {
         if (aRasterDistData.GetV(aPt)>aDistMax)
             aDistMax=aRasterDistData.GetV(aPt);
     }
-    cRGBImage  aImDist8b = RGBImFromGray(aRasterDistData, 255./aDistMax,1);
+    cRGBImage  aImDist8b =
+            (mRasterIntensity&&(mRasterIntensity->DIm().Sz()==mRasterDistance->DIm().Sz()))?
+                RGBImFromGray(mRasterIntensity->DIm(), 1., 1.) :
+                RGBImFromGray(aRasterDistData, 255./aDistMax,1);
     for (auto & aCenter : mPatchCenters)
     {
         //aImDist8b.SetRGBPoint(ToR(aCenter)-cPt2dr(0.,0.), cRGBImage::Red);
@@ -1723,12 +1838,18 @@ void cStaticLidar::MakeVisu(const cPhotogrammetricProject & aPhProj) const
 
 }
 
+bool cStaticLidar::isInsideNormalInterpolator(cPt2dr & aPt) const
+{
+    const auto aInterp = getNormalInterpolator( aPt );
+    return getRasterDistance().InsideInterpolator(*aInterp,aPt,1.0);
+}
+
+
 void cStaticLidar::MakePatches
     (std::list<cLidarRasterPatch> &aLPatches,
      const std::vector<cSensorCamPC *> & aVCam,
      int    aNbPointByPatch,
-     int    aSzMin,
-     const cDiffInterpolator1D & aInterp
+     int    aSzMin
      ) const
 {
     //StdOut() << "MakePatches\n";
@@ -1744,9 +1865,9 @@ void cStaticLidar::MakePatches
             auto & aCenter = mPatchCenters[i];
             MMVII_INTERNAL_ASSERT_tiny(IsMaskedPoint(ToR(aCenter))==false, "Error: patch " + ToStr(aCenter) + " is on a masked area");
             auto aCenterR = cPt2dr(aCenter.x(),aCenter.y());
-            if (getRasterDistance().InsideInterpolator(aInterp,aCenterR,1.0))  // is it sufficiently inside
+            if (isInsideNormalInterpolator(aCenterR))  // is it sufficiently inside
             {
-                auto aN = Image2NormalInstr(aCenterR, aInterp);
+                auto aN = Image2NormalInstr(aCenterR);
                 aLPatches.push_back({i, {aCenter}, {}, aN});
                 //std::cout<<"make patch "<<aCenter<<" N="<<aN<<"\n";
             }
@@ -1761,7 +1882,7 @@ void cStaticLidar::MakePatches
     {
         auto & aCenter = mPatchCenters[i];
         auto aCenterR = cPt2dr(aCenter.x(),aCenter.y());
-        if (!getRasterDistance().InsideInterpolator(aInterp,aCenterR,1.0))  // is it sufficiently inside
+        if (!isInsideNormalInterpolator(aCenterR))  // is it sufficiently inside
             continue;
         //search for average GndPixelSize
         aVectGndPixelSize.clear();
@@ -1835,7 +1956,7 @@ void cStaticLidar::MakePatches
         // some requirement on minimal size
         if ((int)aPatchPts.size() > aSzMin)
         {
-            auto aN = Image2NormalInstr(aCenterR, aInterp);
+            auto aN = Image2NormalInstr(aCenterR);
             aLPatches.push_back({i, aPatchPts, {}, aN});
             //std::cout<<"make patch "<<aCenter<<" N="<<aN<<"\n";
         #ifdef NUMMAKEPATCHDEBUG
@@ -1854,6 +1975,12 @@ cIm2D<tU_INT1> cStaticLidar::projectIntensityFrom(const cStaticLidar& aFrom) con
 {
     StdOut() << "Reproject " << aFrom.NameImage() << " on " << NameImage() << "\n";
     cIm2D<tU_INT1> aProj(Sz(),nullptr,eModeInitImage::eMIA_Null);
+    if (!mRasterIntensity)
+    {
+        MMVII_UserError(eTyUEr::eUnClassedError, std::string("Error, no intensity for scan \"") + NameImage() + "\": ");
+        return aProj;
+    }
+
     auto & aProjDIm = aProj.DIm();
     auto & aFromDIm = aFrom.mRasterIntensity->DIm();
     for (const auto & aP : aProjDIm)

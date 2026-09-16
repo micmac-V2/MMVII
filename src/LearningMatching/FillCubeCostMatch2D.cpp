@@ -492,7 +492,7 @@ void cAppliFillCubeCost2D::ExeOptim()
                                            {
                                              auto aSim=CosSim.index({(int64_t)(aDzy-aDZMin2.GetV(aPix)),
                                                                            (int64_t)(aDzx-aDZMin1.GetV(aPix))});
-                                             ELISE_ASSERT(aSim.item<float>()<=1.0 && aSim.item<float>()>=-1.0, "Similarity values issue not in bound 0 ,1 ");
+                                             MMVII_INTERNAL_ASSERT_always(aSim.item<float>()<=1.0 && aSim.item<float>()>=-1.0, "Similarity values issue not in bound 0 ,1 ");
                                              aTabCost[0] =(1-(double)aSim.item<float>())/2.0;
                                            }
                                            PushCost(aTabCost[0]);
@@ -729,7 +729,7 @@ void cAppliFillCubeCost2D::ExeOptim()
                                 {
                                   auto aSim=CosSim.index({(int64_t)(aDzy-aDZMin2.GetV(aPix)),
                                                                 (int64_t)(aDzx-aDZMin1.GetV(aPix))});
-                                  ELISE_ASSERT(aSim.item<float>()<=1.0 && aSim.item<float>()>=(mUsePredicNet ? 0:-1.0), "Similarity values issue not in bound 0 ,1 ");
+                                  MMVII_INTERNAL_ASSERT_always(aSim.item<float>()<=1.0 && aSim.item<float>()>=(mUsePredicNet ? 0:-1.0), "Similarity values issue not in bound 0 ,1 ");
 
                                   aTabCost[0] = mUsePredicNet ? (1-(double)aSim.item<float>()): (1-(double)aSim.item<float>())/2.0;
                                   /*double aCorrelMin=0.7;
@@ -820,7 +820,7 @@ void cAppliFillCubeCost2D::ExeOptim()
                                                                 (int64_t)(aDzx-aDZMin2.GetV(aPix)/StepZ()),
                                                                 aPix.y(),
                                                                 aPix.x()});
-                                  ELISE_ASSERT(aSim.item<float>()<=1.0 && aSim.item<float>()>=0, "Similarity values issue not in bound 0 ,1 ");
+                                  MMVII_INTERNAL_ASSERT_always(aSim.item<float>()<=1.0 && aSim.item<float>()>=0, "Similarity values issue not in bound 0 ,1 ");
                                   aTabCost[0] =1-(double)aSim.item<float>();
                                   //aTabOk[0]=true;
                                 }

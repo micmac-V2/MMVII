@@ -499,7 +499,6 @@ void cCamSimul::BenchHierchBA(cTimerSegm * aTS,
     cMakeArboTripletCfg aCfg;
     aCfg.mLVM      = 1e-7;
     aCfg.mNbIterBA = 5;
-    aCfg.mSigma    = 2;
     aCfg.mSigmaAtt = 1;
     aCfg.mThrs  = 10;
 
@@ -516,6 +515,10 @@ void cCamSimul::BenchHierchBA(cTimerSegm * aTS,
                                              1.0, 0.0, 20.0, 0.0, {0.5, 0.1}, aMemPhProj);
         if (PerfInter)
             aScene.mCamSim->mRandInterK = 0.0;
+
+        //  drop triplets that disagree with the other triplets sharing their image pairs :
+        //  coherent mismatches on repeated structure, which mScore cannot see
+        FilterTripletsByCycleConsistency(aScene.m3Set,5.0,false);
 
         //StdOut() << "Start Hierarchical SfM" << std::endl;
         cMakeArboTriplet aMk3(aScene.m3Set, false, 1.0, aMemPhProj, anAp, aCfg);
@@ -548,8 +551,6 @@ void cCamSimul::BenchHierchBA_InitOnly(cTimerSegm* aTS, bool isSubVert)
     cMakeArboTripletCfg aCfg;
     aCfg.mLVM      = 1e-7;
     aCfg.mNbIterBA = 0;   // spanning tree only — no BA refinement
-    aCfg.mNbExtraIterAtRoot = 0;
-    aCfg.mSigma    = 1;
     aCfg.mSigmaAtt = 1;
     aCfg.mThrs  = 10;
 
@@ -592,11 +593,8 @@ void cCamSimul::BenchHierchBA_BAOnly(cTimerSegm* aTS, bool isSubVert)
     cMakeArboTripletCfg aCfg;
     aCfg.mLVM      = 1e-7;
     aCfg.mNbIterBA = aNbIterBA;
-    aCfg.mSigma    = 1;
     aCfg.mSigmaAtt = 1;
     aCfg.mThrs  = 10;
-    aCfg.mNbExtraIterAtRoot = 2;
-    //aCfg.mViscPose = {0.1,0.1};
 
     cMMVII_Appli& anAp = cMMVII_Appli::CurrentAppli();
 
@@ -628,8 +626,7 @@ void cCamSimul::BenchHierchBA_BAOnly(cTimerSegm* aTS, bool isSubVert)
         }
 
         // run BA from GT initial poses
-        int aNbIterEnd = aCfg.mNbIterBA + aCfg.mNbExtraIterAtRoot;
-        cBA_ArboTriplets aBA(&aMk3, aLocSols,1.0,aNbIterEnd,1.0);
+        cBA_ArboTriplets aBA(&aMk3, aLocSols,1,aCfg.mNbIterBA);
         aBA.SetGTPts3D(&aScene.mGTPts3D);
         for (int aIter=0; aIter<aNbIterBA; aIter++)
             aBA.OneIteration(aIter);

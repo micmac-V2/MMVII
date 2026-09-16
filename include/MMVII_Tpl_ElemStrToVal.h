@@ -5,7 +5,7 @@
 #include "MMVII_enums.h"
 #include "MMVII_Stringifier.h"
 #include "cMMVII_Appli.h"
-#include "MMVII_Tpl_ElemStrToVal.h"
+//#include "MMVII_Tpl_ElemStrToVal.h"
 /** \file uti_e2string.cpp
     \brief Implementation enum <=> string conversion
 
@@ -417,7 +417,7 @@ void FromStr
     {
         ExceptionOrError(ExceptionOnError,eTyUEr::eBadSize4Vect,
                          "Too many arguments [" + aStr+ "]: got "
-                             + std::to_string(aValues.size()) + ", expected a maximum of"
+                             + std::to_string(aValues.size()) + ", expected a maximum of "
                              + std::to_string(aFields.size()));
     }
 

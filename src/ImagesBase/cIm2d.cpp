@@ -2,6 +2,7 @@
 #include "MMVII_Linear2DFiltering.h"
 #include "MMVII_DeclareCste.h"
 #include "MMVII_Geom2D.h"
+#include "MMVII_Interpolators.h"
 
 namespace MMVII
 {
@@ -263,6 +264,7 @@ template <class Type>  cIm2D<Type>  cIm2D<Type>::Decimate(int aFact) const
    return aRes;
 }
 
+
 template <class Type>  void  cIm2D<Type>::DecimateInThis(int aFact,const cIm2D<Type> & aI)
 {
    MMVII_INTERNAL_ASSERT_strong(aI.DIm().P0()==cPt2di(0,0),"Decimate require (0,0) origin");
@@ -298,6 +300,31 @@ template <class Type>  cIm2D<Type>  cIm2D<Type>::Transpose() const
 
     return aTr;
 }
+
+
+
+template <class Type>  cIm2D<Type>  cIm2D<Type>::BiCubicDeZoom(tREAL8 aFact,double Dilate,tREAL8 aParamBicub) const
+{
+    cPt2dr aSz0 = ToR(DIm().Sz());
+    cPt2di aSzRed( Pt_round_ni(aSz0/ aFact ) );
+    cIm2D<Type> aImRes(aSzRed);
+
+    int aNbTabul = std::max(100,std::min(10000,int(aSz0.x()*aSz0.y())));
+    cCubicInterpolator aCubI(aParamBicub);
+    cTabulatedDiffInterpolator * anInterp =  cScaledInterpolator::AllocTab(aCubI,Dilate*aFact,aNbTabul);
+
+    for (const auto & aPix : aImRes.DIm())
+    {
+        bool isOk;
+        tREAL8 aVal = DIm().ClipedGetValueInterpol(*anInterp,ToR(aPix)*aFact,0.0,&isOk);
+        aImRes.DIm().SetVTrunc(aPix,aVal);
+    }
+
+    delete anInterp;
+
+    return aImRes;
+}
+
 
 /* *********************************************************** */
 /*                                                             */

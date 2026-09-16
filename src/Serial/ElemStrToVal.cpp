@@ -441,6 +441,14 @@ template<> cE2Str<eTargetDistanceEstim>::tMapE2Str cE2Str<eTargetDistanceEstim>:
         {eTargetDistanceEstim::ePlaneEstim, "PlaneEstim"}
     };
 
+template<> cE2Str<eModeWeighter>::tMapE2Str cE2Str<eModeWeighter>::mE2S
+    {
+        //{eModeWeighter::eExpl, "Expl"},
+        {eModeWeighter::eStd, "Std"},
+        {eModeWeighter::eLin, "Lin"}
+    };
+
+
 
 
 template<> cE2Str<eTypeSerial>::tMapE2Str cE2Str<eTypeSerial>::mE2S
@@ -612,6 +620,7 @@ void BenchEnum(cParamExeBench & aParam)
     TplBenchEnum<eModeSSR>();
     TplBenchEnum<eImatchCrit>();
     TplBenchEnum<eTargetDistanceEstim>();
+    TplBenchEnum<eModeWeighter>();
     TplBenchEnum<eTyClino>();
     TplBenchEnum<eTypeDBCam>();
     TplBenchEnum<eTyInstr>();
@@ -1050,8 +1059,10 @@ std::string  ToS_NbDigit(int aNb,int aNbDig,bool AcceptOverFlow)
 // ================  double ==============================================
 
 static std::vector<size_t> The_VecPrecTxtSerial = {15};
+static bool The_FixedFloatTxtSerial = true;
 void PushPrecTxtSerial(size_t aPrec) { The_VecPrecTxtSerial.push_back(aPrec); }
 void PopPrecTxtSerial() { The_VecPrecTxtSerial.pop_back(); }
+void SetFixedFloatTxtSerial(bool aFixed) { The_FixedFloatTxtSerial = aFixed; }
 
 
 template <>  std::string cStrIO<double>::ToStr(const double & aD)
@@ -1060,7 +1071,9 @@ template <>  std::string cStrIO<double>::ToStr(const double & aD)
 
     std::ostringstream out;
     out.precision(The_VecPrecTxtSerial.back());
-    out << std::fixed << aD;
+    if (The_FixedFloatTxtSerial)
+        out << std::fixed;
+    out << aD;
 
     std::string aRes = std::move(out).str();
 
@@ -1471,5 +1484,7 @@ MACRO_INSTANTIATE_STRIO_ENUM(eFormatSensor,"FormatSensor")
 MACRO_INSTANTIATE_STRIO_ENUM(eModeSSR,"ModeSRR")
 MACRO_INSTANTIATE_STRIO_ENUM(eImatchCrit,"ImatchCrit")
 MACRO_INSTANTIATE_STRIO_ENUM(eTargetDistanceEstim,"TargetDistanceEstim")
+MACRO_INSTANTIATE_STRIO_ENUM(eModeWeighter,"ModeWeighter")
+
 
 };

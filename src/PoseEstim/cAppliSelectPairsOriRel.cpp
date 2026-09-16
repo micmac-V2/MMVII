@@ -79,6 +79,7 @@ class cAppli_SelectPairOriRel : public cMMVII_Appli,
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
         // std::vector<std::string>  Samples() const override;
+        std::vector<cOneHelpSampleCmp>  Samples() const override;
 
         void  OnCycle(const cAlgoEnumCycle<tGrASPO>&) override;
 
@@ -160,16 +161,35 @@ cCollecSpecArg2007 & cAppli_SelectPairOriRel::ArgObl(cCollecSpecArg2007 & anArgO
 cCollecSpecArg2007 & cAppli_SelectPairOriRel::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
    return       anArgOpt
+
+        << cHeaderSectionArg("Input for tie points")
         <<  mPhProj.DPTieP().ArgDirInOpt()
         <<  mPhProj.DPMulTieP().ArgDirInOpt()
         <<  mPhProj.DPGndPt2D().ArgDirInOpt()
+        << AOpt2007(mNbMinHom,"NbMinTieP","Minimal number of tie point required for potential pair",{eTA2007::HDV})
+
+
+        << cHeaderSectionArg("Control selection of pairs")
         << AOpt2007(mNbMinSpanTree,"NbMSTree","Number of minimal spanning trees",{eTA2007::HDV})
-        << AOpt2007(mNbKBestSom,"NbKBest","Number of k best point",{eTA2007::HDV})
-        << AOpt2007(mNbLines,"NbLines","Number of image succ in lines",{eTA2007::HDV})
+        << AOpt2007(mNbKBestSom,"NbKBest","Number of k best edges selected for each image",{eTA2007::HDV})
+        << AOpt2007(mNbLines,"NbSuccLines","Number of image succ in lines",{eTA2007::HDV})
         << AOpt2007(mAllPair,"AllPair","Add all pairs",{eTA2007::HDV})
 
    ;
 }
+
+std::vector<cOneHelpSampleCmp>  cAppli_SelectPairOriRel::Samples() const
+{
+
+      return
+      {
+            cOneHelpSampleCmp::Header("Examples with Ramses data set"),
+            {
+                "MMVII OriPoseSelecAllPAir \"IM.*JPG\" Rel  InTieP=V1"
+            }
+    };
+}
+
 
 
 void cAppli_SelectPairOriRel::AddEdge(tEdgeASPO& anE)

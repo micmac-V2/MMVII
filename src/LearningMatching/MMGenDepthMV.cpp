@@ -12,8 +12,6 @@
 #include "MMVII_PointCloud.h"
 #include "../Mesh/cColorateCloud.h"
 
-//static int NODATA=-9999;
-
 namespace  MMVII {
 
 namespace  cNS_MMGenDepthMV
@@ -98,7 +96,6 @@ namespace  cNS_MMGenDepthMV
     int ExeOnParsedBox() override;
     bool MakeDecision(std::vector<cPt3dr> & aVecPoints);
 
-    std::string NameImOri(std::string NameIM,std::string OriFolder, std::string SuffOri);
 
     void ReadTriangulations (std::vector<cTriangulation3D<tREAL8>*>& allTris3D,
                         std::vector<std::vector<cPt3dr>>&  aVPtsAll);
@@ -681,11 +678,6 @@ void cAppliMMGenDepthMV::Generate_sparse_depth(std::string aNameImage,
       }
   }
 
-  std::string cAppliMMGenDepthMV::NameImOri(std::string NameIM,std::string OriFolder, std::string SuffOri)
-  {
-      return OriFolder+"/"+SuffOri+NameIM+".xml";
-  }
-
 
   int cAppliMMGenDepthMV::ExeOnParsedBox()
   {
@@ -810,86 +802,6 @@ void cAppliMMGenDepthMV::Generate_sparse_depth(std::string aNameImage,
 
       return EXIT_SUCCESS;
   }
-
-
- /*
-int cAppliMMGenDepthMV::Exe()
-    {
-        mPhProj.FinishInit();
-
-        tREAL8 mSensDownSample=2.0;
-        tREAL8 mSurResCloud=2.0;
-    
-        // image names pattern
-        std::vector<std::string> aVecIms= VectMainSet(0);
-
-        // read cloud 
-        cPointCloud   aPC_In ;
-        ReadFromFile(aPC_In,mPatternLidar);
-
-        cProjPointCloud  aPPC(aPC_In,1.0);
-
-        std::string aDirIm = mPhProj.DirVisu() + "/DepthMapForImage/";
-
-        for (const auto & aNameImage : aVecIms)
-        {
-            mCamPC=mPhProj.ReadCamPC(aNameImage,true);
-            std::string aGenImageName = aDirIm + "Gen_" + LastPrefix(aNameImage) + ".tif";
-
-            //compute depth map from cloud
-
-            aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,*mCamPC,0.0,true,"",false,false); // HERE
-
-            cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud*mSensDownSample,*mCamPC);
-
-            aResIm.mImRadiom.DIm().ToFile(aDirIm+aNameImage);
-            //#aResIm.mImWeight.DIm().ToFile(aDirIm+aPrefix+"Weight-"+".tif");
-            aResIm.mImDepth.DIm().ToFile (aDirIm+"Depth-"+LastPrefix(aNameImage)+".tif");
-        }
-        return EXIT_SUCCESS;
-
-    }
-        */
-
-
-/*
- // Test MulScaledInterpolator
-  int cAppliMMGenDepthMV::ExeScale()
-  {
-      mPhProj.FinishInit();
-
-      // image names pattern
-      std::vector<std::string> aVecIms= VectMainSet(0);
-
-      std::string aNameImage= aVecIms[0];
-
-      mCamPC=mPhProj.ReadCamPC(aNameImage,true);
-
-      cIm2D<tREAL4> anIm = cIm2D<tREAL4>::FromFile(mCamPC->NameImage());
-
-      // Test MulScaleInterpolator
-
-      std::vector<std::string> aParamInt {"Tabul","1000","SinCApod","10","10"};
-
-     // cDiffInterpolator1D *  mInterp  = cDiffInterpolator1D::AllocFromNames(aParamInt);
-
-      //std::unique_ptr<cTabulatedDiffInterpolator>  aTabInt ( cScaledInterpolator::AllocTab(*mInterp,2.0,1000));
-      tREAL4 aScale=3.0;
-      tREAL4 aDilatedFactor =2.0 ;
-      cDiffInterpolator1D *  mInterp = cScaledInterpolator::AllocTab(cCubicInterpolator(-0.5),aScale*aDilatedFactor,1000);
-
-      cIm2D<tREAL4>  aImSc  = anIm.Scale(*mInterp,aScale);
-
-
-      // save
-
-      aImSc.DIm().ToFile(mCamPC->NameImage()+"_scaled_3_2_dilated_.tif");
-
-      delete mInterp;
-
-      return EXIT_SUCCESS;
-  }*/
-
 
 };
 

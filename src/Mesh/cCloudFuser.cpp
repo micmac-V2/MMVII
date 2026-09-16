@@ -972,7 +972,7 @@ void cAppliCloudFuser::FuseDemsByChP( std::vector<cIm2D<tREAL4>> & aVDems,
 
     if (aGraph.Is8Connex())
     {
-        aHighestEigenVal=4.0; // for 4 connexity, the highest eigenvalue of the incidence matrix is 4
+        aHighestEigenVal=4.0; // for 8 connexity, the highest eigenvalue of the incidence matrix is 4
     }
     // if connexity is 4, the highest eigenvalue of the incidence matrix is 2 sqrt(2)
     // if connexity is 8, the highest eigenvalue of the incidence matrix is 4

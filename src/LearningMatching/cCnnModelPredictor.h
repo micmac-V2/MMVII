@@ -3,9 +3,9 @@
 #include <torch/script.h>
 #include <ATen/ATen.h>
 #include "MMVII_all.h"
+#include "MMVII_AllClassDeclare.h"
 #include "MMVII_2Include_Serial_Tpl.h"
 #include "MMVII_Tpl_Images.h"
-#include "V1VII.h"
 #include "cMSNet.h"
 
 #ifdef _WIN32
@@ -41,10 +41,9 @@ class aCnnModelPredictor
        void PopulateModelMatcher(torch::jit::script::Module & Network);
        void PopulateModelMSNetHead(torch::jit::script::Module & Net);
        
-       std::string Architecture(){return mArchitecture;};  // it is not useful
-        std::vector<std::string > mSetModelBinaries;
+        std::string Architecture(){return mArchitecture;};  // it is not useful
+        std::vector<std::string> mSetModelBinaries;
         std::string mArchitecture;
-        std::string mDirModel;
         bool IsCuda=false;
 };
 

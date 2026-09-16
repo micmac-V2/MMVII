@@ -141,7 +141,8 @@ int cAppli_GCPAbsOri::Exe()
     {
         StdOut() << "Similarity scale = "        << mSim.Scale() << "\n";
         StdOut() << "Similarity translation = "  << mSim.Tr() << "\n";
-        StdOut() << "Similarity rotation = "     << mSim.Rot().Mat() << "\n";
+        StdOut() << "Similarity rotation = "     << mSim.Rot().Mat() ;
+        StdOut() << "Similarity rotation WKP = " << mSim.Rot().ToWPK()<<"\n\n";
     }
 
     //apply similarity to input ori

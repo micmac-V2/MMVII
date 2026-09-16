@@ -348,12 +348,54 @@ template <class Type,const int Dim>  Type     cDataTypedIm<Type,Dim>::MinVal() c
         UpdateMin(aRes,mRawDataLin[aK]);
    return aRes;
 }
+template <class Type,const int Dim> Type cDataTypedIm<Type, Dim>::MinValNotNull(const cPixBox<Dim> &aBox) const
+{
+    Type aMin = mRawDataLin[0];
+    long aK=0;
+    if constexpr (Dim == 2)
+    {
+        for (int aY = aBox.P0().y();aY<aBox.P1().y();++aY)
+        {
+            aK = aY*Sz().x() + aBox.P0().x();
+            for (int aX = aBox.P0().x();aX<aBox.P1().x();++aX)
+            {
+                if ((aMin==0)||((mRawDataLin[aK]>0)&&(aMin>mRawDataLin[aK])))
+                    aMin = mRawDataLin[aK];
+                aK++;
+            }
+        }
+    } else {
+        MMVII_INTERNAL_ASSERT_tiny(false, "MinValNotNull(cPixBox) is not implemented for this dimension");
+    }
+    return aMin;
+}
 template <class Type,const int Dim>  Type     cDataTypedIm<Type,Dim>::MaxVal() const
 {
     Type aRes = mRawDataLin[0];
     for (int aK=1 ; aK<NbElem() ; aK++)
         UpdateMax(aRes,mRawDataLin[aK]);
-   return aRes;
+    return aRes;
+}
+template <class Type,const int Dim> Type cDataTypedIm<Type, Dim>::MaxVal(const cPixBox<Dim> &aBox) const
+{
+    Type aMax = mRawDataLin[0];
+    long aK=0;
+    if constexpr (Dim == 2)
+    {
+        for (int aY = aBox.P0().y();aY<aBox.P1().y();++aY)
+        {
+            aK = aY*Sz().x() + aBox.P0().x();
+            for (int aX = aBox.P0().x();aX<aBox.P1().x();++aX)
+            {
+                if(aMax<mRawDataLin[aK])
+                    aMax = mRawDataLin[aK];
+                aK++;
+            }
+        }
+    } else {
+        MMVII_INTERNAL_ASSERT_tiny(false, "MaxVal(cPixBox) is not implemented for this dimension");
+    }
+    return aMax;
 }
 template <class Type,const int Dim>  tREAL16     cDataTypedIm<Type,Dim>::SomVal() const
 {
@@ -366,6 +408,31 @@ template <class Type,const int Dim>  tREAL16     cDataTypedIm<Type,Dim>::MoyVal(
 {
    return SomVal() / NbElem();
 }
+template <class Type,const int Dim> tREAL16     cDataTypedIm<Type,Dim>::SomVal(const cPixBox<Dim> &aBox) const
+{
+    tREAL16 aRes = mRawDataLin[0];
+    long aK=0;
+    if constexpr (Dim == 2)
+    {
+        for (int aY = aBox.P0().y();aY<aBox.P1().y();++aY)
+        {
+            aK = aY*Sz().x() + aBox.P0().x();
+            for (int aX = aBox.P0().x();aX<aBox.P1().x();++aX)
+            {
+                aRes += mRawDataLin[aK];
+                aK++;
+            }
+        }
+    } else {
+        MMVII_INTERNAL_ASSERT_tiny(false, "SomVal(cPixBox) is not implemented for this dimension");
+    }
+    return aRes;
+}
+template <class Type,const int Dim> tREAL16     cDataTypedIm<Type,Dim>::MoyVal(const cPixBox<Dim> &aBox) const
+{
+    return SomVal(aBox) / NbElem();
+}
+
 
 
 

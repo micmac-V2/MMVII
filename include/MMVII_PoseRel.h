@@ -351,6 +351,7 @@ class cDataSolOriTriplet
         tPoseR                mP01;
         tPoseR                mP02;
         tREAL8                mScore;  ///<  Score, Rank-Weighted
+        std::optional<int>    mNbPts3;  ///<  nb of 3-view tie-points behind the estimation
         std::optional<cPt2dr> mDistGT; ///< Distance to ground truth
 };
 

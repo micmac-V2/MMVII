@@ -38,6 +38,9 @@ inline tPoseR PoseOfDSOT(const cDataSolOriTriplet& a3, int k) {
     return a3.mP02;
 }
 
+/// Drop the triplets whose relative rotations disagree with the other triplets sharing their
+///  image pairs.  Catches coherent mismatches (repeated structure), which mScore cannot see.
+void FilterTripletsByCycleConsistency(std::vector<cDataSolOriTriplet> & a3Set,tREAL8 aCycleThr,bool aVerbose);
 
 ///   Store the pose and an ident (int) to the image
 class  cSolLocNode
@@ -57,6 +60,20 @@ public :
     std::vector<tPairI>  mVLinkInTri; ///< num inside the triplet (in [0,1,2])  of the link
     std::vector<tPairI>  mVCommon;    ///< num inside mLocSols of poses common to 2 children
     int                  mNumTri;     ///< num of the triplet in the graph of triplet
+};
+
+enum class eBridgeCat { Common, EdgeLink, TripletLink };
+
+///  One "bridge" : a piece of evidence linking child 0's frame to child 1's.
+struct cBridgeResInfo
+{
+    eBridgeCat mCat;
+    int    mI0Glob, mI1Glob;   ///< global image indices this bridge connects
+    cPt3dr mC0, mC1;           ///< the two centre estimates, in W0 and rotated-W1
+    cPt3dr mCTri0, mCTri1;     ///< triplet centres (link bridges only)
+    int    mKEq;               ///< index of this bridge's 4 private unknowns, -1 for Common
+    int    mNumTri = -1;       ///< triplet this bridge comes from
+    tREAL8 mWRot   = 1.0;   ///< weight inherited from the rotation estimation
 };
 
 /// store the hierarchical decomposition
@@ -111,9 +128,14 @@ private :
     tSim3dR EstimateSimTransfert
         (
             const std::vector<tPairI>& aVPairCommon,
+            const std::vector<int>&    aVNumTriCommon,   ///< triplet each common pose comes from
             const std::vector<tPairI>& aVPairLink2,
+            const std::vector<int>&    aVNumTriLink2,    ///< triplet each edge-link comes from
             const std::vector<cOneTripletMerge> &  aVLink3
             );
+
+    /// tie-point residual (pixel) of a triplet, computed once at triplet estimation ; -1 if unknown
+    tREAL8 ScoreOfTriplet(int aNumTri) const;
 
     /** idem, but estimate the similitude (after computing the rotation) */
     tRotR EstimateRotTransfert
@@ -121,6 +143,16 @@ private :
             std::vector<tREAL8> &  aWeightRot,
             const std::vector<tPairI>& aVPairCommon,
             const std::vector<tPairI>& aVPairLink2,
+            const std::vector<cOneTripletMerge> &  aVLink3
+            );
+    /** estimates robust rotation, takes into account triplet a priori quality */
+    tRotR EstimateRotTransfertV2
+        (
+            std::vector<tREAL8> &  aWeightRot,
+            const std::vector<tPairI>& aVPairCommon,
+            const std::vector<int>&    aVNumTriCommon,
+            const std::vector<tPairI>& aVPairLink2,
+            const std::vector<int>&    aVNumTriLink2,
             const std::vector<cOneTripletMerge> &  aVLink3
             );
     /// compute the mTabGlob2LocInd
@@ -140,6 +172,11 @@ private :
     /// solution of global index , null if dont exist
     cSolLocNode *  SolOfGlobalIndex(int aNumPose) ;
 
+    /// build the tie-point sub-structure of the merged node (union of the 2 children)
+    void MakeMergedTPts();
+    /// release it (not needed once the node has been adjusted)
+    void FreeMergedTPts();
+
     ///
 
     int                       mDepth;     ///< level in the hierarchy, used for pretty printing
@@ -150,7 +187,18 @@ private :
     std::vector<cSolLocNode>  mLocSols;   ///< store the "local" solution
     std::vector<cSolLocNode>  mRotateLS;   ///< store the sol of N1 turned of rotation N1->N0
     std::vector<int>          mTabGlob2LocInd;  ///< index global -> index local (for acces to mLocSols) , -1 if no local homologous
+    std::vector<std::string>  mVNamesMerge;   ///< sorted+unique names of the merged node
+    cComputeMergeMulTieP *    mTPtsMerge;     ///< tie-points restricted to mVNamesMerge (owned)
 
+    /// quality metrics of this merge, filled by EstimateRotTransfertV2, reported in [ArboW-SUM]
+    struct cMergeStats
+    {
+        int    mNbExclSeed = 0;    ///< candidates dropped from the pseudo-median seed (bad triplets)
+        tREAL8 mDMaxCom    = -1;   ///< max dist(screened common -> final rotation) ; 0 if healthy
+        tREAL8 mSCom       = 0;   ///< rotation dispersion computed from common poses
+        tREAL8 mLinkMed    = -1;   ///< median dist(link candidate -> final rotation)
+    };
+    cMergeStats  mMergeStats;
 };
 
 
@@ -158,23 +206,30 @@ struct cMakeArboTripletCfg
 {
     std::vector<tREAL8>  mViscPose  = {-1,-1};   ///< Regularization on poses  [SigmaTr,SigmaRot]
     tREAL8               mLVM       = 0.0;       ///< Levenberg-Marquardt regularization
-    tREAL8               mSigma     = 1.0;       ///< Tie-points sigma (relative to other observations)
     tREAL8               mSigmaAtt  = 2.0;       ///< Sigma attenuation on tie-points
     tREAL8               mThrs   = 10.0;      ///< Outlier threshold
+    tREAL8               mSigmaTri  = -1.0;   ///< Sigma for triplet-quality weighting in the merge; <0 -> mSigmaAtt
     int                  mNbIterBA  = 5;         ///< Number of BA iterations
-    int                  mNbExtraIterAtRoot = 2;  ///< Extra BA iterations at the tree root (all images)
+    int                  mNbIterStrict =5;  ///< number of final BA iterations with stric params
+    tREAL8               mSigmaAttStrict = 1.0;  ///< strict sigmaAtt
+    tREAL8               mThrsStrict = 10.0; ///< strict threshold
     bool                 mVerbose = false;
+
+    /// sigma used to weight a bridge by the mScore of its triplet ; falls back on mSigmaAtt
+    tREAL8 SigmaTri() const {return (mSigmaTri>0) ? mSigmaTri : mSigmaAtt;}
 
     void Show(std::ostream & aOS = std::cout) const
     {
         aOS << " ========= BA CONFIG ==========\n"
             << " * ViscPose  = " << mViscPose.at(0) << "," << mViscPose.at(1) << "\n"
             << " * LVM       = " << mLVM       << "\n"
-            << " * Sigma     = " << mSigma  << "\n"
             << " * SigmaAtt  = " << mSigmaAtt  << "\n"
+            << " * SigmaTri  = " << SigmaTri() << "\n"
             << " * Threshold = " << mThrs   << "\n"
             << " * NbIterBA  = " << mNbIterBA  << "\n"
-            << " * NbExtraIterAtRoot = " << mNbExtraIterAtRoot << "\n\n";
+            << " * mNbIterStrict = " << mNbIterStrict << "\n"
+            << " * mSigmaAttStrict = " << mSigmaAttStrict << "\n"
+            << " * mThrsStrict = " << mThrsStrict << "\n\n";
     }
 };
 

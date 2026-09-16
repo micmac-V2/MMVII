@@ -10,9 +10,6 @@ if(vMMVII_BUILD)
   list(APPEND VCPKG_MANIFEST_FEATURES "vmmvii")
 endif()
 
-#################### append libtorch directory #################
-#list(APPEND CMAKE_PREFIX_PATH "libtorch")
-#################### append libtorch directory #################
 
 project(MMVII VERSION 1.0)
 
@@ -56,7 +53,7 @@ endif()
 
 option(MMVII_USE_PDAL "If ON, MMVII will require PDAL to read point clouds" OFF)
 
-option(MMVII_USE_LIBTORCH "If ON, MMVII will require libtorch under MMVII_SOURCE_DIR/" OFF)
+option(MMVII_USE_LIBTORCH "If ON, MMVII will require libtorch under MMVII_SOURCE_DIR/ExternalInclude/" OFF)
 
 #######################################################
 ##        Dependencies
@@ -86,7 +83,7 @@ endif()
 # libtorch
 
 if(MMVII_USE_LIBTORCH)
-  set(TORCH_INSTALL_PREFIX "${MMVII_SOURCE_DIR}/libtorch")
+  set(TORCH_INSTALL_PREFIX "${MMVII_SOURCE_DIR}/ExternalInclude/libtorch")
 
   set(TORCH_INCLUDE_DIRS
       ${TORCH_INSTALL_PREFIX}/include
@@ -156,6 +153,7 @@ set(gnu_cxx  "$<COMPILE_LANG_AND_ID:CXX,GNU>")
 add_library(MMVII_compiler_flags INTERFACE)
 target_compile_options(MMVII_compiler_flags INTERFACE
     "$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall;-Werror>>"
+    "$<$<AND:${gnu_cxx},$<VERSION_GREATER_EQUAL:$<CXX_COMPILER_VERSION>,14>>:$<BUILD_INTERFACE:-Wno-array-bounds>>"
     "$<${msvc_cxx}:$<BUILD_INTERFACE:/W3;/D_USE_MATH_DEFINES;/D_HAS_STD_BYTE=0;/wd4244;/wd4267;/wd4305;/wd4661;/D_CRT_SECURE_NO_WARNINGS>>"
     "$<$<CONFIG:Debug>:$<$<CXX_COMPILER_ID:MSVC>:/bigobj>>"
     $<$<AND:$<CONFIG:RelWithDebInfo>,$<CXX_COMPILER_ID:MSVC>>:/bigobj /Zi /Zo>

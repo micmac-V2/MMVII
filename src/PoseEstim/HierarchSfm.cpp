@@ -42,11 +42,11 @@ class cAppli_HierarchSfm : public cMMVII_Appli
         tREAL8                    mWBalance;
         std::vector<tREAL8>       mViscPose;      ///< regularization on poses in BA
         tREAL8                    mLVM;           ///< levenberg-marquadt
-        tREAL8                    mSigma;
         tREAL8                    mSigmaAtt;
         tREAL8                    mThrs;
+        tREAL8                    mCycleThr;   ///< max disagreement with the consensus, degrees
+        tREAL8                    mSigmaTri;
         int                       mNbIterBA;
-        int                       mNbExtraIterAtRoot;
 
         bool                      mVerbose;
 
@@ -59,11 +59,11 @@ cAppli_HierarchSfm::cAppli_HierarchSfm(const std::vector<std::string> & aVArgs,c
     mWBalance    (1.0),
     mViscPose    ({-1,-1}),
     mLVM         (1e-7),
-    mSigma       (1.0),
     mSigmaAtt    (1.0),
     mThrs     (10.0),
+    mCycleThr (5),
+    mSigmaTri (1.0),
     mNbIterBA    (5),
-    mNbExtraIterAtRoot (2),
     mVerbose    (false)
 {}
 
@@ -86,15 +86,16 @@ cCollecSpecArg2007 & cAppli_HierarchSfm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            <<  mPhProj.DPOrient().ArgDirInOpt("","Ground truth input orientation directory")
            <<  AOpt2007(mViscPose,"ViscPose","Regularization on poses for BA: [SigmaTr,SigmaRot]",{eTA2007::HDV})
            <<  AOpt2007(mLVM,"LVM","Levenberg-marquadt regularization",{eTA2007::HDV})
-           <<  AOpt2007(mSigma,"Sigma","Sigma for tie-points (relative to other obs)",{eTA2007::Tuning,eTA2007::HDV})
-           <<  AOpt2007(mSigmaAtt,"SigmaAtt","Attentuation sigma for tie-points",{eTA2007::Tuning})
-           <<  AOpt2007(mThrs,"Thrs","Outlier threshold",{eTA2007::Tuning})
+           <<  AOpt2007(mSigmaAtt,"SigmaAtt","Reference sigma for tie-points; the BA anneals from 4*m*SigmaAtt down to 2*sqrt(m)*SigmaAtt, m adapting to node quality",{eTA2007::Tuning})
+           <<  AOpt2007(mThrs,"Thrs","Reference outlier threshold",{eTA2007::Tuning})
+           << AOpt2007(mCycleThr,"CycleThr","Max inconsistency (deg) with neighbouring triplets, 0=no filter",{eTA2007::HDV,eTA2007::Tuning})
+           <<  AOpt2007(mSigmaTri,"SigmaTri","Sigma for triplet-quality weighting in the merge (default: same as SigmaAtt)",{eTA2007::Tuning})
            <<  AOpt2007(mNbIterBA,"NbIterBA","Number of iteration in BA refinement",{eTA2007::HDV})
-           <<  AOpt2007(mNbExtraIterAtRoot,"NbExtraIter",
-                       "Extra BA iterations at root node (all images)",{eTA2007::Tuning,eTA2007::HDV})
            <<  AOpt2007(mVerbose,"Verbose","More messages prints",{eTA2007::Tuning,eTA2007::HDV})
         ;
 }
+
+
 
 int cAppli_HierarchSfm::Exe()
 {
@@ -106,25 +107,38 @@ int cAppli_HierarchSfm::Exe()
     std::vector<std::string> aSetIm = VectMainSet(0);
     std::vector<cDataSolOriTriplet> a3Set = mPhProj.ReadAllTriplets(aSetIm);
 
-    // pre-calculate max and median 'quality' scores over all triplets
+    //  drop triplets whose own estimation did not converge : they still shape the tree through
+    //  mCostInit2Ori even when the merge weighting later gives them ~0
+    static constexpr tREAL8 TheMaxScoreKeep = 20.0;   // x ErrAtProp(0.75)
+
+    //  a first pass only to set the cut, since the cut itself is expressed in units of the quantile
+    cStdStatRes aPreStats;
+    for (auto & aT : a3Set) aPreStats.Add(aT.mScore);
+    tREAL8 aSMax = TheMaxScoreKeep*std::max(1.0,aPreStats.ErrAtProp(0.75));
+    a3Set.erase(std::remove_if(a3Set.begin(),a3Set.end(),
+                               [aSMax](const cDataSolOriTriplet & aT){return aT.mScore>aSMax;}),
+                a3Set.end());
+
+    //  drop triplets that disagree with the other triplets sharing their image pairs :
+    //  coherent mismatches on repeated structure, which mScore cannot see
+    if (mCycleThr>0)
+        FilterTripletsByCycleConsistency(a3Set,mCycleThr,IsInit(&mVerbose) ? mVerbose : false);
+
+     // pre-calculate max and median 'quality' scores over all triplets
     cStdStatRes aQScoreStats;
-    for (auto & aT : a3Set)
-        aQScoreStats.Add(aT.mScore);
-   // StdOut() << "LLLcAppli_HierarchSfm " << __LINE__  << " NB=" << aQScoreStats.NbMeasures() << " 3S=" << a3Set.size() << "\n";
+    for (auto & aT : a3Set) aQScoreStats.Add(aT.mScore);
 
     // set MakeArboTriplet config parameters
     cMakeArboTripletCfg aCfg;
     aCfg.mVerbose = IsInit(&mVerbose) ? mVerbose : false;
     aCfg.mLVM      = mLVM;
     aCfg.mNbIterBA = mNbIterBA;
-    aCfg.mNbExtraIterAtRoot = mNbExtraIterAtRoot;
-    aCfg.mSigma = IsInit(&mSigma) ? mSigma : 1.0;
-    aCfg.mSigmaAtt = IsInit(&mSigmaAtt) ? mSigmaAtt : std::max(1.0,aQScoreStats.ErrAtProp(0.75));
-    aCfg.mThrs  = IsInit(&mThrs)  ? mThrs  : std::max(5.0,4.0*aQScoreStats.ErrAtProp(0.75));
+    aCfg.mSigmaAtt = IsInit(&mSigmaAtt) ? mSigmaAtt : std::max(2.0,2.0*aQScoreStats.ErrAtProp(0.75));
+    aCfg.mThrs  = IsInit(&mThrs)  ? mThrs  : std::max(10.0,4.0*aQScoreStats.ErrAtProp(0.75));
+    aCfg.mSigmaTri = IsInit(&mSigmaTri) ? mSigmaTri
+                                        : std::max(1.0,aQScoreStats.ErrAtProp(0.75));
     if (IsInit(&mViscPose))
         aCfg.mViscPose = mViscPose;
-
-    //StdOut() << aQScoreStats.ErrAtProp(0.75) << " " << 4.0*aQScoreStats.ErrAtProp(0.75) << std::endl;
 
 
     TimeSegm().SetIndex("cMakeArboTriplet");
@@ -164,6 +178,7 @@ int cAppli_HierarchSfm::Exe()
         }
         aMk3.InitTPtsStruct(new cComputeMergeMulTieP(aSortedIm,&aMIIH));
     }
+
 
     TimeSegm().SetIndex("MakeGraphPose");
     aMk3.MakeGraphPose();

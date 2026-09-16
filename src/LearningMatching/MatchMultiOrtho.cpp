@@ -6,66 +6,7 @@
 #include "cCnnModelPredictor.h"
 
 bool TEST=true;
-
-void InterpolatePos(std::vector<double> aX,std::vector<double> aF, double& value)
-{
-    // Value to Index
-    auto i = std::lower_bound(aX.begin(), aX.end(), value); // sorted in increasing order from 0 to 1
-    int k = i - aX.begin();
-    //std::cout<<"KKK "<<k<<std::endl;
-    int l = k ? k - 1 : 1 ;
-    if(aF[k]<aF[l])
-    {
-        value = aF[k]+(value-aX[k])*(aF[l]-aF[k])/(aX[l]-aX[k]);
-        //std::cout<<"values "<<value<<std::endl;
-    }
-    else
-    {
-       value = aF[l]+(value-aX[l])*(aF[k]-aF[l])/(aX[k]-aX[l]);
-        //std::cout<<"value before  "<<aF[l]<<"  values "<<value<<"  value after "<<aF[k]<<std::endl;
-    }
-}
  
-void Tensor2Tiff(torch::Tensor aTens, std::string anImageName)
-{
-    Im2D<REAL4,REAL8> anIm=Im2D<REAL4,REAL8> (aTens.size(-1),aTens.size(-2));
-    REAL4 ** anImD=anIm.data();
-    std::memcpy((*anImD),aTens.data_ptr<REAL4>(),sizeof(REAL4)*aTens.numel());
-    ELISE_COPY
-    (
-     anIm.all_pts(),
-     anIm.in() ,
-     Tiff_Im(
-        anImageName.c_str(),
-        anIm.sz(),
-        GenIm::real4,
-        Tiff_Im::No_Compr,
-        Tiff_Im::BlackIsZero,
-        Tiff_Im::Empty_ARG ).out()
-      );
-}
-/*
-namespace {
-        void display_weights(torch::nn::Module & module)
-        {
-                torch::NoGradGuard no_grad;
-        
-        
-        std::cout<<"MODULE NAME "<<module.name()<<std::endl;
-        std::cout<<"MODULE PARAMETERS SIZE "<<module.parameters().size()<<std::endl;
-
-        if (auto conv = module.as<torch::nn::Conv2d>()) {
-            std::cout<<"WGHT MATRIX MIN "<<conv->weight.min()<<std::endl;
-            std::cout<<"WGHT MATRIX MAX "<<conv->weight.max()<<std::endl;
-            //std::cout<<"BIAS VETCOR "<<conv->bias.sizes()<<std::endl;
-                        }
-        if (auto linear = module.as<torch::nn::Linear>()) {
-            std::cout<<"WGHT MATRIX "<<linear->weight<<std::endl;
-            std::cout<<"BIAS VETCOR "<<linear->bias.sizes()<<std::endl;
-                        }
-        }
-}
-*/
 namespace MMVII
 {
 namespace  cNS_MatchMultipleOrtho
@@ -2092,12 +2033,13 @@ int  cAppliMatchMultipleOrtho::GotoEpipolar()
                    // Save some images rectified back to the original image
                    if (anInd==0)
                      {
-                        auto aMasterImage=ComputeEpipolarImage(mEPIPS.at(anInd).at(0),mORIG_EpIm_GEOX[anInd][0],mORIG_EpIm_GEOY[anInd][0]);
-                        auto aSecImage   =ComputeEpipolarImage(mEPIPS.at(anInd+1).at(0),mORIG_EpIm_GEOX[anInd+1][0],mORIG_EpIm_GEOY[anInd+1][0]);
+                        auto aMasterImage=ComputeEpipolarImage(mEPIPS.at(anInd).at(0),
+                                                            mORIG_EpIm_GEOX[anInd][0],
+                                                            mORIG_EpIm_GEOY[anInd][0]);
+                        auto aSecImage   =ComputeEpipolarImage(mEPIPS.at(anInd+1).at(0),
+                                                            mORIG_EpIm_GEOX[anInd+1][0],
+                                                            mORIG_EpIm_GEOY[anInd+1][0]);
 
-                        // Write images
-                        Tensor2Tiff(aMasterImage,"./MASTER_IM.tif");
-                        Tensor2Tiff(aSecImage,"./SEC_IM.tif");
                      }
 
                  }
@@ -2334,9 +2276,6 @@ int  cAppliMatchMultipleOrtho::GotoHomography()
                      {
                         auto aSecImage =ComputeEpipolarImage(mEPIPS.at(anInd).at(0),mORIG_EpIm_GEOX[anInd][0],mORIG_EpIm_GEOY[anInd][0]);
 
-                        // Write images
-                        //Tensor2Tiff(aMasterImage,"./MASTER_IM.tif");
-                        Tensor2Tiff(aSecImage,"./SEC_IM.tif");
                      }
                  }
              }

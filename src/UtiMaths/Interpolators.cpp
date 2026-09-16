@@ -287,6 +287,7 @@ tREAL8  cLinearInterpolator::Weight(tREAL8  anX) const
 
 const std::string cLinearInterpolator::TheNameInterpol="Linear";
 
+// Declare and auto-register this interpolator (see cInterpolSpec constructor)
 static cInterpolSpec TheSpec_Linear
 (
     cLinearInterpolator::TheNameInterpol,"Linear interpolation, kernel of size 1",
@@ -320,6 +321,7 @@ cCubicInterpolator::cCubicInterpolator(tREAL8 aParam) :
 
 const std::string cCubicInterpolator::TheNameInterpol="Cubic";
 
+// Declare and auto-register this interpolator (see cInterpolSpec constructor)
 static cInterpolSpec TheSpec_Cubic
 (
     cCubicInterpolator::TheNameInterpol,"Cubic kernel, parametrized by its derivative in 1",
@@ -421,6 +423,7 @@ tREAL8  cSinCApodInterpolator::Weight(tREAL8  anX) const
 
 const std::string cSinCApodInterpolator::TheNameInterpol = "SinCApod";
 
+// Declare and auto-register this interpolator (see cInterpolSpec constructor)
 static cInterpolSpec TheSpec_SinCApod
 (
     cSinCApodInterpolator::TheNameInterpol,"Apodized cardinal sinus, to be tabulated",
@@ -499,6 +502,7 @@ cMMVII2Inperpol::cMMVII2Inperpol():
 
 const std::string cMMVII2Inperpol::TheNameInterpol = "MMVII";
 
+// Declare and auto-register this interpolator (see cInterpolSpec constructor)
 static cInterpolSpec TheSpec_MMVII
 (
     cMMVII2Inperpol::TheNameInterpol,"MMVII kernel, same as MMVIIK with exponent 2",
@@ -543,6 +547,7 @@ cMMVIIKInterpol::cMMVIIKInterpol(tREAL8 anExp) :
 
 const std::string cMMVIIKInterpol::TheNameInterpol = "MMVIIK";
 
+// Declare and auto-register this interpolator (see cInterpolSpec constructor)
 static cInterpolSpec TheSpec_MMVIIK
 (
     cMMVIIKInterpol::TheNameInterpol,"MMVII kernel of given exponent, slow, to be tabulated",
@@ -770,6 +775,7 @@ cTabulatedDiffInterpolator::cTabulatedDiffInterpolator(cInterpolator1D * anInt,i
 
 const std::string cTabulatedDiffInterpolator::TheNameInterpol = "Tabul";
 
+// Declare and auto-register this interpolator (see cInterpolSpec constructor)
 static cInterpolSpec TheSpec_Tabul
 (
     cTabulatedDiffInterpolator::TheNameInterpol,"Tabulate the interpolator that follows",
@@ -856,6 +862,7 @@ cScaledInterpolator::cScaledInterpolator
 
 const std::string cScaledInterpolator::TheNameInterpol("Scale");
 
+// Declare and auto-register this interpolator (see cInterpolSpec constructor)
 static cInterpolSpec TheSpec_Scale
 (
     cScaledInterpolator::TheNameInterpol,"Tabulate a scaled version of the interpolator that follows",

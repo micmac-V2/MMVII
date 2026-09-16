@@ -5,6 +5,8 @@
 #include "MMVII_Mappings.h"
 #include "MMVII_AllClassDeclare.h"  // cPt2dr, cPt3dr, cPt2di, etc.
 #include "MMVII_Tpl_ElemStrToVal.h"
+#include "MMVII_MeasuresIm.h"  // cSetHomogCpleIm
+#include <optional>
 
 namespace MMVII {
 
@@ -25,12 +27,22 @@ enum class eEpipFrm
 class cEpipolarMapping : public cDataInvertibleMapping<tREAL8,2>
 {
 public:
-    cEpipolarMapping() {}
+    cEpipolarMapping(const cPt2dr& aZInterval, tREAL8 aGridStep, int aNbStepX, int aNbStepY)
+        : mZInterval(aZInterval), mGridStep(aGridStep), mNbStepX(aNbStepX), mNbStepY(aNbStepY) {}
     void SetEpipImFrame(const cRect2& aFrame) { mEpipImFrame = aFrame;}
     cRect2 EpipFrame() const { return mEpipImFrame; }
     cPt2di EpipImSz() const { return mEpipImFrame.Sz(); }
+    cPt2dr ZInterval() const { return mZInterval; }
+    /// GenerateData's XY grid : pixel step and step count per axis
+    tREAL8 GridStep() const { return mGridStep; }
+    int NbStepX() const { return mNbStepX; }
+    int NbStepY() const { return mNbStepY; }
 protected:
     cRect2 mEpipImFrame{cPt2di{0,0},cPt2di{0,0},true}; ///< frame in epipolar space (for resampling)
+    cPt2dr mZInterval;
+    tREAL8 mGridStep;
+    int    mNbStepX;
+    int    mNbStepY;
 };
 
 
@@ -83,8 +95,11 @@ public:
     cEpipPolyMapping(const cPolyXY_Nd& aV,
                      const cPolyXY_Nd& aW,
                      cPt2dr aCenter,
-                     cPt2dr aDir)
-        : mV(aV)
+                     cPt2dr aDir,
+                     cPt2dr aZInterval,
+                     tREAL8 aGridStep, int aNbStepX, int aNbStepY)
+        : cEpipolarMapping(aZInterval, aGridStep, aNbStepX, aNbStepY)
+        , mV(aV)
         , mW(aW)
         , mCenter{aCenter}
         , mDir{aDir}
@@ -150,10 +165,17 @@ public:
     {
         int      mPolyDegree    = 3;      ///< degree of V polynomials
         int      mPolyDegreeInv = 7;      ///< degree of inverse W polynomials
-        int      mNbXYSteps     = 100;    ///< number of image grid sampling steps (X & Y)
         int      mNbZLevels     = 3;      ///< number of altitude sampling levels
         eEpipFrm mEpipFrm       = eEpipFrm::eIntersect; ///< Framing type for epipolar images (Resmampling)
         int      mMargin        = 2;      ///< Margin in pixels for epipolar image framing (Resampling)
+        std::optional<cPt2dr> mZIntv = std::nullopt; ///< Override Z interval (Zmin,Zmax); mandatory if sensor has none
+        std::optional<cSetHomogCpleIm> mHomolPts = std::nullopt; ///< Tie points to infer Zmin/Zmax from (alternative to mZIntv, lower priority)
+        tREAL8   mTiePMaxRes     = 2.0;   ///< Max triangulation residual (px) to keep a tie point for Z inference
+        tREAL8   mZMargin        = 0.10;  ///< Relative margin added around the Z envelope inferred from mHomolPts
+        tREAL8   mTiePMinNbRatio = 0.04;  ///< Min kept-tie-point count = max(mTiePMinNbFloor, mTiePMinNbRatio*sqrt(W*H))
+        int      mTiePMinNbFloor = 25;    ///< Absolute floor for the min kept-tie-point count above
+        bool     mNoWarnings     = false; ///< Don't generate warnigs: used by Bench
+        size_t   mMinNbPairs     = 50;    ///< Min accepted pairs required in each of the train/test pools, per master-camera direction
     };
 
     // --------------------------------------------------------
@@ -173,6 +195,10 @@ public:
     double V1V2Var() const { return mV1V2Var; }
     double W1Var() const { return mW1Var; }
     double W2Var() const { return mW2Var; }
+    /// Independent (held-out) residuals : mean square of V1(q1)-V2(q2), W1(...)-q1.y, W2(...)-q2.y on the test pool
+    double V1V2VarIndep() const { return mV1V2VarIndep; }
+    double W1VarIndep() const { return mW1VarIndep; }
+    double W2VarIndep() const { return mW2VarIndep; }
 private:
     // --------------------------------------------------------
     //  Private helper : one H-compatible pair in rotated coords
@@ -184,18 +210,37 @@ private:
     };
 
     // ----------------------------------------------------------
-    //  Generate H-compatible pairs (Algorithm 2 of the paper).
-    //
-    //  aCamM = master camera, aCamS = slave camera.
-    //
-    //  Outputs:
-    //    aOutPairs : list of (masterPt, slavePt) pairs
-    //    aOutCenterM : centroid of master image points
-    //    aOutDirS    : average epipolar direction in slave image
+    //  Generate H-compatible pairs (Algorithm 2 of the paper), split into a
+    //  train pool (fits V1/V2/W1/W2) and a test pool (EstimateIndepResiduals).
+    //  Outputs: aOutPairsTrain/Test pairs, aOutCenterM centroid, aOutDirS direction.
     // ----------------------------------------------------------
     void GenerateData(const cSensorImage &aCamM, const cSensorImage &aCamS,
-                      std::vector<cEpiPair> &aOutPairs, cPt2dr &aOutCenterM,
-                      cPt2dr &aOutDirS) const;
+                      std::vector<cEpiPair> &aOutPairsTrain,
+                      std::vector<cEpiPair> &aOutPairsTest,
+                      cPt2dr &aOutCenterM,
+                      cPt2dr &aOutDirS, cPt2dr &aZInterval,
+                      tREAL8 &aOutGridStep, int &aOutNbStepX, int &aOutNbStepY) const;
+
+    // ----------------------------------------------------------
+    //  Independent residuals of the fitted V1,V2,W1,W2 on the held-out test pairs.
+    // ----------------------------------------------------------
+    void EstimateIndepResiduals(
+            const std::vector<cEpiPair>& aPairsTest,
+            const cPolyXY_Nd& aV1, const cPolyXY_Nd& aV2,
+            const cPolyXY_Nd& aW1, const cPolyXY_Nd& aW2);
+
+    // ----------------------------------------------------------
+    //  Resolve the Z interval for a master camera : mZIntv > tie-point-derived
+    //  > aCamM's own native interval.
+    // ----------------------------------------------------------
+    cPt2dr EffectiveZInterval(const cSensorImage & aCamM) const;
+
+    // ----------------------------------------------------------
+    //  Z envelope of mParams.mHomolPts, triangulated and filtered by
+    //  residual, plus mZMargin. Memoized.
+    // ----------------------------------------------------------
+    cPt2dr ZIntervalFromHomolPts() const;
+    mutable std::optional<cPt2dr> mCachedHomolZIntv;
 
     // ----------------------------------------------------------
     //  Estimate forward polynomials V1 (with Y-axis identity
@@ -226,11 +271,14 @@ private:
     const cSensorImage& mCam1;
     const cSensorImage& mCam2;
     cParams             mParams;
-    int mNbPairs12 = 0; ///< number of H-compatible pairs from I1 to I2 (for info only)
-    int mNbPairs21 = 0; ///< number of H-compatible pairs from I2 to I1 (for info only)
+    int mNbPairs12 = 0; ///< number of H-compatible training pairs from I1 to I2 (for info only)
+    int mNbPairs21 = 0; ///< number of H-compatible training pairs from I2 to I1 (for info only)
     double mV1V2Var = 0.0;
     double mW1Var = 0.0;
     double mW2Var = 0.0;
+    double mV1V2VarIndep = 0.0;
+    double mW1VarIndep = 0.0;
+    double mW2VarIndep = 0.0;
 };
 
 

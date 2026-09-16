@@ -14,6 +14,7 @@
 #include "MMVII_Tpl_GraphAlgo_SPCC.h"
 
 
+#if (0)
 
 
 namespace MMVII
@@ -1182,3 +1183,4 @@ cSpecMMVII_Appli  TheSpecAppliFranges_1
 #endif
 
 };
+#endif

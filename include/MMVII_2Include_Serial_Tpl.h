@@ -22,8 +22,7 @@ namespace MMVII
    
 void PushPrecTxtSerial(size_t aPrec);  /// set new precision for txt-serialisation
 void PopPrecTxtSerial();   /// restore precision for txt-serialisation
-
-
+void SetFixedFloatTxtSerial(bool aFixed); // set fixed (True) or default (false) format for double txt-serialisation
 
 
 typedef  std::map<std::string,std::vector<cPt2dr>>  tTestMasSerial;  /// Type for basic test-serialisation of maps

@@ -466,6 +466,16 @@ enum class eTargetDistanceEstim
     eNbVals
 };
 
+/** Mode  for weighter */
+
+enum class eModeWeighter
+{
+//    eExpl,     // cResidualWeighterExplicit
+    eStd,      // cStdWeighterResidual
+    eLin,      // cLinearWeighterResidual
+    eNbVals
+};
+
 /** Mode "Padding" callable in DenseMatchEpipGen */
 
 enum class eModePaddingEpip

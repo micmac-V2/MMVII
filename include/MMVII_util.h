@@ -364,6 +364,7 @@ public:
     static Color title;
     static Color sub_title;
 
+    static Color info;
     static Color success;
     static Color error;
     static Color warning;

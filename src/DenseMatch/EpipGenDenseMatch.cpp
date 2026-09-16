@@ -1,25 +1,12 @@
 
 #include "V1ComLine.h"
 #include "MMVII_Tpl_Images.h"
+#include "MMVII_TplLayers3D.h"
 #include "MMVII_DeclareCste.h"
-
-#if (MMVII_KEEP_LIBRARY_MMV1)
-#include "StdAfx.h"
-#endif
 
 static bool  DEBUG_EDM = false;
 
-// using namespace MMVII;
-/*
-using namespace MMVII;
-using MMVII::BLANK;
-using MMVII::round_ni;
-using MMVII::round_up;
-*/
 
-// It's a bit strange to put local thing also in MMVII namespace, but else there is
-// many conflicts between  MMV1 (include here because MicMac)  and MMVII.
-// I realized that lately ....  so let it like that for now
 namespace MMVII
 {
 
@@ -113,12 +100,12 @@ class cOneLevel
        /// Once clipped match was done, save in global file
        void SaveGlobPx(const cParam1Match & aParam) const;
 
-       void CalculNappeEnglobante(cParam1Match &, cBox2di & aBF1, cBox2di & aBF2) const;
+       // Save similarity at argmax, for debug purpose
+       void SaveGlobSim(const cParam1Match & aParam) const;      
 
-
-             // --- Many method for file name and command generation
-                   
-                /// Add the directory, will depend if it is an initial or created image
+       void ComputeBoundingLayers(cParam1Match &, cBox2di & aBF1, cBox2di & aBF2) const;
+            
+       /// Add the directory, will depend if it is an initial or created image
        std::string  StdFullName(const std::string & aName) const;
                  //  ------  Generate Commands
                    /// Generate the clipped images
@@ -127,7 +114,6 @@ class cOneLevel
        cParamCallSys StrComReduce(bool ModeIm=true) const; ///< Generate the string for computing reduced images
        cParamCallSys StrComReduceV2(bool ModeIm) const ;
        //cParamCallSys StrComReduce(bool ModeIm=true) const;
-       void CreateNuageLastFile(const std::string& Dir, const std::string& ImName);
 
                  //  ------  Generate name for cliped images
        std::string  NameClip(const std::string & aPrefix,const cPt2di & aInd) const; ///< Genreik name
@@ -281,6 +267,7 @@ struct cParam1Match
              mClipNamePx  ( FileOfPath(aILev1.NameClipPx(anIndex),false)),
              mPxMin       (0),
              mPxMax       (0),
+             mLayer        (cLayer3D<tREAL4,tINT2>::Empty()),
              mCanDoMatch  (true),
              mLevel       (aILev1.Level())
          {
@@ -299,6 +286,7 @@ struct cParam1Match
          const std::string       mClipNamePx;   ///< Name resulting paralx of cliped match
                int               mPxMin;   ///< Min computed paralax
                int               mPxMax;   ///< Max compted paralax
+               cLayer3D<tREAL4,tINT2> mLayer;
                int               mOffsetPx; ///< Offset between cliped px and global px, due Box1 != Box2
                bool              mCanDoMatch;  ///< Is there enough point to do the match
                int               mId; ///< Identifier, added for debuging
@@ -317,6 +305,12 @@ struct cParam1Match
 static std::string V1NameMasqOfIm(const std::string & aName)
 {
     return LastPrefix(aName) + "_Masq.tif";
+}
+
+
+static std::string NameSimOfIm(const std::string & aName)
+{
+    return LastPrefix(aName) + "_Sim.tif";
 }
 
 
@@ -347,6 +341,10 @@ void  cOneLevel::MakeImPx()
    cDataFileIm2D aDataIm = cDataFileIm2D::Create(mNameIm,eForceGray::No);
    cDataFileIm2D::Create(mAppli.mOutDir+mNamePx,eTyNums::eTN_REAL4,aDataIm.Sz());
 
+   if (mAppli.mModeMatchCur==eModeEpipMatch::eMEM_UNETDECISION)
+      cDataFileIm2D::Create(mAppli.mOutDir+NameSimOfIm(mNamePx),
+            eTyNums::eTN_REAL4,aDataIm.Sz());
+
 }
 
 cParamCallSys cOneLevel::StrComReduce(bool ModeIm) const
@@ -363,14 +361,6 @@ cParamCallSys cOneLevel::StrComReduce(bool ModeIm) const
        ModeIm ? "ModMasq=0" : "ModMasq=1",
        "@ExitOnBrkp"
        );
-
-
-  /*return  "mm3d ScaleIm"
-          + BLANK + NameImOrMasq(ModeIm)
-          + BLANK + ToStr(mIm.mAppli.mRatioByL)
-          + BLANK + std::string("Out=")  + mDownLev->NameImOrMasq(ModeIm)
-          + std::string(ModeIm ? "" : " ModMasq=1")
-  ;*/
 }
 
 cParamCallSys cOneLevel::StrComReduceV2(bool ModeIm) const 
@@ -387,82 +377,6 @@ cParamCallSys cOneLevel::StrComReduceV2(bool ModeIm) const
    );
 
 }
-
-#if (MMVII_KEEP_LIBRARY_MMV1)
-void cOneLevel::CreateNuageLastFile(const std::string& Dir, const std::string& ImName)
-{
-
-    //read the depth map to read the image size
-    Tiff_Im     aImProfMMVII( (Dir + ImName).c_str());
-
-    //fill the XML_ParamNuage3DMaille structure
-    cXML_ParamNuage3DMaille aNMVII;
-    aNMVII.SsResolRef() = 1;
-    aNMVII.NbPixel() = aImProfMMVII.sz();
-
-    cPN3M_Nuage aPN;
-    cImage_Profondeur  aImP;
-    aImP.Image() = ImName;
-    std::string NameCorrel="./Correl_LeChantier_Num"+ToStr(mAppli.mNbLevel+1)+".tif";
-    std::string NameMasq="./AutoMask_LeChantier_Num"+ToStr(mAppli.mNbLevel+1)+".tif";
-    aImP.Correl() = NameCorrel;
-    aImP.Masq() = NameMasq;
-
-    aImP.OrigineAlti() = 0;
-    aImP.ResolutionAlti() = 1;
-    aImP.GeomRestit() = eGeomPxBiDim;
-
-    aPN.Image_Profondeur() = aImP;
-    aNMVII.PN3M_Nuage() = aPN;
-
-    cOrientationConique aOc;
-    cAffinitePlane aAP;
-    aAP.I00() = Pt2dr(0,0);
-    aAP.V10() = Pt2dr(1,0);
-    aAP.V01() = Pt2dr(0,1);
-    aOc.OrIntImaM2C() = aAP;
-
-    aOc.ZoneUtileInPixel() = true;
-    aOc.TypeProj() = eProjOrthographique;
-
-    cOrientationExterneRigide aEOR;
-    aEOR.Centre() = Pt3dr(0,0,0);
-    cRotationVect aRotVec;
-    cTypeCodageMatr aRotCode;
-    aRotCode.L1() = Pt3dr(1,0,0);
-    aRotCode.L2() = Pt3dr(0,1,0);
-    aRotCode.L3() = Pt3dr(0,0,1);
-    aRotVec.CodageMatr() = aRotCode;
-
-    aEOR.ParamRotation() = aRotVec;
-
-    aOc.Externe() = aEOR;
-
-    cConvOri aCOri;
-    aCOri.KnownConv() = eConvApero_DistM2C;
-    aOc.ConvOri() = aCOri;
-
-    aNMVII.Orientation() = aOc;
-
-
-    aNMVII.RatioResolAltiPlani() = 1;
-
-    cPM3D_ParamSpecifs aParSpec;
-    cModeFaisceauxImage aMFI;
-    aMFI.DirFaisceaux() = Pt3dr(0,0,1);
-    aMFI.ZIsInverse() = false;
-    aMFI.IsSpherik() = false;
-    aParSpec.ModeFaisceauxImage() = aMFI;
-    aNMVII.PM3D_ParamSpecifs() = aParSpec;
-
-    MakeFileXML(aNMVII,Dir+"MMLastNuage.xml");
-}
-#else
-void cOneLevel::CreateNuageLastFile(const std::string& Dir, const std::string& ImName)
-{
-    MMVII_INTERNAL_ERROR("This functionality requires compiling MMV2 with MMV1");
-}
-#endif
 
 
 std::string Index2Str(const cPt2di & aInd)
@@ -557,6 +471,16 @@ void cOneLevel::SaveGlobPx(const cParam1Match & aParam) const
 }
 
 
+void cOneLevel::SaveGlobSim(const cParam1Match & aParam) const
+{
+   // Read part of Cliped Px that has to be saved (e.q. without border)
+   cIm2D<tREAL4>  aImClipSim(aParam.mBoxOut.Sz());
+   cPt2di aDecInOut = aParam.mBoxOut.P0()-aParam.mBoxIn1.P0();
+   aImClipSim.Read(cDataFileIm2D::Create(NameClipPx(aParam.mIndex)+"_AutoSim.tif",eForceGray::No),aDecInOut);
+   aImClipSim.Write(cDataFileIm2D::Create(mAppli.mOutDir+NameSimOfIm(mNamePx),eForceGray::No),aParam.mBoxOut.P0());
+}
+
+
 
 void cOneLevel::EstimateIntervPx
      (
@@ -582,7 +506,6 @@ void cOneLevel::EstimateIntervPx
       double aRatio= mAppli.mRatioByL;
 
       // Be inialized with def values
-
       cDataFileIm2D aRedFilePx   = cDataFileIm2D::Create(mAppli.mOutDir+mDownLev->mNamePx,eForceGray::No);
       cDataFileIm2D aRedFileMasq = cDataFileIm2D::Create(mDownLev->mNameMasq,eForceGray::No);
 
@@ -799,9 +722,9 @@ cCollecSpecArg2007 & cAppli::ArgOpt(cCollecSpecArg2007 & anArgOpt)
          << AOpt2007(mModePad,"ModePad","Type of padding, default depend of match mode",{AC_ListVal<eModePaddingEpip>()})
          << AOpt2007(mRandPaded,"RandPaded","Generate random value for added pixel")
          << AOpt2007(mDivisorForModel,"DivisorForModel","Divisor for model, to define the size of input for regression model, ex : 32 for raft")
-         // Case sgm cuda
-         << AOpt2007(mModelPath,"Model2Call","Case when SGM CUDA IS TO BE LAUNCED WITH TRAINED CNN ?")
-         << AOpt2007(mModelDecisionPath,"ModelDecision2Call","Case when SGM CUDA IS TO BE LAUNCED WITH TRAINED CNN ?")
+         // Case Semi global matching
+         << AOpt2007(mModelPath,"Model2Call","Case When a similarity learning model is to be used ?")
+         << AOpt2007(mModelDecisionPath,"ModelDecision2Call","Additional MLP model for similarity learning ?")
          << AOpt2007(Penalty1,"Penalty1","Case when SGM CUDA GIVE Penalty1 default is 0.02 ?")
          << AOpt2007(Penalty2,"Penalty2","Case when SGM CUDA GIVE Penalty2 default is 1.0 ?")
          // -- Tuning
@@ -856,23 +779,24 @@ cParamCallSys cAppli::ComMatch(cParam1Match & aParam)
                  //"Inc="+ToStr(4000)
           );
        }
-       /*******************************************************************/
        case eModeEpipMatch::eMEM_UNETDECISION :
        {
-          if (Penalty1!="") mPenalty1=std::stof(Penalty1);
-          if (Penalty2!="") mPenalty2=std::stof(Penalty2);
           cParamCallSys aCom = cParamCallSys(
                          "MMVII",
-                         "SGMCUDA_IN_MM",
-                         mModelPath,
-                         mModelDecisionPath,
+                         "DM4FillCubeCost",
                          DirTmpOfCmd() + aParam.mClipNameIm1,
                          DirTmpOfCmd() + aParam.mClipNameIm2,
                          DirTmpOfCmd() + aParam.mClipNamePx,
-                         "P1=" + std::to_string(mPenalty1),
-                         "P2=" + std::to_string(mPenalty2)
-                                             );
+                         "MMVIISimLearned",
+                         "[0,0]",
+                         ToStr(aParam.mBoxIn1),
+                         ToStr(aParam.mBoxIn2),
+                         "MpiDumb",
+                         "CNNParams="+mModelPath,
+                         "UseCuda="+ToStr((mSpecGpu>=0))
+                        );
                  return aCom;
+                 StdOut() << "ComMatch Similarity Learning : " << aCom.Com() << "\n";
           break;
        }
        /*******************************************************************/
@@ -1041,10 +965,8 @@ void  cAppli::MatchOneLevel(int aLevel)
            /* case eModeEpipMatch::eMEM_RAFTStereo :
             aModePad = eModePaddingEpip::eMPE_NoPad;
             break;*/
-
             case eModeEpipMatch::eMEM_UNETDECISION  :
                  aModePad = eModePaddingEpip::eMPE_NoPad;
-                 aAmplMax = 0;
             break;
 
             case eModeEpipMatch::eMEM_NoMatch :
@@ -1113,7 +1035,13 @@ void  cAppli::MatchOneLevel(int aLevel)
             for (const auto & aParam : aLParam)
             {
                 if (aParam.mCanDoMatch)
+                {
                    aILev1.SaveGlobPx(aParam);
+                   if ((aLevel<mNbLevel) && 
+                        (mModeMatchCur==eModeEpipMatch::eMEM_UNETDECISION)
+                     )
+                     aILev1.SaveGlobSim(aParam);
+                }
             }
             // empty all that for next computation not to redo the same stuff
             aLComClip.clear();
@@ -1151,7 +1079,7 @@ int cAppli::Exe()
             case eModeEpipMatch::eMEM_MMV1      :  mModePad = eModePaddingEpip::eMPE_NoPad; break;
             case eModeEpipMatch::eMEM_PSMNet    :  mModePad = eModePaddingEpip::eMPE_PxNeg; break;
             case eModeEpipMatch::eMEM_RAFTStereo:  mModePad = eModePaddingEpip::eMPE_SzEq; break;
-            case eModeEpipMatch::eMEM_UNETDECISION :    mModePad = eModePaddingEpip::eMPE_PxNeg; break;
+            case eModeEpipMatch::eMEM_UNETDECISION :    mModePad = eModePaddingEpip::eMPE_NoPad; break;
             case eModeEpipMatch::eMEM_NoMatch   :  mModePad = eModePaddingEpip::eMPE_NoPad; break;
             case eModeEpipMatch::eNbVals        :                                             break;
        }
@@ -1249,14 +1177,8 @@ int cAppli::Exe()
               "NbProc=6"
               //"@ExitOnBrkp"
            );
-        StdOut()<<"Correlation command: -> "<<aCom.Com()<<std::endl;
         ExeComSerial({aCom},true);
      }
-   // Save Output MMLastNuage.xml
-    cOneLevel & aLastLevel = Im1().LevAt(0);
-    aLastLevel.CreateNuageLastFile(mOutDir,mOutPx);
-
-
    return EXIT_SUCCESS;
 }
 

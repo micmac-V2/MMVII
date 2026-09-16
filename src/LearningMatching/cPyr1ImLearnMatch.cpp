@@ -32,7 +32,7 @@ cPyr1ImLearnMatch::cPyr1ImLearnMatch
     else
         mPyr->ImTop().Read(cDataFileIm2D::Create(mNameIm,eForceGray::Yes),mBox.P0());
 
-    mPyr->ComputGaussianFilter();
+    mPyr->ComputGaussianPyram();
 
     // Compute the filtered images used for having "invariant" gray level
         // Filter to have a local average

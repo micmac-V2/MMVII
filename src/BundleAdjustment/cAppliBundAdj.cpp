@@ -79,6 +79,7 @@ struct cGCP2D
         )
 };
 
+
 struct cLidarPhotograParam
 {
     eImatchCrit Mode;
@@ -128,14 +129,16 @@ struct cLidarLidarParam
     double ThresholdInit = 1;
     double ThresholdFinal = 0.1;
     double NormalTolDeg = 15;
-    std::vector<std::string> Interp = {"Linear"};
+    cWeighterParam ModeWeighter;
+    std::vector<std::string> InterpD = {"Linear"};
     ARG2007_STRUCT_FIELDS (
         PatScan,FieldSem({eTA2007::AddCom,"Pattern of scan names to use"}),
         Sigma,FieldSem({eTA2007::AddCom,"Sigma factor"}),
         ThresholdInit,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold at first iteration, <0 = infinite"}}),
         ThresholdFinal,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold at last iteration, <0 = infinite"}}),
         NormalTolDeg,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Max normal angle tolerance (degrees)"}}),
-        Interp,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Interpolator used to sample scans"}})
+        ModeWeighter,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Weighter"}}),
+        InterpD,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Distance interpolator"}})
         )
 };
 
@@ -313,7 +316,7 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mPostFixReport,NameParamPostFixReport(),CommentParamPostFixReport())
       << AOpt2007(mParamLine,"AdjLine3D","Parameter for line Adjustment")
 
-       << cHeaderSectionArg("Topo")
+      << cHeaderSectionArg("Topo")
       << mPhProj.DPTopoMes().ArgDirInOpt("TopoDirIn","Dir for Topo measures") //  TOPO
       << mPhProj.DPTopoMes().ArgDirOutOpt("TopoDirOut","Dir for Topo measures output") //  TOPO
 
@@ -593,7 +596,7 @@ int cAppliBundlAdj::Exe()
     {
         mMeasureAdded = true;
         mBA.Add1AdjLidarLidar(aParam.PatScan, aParam.Sigma, aParam.ThresholdInit,
-                              aParam.ThresholdFinal, aParam.NormalTolDeg, aParam.Interp);
+                              aParam.ThresholdFinal, aParam.NormalTolDeg, aParam.InterpD, aParam.ModeWeighter);
     }
 
     if (mCheckMeasureAdded)
