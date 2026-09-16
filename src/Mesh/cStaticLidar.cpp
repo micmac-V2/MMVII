@@ -678,7 +678,7 @@ void cStaticLidarImporter::MakeIdImage(const std::string & aNameFile) const
             cPt2di aPcl(mVectPtsCol[i],mVectPtsLine[i]);
 
             float aValDist = 127 * (1+cos(2*M_PI*10*(mVectPtsTPD[i].z()-aDistMin)/(aDistMax-aDistMin)));
-            float aVal = HasIntensity() ? (mVectPtsIntens[i]-aIntensMin)/(aIntensMax-aIntensMin) :  aValDist;
+            float aVal = HasIntensity() ? 255.*(mVectPtsIntens[i]-aIntensMin)/(aIntensMax-aIntensMin) :  aValDist;
             if (aVal<0)
                 aVal =0;
             if (aVal>255)
