@@ -93,6 +93,8 @@ template <class Type>  class cElemSpaceResection
            Type  rABC;  ///<   mD2AB / mD2AC
            Type  rCBA;  ///<   mD2CB / mD2CA
 
+           bool  mIsOk;
+
            // std::list<tPairBC>  mListPair;
 };
 
@@ -125,14 +127,23 @@ template <class Type>
         mSqPerimG ( gD2AB + gD2AC + gD2BC),
 
         rABC  (gD2AB/gD2AC),
-        rCBA  (gD2BC/gD2AC)
+        rCBA  (gD2BC/gD2AC),
+        mIsOk (ValidFloatValue(rABC)&& ValidFloatValue(rCBA) ) //  && ValidFloatValue(A) && ValidFloatValue(B) && ValidFloatValue(C) )
 {
+
 }
 
 
 
 template <class Type> std::list<cPtxd<Type,3>>  cElemSpaceResection<Type>::ComputeBC() const
 {
+    if (! mIsOk)
+       return {};
+
+ //   static int aCpt=0 ; aCpt++;
+ //   bool Bug = (aCpt==369);
+
+    //StdOut() << "ComputeBCComputeBC, CPT=" << aCpt << " OK "  << mIsOk << "\n";
 /*
       3 direction  of bundles  A,B,C   we have made ||A|| = ||B|| = ||C|| = 1
       We parametrize 3 point on the bundle by 2 parameters b & c:
@@ -172,6 +183,7 @@ template <class Type> std::list<cPtxd<Type,3>>  cElemSpaceResection<Type>::Compu
     cPolynom<Type> aQc =  tPol::D0(Square(abb)) - aPc;
 
 
+
   //  Now we can eliminate b using :   b =  - AB.B + E S(Q(c))   E in {-1,1}
 /* ======================== (2) resolve c =====================
     2nd conservation  of ratio
@@ -197,6 +209,8 @@ template <class Type> std::list<cPtxd<Type,3>>  cElemSpaceResection<Type>::Compu
     tPol  aRc =   aPol_AC_C *rCBA  -  aQc  -  PolSqN(BC +  abb*B  ,C);
     tPol  aLc ({Scal(BC,B)+abb,Scal(B,C)});
     tPol aSolver = Square(aRc) - aQc * Square(aLc) * 4;
+
+
     std::vector<Type> aVRoots = aSolver.RealRoots (1e-30,60);
 
     std::list<tResBC> aRes;
