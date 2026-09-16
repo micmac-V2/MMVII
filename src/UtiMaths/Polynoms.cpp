@@ -251,11 +251,24 @@ getchar();
     // return V1RealRoots(mVCoeffs,aTol,ItMax);
 
 
-template <class Type> std::vector<Type>  V2RealRoots(const cPolynom<Type> &  aPol, Type aTol,int aNbMaxIter)
+template <class Type> std::vector<Type>  V2RealRoots(const cPolynom<Type> &  aPol0, Type aTol,int aNbMaxIter)
 {
-    cEigenPolynRoots<Type> aEPR(aPol,aTol,aNbMaxIter);
+    //StdOut() << "BENCH V2RealRoots\n";
 
-    return aEPR.RealRoots();
+    // Supress all highest degree null coeff because of method used in comapgnion matrix
+    cPolynom<Type> aPol = aPol0;
+    std::vector<Type>  aVC = aPol.VCoeffs();
+    while ((! aVC.empty()) && (aVC.back()==0))
+        aVC.pop_back();
+    MMVII_INTERNAL_ASSERT_always(! aVC.empty(),"Roots of null polynom");
+    aPol = cPolynom<Type>(aVC);
+
+
+    cEigenPolynRoots<Type> aEPR(aPol,aTol,aNbMaxIter);
+    std::vector<Type> aVRoots =  aEPR.RealRoots();
+
+
+    return aVRoots;
 }
 
 

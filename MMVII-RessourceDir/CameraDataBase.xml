@@ -59,6 +59,15 @@
             </V>
          </Pair>
          <Pair>
+            <K>"Canon EOS R5"</K>
+            <V>
+               <Name>"Canon EOS R5"</Name>
+               <SzPix_micron>4.39 4.39</SzPix_micron>
+               <SzSensor_mm>24 36</SzSensor_mm>
+               <NbPixels>8192 5464</NbPixels>
+            </V>
+         </Pair>
+         <Pair>
             <K>"DC-GX9"</K>
             <V>
                <Name>"DC-GX9"</Name>
