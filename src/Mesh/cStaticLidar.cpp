@@ -1230,6 +1230,8 @@ void cStaticLidar::FixPtPxLoopAroundPP(cPt2dr &aPtPx) const
 
 cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
 {
+    double aTargetPrecision = 1e-4;
+
     MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
     //std::cout<<"  Ground2ImagePrecise for point "<<aGroundPt<<"\n";
     cPt2dr aDirCam3DTheoretical = InternalCalib()->Dir_Proj()->Value(Pose().Inverse(aGroundPt));
@@ -1240,11 +1242,13 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
 
     // test if int value
     cPt2di aPtRasterRounded(round(aPtRaster.x()),round(aPtRaster.y()));
-    if (Norm2(aPtRaster - cPt2dr(aPtRasterRounded.x(),aPtRasterRounded.y()))< 1e-5)
+    cPt3dr aPtCam3DRounded = Image2Camera3D(aPtRasterRounded);
+    if ((Norm2(aPtCam3DRounded)>0.) &&
+        (Norm2(aPtRaster - cPt2dr(aPtRasterRounded.x(),aPtRasterRounded.y()))< aTargetPrecision))
     {
         // in this case Image2Camera3D will not use GetVBL => works on first and last columns
-        cPt2dr aDirTest = InternalCalib()->Dir_Proj()->Value(Image2Camera3D(aPtRasterRounded));
-        if (Norm2(aDirTest - aDirCam3DTheoretical)< 1e-5)
+        cPt2dr aDirTest = InternalCalib()->Dir_Proj()->Value( aPtCam3DRounded );
+        if (Norm2(aDirTest - aDirCam3DTheoretical)< aTargetPrecision)
         {
             //std::cout<<"  skip iter\n";
             return aPtRaster;
@@ -1256,28 +1260,36 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
     if (IsNull(aPtCam3D))
     {
         // we have no data for this point => use default Ground2Image
-        return cSensorCamPC::Ground2Image(aGroundPt);
+        //std::cout<<"PB Ground2ImagePrecise!!\n";
+        return cPt2dr::Dummy();//cSensorCamPC::Ground2Image(aGroundPt);
     }
 
     cPt2dr aDirTest = InternalCalib()->Dir_Proj()->Value(aPtCam3D);
-    if (Norm2(aDirTest - aDirCam3DTheoretical)< 1e-5)
+    if (Norm2(aDirTest - aDirCam3DTheoretical)< aTargetPrecision)
     {
         //std::cout<<"  skip iter\n";
         return aPtRaster;
     }
 
-    for (int i = 0; i<3; ++i)
+    int aMaxIter = 10;
+    for (int i = 0; i<aMaxIter; ++i)
     {
         //std::cout<<"   raster: "<<aPtRaster<<"\n";
         cPt2di aPtRasterUL((int)aPtRaster.x(), (int)aPtRaster.y());
         cPt2di aPtRasterLR((int)aPtRaster.x()+1, (int)aPtRaster.y()+1);
         cPt3dr aPtCam3DUL = Image2Camera3D(aPtRasterUL);
         if (IsNull(aPtCam3DUL))
-            return aPtRaster; // impossible to continue
+        {
+            //std::cout<<"PB Ground2ImagePrecise!! "<<i<<"\n";
+            return cPt2dr::Dummy(); // impossible to continue
+        }
         cPt2dr aDirUL = InternalCalib()->Dir_Proj()->Value(aPtCam3DUL);
         cPt3dr aPtCam3DLR = Image2Camera3D(aPtRasterLR);
         if (IsNull(aPtCam3DLR))
-            return aPtRaster; // impossible to continue
+        {
+            //std::cout<<"PB Ground2ImagePrecise!! "<<i<<"\n";
+            return cPt2dr::Dummy(); // impossible to continue
+        }
         cPt2dr aDirLR = InternalCalib()->Dir_Proj()->Value(aPtCam3DLR);
         //std::cout<<"   Dirs: "<<aDirUL<<" "<<aDirLR<<"\n";
         float aDiffDirX = aDirLR.x()-aDirUL.x();
@@ -1292,8 +1304,22 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
                                         : aPtRasterUL.y();
         aPtRaster = {aBetterX, aBetterY};
         FixLoopPixelsInImage(aPtRaster);
+
+        aPtCam3D = Image2Camera3D(aPtRaster);
+        if (IsNull(aPtCam3D))
+        {
+            //std::cout<<"PB Ground2ImagePrecise!! "<<i<<"\n";
+            return cPt2dr::Dummy(); // impossible to continue
+        }
+        aDirTest = InternalCalib()->Dir_Proj()->Value(aPtCam3D);
+        if (Norm2(aDirTest - aDirCam3DTheoretical)< aTargetPrecision)
+        {
+            return aPtRaster;
+        }
     }
-    return aPtRaster;
+
+    //std::cout<<"Ground2ImagePrecise not precise: "<<Norm2(aDirTest - aDirCam3DTheoretical)<<"\n";
+    return cPt2dr::Dummy();
 }
 
 cPt2dr cStaticLidar::Ground2Image(const cPt3dr & aGroundPt) const
