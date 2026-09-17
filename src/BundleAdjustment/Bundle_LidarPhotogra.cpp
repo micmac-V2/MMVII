@@ -134,6 +134,8 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
                 const cPt2di & aPtScan = *aPatch.mLPatchesP.begin(); // center is 1st point
                 cPt3dr aPtGround = aScanDataA.mLidarRaster->Image2Ground(aPtScan);
                 cPt2dr aPtImage = aCam->Ground2Image(aPtGround);
+                if (!aPtImage.IsValid())
+                    continue;
                 cPt3dr aPtCam3D = aCam->Pt_W2L(aPtGround);
                 tREAL4 aDistWithTolerance = aZbufWithDist ?
                                             -(Norm2(aPtGround - aCam->Center()) - aDistTolerance) :
@@ -701,6 +703,8 @@ void  cBA_LidarPhotogra::Add1Patch(const cBasicWeighter<tREAL8> &aWeighter,
                    if (aCam->IsVisible(aPGround))  // is the point visible in the camera
                    {
                         cPt2dr aPIm = mBA.VSCPC()[aKIm]->Ground2Image(aPGround); // extract the image  projection
+                       if (!aPIm.IsValid())
+                           continue;
                         if (aGenDIm.InsideInterpolator(*mInterp,aPIm,1.0))  // is it sufficiently inside
                         {
                             auto aVGr = aGenDIm.GetValueAndGradInterpol(*mInterp,aPIm); // extract pair Value/Grad of image
@@ -1271,6 +1275,8 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             aData.mScanAName = aScanA->NameImage();
             aData.mScanBName = aScanB->NameImage();
             cPt2dr aPIm = aScanB->Ground2Image(aPGround); // extract the image  projection
+            if (!aPIm.IsValid())
+                continue;
             #ifdef SCANSCANDEBUG
             std::cout<<" projection :"<<aPIm<<"\n";
             #endif

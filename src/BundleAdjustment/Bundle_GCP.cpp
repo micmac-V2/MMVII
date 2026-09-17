@@ -220,16 +220,14 @@ void cMMVII_BundleAdj::OneItere_GCP()
                 //cPt2dr aPtGrProjected = aSens->Ground2Image(aPGr);  ///TODO : l'un ou l'autre
                 //aSens->FixPtPxLoopAroundPP(aPtGrProjected); // be in the same case as aPIm
                 cPt2dr aResidual = aPIm - aSens->Ground2Image(aPGr);
+                if (!aResidual.IsValid())
+                    continue;
                 aSens->FixLoopPixelsResiduals(aResidual);
                 tREAL8 aWeightImage =   aGCPIm_Weighter.SingleWOfResidual(aResidual);
 
                 cResidualWeighterExplicit<tREAL8> aWeighter(true, {aWeightImage, aWeightImage});
                 if (aWeightImage==0)
                     continue; // eliminated
-                aNbImVis++;
-                aWeightedSqRes.Add(aWeightImage,SqN2(aResidual));
-
-                aUW_SqRes.Add(1.0,SqN2(aResidual));
                 cCalculator<double> * anEqColin = nullptr;
 
                 // the "obs" are made of 2 point and, possibily, current rotation (for PC cams)
@@ -243,7 +241,11 @@ void cMMVII_BundleAdj::OneItere_GCP()
                     // because formula uses simple projection for derivation
                     // that is not correct due to approx internal calib
                     cPt2dr aGCPImPrecise = aStaticLidar->Ground2Image(aPGr);
+                    if (!aGCPImPrecise.IsValid())
+                        continue;
                     cPt2dr aGCPImApprox = aStaticLidar->cSensorCamPC::Ground2Image(aPGr);
+                    if (!aGCPImPrecise.IsValid())
+                        continue;
                     cPt2dr aErrProj = aGCPImPrecise-aGCPImApprox;
                     aSens->FixLoopPixelsResiduals(aErrProj);
                     //std::cout<<" diff "<<aGCPImPrecise<<" "<<aGCPImApprox<<" -> "<<aErrProj<<"\n";
@@ -265,6 +267,11 @@ void cMMVII_BundleAdj::OneItere_GCP()
                     aStaticLidar->PushOwnObsColinearityDistance(aVObs,aMesDistance);
                     aWeightedSqResDist.Add(aStaticLidar->Sigma(),Square(aMesDistance-Norm2(aPGr-aStaticLidar->Center())));
                 }
+
+                // obs is validated
+                aNbImVis++;
+                aWeightedSqRes.Add(aWeightImage,SqN2(aResidual));
+                aUW_SqRes.Add(1.0,SqN2(aResidual));
 
                 if (aGcpUk)  // Case Uknown, we just add the equation
                 {
