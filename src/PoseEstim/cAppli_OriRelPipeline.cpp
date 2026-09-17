@@ -24,6 +24,7 @@ class cAppli_OriRelPipeline : public cMMVII_Appli
 
         cPhotogrammetricProject   mPhProj;
         std::string               mPatIm;
+        eDistrVirTPs              mDistribVirTPs;
      //   std::string               mOriRelOut;
      //   std::string               mOriGlobOut;
         bool                      mExe;
@@ -32,6 +33,7 @@ class cAppli_OriRelPipeline : public cMMVII_Appli
 cAppli_OriRelPipeline::cAppli_OriRelPipeline(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
     cMMVII_Appli  (aVArgs,aSpec),
     mPhProj (*this),
+    mDistribVirTPs(eDistrVirTPs::e5Pts),
 //    mOriRelOut("Relative"),
 //    mOriGlobOut("Global"),
     mExe(true)
@@ -50,12 +52,19 @@ cCollecSpecArg2007 & cAppli_OriRelPipeline::ArgObl(cCollecSpecArg2007 & anArgObl
 cCollecSpecArg2007 & cAppli_OriRelPipeline::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return anArgOpt
-           <<  mPhProj.DPOrient().ArgDirOutOpt("","Output Ori: if set, the global orientation is computed")
+           <<  AOpt2007(mExe,"Exe","Execute pipeline",{eTA2007::HDV})
+           << cHeaderSectionArg("Input for tie points")
            <<  mPhProj.DPMulTieP().ArgDirInOpt()
            <<  mPhProj.DPTieP().ArgDirInOpt()
            <<  mPhProj.DPGndPt2D().ArgDirInOpt()
+
+           << cHeaderSectionArg("Export virtual points")
            <<  mPhProj.DPMulTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
-           <<  AOpt2007(mExe,"Exe","Execute pipeline",{eTA2007::HDV});
+           << AOpt2007(mDistribVirTPs,"DistribVirTP","Distribution of virtual tie points",{eTA2007::HDV})
+
+           << cHeaderSectionArg("Run global orientation")
+           <<  mPhProj.DPOrient().ArgDirOutOpt("","Output Ori: if set, the global orientation is computed")
+        ;
 }
 
 int cAppli_OriRelPipeline::Exe()

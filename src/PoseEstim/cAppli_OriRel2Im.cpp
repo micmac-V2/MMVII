@@ -856,7 +856,7 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt
             <<  mPhProj.DPGndPt2D().ArgDirInOpt();
 
      if (mModeCompute!=0)
-            anArgOpt << cHeaderSectionArg("Export virtual")
+            anArgOpt << cHeaderSectionArg("Export virtual points")
              <<  mPhProj.DPTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
              << AOpt2007(mDistribVirTPs,"DistribVirTP","Distribution of virtual tie points",{eTA2007::HDV});
 

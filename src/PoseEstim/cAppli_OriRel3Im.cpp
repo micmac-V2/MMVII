@@ -761,15 +761,20 @@ cCollecSpecArg2007 & cAppli_OriRelTripletsOfIm::ArgObl(cCollecSpecArg2007 & anAr
 cCollecSpecArg2007 & cAppli_OriRelTripletsOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
    return       anArgOpt
+           << cHeaderSectionArg("Input for tie points")
             <<  mPhProj.DPTieP().ArgDirInOpt()
             <<  mPhProj.DPGndPt2D().ArgDirInOpt()
             <<  mPhProj.DPMulTieP().ArgDirInOpt()
+
+           << cHeaderSectionArg("Export virtual points")
+           << mPhProj.DPMulTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
+           << AOpt2007(mDistribVirTPs,"DistribVirTP","Distribution of virtual tie points",{eTA2007::HDV})
+
+            << cHeaderSectionArg("Testing")
             <<  AOpt2007(mRanTrR,"RanTrR","Random for Trans&Rot (test & tune)",{eTA2007::HDV})
             <<  AOpt2007(mShow,"Show","Show details of result",{eTA2007::HDV})
             <<  AOpt2007(mUseOri4GT,"UseOriGT","Set if orientation contains also exterior as a ground truth",{eTA2007::HDV})
-            <<  AOpt2007(mFolderOriGT,"OriGT","If ground truth ori != calib")
-            << mPhProj.DPMulTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
-            << AOpt2007(mDistribVirTPs,"DistribVirTP","Distribution of virtual tie points",{eTA2007::HDV});;
+            <<  AOpt2007(mFolderOriGT,"OriGT","If ground truth ori != calib");
    ;
 }
 
