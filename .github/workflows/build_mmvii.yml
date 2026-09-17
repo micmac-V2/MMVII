@@ -255,7 +255,7 @@ jobs:
       run: |
         rm -fr bin/Makefile* bin/*.makefile bin/MMVII-* bin/*.lib  MMVII-TestDir/Tmp/
         mkdir -p MMVII
-        cp -a MMVII-LocalParameters/ MMVII-RessourceDir/ MMVII-TestDir/ bash-completion/ bin/ share/ MMVII/
+        cp -a README.md MMVII-LocalParameters/ MMVII-RessourceDir/ MMVII-TestDir/ bash-completion/ bin/ share/ MMVII/
         MMVII_BINDIR=$(pwd)/MMVII/bin
         
         # dll for PROJ, GDAL
@@ -266,6 +266,8 @@ jobs:
         cp -a libssh2.dll libssl-3-x64.dll libwebp.dll libxml2.dll lz4.dll pcre2-8.dll proj_9.dll psl-*.dll snappy.dll spatialite.dll ${MMVII_BINDIR}/
         cp -a sqlite3.dll tiff.dll xerces-c*.dll zlib.dll zstd.dll ${MMVII_BINDIR}/
         cd $GITHUB_WORKSPACE
+
+        cp -a /C/miniconda/envs/test/Library/share/proj/* MMVII/share/proj/
 
         # Qt5 for vMMMVII
         mkdir -p MMVII/bin/platforms
