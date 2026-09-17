@@ -383,6 +383,18 @@ bool ModResBund_IsModeGen(eModResBund aMode)
     return  ((int) aMode <= (int) eModResBund::eProduct) ;
 }
 
+int NbPtsOfDistrib(eDistrVirTPs aType)
+{
+    switch (aType)
+    {
+    case eDistrVirTPs::e5Pts : return 5; break;
+    case eDistrVirTPs::e9Pts : return 9; break;
+    case eDistrVirTPs::e27Pts : return 27; break;
+    default : MMVII_INTERNAL_ERROR("NbPtsOfDistrib: unhandled eDistrVirTPs value");
+    }
+
+    return 0.0;
+}
 
 template<> cE2Str<eMTDIm>::tMapE2Str cE2Str<eMTDIm>::mE2S
            {
