@@ -276,6 +276,8 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpecRename);
         TheVecAll.push_back(&TheSpecRenameSubFolder);
         TheVecAll.push_back(&TheSpec_V2ImportCalib);
+        TheVecAll.push_back(&TheSpec_CalibIndiv);
+
         TheVecAll.push_back(&TheSpec_ImportOri);
         TheVecAll.push_back(&TheSpecDicoRename);
         TheVecAll.push_back(&TheSpec_SimulDispl);

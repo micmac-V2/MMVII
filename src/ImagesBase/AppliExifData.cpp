@@ -67,6 +67,10 @@ private :
 
     cPhotogrammetricProject  mPhgrProj;
     std::string    mNameIn;  ///< Input image name
+    std::string    mPatSelectTag;
+    std::string    mPatRefuteTag;
+
+
     eDispExif      mDisp;
     cExifData      mCurXif;
     std::size_t    mHash;
@@ -75,7 +79,20 @@ private :
     std::map<std::size_t,std::list<std::string>>  mMergedNames;
     std::map<std::string,std::size_t>             mName2Hash;
 
+    bool  SelectTag(const std::string & aTag);
+
 };
+
+bool  cAppli_ImageMetada::SelectTag(const std::string & aTag)
+{
+    if (IsInit(&mPatSelectTag) && (! MatchRegex(aTag,mPatSelectTag)))
+        return false;
+
+    if (IsInit(&mPatRefuteTag) && ( MatchRegex(aTag,mPatRefuteTag)))
+        return false;
+
+    return true;
+}
 
 
 cAppli_ImageMetada:: cAppli_ImageMetada(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec,bool isBasic) :
@@ -99,9 +116,13 @@ cCollecSpecArg2007 & cAppli_ImageMetada::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return
         anArgOpt
-        <<   AOpt2007(mDisp,"Disp","What to display in enum values",{eTA2007::HDV})
+            <<   AOpt2007(mDisp,"Disp","What to display in enum values",{eTA2007::HDV})
+            <<   AOpt2007(mPatSelectTag,"PatSelKey","Pattern for selecting keys used")
+            <<   AOpt2007(mPatRefuteTag,"PatRefuteKey","Pattern for refuting keys used")
+
         ;
 }
+
 
 std::vector<cOneHelpSampleCmp>  cAppli_ImageMetada::Samples() const
 {
@@ -132,6 +153,9 @@ std::ostream& operator<<(std::ostream& os, std::optional<T> const& opt)
 
 template <class Type>  void cAppli_ImageMetada::FunctionDispExif(const std::string& aNameKey,const Type & aValue)
 {
+    if (!SelectTag(aNameKey))
+        return;
+
     if (mIterPrint)
        StdOut() << Color::command << "  -(exif) "<< aNameKey << Color::end << ": "  << aValue << std::endl;
     hash_combine(mHash,aNameKey);
@@ -145,6 +169,9 @@ template <class TypeXif,class TypeMMVI2>
              const TypeMMVI2 &aValV2,const TypeMMVI2 & aDefV2
         )
 {
+       if (!SelectTag(aXifName))
+           return;
+
        bool HasV2 = (aValV2 != aDefV2);
        bool HasXif = mCurXif.Valid() && aXifVal.has_value();
        bool V2EqXif = HasV2 && HasXif && (aXifVal.value()==aValV2);
