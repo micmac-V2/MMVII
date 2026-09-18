@@ -115,9 +115,10 @@ void cMMVII_BundleAdj::OneItere_GCP()
     const std::vector<cMultipleImPt> & aVMesIm  = aSet.MesImOfPt() ;
     const std::vector<cSensorImage*> & aVSens   = aSet.VSens() ;
 
-    cWeightAv<tREAL8,tREAL8> aWeightedSqRes;
-    cWeightAv<tREAL8,tREAL8> aWeightedSqResDist;
-    cWeightAv<tREAL8,tREAL8> aUW_SqRes;
+    cWeightAv<tREAL8,tREAL8> aWeightedSqRes;   // Weighted Residual for 2D reproj of point with their initial coord
+    cWeightAv<tREAL8,tREAL8> aWeightedSqResDist; // Residual of distance for Lidar Case
+    cWeightAv<tREAL8,tREAL8> aUW_SqRes;          // Un-weighted residual
+    cWeightAv<tREAL8,tREAL8> aUW_NewGCPSqRes;
 
     // StdOut() << "GCP " << aVMesGCP.size() << " " << aVMesIm.size() << " " << aVSens.size() << std::endl;
 
@@ -180,6 +181,8 @@ void cMMVII_BundleAdj::OneItere_GCP()
         const cPt3dr & aPGr = aVMesGCP.at(aKp).mPt;
        // const cPt3dr & aPtSigmas = aVMesGCP.at(aKp).SigmasXYZ();
         cPt3dr_UK * aPtrGcpUk =  aGcpUk ? aGCP_UK[aKp] : nullptr;
+
+
         cSetIORSNL_SameTmp<tREAL8>  aStrSubst(aPGr.ToStdVector(),aVIndFix);
 
         const std::vector<cPt2dr> & aVPIm  = aVMesIm.at(aKp).VMeasures();
@@ -230,6 +233,11 @@ void cMMVII_BundleAdj::OneItere_GCP()
                 aWeightedSqRes.Add(aWeightImage,SqN2(aResidual));
 
                 aUW_SqRes.Add(1.0,SqN2(aResidual));
+                if (aPtrGcpUk)
+                {
+                    cPt2dr aResNew = aPIm - aSens->Ground2Image(aPtrGcpUk->Pt());
+                    aUW_NewGCPSqRes.Add(1.0,SqN2(aResNew));
+                }
                 cCalculator<double> * anEqColin = nullptr;
 
                 // the "obs" are made of 2 point and, possibily, current rotation (for PC cams)
@@ -322,9 +330,13 @@ void cMMVII_BundleAdj::OneItere_GCP()
     {
         // ---------- Print residual on 2D-Proj of GGP ------
         if (aWeightedSqRes.Nb()!=0)
-            StdOut() << Color::argument << " *[GGP ]: " << Color::end
+            StdOut() << Color::argument << " *[GGP ],coord-3D init: " << Color::end
                      << Color::descr << " Weighted=" << Color::end <<  std::sqrt(aWeightedSqRes.Average())
                      << Color::descr  << "  Un-Weigthed=" << Color::end  << std::sqrt(aUW_SqRes.Average()) ;
+
+        if (aUW_NewGCPSqRes.Nb() !=0)
+            StdOut()  << Color::argument << " coord-3D new : " << Color::end
+                    << Color::descr  << "  UW=" << Color::end  << std::sqrt(aUW_NewGCPSqRes.Average()) ;
 
         // For LIDAR print 3D resisdual
         if (aWeightedSqResDist.Nb()>0)
