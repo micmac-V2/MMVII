@@ -18,12 +18,27 @@
 namespace MMVII
 {
 
-void cMMVII_Appli::ChgName(const std::vector<std::string> & aPatSubst,std::string & aName) const
+bool cMMVII_Appli::ChgName(const std::vector<std::string> & aPatSubst,std::string & aName) const
 {
    if (IsInit(&aPatSubst))
+   {
       aName = ReplacePattern(aPatSubst.at(0),aPatSubst.at(1),aName);
+      return true;
+   }
+   return false;
 }
 
+bool cMMVII_Appli::ChgNameIfMatch(const std::vector<std::string> & aPatSubst,std::string & aName) const
+{
+   if (IsInit(&aPatSubst) && MatchRegex(aName,aPatSubst.at(0)))
+   {
+      aName = ReplacePattern(aPatSubst.at(0),aPatSubst.at(1),aName);
+      return true;
+   }
+   return false;
+}
+
+//void cMMVII_Appli::ChgName(const std::vector<std::string> & aPatSubst,std::string & aName) const
 
 
 /* ==================================================== */

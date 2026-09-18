@@ -12,6 +12,126 @@
 namespace MMVII
 {
 
+
+
+class cAppli_CalibIndiv : public cMMVII_Appli
+{
+     public :
+        cAppli_CalibIndiv(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec);
+        int Exe() override;
+        cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
+        cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
+     private :
+
+        cPhotogrammetricProject  mPhProj;
+
+        // Optionnal Arg
+        std::string              mPatIm;
+        std::string              mPatDupCurVal;
+        std::vector<std::string> mCalCalibIdent;
+      //  std::vector<std::string>              mPatter;
+
+        // std::vector<cOneHelpSampleCmp>  Samples() const override;
+
+        std::map<std::string,cSensorCamPC*> mMapCamPC;
+
+};
+
+
+cAppli_CalibIndiv::cAppli_CalibIndiv(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
+   cMMVII_Appli  (aVArgs,aSpec),
+   mPhProj       (*this)
+{
+}
+
+
+
+cCollecSpecArg2007 & cAppli_CalibIndiv::ArgObl(cCollecSpecArg2007 & anArgObl)
+{
+    return anArgObl
+           << Arg2007(mPatIm,"Pattern of images",{{eTA2007::MPatFile,"0"},{eTA2007::FileDirProj}})
+           <<  mPhProj.DPOrient().ArgDirInMand()
+           <<  mPhProj.DPOrient().ArgDirOutMand()
+        ;
+}
+
+
+cCollecSpecArg2007 & cAppli_CalibIndiv::ArgOpt(cCollecSpecArg2007 & anArgObl)
+{
+
+    return anArgObl
+             << AOpt2007(mPatDupCurVal,"PatInit","Pattern of images for wich we copy current value")
+             << AOpt2007(mCalCalibIdent,"ComputeIdent","Pattern for computing identier from name image [PatMatch,Expr]")
+
+        //  << AOpt2007(mNbDigName,"NbDigName","Number of digit for name, if fixed size required (only if int)")
+        //  << AOpt2007(mL0,"NumL0","Num of first line to read",{eTA2007::HDV})
+        //  << AOpt2007(mLLast,"NumLast","Num of last line to read (-1 if at end of file)",{eTA2007::HDV})
+        //  << AOpt2007(mPatternTransfo,"PatName","Pattern for transforming name (first sub-expr)")
+        ;
+}
+
+
+int cAppli_CalibIndiv::Exe()
+{
+    mPhProj.FinishInit();
+
+    mPhProj.CpSysCoIn2Out(true,true);
+    std::vector aVstr = VectMainSet(0);
+
+    for (const std::string & aNameIm : aVstr)
+    {
+        StdOut() << "  INIT " << aNameIm << "\n";
+        cSensorCamPC* aCamPC = mPhProj.ReadCamPC(aNameIm,true);
+        mMapCamPC[aNameIm] = aCamPC;
+
+        std::string aCurName = aCamPC->InternalCalib()->Name();
+        std::string aNewName  = aCurName;
+        bool DoSave = false;
+
+        if (IsInit(&mPatDupCurVal) && MatchRegex(aNameIm,mPatDupCurVal))
+        {
+            DoSave = true;
+        }
+
+        std::string aDupName = aNameIm;
+        if (ChgNameIfMatch(mCalCalibIdent,aDupName))
+        {
+            aNewName = aDupName;
+            DoSave = true;
+        }
+
+        if (DoSave)
+        {
+            aCamPC->InternalCalib()->SetName(aNewName);
+            mPhProj.SaveCamPC(*aCamPC);
+            // we need to retore initial name, because woul create incoherence when re-read ...
+            aCamPC->InternalCalib()->SetName(aCurName);
+        }
+
+    }
+
+    return EXIT_SUCCESS;
+}
+
+
+tMMVII_UnikPApli Alloc_CalibIndiv(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
+{
+   return tMMVII_UnikPApli(new cAppli_CalibIndiv(aVArgs,aSpec));
+}
+
+cSpecMMVII_Appli  TheSpec_CalibIndiv
+(
+     "CalibPerIm",
+      Alloc_CalibIndiv,
+      "Make an orientation with calibration diff for each image/group",
+      {eApF::Ori},
+      {eApDT::Ori},
+      {eApDT::Ori},
+      __FILE__
+);
+
+
+
    /* ********************************************************** */
    /*                                                            */
    /*                 cAppli_V2ImportCalib                       */

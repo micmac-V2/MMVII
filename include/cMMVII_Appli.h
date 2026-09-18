@@ -668,7 +668,9 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         const std::string & NameFileCSVReport(const std::string & anId) const;
 
         /// if "aPatSubst" was initialized, make a pattern replacement with aPatSubst[0] as pattern and aPatSubst[1] as substitution
-        void ChgName(const std::vector<std::string>& aPatSub,std::string & aName) const;
+        bool ChgName(const std::vector<std::string>& aPatSub,std::string & aName) const;
+        bool ChgNameIfMatch(const std::vector<std::string>& aPatSub,std::string & aName) const;
+
     private:
         void  AddOneReport(const std::string &anId,const std::string & VecMsg);
         void  DoMergeReport();
