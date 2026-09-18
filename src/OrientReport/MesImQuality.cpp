@@ -51,6 +51,7 @@ private :
 
     std::string              mNameReportGlobResidual;
     std::string              mNameReportDetail;
+    std::string              mNameReportUndetected;
 
     std::string              mSuffixReportSubDir; // additional name for report subdir
     // double                   mMarginMiss;  ///  Margin for counting missing targets
@@ -79,6 +80,7 @@ cAppli_MesImReport::cAppli_MesImReport
     mPropStat                 ({50,75,90}),
     mNameReportGlobResidual   ("StatResidual"),
     mNameReportDetail         ("Detail"),
+    mNameReportUndetected     ("Undetected"),
     mSuffixReportSubDir       (""),
     // mMarginMiss               (50.0),
     mNbUndetectedGlob         (0),
@@ -133,6 +135,7 @@ void cAppli_MesImReport::MakeOneIm(const std::string & aNameIm)
     cSetMesPtOf1Im  aSetRef   = mPhProj.LoadMeasureImFromFolder(mRefFolder,aNameIm);
     cStdStatRes     aStatIm;
     int             nbUnDetected=0;
+    std::vector<std::string> aVUndetected = {};
 
     for (const auto & aRef : aSetRef.Measures())
     {
@@ -164,6 +167,8 @@ void cAppli_MesImReport::MakeOneIm(const std::string & aNameIm)
         if (! isDetected)
         {
             nbUnDetected ++;
+            if (mImDetail)
+                aVUndetected.push_back(aNameRef);
             if (doImage)
                 aIm.SetRGBrectWithAlpha(ToI(aRefPt),30,cRGBImage::Orange,0.8);
         }
@@ -206,12 +211,14 @@ void cAppli_MesImReport::MakeOneIm(const std::string & aNameIm)
         aIm.ToFile(DirReport()+ aNameIm);
 
     if (mImDetail){
-        std::string aImReport = mNameReportDetail + '_' + aNameIm;
-        InitReportCSV(aImReport,"csv",false);
+        std::string aDetailReport = mNameReportDetail + '_' + aNameIm;
+        std::string aUndetReport = mNameReportUndetected + '_' + aNameIm;
+        InitReportCSV(aDetailReport,"csv",false);
+        InitReportCSV(aUndetReport,"csv",false);
         for (const auto aRes : aStatIm.VRes())
-        {
-            AddOneReportCSV(aImReport, {ToStr(aRes)});
-        }
+            AddOneReportCSV(aDetailReport, {ToStr(aRes)});
+        for (const auto& aName : aVUndetected)
+            AddOneReportCSV(aUndetReport, {aName});
     }
 
 }
