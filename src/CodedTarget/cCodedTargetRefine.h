@@ -31,7 +31,8 @@ namespace MMVII
     {
     public:
         typedef  cDataIm2D<Type> tDIm;
-        cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1>& aMaskDIm, cPixBox<2> aBBox, tU_INT1 aDiv=1);
+        cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1>& aMaskDIm, cPixBox<2> aBBox,
+                       tU_INT1 aDiv=1, std::vector<std::string> aInterp={"Linear"}, std::string aValMap="Correl");
         cPt1dr Value(const cPt2dr& aPt) const override;//-> correl score from aPt position
     private:
         tDIm& mThDIm;//-> theoretical image of the target generated from detected deformation
@@ -40,7 +41,10 @@ namespace MMVII
         cPixBox<2> mBBox;//-> bbox of predicted target wrt global image
         cPt2dr mP0;//-> initial bbox up corner to compute translation
         tU_INT1 mUSampleWSz;//-> for correlation computation parse each pixel with 1/mDiv step
+        std::vector<std::string> mInterp;//-> interpolator (can be ["MMVII"], ["Linear"], ["Cubic", aP])
+        std::string mValMap;//-> type of cost to minimise (can be "Correl" or "SumAbs")
     };
+
 
     /**
      * @brief The cSampler class sample template image into a global image
@@ -94,6 +98,7 @@ namespace MMVII
     {
     public:
         cMaskO2I(const cPixBox<2>& aOBox, const cPixBox<2>& aIBox, const tAff2Dr& aO2IMap, const tU_INT1 aBorder=0);
+        void Erode(const int aSzW);
         void SaveAsIm(const std::string& aDir);
         tIm Im();
     private:

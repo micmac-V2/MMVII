@@ -405,6 +405,8 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         std::string mIMesFinPat;//-> pattern for input measurements to refine
         std::string mOutSuf;//-> suffix for output measurements
         bool mTest;//-> ExeTest execution
+        std::vector<std::string> mInterp;//-> interpolation method
+        std::string mValMap;//-> cost map for correlation
         //int                                 mMaskDil;   //-> inlier mask dilatation (wrt Ref image)
         //tU_INT1                             mL1Lim;     //-> L1 limit to consider outliers from ransac TF computation
         //std::string mRefine;//-> refine method to choose (corr, lsm)
@@ -445,6 +447,8 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
                << AOpt2007(mUSampleWSz,"USampleWSz", "upsample target image for correlation 1 -> 1/3, 2 -> 1/5 ...", {eTA2007::HDV})
                << AOpt2007(mIMesFinPat,"IMesFinPat", "Pattern to refine input image measurements")
                << AOpt2007(mTest,"TEST", "test execution")
+               << AOpt2007(mInterp, "Interp", "interpolator used in correlation : should be in ['Linear', 'Cubic']")
+               << AOpt2007(mValMap, "Cost", "cost map for correlatiob: should be in ['Correl', 'AbsSum']")
             //<< AOpt2007(mMaskDil,"MaskDil","Dilate Ref image to filter inliers", {eTA2007::HDV})
                //<< AOpt2007(mRefine,"Refine","H-euristik (=cross-correl),G-radient(=LSM)")
                //<< AOpt2007(mMissedOnly,"MissedOnly","Only process undetected targets")
@@ -468,7 +472,9 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
         mMinPatchSz (10,10),
         mIMesFinPat ("aaa"),
         mOutSuf (""),
-        mTest (false)
+        mTest (false),
+        mInterp({"Linear"}),
+        mValMap ("Correl")
     //mRefine         (""),
         //mMissedOnly     (false)
     {
@@ -781,7 +787,8 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 
             if (aPatch.CheckSz(mMinPatchSz))
             {
-                cOptCorrelThIm<tU_INT1> aOptMap(*aDTpl, *mDGIm, aMask.Im().DIm(), aPatch.BBox(), mUSampleWSz);
+                cOptCorrelThIm<tU_INT1> aOptMap(*aDTpl, *mDGIm, aMask.Im().DIm(), aPatch.BBox(),
+                                                mUSampleWSz, mInterp, mValMap);
                 cOptimByStep aOpt(aOptMap, false, 2.0);//-> 2.0 = max distance from original point
 
                 auto [aV, aP1] = aOpt.Optim(ToR(aP0), 2, 1e-5, .1);//-> we find a shift between original P0 and final P0 (=P1)
@@ -1005,12 +1012,15 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
 /******************************************************************************/
 
     template <class Type>
-    cOptCorrelThIm<Type>::cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1> &aMaskDIm, cPixBox<2> aBBox, tU_INT1 aWSz):
+    cOptCorrelThIm<Type>::cOptCorrelThIm(tDIm& aTheorDIm, tDIm& aGlobDIm, cDataIm2D<tU_INT1> &aMaskDIm,
+                                         cPixBox<2> aBBox, tU_INT1 aWSz, std::vector<std::string> aInterp, std::string aValMap):
         mThDIm (aTheorDIm),
         mGDIm (aGlobDIm),
         mDMask (aMaskDIm),
         mBBox (aBBox),
-        mUSampleWSz (aWSz)
+        mUSampleWSz (aWSz),
+        mInterp (aInterp),
+        mValMap (aValMap)
     {
         mP0 = ToR(mBBox.P0());
     }
@@ -1019,6 +1029,7 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
     cPt1dr cOptCorrelThIm<Type>::Value(const cPt2dr& aNewP0) const
     {
         cMatIner2Var<tREAL8>  aMat;//-> class to compute correl of 2 variables
+        tU_INT4 aSum = 0;
         for (const auto& aP : tRect2(tRect2(mBBox.Sz()).Dilate(-1)))
         {
             if (mDMask.GetV(aP) == MaskInV) continue;//-> reject pixels that are in the mask
@@ -1026,10 +1037,18 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
             cPixSub aPS(aP, mUSampleWSz);
             for (const auto aC : aPS.mVCs)
             {
-                aMat.Add(mGDIm.GetVBL(ToR(aC) + aNewP0), mThDIm.GetVBL(aC));
+                std::unique_ptr<cDiffInterpolator1D> aInter;
+                aInter.reset(cDiffInterpolator1D::AllocFromNames(mInterp));
+                if (mGDIm.InsideInterpolator(*aInter, aC + aNewP0) && mThDIm.InsideInterpolator(*aInter, aC))
+                {
+                    tREAL8 aV = mGDIm.GetValueInterpol(*aInter, aC + aNewP0);
+                    tREAL8 aVTh = mThDIm.GetValueInterpol(*aInter, aC);
+                    aMat.Add(aV, aVTh);
+                    aSum += abs(aV - aVTh);
+                }
             }
         }
-        return cPt1dr(aMat.Correl());//-> similarity score for aNewP0
+        return (mValMap == "Correl" ? cPt1dr(aMat.Correl()) : cPt1dr(aSum));//-> similarity score for aNewP0
     }
 
     std::vector<cPt2dr> Corners(const cPt2dr& aP0, const cPt2dr& aP1)
@@ -1132,8 +1151,29 @@ const tU_INT1 MaskOutV = 255, MaskInV = 0;//-> Val(aPix) = MaskOutV i.e aPix is 
             tU_INT1 aVal = aNBox.Inside(aIPx) ? MaskOutV : MaskInV;
             mIm.DIm().SetV(aOPx - aOBox.P0(), aVal);
         }
+        Erode(0);
     }
 
+    void cMaskO2I::Erode(const int aSzW)
+    {
+        tDIm& aDIm = mIm.DIm();
+        tIm aDup(mIm.DIm().Sz());
+        tDIm& aDDIm = aDup.DIm();
+        aDIm.DupIn(aDDIm);
+        const auto aBox = cPixBox<2>::BoxWindow(aSzW);
+        for (const auto& aP : aDIm)
+        {
+            if (aDIm.GetV(aP) == MaskInV)
+            {
+                for (const auto aPBx : aBox) aDDIm.SetVTruncIfInside(aP + aPBx, MaskInV);
+            }
+        }
+        aDDIm.DupIn(aDIm);
+        for (const auto& aP : aDDIm.Border(1))
+        {
+            aDIm.SetV(aP, MaskInV);
+        }
+    }
     void cMaskO2I::SaveAsIm(const std::string& aDir) {mIm.DIm().ToFile(aDir);}
     tIm cMaskO2I::Im() {return mIm;}
 
