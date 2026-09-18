@@ -321,6 +321,7 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_CheckBoardTargetRefine);
         TheVecAll.push_back(&TheSpec_CodedTargetDescribe);
         TheVecAll.push_back(&TheSpec_CodedTargetRefine);
+        TheVecAll.push_back(&TheSpec_MesImFilter);
 
         std::sort(TheVecAll.begin(),TheVecAll.end(),CmpCmd);
    }
