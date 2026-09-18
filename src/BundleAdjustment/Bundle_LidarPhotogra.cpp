@@ -357,7 +357,7 @@ void cBA_LidarPhotograRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, do
 {
     mThreshold = aBA.NbMaxIter() < 2 ? mThresholdFinal :
                      mThresholdInit + (mThresholdFinal - mThresholdInit)*float(aBA.Iter())/(aBA.NbMaxIter()-1);
-    std::cout << "up weighters, th="<<mThreshold<<"\n";
+    //std::cout << "up weighters, th="<<mThreshold<<"\n";
     if (mThreshold>10000)
         mThreshold = -1;
     for (auto & aScanDataA: mVScans)
@@ -1030,7 +1030,7 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
     }
 
 
-    std::cout << "up weighters, th="<<mThreshold<<"\n";
+    //std::cout << "up weighters, th="<<mThreshold<<"\n";
     if (mThreshold>10000)
         mThreshold = -1;
     for (auto & aScanDataA: mVScans)

@@ -1230,6 +1230,8 @@ void cStaticLidar::FixPtPxLoopAroundPP(cPt2dr &aPtPx) const
 
 cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
 {
+    double aTargetPrecision = 1e-4;
+
     MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
     //std::cout<<"  Ground2ImagePrecise for point "<<aGroundPt<<"\n";
     cPt2dr aDirCam3DTheoretical = InternalCalib()->Dir_Proj()->Value(Pose().Inverse(aGroundPt));
@@ -1240,11 +1242,11 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
 
     // test if int value
     cPt2di aPtRasterRounded(round(aPtRaster.x()),round(aPtRaster.y()));
-    if (Norm2(aPtRaster - cPt2dr(aPtRasterRounded.x(),aPtRasterRounded.y()))< 1e-5)
+    if (Norm2(aPtRaster - cPt2dr(aPtRasterRounded.x(),aPtRasterRounded.y()))< aTargetPrecision)
     {
         // in this case Image2Camera3D will not use GetVBL => works on first and last columns
         cPt2dr aDirTest = InternalCalib()->Dir_Proj()->Value(Image2Camera3D(aPtRasterRounded));
-        if (Norm2(aDirTest - aDirCam3DTheoretical)< 1e-5)
+        if (Norm2(aDirTest - aDirCam3DTheoretical)< aTargetPrecision)
         {
             //std::cout<<"  skip iter\n";
             return aPtRaster;
@@ -1261,7 +1263,7 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
     }
 
     cPt2dr aDirTest = InternalCalib()->Dir_Proj()->Value(aPtCam3D);
-    if (Norm2(aDirTest - aDirCam3DTheoretical)< 1e-5)
+    if (Norm2(aDirTest - aDirCam3DTheoretical)< aTargetPrecision)
     {
         //std::cout<<"  skip iter\n";
         return aPtRaster;
@@ -1276,14 +1278,14 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
         cPt3dr aPtCam3DUL = Image2Camera3D(aPtRasterUL);
         if (IsNull(aPtCam3DUL))
         {
-            //std::cout<<"PB Ground2ImagePrecise!!\n";
+            //std::cout<<"PB Ground2ImagePrecise!! "<<i<<"\n";
             return cPt2dr::Dummy(); // impossible to continue
         }
         cPt2dr aDirUL = InternalCalib()->Dir_Proj()->Value(aPtCam3DUL);
         cPt3dr aPtCam3DLR = Image2Camera3D(aPtRasterLR);
         if (IsNull(aPtCam3DLR))
         {
-            //std::cout<<"PB Ground2ImagePrecise!!\n";
+            //std::cout<<"PB Ground2ImagePrecise!! "<<i<<"\n";
             return cPt2dr::Dummy(); // impossible to continue
         }
         cPt2dr aDirLR = InternalCalib()->Dir_Proj()->Value(aPtCam3DLR);
@@ -1304,17 +1306,17 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
         aPtCam3D = Image2Camera3D(aPtRaster);
         if (IsNull(aPtCam3D))
         {
-            //std::cout<<"PB Ground2ImagePrecise!!\n";
+            //std::cout<<"PB Ground2ImagePrecise!! "<<i<<"\n";
             return cPt2dr::Dummy(); // impossible to continue
         }
         aDirTest = InternalCalib()->Dir_Proj()->Value(aPtCam3D);
-        if (Norm2(aDirTest - aDirCam3DTheoretical)< 1e-5)
+        if (Norm2(aDirTest - aDirCam3DTheoretical)< aTargetPrecision)
         {
             return aPtRaster;
         }
     }
 
-    //std::cout<<"Ground2ImagePrecise not precise!!\n";
+    //std::cout<<"Ground2ImagePrecise not precise: "<<Norm2(aDirTest - aDirCam3DTheoretical)<<"\n";
     return cPt2dr::Dummy();
 }
 
