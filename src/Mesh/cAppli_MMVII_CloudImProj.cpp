@@ -248,7 +248,7 @@ int cAppli_MMVII_CloudImProj::Exe()
 
 		StdOut() << ">> leaves unit: " << aPC_In.GetLeavesUnit() << std::endl;
 
-		// mNbSampS = 2;
+		mNbSampS = 2;
 
 		cAutoTimerSegm aTSInit(TimeSegm(), "Init");
 		tREAL8 aWeightInit = (mNbSampS == 0);
