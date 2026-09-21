@@ -310,11 +310,14 @@ int cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSenso
 		//    [0.3.1]   image of depth
 
 		StdOut() << ">> Alloc ...\n";
+
+		StdOut() << ">>>> Alloc mDImIndex\n";
 		mDImIndex = &(mImIndex.DIm());
 		mDImIndex->Resize(mSzIm);
 		// StdOut() << "xxxSZ_IM=" << mSzIm << "\n";
 		mDImIndex->InitCste(NoIndex);
 
+		StdOut() << ">>>> Alloc mDImDepth\n";
 		mDImDepth = &(mImDepth.DIm());
 		mDImDepth->Resize(mSzIm);
 		mDImDepth->InitCste(aMinInfty);
@@ -326,10 +329,12 @@ int cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSenso
 		*/
 		if (isModeImage)
 		{
+			StdOut() << ">>>> Alloc mDImRad\n";
 			mDImRad = &(mImRad.DIm());
 			mDImRad->Resize(mSzIm);
 			mDImRad->InitCste(0.0);
 
+			StdOut() << ">>>> Alloc mDImWeigth\n";
 			mDImWeigth = &(mImWeigth.DIm());
 			mDImWeigth->Resize(mSzIm);
 			mDImWeigth->InitCste(0.0);

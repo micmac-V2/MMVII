@@ -207,10 +207,6 @@ int cAppli_MMVII_CloudImProj::Exe()
 
 		// Init merged pointcloud
 		cPointCloud aPC_In;
-		StdOut() << "Reading pointcloud: " << aCloudFiles[0] << std::endl;
-		// ReadFromFile(aPC_In, mDirCloudsIn + "/" + aCloudFiles[0]);
-		StdOut() << "Read pointcloud: " << aCloudFiles[0] << std::endl;
-
 		// Merge remaining point clouds into aPC_In
 		for (size_t i = 0; i < aCloudFiles.size(); i++)
 		{
@@ -225,7 +221,6 @@ int cAppli_MMVII_CloudImProj::Exe()
 				if (aCam->DegreeVisibility(aPC_Temp.KthPt(j)) > 0.0)
 				{
 					aPC_In.AddPt(aPC_Temp.KthPt(j));
-					// aPC_In.AddPtColored(aPC_Temp.KthPt(j), aPC_Temp.KthDegVis(j), aPC_Temp.KthSzLeaf(j));
 				}
 			}
 			StdOut() << "Read pointcloud: " << aCloudFiles[i] << std::endl;
