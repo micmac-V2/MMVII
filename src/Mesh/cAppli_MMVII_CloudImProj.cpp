@@ -248,7 +248,7 @@ int cAppli_MMVII_CloudImProj::Exe()
 
 		StdOut() << ">> leaves unit: " << aPC_In.GetLeavesUnit() << std::endl;
 
-		mNbSampS = 2;
+		// mNbSampS = 2;
 
 		cAutoTimerSegm aTSInit(TimeSegm(), "Init");
 		tREAL8 aWeightInit = (mNbSampS == 0);
@@ -303,6 +303,9 @@ void cAppli_MMVII_CloudImProj::GenerateSynthImage(cProjPointCloud& aPPC, const c
 {
 	std::string aDirIm = mPhProj.DPOrient().FullDirOut();
 	std::string aNameIm = aSensor.NameImage();
+
+	mSensDownSample = 1.0;
+	mSurResCloud = 1.0;
 
 	StdOut() << ">> ProcessOneProj...\n";
 	int status = aPPC.ProcessOneProj(mSurResCloud * mSensDownSample, aSensor, 0.0, true, "", false, false, aDCV);

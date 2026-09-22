@@ -233,6 +233,9 @@ void cProjPointCloud::ColorizePC()
 int cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSensor, tREAL8 aWeight, bool isModeImage,
 									const std::string& aMsg, bool ShowMsg, bool ExportIm, const cDemiConeVert* aPreSel)
 {
+	// std::vector<cPt2di> aVPixBugImage{{310,50},{310,150}};
+	// std::vector<cPt2di> aVPixBugInit{{825,971},{826,971},{826,915},{826,916}};
+	// cPt2di aPixBug(166,128);  // Blanc, devrait etre noir
 
 	mSumW += aWeight;		  // accumlate weight
 	tREAL8 aMinInfty = -1e10; // minus infinity, any value lower than anr real one
@@ -243,229 +246,258 @@ int cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSenso
 	// ========================================================================
 
 	//    [0.0] ---  Compute eventually the selection of point ------
+	mVPtsInit = &mGlobPtsInit;	  // Default case , take all the point
 	std::vector<cPt3dr> aVPtsSel; // will contain the selection if required, must be at the same scope
 
+	// StdOut() << "ProcessOneProjProcessOneProj at L=" << __LINE__ << "\n";
+
 	// this index of selected is required as in mode image the index of mGlobPtsInit in point cloud are different of mVPtsInit
-
-	if (mGlobPtsInit.size() > 0)
+	std::vector<int> aVIndeSel;
+	if (isModeImage)
 	{
-
-		//    [0.1] ---  Compute 3D proj+ its 2d-box ----
-		mVPtsProj.clear();
-		cPt3dr aCenter3D(0, 0, 0);
-
-		StdOut() << ">> mGlobPtsInit size:" << mGlobPtsInit.size() << std::endl;
-
-		StdOut() << ">> mVPtsProj...\n";
-		for (const auto& aPt : mGlobPtsInit)
+		// In mode image we select only the  point visible in the camera
+		for (size_t aKPt = 0; aKPt < mGlobPtsInit.size(); aKPt++)
 		{
-			// StdOut() << ">> aPt:" << aPt << std::endl;
-			mVPtsProj.push_back(aSensor.Ground2ImageAndDepth(aPt));
-			aCenter3D += aPt;
-		}
-		aCenter3D = aCenter3D / tREAL8(mGlobPtsInit.size());
-		StdOut() << ">> mVPtsProj ok\n";
-
-		//  In "std" mode the image is a private one, its origin is the min of projections; the offset must be
-		//  the exact min : initialized at (0,0) it stays at 0 as soon as the projection does not reach the
-		//  origin, the indexes then start at P0>0 while mSzIm is computed from the size only => all the points with
-		//  index >= mSzIm silently fall outside the image and are never seen as visible.
-		cPt2dr aPMin(0.0, 0.0);
-		if ((!isModeImage) && (!mVPtsProj.empty()))
-		{
-			StdOut() << ">> aPMin ...\n";
-			aPMin = Proj(mVPtsProj.at(0));
-			for (const auto& aPt : mVPtsProj)
+			const auto& aPt = mGlobPtsInit.at(aKPt);
+			if ((aPreSel == nullptr) || (aPreSel->Inside(aPt)))
 			{
-				SetInfEq(aPMin, Proj(aPt));
-			}
-			StdOut() << ">> aPMin ok\n";
-		}
-
-		//    [0.2]  ---------- compute the images indexes of points + its box  & sz ---
-		mBoxInd = cTplBoxOfPts<int, 2>(); //
-		mVPtImages.clear();
-
-		StdOut() << ">> mVPtImages ...\n";
-		for (const auto& aPt : mVPtsProj)
-		{
-			cPt2di anInd = ToI((Proj(aPt) - aPMin) * aSurResol); // compute image index
-			mBoxInd.Add(anInd);									 // memo in box
-			mVPtImages.push_back(anInd);
-		}
-		StdOut() << ">> mVPtImages ok\n";
-
-		//  indexes are >=0 in both modes, so P1+1 is the size that contains them all (in std mode P0 is now
-		//  0 by construction, so this is equivalent to the size of the box, but robust to any rounding)
-		mSzIm = mBoxInd.CurBox().P1() + cPt2di(1, 1);
-
-		if (false && isModeImage)
-		{
-			auto aBox = cBox3dr::FromVect(mVPtsProj);
-			StdOut() << " Box3D= " << aBox << " BoxInd= " << mBoxInd.CurBox() << " SzSens=" << aSensor.Sz() << " SzIm=" << mSzIm
-					 << " SR=" << aSurResol << "\n";
-		}
-
-		//    [0.3]  ---------- Alloc images --------------------
-		//    [0.3.1]   image of depth
-
-		StdOut() << ">> Alloc ...\n";
-
-		StdOut() << ">>>> Alloc mDImIndex\n";
-		mDImIndex = &(mImIndex.DIm());
-		mDImIndex->Resize(mSzIm);
-		// StdOut() << "xxxSZ_IM=" << mSzIm << "\n";
-		mDImIndex->InitCste(NoIndex);
-
-		StdOut() << ">>>> Alloc mDImDepth\n";
-		mDImDepth = &(mImDepth.DIm());
-		mDImDepth->Resize(mSzIm);
-		mDImDepth->InitCste(aMinInfty);
-
-		//    [0.3.2]   image of radiometry
-		/*
-		cIm2D<tREAL4> aImRad(mSzIm);
-		cDataIm2D<tREAL4>& aDImRad = aImRad.DIm();
-		*/
-		if (isModeImage)
-		{
-			StdOut() << ">>>> Alloc mDImRad\n";
-			mDImRad = &(mImRad.DIm());
-			mDImRad->Resize(mSzIm);
-			mDImRad->InitCste(0.0);
-
-			StdOut() << ">>>> Alloc mDImWeigth\n";
-			mDImWeigth = &(mImWeigth.DIm());
-			mDImWeigth->Resize(mSzIm);
-			mDImWeigth->InitCste(0.0);
-		}
-		StdOut() << ">> Alloc ok\n";
-
-		StdOut() << ">> ConvertInt2SzLeave ...\n";
-		//    [0.4]  ---------- Alloc vector SzLeaf -> neighboor in image coordinate (time efficiency) ----------------
-		std::vector<std::vector<cPt2di>> aVVdisk(256); // as size if store 8-byte, its sufficient
-		{
-			// cPt3dr aCenter = mPC.Centroid();
-			tREAL8 aGS = aSensor.Gen_GroundSamplingDistance(aCenter3D);
-			for (int aK = 0; aK <= 255; aK++)
-			{
-				tREAL8 aSzL = mPC.ConvertInt2SzLeave(aK) / aGS;
-				aVVdisk.at(aK) = VectOfRadius(-1, aSurResol * aSzL);
-			}
-		}
-		StdOut() << ">> ConvertInt2SzLeave ok\n";
-
-		// ==================================================================================================================
-		// == [1] ==================   compute the depth image : accumulate for each pixel the maximal depth ================
-		// ==================================================================================================================
-
-		StdOut() << ">> mDImIndex ...\n";
-		// bool
-		int aNbPtsCover = 0;
-		cWeightAv<tREAL8, tREAL8> aAvgNb;
-		FakeUseIt(aNbPtsCover);
-		for (size_t aKPt = 0; aKPt < mVPtsProj.size(); aKPt++) // parse all points
-		{
-			const cPt2di& aCenter = mVPtImages.at(aKPt); // extract index
-			tImageDepth aDepth = mVPtsProj.at(aKPt).z();
-
-			// update depth for all point of the "leaf"
-			const auto& aVDisk = aVVdisk.at(mPC.GetIntSzLeave(aKPt));
-			aAvgNb.Add(1.0, aVDisk.size());
-			for (const auto& aNeigh : aVDisk)
-			{
-				cPt2di aPt = aCenter + aNeigh;
-				if (mDImIndex->Inside(aPt))
+				if (aSensor.DegreeVisibility(aPt) > 0)
 				{
-					int aIndex = mDImIndex->GetV(aPt);
-					if ((aIndex == NoIndex) || ((aDepth > mVPtsProj.at(aIndex).z()) == mComputeProfMax))
-					{
-						mDImIndex->SetV(aPt, aKPt);
-						aNbPtsCover++;
-					}
+					aVPtsSel.push_back(aPt);
+					aVIndeSel.push_back(aKPt);
 				}
 			}
 		}
-		StdOut() << ">> mDImIndex ok\n";
-
-		// ====================================================================================================================
-		// == [2] ===   for each point use depth image and if it is visible
-		//         * in mode std  accumulate its visibility
-		//         * in mode image, project its radiometry
-		// =====================================================================================================================
-
-		cWeightAv<tREAL8, tREAL8> aLumPt;
-		cWeightAv<tREAL8, tREAL8> aLumVis;
-		int aNbVisTot = 0;
-
-		tImageDepth aVMinInit = aPlusInfty;
-		for (size_t aKPt = 0; aKPt < mVPtsProj.size(); aKPt++) // parse all points
-		{
-			const cPt2di& aCenter = mVPtImages.at(aKPt);
-			tImageDepth aDepth = mVPtsProj.at(aKPt).z();
-			UpdateMin(aVMinInit, aDepth);
-			int aNbVis = 0;
-			const auto& aVDisk = aVVdisk.at(mPC.GetIntSzLeave(aKPt));
-			tREAL8 aDegVis = mPC.GetDegVis(aKPt);
-
-			aLumPt.Add(1.0, aDegVis);
-
-			for (const auto& aNeigh : aVDisk) // parse all point of leaf
-			{
-				cPt2di aPt = aCenter + aNeigh;
-				bool IsVisible = (mDImIndex->DefGetV(aPt, NoIndex) == (int)aKPt);
-
-				aNbVisTot += IsVisible;
-				if (!isModeImage)
-					aLumVis.Add(1.0, IsVisible);
-
-				if (IsVisible) // if the point is visible
-				{
-					if (isModeImage)
-						aLumVis.Add(1.0, aDegVis);
-					// aNbModif++;
-					if (isModeImage) // in mode image udpate radiometry & image
-					{
-						mDImWeigth->SetV(aPt, 1.0);
-						mDImRad->SetV(aPt, aDegVis * 255);
-					}
-					else // in mode standard uptdate visib count
-					{
-						aNbVis++;
-					}
-				}
-			}
-			if (!isModeImage) // in mode std we know the visibility
-			{
-				tREAL8 aGray = aNbVis / tREAL8(aVDisk.size());
-				mSumRad.at(aKPt) += aGray * aWeight;
-			}
-		}
-
-		if (ShowMsg)
-		{
-			StdOut() << " MSG=[" << aMsg << "]"
-					 << "LumStd=" << aLumPt.Average() << " LumVis=" << aLumVis.Average()
-					 << " NbVis/Im=" << tREAL8(aNbVisTot) / (mSzIm.x() * mSzIm.y()) << "\n";
-		}
-
-		// Now put z in image depth
-
-		StdOut() << ">> mDImDepth ...\n";
-		for (const auto& aPix : *mDImIndex)
-		{
-			int aIndex = mDImIndex->GetV(aPix);
-			tImageDepth aDepth = (aIndex == NoIndex) ? (aVMinInit - 100.0) : mGlobPtsInit.at(aIndex).z();
-
-			mDImDepth->SetV(aPix, aDepth);
-		}
-		StdOut() << ">> mDImDepth ok\n";
-
-		return 0;
+		mVPtsInit = &aVPtsSel;
 	}
 	else
 	{
-		return 1;
+		for (size_t aKPt = 0; aKPt < mGlobPtsInit.size(); aKPt++)
+			aVIndeSel.push_back(aKPt);
+	}
+
+	// if (isModeImage)
+	//     StdOut() << " Ratio Sel " << aVPtsSel.size() / double(mGlobPtsInit.size()) << "\n";
+
+	//    [0.1] ---  Compute 3D proj+ its 2d-box ----
+	mVPtsProj.clear();
+	cPt3dr aCenter3D(0, 0, 0);
+
+	for (const auto& aPt : *mVPtsInit)
+	{
+		/*
+		if (mVPtsProj.empty())
+		{
+			StdOut() << " xxxxxxxPt=" << aPt
+					 << " G2ID=" << aSensor.Ground2ImageAndDepth(aPt)
+					 << "\n";
+		}*/
+
+		mVPtsProj.push_back(aSensor.Ground2ImageAndDepth(aPt));
+		aCenter3D += aPt;
+	}
+	aCenter3D = aCenter3D / tREAL8(mVPtsInit->size());
+
+	//  In "std" mode the image is a private one, its origin is the min of projections; the offset must be
+	//  the exact min : initialized at (0,0) it stays at 0 as soon as the projection does not reach the
+	//  origin, the indexes then start at P0>0 while mSzIm is computed from the size only => all the points with
+	//  index >= mSzIm silently fall outside the image and are never seen as visible.
+	cPt2dr aPMin(0.0, 0.0);
+	if ((!isModeImage) && (!mVPtsProj.empty()))
+	{
+		aPMin = Proj(mVPtsProj.at(0));
+		for (const auto& aPt : mVPtsProj)
+		{
+			SetInfEq(aPMin, Proj(aPt));
+		}
+	}
+
+	//    [0.2]  ---------- compute the images indexes of points + its box  & sz ---
+	mBoxInd = cTplBoxOfPts<int, 2>(); //
+	mVPtImages.clear();
+
+	for (const auto& aPt : mVPtsProj)
+	{
+		cPt2di anInd = ToI((Proj(aPt) - aPMin) * aSurResol); // compute image index
+		mBoxInd.Add(anInd);									 // memo in box
+		mVPtImages.push_back(anInd);
+	}
+
+	//  indexes are >=0 in both modes, so P1+1 is the size that contains them all (in std mode P0 is now
+	//  0 by construction, so this is equivalent to the size of the box, but robust to any rounding)
+	mSzIm = mBoxInd.CurBox().P1() + cPt2di(1, 1);
+
+	if (false && isModeImage)
+	{
+		auto aBox = cBox3dr::FromVect(mVPtsProj);
+		StdOut() << " Box3D= " << aBox << " BoxInd= " << mBoxInd.CurBox() << " SzSens=" << aSensor.Sz() << " SzIm=" << mSzIm
+				 << " SR=" << aSurResol << "\n";
+	}
+
+	//    [0.3]  ---------- Alloc images --------------------
+	//    [0.3.1]   image of depth
+
+	mDImIndex = &(mImIndex.DIm());
+	mDImIndex->Resize(mSzIm);
+	// StdOut() << "xxxSZ_IM=" << mSzIm << "\n";
+	mDImIndex->InitCste(NoIndex);
+
+	mDImDepth = &(mImDepth.DIm());
+	mDImDepth->Resize(mSzIm);
+	mDImDepth->InitCste(aMinInfty);
+
+	//    [0.3.2]   image of radiometry
+	/*
+	cIm2D<tREAL4> aImRad(mSzIm);
+	cDataIm2D<tREAL4>& aDImRad = aImRad.DIm();
+	*/
+	if (isModeImage)
+	{
+		mDImRad = &(mImRad.DIm());
+		mDImRad->Resize(mSzIm);
+		mDImRad->InitCste(0.0);
+
+		mDImWeigth = &(mImWeigth.DIm());
+		mDImWeigth->Resize(mSzIm);
+		mDImWeigth->InitCste(0.0);
+	}
+
+	//    [0.4]  ---------- Alloc vector SzLeaf -> neighboor in image coordinate (time efficiency) ----------------
+	std::vector<std::vector<cPt2di>> aVVdisk(256); // as size if store 8-byte, its sufficient
+	{
+		// cPt3dr aCenter = mPC.Centroid();
+		tREAL8 aGS = aSensor.Gen_GroundSamplingDistance(aCenter3D);
+		for (int aK = 0; aK <= 255; aK++)
+		{
+			tREAL8 aSzL = mPC.ConvertInt2SzLeave(aK) / aGS;
+			aVVdisk.at(aK) = VectOfRadius(-1, aSurResol * aSzL);
+		}
+	}
+
+	// ==================================================================================================================
+	// == [1] ==================   compute the depth image : accumulate for each pixel the maximal depth ================
+	// ==================================================================================================================
+
+	// bool
+	int aNbPtsCover = 0;
+	cWeightAv<tREAL8, tREAL8> aAvgNb;
+	FakeUseIt(aNbPtsCover);
+	for (size_t aKPt = 0; aKPt < mVPtsProj.size(); aKPt++) // parse all points
+	{
+		const cPt2di& aCenter = mVPtImages.at(aKPt); // extract index
+		tImageDepth aDepth = mVPtsProj.at(aKPt).z();
+
+		// update depth for all point of the "leaf"
+		const auto& aVDisk = aVVdisk.at(mPC.GetIntSzLeave(aKPt));
+		aAvgNb.Add(1.0, aVDisk.size());
+		for (const auto& aNeigh : aVDisk)
+		{
+			cPt2di aPt = aCenter + aNeigh;
+			if (mDImIndex->Inside(aPt))
+			{
+				int aIndex = mDImIndex->GetV(aPt);
+				if ((aIndex == NoIndex) || ((aDepth > mVPtsProj.at(aIndex).z()) == mComputeProfMax))
+				{
+					mDImIndex->SetV(aPt, aKPt);
+					aNbPtsCover++;
+				}
+
+				/* for ( auto & aPixBug : aVPixBugImage)
+				 {
+					 if (aPt==aPixBug)
+					 {
+						 StdOut() << " Pix=" << aPt
+								  << " Kpt=" << aKPt
+								  << " Index=" << aIndex
+								  << " Proj=" << mVPtsProj.at(aKPt)
+								  << " PInit=" << mVPtsInit->at(aKPt)
+
+								  << "\n";
+					   //  aPixBug = cPt2di(-100,-100);
+					 }
+				 }*/
+			}
+		}
+	}
+
+	// StdOut() << " AvgNb=" << aAvgNb.Average() << "\n";
+	/*
+		 StdOut() << "SZIII = " << mSzIm
+				  << " PropPtIn=" <<  mVPtsProj.size() / (tREAL8) (mSzIm.x() * mSzIm.y())
+				  << " PropPtCov=" <<  aNbPtsCover / (tREAL8) (mSzIm.x() * mSzIm.y())
+				  << "\n";
+		  getchar();
+	*/
+
+	// ===========================================================================================================================
+	// == [2] ===   for each point use depth image and if it is visible
+	//         * in mode std  accumulate its visibility
+	//         * in mode image, project its radiometry
+	// ===========================================================================================================================
+
+	cWeightAv<tREAL8, tREAL8> aLumPt;
+	cWeightAv<tREAL8, tREAL8> aLumVis;
+	int aNbVisTot = 0;
+
+	tImageDepth aVMinInit = aPlusInfty;
+	for (size_t aKPt = 0; aKPt < mVPtsProj.size(); aKPt++) // parse all points
+	{
+		const cPt2di& aCenter = mVPtImages.at(aKPt);
+		tImageDepth aDepth = mVPtsProj.at(aKPt).z();
+		UpdateMin(aVMinInit, aDepth);
+		int aNbVis = 0;
+		const auto& aVDisk = aVVdisk.at(mPC.GetIntSzLeave(aKPt));
+		tREAL8 aDegVis = mPC.GetDegVis(aVIndeSel.at(aKPt));
+
+		aLumPt.Add(1.0, aDegVis);
+
+		for (const auto& aNeigh : aVDisk) // parse all point of leaf
+		{
+			cPt2di aPt = aCenter + aNeigh;
+			bool IsVisible = (mDImIndex->DefGetV(aPt, NoIndex) == (int)aKPt);
+
+			aNbVisTot += IsVisible;
+			if (!isModeImage)
+				aLumVis.Add(1.0, IsVisible);
+
+			if (IsVisible) // if the point is visible
+			{
+				if (isModeImage)
+					aLumVis.Add(1.0, aDegVis);
+				// aNbModif++;
+				if (isModeImage) // in mode image udpate radiometry & image
+				{
+					mDImWeigth->SetV(aPt, 1.0);
+					mDImRad->SetV(aPt, aDegVis * 255);
+				}
+				else // in mode standard uptdate visib count
+				{
+					aNbVis++;
+				}
+			}
+		}
+		if (!isModeImage) // in mode std we know the visibility
+		{
+			tREAL8 aGray = aNbVis / tREAL8(aVDisk.size());
+			mSumRad.at(aKPt) += aGray * aWeight;
+		}
+	}
+
+	if (ShowMsg)
+	{
+		StdOut() << " MSG=[" << aMsg << "]"
+				 << "LumStd=" << aLumPt.Average() << " LumVis=" << aLumVis.Average()
+				 << " NbVis/Im=" << tREAL8(aNbVisTot) / (mSzIm.x() * mSzIm.y()) << "\n";
+	}
+
+	// Now put z in image depth
+
+	for (const auto& aPix : *mDImIndex)
+	{
+		int aIndex = mDImIndex->GetV(aPix);
+		tImageDepth aDepth = (aIndex == NoIndex) ? (aVMinInit - 100.0) : mVPtsInit->at(aIndex).z();
+
+		mDImDepth->SetV(aPix, aDepth);
 	}
 
 	if (ExportIm)
@@ -480,6 +512,8 @@ int cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSenso
 			mDImDepth->ToFile(aPrefix + "-DEPTH.tif");
 		}
 	}
+
+	return 0;
 }
 
 cResImagesPPC cProjPointCloud::ProcessImage(tREAL8 aSurResol, const cSensorImage& aSensor)
