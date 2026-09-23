@@ -1242,10 +1242,12 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
 
     // test if int value
     cPt2di aPtRasterRounded(round(aPtRaster.x()),round(aPtRaster.y()));
-    if (Norm2(aPtRaster - cPt2dr(aPtRasterRounded.x(),aPtRasterRounded.y()))< aTargetPrecision)
+    cPt3dr aPtCam3DRounded = Image2Camera3D(aPtRasterRounded);
+    if ((Norm2(aPtCam3DRounded)>0.) &&
+        (Norm2(aPtRaster - cPt2dr(aPtRasterRounded.x(),aPtRasterRounded.y()))< aTargetPrecision))
     {
         // in this case Image2Camera3D will not use GetVBL => works on first and last columns
-        cPt2dr aDirTest = InternalCalib()->Dir_Proj()->Value(Image2Camera3D(aPtRasterRounded));
+        cPt2dr aDirTest = InternalCalib()->Dir_Proj()->Value( aPtCam3DRounded );
         if (Norm2(aDirTest - aDirCam3DTheoretical)< aTargetPrecision)
         {
             //std::cout<<"  skip iter\n";
