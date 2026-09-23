@@ -196,7 +196,7 @@ int cAppli_MMVII_CloudImProj::Exe()
 	for (const auto& aF : aVOriFiles)
 	{
 		std::string aImName = aF.substr(aOriPrefix.size(), aF.size() - aOriPrefix.size() - aOriSuffix.size());
-		if (aSel.Match(aImName) && not(std::find(output_files.begin(), output_files.end(), aImName) == output_files.end()))
+		if (aSel.Match(aImName) && std::find(output_files.begin(), output_files.end(), aImName) == output_files.end())
 			aSetNames.push_back(aImName);
 	}
 
