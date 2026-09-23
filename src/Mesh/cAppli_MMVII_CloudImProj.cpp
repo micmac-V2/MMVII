@@ -188,8 +188,9 @@ int cAppli_MMVII_CloudImProj::Exe()
 	// Get all CamPC orientation files from the input dir
 	auto aVOriFiles = GetFilesFromDir(aDirIn, AllocRegex(aOriPrefix + ".*"));
 
-	auto output_files = GetFilesFromDir(aDirIm, AllocRegex("*.tif"));
+	auto output_files = GetFilesFromDir(aDirIm, AllocRegex(".*tif"));
 
+	StdOut() << "output_files: " << output_files << std::endl;
 	// Extract image names and filter by mPatIm
 	tNameSelector aSel = AllocRegex(mPatIm);
 	std::vector<std::string> aSetNames;
