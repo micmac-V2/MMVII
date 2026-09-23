@@ -270,6 +270,8 @@ int cAppli_MMVII_CloudImProj::Exe()
 				cPt3dr aDir = VUnit(aSampS.KthPt(aK));
 				if (aDir.z() >= 0.2)
 				{
+					mSurResol_albedo = 1.0;
+
 					StdOut() << ">> aK: " << aK << std::endl;
 					std::unique_ptr<cCamOrthoC> aCam_albedo(aPPC.PPC_CamOrtho(aK, mProfIsZ0, aDir));
 					aPPC.ProcessOneProj(mSurResol_albedo, *aCam_albedo, 1.0, false, "", false, false);
@@ -286,6 +288,8 @@ int cAppli_MMVII_CloudImProj::Exe()
 		{
 			// Convert sun to spherical coordinates
 			cPt3dr aDirSun = VertSphericalDir(mSun);
+
+			mSurResolSun = 1.0;
 
 			// Project pointcloud to image frame
 			std::unique_ptr<cCamOrthoC> aCam_sun(aPPC.PPC_CamOrtho(0, false, aDirSun));
