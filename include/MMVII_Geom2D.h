@@ -733,6 +733,9 @@ class cEllipse
        cEllipse(cDenseVect<tREAL8> aDV,const cPt2dr & aC0);
        ///  A more physicall creation
        cEllipse(const cPt2dr & aCenter,tREAL8 aTeta,tREAL8 aLGa,tREAL8 aLSa);
+
+    /// in
+       static cEllipse EllipseNotOk();
        /// Create a circle
        cEllipse (const cPt2dr & aCenter,tREAL8 aRay);
        cEllipse Scale(tREAL8 aScale) const;

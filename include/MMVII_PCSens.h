@@ -272,7 +272,9 @@ class cPerspCamIntrCalib : public cObj2DelAtEnd,
             tProjImAndGrad  DiffGround2Im(const cPt3dr &) const;  // signature ~ to DiffGround2Im of sensor
 
             const  tVecIn  &  DirBundles(tVecIn &,const tVecOut & ) const;
-        tPtIn  DirBundle(const tPtOut &) const;
+            tPtIn  DirBundle(const tPtOut &) const;
+
+            cSet2D3D GridBundles(tREAL8 aSzGrid) const;
 
             // for a point in pixel coordinates, indicate how much its invert projection is defined, not parallized !
             tREAL8  InvProjIsDef(const tPtOut & aPix ) const;

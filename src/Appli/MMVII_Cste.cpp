@@ -96,6 +96,8 @@ const std::string MMVIIBin2007 = "MMVII.exe";
 
 // User/Command
 const   std::string MMVII_NONE = "NONE";
+const   std::string MMVII_SKIP = "SKIP";
+
 const   std::string MMVII_StdDest = "STD";
 const   std::string MMVII_PrefRefBench = "RefBench-";
 

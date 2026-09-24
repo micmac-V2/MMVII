@@ -102,6 +102,13 @@ template <class Type> cResulSymEigenValue<Type>  cDenseMatrix<Type>::SymEigenVal
     return aRes;
 }
 
+template <class Type> Type  cDenseMatrix<Type>::SymCond(Type aDef) const
+{
+    cResulSymEigenValue<Type> aEig = SymEigenValue();
+    return  aEig.Cond(aDef);
+}
+
+
 template <class Type>  void cDenseMatrix<Type>::SolveIn(tDM & aRes,const tDM & aMat,eTyEigenDec aTED) const
 {
     tMat::CheckSquare(*this);

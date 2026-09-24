@@ -78,6 +78,11 @@ tREAL8 cIrb_SigmaInstr::SigmaRot() const
 
 }
 
+int    cIrb_SigmaInstr::NbMeasure() const
+{
+    return mAvgSigTr.Nb();
+}
+
 /* *************************************************************** */
 /*                                                                 */
 /*                        cIrb_Desc1Intsr                          */
@@ -860,27 +865,45 @@ void cIrbCal_Block::ShowDescr(eTyInstr aType) const
     StdOut() << " ====Block " << mNameBloc << " TypInstr: " << E2Str(aType) << "====\n";
     cWeightAv<tREAL8> aAvSigTr;
     cWeightAv<tREAL8> aAvSigRot;
-
     for (const auto & [aName,aDesc] : mDescrIndiv )
     {
         if (aDesc.Type()==eTyInstr::eCamera)
         {
-           cIrb_SigmaInstr aSig = aDesc.Sigma();
-           aAvSigTr.Add(1.0,aSig.SigmaTr());
-           aAvSigRot.Add(1.0,aSig.SigmaRot());
+           const  cIrb_SigmaInstr & aSig = aDesc.Sigma();
 
-           StdOut() << "  *NameInsr=[" << aName << "]"
+
+           if (aSig.NbMeasure())
+           {
+               aAvSigTr.Add(1.0,aSig.SigmaTr());
+               aAvSigRot.Add(1.0,aSig.SigmaRot());
+
+              StdOut() << "  *NameInsr=[" << aName << "]"
                     <<" Sigmas =["
                      << " Tr:" <<  aSig.SigmaTr()
                      << " Rot:" << aSig.SigmaRot() << " Rad]"
                      << "\n";
+
+           }
+           else
+           {
+               StdOut() << " No measure for instrument " << aName << "\n";
+           }
         }
     }
-    StdOut ()  << "    AVERAGE  "
+
+    if (aAvSigTr.Nb())
+    {
+       StdOut ()  << "    AVERAGE  "
                 <<" Sigmas =["
                << " Tr:" <<  aAvSigTr.Average()
                << " Rot:" << aAvSigRot.Average() << " Rad]"
                << "\n";
+
+    }
+    else
+    {
+          StdOut ()  << "  No measure for this type of instrument\n";
+    }
 
 }
 

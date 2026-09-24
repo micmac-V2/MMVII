@@ -289,6 +289,7 @@ class cIrb_SigmaInstr
       void AddData(const  cAuxAr2007 & anAux);
 
 
+      int    NbMeasure() const;
       tREAL8 SigmaTr() const;
       tREAL8 SigmaRot() const;
 

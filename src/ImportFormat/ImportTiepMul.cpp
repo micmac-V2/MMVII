@@ -45,6 +45,7 @@ class cAppli_ImportTiePMul : public cMMVII_Appli
         int                        mComment;
         std::vector<std::string>   mPatIm;
         std::vector<std::string>   mPatPt;
+        int                        mNbDig;
         size_t                     mNbMinPt;
         std::string                mFileSelIm;
         bool                       mNumByConseq;
@@ -65,6 +66,7 @@ cAppli_ImportTiePMul::cAppli_ImportTiePMul(const std::vector<std::string> & aVAr
    mL0           (0),
    mLLast        (-1),
    mComment      (-1),
+   mNbDig        (-1),
    mNbMinPt      (0),
    mFileSelIm    ("ImagesWithTieP"),
    mNumByConseq  (false),
@@ -98,9 +100,10 @@ cCollecSpecArg2007 & cAppli_ImportTiePMul::ArgOpt(cCollecSpecArg2007 & anArgObl)
             << AOpt2007(mL0,"NumL0","Num of first line to read",{eTA2007::HDV})
             << AOpt2007(mLLast,"NumLast","Num of last line to read (-1 if at end of file)",{eTA2007::HDV})
             << AOpt2007(mPatIm,"PatIm","Pattern for transforming name [Pat,Replace]",{{eTA2007::ISizeV,"[2,2]"}})
-            << AOpt2007(mPatPt,"PatPt","Pattern for transforming/select pt [Pat,Replace] ",{{eTA2007::ISizeV,"[2,2]"}})
+            << AOpt2007(mPatPt,"PatPt","Pattern for transforming/select pt [Pat,Replace] ") // ,{{eTA2007::ISizeV,"[2,2]"}})
             << AOpt2007(mImFilter,"ImFilter","File/Pattern for selecting images")
             << AOpt2007(mOffset,"Offset","Offset to add to image measures",{eTA2007::HDV})
+            << AOpt2007(mNbDig,"NbDigit","Number of digits",{eTA2007::HDV})
    ;
    if (mModeTieP)
       return      aRes
@@ -148,20 +151,19 @@ int cAppli_ImportTiePMul::Exe()
    for (size_t aK=0 ; aK<aVXYZ.size() ; aK++)
    {
          // Read name point, and eventually select + transformate it
-         bool PIsSel = true;
+        //  bool PIsSel = true;
          std::string aNamePt = aVNPt.at(aK);
-         if (IsInit(&mPatPt))
-         {
-             if (MatchRegex(aNamePt,mPatPt.at(0)))
-             {
-                aNamePt=ReplacePattern(mPatPt.at(0),mPatPt.at(1),aNamePt);
-             }
-             else
-                PIsSel = false;
-         }
+         bool PIsSel = ChgNameIfMatch(mPatPt,aNamePt,true);
+
+         PIsSel = PIsSel && (aNamePt != MMVII_SKIP);
+
 
          if (PIsSel)
          {
+             if (IsInit(&mNbDig) && (aNamePt!=MMVII_NONE))
+             {
+                  aNamePt = ToStrIntFixNbDigit(aNamePt,mNbDig);
+             }
              std::string aNameI   = aVNIm.at(aK);
              if (IsInit(&mPatIm))
                 aNameI = ReplacePattern(mPatIm.at(0),mPatIm.at(1),aNameI);
@@ -206,7 +208,15 @@ int cAppli_ImportTiePMul::Exe()
                     }
                     // mMapGCP[aNameI]->AddMeasure(cMesIm1Pt(aP2,aNamePt,1.0));
                     // we dont accept duplicate point
-                    mMapGCP[aNameI]->AddMeasureIfNew(cMesIm1Pt(aP2,aNamePt,1.0),mTolDupl);
+                    cMesIm1Pt aMeasure(aP2,aNamePt,1.0);
+                    if (aNamePt!=MMVII_NONE)
+                    {
+                        mMapGCP[aNameI]->AddMeasureIfNew(aMeasure,mTolDupl);
+                    }
+                    else
+                    {
+                         mMapGCP[aNameI]->AddMeasure(aMeasure);
+                    }
                 }
              }
          }

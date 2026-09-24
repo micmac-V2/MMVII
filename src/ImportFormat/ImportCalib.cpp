@@ -121,7 +121,7 @@ tMMVII_UnikPApli Alloc_CalibIndiv(const std::vector<std::string> & aVArgs,const 
 
 cSpecMMVII_Appli  TheSpec_CalibIndiv
 (
-     "CalibPerIm",
+     "OriCalibPerIm",
       Alloc_CalibIndiv,
       "Make an orientation with calibration diff for each image/group",
       {eApF::Ori},

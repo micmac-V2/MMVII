@@ -1172,6 +1172,31 @@ cVecTiePMul::cVecTiePMul(const std::string & anIm) :
 {
 }
 
+void cVecTiePMul::SortId(bool WithWarnIfNotSorted)
+{
+    bool isSorted = true;
+
+    for (int aK=1 ; (aK<mVecTPM.size()) && isSorted; aK++)
+    {
+        if (mVecTPM.at(aK-1).mId>=mVecTPM.at(aK).mId)
+            isSorted = false;
+    }
+
+    if (!isSorted)
+    {
+         if (WithWarnIfNotSorted)
+         {
+             MMVII_USER_WARNING("cVecTiePMul indexe not sorted, sort them");
+         }
+         std::sort
+         (
+              mVecTPM.begin(),
+              mVecTPM.end(),
+             [](const auto& aV1,const auto & aV2) {return aV1.mId < aV2.mId;}
+         );
+    }
+}
+
 
 }; // MMVII
 
