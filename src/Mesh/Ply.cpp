@@ -468,9 +468,9 @@ cPt3dr getNextColor(double& aCurrHue) {
 /*                                                            */
 /* ********************************************************** */
 
-void cAppli_VisuPoseStr3D::AddPointCould(cPlyVertices& aPlyverts, cStaticLidar* aScan, int aTSLCloudDezoom, cPt3dr aScanColor, bool aOnlyEdges)
+void cAppli_VisuPoseStr3D::AddPointCould(cPlyVertices& aPlyverts, cStaticLidar* aScan, int aTLSCloudDezoom, cPt3dr aScanColor, bool aOnlyEdges)
 {
-    if (aTSLCloudDezoom<=0)
+    if (aTLSCloudDezoom<=0)
         return;
 
     cImGrad<tREAL4> aMask({1,1});
@@ -478,7 +478,7 @@ void cAppli_VisuPoseStr3D::AddPointCould(cPlyVertices& aPlyverts, cStaticLidar* 
         aMask = Deriche(aScan->getRasterDistance(),0.1);
 
     int aStep = 1;
-    for (int i=1;i<aTSLCloudDezoom;++i)
+    for (int i=1;i<aTLSCloudDezoom;++i)
         aStep *= 2;
     for (int l = 0 ; l < aScan->PixelDomain().Sz().y(); l+=aStep)
         for (int c = 0 ; c < aScan->PixelDomain().Sz().x(); c+=aStep)

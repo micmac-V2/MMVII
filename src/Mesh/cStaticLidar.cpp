@@ -59,7 +59,7 @@ cStaticLidarImporter::cStaticLidarImporter() :
     mThetaStep         (NAN),
     mPhiStart          (NAN),
     mPhiStep           (NAN),
-    mRotInput2TSL      (cRotation3D<tREAL8>::Identity()),
+    mRotInput2TLS      (cRotation3D<tREAL8>::Identity()),
     mVertRot           (cRotation3D<tREAL8>::Identity())
 {
 
@@ -204,12 +204,12 @@ void cStaticLidarImporter::readE57Points(std::string aE57FileName, bool aForceGr
         }
 
         vectorReader.close();
-        cRotation3D<tREAL8> aRotTSL2MM = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j");
+        cRotation3D<tREAL8> aRotTLS2MM = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j");
         cRotation3D<tREAL8> aRot = cRotation3D(Quat2MatrRot<tREAL8>({data3DHeader.pose.rotation.w,data3DHeader.pose.rotation.x,
                                                  data3DHeader.pose.rotation.y,data3DHeader.pose.rotation.z}).Transpose(), false);
 
         mReadPose.emplace(cPt3dr(data3DHeader.pose.translation.x,data3DHeader.pose.translation.y,data3DHeader.pose.translation.z),
-                          (aRotTSL2MM*aRot).MapInverse());
+                          (aRotTLS2MM*aRot).MapInverse());
     }
     catch (const std::runtime_error &e)
     {
@@ -304,7 +304,7 @@ void cStaticLidarImporter::readPtxPoints(std::string aPtxFileName, bool aForceGr
 }
 
 bool cStaticLidarImporter::read(const std::string & aName, bool OkNone,
-                                bool aForceStructured, std::string aStrInput2TSL, bool aForceGreenAsIntensity)
+                                bool aForceStructured, std::string aStrInput2TLS, bool aForceGreenAsIntensity)
 {
     std::string aPost = LastPostfix(aName);
     if (UCaseEqual(aPost,"ply"))
@@ -337,17 +337,17 @@ bool cStaticLidarImporter::read(const std::string & aName, bool OkNone,
 
     if (HasCartesian() && !HasSpherical())
     {
-        mRotInput2TSL = cRotation3D<tREAL8>::RotFromCanonicalAxes(aStrInput2TSL);
+        mRotInput2TLS = cRotation3D<tREAL8>::RotFromCanonicalAxes(aStrInput2TLS);
         // apply rotframe to original points
         for (auto & aPtXYZ : mVectPtsXYZ)
         {
-            aPtXYZ = ToF(mRotInput2TSL.Value(ToR(aPtXYZ)));
+            aPtXYZ = ToF(mRotInput2TLS.Value(ToR(aPtXYZ)));
         }
         convertToThetaPhiDist();
         // go back to original xyz
         for (auto & aPtXYZ : mVectPtsXYZ)
         {
-            aPtXYZ = ToF(mRotInput2TSL.Inverse(ToR(aPtXYZ)));
+            aPtXYZ = ToF(mRotInput2TLS.Inverse(ToR(aPtXYZ)));
         }
     } else if (!HasCartesian() && HasSpherical()) // mTransfoIJK not used if spherical
     {
@@ -401,7 +401,7 @@ void cStaticLidarImporter::ComputeRotInput2Raster(std::string aTransfoIJK)
 {
     MMVII_INTERNAL_ASSERT_tiny(HasRowCol(),"Error: ComputeRotInput2Raster needs row/col");
 
-    cRotation3D<tREAL8> aRotInput2TSL = cRotation3D<tREAL8>::RotFromCanonicalAxes(aTransfoIJK);
+    cRotation3D<tREAL8> aRotInput2TLS = cRotation3D<tREAL8>::RotFromCanonicalAxes(aTransfoIJK);
     //  scanner     to      raster
     //  z|   y
     //   | /
@@ -412,10 +412,10 @@ void cStaticLidarImporter::ComputeRotInput2Raster(std::string aTransfoIJK)
 
     std::cout<<"aRotZvert2view:\n"<<aRotZvert2view.AxeI()<<"\n"
               <<aRotZvert2view.AxeJ()<<"\n"<<aRotZvert2view.AxeK()<<std::endl;
-    std::cout<<"aRotFrame:\n"<<aRotInput2TSL.AxeI()<<"\n"
-              <<aRotInput2TSL.AxeJ()<<"\n"<<aRotInput2TSL.AxeK()<<std::endl;
+    std::cout<<"aRotFrame:\n"<<aRotInput2TLS.AxeI()<<"\n"
+              <<aRotInput2TLS.AxeJ()<<"\n"<<aRotInput2TLS.AxeK()<<std::endl;
 
-    mRotInput2Raster = aRotZvert2view * aRotInput2TSL; // TODO: use aRotFrame
+    mRotInput2Raster = aRotZvert2view * aRotInput2TLS; // TODO: use aRotFrame
     std::cout<<"mRotInput2Raster:\n"<<mRotInput2Raster.AxeI()<<"\n"
               <<mRotInput2Raster.AxeJ()<<"\n"<<mRotInput2Raster.AxeK()<<std::endl;
 }
@@ -1482,7 +1482,7 @@ void cStaticLidar::SaveRasters(const cStaticLidarImporter & aSL_importer, const 
 
 std::string cStaticLidar::NameFromId(const std::string &aIdName, bool getOriName)
 {
-    if (!IsNameTSL(aIdName))
+    if (!IsNameTLS(aIdName))
         return MMVII_NONE;
     //MMVII_INTERNAL_ASSERT_User(ends_with(aIdName,GetIdSuffix()),eTyUEr::eBadFileRelName,"Error, Scan Id image must end in "+GetIdSuffix());
     std::string aNameImage = aIdName;
@@ -1492,19 +1492,19 @@ std::string cStaticLidar::NameFromId(const std::string &aIdName, bool getOriName
         return aNameImage;
 }
 
-bool cStaticLidar::IsNameTSL(const std::string &aImageName)
+bool cStaticLidar::IsNameTLS(const std::string &aImageName)
 {
     return ends_with(aImageName,GetIdSuffix());
 }
 
 cCalculator<double> * cStaticLidar::CreateEqColinearity(bool WithDerives, int aSzBuf, bool ReUse)
 {
-    return EqTSL_GCP(WithDerives,aSzBuf,ReUse);
+    return EqTLS_GCP(WithDerives,aSzBuf,ReUse);
 }
 
 cCalculator<double> * cStaticLidar::CreateEqColinearityDist(bool WithDerives, int aSzBuf, bool ReUse)
 {
-    return EqTSL_GCPD(WithDerives,aSzBuf,ReUse);
+    return EqTLS_GCPD(WithDerives,aSzBuf,ReUse);
 }
 
 cCalculator<double> * cStaticLidar::GetEqColinearityDist()
@@ -1717,7 +1717,7 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> * aSup
     if (aSupMaskDIm)
         MMVII_INTERNAL_ASSERT_tiny(
             aSupMaskDIm->Sz() == InternalCalib()->SzPix(),
-            "Error: Sup mask must have the same size as TSL mask");
+            "Error: Sup mask must have the same size as TLS mask");
     mPatchCenters.clear();
     auto & aRasterMaskData = mRasterMask->DIm();
     /*cResultExtremum aRes;
@@ -1797,7 +1797,7 @@ void cStaticLidar::SelectPatchCenters3(int aNbPatches, cDataIm2D<tU_INT1> * aSup
     if (aSupMaskDIm)
         MMVII_INTERNAL_ASSERT_tiny(
             aSupMaskDIm->Sz() == InternalCalib()->SzPix(),
-            "Error: Sup mask must have the same size as TSL mask");
+            "Error: Sup mask must have the same size as TLS mask");
 
     //auto [aAvgDist, aNbValid, aNbNotMasked] = AvgDistNbValidAndNbNotMasked();
     //std::cout<<"aAvgDist="<<aAvgDist<<" aNbValid="<<aNbValid<<
@@ -2091,17 +2091,17 @@ void TestPose(const std::string & aInPath, const std::string & aScanName, const 
     delete aScan;
 }
 
-void BenchTSL(cParamExeBench & aParam)
+void BenchTLS(cParamExeBench & aParam)
 {
-    if (! aParam.NewBench("TSL")) return;
+    if (! aParam.NewBench("TLS")) return;
 
-    const std::string & aInPath = cMMVII_Appli::CurrentAppli().InputDirTestMMVII() + "/TSL/Scan1/";
+    const std::string & aInPath = cMMVII_Appli::CurrentAppli().InputDirTestMMVII() + "/TLS/Scan1/";
 
     // test with scan pose = Id
     cStaticLidar * aScan =  cStaticLidar::FromFile(aInPath + "Scan-St1-Sc1.xml", false);
     aScan->ReadRasters(aInPath);
 
-    //aScan->ToPly(cMMVII_Appli::CurrentAppli().TmpDirTestMMVII() + "/TSL.ply");
+    //aScan->ToPly(cMMVII_Appli::CurrentAppli().TmpDirTestMMVII() + "/TLS.ply");
 
     auto & pp = aScan->InternalCalib()->PP();
     cPt2di ppInt = cPt2di(round(pp.x()), round(pp.y()));
@@ -2137,7 +2137,7 @@ void BenchTSL(cParamExeBench & aParam)
     // just rot xyz
     TestPose(aInPath, "Scan-St5-Sc1.xml", {67.6836,71.4344});
 
-    //std::cout<<"Bench TSL finished."<<std::endl;
+    //std::cout<<"Bench TLS finished."<<std::endl;
     aParam.EndBench();
     return;
 }

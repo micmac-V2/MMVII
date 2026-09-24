@@ -24,7 +24,7 @@ tREAL8 toMinusPiPlusPi(tREAL8 aAng, tREAL8 aOffset = 0.);
 
 class cStaticLidarImporter
 {
-    friend class cAppli_ImportTSL;
+    friend class cAppli_ImportTLS;
 public:
     cStaticLidarImporter();
     void readPlyPoints(std::string aPlyFileName, bool aForceGreenAsIntensity);
@@ -33,7 +33,7 @@ public:
 
     /// Adapts to adequate function from postfix, return if some read suceeded
     bool read(const std::string & aName, bool OkNone=false, bool aForceStructured=false,
-              std::string aStrInput2TSL="ijk", bool aForceGreenAsIntensity=false);
+              std::string aStrInput2TLS="ijk", bool aForceGreenAsIntensity=false);
 
     void convertToThetaPhiDist();
     void convertToXYZ();
@@ -56,7 +56,7 @@ public:
     const std::optional<tPoseR> & ReadPose() const { return mReadPose;}
     bool checkLineCol(); // verify that mMaxCol/mMaxLine ar compatible with mVectPtsLine/mVectPtsCol
     void decimXY(const cPt2di & aDecim);
-    const cRotation3D<tREAL8> & RotInput2TSL() const { return mRotInput2TSL; }
+    const cRotation3D<tREAL8> & RotInput2TLS() const { return mRotInput2TLS; }
     const cRotation3D<tREAL8> & RotInput2Raster() const { return mRotInput2Raster; }
 
     float ColToLocalThetaApprox(float aCol) const;
@@ -102,7 +102,7 @@ protected:
     int mNbCol, mNbLine;
     tREAL8 mThetaStart, mThetaStep;
     tREAL8 mPhiStart, mPhiStep;
-    cRotation3D<tREAL8> mRotInput2TSL; // from xyz input file to classical TSL (rot around z)
+    cRotation3D<tREAL8> mRotInput2TLS; // from xyz input file to classical TLS (rot around z)
     cRotation3D<tREAL8> mVertRot; //< verticalizarion rotation in cloud frame
     cRotation3D<tREAL8> mRotInput2Raster; //< to go from z vertical to z view direction of PP, and make PPx in center
 };
@@ -119,7 +119,7 @@ struct cLidarRasterPatch
 
 class cStaticLidar: public cSensorCamPC
 {
-    friend class cAppli_ImportTSL;
+    friend class cAppli_ImportTLS;
     friend class cStaticLidarImporter;
 public :
 
@@ -140,7 +140,7 @@ public :
     void FillRasters(const cStaticLidarImporter & aSL_importer);
     void SaveRasters(const cStaticLidarImporter & aSL_importer, const std::string &aPhProjDirOut);
     static std::string NameFromId(const std::string &aIdName, bool getOriName);
-    static bool IsNameTSL(const std::string &aImageName);
+    static bool IsNameTLS(const std::string &aImageName);
 
     cCalculator<double> * CreateEqColinearity(bool WithDerives, int aSzBuf, bool ReUse) override; // colinearity with fixed F and PP
     cCalculator<double> * CreateEqColinearityDist(bool WithDerives, int aSzBuf, bool ReUse);

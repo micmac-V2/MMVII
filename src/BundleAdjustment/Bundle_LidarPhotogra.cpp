@@ -46,7 +46,7 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
     bool aZbufWithDist = true; // zbuffer is in dist or dz?
     std::vector<cSensorCamPC*> aVImages;
 
-    // work on normal images (+ TSL only if aOnScans)
+    // work on normal images (+ TLS only if aOnScans)
     for (const auto aPtrCam : aBA.VSCPC())
     {
         if (aOnScans || (dynamic_cast<cStaticLidar*>(aPtrCam)==nullptr))
@@ -185,7 +185,7 @@ cBA_LidarPhotogra::cBA_LidarPhotogra(cPhotogrammetricProject * aPhProj,
     StdOut() << "Read images...\n";
     for (const auto aPtrCam : aBA.VSCPC())
     {
-        // do not read other TSLs
+        // do not read other TLSs
         if (dynamic_cast<cStaticLidar*>(aPtrCam))
             continue;
         auto & aImage = aPtrCam->LoadImage();
@@ -478,7 +478,7 @@ void cBA_LidarPhotograRaster::SetVUkVObs
         int                     aKPt
         )
 {
-    cStaticLidar * aScan = mBA.MapTSL().at(aData.mScanAName);
+    cStaticLidar * aScan = mBA.MapTLS().at(aData.mScanAName);
     cPt3dr aPScan = aScan->Pt_W2L(aPGround);  // coordinate of point in ground system
     cSensorCamPC * aCam = mBA.VSCPC().at(aData.mKIm);  // extract the camera
     cPt3dr aPCam = aCam->Pt_W2L(aPGround);  // coordinate of point in image system
@@ -995,7 +995,7 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
     }
 
     MMVII_INTERNAL_ASSERT_User(!mVScans.empty(),
-                               eTyUEr::eBadFileSetName,"No TSL found!");
+                               eTyUEr::eBadFileSetName,"No TLS found!");
 
     // Creation of the patches, here just center point
     for (auto & aScanData: mVScans)
@@ -1191,8 +1191,8 @@ void cBA_LidarLidarRaster::AddObs()
         for (const auto& [aCpl, aNb] : mMapNbUsedPatches)
         {
             std::string aPath = mPhProj->DirVisuAppli() + "Reproj_on_" + aCpl.first + "_intensity_from_" + aCpl.second + ".tif";
-            cStaticLidar* aScanA =  mBA.MapTSL().at(aCpl.first);
-            cStaticLidar* aScanB =  mBA.MapTSL().at(aCpl.second);
+            cStaticLidar* aScanA =  mBA.MapTLS().at(aCpl.first);
+            cStaticLidar* aScanB =  mBA.MapTLS().at(aCpl.second);
             auto aProjection = aScanA->projectIntensityFrom(*aScanB);
             aProjection.DIm().ToFile(aPath, {"COMPRESS=DEFLATE"});
         }
@@ -1209,9 +1209,9 @@ void cBA_LidarLidarRaster::SetVUkVObs
      int                     aKPt
      )
 {
-    cStaticLidar * aScanA = mBA.MapTSL().at(aData.mScanAName);
+    cStaticLidar * aScanA = mBA.MapTLS().at(aData.mScanAName);
     cPt3dr aPScanA = aScanA->Pt_W2L(aPGround);  // coordinate of point in ground system
-    cStaticLidar * aScanB = mBA.MapTSL().at(aData.mScanBName);
+    cStaticLidar * aScanB = mBA.MapTLS().at(aData.mScanBName);
     cPt3dr aPScanB0 = aScanB->Pt_W2L(aPGround);  // coordinate of point in image system
     tProjImAndGrad aPImGr = aScanB->InternalCalib()->DiffGround2Im(aPScanB0); // compute proj & gradient
 

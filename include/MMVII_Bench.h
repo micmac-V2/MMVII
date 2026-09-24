@@ -101,7 +101,7 @@ void BenchSysCo(cParamExeBench & aParam); ///< SysCo
 
 void BenchTopoComp(cParamExeBench & aParam); ///< Topo compensation
 
-void BenchTSL(cParamExeBench & aParam); ///< Static lidar
+void BenchTLS(cParamExeBench & aParam); ///< Static lidar
 
 void BenchEpipolar(cParamExeBench & aParam);
 void BenchEpipolarNoRPC(cParamExeBench & aParam); ///< Epipolar rectif for sensors with no native Z interval

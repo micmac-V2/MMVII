@@ -4,7 +4,7 @@
 #include "MMVII_Interpolators.h"
 
 /**
-   \file ImportTSL.cpp
+   \file ImportTLS.cpp
 
    \brief import static scan into instrument geometry
 */
@@ -14,14 +14,14 @@ namespace MMVII
 {
 /* ********************************************************** */
 /*                                                            */
-/*                 cAppli_ImportTSL                    */
+/*                 cAppli_ImportTLS                    */
 /*                                                            */
 /* ********************************************************** */
 
-class cAppli_ImportTSL : public cMMVII_Appli
+class cAppli_ImportTLS : public cMMVII_Appli
 {
 public :
-    cAppli_ImportTSL(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec);
+    cAppli_ImportTLS(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec);
     int Exe() override;
     cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
@@ -45,7 +45,7 @@ private :
     std::string              mScanName;
 
     // Optional Arg
-    std::string              mStrInput2TSL;
+    std::string              mStrInput2TLS;
     bool                     mForceStructured;
     bool                     mDoVerticalize;
     bool                     mForceGreenAsIntensity;
@@ -63,10 +63,10 @@ private :
     cStaticLidarImporter mSL_importer;
 };
 
-cAppli_ImportTSL::cAppli_ImportTSL(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
+cAppli_ImportTLS::cAppli_ImportTLS(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
     cMMVII_Appli    (aVArgs,aSpec),
     mPhProj         (*this),
-    mStrInput2TSL     ("ijk"),
+    mStrInput2TLS     ("ijk"),
     mForceStructured(false), // skip all checks, suppose all the points are present and ordered by col
     mDoVerticalize  (false),
     mForceGreenAsIntensity (false),
@@ -81,7 +81,7 @@ cAppli_ImportTSL::cAppli_ImportTSL(const std::vector<std::string> & aVArgs,const
 {
 }
 
-cCollecSpecArg2007 & cAppli_ImportTSL::ArgObl(cCollecSpecArg2007 & anArgObl)
+cCollecSpecArg2007 & cAppli_ImportTLS::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return anArgObl
            <<  Arg2007(mNameFile ,"Name of Input File",{eTA2007::FileCloud})
@@ -90,10 +90,10 @@ cCollecSpecArg2007 & cAppli_ImportTSL::ArgObl(cCollecSpecArg2007 & anArgObl)
         ;
 }
 
-cCollecSpecArg2007 & cAppli_ImportTSL::ArgOpt(cCollecSpecArg2007 & anArgOpt)
+cCollecSpecArg2007 & cAppli_ImportTLS::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return    anArgOpt
-           << AOpt2007(mStrInput2TSL,"Transfo","Transfo to have primariy rotation axis as Z and X as theta origin",{{eTA2007::HDV}})
+           << AOpt2007(mStrInput2TLS,"Transfo","Transfo to have primariy rotation axis as Z and X as theta origin",{{eTA2007::HDV}})
            << AOpt2007(mForceStructured,"Structured","Suppose the scan is structured, skip all checks",{{eTA2007::HDV}})
            << AOpt2007(mDoVerticalize,"Vert","Try to verticalize scan columns",{{eTA2007::HDV}})
            << AOpt2007(mForceGreenAsIntensity,"GreenAsI","Use green value as intensity",{{eTA2007::HDV}})
@@ -108,7 +108,7 @@ cCollecSpecArg2007 & cAppli_ImportTSL::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 }
 
 
-void cAppli_ImportTSL::estimatePhiStep()
+void cAppli_ImportTLS::estimatePhiStep()
 {
     StdOut() << "estimatePhiStep\n";
     // find phi step
@@ -177,7 +177,7 @@ void cAppli_ImportTSL::estimatePhiStep()
     }
 }
 
-void cAppli_ImportTSL::computeLineCol()
+void cAppli_ImportTLS::computeLineCol()
 {
     StdOut() << "computeLineCol\n";
     computeAngStartStep();
@@ -301,7 +301,7 @@ void cAppli_ImportTSL::computeLineCol()
 }
 
 
-void cAppli_ImportTSL::computeAngStartStep()
+void cAppli_ImportTLS::computeAngStartStep()
 {
     StdOut() << "computeAngStartStep\n";
     std::cout<<mSL_importer.mVectPtsTPD.size()<<"\n";
@@ -426,7 +426,7 @@ void cAppli_ImportTSL::computeAngStartStep()
              << "ThetaEnd: " << mSL_importer.mThetaStep+(mSL_importer.mNbCol-1)*mSL_importer.mThetaStep << "\n";
 }
 
-void cAppli_ImportTSL::testLineColError()
+void cAppli_ImportTLS::testLineColError()
 {
     tREAL8 aMaxThetaError = -1.;
     tREAL8 aMaxPhiError = -1.;
@@ -456,7 +456,7 @@ void cAppli_ImportTSL::testLineColError()
 }
 
 
-void cAppli_ImportTSL::fixLineColRasterDirections()
+void cAppli_ImportTLS::fixLineColRasterDirections()
 {
     // raster geometry is col to the right and lines to the bottom
     // raster lines correspond to scan lines if phi step is < 0
@@ -484,7 +484,7 @@ void cAppli_ImportTSL::fixLineColRasterDirections()
 
 }
 
-tREAL8 cAppli_ImportTSL::doVerticalize()
+tREAL8 cAppli_ImportTLS::doVerticalize()
 {
     StdOut() << "Verticalizing..." << std::endl;
     // estimate verticalization correction if scanner with compensator
@@ -568,7 +568,7 @@ tREAL8 cAppli_ImportTSL::doVerticalize()
     return mSL_importer.mVertRot.Angle();
 }
 
-void cAppli_ImportTSL::exportThetas(const std::string & aFileName, int aNbThetas, bool aCompareToCol)
+void cAppli_ImportTLS::exportThetas(const std::string & aFileName, int aNbThetas, bool aCompareToCol)
 {
     StdOut() << "Export thetas\n";
     // export thetas on several cols
@@ -615,12 +615,12 @@ void cAppli_ImportTSL::exportThetas(const std::string & aFileName, int aNbThetas
 }
 
 
-int cAppli_ImportTSL::Exe()
+int cAppli_ImportTLS::Exe()
 {
     mPhProj.FinishInit();
     MMVII_INTERNAL_ASSERT_tiny((mDecimXY.x()>0) && (mDecimXY.y()>0),"Incorrect Decim argument "+ToStr(mDecimXY));
 
-    mSL_importer.read(mNameFile, false, mForceStructured, mStrInput2TSL, mForceGreenAsIntensity);
+    mSL_importer.read(mNameFile, false, mForceStructured, mStrInput2TLS, mForceGreenAsIntensity);
 
     if (mDistNoiseSigma!=0.)
     {
@@ -766,13 +766,13 @@ int cAppli_ImportTSL::Exe()
 */
 
     // compute transfo from scan instrument frame to sensor frame
-    mSL_importer.ComputeRotInput2Raster(mStrInput2TSL);
+    mSL_importer.ComputeRotInput2Raster(mStrInput2TLS);
     mSL_importer.ComputeAgregatedAngles();
 
     // create sensor from imported data
     std::string aScanName = mStationName + "-" + mScanName + cStaticLidar::GetIdSuffix();
     // find PP: image of the (Oz) axis
-    cPt3dr aOxAxisInput = mSL_importer.RotInput2TSL().Inverse({1.,0.,0.});  // axis 1,0,0 in TSL frame, to get PP
+    cPt3dr aOxAxisInput = mSL_importer.RotInput2TLS().Inverse({1.,0.,0.});  // axis 1,0,0 in TLS frame, to get PP
     cPt2dr aOxAxisAngles = mSL_importer.Input3DtoRasterAngle(aOxAxisInput);
     std::cout<< aOxAxisAngles.y()<<" approx "
              << mSL_importer.LocalPhiToLineApprox(aOxAxisAngles.y())
@@ -847,7 +847,7 @@ int cAppli_ImportTSL::Exe()
 
 }
 
-std::vector<cOneHelpSampleCmp>  cAppli_ImportTSL::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_ImportTLS::Samples() const
 {
     return
         {
@@ -856,15 +856,15 @@ std::vector<cOneHelpSampleCmp>  cAppli_ImportTSL::Samples() const
 }
 
 
-tMMVII_UnikPApli Alloc_ImportTSL(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
+tMMVII_UnikPApli Alloc_ImportTLS(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
 {
-    return tMMVII_UnikPApli(new cAppli_ImportTSL(aVArgs,aSpec));
+    return tMMVII_UnikPApli(new cAppli_ImportTLS(aVArgs,aSpec));
 }
 
-cSpecMMVII_Appli  TheSpec_ImportTSL
+cSpecMMVII_Appli  TheSpec_ImportTLS
     (
-        "ImportTSL",
-        Alloc_ImportTSL,
+        "ImportTLS",
+        Alloc_ImportTLS,
         "Import static scan cloud point into instrument raster geometry",
         {eApF::Cloud},
         {eApDT::Ply},
@@ -881,14 +881,14 @@ cSpecMMVII_Appli  TheSpec_ImportTSL
 
 /* ********************************************************** */
 /*                                                            */
-/*                     cAppli_InitTSL                      */
+/*                     cAppli_InitTLS                      */
 /*                                                            */
 /* ********************************************************** */
 
-class cAppli_InitTSL : public cMMVII_Appli
+class cAppli_InitTLS : public cMMVII_Appli
 {
 public :
-    cAppli_InitTSL(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec);
+    cAppli_InitTLS(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec);
     int Exe() override;
     cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
     cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
@@ -904,7 +904,7 @@ private :
     cStaticLidar* mLidar;
 
     // Mandatory Arg
-    std::string              mNameFileTSLId;
+    std::string              mNameFileTLSId;
 
     // Optional Arg
     int                      mNbPatches;
@@ -922,7 +922,7 @@ private :
     bool                     mIsForcedPoseInit;
 };
 
-cAppli_InitTSL::cAppli_InitTSL(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
+cAppli_InitTLS::cAppli_InitTLS(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
     cMMVII_Appli    (aVArgs,aSpec),
     mPhProj         (*this),
     mLidar          (nullptr),
@@ -935,15 +935,15 @@ cAppli_InitTSL::cAppli_InitTSL(const std::vector<std::string> & aVArgs,const cSp
 {
 }
 
-cCollecSpecArg2007 & cAppli_InitTSL::ArgObl(cCollecSpecArg2007 & anArgObl)
+cCollecSpecArg2007 & cAppli_InitTLS::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
     return anArgObl
-           <<  Arg2007(mNameFileTSLId ,"Name of TSL Input File",{eTA2007::FileTSL})
+           <<  Arg2007(mNameFileTLSId ,"Name of TLS Input File",{eTA2007::FileTLS})
            <<  mPhProj.DPOrient().ArgDirOutMand()
         ;
 }
 
-cCollecSpecArg2007 & cAppli_InitTSL::ArgOpt(cCollecSpecArg2007 & anArgOpt)
+cCollecSpecArg2007 & cAppli_InitTLS::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return    anArgOpt
            << AOpt2007(mNbPatches,"NbPatches","Approx nb patches to make",{{eTA2007::HDV}})
@@ -961,15 +961,15 @@ cCollecSpecArg2007 & cAppli_InitTSL::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 }
 
 
-void cAppli_InitTSL::poseFromGCP()
+void cAppli_InitTLS::poseFromGCP()
 {
     StdOut() << "Pose from GCP\n";
     cSetMesGndPt  aSetMes;
     cSet2D3D      aSet23;
     mPhProj.LoadGCP3D(aSetMes);
-    mPhProj.LoadIm(aSetMes,mNameFileTSLId,nullptr,mLidar);
+    mPhProj.LoadIm(aSetMes,mNameFileTLSId,nullptr,mLidar);
 
-    aSetMes.ExtractMes1Im(aSet23,mNameFileTSLId);
+    aSetMes.ExtractMes1Im(aSet23,mNameFileTLSId);
 
     std::vector<cPt3dr> aVectPtsGnd, aVectPtsInstr;
 
@@ -1014,7 +1014,7 @@ void cAppli_InitTSL::poseFromGCP()
 }
 
 
-void cAppli_InitTSL::poseFromMat4x4(bool aInverse)
+void cAppli_InitTLS::poseFromMat4x4(bool aInverse)
 {
     StdOut() << "Pose from 4x4 Mat file\n";
     /* file format :
@@ -1060,7 +1060,7 @@ void cAppli_InitTSL::poseFromMat4x4(bool aInverse)
     }
     MMVII_INTERNAL_ASSERT_tiny(!aMatfile.bad(),"Error reading "+mPoseMat4x4Filename);
 
-    cRotation3D<tREAL8> aRotTSL2MM = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j");
+    cRotation3D<tREAL8> aRotTLS2MM = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j");
 
     auto aRot = cRotation3D<tREAL8>({aR1.x(), aR2.x(), aR3.x()},
                                     {aR1.y(), aR2.y(), aR3.y()},
@@ -1073,17 +1073,17 @@ void cAppli_InitTSL::poseFromMat4x4(bool aInverse)
         aT = aRot.Value(-aT);
     }
 
-    mForcedPose.Rot() = (aRotTSL2MM * aRot).MapInverse();
+    mForcedPose.Rot() = (aRotTLS2MM * aRot).MapInverse();
     mForcedPose.Tr() = aRot.Inverse(-aT);
 
     mIsForcedPoseInit = true;
 }
 
 
-void cAppli_InitTSL::poseFromXYZv4()
+void cAppli_InitTLS::poseFromXYZv4()
 {
     StdOut() << "Pose from XYZ file\n";
-    /*The rotation is given from ground to TSL frame. Has to be converted to MM camera frame
+    /*The rotation is given from ground to TLS frame. Has to be converted to MM camera frame
      *
      * Comp3D v4 .XYZ file format :
 
@@ -1137,11 +1137,11 @@ CT197	3.580	-3.306	5.238	0.001
     }
     MMVII_INTERNAL_ASSERT_tiny(aXYZfile.good(),"Error reading "+mPoseXYZv4Filename);
 
-    cRotation3D<tREAL8> aRotTSL2MM = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j");
+    cRotation3D<tREAL8> aRotTLS2MM = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j");
 
     mForcedPose.Tr() = aT;
     mForcedPose.Rot() =
-        (aRotTSL2MM *
+        (aRotTLS2MM *
          cRotation3D<tREAL8>({aR1.x(), aR2.x(), aR3.x()},
                              {aR1.y(), aR2.y(), aR3.y()},
                              {aR1.z(), aR2.z(), aR3.z()}, true)
@@ -1150,10 +1150,10 @@ CT197	3.580	-3.306	5.238	0.001
 }
 
 
-void cAppli_InitTSL::poseFromXYZ()
+void cAppli_InitTLS::poseFromXYZ()
 {
     StdOut() << "Pose from XYZ file\n";
-    /*The rotation is given from ground to TSL frame. Has to be converted to MM camera frame
+    /*The rotation is given from ground to TLS frame. Has to be converted to MM camera frame
      *
      * Comp3D .XYZ file format :
 
@@ -1210,11 +1210,11 @@ CT197	3.580	-3.306	5.238	0.001
     }
     MMVII_INTERNAL_ASSERT_tiny(aXYZfile.good(),"Error reading "+mPoseXYZFilename);
 
-    cRotation3D<tREAL8> aRotTSL2MM = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j");
+    cRotation3D<tREAL8> aRotTLS2MM = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j");
 
     mForcedPose.Tr() = aT;
     mForcedPose.Rot() =
-        (aRotTSL2MM *
+        (aRotTLS2MM *
          cRotation3D<tREAL8>({aR1.x(), aR2.x(), aR3.x()},
                              {aR1.y(), aR2.y(), aR3.y()},
                              {aR1.z(), aR2.z(), aR3.z()}, true)
@@ -1222,12 +1222,12 @@ CT197	3.580	-3.306	5.238	0.001
     mIsForcedPoseInit = true;
 }
 
-int cAppli_InitTSL::Exe()
+int cAppli_InitTLS::Exe()
 {
     mPhProj.FinishInit();
 
-    auto aTSLOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mNameFileTSLId,true);
-    mLidar = cStaticLidar::FromFile(aTSLOriFile, false);
+    auto aTLSOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mNameFileTLSId,true);
+    mLidar = cStaticLidar::FromFile(aTLSOriFile, false);
     mLidar->ReadRasters(mPhProj.DirStaticLidarRasters());
 
     // try to read pose from cloud file
@@ -1302,7 +1302,7 @@ int cAppli_InitTSL::Exe()
     return EXIT_SUCCESS;
 }
 
-std::vector<cOneHelpSampleCmp>  cAppli_InitTSL::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_InitTLS::Samples() const
 {
     return
         {
@@ -1311,16 +1311,16 @@ std::vector<cOneHelpSampleCmp>  cAppli_InitTSL::Samples() const
 }
 
 
-tMMVII_UnikPApli Alloc_InitTSL(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
+tMMVII_UnikPApli Alloc_InitTLS(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
 {
-    return tMMVII_UnikPApli(new cAppli_InitTSL(aVArgs,aSpec));
+    return tMMVII_UnikPApli(new cAppli_InitTLS(aVArgs,aSpec));
 }
 
-cSpecMMVII_Appli  TheSpec_InitTSL
+cSpecMMVII_Appli  TheSpec_InitTLS
     (
-        "InitTSL",
-        Alloc_InitTSL,
-        "Set TSL pose and update patches",
+        "InitTLS",
+        Alloc_InitTLS,
+        "Set TLS pose and update patches",
         {eApF::Cloud},
         {eApDT::Ply},
         {eApDT::MMVIICloud},

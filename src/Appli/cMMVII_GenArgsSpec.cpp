@@ -49,7 +49,7 @@ static const std::map<eTA2007,std::vector<std::string>> & fileList()
     static const std::map<eTA2007,std::vector<std::string>> fileList =
     {
         {eTA2007::FileImage,VecImageExtensions()},
-        {eTA2007::FileTSL,{cStaticLidar::GetIdSuffix()}},
+        {eTA2007::FileTLS,{cStaticLidar::GetIdSuffix()}},
         {eTA2007::FileCloud,{".ply",".e57",".ptx"}},
         {eTA2007::FileDmp,{"."+PostF_DumpFiles}},
         {eTA2007::File3DRegion,{""}},

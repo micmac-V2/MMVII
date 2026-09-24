@@ -790,7 +790,7 @@ void cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,cSensorImag
 
      // Try a stenope camera which has interesting properties
      aSPC = ReadCamPC(aNameIm,ToDeleteAutom,true);
-     // Try TSL
+     // Try TLS
      if (aSPC==nullptr) aSPC = ReadStaticLidar(aNameIm,ToDeleteAutom,true,aReadData);
 
      if (aSPC !=nullptr)
