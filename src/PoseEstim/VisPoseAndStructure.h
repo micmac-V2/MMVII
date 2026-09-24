@@ -59,13 +59,13 @@ private:
     double                    mErrProjMax;
     double                    mCamScale;
     cEstimLengthPyrCam        mEstimmLengthPyrCam;
-    int                       mTSLCloudDezoom; //  0 for no point clouds
+    int                       mTLSCloudDezoom; //  0 for no point clouds
     std::string               mOutfile;
     bool                      mBinary;
     bool                      mWithRGB;
     bool                      mWithAvgRGB; //RGB values averaged over all images, slower? but less noisy
 
-    void AddPointCould(cPlyVertices& aPlyverts, cStaticLidar* aScan, int aTSLCloudDezoom, cPt3dr aScanColor, bool aOnlyEdges=false);
+    void AddPointCould(cPlyVertices& aPlyverts, cStaticLidar* aScan, int aTLSCloudDezoom, cPt3dr aScanColor, bool aOnlyEdges=false);
 };
 
 }

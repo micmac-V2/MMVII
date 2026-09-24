@@ -367,7 +367,7 @@ class cAppliCheckBoardTargetExtract : public cMMVII_Appli
         tREAL8                mStepGradRefinePos;
         // bool                  mDoGradRefine;
 
-        eTargetDistanceEstim     mModeDistance; // for TSL, which target distance estimation mode
+        eTargetDistanceEstim     mModeDistance; // for TLS, which target distance estimation mode
         
         // =========== Internal param ============
 

@@ -992,16 +992,16 @@ bool cMMVII_BundleAdj::AddStaticLidar(cStaticLidar* aStaticLidar)
 {
     AssertPhpAndPhaseAdd();
 
-    if (mMapTSL.count(aStaticLidar->NameImage())==0)
+    if (mMapTLS.count(aStaticLidar->NameImage())==0)
     {
         aStaticLidar->ReadRasters(mPhProj->DirStaticLidarRasters());
-        MMVII_INTERNAL_ASSERT_tiny (mMapTSL.count(aStaticLidar->NameImage())==0,"Multiple add of TSL : " + aStaticLidar->NameImage());
-        mMapTSL[aStaticLidar->NameImage()] = aStaticLidar;
+        MMVII_INTERNAL_ASSERT_tiny (mMapTLS.count(aStaticLidar->NameImage())==0,"Multiple add of TLS : " + aStaticLidar->NameImage());
+        mMapTLS[aStaticLidar->NameImage()] = aStaticLidar;
     }
     return true;
 }
 
-const std::unordered_map<std::string, cStaticLidar *> &cMMVII_BundleAdj::MapTSL() const {return mMapTSL;}
+const std::unordered_map<std::string, cStaticLidar *> &cMMVII_BundleAdj::MapTLS() const {return mMapTLS;}
 
 void cMMVII_BundleAdj::Add1AdjLidarLidar(const std::string & aPatScan, double aSigma, double aThresholdInit,
                                          double aThresholdFinal, double aNormalTolDeg, const std::vector<std::string> & aInterpD,
