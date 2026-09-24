@@ -231,6 +231,8 @@ int cAppli_MMVII_CloudImProj::Exe()
 			StdOut() << "Read pointcloud: " << aCloudFiles[i] << std::endl;
 		}
 
+		StdOut() << "Accumulated pointcloud size:" << aPC_In.NbPts() << std::endl;
+
 		StdOut() << "Updating density..." << std::endl;
 		aPC_In.UpdateFineDensity();
 		StdOut() << "Updating density ok: " << aPC_In.GetDensity() << std::endl;
