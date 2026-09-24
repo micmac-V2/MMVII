@@ -861,7 +861,7 @@ class cMMVII_BundleAdj
 
           const std::vector<cSensorImage *> &  VSIm() const ;  ///< Accessor
           const std::vector<cSensorCamPC *> &  VSCPC() const;   ///< Accessor
-          const std::unordered_map<std::string, cStaticLidar*> & MapTSL() const; ///< Accessor
+          const std::unordered_map<std::string, cStaticLidar*> & MapTLS() const; ///< Accessor
 
           /// Fix the %% for printing stat on tie-p residual
           void SetTiePShowPerMil(const std::vector<int> &);
@@ -966,7 +966,7 @@ class cMMVII_BundleAdj
           std::vector<cPerspCamIntrCalib *>  mVPCIC;     ///< vector of all internal calibration 4 easy parse
           std::vector<cSensorCamPC *>        mVSCPC;      ///< vector of perspectiv  cameras
           std::vector<cSensorImage *>        mVSIm;       ///< vector of sensor image (PC+RPC ...)
-          std::unordered_map<std::string, cStaticLidar*>  mMapTSL;      ///< map of static lidar scans data for BA, indexed by scan name
+          std::unordered_map<std::string, cStaticLidar*>  mMapTLS;      ///< map of static lidar scans data for BA, indexed by scan name
           //  std::vector<cCalculator<double> *> mVEqCol;     ///< vector of co-linearity equation -> replace by direct access
 
           cSetInterUK_MultipeObj<tREAL8>    mSetIntervUK;
