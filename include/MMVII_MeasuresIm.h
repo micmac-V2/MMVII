@@ -417,6 +417,8 @@ class   cVecTiePMul
       public :
           cVecTiePMul(const std::string & = "" );
 
+          void SortId(bool WithWarnIfNotSorted);
+
           std::string           mNameIm;
           std::vector<cTiePMul> mVecTPM;
 };

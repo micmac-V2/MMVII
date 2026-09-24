@@ -122,6 +122,24 @@
             </V>
          </Pair>
          <Pair>
+            <K>"Sony ILX-LR1"</K>
+            <V>
+               <Name>"Sony ILX-LR1"</Name>
+               <SzPix_micron>3.787 3.787</SzPix_micron>
+               <SzSensor_mm>36 24</SzSensor_mm>
+               <NbPixels>9504 6336</NbPixels>
+            </V>
+         </Pair>
+         <Pair>
+            <K>"Sony ILX-LR1-DS2"</K>
+            <V>
+               <Name>"Sony ILX-LR1-DS2"</Name>
+               <SzPix_micron>7.575 7.575</SzPix_micron>
+               <SzSensor_mm>36 24</SzSensor_mm>
+               <NbPixels>4752 3168</NbPixels>
+            </V>
+         </Pair>
+         <Pair>
             <K>"UltraCam Eagle Mark 3"</K>
             <V>
                <Name>"UltraCam Eagle Mark 3"</Name>

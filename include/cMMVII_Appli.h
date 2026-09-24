@@ -669,7 +669,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
 
         /// if "aPatSubst" was initialized, make a pattern replacement with aPatSubst[0] as pattern and aPatSubst[1] as substitution
         bool ChgName(const std::vector<std::string>& aPatSub,std::string & aName) const;
-        bool ChgNameIfMatch(const std::vector<std::string>& aPatSub,std::string & aName) const;
+        bool ChgNameIfMatch(const std::vector<std::string>& aPatSub,std::string & aName,bool DefVal=false) const;
 
     private:
         void  AddOneReport(const std::string &anId,const std::string & VecMsg);

@@ -364,9 +364,11 @@ template <class Type> Type cResolSysNonLinear<Type>::GetCond() const
             aJReduced++;
         }
         // std::cout<<"Reduced matrix:\n"; aDenseMReduced.Show(); std::cout<<std::endl;
-        cResulSymEigenValue<Type> aEig = aDenseMReduced.SymEigenValue();
+       /* cResulSymEigenValue<Type> aEig = aDenseMReduced.SymEigenValue();
         Type aCond = aEig.Cond(0.);
-        return aCond;
+        return aCond;*/
+
+        return aDenseMReduced.SymCond(0.0);
     }
     return NAN;
 }

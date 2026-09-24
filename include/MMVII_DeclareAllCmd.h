@@ -121,6 +121,8 @@ extern cSpecMMVII_Appli  TheSpec_MesImReport;
 extern cSpecMMVII_Appli  TheSpec_TiePReport;
 extern cSpecMMVII_Appli  TheSpec_SegImReport;
 extern cSpecMMVII_Appli  TheSpec_PoseCmpReport;
+extern cSpecMMVII_Appli  TheSpec_CmpCalib_Local;
+
 //extern cSpecMMVII_Appli  TheSpec_BlockCamInit;   // RIGIDBLOC
 extern cSpecMMVII_Appli  TheSpec_BlocReport;
 // extern cSpecMMVII_Appli  TheSpec_ClinoReport;

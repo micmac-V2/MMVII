@@ -905,6 +905,19 @@ cPerspCamIntrCalib *   cPhotogrammetricProject::InternalCalibFromStdName(const s
     return InternalCalibFromStdNameCalib(StdNameCalibOfImage(aNameIm),isRemanent);
 }
 
+cPerspCamIntrCalib *  cPhotogrammetricProject::InternalCalibFromFolderStdName
+                      (
+                           const std::string & aNameFolder,
+                           const std::string aNameIm,
+                           bool isRemanent
+                      ) const
+{
+    cAutoChgRestoreDefFolder  aCRDF(aNameFolder,DPOrient(),true);
+    return InternalCalibFromStdName(aNameIm,isRemanent);
+}
+//cAutoChgRestoreDefFolder  aCRDF(aFolder,DPOrient(),true); // Chg Folder and restore at destruction
+
+
         //  =============  Masks =================
 
 std::string cPhotogrammetricProject::NameMaskOfImage(const std::string & aNameImage) const
@@ -1241,12 +1254,24 @@ void  cPhotogrammetricProject::SaveMultipleTieP(const cVecTiePMul& aVPm,const st
 void  cPhotogrammetricProject::ReadMultipleTieP(cVecTiePMul& aVPm,const std::string & aNameIm,bool SVP) const
 {
    std::string aNameFile = mDPMulTieP.FullDirIn()+NameMultipleTieP(aNameIm);
+
    if (! ExistFile(aNameFile))
    {
      MMVII_INTERNAL_ASSERT_User(SVP,eTyUEr::eUnClassedError,"Cannot find Multi Tie Points for " + aNameIm);
    }
    else
-       ReadFromFile(aVPm.mVecTPM,mDPMulTieP.FullDirIn()+NameMultipleTieP(aNameIm));
+       ReadFromFile(aVPm.mVecTPM,aNameFile);
+
+   aVPm.SortId(true);
+//       ReadFromFile(aVPm.mVecTPM,mDPMulTieP.FullDirIn()+NameMultipleTieP(aNameIm));
+
+   if (0)
+   {
+      StdOut() << " MTPREAD="<< aNameFile << " EXIST=" <<  ExistFile(aNameFile) <<  " NB=" << aVPm.mVecTPM.size() << "\n";
+      for (int aK=0 ; aK<10 ; aK++)
+          StdOut() << "   PTM=" <<  aVPm.mVecTPM.at(aK).mPt << " " <<  aVPm.mVecTPM.at(aK).mId << "\n";
+   }
+
    aVPm.mNameIm = aNameIm;
 }
 

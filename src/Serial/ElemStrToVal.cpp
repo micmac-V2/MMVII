@@ -1047,6 +1047,12 @@ std::string ToStr(int aVal, int aSzMin) {
     return aRes;
 }
 
+std::string ToStrIntFixNbDigit(const std::string & aName,int aNbDigit)
+{
+   return   ToStr(cStrIO<int>::FromStr(aName),aNbDigit);
+}
+
+
 /*
 std::string  ToS_NbDigit(int aNb,int aNbDig,bool AcceptOverFlow)
 {
