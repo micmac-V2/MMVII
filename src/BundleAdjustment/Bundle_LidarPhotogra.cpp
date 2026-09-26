@@ -1030,7 +1030,7 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
     }
 
 
-    //std::cout << "up weighters, th="<<mThreshold<<"\n";
+    std::cout << "up weighters, th="<<mThreshold<<"\n";
     if (mThreshold>10000)
         mThreshold = -1;
     for (auto & aScanDataA: mVScans)
@@ -1150,6 +1150,8 @@ void cBA_LidarLidarRaster::AddObs()
         //for (auto & aScan:mVScans)
         //    StdOut() << aScan.mLidarRaster->NameImage()<< " " << aScan.mLidarRaster->Center().x() <<
         //         std::setprecision(10) << " " << aScan.mLidarRaster->Center().y()<< " " << aScan.mLidarRaster->Center().z() << "\n";
+        std::cout<<"res "<<mVScans.back().mLidarRaster->NameImage()<<" "<<
+            Norm2(mVScans.back().mLidarRaster->Pose().Tr()-cPt3dr(33.295973923908917, -87.362756758515829, 111.163172410682691))<<"\n";
     }
     else
         StdOut() << "  * Lid/Lid: no obs\n";
@@ -1239,6 +1241,9 @@ void cBA_LidarLidarRaster::SetVUkVObs
 
 tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cStaticLidarBAData & aScanAData)
 {
+    //tREAL8 aStatstNormalDiffMinCos = cos(60*M_PI/180);
+    tREAL8 aStatsMaxDist = 0.2;
+
     auto & aScanA = aScanAData.mLidarRaster;
     cPt2dr aPatchCenterA = ToR(*aPatch.mLPatchesP.begin());
     // TODO: use mInterpolD or normal (adaptative) interpol??
@@ -1318,7 +1323,11 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                 tREAL8 aValIm = aData.mVGr.at(0).first;   // value of first/central pixel in this image
                 tREAL8 aResidual = aValIm-aDist;
 
-                if (fabs(aResidual)<std::max(0.1,mThreshold*20)) // suppose that 10cm is always an error
+                cPt3dr aNormalInstrB = aScanB->Image2NormalInstr(aPIm);
+                cPt3dr aNormalGndB = aScanB->Pose().Rot().Value(aNormalInstrB);
+
+                if ((fabs(aResidual)<std::max(aStatsMaxDist,mThreshold*3))
+                   )// &&(Scal(aNormalGndA,aNormalGndB)<aStatstNormalDiffMinCos)) //std::max(0.1,mThreshold*20)) // suppose that 10cm is always an error
                     mNbUsableObs++;
 
                 if (fabs(aResidual)<fabs(aMinResidual))
@@ -1337,8 +1346,6 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                     #endif
                     continue;
                 }
-                cPt3dr aNormalInstrB = aScanB->Image2NormalInstr(aPIm);
-                cPt3dr aNormalGndB = aScanB->Pose().Rot().Value(aNormalInstrB);
                 if (Scal(aNormalGndA,aNormalGndB)<mNormalDiffMinCos)
                 {
                     #ifdef SCANSCANDEBUG
