@@ -74,6 +74,8 @@ class cAppliNewFrange : public cMMVII_Appli
          in shortest path approach (and allow more complexe lins with "big" jumps ) */
         void MakeImageMaxLoc();
 
+        void ConnecCompMaxLoc(bool isHoriz);
+
         void MakeImTgt();
 
         tREAL8 CostSymTgt(int aY,int aSzY);
@@ -282,23 +284,6 @@ void cAppliNewFrange::DoIntegrale(int aDy,int aYLim)
     }
 }
 
-bool cAppliNewFrange::IsMax(cPt2di aP0,cPt2di aDp0,int aNb) const
-{
-    tREAL4 aV0 = mDImRedBlur->GetV(aP0);
-    for (int aK=1 ; aK<aNb ; aK++)
-    {
-        cPt2di aDP = aDp0 * aK;
-
-        if (     ( mDImRedBlur->GetV(aP0 + aDP) > aV0)
-              || ( mDImRedBlur->GetV(aP0 - aDP) > aV0)
-           )
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
 
 
 void cAppliNewFrange::MakeImTgt()
@@ -367,6 +352,39 @@ std::string cAppliNewFrange::NameVisu(const std::string & aPref) const
     return mPhProj.DirVisuAppli() + LastPrefix(mNameIm) + aPref + ".tif";
 }
 
+void cAppliNewFrange::ConnecCompMaxLoc(bool isHoriz)
+{
+    cDataIm2D<tU_INT1> & aImMax = isHoriz ? *mDImMaxHor : * mDImMaxVert;
+    const std::vector<cPt2di> & a8Neigh =  Alloc8Neighbourhood();
+
+    for (const auto aPix : aImMax)
+    {
+        if (aImMax.GetV(aPix)==1)
+        {
+            std::vector<cPt2di> aVCC;
+            ConnectedComponent (aVCC,aImMax ,a8Neigh, aPix,1,2);
+        }
+    }
+}
+
+
+bool cAppliNewFrange::IsMax(cPt2di aP0,cPt2di aDp0,int aNb) const
+{
+    tREAL4 aV0 = mDImRedBlur->GetV(aP0);
+    for (int aK=1 ; aK<aNb ; aK++)
+    {
+        cPt2di aDP = aDp0 * aK;
+
+        if (     ( mDImRedBlur->GetV(aP0 + aDP) > aV0)
+              || ( mDImRedBlur->GetV(aP0 - aDP) > aV0)
+           )
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 void cAppliNewFrange::MakeImageMaxLoc()
 {
@@ -391,6 +409,10 @@ void cAppliNewFrange::MakeImageMaxLoc()
               mDImMaxVert->SetV(aPix,1);
         }
     }
+
+    ConnecCompMaxLoc(true);
+    ConnecCompMaxLoc(false);
+
 }
 
 

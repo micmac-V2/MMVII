@@ -582,6 +582,7 @@ template <class Type> class cDenseMatrix : public cUnOptDenseMatrix<Type>
         void  Weighted_Add_tAA(Type aWeight,const tSpV & aColLine,bool OnlySup=true) override;
 
         // === method implemente with DIm
+        Type L2Norm(bool Avg=false) const;
         Type L2Dist(const cDenseMatrix<Type> & aV,bool Avg=false) const;
         Type SqL2Dist(const cDenseMatrix<Type> & aV,bool Avg=false) const;
         //  void operator -= (const cDenseMatrix<Type> &) ;  => see  "include/MMVII_Tpl_Images.h"

@@ -150,6 +150,12 @@ template <class Type> Type  cDenseMatrix<Type>::L2Dist(const cDenseMatrix<Type> 
 }
 
 
+template <class Type> Type  cDenseMatrix<Type>::L2Norm(bool isAvg) const
+{
+   return DIm().L2Norm(isAvg);
+}
+
+
 template <class Type> Type  cDenseMatrix<Type>::SqL2Dist(const cDenseMatrix<Type> & aV,bool isAvg) const
 {
    return DIm().SqL2Dist(aV.DIm(),isAvg);
