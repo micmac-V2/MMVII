@@ -49,6 +49,19 @@ cRGBImage::cRGBImage(const cPt2di & aSz,int aZoom) :
     mImB         (mSzz)
 {
 }
+
+cRGBImage cRGBImage::Dup() const
+{
+    cRGBImage aRes(mImR.DIm().Sz());
+
+    mImR.DIm().DupIn(aRes. mImR.DIm());
+    mImG.DIm().DupIn(aRes. mImG.DIm());
+    mImB.DIm().DupIn(aRes. mImB.DIm());
+
+    return aRes;
+}
+
+
 cRGBImage::cRGBImage(const cPt2di & aSz,const cPt3di & aCoul,int aZoom) :
    cRGBImage (aSz,aZoom)
 {
