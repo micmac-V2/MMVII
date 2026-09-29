@@ -375,11 +375,13 @@ void cAppliNewFrange::MakeImageMaxLoc()
 
     for (const auto aPix : mDImRed->Interior(1+std::max(aNbMaxX,aNbMaxY)))
     {
-         if (     IsMax(aPix,cPt2di(1,0),aNbMaxX)
-              ||  IsMax(aPix,cPt2di(0,1),aNbMaxY)
-            )
+         if ( IsMax(aPix,cPt2di(1,0),aNbMaxX))
+             mDImMax->SetV(aPix,1);
+
+
+         if (  IsMax(aPix,cPt2di(0,1),aNbMaxY))
          {
-              mDImMax->SetV(aPix,1);
+              mDImMax->SetV(aPix,2);
          }
     }
 }
@@ -394,37 +396,25 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
     mDImRed = &(mImRed.DIm());
     mSzRed = mDImRed->Sz();
 
+    if (mDoSimul)
+        MakeImSimul();
+
+
     mImRedBlur = mImRed.Dup();
     mDImRedBlur = & (mImRedBlur.DIm());
     ExpFilterOfStdDev(*mDImRedBlur,5,2.0,5.0);
 
 
     MakeImageMaxLoc();
-    /*
-
-
-    mImMax = cIm2D<tU_INT1>(mSzRed,nullptr,eModeInitImage::eMIA_Null);
-    mDImMax = & (mImMax.DIm());
 
 
 
-
-    int aNbMaxX=8;
-    int aNbMaxY=3;
-
-    for (const auto aPix : mDImRed->Interior(1+std::max(aNbMaxX,aNbMaxY)))
-    {
-         if (     IsMax(aPix,cPt2di(1,0),aNbMaxX)
-              ||  IsMax(aPix,cPt2di(0,1),aNbMaxY)
-            )
-         {
-              mDImMax->SetV(aPix,1);
-         }
-    }*/
+   // if (mDoVisu)
 
 
-    if (mDoSimul)
-        MakeImSimul();
+
+    MakeImTgt();
+
 
     if (mDoVisu)
     {
@@ -436,17 +426,17 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
 
         for (const auto aPix : *mDImRed)
             mImVisu.SetGrayPix(aPix,mDImRed->GetV(aPix)*(255.0/aVMax));
-    }
 
 
-    MakeImTgt();
 
-
-    if (mDoVisu)
-    {
         for (const auto aPix : * mDImMax)
-            if (mDImMax->GetV(aPix) != 0 )
-                mImVisu.SetRGBPix(aPix,cRGBImage::Cyan);
+        {
+            int aVMax = mDImMax->GetV(aPix);
+            if (aVMax != 0 )
+            {
+                mImVisu.SetRGBPix(aPix,(aVMax==2) ? cRGBImage::Cyan : cRGBImage::Yellow);
+            }
+        }
 
         for(const auto anY : mImTgt.DIm())
         {
