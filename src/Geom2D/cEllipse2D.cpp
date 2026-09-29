@@ -607,9 +607,8 @@ cEllipse cEllipse_Estimate::Compute()
 {
     // Modif MPD because with constraint and high coordinates, the constr with 1
     // make a badly conditionnate system
-    tREAL8 aWConstr = 1.0;
-    if ((!mIsCenterFree)||(!mIsCircle))
-        aWConstr =  mSys->Get_tAA(false)->tAA().L2Norm(false) ;
+    tREAL8 aWConstr = mSys->Get_tAA(false)->tAA().L2Norm(false);
+
 
    // StdOut() << " cEllipse_Estimate::Compute::VPT=" << mVObs << "\n";
      if (! mIsCenterFree)
