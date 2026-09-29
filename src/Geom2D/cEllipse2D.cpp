@@ -605,22 +605,34 @@ void cEllipse_Estimate::AddPt(cPt2dr aP,tREAL8 aWeight)
 
 cEllipse cEllipse_Estimate::Compute()
 {
+    // Modif MPD because with constraint and high coordinates, the constr with 1
+    // make a badly conditionnate system
+    tREAL8 aWConstr = 1.0;
+    if ((!mIsCenterFree)||(!mIsCircle))
+        aWConstr =  mSys->Get_tAA(false)->tAA().L2Norm(false) ;
+
    // StdOut() << " cEllipse_Estimate::Compute::VPT=" << mVObs << "\n";
      if (! mIsCenterFree)
      {
-         mSys->AddObsFixVar(1.0,3,0.0);
-         mSys->AddObsFixVar(1.0,4,0.0);
+         mSys->AddObsFixVar(aWConstr,3,0.0);
+         mSys->AddObsFixVar(aWConstr,4,0.0);
      }
      if ( mIsCircle)
      {
-         mSys->AddObsFixVar(1.0,1,0.0);
-         mSys->AddObsFixVar(1.0,2,0.0);
+         mSys->AddObsFixVar(aWConstr,1,0.0);
+         mSys->AddObsFixVar(aWConstr,2,0.0);
      }
 
+
      tREAL8 aCond = mSys->Get_tAA(false)->tAA().SymCond(1e6);
-     if (aCond>2000.0)
+    // StdOut() << " CCCC= "  << aCond << "\n";
+     if (aCond> 20000.0)
      {
-        return cEllipse::EllipseNotOk();
+        //cResulSymEigenValue<Type> aEig = mSys->Get_tAA(false)->tAA().SymEigenValue();
+        // StdOut() << "COND=" << aCond << " " << mC0  << " " << mIsCenterFree   << mSys->Get_tAA(false)->tAA().L2Norm() << "\n";
+        // StdOut() << mVObs << "\n";
+        // getchar();
+         return cEllipse::EllipseNotOk();
      }
 
      auto  aSol = mSys->PublicSolve();
