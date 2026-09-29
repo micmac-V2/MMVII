@@ -105,8 +105,10 @@ class cAppliNewFrange : public cMMVII_Appli
 
 
 
-         cIm2D<tU_INT1> mImMax;
-         cDataIm2D<tU_INT1>* mDImMax;
+         cIm2D<tU_INT1> mImMaxHor;
+         cDataIm2D<tU_INT1>* mDImMaxHor;
+         cIm2D<tU_INT1> mImMaxVert;
+         cDataIm2D<tU_INT1>* mDImMaxVert;
 
 
 
@@ -138,8 +140,10 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mDImRed           (nullptr),
     mImRedBlur        (cPt2di(1,1)),
     mDImRedBlur       (nullptr),
-    mImMax            (cPt2di(1,1)),
-    mDImMax           (nullptr),
+    mImMaxHor         (cPt2di(1,1)),
+    mDImMaxHor        (nullptr),
+    mImMaxVert        (cPt2di(1,1)),
+    mDImMaxVert       (nullptr),
     mImTgt            (1),
     mDImTgt           (nullptr),
     mYC               (-1),
@@ -358,16 +362,16 @@ void cAppliNewFrange::MakeImTgt()
 
 std::string cAppliNewFrange::NameVisu(const std::string & aPref) const
 {
-    return mPhProj.DirVisuAppli() + aPref + mNameIm;
+    return mPhProj.DirVisuAppli() + LastPrefix(mNameIm) + aPref + ".tif";
 }
 
 
 void cAppliNewFrange::MakeImageMaxLoc()
 {
-    mImMax = cIm2D<tU_INT1>(mSzRed,nullptr,eModeInitImage::eMIA_Null);
-    mDImMax = & (mImMax.DIm());
-
-
+    mImMaxHor = cIm2D<tU_INT1>(mSzRed,nullptr,eModeInitImage::eMIA_Null);
+    mDImMaxHor = & (mImMaxHor.DIm());
+    mImMaxVert = cIm2D<tU_INT1>(mSzRed,nullptr,eModeInitImage::eMIA_Null);
+    mDImMaxVert = & (mImMaxVert.DIm());
 
 
     int aNbMaxX=8;
@@ -376,13 +380,14 @@ void cAppliNewFrange::MakeImageMaxLoc()
     for (const auto aPix : mDImRed->Interior(1+std::max(aNbMaxX,aNbMaxY)))
     {
          if ( IsMax(aPix,cPt2di(1,0),aNbMaxX))
-             mDImMax->SetV(aPix,1);
+        {
+             mDImMaxHor->SetV(aPix,1);
+        }
 
-
-         if (  IsMax(aPix,cPt2di(0,1),aNbMaxY))
-         {
-              mDImMax->SetV(aPix,2);
-         }
+        if (  IsMax(aPix,cPt2di(0,1),aNbMaxY))
+        {
+              mDImMaxVert->SetV(aPix,1);
+        }
     }
 }
 
@@ -421,22 +426,38 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
         tREAL8 aNbX=400;
 
         mImVisu = cRGBImage(mSzRed + cPt2di(aNbX,0),cRGBImage::White);
+        cRGBImage aVisuMaxHor (mSzRed);
+        cRGBImage aVisuMaxVert (mSzRed);
+
+
+
         tElIm aVMin,aVMax;
         GetBounds(aVMin,aVMax,*mDImRed);
 
         for (const auto aPix : *mDImRed)
-            mImVisu.SetGrayPix(aPix,mDImRed->GetV(aPix)*(255.0/aVMax));
-
-
-
-        for (const auto aPix : * mDImMax)
         {
-            int aVMax = mDImMax->GetV(aPix);
-            if (aVMax != 0 )
-            {
-                mImVisu.SetRGBPix(aPix,(aVMax==2) ? cRGBImage::Cyan : cRGBImage::Yellow);
-            }
+            tINT4 aVal = mDImRed->GetV(aPix)*(255.0/aVMax);
+
+            mImVisu.SetGrayPix(aPix,aVal);
+            aVisuMaxHor.SetGrayPix(aPix,aVal);
+            aVisuMaxVert.SetGrayPix(aPix,aVal);
         }
+
+
+
+
+
+
+        for (const auto aPix : * mDImRed)
+        {
+            if ( mDImMaxHor->GetV(aPix))
+                aVisuMaxHor.SetRGBPix(aPix,cRGBImage::Yellow);
+            if ( mDImMaxVert->GetV(aPix))
+                aVisuMaxVert.SetRGBPix(aPix,cRGBImage::Cyan);
+        }
+        aVisuMaxHor.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Blue,1.0);
+        aVisuMaxVert.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Blue,1.0);
+
 
         for(const auto anY : mImTgt.DIm())
         {
@@ -451,6 +472,10 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
         mImVisu.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x()+aNbX,mYC),cRGBImage::Blue,1.0);
 
         mImVisu.ToFile(NameVisu("ImRed"));
+        aVisuMaxHor.ToFile(NameVisu("ImMaxHor"));
+        aVisuMaxVert.ToFile(NameVisu("ImMaxVert"));
+
+
         mDImRedBlur->ToFile(NameVisu("Blured"));
      }
 }
