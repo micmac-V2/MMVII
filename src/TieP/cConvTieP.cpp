@@ -88,6 +88,10 @@ std::map<int, std::vector<std::pair<std::string, tPt2dr>>> ReadColmapImagesTxt(c
    /*                                                            */
    /* ********************************************************** */
 
+/*#if (MMVII_KEEP_LIBRARY_MMV1)
+#else
+#endif*/
+
 class cAppli_TiePConvert : public cMMVII_Appli
 {
      public :
