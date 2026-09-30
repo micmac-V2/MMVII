@@ -34,6 +34,21 @@ typedef cIm1D<tREAL8>     tIm1D;
 typedef cDataIm1D<tREAL8>     tDIm1D;
 
 
+class cConnComp
+{
+   public :
+
+     cConnComp(const tSeg2dr & aSeg,bool isHor) :
+         mSeg (aSeg),
+         mIsHor (isHor)
+     {
+     }
+
+    tSeg2dr mSeg;
+    bool    mIsHor;
+
+};
+
 /* =============================================== */
 /*                                                 */
 /*                 cAppliNewFrange                   */
@@ -74,6 +89,8 @@ class cAppliNewFrange : public cMMVII_Appli
          in shortest path approach (and allow more complexe lins with "big" jumps ) */
         void MakeImageMaxLoc();
 
+
+        bool NewCC(bool isHoriz,const cPt2di&);
         void ConnecCompMaxLoc(bool isHoriz);
 
         void MakeImTgt();
@@ -122,6 +139,9 @@ class cAppliNewFrange : public cMMVII_Appli
         tIm1D    mImIntegr;
         tDIm1D*  mDImIntegr;
         cRGBImage mImVisu;
+
+
+        std::list<cConnComp>  mListCC;
 
 };
 
@@ -352,17 +372,56 @@ std::string cAppliNewFrange::NameVisu(const std::string & aPref) const
     return mPhProj.DirVisuAppli() + LastPrefix(mNameIm) + aPref + ".tif";
 }
 
+
+bool cAppliNewFrange::NewCC(bool isHoriz,const cPt2di& aPix)
+{
+    const std::vector<cPt2di> & a8Neigh =  Alloc8Neighbourhood();
+    cDataIm2D<tU_INT1> & aImMax = isHoriz ? *mDImMaxHor : * mDImMaxVert;
+    std::vector<cPt2di> aVCC;
+
+    ConnectedComponent (aVCC,aImMax ,a8Neigh, aPix,1,2);
+
+    cBox2di aBox(cTplBox<int,2>::FromVect(aVCC));
+
+    int aX0Inf =  aBox.P0().x() <= mYC;
+    int aX1Sup = aBox.P1().x() > mYC;
+
+     bool doCross = (aX0Inf!=aX1Sup);
+     cPt2di aDir(1,0);
+     if (isHoriz)
+     {
+         // if dont cross
+        if (!doCross)
+            return false;
+     }
+     else
+     {
+         if (doCross)
+             return false;
+         aDir = aX0Inf ? cPt2di(0,1) : cPt2di(0,-1);
+     }
+     cWhichMinMax<cPt2di,tREAL8>  aWMinMax;
+
+     for (const auto & aPt : aVCC)
+         aWMinMax.Add(aPt,Scal(aDir,aPt));
+
+
+   //  cConnComp(const tSeg2dr & aSeg,bool isHor) :
+
+    // mListCC.push_back(aCC);
+
+     return true;
+}
+
 void cAppliNewFrange::ConnecCompMaxLoc(bool isHoriz)
 {
     cDataIm2D<tU_INT1> & aImMax = isHoriz ? *mDImMaxHor : * mDImMaxVert;
-    const std::vector<cPt2di> & a8Neigh =  Alloc8Neighbourhood();
 
     for (const auto aPix : aImMax)
     {
         if (aImMax.GetV(aPix)==1)
         {
-            std::vector<cPt2di> aVCC;
-            ConnectedComponent (aVCC,aImMax ,a8Neigh, aPix,1,2);
+            NewCC(isHoriz,aPix);
         }
     }
 }
