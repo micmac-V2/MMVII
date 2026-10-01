@@ -360,7 +360,7 @@ template <class Type> void cMatIner2Var<Type>::Normalize()
      mS22 /= mS0;
      mS11 -= Square(mS1);
      mS12 -= mS1 * mS2;
-     mS22 -= mS2 * mS2;
+     mS22 -= Square(mS2); // Suggestion Aubin  * mS2;
 }
 
 template <class Type> Type cMatIner2Var<Type>::CorrelNotC(const Type & aEps) const
