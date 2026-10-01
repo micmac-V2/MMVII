@@ -96,6 +96,7 @@ class cAppliNewFrange : public cMMVII_Appli
         void ConnecCompMaxLoc(bool isHoriz);
 
         void MakeImTgt();
+        void ComputeLowRadiom();
 
         tREAL8 CostSymTgt(int aY,int aSzY);
         int DetectSymByTgt();
@@ -141,7 +142,8 @@ class cAppliNewFrange : public cMMVII_Appli
          cDataIm2D<tU_INT1>* mDImMaxLoc;
 
 
-
+         tIm1D    mImTeta;    /// Image of tangent as x=F(Y)
+         tDIm1D*  mDImTeta;
         tIm1D    mImTgt;    /// Image of tangent as x=F(Y)
         tDIm1D*  mDImTgt;
         int      mYC;
@@ -151,7 +153,9 @@ class cAppliNewFrange : public cMMVII_Appli
 
 
         std::list<cConnComp>  mListCC;
-
+        tREAL8   mLowRadiom;
+        tIm1D    mImHighR;
+        tDIm1D*  mDImHighR;
 };
 
     /* =================================================== */
@@ -183,12 +187,15 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mDImMaxVert       (nullptr),
     mImMaxLoc         (cPt2di(1,1)),
     mDImMaxLoc        (nullptr),
+    mImTeta           (1),
+    mDImTeta          (nullptr),
     mImTgt            (1),
     mDImTgt           (nullptr),
     mYC               (-1),
     mImIntegr         (1),
     mDImIntegr        (nullptr),
-    mImVisu           (cPt2di(1,1))
+    mImVisu           (cPt2di(1,1)),
+    mLowRadiom        (-1e9)
 {
 }
 
@@ -281,8 +288,8 @@ tREAL8 cAppliNewFrange::CostSymTgt(int aY0,int aSzY)
 
     for (int aDY=1 ; aDY<=aSzY; aDY++)
     {
-        tREAL8 aV1 = mDImTgt->GetV(aY0-aDY);
-        tREAL8 aV2 = mDImTgt->GetV(aY0+aDY);
+        tREAL8 aV1 = mDImTeta->GetV(aY0-aDY);
+        tREAL8 aV2 = mDImTeta->GetV(aY0+aDY);
 
         tREAL8 aW = aSzY - std::abs(aDY);
 
@@ -300,7 +307,7 @@ int cAppliNewFrange::DetectSymByTgt()
 
     cWhichMin<int,tREAL8> aMinSym;
 
-    int aEndY =  mDImTgt->Sz()-(aSzY+1);
+    int aEndY =  mDImTeta->Sz()-(aSzY+1);
 
     for (int aY0=aSzY ; aY0 <aEndY ; aY0++)
         aMinSym.Add(aY0,CostSymTgt(aY0,aSzY));
@@ -393,6 +400,8 @@ void cAppliNewFrange::MakeImTgt()
 
      mImTgt = cIm1D<tREAL8>(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
      mDImTgt = & (mImTgt.DIm());
+     mImTeta =  cIm1D<tREAL8>(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
+     mDImTeta = &(mImTeta.DIm());
 
      for(const auto anY : aPop.DIm())
      {
@@ -402,6 +411,8 @@ void cAppliNewFrange::MakeImTgt()
          tREAL8 aTgt = tan(aTeta/2.0);
 
          mDImTgt->SetV(anY,aTgt);
+         mDImTeta->SetV(anY,aTeta);
+
      }
 
      mYC = DetectSymByTgt();
@@ -451,8 +462,8 @@ bool cAppliNewFrange::NewCC(bool isHoriz,const cPt2di& aPix)
      }
      else
      {
-         if (doCross)
-            return false;
+      //   if (doCross)
+       //     return false;
          aDir = (aBox.P0().y()<mYC)  ? cPt2di(1,0) : cPt2di(-1,0);
      }
      cWhichMinMax<cPt2di,tREAL8>  aWMM;
@@ -530,6 +541,29 @@ void cAppliNewFrange::MakeImageMaxLoc()
 
 }
 
+void cAppliNewFrange::ComputeLowRadiom()
+{
+    {
+        std::vector<tREAL8>   aVRad;
+        int aNbY=3;
+
+        for (int anX=0 ; anX<mSzRed.x() ; anX++)
+        {
+            for (int aDy=-aNbY ; aDy<=aNbY ; aDy++)
+                aVRad.push_back(mDImRed->GetV(cPt2di(anX,mYC+aDy)));
+        }
+        mLowRadiom = NC_KthVal(aVRad,1/3.0);
+    }
+
+    mImHighR = tIm1D(mSzRed.y());
+    mDImHighR = &(mImHighR.DIm());
+
+    for (int anY=0 ; anY<mSzRed.y() ; anY++)
+    {
+        std::vector<tREAL8>   aVRad;
+    }
+}
+
 
 void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
 {
@@ -549,7 +583,10 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
     ExpFilterOfStdDev(*mDImRedBlur,5,2.0,5.0);
 
     MakeImTgt();
+    ComputeLowRadiom();
+
     MakeImageMaxLoc();
+
 
 
     if (mDoVisu)
@@ -570,12 +607,14 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
             aVisuTeta.SetRGBPix(aPix,HSI_2_RGB(cPt3dr(aTeta,1.0,0.5)));
         }
 
-        tElIm aVMin,aVMax;
-        GetBounds(aVMin,aVMax,*mDImRed);
+        tElIm aVMin,mHighRadiom;
+        GetBounds(aVMin,mHighRadiom,*mDImRed);
 
         for (const auto aPix : *mDImRed)
         {
-            tINT4 aVal = mDImRed->GetV(aPix)*(255.0/aVMax);
+
+            tREAL8 aRad = ((mDImRed->GetV(aPix)-mLowRadiom) /(mHighRadiom-mLowRadiom)) * 255.0;
+            tINT4 aVal = std::clamp(round_ni(aRad),0,255);
 
             mImVisu.SetGrayPix(aPix,aVal);
             aVisuMaxHor.SetGrayPix(aPix,aVal);
@@ -601,16 +640,24 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
 
 
 
-        for(const auto anY : mImTgt.DIm())
+        mImVisu.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x()+aNbX,mYC),cRGBImage::Blue,1.0);
+        for(const auto aPtY : mImTgt.DIm())
         {
-           cPt2di  aPt(round_ni(mSzRed.x()+aNbX/2.0+mDImTgt->GetV(anY)*10.0),anY.x());
-           mImVisu.SetRGBPix(cPt2di(mSzRed.x()+aNbX/2,anY.x()),cRGBImage::Green);
-           mImVisu.SetRGBPix(aPt,cRGBImage::Red);
+           int aXMil = mSzRed.x()+aNbX/2;
+           int anY = aPtY.x();
+           // show middel line
+           mImVisu.SetRGBPix(cPt2di(aXMil,anY),cRGBImage::Green);
 
-           int aXInt = mDImIntegr->GetV(anY.x());
-           mImVisu.SetRGBPix(cPt2di(aXInt+100,anY.x()),cRGBImage::Red);
+           cPt2di  aPtTgt(round_ni(aXMil+mDImTgt->GetV(anY)*10.0),anY);
+           mImVisu.SetRGBPix(aPtTgt,cRGBImage::Red);
+           cPt2di  aPtTeta(round_ni(aXMil+mDImTeta->GetV(anY)*15.0),anY);
+           mImVisu.SetRGBPix(aPtTeta,cRGBImage::Blue);
 
 
+
+           // Show image integrale in image
+           int aXInt = mDImIntegr->GetV(anY);
+           mImVisu.SetRGBPix(cPt2di(aXInt+100,anY),cRGBImage::Red);
         }
 
         for (const auto & aCC : mListCC)
@@ -623,19 +670,20 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
             aVisuArrow.DrawCircle(cRGBImage::Green,aSeg.P2(),3.0);
         }
 
-        aVisuMaxHor.ToFile(NameVisu("ImMaxHor"));
 
 
         if (mDoVisu>=2)
         {
-           mImVisu.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x()+aNbX,mYC),cRGBImage::Blue,1.0);
-           mImVisu.ToFile(NameVisu("ImRed"));
            aVisuMaxVert.ToFile(NameVisu("ImMaxVert"));
            mDImRedBlur->ToFile(NameVisu("Blured"));
            aVisuTeta.ToFile(NameVisu("TetaTens"));
-           aVisuArrow.ToFile(NameVisu("ImArrow"));
-
+           aVisuMaxHor.ToFile(NameVisu("ImMaxHor"));
+           mImVisu.ToFile(NameVisu("ImRed"));
         }
+        aVisuArrow.ToFile(NameVisu("ImArrow"));
+
+
+
 
      }
 }
