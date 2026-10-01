@@ -1176,7 +1176,7 @@ void cVecTiePMul::SortId(bool WithWarnIfNotSorted)
 {
     bool isSorted = true;
 
-    for (int aK=1 ; (aK<mVecTPM.size()) && isSorted; aK++)
+    for (size_t aK=1 ; (aK<mVecTPM.size()) && isSorted; aK++)
     {
         if (mVecTPM.at(aK-1).mId>=mVecTPM.at(aK).mId)
             isSorted = false;
