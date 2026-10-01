@@ -179,11 +179,16 @@ class cAppli_TiePReport : public cMMVII_Appli
 
 void cAppli_TiePReport::RegisterStatRes(const std::string & aFile,const cStatRes2D& aS2D, const std::string anAggreg)
 {
-   cPt2dr anAvg2 = aS2D.mAvg2d.Average();
+  std::vector<std::string>  aVecMsg{"XXXX","XXXX"};
+   if (aS2D.mAvg2d.Nb())
+   {
+       cPt2dr anAvg2 = aS2D.mAvg2d.Average();
+       aVecMsg =  {ToStr(anAvg2.x()),ToStr(anAvg2.y())};
+   }
    AddStdStatCSV
    (
       aFile,anAggreg,aS2D.mStatRes,mPropStat,
-      {ToStr(anAvg2.x()),ToStr(anAvg2.y())}
+      aVecMsg
    );
 }
 
@@ -455,7 +460,7 @@ void cAppli_TiePReport::ProcessBySingleImage()
           aIVF = new cImageVectorField(aNameIm,mParamsFV);
        }
 
-      // StdOut() << "PATFV " << aNameIm << " " << aIVF << "\n";
+      // StdOut() << "PATFV " << aNameIm << " " << aIVF << "\n"; {ToStr(anAvg2.x()),ToStr(anAvg2.y())}
 
        // ---------  Data for images of residual per camera ------------------
        std::string aNameCamera;
@@ -557,6 +562,9 @@ int cAppli_TiePReport::Exe()
    // ...    bool  WithIndexPt,   bool  WithSensor,bool  WithIndexImages
    mCMTP = AllocStdFromMTP(mSetNames,mPhProj,true,true,true);
    mCMTP->SetPGround();
+
+   StdOut() << " NbPtsTot= " << mCMTP->NbPtsTot() << "\n";
+
 
    mPrefixCSVIma =  "ByImages" ;
    mPrefixCSVPairs = "ByPairs";

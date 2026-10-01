@@ -38,7 +38,7 @@ cParamBWTarget::cParamBWTarget() :
     mValMinW        (20),
     mValMaxB        (100),
     mRatioMaxBW     (1/1.5),
-    mMinDiam        (15.0),
+    mMinDiam        (3.0),
     mMaxDiam        (100.0),
     mPropFr         (0.95),
     mNbMinFront     (10),
@@ -340,6 +340,8 @@ bool  cExtract_BW_Target::AnalyseOneConnectedComponents(cSeedBWTarget & aSeed)
 
 bool  cExtract_BW_Target::ComputeFrontier(cSeedBWTarget & aSeed)
 {
+   // StdOut() <<  " SEEDDD " << mCentroid << "\n";
+
      std::vector<cPt2di> aV8Neigh =  AllocNeighbourhood<2>(2);
      std::vector<cPt2di> aV4Neigh =  AllocNeighbourhood<2>(1);
 
@@ -353,9 +355,22 @@ bool  cExtract_BW_Target::ComputeFrontier(cSeedBWTarget & aSeed)
      for (const auto & aPix : mPtsCC)
      {
               bool HasNeighFree=false;
+//              eEEBW_Lab aLabel =  GetMarq(aPN);
+
               for (const auto & aN : aV8Neigh)
-                  if (MarqFree(aPix+aN))
+              {
+                  eEEBW_Lab aLabel =  GetMarq(aPix+aN);
+                  if (aLabel==eEEBW_Lab::eFree) // (MarqFree(aPix+aN))
+                  {
                      HasNeighFree = true;
+                  }
+                  // Case the connected component touch the border; cannot get good thing
+                  // and sometime get very bad things ....
+                  if (aLabel==eEEBW_Lab::eBorder) // (MarqFree(aPix+aN))
+                  {
+                      return false;
+                  }
+              }
               if (HasNeighFree)
               {
                  SetMarq(aPix,eEEBW_Lab::eFront);
@@ -380,15 +395,19 @@ bool  cExtract_BW_Target::ComputeFrontier(cSeedBWTarget & aSeed)
          for (const auto & aNeigh : aV4Neigh)   // explorate its neighboord
          {
              cPt2di aPN = aPix + aNeigh;
-             if (GetMarq(aPN) == eEEBW_Lab::eFront)  // they have not been met
+             eEEBW_Lab aLabel =  GetMarq(aPN);
+             if (aLabel == eEEBW_Lab::eFront)  // they have not been met
              {
                 SetMarq(aPN,eEEBW_Lab::eFrontExt);
                 aVecFrExt.push_back(aPN);
              }
+
+//             eBorder
          }
          aIndCur++;
      }
 
+    // StdOut() << " VFRONTI= " << aVecFrExt << "\n";
      // [B]  now  refine the frontier to have a sub pixel estimation
      mVFront.clear();
      int aNbOk = 0;
@@ -399,11 +418,19 @@ bool  cExtract_BW_Target::ComputeFrontier(cSeedBWTarget & aSeed)
          aNbFront ++;
          bool Ok;
          cPt2dr aPFr = RefineFrontierPoint(aSeed,aPix,Ok);
+
+         // StdOut() << "PfffFR=" << aPFr << " " << mDIm.InsideBL(aPFr) << "\n";
+         // some degenerate case not catched
+         if (! mDIm.InsideBL(aPFr))
+         {
+             return false;
+         }
          if (Ok)
          {
             aNbOk++;
             mVFront.push_back(aPFr);
          }
+
      }
 
      //  [C]  some test of validation
@@ -428,6 +455,7 @@ bool  cExtract_BW_Target::ComputeFrontier(cSeedBWTarget & aSeed)
         return false;
      }
 
+    /// StdOut() <<  "VFFFFFFFfff " << mVFront << "\n";
      return true;
 }
 

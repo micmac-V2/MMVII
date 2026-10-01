@@ -32,7 +32,12 @@ void cIrbComp_Cam1::Init(cSensorCamPC * aCamPC,bool Adopt)
 {
     if (mCamPC)
     {
-        MMVII_INTERNAL_ERROR("Multiple init in cIrbComp_Cam1 for : " + mCamPC->NameImage());
+        StdOut() << Color::descr << " \n ######################################## \n\n";
+        StdOut() << Color::warning << "   Time stamp/CamIdent  conflict for : "
+                 << Color::end <<  mCamPC->NameImage()
+                 << Color::descr << " VS "
+                 << Color::end <<  aCamPC->NameImage() << "\n";
+        MMVII_UnclasseUsEr("Multiple init in cIrbComp_Cam1 for  ");
     }
     mCamPC = aCamPC;
     mAdoptCam = Adopt;

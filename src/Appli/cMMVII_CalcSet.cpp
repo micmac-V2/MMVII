@@ -18,12 +18,52 @@
 namespace MMVII
 {
 
-void cMMVII_Appli::ChgName(const std::vector<std::string> & aPatSubst,std::string & aName) const
+/*
+bool cMMVII_Appli::ChgName(const std::vector<std::string> & aPatSubst,std::string & aName) const
+{
+    MMVII_INTERNAL_ASSERT_always((aPatSubst.size()%2==0),"Even size in ChgName");
+   if (IsInit(&aPatSubst))
+   {
+      aName = ReplacePattern(aPatSubst.at(0),aPatSubst.at(1),aName);
+      return true;
+   }
+   return false;
+}
+*/
+
+
+bool cMMVII_Appli::ChgName(const std::vector<std::string> & aPatSubst,std::string & aName) const
 {
    if (IsInit(&aPatSubst))
+   {
       aName = ReplacePattern(aPatSubst.at(0),aPatSubst.at(1),aName);
+      return true;
+   }
+   return false;
 }
 
+
+bool cMMVII_Appli::ChgNameIfMatch(const std::vector<std::string> & aPatSubst,std::string & aName,bool DefVal) const
+{
+
+   if (IsInit(&aPatSubst))
+   {
+      MMVII_INTERNAL_ASSERT_always((aPatSubst.size()%2==0),"Even size in ChgName");
+
+      for (size_t aK=0 ; aK<aPatSubst.size() ; aK+=2)
+      {
+         if ( MatchRegex(aName,aPatSubst.at(aK)))
+         {
+             aName = ReplacePattern(aPatSubst.at(aK),aPatSubst.at(aK+1),aName);
+             return true;
+         }
+      }
+      return false;
+   }
+   return DefVal;
+}
+
+//void cMMVII_Appli::ChgName(const std::vector<std::string> & aPatSubst,std::string & aName) const
 
 
 /* ==================================================== */

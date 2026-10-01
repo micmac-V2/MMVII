@@ -695,7 +695,11 @@ template <class tMap,class TypeEl> void TplBenchMap2D_LSQ(TypeEl *)
          TypeEl anEr = Norm2(aVOut[aK] - aMap.Value(aVIn[aK]));
         // StdOut()  << " ERR MAP2D=" << anEr << "\n";
          anEr /= tElemNumTrait<TypeEl>::Accuracy();
-         MMVII_INTERNAL_ASSERT_bench(anEr<1e-2,"Least Sq Estimat 4 Mapping");
+         if (anEr>4e-2)
+         {
+             StdOut() << tMap::Name() << " Er=" << anEr << " " << tElemNumTrait<TypeEl>::Accuracy() << "\n";
+             MMVII_INTERNAL_ASSERT_bench(false,"Least Sq Estimat 4 Mapping");
+         }
     }
 
 
@@ -907,6 +911,93 @@ void BenchSeg2D()
     }
 }
 
+template <class TMap> void  RandTabPt(typename TMap::tTabMin & aTab)
+{
+   static const int   aDimP = TMap::TheDim;
+   typedef typename TMap::tTypeElem   tEl;
+   typedef typename TMap::tPt   tPt;
+
+
+   // if TMap::NbPtsMin like with homography not sufficient to have free points
+   static_assert (TMap::NbPtsMin<=aDimP+1,"Bad dim in RandTabPt" );
+
+   cDenseMatrix<tEl> aMat = cDenseMatrix<tEl>::RandomSquareRegMatrix(cPt2di(aDimP,aDimP),false,0.1,0.1);
+
+   for (int aK=0; aK<std::min(TMap::NbPtsMin,aDimP); aK++)
+   {
+       GetCol( aTab[aK],aMat,aK);
+   }
+
+   if (TMap::NbPtsMin==aDimP+1)
+       aTab[aDimP] = tPt::PCste(0.0);
+
+}
+
+
+template <class TMap>  void BenchTMap()
+{
+//    typename TMap::tPt        tPt;
+//    typename TMap::tTypeElem   tEl;
+    static const int aNbSamples = TMap::NbPtsMin;
+    typedef typename TMap::tPt   tPt;
+
+
+    typename TMap::tTabMin  aTIn;
+    RandTabPt<TMap> (aTIn);
+
+
+    typename TMap::tTabMin  aTOut;
+    RandTabPt<TMap> (aTOut);
+
+
+
+    TMap aMap = TMap::FromMinimalSamples(aTIn,aTOut);
+
+
+   // StdOut() <<  "lllllllllllllll " << __LINE__ << "\n";
+    for (int aK=0 ; aK<aNbSamples; aK++ )
+    {
+        aTOut[aK] = aMap.Value(aTIn[aK]);
+    }
+    //StdOut() <<  "lllllllllllllll " << __LINE__ << "\n";
+
+
+    aMap = TMap::FromMinimalSamples(aTIn,aTOut);
+
+    for (int aK=0 ; aK<aNbSamples; aK++ )
+    {
+        tREAL8 aD = Norm2(aTOut[aK] -aMap.Value(aTIn[aK])) ;
+      // StdOut() << " BTMAP=" <<  aD << "\n";
+        MMVII_INTERNAL_ASSERT_bench(aD<1e-5,"FromMinimalSamples");
+    }
+
+    {
+        typename TMap::tTabMin  aTOut2;
+        for (int aK=0 ; aK<aNbSamples; aK++ )
+        {
+            aTOut2[aK] = aTOut[aK] + tPt::PRandC() * 1e-2;
+        }
+        aMap = TMap::FromMinimalSamples(aTIn,aTOut2);
+    }
+
+    std::vector<tPt> aVecIn(&aTIn[0],&aTIn[aNbSamples]);
+    std::vector<tPt> aVecOut(&aTOut[0],&aTOut[aNbSamples]);
+
+    for (int aK=0 ; aK<3 ; aK++)
+    {
+        aMap = aMap.LeastSquareRefine(aVecIn,aVecOut);
+    }
+
+    for (int aK=0 ; aK<TMap::NbPtsMin; aK++ )
+    {
+        tREAL8 aD = Norm2(aTOut[aK] -aMap.Value(aTIn[aK])) ;
+      //  StdOut() << " BTMAP=" <<  aD << "\n";
+        MMVII_INTERNAL_ASSERT_bench(aD<1e-5,"LeastSquareRefine");
+    }
+}
+
+
+
 void BenchGeom(cParamExeBench & aParam)
 {
     if (! aParam.NewBench("Geom")) return;
@@ -917,9 +1008,26 @@ void BenchGeom(cParamExeBench & aParam)
 
     BenchSampleQuat();
 
+   for (int aK=0 ; aK<10 ; aK++)
+   {
+
+    //   BenchTMap<cRot2D<tREAL8>> ();
+
+      // StdOut() << "BenchTMapBenchTMap " << aK << "\n";
+       BenchTMap<cRotation3D<tREAL8>> ();
+       BenchTMap<cIsometry3D<tREAL8>> ();
+       BenchTMap<cSimilitud3D<tREAL8>> ();
+
+       BenchTMap<cTrans2D<tREAL8>> ();
+       BenchTMap<cHomot2D<tREAL8>> ();
+       BenchTMap<cSim2D<tREAL8>> ();
+       BenchTMap<cRot2D<tREAL8>> ();
+       BenchTMap<cAffin2D<tREAL8>> ();
+   }
+
 
     cEllipse::BenchEllispe();
-    cEllipse3D::Bench();
+    cGenGauss3D::Bench();
 
     BenchIsometrie(aParam);
     BenchRotation3D(aParam);

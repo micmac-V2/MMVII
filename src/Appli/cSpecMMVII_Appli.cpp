@@ -276,6 +276,9 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_ConvertV1V2_GCPIM);
         TheVecAll.push_back(&TheSpec_SpecSerial);
         TheVecAll.push_back(&TheSpec_PoseCmpReport);
+        TheVecAll.push_back(&TheSpec_CmpCalib_Local);
+
+
         // TheVecAll.push_back(&TheSpec_ClinoReport);
         TheVecAll.push_back(&TheSpec_GCPReport);
         TheVecAll.push_back(&TheSpec_CompareGCP);
@@ -289,6 +292,8 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpecRename);
         TheVecAll.push_back(&TheSpecRenameSubFolder);
         TheVecAll.push_back(&TheSpec_V2ImportCalib);
+        TheVecAll.push_back(&TheSpec_CalibIndiv);
+
         TheVecAll.push_back(&TheSpec_ImportOri);
         TheVecAll.push_back(&TheSpecDicoRename);
         TheVecAll.push_back(&TheSpec_SimulDispl);
@@ -312,6 +317,9 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpecAppliBubbles);
         TheVecAll.push_back(&TheSpecAppliFranges_0);
         TheVecAll.push_back(&TheSpecAppliFranges_1);
+
+        TheVecAll.push_back(&TheSpecAppliFranges_2);
+
 
         TheVecAll.push_back(&TheSpec_CERN_ImportClino);
         TheVecAll.push_back(&TheSpec_MMV2_MesIm_2_MMV1);

@@ -52,6 +52,8 @@ template <class Type, class Enable = void> class  cStrIO
 /// Facilities when the type is well defined
 template <class Type> std::string ToStr(const Type & aV) {return cStrIO<Type>::ToStr(aV);}
 std::string ToStr(int aVal,int aSzMin);
+std::string ToStrIntFixNbDigit(const std::string & aName,int aNbDigit);
+
 bool IsStrInt(const std::string & aStr);
 
 

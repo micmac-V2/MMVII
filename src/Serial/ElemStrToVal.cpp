@@ -314,6 +314,12 @@ template<> cE2Str<eTypeDBCam>::tMapE2Str cE2Str<eTypeDBCam>::mE2S
                 {eTypeDBCam::eGlobalMMVII,"GlobalMMVII"}
            };
 
+template<> cE2Str<eDistrVirTPs>::tMapE2Str cE2Str<eDistrVirTPs>::mE2S
+    {
+        {eDistrVirTPs::e5Pts,"5Pts"},
+        {eDistrVirTPs::e9Pts,"9Pts"},
+        {eDistrVirTPs::e27Pts,"27Pts"}
+    };
 
 template<> cE2Str<eModeFusionData>::tMapE2Str cE2Str<eModeFusionData>::mE2S
            {
@@ -386,6 +392,18 @@ bool ModResBund_IsModeGen(eModResBund aMode)
     return  ((int) aMode <= (int) eModResBund::eProduct) ;
 }
 
+int NbPtsOfDistrib(eDistrVirTPs aType)
+{
+    switch (aType)
+    {
+    case eDistrVirTPs::e5Pts : return 5; break;
+    case eDistrVirTPs::e9Pts : return 9; break;
+    case eDistrVirTPs::e27Pts : return 27; break;
+    default : MMVII_INTERNAL_ERROR("NbPtsOfDistrib: unhandled eDistrVirTPs value");
+    }
+
+    return 0.0;
+}
 
 template<> cE2Str<eMTDIm>::tMapE2Str cE2Str<eMTDIm>::mE2S
            {
@@ -1038,6 +1056,12 @@ std::string ToStr(int aVal, int aSzMin) {
     return aRes;
 }
 
+std::string ToStrIntFixNbDigit(const std::string & aName,int aNbDigit)
+{
+   return   ToStr(cStrIO<int>::FromStr(aName),aNbDigit);
+}
+
+
 /*
 std::string  ToS_NbDigit(int aNb,int aNbDig,bool AcceptOverFlow)
 {
@@ -1485,6 +1509,6 @@ MACRO_INSTANTIATE_STRIO_ENUM(eModeSSR,"ModeSRR")
 MACRO_INSTANTIATE_STRIO_ENUM(eImatchCrit,"ImatchCrit")
 MACRO_INSTANTIATE_STRIO_ENUM(eTargetDistanceEstim,"TargetDistanceEstim")
 MACRO_INSTANTIATE_STRIO_ENUM(eModeWeighter,"ModeWeighter")
-
+MACRO_INSTANTIATE_STRIO_ENUM(eDistrVirTPs,"DistrVirTPs")
 
 };

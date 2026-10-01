@@ -558,6 +558,8 @@ class cRGBImage
 
         cRGBImage(const cPt2di & aSz,int aZoom=1);
         cRGBImage(const cPt2di & aSz,const cPt3di & aCoul,int aZoom=1);
+        cRGBImage Dup() const;
+
         void ToFile(const std::string & aName, const std::vector<std::string>& aOptions={});
         void ToFileDeZoom(const std::string & aName,int aDeZoom, const std::vector<std::string>& aOptions={});
         void ToJpgFileDeZoom(const std::string & aName,int aDeZoom, const std::vector<std::string>& aOptions={});

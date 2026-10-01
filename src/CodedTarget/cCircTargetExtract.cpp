@@ -250,7 +250,16 @@ class cCCDecode
 
 
 
-         cCCDecode(cCircTargExtr & anEE,tCDIm & aDIm,tCDIm & aDGx , tCDIm & aDGy,const cFullSpecifTarget &,const cThresholdCircTarget &);
+         cCCDecode
+         (
+                 const cPhotogrammetricProject  & anAppli,
+                 cCircTargExtr & anEE,
+                 tCDIm & aDIm,
+                 tCDIm & aDGx ,
+                 tCDIm & aDGy,
+                 const cFullSpecifTarget &,
+                 const cThresholdCircTarget &
+            );
 
          void ShowCDecoded(const std::string & aPrefix);
 
@@ -287,6 +296,7 @@ class cCCDecode
          int KEndInterv(int aK0,int aNumBit) const;
 
 
+         const cPhotogrammetricProject &            mPhProj;
          cCircTargExtr &           mEE;
          const cDataIm2D<tREAL4> & mDIm;
          const cDataIm2D<tREAL4> & mDGx;
@@ -330,6 +340,7 @@ class cCCDecode
 
 cCCDecode::cCCDecode
 (
+   const cPhotogrammetricProject &            aPhProj ,
    cCircTargExtr & anEE,
    tCDIm & aDIm,
    tCDIm & aDGx,
@@ -337,6 +348,7 @@ cCCDecode::cCCDecode
    const cFullSpecifTarget & aSpec,
    const cThresholdCircTarget & aThresh
 ) :
+        mPhProj       (aPhProj),
         mEE          (anEE),
         mDIm         (aDIm),
         mDGx         (aDGx),
@@ -720,7 +732,7 @@ void  cCCDecode::ShowCDecoded(const std::string & aPrefix)
        }
     }
 
-    aIm.ToJpgFileDeZoom(aPrefix + "_ImPolar_"+ToStr(aCpt)+".tif",1);
+    aIm.ToJpgFileDeZoom(mPhProj.DirVisuAppli()+ aPrefix + "_ImPolar_"+ToStr(aCpt)+".tif",1);
 
     StdOut() << "Adr=" << mEnCode << " Ok=" << mOK << " BitCode=" << StrOfBitFlag(mFlagCode,2<<mNbB) ;
     if (mEnCode)
@@ -890,7 +902,10 @@ void cAppliExtractCircTarget::DoExport()
      }
 
      mNameIm = mOriginalNameImage;
-     cVecTiePMul aVTPMul(mNameIm); FakeUseIt(aVTPMul);
+     cVecTiePMul aVTPMul(mNameIm); //FakeUseIt(aVTPMul);
+
+   //  bool mDoExportPtsMul = true;
+    // std::string mExportPtsMul = "PtsMul";
 
      cSetMesPtOf1Im  aSetM(FileOfPath(mNameIm));
      std::vector<cSaveExtrEllipe>  mVSavE;
@@ -947,6 +962,7 @@ void cAppliExtractCircTarget::DoExport()
 
      if (mPhProj.DPMulTieP().DirOutIsInit())
      {
+         aVTPMul.SortId(false);
          mPhProj.SaveMultipleTieP(aVTPMul,mNameIm);
      }
 
@@ -1202,7 +1218,7 @@ int cAppliExtractCircTarget::ExeOnParsedBox()
    {
        if (anEE.mSeed.mMarked4Test)
        {
-          anEE.ShowOnFile(mNameIm,21,mPrefixOut);
+          anEE.ShowOnFile(mNameIm,21,mPhProj.DirVisuAppli()+mPrefixOut);
        }
        if (anEE.mValidated  || anEE.mSeed.mMarked4Test)
        {
@@ -1212,7 +1228,7 @@ int cAppliExtractCircTarget::ExeOnParsedBox()
 
    for (auto & anEE : mVCTE)
    {
-       cCCDecode aCCD(*anEE,APBI_DIm(),mExtrEll->DGx(),mExtrEll->DGy(),*mSpec,mThresh);
+       cCCDecode aCCD(mPhProj,*anEE,APBI_DIm(),mExtrEll->DGx(),mExtrEll->DGy(),*mSpec,mThresh);
        if (anEE->mMarked4Test)
        {
              aCCD.ShowCDecoded(mPrefixOut);

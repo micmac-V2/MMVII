@@ -96,6 +96,14 @@ cEllipse::cEllipse(const cPt2dr & aCenter,tREAL8 aTeta,tREAL8 aLGa,tREAL8 aLSa):
 {
 }
 
+cEllipse  cEllipse::EllipseNotOk()
+{
+     cEllipse aRes(cPt2dr(0,0),1,1,1);
+     aRes.mOk = false;
+     return aRes;
+}
+
+
 cEllipse::cEllipse(const cPt2dr & aCenter,tREAL8 aRay) :
         cEllipse(aCenter,0.0,aRay,aRay)
 {
@@ -597,15 +605,33 @@ void cEllipse_Estimate::AddPt(cPt2dr aP,tREAL8 aWeight)
 
 cEllipse cEllipse_Estimate::Compute()
 {
+    // Modif MPD because with constraint and high coordinates, the constr with 1
+    // make a badly conditionnate system
+    tREAL8 aWConstr = mSys->Get_tAA(false)->tAA().L2Norm(false);
+
+
+   // StdOut() << " cEllipse_Estimate::Compute::VPT=" << mVObs << "\n";
      if (! mIsCenterFree)
      {
-         mSys->AddObsFixVar(1.0,3,0.0);
-         mSys->AddObsFixVar(1.0,4,0.0);
+         mSys->AddObsFixVar(aWConstr,3,0.0);
+         mSys->AddObsFixVar(aWConstr,4,0.0);
      }
      if ( mIsCircle)
      {
-         mSys->AddObsFixVar(1.0,1,0.0);
-         mSys->AddObsFixVar(1.0,2,0.0);
+         mSys->AddObsFixVar(aWConstr,1,0.0);
+         mSys->AddObsFixVar(aWConstr,2,0.0);
+     }
+
+
+     tREAL8 aCond = mSys->Get_tAA(false)->tAA().SymCond(1e6);
+    // StdOut() << " CCCC= "  << aCond << "\n";
+     if (aCond> 20000.0)
+     {
+        //cResulSymEigenValue<Type> aEig = mSys->Get_tAA(false)->tAA().SymEigenValue();
+        // StdOut() << "COND=" << aCond << " " << mC0  << " " << mIsCenterFree   << mSys->Get_tAA(false)->tAA().L2Norm() << "\n";
+        // StdOut() << mVObs << "\n";
+        // getchar();
+         return cEllipse::EllipseNotOk();
      }
 
      auto  aSol = mSys->PublicSolve();
@@ -616,8 +642,11 @@ cEllipse cEllipse_Estimate::Compute()
      }
 
      cEllipse aRes(aSol,mC0);
+
+   //  StdOut() << " cEllipse_Estimate::Compute::DONEEE\n";
+
      return aRes;
-     /// return  aRes;
+     /// return  aRaSeedes;
 }
 
 /*  *********************************************************** */
@@ -662,6 +691,8 @@ void cExtract_BW_Ellipse::AnalyseAllConnectedComponents(const std::string & aNam
         if (OkCC)
         {
             bool OkFront = ComputeFrontier(aSeed);
+
+          //  StdOut() << "OKKKFRRR " << OkFront << "\n";
 
             if (aSeed.mMarked4Test && (!OkFront))
             {
@@ -859,8 +890,17 @@ bool  cExtract_BW_Ellipse::AnalyseEllipse(cSeedBWTarget & aSeed,const std::strin
 {
         // --  1 estimate the ellispe fitting the frontier
      cEllipse_Estimate anEEst(mCentroid);
+    // MMVII_DEV_WARNING("QUICK EN VERY DIRTY TRICK in  cExtract_BW_Ellipse::AnalyseEllipse");
      for (const auto  & aPFr : mVFront)
-         anEEst.AddPt(aPFr);
+     {
+          anEEst.AddPt(aPFr);
+         // MPD : not proud of that, but in very special case ellipse Lsq Saure is degenerate
+         // because several point almoste equal,
+     /*    tREAL8 aEps = 1e-5;
+         for (int aX=-1 ; aX<=1 ; aX++)
+             for (int aY=-1 ; aY<=1 ; aY++)
+                  anEEst.AddPt(aPFr+cPt2dr(aEps*aX,aEps*aY));*/
+     }
      cEllipse anEl = anEEst.Compute();
      if (! anEl.Ok())
      {

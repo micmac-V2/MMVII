@@ -44,6 +44,12 @@ static std::vector<cSpecMMVII_Appli *> cmd_match(const std::string& aCmd, const 
 
 int main(int argc, char ** argv)
 {
+// Windows: in a bash, uncaught exception doen't display a message. Handle that.
+#ifdef _WIN32
+    try
+    {
+#endif
+
 #ifdef MMVII_KEEP_MMV1_IMAGE
     char *env_mmv1_image = getenv(ENV_MMVII_USE_MMV1_IMAGE);
     mmvii_use_mmv1_image = false;
@@ -124,6 +130,22 @@ int main(int argc, char ** argv)
 #endif
 
     return EXIT_SUCCESS;
+#ifdef _WIN32
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Unhandled exception: "
+                  << typeid(e).name()
+                  << "\n  what(): " << e.what()
+                  << std::endl;
+        return EXIT_FAILURE;
+    }
+    catch (...)
+    {
+        std::cerr << "Unhandled unknown exception" << std::endl;
+        return EXIT_FAILURE;
+    }
+#endif
 }
 
 

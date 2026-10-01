@@ -181,7 +181,8 @@ int cAppli_ImportGCP::Exe()
         {
             if (IsStrInt(aNamePoint))
             {
-               aNamePoint =   ToStr(cStrIO<int>::FromStr(aNamePoint),mNbDigName);
+               //aNamePoint =   ToStr(cStrIO<int>::FromStr(aNamePoint),mNbDigName);
+               aNamePoint = ToStrIntFixNbDigit(aNamePoint,mNbDigName);
             }
         }
 

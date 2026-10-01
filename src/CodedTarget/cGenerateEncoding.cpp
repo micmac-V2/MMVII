@@ -227,7 +227,7 @@ class cAppliGenerateEncoding : public cMMVII_Appli
         size_t                mPerCircPerm;
         bool                  mMiror;
         bool                  mOkSelfSym;
-    bool                  mShowSelfSym;
+        bool                  mShowSelfSym;
         bool                  mUseAiconCode;
         cCompEquiCodes  *     mCEC;
         std::vector<cCelCC*>  mVOC;
@@ -250,8 +250,8 @@ cAppliGenerateEncoding::cAppliGenerateEncoding
    cMMVII_Appli   (aVArgs,aSpec),
    mPhProj        (*this),
    mMiror         (false),
-   mOkSelfSym     (true),
-   mShowSelfSym   (false),
+   mOkSelfSym     (false),
+   mShowSelfSym   (true),
    mCEC           (nullptr)
 {
 }

@@ -900,6 +900,9 @@ template <class Type,const int Dim>  class cTplBoxOfPts
         tPt  mP1;
 };
 
+template <const int Dim> std::vector<cPtxd<tREAL8,Dim>>  RegularGrid(cPtxd<int,Dim> aSz,int aNbPts);
+
+
 template <class Type,const int Dim> class cSegment
 {
     public :

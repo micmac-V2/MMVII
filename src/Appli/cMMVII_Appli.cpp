@@ -1592,14 +1592,18 @@ void cMMVII_Appli::GenerateHelp()
    {
        bool ArgIsInternal = Arg->HasType(eTA2007::Internal);
        bool ArgIsGlobal = Arg->HasType(eTA2007::Global);
+       bool ArgIsTuning =  Arg->HasType(eTA2007::Tuning);
        // The rule :
        //   - if ArgIsInternal : print if mDoInternalHelp (used for internal MMVII purpose)
        //   - if ArgIsGlobal   :  print if  mDoGlobHelp   (usefull but alwayse the same)
        //    - else print
 
-       bool DoIt =     ((!ArgIsInternal) && (!ArgIsGlobal))
+       bool DoIt =     ((!ArgIsInternal) && (!ArgIsGlobal) && (!ArgIsTuning))
                     || (mDoGlobHelp && (!ArgIsInternal))
                     ||  mDoInternalHelp ;
+
+       //if (ArgIsTuning && (!mDoGlobHelp))
+       //    DoIt = false;
 
        if (DoIt)
        {
@@ -1625,7 +1629,7 @@ void cMMVII_Appli::GenerateHelp()
          {
               HelpOut() << Color::warning  << "(!!== INTERNAL DONT USE DIRECTLY ==!!)" << Color::end ;
           }
-          if ( Arg->HasType(eTA2007::Tuning))
+          if (ArgIsTuning)
           {
                HelpOut() << Color::warning  << "(Tuning) " << Color::end ;
           }

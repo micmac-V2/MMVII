@@ -690,8 +690,7 @@ class cAppli_OriRelTripletsOfIm : public cMMVII_Appli
         void DoTripletOf1Image();
         void DoAllTriplet();
 
-        void Generate5Pts(const cOriTriplets*,cSaveNPoint&);
-        void Generate5PtsV2(const cOriTriplets*,cSaveNPoint&);
+        void GenerateVirtualTieP(const cOriTriplets*,cSaveNPoint&);
 
 
         int                       mModeCompute;
@@ -705,6 +704,7 @@ class cAppli_OriRelTripletsOfIm : public cMMVII_Appli
         bool                      mShow;
         cTimerSegm  *             mTimeSegm ;
         bool                      mGenVirtTP;  ///< Generate Virtual Tie poin (if MulTiePoint Out)
+        eDistrVirTPs              mDistribVirTPs;
 };
 
 cAppli_OriRelTripletsOfIm::cAppli_OriRelTripletsOfIm
@@ -719,7 +719,8 @@ cAppli_OriRelTripletsOfIm::cAppli_OriRelTripletsOfIm
     mRanTrR       (0,0),
     mUseOri4GT    (false),
     mShow         (mModeCompute==0),
-    mGenVirtTP    (false)
+    mGenVirtTP    (false),
+    mDistribVirTPs(eDistrVirTPs::e5Pts)
 {
 }
 
@@ -760,14 +761,20 @@ cCollecSpecArg2007 & cAppli_OriRelTripletsOfIm::ArgObl(cCollecSpecArg2007 & anAr
 cCollecSpecArg2007 & cAppli_OriRelTripletsOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
    return       anArgOpt
+           << cHeaderSectionArg("Input for tie points")
             <<  mPhProj.DPTieP().ArgDirInOpt()
             <<  mPhProj.DPGndPt2D().ArgDirInOpt()
             <<  mPhProj.DPMulTieP().ArgDirInOpt()
+
+           << cHeaderSectionArg("Export virtual points")
+           << mPhProj.DPMulTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
+           << AOpt2007(mDistribVirTPs,"DistribVirTP","Distribution of virtual tie points",{eTA2007::HDV})
+
+            << cHeaderSectionArg("Testing")
             <<  AOpt2007(mRanTrR,"RanTrR","Random for Trans&Rot (test & tune)",{eTA2007::HDV})
             <<  AOpt2007(mShow,"Show","Show details of result",{eTA2007::HDV})
             <<  AOpt2007(mUseOri4GT,"UseOriGT","Set if orientation contains also exterior as a ground truth",{eTA2007::HDV})
-            <<  AOpt2007(mFolderOriGT,"OriGT","If ground truth ori != calib")
-             << mPhProj.DPMulTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points");
+            <<  AOpt2007(mFolderOriGT,"OriGT","If ground truth ori != calib");
    ;
 }
 
@@ -882,51 +889,19 @@ void cAppli_OriRelTripletsOfIm::DoAllTriplet()
     //StdOut() <<  mArgv << "\n";
 
 }
-void cAppli_OriRelTripletsOfIm::Generate5PtsV2(const cOriTriplets* aOri3,cSaveNPoint& aSaveNP)
+void cAppli_OriRelTripletsOfIm::GenerateVirtualTieP(const cOriTriplets* aOri3,cSaveNPoint& aSaveNP)
 {
-    const cOneSolOriTriplet* aBSol = aOri3->BestSol();
-    const cElemBA & aEBA = aBSol->mEBA;
-    tREAL8 aBestScore = aOri3->BestScore();
-
-    // construct an elliposoid over the 3D points
-    cStrStat2<double> aCovMat(3);
-
-    for (auto &[aConf,aPts] : aOri3->TiepMFull()->Pts())
-    {
-        size_t aNbPts = aPts.mVPIm.size();
-        int aNbIm = aConf.size();
-
-        for (size_t aKPts=0; aKPts<aNbPts; aKPts+=aNbIm)
-        {
-            const cPt3dr* aPtrPts = aPts.mVPGround.data()+aKPts;
-            //StdOut() << aPtrPts->x() << " " << aPtrPts->y() << aPtrPts->z() << std::endl;
-
-            auto [aRes1,aPGr] = aEBA.InterBundles(aConf,aPtrPts,1e-6);
-            tREAL8 aW = 1.0/(1.0 + Square(aRes1/(4.0*aBestScore)));
-
-            aCovMat.WeightedAdd(aPGr.ToVect(),aW);
-        }
-
-    }
-    aCovMat.Normalise(true);
-    cResulSymEigenValue<double>  aVp = aCovMat.DoEigen();
-
-
-}
-
-void cAppli_OriRelTripletsOfIm::Generate5Pts(const cOriTriplets* aOri3,cSaveNPoint& aSaveNP)
-{
-
     const cOneSolOriTriplet* aBSol = aOri3->BestSol();
     const cElemBA & aEBA = aBSol->mEBA;
     tREAL8 aBestScore = std::max(aOri3->BestScore(),1e-8);
 
     std::vector<cPt3dr> aVP; ///< 3D points
     std::vector<tREAL8> aVW; ///< weights
-    std::vector<tREAL8> aVDist; ///< distance to camera
+
 
     for (auto &[aConf,aPts] : aOri3->TiepMFull()->Pts())
     {
+
         if (aConf.size()!=3) continue;
 
         size_t aNbPts = aPts.mVPIm.size();
@@ -942,88 +917,19 @@ void cAppli_OriRelTripletsOfIm::Generate5Pts(const cOriTriplets* aOri3,cSaveNPoi
 
             aVP.push_back(aPGr);
             aVW.push_back(1.0/(1.0 + Square(aRes1/(4.0*aBestScore))));
-            aVDist.push_back(Norm2(aPGr-aBSol->mP0.Tr()));
 
-        }
-
-    }
-    if (aVP.size()<10) return; ///< do nothing if less than 5 points
-
-    std::vector<tREAL8> aVDistSort = aVDist;
-    const tREAL8 aDMax = 5 * NC_KthVal(aVDistSort,0.75);
-
-    // construct an elliposoid over the 3D points
-    // igore too far points
-    cEllipse3D aEllipse;
-    for (size_t aK=0; aK<aVP.size(); aK++)
-    {
-        if (aVDist.at(aK)<=aDMax)
-        {
-            aEllipse.AddData(aVP.at(aK),aVW.at(aK));
-        }
-    }
-    aEllipse.Normalise();
-
-    // generate 5 virtual points
-
-    cGenGauss3D aG3D(aEllipse);
-    if (aG3D.ValP(0) <= 1e-12 * aG3D.ValP(2)) return; // NaN eigenvalue
-
-    const cPt2dr aSz = ToR(aOri3->Calib(0)->SzPix());
-    const tREAL8 TheMarginPix = 0.05 * std::min(aSz.x(),aSz.y());
-    const int NbSplits=10; ///< number of times the split on scale
-
-    auto Project = [&](const std::vector<cPt3dr>& aV5,
-                       std::vector<std::vector<cPt2dr>>& aVProj) -> bool
-    {
-        aVProj.clear();
-        for (const auto & aP : aV5)
-        {
-            std::vector<cPt2dr> aVIm;
-            for (int aKC=0; aKC<3; aKC++)
-            {
-                const tPoseR & aPose = (aKC==0)? aBSol->mP0 : (aKC==1)? aBSol->mP01 : aBSol->mP02;
-                const cPt3dr aPL = aPose.Inverse(aP);
-                if (aOri3->Calib(aKC)->DegreeVisibility(aPL) <= TheMarginPix) return false;
-                cPt2dr aPIm = aOri3->Calib(aKC)->Value(aPL);
-                aVIm.push_back(aPIm);
-            }
-            aVProj.push_back(aVIm);
-        }
-        return true;
-    };
-
-    std::vector<cPt3dr> aV5Pts;
-    std::vector<std::vector<cPt2dr>> aVProj, aVBestProj;
-    tREAL8 aLow=0.0;
-    tREAL8 aHigh=1.0;
-
-    aG3D.GetDistrib5Pts(aV5Pts,1.0);
-
-    if (Project(aV5Pts,aVBestProj))
-        aLow=1.0;
-    else
-    {
-        for (int aK=0; aK<NbSplits; aK++)
-        {
-            tREAL8 aMid = (aLow+aHigh)/2.0;
-            aG3D.GetDistrib5Pts(aV5Pts,aMid);
-            if (Project(aV5Pts,aVProj))
-            {
-                aLow=aMid;
-                aVBestProj = aVProj;
-            }
-            else
-                aHigh = aMid;
         }
     }
 
-    if (aLow <= 0.0) return;// all five or none
+    std::vector<tPoseR> aVPoses {aBSol->mP0,aBSol->mP01,aBSol->mP02};
+    std::vector<const cPerspCamIntrCalib*> aVCalib {aOri3->Calib(0),aOri3->Calib(1),aOri3->Calib(2)};
+    std::vector<std::vector<cPt2dr>> aVVProj;
 
-
-    for (const auto & aVIm : aVBestProj)
-        aSaveNP.AddPts(aVIm);
-
+    if (GenerateVirtualPts(aVP,aVW,aVPoses,aVCalib,mDistribVirTPs,aVVProj))
+    {
+        for (const auto & aVIm : aVVProj)
+            aSaveNP.AddPts(aVIm);
+    }
 }
 
 
@@ -1052,7 +958,7 @@ void cAppli_OriRelTripletsOfIm::DoTripletOf1Image()
             {
                cSaveNPoint a1Conf(aVN);
 
-               Generate5Pts(anOri3,a1Conf);
+               GenerateVirtualTieP(anOri3,a1Conf);
 
                aSaveNP.AddCondig(a1Conf);
             }

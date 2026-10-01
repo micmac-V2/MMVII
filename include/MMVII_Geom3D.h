@@ -3,6 +3,7 @@
 
 #include "MMVII_Triangles.h"
 #include "MMVII_Matrix.h"
+#include "MMVII_enums.h"
 
 namespace happly
 {
@@ -117,6 +118,8 @@ template <class Type> class cRotation3D
        typedef std::vector<tPt>   tVPts;
        typedef const tVPts&       tCRVPts;
        typedef tPt   tTabMin[NbPtsMin];  // Used for estimate with min number of point=> for ransac
+       typedef std::vector<Type> tVVals;
+       typedef const tVVals *    tCPVVals;
 
        /// Create a "dummy" rotation, initialized with null matrix (to force problem if not init later)
        cRotation3D();
@@ -227,6 +230,31 @@ template <class Type> class cRotation3D
        static cRotation3D<Type>  RotFromYPR(const tPt & aWPK);
        tPt                       ToYPR() const;
 
+
+       // ********************************************************************************************
+       // **********************  MAP ESTIMATION *****************************************************
+       // ********************************************************************************************
+
+       //  --------------------- Function to do the map estimate (Ransac/LeastSq ...) usign ge
+       ///  Estimate using ransac
+       static tTypeMap RansacL1Estimate(tCRVPts aVIn,tCRVPts aVOut,int aNbTest);
+      ///  Refine least square solution
+      tTypeMap LeastSquareRefine(tCRVPts aVIn,tCRVPts aVOut,Type * aRes2=nullptr,tCPVVals=nullptr)const;
+      /// Global estimate Ransac + Weight Least squares
+      static tTypeMap StdGlobEstimate ( tCRVPts aVIn, tCRVPts aVOut, tTypeElem* aRes, tCPVVals   aVW, cParamCtrlOpt aParam);
+
+       /// Estimate from 3 point , interface to "FromTriOut"  for  "RansacL1Estimate"
+       static tTypeMap FromMinimalSamples(const tTabMin&,const tTabMin&);
+      /// Basic   Value(aPIn) - aPOUt
+      tPt DiffInOut(const tPt & aPIn,const tPt & aPOUt) const;
+      /// compute the vector used in least square equation
+      static void ToEqParam(tPt & aRHS,std::vector<cDenseVect<Type>>&,const tPt &In,const tPt & Out);
+      ///  evaluate from a vec [TrX,TrY,ScX,ScY], typycally result of mean square
+      static tTypeMap  FromParam(const cDenseVect<Type> &);
+
+      /// return a rotation such that 2 first vector are computed by  OrthogonalizePair
+      static  tTypeMap RotInPlane(const tTabMin&);
+
     private :
        cDenseMatrix<Type>  mMat;
 };
@@ -328,7 +356,7 @@ template <class Type> class cIsometry3D
       ///  Refine least square solution
       tTypeMap LeastSquareRefine(tCRVPts aVIn,tCRVPts aVOut,Type * aRes2=nullptr,tCPVVals=nullptr)const;
       /// Global estimate Ransac + Weight Least squares
-      tTypeMap StdGlobEstimate ( tCRVPts aVIn, tCRVPts aVOut, tTypeElem* aRes, tCPVVals   aVW, cParamCtrlOpt aParam);
+      static tTypeMap StdGlobEstimate ( tCRVPts aVIn, tCRVPts aVOut, tTypeElem* aRes, tCPVVals   aVW, cParamCtrlOpt aParam);
 
        /// Estimate from 3 point , interface to "FromTriOut"  for  "RansacL1Estimate"
        static tTypeMap FromMinimalSamples(const tTabMin&,const tTabMin&);
@@ -408,7 +436,7 @@ template <class Type> class cSimilitud3D
       ///  Refine least square solution
       tTypeMap LeastSquareRefine(tCRVPts aVIn,tCRVPts aVOut,Type * aRes2=nullptr,tCPVVals=nullptr)const;
       /// Global estimate Ransac + Weight Least squares
-      tTypeMap StdGlobEstimate ( tCRVPts aVIn, tCRVPts aVOut, tTypeElem* aRes, tCPVVals   aVW, cParamCtrlOpt aParam);
+      static tTypeMap StdGlobEstimate ( tCRVPts aVIn, tCRVPts aVOut, tTypeElem* aRes, tCPVVals   aVW, cParamCtrlOpt aParam);
 
        /// Estimate from 3 point , interface to "FromTriOut"  for  "RansacL1Estimate"
        static tTypeMap FromMinimalSamples(const tTabMin&,const tTabMin&);
@@ -748,65 +776,12 @@ class cSampleSphere3D
 };
 
 
-class cEllipse3D
-{
-    public:
-        static void Bench();
-
-        cEllipse3D();
-
-        void AddData(const cPt3dr&, double);
-        void Normalise();
-        void Reset();
-
-
-        cPt3dr & CDG();
-        const cPt3dr & CDG()const ;
-
-        double & Sxx();
-        const double & Sxx()const ;
-
-        double & Syy();
-        const double & Syy()const ;
-
-        double & Szz();
-        const double & Szz()const ;
-
-        double & Sxy();
-        const double & Sxy()const ;
-
-        double & Sxz();
-        const double & Sxz()const ;
-
-        double & Syz();
-        const double & Syz()const ;
-
-        double & Pds();
-        const double & Pds()const ;
-
-        bool & Norm();
-        const bool & Norm()const ;
-
-    private:
-        cPt3dr mCDG;
-        double mSxx;
-        double mSyy;
-        double mSzz;
-        double mSxy;
-        double mSxz;
-        double mSyz;
-        double mPds;
-        bool mNorm;
-
-};
-
 class cGenGauss3D
 {
     public :
-        cGenGauss3D(const cEllipse3D & );
-        cGenGauss3D(const cDenseMatrix<double> &,
-                    const cDenseMatrix<double> &,
-                    const cDenseMatrix<double> &);
+        cGenGauss3D(const cDenseMatrix<double> &aVecEig,
+                    const cDenseVect<double> &aValEig,
+                    const cDenseVect<double> &aCG);
 
         const double & ValP(int aK) const {return mVP(aK);};
         const cDenseVect<tREAL8>   VecP(int aK) const {return mVecP.ReadCol(aK); };
@@ -816,8 +791,19 @@ class cGenGauss3D
         //indiqué par (2*aN1+1),(2*aN2+1),(2*aN3+1) et Gauss
         void GetDistribGaus(std::vector<cPt3dr> &,int,int,int);
 
+        //generate a requested distribution
+        void GetDistribNPts(std::vector<cPt3dr> &,eDistrVirTPs,double aSca=1.0);
+
         //5-pts distribution
         void GetDistrib5Pts(std::vector<cPt3dr> &,double aSca=1.0);
+
+        //9-pts distribution
+        void GetDistrib9Pts(std::vector<cPt3dr> &,double aSca=1.0);
+
+        //27-pts distribution
+        void GetDistrib27Pts(std::vector<cPt3dr> &,double aSca=1.0);
+
+        static void Bench();
 
     private :
 

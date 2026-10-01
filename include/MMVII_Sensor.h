@@ -675,6 +675,9 @@ class cPhotogrammetricProject : public cIPhProj
           cPerspCamIntrCalib *  InternalCalibFromImage(const std::string &aNameIm) const override;
           ///  compute the standard name of calibration before reading it
           cPerspCamIntrCalib *  InternalCalibFromStdName (const std::string aNameIm,bool isRemanent=true) const override;
+          /// Idem "InternalCalibFromStdName" but dont use default folder
+          cPerspCamIntrCalib *  InternalCalibFromFolderStdName (const std::string & aNameFolder,const std::string aNameIm,bool isRemanent=true) const ;
+
 
       /// compute the calibration from the name of the file
       cPerspCamIntrCalib *  InternalCalibFromStdNameCalib (const std::string aNameIm,bool isRemanent=true) const;
