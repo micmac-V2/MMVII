@@ -38,12 +38,14 @@ class cConnComp
 {
    public :
 
-     cConnComp(const tSeg2dr & aSeg,bool isHor) :
-         mSeg (aSeg),
+     cConnComp(std::vector<cPt2di> & aVPts,const tSeg2dr & aSeg,bool isHor) :
+         mPts   (aVPts),
+         mSeg   (aSeg),
          mIsHor (isHor)
      {
      }
 
+    std::vector<cPt2di> mPts;
     tSeg2dr mSeg;
     bool    mIsHor;
 
@@ -109,7 +111,7 @@ class cAppliNewFrange : public cMMVII_Appli
         tREAL8    mDerFactZ1;   ///< Factor of deriche gradient for zoom 1
         tREAL8    mSigmaTensZ1; ///< Sigma filter on tensor cumulated for zoom 1
         bool      mDoSimul;
-        bool      mDoVisu;
+        int       mDoVisu;
 
         tIm      mImZ1;
         tDIm*    mDImZ1;
@@ -118,22 +120,29 @@ class cAppliNewFrange : public cMMVII_Appli
 
 
         //-------- These values are related to reduced image ----------------
-        tIm      mImRed;
-        tDIm*    mDImRed;
-        cPt2di   mSzRed;
-        tIm      mImRedBlur;
-        tDIm*    mDImRedBlur;
+        tIm      mImRed;   /// reduced images
+        tDIm*    mDImRed;  /// data reduced im
+        cPt2di   mSzRed;     /// sz of reduced ima
+        tIm      mImRedBlur;  /// im blured
+        tDIm*    mDImRedBlur;  /// data image blurred
 
 
+        tIm      mImTx;   /// image tensor x
+        tDIm*    mDImTx;  /// data
+        tIm      mImTy;   /// image tensor y
+        tDIm*    mDImTy;   /// data
 
          cIm2D<tU_INT1> mImMaxHor;
          cDataIm2D<tU_INT1>* mDImMaxHor;
          cIm2D<tU_INT1> mImMaxVert;
          cDataIm2D<tU_INT1>* mDImMaxVert;
 
+         cIm2D<tU_INT1> mImMaxLoc;
+         cDataIm2D<tU_INT1>* mDImMaxLoc;
 
 
-        tIm1D    mImTgt;
+
+        tIm1D    mImTgt;    /// Image of tangent as x=F(Y)
         tDIm1D*  mDImTgt;
         int      mYC;
         tIm1D    mImIntegr;
@@ -157,17 +166,23 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mDerFactZ1        (0.5),
     mSigmaTensZ1      (10.0),
     mDoSimul          (false),
-    mDoVisu           (true),
+    mDoVisu           (1),
     mImZ1             (cPt2di(1,1)),
     mDImZ1            (nullptr),
     mImRed            (cPt2di(1,1)),
     mDImRed           (nullptr),
     mImRedBlur        (cPt2di(1,1)),
     mDImRedBlur       (nullptr),
+    mImTx             (cPt2di(1,1)),
+    mDImTx            (nullptr),
+    mImTy             (cPt2di(1,1)),
+    mDImTy            (nullptr),
     mImMaxHor         (cPt2di(1,1)),
     mDImMaxHor        (nullptr),
     mImMaxVert        (cPt2di(1,1)),
     mDImMaxVert       (nullptr),
+    mImMaxLoc         (cPt2di(1,1)),
+    mDImMaxLoc        (nullptr),
     mImTgt            (1),
     mDImTgt           (nullptr),
     mYC               (-1),
@@ -195,8 +210,9 @@ cCollecSpecArg2007 & cAppliNewFrange::ArgOpt(cCollecSpecArg2007 & anArgOpt)
               << AOpt2007(mDerFactZ1,"DericheF","Factor of deriche filter (for Zoom=1)" ,{eTA2007::HDV})
               << AOpt2007(mSigmaTensZ1,"SigmaTens","Sigma for avaragin tensor (Z=1)" ,{eTA2007::HDV})
               << AOpt2007(mDoSimul,"DoSimul","Make simulation/syntheic images" ,{eTA2007::HDV})
+              << AOpt2007(mDoVisu,"DoVisu","Level of visualisation generated ?" ,{eTA2007::HDV})
 
-                 //  << AOpt2007(mSigCurv,"SigCurv","Sima for smoothig curve",{eTA2007::HDV})
+            //  << AOpt2007(mSigCurv,"SigCurv","Sima for smoothig curve",{eTA2007::HDV})
             //  << AOpt2007(mIntY,"IntY","Interval for Y",{eTA2007::HDV})
             //  << AOpt2007(mNbIter,"NbIt","Number of iter initial smoothing",{eTA2007::HDV})
             //  << AOpt2007(mDoVisu,"DoVisu","Generate Visualisation ?",{eTA2007::HDV})
@@ -312,6 +328,14 @@ void cAppliNewFrange::MakeImTgt()
     tDIm & aDGx = *(aGrad.mDGx);
     tDIm & aDGy = *(aGrad.mDGy);
 
+    mImTx =  tIm(mSzRed);
+    mDImTx = &(mImTx.DIm());
+    mImTy  = tIm(mSzRed);
+    mDImTy = &(mImTy.DIm());
+
+    mImMaxLoc = cIm2D<tU_INT1> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
+    mDImMaxLoc = &(mImMaxLoc.DIm());
+
     // aDGx.ToFile("GradX.tif");
 
      cIm1D<tREAL8> aPop(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
@@ -328,12 +352,36 @@ void cAppliNewFrange::MakeImTgt()
          tREAL8 aTeta = aRhoTeta.y();
          cPt2dr aTens = FromPolar(aRho,2.0*aTeta);
 
+         mDImTx->SetV(aPix,aTens.x());
+         mDImTy->SetV(aPix,aTens.y());
+
          tREAL8 aWeight = 1.0;
 
           aPop.DIm().AddV(aPix.y(),aRho*aWeight);
           aSumTx.DIm().AddV(aPix.y(),aTens.x()*aWeight);
           aSumTy.DIm().AddV(aPix.y(),aTens.y()*aWeight);
      }
+
+     ExpFilterOfStdDev(*mDImTx,5,3.0);
+     ExpFilterOfStdDev(*mDImTy,5,3.0);
+
+     int aBorder = 5;
+
+     std::vector<cPt2dr> aVN;
+     for (const auto & aPix : mDImMaxLoc->Interior(aBorder))
+     {
+         cPt2dr aTens (mDImTx->GetV(aPix),mDImTy->GetV(aPix));
+         cPt2dr aRhoTeta = ToPolar(aTens,0.0);
+         cPt2dr aDirTens = FromPolar(1.0,aRhoTeta.y()/2.0);
+         tREAL8 aV0 =mDImRedBlur->GetV(aPix);
+         if (      (aV0>mDImRedBlur->GetVBL(ToR(aPix)+aDirTens))
+               &&   (aV0>mDImRedBlur->GetVBL(ToR(aPix)-aDirTens))
+            )
+         {
+             mDImMaxLoc->SetV(aPix,1);
+         }
+     }
+
 
      ExpFilterOfStdDev(aPop.DIm()  ,5,mSigmaTensZ1/mZoomRed);
      ExpFilterOfStdDev(aSumTx.DIm(),5,mSigmaTensZ1/mZoomRed);
@@ -381,13 +429,20 @@ bool cAppliNewFrange::NewCC(bool isHoriz,const cPt2di& aPix)
 
     ConnectedComponent (aVCC,aImMax ,a8Neigh, aPix,1,2);
 
-    cBox2di aBox(cTplBox<int,2>::FromVect(aVCC));
+    tREAL8 aThrs = isHoriz ? 5 : 20 ;
+    if (aVCC.size()<aThrs)
+        return false;
 
-    int aX0Inf =  aBox.P0().x() <= mYC;
-    int aX1Sup = aBox.P1().x() > mYC;
+    //cBox2di aBox(cTplBox<int,2>::FromVect(aVCC));
+    cTplBox<int,2>  aBox =cTplBox<int,2>::FromVect(aVCC,true);
 
-     bool doCross = (aX0Inf!=aX1Sup);
-     cPt2di aDir(1,0);
+    bool aY0Inf =  (aBox.P0().y() <= mYC);
+    bool aY1Sup =  (aBox.P1().y() > mYC);
+    // MMVII_INTERNAL_ASSERT_always(aY0Inf<=aY1Sup," Ordeeerr in box");
+
+     bool doCross = (aY0Inf && aY1Sup);
+// FakeUseIt(doCross);
+     cPt2di aDir(0,1);
      if (isHoriz)
      {
          // if dont cross
@@ -397,18 +452,19 @@ bool cAppliNewFrange::NewCC(bool isHoriz,const cPt2di& aPix)
      else
      {
          if (doCross)
-             return false;
-         aDir = aX0Inf ? cPt2di(0,1) : cPt2di(0,-1);
+            return false;
+         aDir = (aBox.P0().y()<mYC)  ? cPt2di(1,0) : cPt2di(-1,0);
      }
-     cWhichMinMax<cPt2di,tREAL8>  aWMinMax;
+     cWhichMinMax<cPt2di,tREAL8>  aWMM;
 
      for (const auto & aPt : aVCC)
-         aWMinMax.Add(aPt,Scal(aDir,aPt));
+         aWMM.Add(aPt,Scal(aDir,aPt));
 
-
+     tSeg2dr aSeg(ToR(aWMM.IndMin()),ToR(aWMM.IndMax()));
+     cConnComp aCC(aVCC,aSeg,isHoriz);
    //  cConnComp(const tSeg2dr & aSeg,bool isHor) :
 
-    // mListCC.push_back(aCC);
+     mListCC.push_back(aCC);
 
      return true;
 }
@@ -492,16 +548,8 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
     mDImRedBlur = & (mImRedBlur.DIm());
     ExpFilterOfStdDev(*mDImRedBlur,5,2.0,5.0);
 
-
-    MakeImageMaxLoc();
-
-
-
-   // if (mDoVisu)
-
-
-
     MakeImTgt();
+    MakeImageMaxLoc();
 
 
     if (mDoVisu)
@@ -511,8 +559,16 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
         mImVisu = cRGBImage(mSzRed + cPt2di(aNbX,0),cRGBImage::White);
         cRGBImage aVisuMaxHor (mSzRed);
         cRGBImage aVisuMaxVert (mSzRed);
+        cRGBImage aVisuArrow (mSzRed);
 
-
+        cRGBImage aVisuTeta(mSzRed);
+        for (const auto aPix : *mDImRed)
+        {
+            cPt2dr aTens(mDImTx->GetV(aPix),mDImTy->GetV(aPix));
+            cPt2dr aRhoTeta = ToPolar(aTens,0.0);
+            tREAL8 aTeta =  aRhoTeta.y();
+            aVisuTeta.SetRGBPix(aPix,HSI_2_RGB(cPt3dr(aTeta,1.0,0.5)));
+        }
 
         tElIm aVMin,aVMax;
         GetBounds(aVMin,aVMax,*mDImRed);
@@ -524,6 +580,7 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
             mImVisu.SetGrayPix(aPix,aVal);
             aVisuMaxHor.SetGrayPix(aPix,aVal);
             aVisuMaxVert.SetGrayPix(aPix,aVal);
+            aVisuArrow.SetGrayPix(aPix,aVal);
         }
 
 
@@ -533,13 +590,15 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
 
         for (const auto aPix : * mDImRed)
         {
-            if ( mDImMaxHor->GetV(aPix))
+            if ( mDImMaxLoc->GetV(aPix))
                 aVisuMaxHor.SetRGBPix(aPix,cRGBImage::Yellow);
             if ( mDImMaxVert->GetV(aPix))
                 aVisuMaxVert.SetRGBPix(aPix,cRGBImage::Cyan);
         }
-        aVisuMaxHor.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Blue,1.0);
+        //aVisuMaxHor.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Blue,1.0);
         aVisuMaxVert.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Blue,1.0);
+        aVisuArrow.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Blue,1.0);
+
 
 
         for(const auto anY : mImTgt.DIm())
@@ -550,16 +609,34 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
 
            int aXInt = mDImIntegr->GetV(anY.x());
            mImVisu.SetRGBPix(cPt2di(aXInt+100,anY.x()),cRGBImage::Red);
+
+
         }
 
-        mImVisu.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x()+aNbX,mYC),cRGBImage::Blue,1.0);
+        for (const auto & aCC : mListCC)
+        {
+            const tSeg2dr& aSeg = aCC.mSeg;
+            cPt3di aCol = aCC.mIsHor ? cRGBImage::Yellow : cRGBImage::Cyan;
+            for (const auto & aPix : aCC.mPts)
+                aVisuArrow.SetRGBPix(aPix,aCol);
+            aVisuArrow.DrawCircle(cRGBImage::Red,aSeg.P1(),3.0);
+            aVisuArrow.DrawCircle(cRGBImage::Green,aSeg.P2(),3.0);
+        }
 
-        mImVisu.ToFile(NameVisu("ImRed"));
         aVisuMaxHor.ToFile(NameVisu("ImMaxHor"));
-        aVisuMaxVert.ToFile(NameVisu("ImMaxVert"));
 
 
-        mDImRedBlur->ToFile(NameVisu("Blured"));
+        if (mDoVisu>=2)
+        {
+           mImVisu.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x()+aNbX,mYC),cRGBImage::Blue,1.0);
+           mImVisu.ToFile(NameVisu("ImRed"));
+           aVisuMaxVert.ToFile(NameVisu("ImMaxVert"));
+           mDImRedBlur->ToFile(NameVisu("Blured"));
+           aVisuTeta.ToFile(NameVisu("TetaTens"));
+           aVisuArrow.ToFile(NameVisu("ImArrow"));
+
+        }
+
      }
 }
 

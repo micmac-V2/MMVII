@@ -660,6 +660,9 @@ class cRGBImage
         tIm1C  mImB;
 };
 
+// Hue Saturation Intensity -> RGB
+cPt3di HSI_2_RGB(const cPt3dr & aHSI);
+
 
 class cImageVectorField
 {
