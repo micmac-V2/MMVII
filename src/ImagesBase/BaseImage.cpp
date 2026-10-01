@@ -148,10 +148,19 @@ cDataGenUnTypedIm<Dim>* cDataGenUnTypedIm<Dim>::AllocReSampleGen(
 {
     auto aResult = AllocImGen(aBox.Sz(),this->TypeVal());
 
+    // Integer pixels: round to nearest then clip to the type range (VD_SetV of 2D images truncates)
+    const cVirtualTypeNum & aTypeNum = cVirtualTypeNum::FromEnum(this->TypeVal());
+    const bool aIsInt = aTypeNum.V_IsInt();
+    const int aNbBits = 8 * aTypeNum.V_Size();
+    const double aMaxVal = std::ldexp(1.0,aNbBits - (aTypeNum.V_Signed() ? 1 : 0)) - 1.0;
+    const double aMinVal = aTypeNum.V_Signed() ? -aMaxVal - 1.0 : 0.0;
+
     for (auto & aPixOut : *aResult)
     {
         auto aPixIn = aMap.Inverse(MMVII::ToR(aPixOut+aBox.P0()));
-        auto val = this->Inside(MMVII::ToI(aPixIn)) ? this->ClipedGetValueInterpol(anInterpol,aPixIn) : aDefValOut;
+        double val = this->Inside(MMVII::ToI(aPixIn)) ? this->ClipedGetValueInterpol(anInterpol,aPixIn) : aDefValOut;
+        if (aIsInt)
+            val = std::min(aMaxVal,std::max(aMinVal,std::round(val)));
         aResult->VD_SetV(aPixOut,val);
     }
     return aResult;
