@@ -28,6 +28,7 @@ tREAL8 RankWeigthedAverage(const std::vector<tREAL8>&,tREAL8 aPow,bool CosTransf
 
 tREAL8 AngleFromRad(eTyUnitAngle);
 tREAL8 AngleFromRad(tREAL8 aAngInRad,eTyUnitAngle);
+tREAL8 AngleToRad(tREAL8 aAngInRad,eTyUnitAngle);
 tREAL8 Rad2DMgon(tREAL8 aAngInRad);
 
 

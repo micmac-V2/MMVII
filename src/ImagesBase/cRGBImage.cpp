@@ -61,11 +61,45 @@ cPt3dr Claude_hsiToRgb(double h, double s, double i)
              std::clamp(g, 0.0, 1.0),
              std::clamp(b, 0.0, 1.0) };
 }
+
+
+cPt3dr Claude_rgbToHsi(double r, double g, double b)
+{
+    const double PI = 3.14159265358979323846;
+    const double rad2deg = 180.0 / PI;
+    const double eps = 1e-12;
+
+    r = std::clamp(r, 0.0, 1.0);
+    g = std::clamp(g, 0.0, 1.0);
+    b = std::clamp(b, 0.0, 1.0);
+
+    double i = (r + g + b) / 3.0;
+    double mn = std::min({r, g, b});
+
+    // Noir : S et H indéfinis
+    if (i < eps) return {0.0, 0.0, 0.0};
+
+    double s = 1.0 - mn / i;
+
+    // Gris (R = G = B) : H indéfini
+    double num = 0.5 * ((r - g) + (r - b));
+    double den = std::sqrt((r - g) * (r - g) + (r - b) * (g - b));
+    if (den < eps) return {0.0, 0.0, i};
+
+    double h = std::acos(std::clamp(num / den, -1.0, 1.0)) * rad2deg;
+    if (b > g) h = 360.0 - h;
+
+    return {h, s, i};
+}
+
+
+
 }; // Claude_HSI_2_RGB
 
 using namespace Claude_HSI_2_RGB;
 /*   END CLAUDE */
 
+/// MMVII interface, almost nothing, just use radian + RGB in [0,255]
 cPt3di HSI_2_RGB(const cPt3dr & aHSI)
 {
     cPt3dr aRgb =    Claude_hsiToRgb
@@ -76,6 +110,23 @@ cPt3di HSI_2_RGB(const cPt3dr & aHSI)
                     );
 
     return ToI(aRgb*255.0);
+}
+
+
+/// MMVII interface, almost nothing, just use radian
+cPt3dr RGB_2_HSI(const cPt3di & aRGB_MMV2)
+{
+    cPt3dr aRGB = ToR(aRGB_MMV2)/255.0;
+    cPt3dr aHSi =    Claude_rgbToHsi(aRGB.x(),aRGB.y(),aRGB.z());
+
+    /*
+        (
+            AngleFromRad(aHSI.x(),eTyUnitAngle::eUA_degree),  // Code use degree ...
+            aHSI.y(),
+            aHSI.z()
+            );
+    */
+    return cPt3dr(AngleToRad(aHSi.x(),eTyUnitAngle::eUA_degree),aHSi.y(),aHSi.z());
 }
 
 
