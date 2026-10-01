@@ -324,9 +324,14 @@ int cAppliEpipDMEval::ExeOnParsedBox()
 int cAppliEpipDMEval::Exe()
 {
 
+
    if (RunMultiSet(0,0))
       return ResultMultiSet();
 
+   
+   mNameIm = DirProject() + mNameIm;
+   mNameIm2 = DirProject() + mNameIm2;
+   
    APBI_ExecAll();
 
    return EXIT_SUCCESS;

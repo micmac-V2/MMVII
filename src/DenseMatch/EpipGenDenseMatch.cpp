@@ -342,8 +342,10 @@ void  cOneLevel::MakeImPx()
    cDataFileIm2D::Create(mAppli.mOutDir+mNamePx,eTyNums::eTN_REAL4,aDataIm.Sz());
 
    if (mAppli.mModeMatchCur==eModeEpipMatch::eMEM_UNETDECISION)
+   {
       cDataFileIm2D::Create(mAppli.mOutDir+NameSimOfIm(mNamePx),
-            eTyNums::eTN_REAL4,aDataIm.Sz());
+               eTyNums::eTN_REAL4,aDataIm.Sz());
+   }
 
 }
 
@@ -965,9 +967,11 @@ void  cAppli::MatchOneLevel(int aLevel)
            /* case eModeEpipMatch::eMEM_RAFTStereo :
             aModePad = eModePaddingEpip::eMPE_NoPad;
             break;*/
+            #if MMVII_USE_LIBTORCH
             case eModeEpipMatch::eMEM_UNETDECISION  :
                  aModePad = eModePaddingEpip::eMPE_NoPad;
             break;
+            #endif
 
             case eModeEpipMatch::eMEM_NoMatch :
                   aModePad = eModePaddingEpip::eMPE_NoPad;

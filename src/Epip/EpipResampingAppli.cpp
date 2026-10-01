@@ -1,5 +1,6 @@
 #include "cMMVII_Appli.h"
 #include "MMVII_Sensor.h"
+#include "MMVII_PCSens.h"
 #include "cEpipolarRectification.h"
 #include "MMVII_Interpolators.h"
 #include "MMVII_CodeTiming.h"
@@ -80,18 +81,29 @@ void cAppli_EpipResampling::Resample(const std::string& aMasterName,
     auto aName1 = LastPrefix(FileOfPath(aMasterName,false));
     auto aName2 = LastPrefix(FileOfPath(aSlaveName,false));
 
-    auto anEpipName = mOutDir + replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",aName1),"%2",aName2);
+    auto anEpipBaseName = replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",aName1),"%2",aName2);
+    auto anEpipName = mOutDir + anEpipBaseName;
     auto aRPCName = anEpipName + ".xml";
     const auto* aIm = ReadIm2DGen(aMasterName);
     auto aIm1Rectif = aIm->AllocReSampleGen(*aInterp, anEpipMap, cTplBox(anEpipMap.EpipImSz()));
     StdOut() << "Name: " << anEpipName << std::endl;
     StdOut() << "Size: " << anEpipMap.EpipImSz() << std::endl;
     aIm1Rectif->ToFile(anEpipName);
-    StdOut() << "RPC : " << aRPCName << std::endl;
-    auto aResampSI = aSI->GenerateSensorRPC( &anEpipMap, nullptr, false, anEpipName, anEpipMap.ZInterval());
-    aResampSI->ToFile(aRPCName);
+    
+    // If Conic, save the cSensorCamPC instead of the RPC model
+    if (const auto* aConicModel = dynamic_cast<const cEpipConicMapping*>(&anEpipMap))
+    {
+        auto anEpipConicOrientationName =  cSensorCamPC::NameOri_From_Image(anEpipBaseName);
+        aConicModel->CamOutToFile(mOutDir+anEpipConicOrientationName);
+    }
+    else
+    {
+        StdOut() << "RPC : " << aRPCName << std::endl;
+        auto aResampSI = aSI->GenerateSensorRPC( &anEpipMap, nullptr, false, anEpipName, anEpipMap.ZInterval());
+        aResampSI->ToFile(aRPCName);
+        delete aResampSI;
+    }
 
-    delete aResampSI;
     delete aIm1Rectif;
     delete aIm;
 }
@@ -152,44 +164,73 @@ int cAppli_EpipResampling::Exe()
             "No tie points found between the two images in the TieP directory");
         aParams.mHomolPts = aSetH;
     }
+
+    // Added to handle multiple Tie Points files 
+    if (mPhProj.DPMulTieP().DirInIsInit())
+    {
+        cSetHomogCpleIm aSetH;
+        int aNbInit=0;
+        mPhProj.ReadHomolMultiSrce(aNbInit,aSetH,mNameIm1,mNameIm2);
+        MMVII_INTERNAL_ASSERT_User((aNbInit>0) && (aSetH.NbH() > 0), eTyUEr::eOpenFile,
+            "No tie points found between the two images in the MulTieP directory");
+        aParams.mHomolPts = aSetH;
+    }
+
     auto aRectifier = cEpipolarRectification(*aSI1, *aSI2, aParams);
-    auto aEpipModel = aRectifier.Compute();
 
-    StdOut() << "Nb Pairs 1->2 : " << aRectifier.NbPairs12() << std::endl;
-    StdOut() << "Nb Pairs 2->1 : " << aRectifier.NbPairs21() << std::endl;
+    // Pinhole pair (cSensorCamPC) : use the exact closed-form epipolar model ;
+    // otherwise fall back to the generic polynomial rectification. The two
+    // Compute*() calls return unrelated model types, so keep a common base pointer.
+    const bool aIsConic =    (dynamic_cast<const cSensorCamPC*>(aSI1) != nullptr)
+                            && (dynamic_cast<const cSensorCamPC*>(aSI2) != nullptr);
 
-    for (const auto& [aName,aMap] : {std::make_pair("Image_1",&aEpipModel.EpipMap1()), std::make_pair("Image_2",&aEpipModel.EpipMap2())})
+    std::unique_ptr<cEpipolarModel> aEpipModel =
+        aIsConic
+        ? std::unique_ptr<cEpipolarModel>(std::make_unique<cEpipConicModel>(aRectifier.ComputeEpipConic()))
+        : std::unique_ptr<cEpipolarModel>(std::make_unique<cEpipPolyModel>(aRectifier.Compute()));
+
+    if (! aIsConic)
+    {
+        StdOut() << "Nb Pairs 1->2 : " << aRectifier.NbPairs12() << std::endl;
+        StdOut() << "Nb Pairs 2->1 : " << aRectifier.NbPairs21() << std::endl;
+    }
+
+    for (const auto& [aName,aMap] : {std::make_pair("Image_1",&aEpipModel->EpipMap1()), std::make_pair("Image_2",&aEpipModel->EpipMap2())})
     {
         StdOut() << "Grid " << aName << " : step=" << aMap->GridStep() << "px, "
                  << aMap->NbStepX() << "*" << aMap->NbStepY() << "=" << (aMap->NbStepX()*aMap->NbStepY()) << " cells" << std::endl;
     }
 
-    // Independent (held-out) residual check, complementing the train-biased variance above.
-    const tREAL8 aV1V2ResidIndep = std::sqrt(aRectifier.V1V2VarIndep());
-    const tREAL8 aW1ResidIndep   = std::sqrt(aRectifier.W1VarIndep());
-    const tREAL8 aW2ResidIndep   = std::sqrt(aRectifier.W2VarIndep());
-    StdOut() << "V1,V2 errors sigma (indep, px) : " << Color::info << aV1V2ResidIndep << Color::end << std::endl;
-    StdOut() << "W1 errors sigma (indep, px) : " << Color::info << aW1ResidIndep << Color::end << std::endl;
-    StdOut() << "W2 errors sigma (indep, px) : " << Color::info << aW2ResidIndep << Color::end << std::endl;
-    if (aV1V2ResidIndep > mMaxResid)
+    // Independent (held-out) residual check, complementing the train-biased variance
+    // above. Only meaningful for the polynomial model (the stenope model is exact).
+    if (! aIsConic)
     {
-        MMVII_UserError(eTyUEr::eUnClassedError,
-            "Independent V1/V2 residual too high (" + ToStr(aV1V2ResidIndep) + " > " + ToStr(mMaxResid) + ")");
-    }
-    if (aW1ResidIndep > mMaxResid)
-    {
-        MMVII_UserError(eTyUEr::eUnClassedError,
-            "Independent W1 residual too high (" + ToStr(aW1ResidIndep) + " > " + ToStr(mMaxResid) + ")");
-    }
-    if (aW2ResidIndep > mMaxResid)
-    {
-        MMVII_UserError(eTyUEr::eUnClassedError,
-            "Independent W2 residual too high (" + ToStr(aW2ResidIndep) + " > " + ToStr(mMaxResid) + ")");
+        const tREAL8 aV1V2ResidIndep = std::sqrt(aRectifier.V1V2VarIndep());
+        const tREAL8 aW1ResidIndep   = std::sqrt(aRectifier.W1VarIndep());
+        const tREAL8 aW2ResidIndep   = std::sqrt(aRectifier.W2VarIndep());
+        StdOut() << "V1,V2 errors sigma (indep, px) : " << Color::info << aV1V2ResidIndep << Color::end << std::endl;
+        StdOut() << "W1 errors sigma (indep, px) : " << Color::info << aW1ResidIndep << Color::end << std::endl;
+        StdOut() << "W2 errors sigma (indep, px) : " << Color::info << aW2ResidIndep << Color::end << std::endl;
+        if (aV1V2ResidIndep > mMaxResid)
+        {
+            MMVII_UserError(eTyUEr::eUnClassedError,
+                "Independent V1/V2 residual too high (" + ToStr(aV1V2ResidIndep) + " > " + ToStr(mMaxResid) + ")");
+        }
+        if (aW1ResidIndep > mMaxResid)
+        {
+            MMVII_UserError(eTyUEr::eUnClassedError,
+                "Independent W1 residual too high (" + ToStr(aW1ResidIndep) + " > " + ToStr(mMaxResid) + ")");
+        }
+        if (aW2ResidIndep > mMaxResid)
+        {
+            MMVII_UserError(eTyUEr::eUnClassedError,
+                "Independent W2 residual too high (" + ToStr(aW2ResidIndep) + " > " + ToStr(mMaxResid) + ")");
+        }
     }
 
 
-    const auto& anEpipMap1 = aEpipModel.EpipMap1();
-    const auto& anEpipMap2 = aEpipModel.EpipMap2();
+    const auto& anEpipMap1 = aEpipModel->EpipMap1();
+    const auto& anEpipMap2 = aEpipModel->EpipMap2();
 
     StdOut() << Color::sub_title << "*** Resampling" << Color::end << std::endl;
 
@@ -232,6 +273,7 @@ cCollecSpecArg2007 & cAppli_EpipResampling::ArgOpt(cCollecSpecArg2007 & anArgOpt
            << AOpt2007(mZIntv,"ZIntv","Z interval [Zmin,Zmax], overrides sensor's own and any TieP-derived one (mandatory when sensor has none, e.g. no RPC, and TieP is not given either)")
            << cHeaderSectionArg("Tie Points")
            << mPhProj.DPTieP().ArgDirInOpt("TieP","Tie points to infer Z interval from (alternative to ZIntv, overrides sensor's own)")
+           << mPhProj.DPMulTieP().ArgDirInOpt("MulTieP","Multiple Tie points to infer Z interval from (alternative to ZIntv, overrides sensor's own)")
            << AOpt2007(mZMargin,"ZMargin","Relative margin added around the raw [Zmin,Zmax] envelope inferred from TieP",{eTA2007::HDV})
            << AOpt2007(mTiePMaxRes,"TiePMaxRes","Max triangulation residual (px) for a tie point kept when inferring Z from TieP",{eTA2007::HDV})
            << AOpt2007(mTiePMinNbRatio,"TiePMinNbRatio","Min kept tie points = max(TiePMinNbFloor,ratio*sqrt(W*H))",{eTA2007::HDV})

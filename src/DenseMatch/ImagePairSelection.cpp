@@ -181,7 +181,7 @@ namespace MMVII
         mPhProj(*this),
         mPattenIm(""),
         mNameOut(""),
-        mIsWithTieP(false),
+        mIsWithTieP(true),
         mNbMinHomol(10),
         mCellSize(10),
         mNbMaxHomol(1000),
@@ -195,7 +195,6 @@ namespace MMVII
         return anArgObl
             << Arg2007(mPattenIm,"Pattern for images",{{eTA2007::MPatFile,"0"}})
             << mPhProj.DPOrient().ArgDirInMand()
-            << Arg2007(mNameOut,"Name of output xml file ",{{eTA2007::FileTxt,"1"}})
 
             ;
     }   
@@ -203,6 +202,7 @@ namespace MMVII
     cCollecSpecArg2007 & cAppliImagePairSelector::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     {
         return anArgOpt
+            << AOpt2007(mNameOut,"Out","Output file for selected pairs, def=VISU/" + Specs().Name()+"/Pairs.xml",{eTA2007::FileTxt})
             <<  mPhProj.DPTieP().ArgDirInOpt()
             <<  mPhProj.DPMulTieP().ArgDirInOpt()
             << AOpt2007(mIsWithTieP,"WithTieP","If true, only keep pairs with tie points",{{eTA2007::HDV}})
@@ -396,6 +396,12 @@ namespace MMVII
     int cAppliImagePairSelector::Exe()
     {
         mPhProj.FinishInit();
+
+        if (! IsInit(&mNameOut))
+        {
+            mNameOut = mPhProj.DirVisuAppli()+"/"+"Pairs.xml";
+        }
+        
         std::vector<std::string> aVIm = VectMainSet(0);
         // vertexes are cameras
         for ( const auto & aNameIm : aVIm)

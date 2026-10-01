@@ -48,6 +48,32 @@ cPt2dr cEpipPolyMapping::Inverse(const cPt2dr& aPt) const
 
 
 
+cPt2dr cEpipConicMapping::Value(const cPt2dr& aPt) const
+{
+    // Back-project the input pixel to a point on its bundle (the ray passes
+    // through the optical center shared with the epipolar camera), then reproject
+    // with the epipolar camera. No depth needed : any point on the ray reprojects
+    // to the same epipolar pixel.
+    tSeg3dr aBundle = mCamIn->Image2Bundle(aPt);
+    cPt3dr aP3d = aBundle.P2();
+    cPt2dr aP = Proj(mCamOut->Ground2ImageAndZ(aP3d));
+    return aP - ToR(mEpipImFrame.P0());
+}
+
+cPt2dr cEpipConicMapping::Inverse(const cPt2dr& aPt) const
+{
+    cPt2dr aPtEpip = aPt + ToR(mEpipImFrame.P0());
+    cPt2dr aPtEpipInCam = ((aPtEpip - mCamOut->InternalCalib()->PP()) / mCamOut->InternalCalib()->F());
+    cPt3dr aP3d = mCamOut->Pose().Value(cPt3dr(aPtEpipInCam.x(), aPtEpipInCam.y(), 1.0)); // back-project to 3D point at Z=1 in epipolar camera frame
+    cPt2dr aP = Proj(mCamIn->Ground2ImageAndDepth(aP3d));
+    return aP ;
+}
+
+void cEpipConicMapping::CamOutToFile(const std::string& aFileName) const
+{
+    mCamOut->ToFile(aFileName);
+}
+
 
 // ============================================================
 //  cEpipolarRectification
@@ -164,6 +190,246 @@ cEpipPolyModel cEpipolarRectification::Compute()
     anEpipPolyModel.ComputeCommonFraming(mCam1.PixelDomain().Box(),mCam2.PixelDomain().Box(),mParams.mEpipFrm, mParams.mMargin);
 
     return anEpipPolyModel;
+}
+ 
+
+cDenseMatrix<tREAL8> cEpipolarRectification::EpipConicOrientation(const cSensorImage & aC1, 
+                                                            const cSensorImage & aC2,
+                                                            int aSign,double & aD)
+{
+
+    // Check if cSensorImage is cSensorCamPC
+    auto* pC1 = dynamic_cast<const cSensorCamPC*>(&aC1);
+    auto* pC2 = dynamic_cast<const cSensorCamPC*>(&aC2);
+    if (!pC1 || !pC2)
+        MMVII_INTERNAL_ERROR("EpipStenopeOrientation requires cSensorCamPC");
+    
+    // get rotation matrices and translation vectors
+    tRotR R1 = pC1->Orient();
+    tRotR R2 = pC2->Orient();
+
+    cPt3dr C1 = pC1->Center();
+    cPt3dr C2 = pC2->Center();
+
+    cPt3dr aOx = VUnit( (C2-C1) * (tREAL8) aSign );
+
+    cPt3dr aOz1 = pC1->AxeK();
+    cPt3dr aOz2 = pC2->AxeK();
+
+    cPt3dr aOz = VUnit(aOz1+aOz2);
+
+    cPt3dr aOy = VUnit(aOz ^ aOx);
+
+    aOz= VUnit(aOx ^ aOy);
+
+    cDenseMatrix<tREAL8> aResMat(3,3);
+
+     SetCol(aResMat,0,aOx);
+     SetCol(aResMat,1,aOy);
+     SetCol(aResMat,2,aOz);
+
+     aResMat =  aResMat.Transpose();
+
+
+     aD = aResMat.SqL2Dist(R1.Mat()) + aResMat.SqL2Dist(R2.Mat());
+
+     return aResMat;    
+}
+
+
+cBox2dr cEpipolarRectification::GlobBoxCam(cBox2dr aBoxIn, const cEpipolarMapping & aMapping, int aNbPts)
+{
+    cPt2dr BoxCorners[4];
+    aBoxIn.Corners(BoxCorners);
+    
+    cTplBoxOfPts<tREAL8,2> aBoxValidity;
+
+    for (int aK=0; aK<4; aK++)
+    {
+        cPt2dr aC0 = BoxCorners[aK];
+        cPt2dr aC1 = BoxCorners[(aK+1)%4];
+
+        for (int aKP=0 ; aKP< aNbPts ; aKP++)
+        {
+            tREAL8 aPds = (aNbPts-aKP) /tREAL8(aNbPts);
+            aBoxValidity.Add(aMapping.Value(aPds * aC0 + (1-aPds) * aC1));
+        }        
+    }
+    return aBoxValidity.CurBox();
+}
+
+
+// Added MAC : compute the epipolar model of a stenope pair of cameras
+cEpipConicModel cEpipolarRectification::ComputeEpipConic()
+{
+    // compute epipolar orientation of the stenope pair
+    // Check if cSensorImage is cSensorCamPC
+    auto* pC1 = dynamic_cast<const cSensorCamPC*>(&mCam1);
+    auto* pC2 = dynamic_cast<const cSensorCamPC*>(&mCam2);
+    if (!pC1 || !pC2)
+        MMVII_INTERNAL_ERROR("EpipStenopeOrientation requires cSensorCamPC");
+
+    cPt2di aSzIm = PtSupEq(mCam1.Sz(),mCam2.Sz());
+
+    // test for now and check later for focal definition
+    tREAL8 aFocEpip = std::sqrt(pC1->InternalCalib()->F()* pC2->InternalCalib()->F());
+    
+    tREAL8 aD1;
+    cDenseMatrix<tREAL8> aR1 =  EpipConicOrientation(mCam1,mCam2,1,aD1);
+
+    tREAL8 aD2;
+    cDenseMatrix<tREAL8> aR2 =  EpipConicOrientation(mCam1,mCam2,-1,aD2);
+
+    cDenseMatrix<tREAL8> aMatM2C = (aD1<aD2)  ? aR1 : aR2 ;
+
+    cDenseMatrix<tREAL8> aMatC2M = aMatM2C.Inverse();
+
+    // Computer Epipolar camera models
+    // Shared, owned calibration : both epipolar cameras (and both mappings) keep
+    // it alive via shared_ptr, so nothing dangles after this function returns.
+    //std::shared_ptr<cPerspCamIntrCalib> aCalib(cPerspCamIntrCalib::SimpleCalib("EpipConic",aSzIm,aFocEpip));
+    std::shared_ptr<cPerspCamIntrCalib> aCalib(cPerspCamIntrCalib::SimpleCalib("EpipConicInterCalib",
+                                                eProjPC::eStenope,
+                                                aSzIm,
+                                                cPt3dr(0,0,aFocEpip),
+                                                cPt3di(0,0,0))
+                                                );
+
+    std::string aName1 = "Epip-"+mCam1.NameImage();
+    std::string aName2 = "Epip-"+mCam2.NameImage();
+
+    cRotation3D<tREAL8> aRot(aMatC2M,false);
+    auto aCamEpip1 = std::make_shared<cSensorCamPC>(aName1,cIsometry3D<tREAL8>(pC1->Center(),aRot),aCalib.get());
+    auto aCamEpip2 = std::make_shared<cSensorCamPC>(aName2,cIsometry3D<tREAL8>(pC2->Center(),aRot),aCalib.get());
+
+    // Real Z validity interval, same priority as the polynomial path
+    // (mZIntv > tie-point-derived > sensor's own native interval).
+    cPt2dr aZInterval1 = EffectiveZInterval(mCam1);
+    cPt2dr aZInterval2 = EffectiveZInterval(mCam2);
+
+    // Informational resampling grid (square cells covering each input image).
+    auto GridMeta = [](const cPt2di & aSz, tREAL8 & aStep, int & aNbX, int & aNbY)
+    {
+        const tREAL8 aTargetCells = 100.0;
+        aStep = std::sqrt((aSz.x() * (tREAL8)aSz.y()) / aTargetCells);
+        aNbX  = std::max(1,(int)std::ceil(aSz.x() / aStep));
+        aNbY  = std::max(1,(int)std::ceil(aSz.y() / aStep));
+    };
+
+    tREAL8 aGridStep1, aGridStep2;
+    int aNbStepX1, aNbStepY1, aNbStepX2, aNbStepY2;
+    GridMeta(mCam1.Sz(), aGridStep1, aNbStepX1, aNbStepY1);
+    GridMeta(mCam2.Sz(), aGridStep2, aNbStepX2, aNbStepY2);
+
+    auto anEpipConicModel = cEpipConicModel {
+        std::make_unique<cEpipConicMapping>(pC1,aCalib,aCamEpip1,aZInterval1,aGridStep1,aNbStepX1,aNbStepY1),
+        std::make_unique<cEpipConicMapping>(pC2,aCalib,aCamEpip2,aZInterval2,aGridStep2,aNbStepX2,aNbStepY2),
+    };
+
+    // refine epip cams so the sampling is only limited to overlapped regions 
+    cBox2dr aBoxEp1 = GlobBoxCam(cBox2dr(ToR(pC1->Sz()),false),anEpipConicModel.EpipMap1(),4);
+    cBox2dr aBoxEp2 = GlobBoxCam(cBox2dr(ToR(pC2->Sz()),false),anEpipConicModel.EpipMap2(),4);
+
+    tREAL8 aYMin = std::max(aBoxEp1.P0().y(),aBoxEp2.P0().y());
+    tREAL8 aYMax = std::min(aBoxEp1.P1().y(),aBoxEp2.P1().y());
+
+    int aSzY= round_ni(aYMax-aYMin);
+
+    MMVII_INTERNAL_ASSERT_User( (aSzY>0), 
+                                eTyUEr::eUnClassedError,
+                                "aSzY is negative no overlapping between images");
+
+    // new epip cameras
+    std::shared_ptr<cPerspCamIntrCalib> aCalib1(cPerspCamIntrCalib::SimpleCalib("EpipConicInterCalib1",
+                                                eProjPC::eStenope,
+                                                cPt2di(aBoxEp1.Sz().x(),aSzY),
+                                                cPt3dr(-aBoxEp1.P0().x(),-aYMin,aFocEpip),
+                                                cPt3di(0,0,0))
+                                                );
+    
+    std::shared_ptr<cPerspCamIntrCalib> aCalib2(cPerspCamIntrCalib::SimpleCalib("EpipConicInterCalib2",
+                                                eProjPC::eStenope,
+                                                cPt2di(aBoxEp2.Sz().x(),aSzY),
+                                                cPt3dr(-aBoxEp2.P0().x(),-aYMin,aFocEpip),
+                                                cPt3di(0,0,0))
+                                                );
+
+    aCamEpip1 = std::make_shared<cSensorCamPC>(aName1,cIsometry3D<tREAL8>(pC1->Center(),aRot),aCalib1.get());
+    aCamEpip2 = std::make_shared<cSensorCamPC>(aName2,cIsometry3D<tREAL8>(pC2->Center(),aRot),aCalib2.get());
+
+    anEpipConicModel = cEpipConicModel {
+            std::make_unique<cEpipConicMapping>(pC1,aCalib1,aCamEpip1,aZInterval1,aGridStep1,aNbStepX1,aNbStepY1),
+            std::make_unique<cEpipConicMapping>(pC2,aCalib2,aCamEpip2,aZInterval2,aGridStep2,aNbStepX2,aNbStepY2),
+        };
+
+    // refine Overlapping using estimated Z intervals
+    //Cam1
+    cPt2dr aP1Half=ToR(pC1->Sz())/2.0;
+    cPt3dr aP1ZMin(aP1Half.x(),aP1Half.y(),aZInterval1.x());
+    cPt3dr aP1ZMax(aP1Half.x(),aP1Half.y(),aZInterval1.y());
+    
+    cPt3dr aP13drZMin = pC1->ImageAndZ2Ground(aP1ZMin);
+    cPt3dr aP13drZMax = pC1->ImageAndZ2Ground(aP1ZMax);
+
+    cPt3dr aP1AVG = (aP13drZMin+aP13drZMax)/2.0;
+
+    //Cam2
+    cPt2dr aP2Half=ToR(pC2->Sz())/2.0;
+    cPt3dr aP2ZMin(aP2Half.x(),aP2Half.y(),aZInterval2.x());
+    cPt3dr aP2ZMax(aP2Half.x(),aP2Half.y(),aZInterval2.y());
+
+    cPt3dr aP23drZMin = pC2->ImageAndZ2Ground(aP2ZMin);
+    cPt3dr aP23drZMax = pC2->ImageAndZ2Ground(aP2ZMax);
+    cPt3dr aP2AVG = (aP23drZMin+aP23drZMax)/2.0;
+
+
+    // Average of the two 3D points
+    
+    cPt3dr aP12AVG = (aP1AVG + aP2AVG) / 2.0;
+
+    cPt3dr aP12InEp1ZAVG = aCamEpip1->Ground2ImageAndDepth(aP12AVG);
+    cPt3dr aP12InEp2ZAVG = aCamEpip2->Ground2ImageAndDepth(aP12AVG);
+
+    StdOut()<<"aP12InEp1ZAVG  "<<aP12InEp1ZAVG<<"  "<<aZInterval1<<std::endl;
+    StdOut()<<"aP12InEp2ZAVG  "<<aP12InEp2ZAVG<<"  "<<aZInterval2<<std::endl;
+
+    // Pax Intervals 
+    tREAL8 aDX =  aP12InEp2ZAVG.x() - aP12InEp1ZAVG.x();
+
+    tREAL8 aDX1 = (aDX > 0 ) ? 0 : (-aDX);
+    tREAL8 aDX2 = (aDX > 0 ) ? aDX : 0 ;
+
+    int aSzX= round_ni(std::min(aBoxEp1.Sz().x()-aDX1,aBoxEp2.Sz().x()-aDX2));
+
+    MMVII_INTERNAL_ASSERT_User((aSzX>0), eTyUEr::eUnClassedError , "Sz Epip Cam is negative");
+
+
+    std::shared_ptr<cPerspCamIntrCalib> aCalibNew1 ( cPerspCamIntrCalib::SimpleCalib("FinalEpipConicInterCalib1_"+aName1,
+                                                eProjPC::eStenope,
+                                                cPt2di(aSzX,aSzY),
+                                                cPt3dr(-aBoxEp1.P0().x()-aDX1,-aYMin,aFocEpip),
+                                                cPt3di(0,0,0))
+                                                );
+    
+    std::shared_ptr<cPerspCamIntrCalib> aCalibNew2 ( cPerspCamIntrCalib::SimpleCalib("FinalEpipConicInterCalib2_"+aName2,
+                                                eProjPC::eStenope,
+                                                cPt2di(aSzX,aSzY),
+                                                cPt3dr(-aBoxEp2.P0().x()-aDX2,-aYMin,aFocEpip),
+                                                cPt3di(0,0,0))
+                                                );
+
+    aCamEpip1 = std::make_shared<cSensorCamPC>(aName1,cIsometry3D<tREAL8>(pC1->Center(),aRot),aCalibNew1.get());
+    aCamEpip2 = std::make_shared<cSensorCamPC>(aName2,cIsometry3D<tREAL8>(pC2->Center(),aRot),aCalibNew2.get());
+
+    auto aMap1 = std::make_unique<cEpipConicMapping>(pC1,aCalibNew1,aCamEpip1,aZInterval1,aGridStep1,aNbStepX1,aNbStepY1);
+    auto aMap2 = std::make_unique<cEpipConicMapping>(pC2,aCalibNew2,aCamEpip2,aZInterval2,aGridStep2,aNbStepX2,aNbStepY2);
+
+    aMap1->SetEpipImFrame(cTplBox<int,2>(cPt2di(0,0),cPt2di(aSzX,aSzY)));
+    aMap2->SetEpipImFrame(cTplBox<int,2>(cPt2di(0,0),cPt2di(aSzX,aSzY)));
+    
+    anEpipConicModel = cEpipConicModel { std::move(aMap1), std::move(aMap2) };
+
+    return anEpipConicModel;
 }
 
 // ============================================================

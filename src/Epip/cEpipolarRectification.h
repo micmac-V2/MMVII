@@ -7,6 +7,7 @@
 #include "MMVII_Tpl_ElemStrToVal.h"
 #include "MMVII_MeasuresIm.h"  // cSetHomogCpleIm
 #include <optional>
+#include <memory>
 
 namespace MMVII {
 
@@ -124,10 +125,42 @@ private:
 };
 
 
+// added MAC specific case of Stenope no polynomial, but linear, with a rotation and a translation
+class cEpipConicMapping: public cEpipolarMapping
+{
+    public: 
+        cEpipConicMapping(const cSensorCamPC * aCamIn,
+                std::shared_ptr<cPerspCamIntrCalib> aCalibOut,
+                std::shared_ptr<cSensorCamPC> aCamOut,
+                cPt2dr aZInterval, tREAL8 aGridStep, int aNbStepX, int aNbStepY)
+            : cEpipolarMapping(aZInterval, aGridStep, aNbStepX, aNbStepY)
+            ,mCalibOut(std::move(aCalibOut))
+            ,mCamOut(std::move(aCamOut))
+            ,mCamIn(aCamIn)
+        {}
+        cPt2dr Value(const cPt2dr& aPt) const override;
+        cPt2dr Inverse(const cPt2dr& aPt) const override;
+        void CamOutToFile(const std::string & aFileName) const;
+    private:
+            // Declaration order matters: mCamOut holds a raw pointer to the
+            // calibration owned by mCalibOut, so mCalibOut must be declared first
+            // (hence destroyed last).
+            std::shared_ptr<cPerspCamIntrCalib> mCalibOut; ///< owns epipolar calibration
+            std::shared_ptr<cSensorCamPC>       mCamOut;   ///< owns epipolar output camera
+            const cSensorCamPC *                mCamIn;    ///< input camera (owned by caller)
+};
+
+
 class cEpipPolyModel : public cEpipolarModelTpl<cEpipPolyMapping>
 {
 public:
     using cEpipolarModelTpl<cEpipPolyMapping>::cEpipolarModelTpl;
+};
+
+class cEpipConicModel : public cEpipolarModelTpl<cEpipConicMapping>
+{
+public:
+    using cEpipolarModelTpl<cEpipConicMapping>::cEpipolarModelTpl;
 };
 
 
@@ -166,7 +199,7 @@ public:
         int      mPolyDegree    = 3;      ///< degree of V polynomials
         int      mPolyDegreeInv = 7;      ///< degree of inverse W polynomials
         int      mNbZLevels     = 3;      ///< number of altitude sampling levels
-        eEpipFrm mEpipFrm       = eEpipFrm::eIntersect; ///< Framing type for epipolar images (Resmampling)
+        eEpipFrm mEpipFrm       = eEpipFrm::eIntersect; ///< Framing type for epipolar images (Resampling)
         int      mMargin        = 2;      ///< Margin in pixels for epipolar image framing (Resampling)
         std::optional<cPt2dr> mZIntv = std::nullopt; ///< Override Z interval (Zmin,Zmax); mandatory if sensor has none
         std::optional<cSetHomogCpleIm> mHomolPts = std::nullopt; ///< Tie points to infer Zmin/Zmax from (alternative to mZIntv, lower priority)
@@ -189,6 +222,13 @@ public:
     //  Main entry point
     // --------------------------------------------------------
     cEpipPolyModel Compute();
+
+    cEpipConicModel ComputeEpipConic();
+
+    cDenseMatrix<tREAL8> EpipConicOrientation(const cSensorImage & aC1,const cSensorImage & aC2,
+                                    int aSign,double & aD);
+
+    cBox2dr GlobBoxCam(cBox2dr aBoxIn, const cEpipolarMapping & aMapping, int aNbPts);
 
     int NbPairs12() const { return mNbPairs12; }
     int NbPairs21() const { return mNbPairs21; }

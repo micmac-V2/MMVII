@@ -59,7 +59,7 @@ namespace MMVII
         tREAL8 mGSD;
         cBox2di mBoxGlobOutPix;
         cAffin2D<tREAL8> mGlobAff;
-        std::string GSD;
+        std::string mOutDir;
         tREAL8 mNoiseZ;
         tREAL8 mThreshGrad;
         bool mZF_SameOri;
@@ -81,7 +81,6 @@ namespace MMVII
         void MakeFastBasc();
         void MakeBasculeTris(cZBuffer & aZB);
         void ProcessNoPix(cZBuffer &  aZB);
-        void AnalyzeSurfParams();
         void GenTFW(const cAffin2D<tREAL8> & anAff, const std::string & aNameTFW);
         cAffin2D<tREAL8> ReadTFW(const std::string & aNameTFW);
         cBox2di  BoxUtile(cIm2D<tU_INT1> & anImMasq);
@@ -106,7 +105,7 @@ cAppliCloudProjectOnGround::cAppliCloudProjectOnGround(const std::vector<std::st
     mPhProj(*this),
     mTri3D(nullptr),
     mTri2DDepth(nullptr),
-    mNameResult("Bascule"),
+    mNameResult("Dem_"),
     mModeGeom(eModeGeom::eGEOM_EPIP),
     mGSD(0.2),
     mBoxGlobOutPix(cBox2di::Empty()),
@@ -140,11 +139,12 @@ cCollecSpecArg2007 & cAppliCloudProjectOnGround::ArgOpt(cCollecSpecArg2007 & anA
         (
             anArgOpt
                 << AOpt2007(mModeGeom,"ModeGeom","Either epipolar geometry, def=geometry of input depth",{AC_ListVal<eModeGeom>()})
-                << AOpt2007(mNameResult,"Out"," prefix of output files, default=Bascule.tif",{eTA2007::HDV})
-                << AOpt2007(mNameMasq1, "Masq1","Masq of first image if any")
-                << AOpt2007(mNameSec, "Im2","Secondary image if geom is Epip")
+                << AOpt2007(mNameResult,"Out"," prefix of output files",{eTA2007::HDV})
+                << AOpt2007(mNameMasq1, "Masq1","Masq of first image if any",{eTA2007::HDV})
+                << AOpt2007(mNameSec, "Im2","Secondary image if geom is Epip",{eTA2007::HDV})
                 << AOpt2007(mNameCorrel,"ImCorrel","Name of correlation or confidence image")
-                << AOpt2007(GSD,"GroundResolution", "Ground sampling distance of bascule")
+                << AOpt2007(mGSD,"GroundResolution", "Ground sampling distance of bascule")
+                << AOpt2007(mOutDir,"DirOut","Directory of output files, (def=VISU/"+Specs().Name()+")")
                 << AOpt2007(mMII,"MII","Margin Inside Image (for triangle validation)", {eTA2007::HDV})
                 << AOpt2007(mStretschingThresh,"ThresholdDistortion","Level of triangle distortion to discard from bascule")
         )
@@ -316,12 +316,6 @@ void cAppliCloudProjectOnGround::MakeFastBasc()
 
     aZBuf.MakeZBufForBasc(eZBufModeIter::ProjInit);
 
-    //save zbuffIm
-    aZBuf.ZBufIm().DIm().ToFile("buffer-projinit_"+
-                                ToStr(mIndBoxRecal.x())+"-"+
-                                ToStr(mIndBoxRecal.y())+"-"+
-                                LastPrefix(mNameResult)+".tif");
-
 
     cAutoTimerSegm aTSBufferSurfDev(TimeSegm(),"ZBuffer::SurfaceDevelopment"); 
 
@@ -330,17 +324,10 @@ void cAppliCloudProjectOnGround::MakeFastBasc()
     cAutoTimerSegm aTSBufferProcNoPix(TimeSegm(),"ZBuffer::ProcessNoPix"); 
 
     ProcessNoPix(aZBuf);
-
-    /*aZBuf.ZBufIm().DIm().ToFile("buffer-sameori_false_"+
-                                ToStr(mIndBoxRecal.x())+"-"+
-                                ToStr(mIndBoxRecal.y())+"-"+
-                                LastPrefix(mNameResult)+".tif");*/
-
     
     cAutoTimerSegm aTSBufferPixellizer(TimeSegm(),"rasterization-pixellization"); 
     MakeBasculeTris(aZBuf);
 
-    //delete aTriIT2DDepth;
     delete mTri2DDepth;
     delete mTri3D;
 }
@@ -446,16 +433,6 @@ void cAppliCloudProjectOnGround::MakeBasculeTris(cZBuffer & aZB)
             //StdOut()<<"hidden"<<std::endl;
             aNInOut++;
         }
-        /*if(aZB.ResSurfD(aKF).mResult == eZBufRes::OutOut ||
-            aZB.ResSurfD(aKF).mResult == eZBufRes::OutOut ||
-            aZB.ResSurfD(aKF).mResult == eZBufRes::BadOriented ||
-            aZB.ResSurfD(aKF).mResult == eZBufRes::UnRegOut ||
-            aZB.ResSurfD(aKF).mResult == eZBufRes::UnRegIn ||
-            aZB.ResSurfD(aKF).mResult == eZBufRes::Distorted ||
-            aZB.ResSurfD(aKF).mResult == eZBufRes::Hidden  )
-        {
-            aNInOut++;
-        }*/
 
         if( aZB.ResSurfD(aKF).mResult==eZBufRes::Hidden)
         {
@@ -633,15 +610,15 @@ void cAppliCloudProjectOnGround::MergeResults()
 
     mBoxGlobOutPix=cPt2di(Pt_round_up(mBoxGlobTarget.CurBox().Sz()/mGSD));
 
-    mNameBascOut = DirOfPath(mNameResult,false)+"Prof_"+ 
+    mNameBascOut = mOutDir+"Prof_"+ 
                                 FileOfPath(mNameResult,false);
 
-    mNameMasqOut = DirOfPath(mNameResult,false)+"Masq_"+ 
+    mNameMasqOut = mOutDir+"Masq_"+ 
                                 FileOfPath(mNameResult,false);
 
-    std::string aNameTFWProfGlb =  DirOfPath(mNameResult,false)+"Prof_"+ 
+    std::string aNameTFWProfGlb =  mOutDir+"Prof_"+ 
                                     ChgPostix(FileOfPath(mNameResult,false),"tfw");
-    std::string aNameTFWMasqGlb =  DirOfPath(mNameResult,false)+"Masq_"+ 
+    std::string aNameTFWMasqGlb =  mOutDir+"Masq_"+ 
                                     ChgPostix(FileOfPath(mNameResult,false),"tfw");
 
 
@@ -650,7 +627,7 @@ void cAppliCloudProjectOnGround::MergeResults()
 
     if(mBascCorrel)
     {
-        std::string aNameTFWCorrelGlb =  DirOfPath(mNameResult,false)+"Correl_"+ 
+        std::string aNameTFWCorrelGlb =  mOutDir+"Correl_"+ 
                                             ChgPostix(FileOfPath(mNameResult,false),"tfw");
         GenTFW(mGlobAff,aNameTFWCorrelGlb);
     }
@@ -675,7 +652,7 @@ void cAppliCloudProjectOnGround::MergeResults()
 
     if (mBascCorrel)
     {
-        mNameCorrelOut= DirOfPath(mNameResult,false)+"Correl_"+ FileOfPath(mNameResult,false);
+        mNameCorrelOut= mOutDir+"Correl_"+ FileOfPath(mNameResult,false);
         aDFC = cDataFileIm2D::Create(mNameCorrelOut,
                                                    eTyNums::eTN_U_INT1,
                                                    mBoxGlobOutPix.Sz(),
@@ -769,31 +746,17 @@ void cAppliCloudProjectOnGround::MergeResults()
         aGlobCorrelIm.Write(aDFC,cPt2di(0,0));
     }
 }
-/*void cAppliCloudProjectOnGround::AnalyzeSurfParams()
-{
-    ///< Estimates Ground Sampling Distance and Box of the image in target world coordinate system
-    if (mSecCamPC)
-    {
-        cPt2dr aCenter= ToR(mCamPC->SzPix()) / 2.0 ;
-        tREAL4 aProf = mCamPC->ImageAndDepth2Ground(cPt3dr(aCenter.x(),aCenter.y()));
-
-    }aPBIO
-    else
-    {
-
-    }
-}*/
 
 int cAppliCloudProjectOnGround::ExeOnParsedBox()
 {
     StdOut()<<"CURBX "<<CurBoxIn()<<std::endl;
-    mImPx1= APBI_ReadIm<tREAL4>(mNameCloud2D_DepthIn);
-    mImMasq1 = ReadMasqWithDef(CurBoxIn(), mNameMasq1);
+    mImPx1= APBI_ReadIm<tREAL4>(DirProject() + mNameCloud2D_DepthIn);
+    mImMasq1 = ReadMasqWithDef(CurBoxIn(),DirProject() + mNameMasq1);
 
     if (IsInit(&mNameCorrel))
     {
         mBascCorrel=true;
-        mImCorrel = APBI_ReadIm<tU_INT1>(mNameCorrel);
+        mImCorrel = APBI_ReadIm<tU_INT1>(DirProject() + mNameCorrel);
     }
 
     MakeFastBasc();
@@ -807,12 +770,22 @@ int cAppliCloudProjectOnGround::Exe()
 {
     mPhProj.FinishInit();
 
-    if (IsInit(&GSD))
-        mGSD = cStrIO<tREAL8>::FromStr(GSD);
+    if (! IsInit(&mOutDir))
+    {
+        mOutDir = mPhProj.DirVisuAppli();;
+    }
+    if (! mOutDir.empty())
+    {
+        mOutDir += "/";
+    }
 
+    CreateDirectories(mOutDir);
+
+    // check if mNameResult is Init, if not use default name
+    if (! IsInit(&mNameResult))
+        mNameResult = "Dem_" + APBI_NameIm();
     // read camera
     mCamPC =mPhProj.ReadCamPC(APBI_NameIm(),true);
-
 
     if (mModeGeom== eModeGeom::eGEOM_EPIP)
         {
@@ -820,12 +793,12 @@ int cAppliCloudProjectOnGround::Exe()
             mSecCamPC = mPhProj.ReadCamPC(mNameSec, true);
         }
 
-
+    // restore name of input image, as it is used in the APBI_ExecAll() function
+    mNameIm = DirProject() + mNameIm;
 
     APBI_ExecAll();
 
     // Merge all results of bascule
-
     if (!InsideParalRecall())
     {
 

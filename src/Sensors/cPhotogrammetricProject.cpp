@@ -449,7 +449,6 @@ void cPhotogrammetricProject::FinishInit()
        mCurSysCo = ReadSysCo(mNameCurSysCo);
     }
 
-
 }
 
 void cPhotogrammetricProject::AddDirProj(const cDirsPhProj* aDP)
