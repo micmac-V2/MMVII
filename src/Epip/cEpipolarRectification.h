@@ -7,10 +7,14 @@
 #include "MMVII_Tpl_ElemStrToVal.h"
 #include "MMVII_MeasuresIm.h"  // cSetHomogCpleIm
 #include <optional>
+#include <string>
 
 namespace MMVII {
 
 class cSensorImage;
+
+/// Serialization for cRect2 (no existing AddData for cTplBox/cPixBox in MMVII)
+void AddData(const cAuxAr2007 &anAux, cRect2 &aRect);
 
 // Common vertical interval for epipolar Image pair resamling
 enum class eEpipFrm
@@ -29,6 +33,11 @@ class cEpipolarMapping : public cDataInvertibleMapping<tREAL8,2>
 public:
     cEpipolarMapping(const cPt2dr& aZInterval, tREAL8 aGridStep, int aNbStepX, int aNbStepY)
         : mZInterval(aZInterval), mGridStep(aGridStep), mNbStepX(aNbStepX), mNbStepY(aNbStepY) {}
+    // Base's copy ctor is deleted but holds no state we rely on ; reconstruct it fresh.
+    cEpipolarMapping(const cEpipolarMapping &aOther)
+        : mEpipImFrame(aOther.mEpipImFrame), mZInterval(aOther.mZInterval)
+        , mGridStep(aOther.mGridStep), mNbStepX(aOther.mNbStepX), mNbStepY(aOther.mNbStepY)
+    {}
     void SetEpipImFrame(const cRect2& aFrame) { mEpipImFrame = aFrame;}
     cRect2 EpipFrame() const { return mEpipImFrame; }
     cPt2di EpipImSz() const { return mEpipImFrame.Sz(); }
@@ -38,12 +47,156 @@ public:
     int NbStepX() const { return mNbStepX; }
     int NbStepY() const { return mNbStepY; }
 protected:
+    /// Serialize the fields common to every cEpipolarMapping ; called by derived classes' own AddData
+    void AddDataBase(const cAuxAr2007 &anAux);
+
     cRect2 mEpipImFrame{cPt2di{0,0},cPt2di{0,0},true}; ///< frame in epipolar space (for resampling)
     cPt2dr mZInterval;
     tREAL8 mGridStep;
     int    mNbStepX;
     int    mNbStepY;
 };
+
+// Default mask name pattern : $1 = output image name without extension
+static constexpr const char* TheDefaultMaskNamePat = "mask_$1.tif";
+
+// Options shared by EpipRectification and EpipResampling : crop and validity mask
+struct cEpipCropMaskOpts
+{
+    cPt2di      mCropP0{0,0};
+    cPt2di      mCropP1{0,0};
+    int         mMaster = 1;   ///< Image (1 or 2) in which the crop is given, the other one is derived from Z
+    bool        mMask = false;
+    std::string mMaskName = TheDefaultMaskNamePat;
+    // Set by the command from IsInit (not registered)
+    bool        mHasCrop = false;
+    bool        mMaskOn = false;
+};
+
+class cSensorImage;
+class cInterpolator1D;
+
+// Crop of the slave epipolar image matching a master crop over a Z interval : same rows as the master,
+// columns from the disparity range, clipped to the slave frame.
+struct cEpipSlaveCrop
+{
+    cPt2di mP0;
+    cPt2di mP1;
+    cPt2dr mDispRange;   ///< range of x2-x1 (epipolar coordinates, no crop) over the master crop and the Z interval
+    tREAL8 mMeanParallax = 0;   ///< mean over the sampled points of the change of x2-x1 over the Z interval (px) : the depth information
+};
+
+cEpipSlaveCrop EpipSlaveCrop(const cEpipolarMapping & aMapM, const cEpipolarMapping & aMapS,
+                             const cSensorImage & aSIM, const cSensorImage & aSIS,
+                             const cPt2di & aMasterP0, const cPt2di & aMasterP1,
+                             const cPt2dr & aZIntv, int aMargin=2);
+
+// Description of a pair of crops, written next to the resampled images (for dense matching on the crops).
+struct cEpipCropInfo
+{
+    std::string mNameImMaster;   ///< resampled crop image that carries the given crop (file name)
+    std::string mNameImSlave;
+    cPt2di      mCropMaster0{0,0}; ///< crops in the epipolar coordinates of each image, [P0,P1[
+    cPt2di      mCropMaster1{0,0};
+    cPt2di      mCropSlave0{0,0};
+    cPt2di      mCropSlave1{0,0};
+    cPt2di      mSizeMaster{0,0};  ///< size of the resampled images (crop P1-P0)
+    cPt2di      mSizeSlave{0,0};
+    cPt2di      mFrameSizeMaster{0,0};  ///< size of the whole epipolar image (frame) of each image
+    cPt2di      mFrameSizeSlave{0,0};
+    cPt2di      mShift{0,0};     ///< mCropSlave0 - mCropMaster0
+    cPt2dr      mZInterval;      ///< Z interval used to derive the slave crop
+    /// Disparity range in the pixel coordinates of the cropped images :
+    /// d = (x_slave - mCropSlave0.x) - (x_master - mCropMaster0.x)
+    cPt2dr      mDispRange;
+
+    void AddData(const cAuxAr2007 &anAux);
+    void ToFile(const std::string &aNameFile) const;
+    static cEpipCropInfo FromFile(const std::string &aNameFile);
+};
+
+void AddData(const cAuxAr2007 &anAux, cEpipCropInfo &anInfo);
+
+cEpipCropInfo MakeEpipCropInfo(const cPt2di & aMasterP0, const cPt2di & aMasterP1,
+                               const cEpipSlaveCrop & aSlave, const cPt2dr & aZIntv,
+                               const cPt2di & aFrameSizeMaster, const cPt2di & aFrameSizeSlave,
+                               const std::string & aNameImMaster, const std::string & aNameImSlave);
+
+// Tiles of size aSz covering [aK0,aK1[ with at least aOverlap between neighbours. All tiles have size aSz,
+// the last one being moved back inside the interval; a single tile when the interval is not longer than aSz.
+std::vector<std::pair<int,int>> EpipTiles1D(int aK0,int aK1,int aSz,int aOverlap);
+/// Same in 2D, over [aP0,aP1[, with an overlap per axis ; tiles in row-major order (x fastest)
+std::vector<cRect2> EpipTiles(const cPt2di & aP0,const cPt2di & aP1,const cPt2di & aSz,const cPt2di & aOverlap);
+
+// Name of a tile : "_t<row>_<col>" inserted before the extension of the name pattern (fixed width indices)
+std::string EpipTileName(const std::string & aPattern,int aRow,int aCol,int aNbRow,int aNbCol);
+
+// Name pattern of an output image : ".tif" is added when it has no extension (a '.' followed by no '%', '$' or '/')
+std::string EpipNameWithExtension(const std::string & aPattern);
+
+// File listing the tiles of an automatic tiling : parameters, and the info file of each tile
+struct cEpipTileEntry
+{
+    int         mRow = 0;
+    int         mCol = 0;
+    std::string mInfoFile;    ///< cEpipCropInfo file of the tile (name, in the same directory)
+
+    void AddData(const cAuxAr2007 &anAux);
+};
+
+struct cEpipTilesInfo
+{
+    std::string mNameModel;           ///< pair model file
+    int         mMaster = 1;          ///< image of the model that carries the tiles (Master= option)
+    cPt2di      mSzTiles{0,0};
+    cPt2di      mSzOverL{0,0};
+    cPt2di      mRegion0{0,0};        ///< tiled region of the master epipolar frame, [P0,P1[
+    cPt2di      mRegion1{0,0};
+    cPt2dr      mDispRange;           ///< disparity range over all the tiles (cropped coordinates of each tile)
+    std::vector<cEpipTileEntry> mTiles;
+
+    void AddData(const cAuxAr2007 &anAux);
+    void ToFile(const std::string &aNameFile) const;
+    static cEpipTilesInfo FromFile(const std::string &aNameFile);
+};
+
+void AddData(const cAuxAr2007 &anAux, cEpipTileEntry &anEntry);
+void AddData(const cAuxAr2007 &anAux, cEpipTilesInfo &anInfo);
+
+// Folds of an epipolar mapping on a grid of the master image restricted to its overlap with the slave (mapping extrapolated elsewhere) :
+// {number of points where the sign of the Jacobian differs from the majority, number of points tested}
+std::pair<int,int> EpipFoldCount(const cEpipolarMapping & aMap, const cSensorImage & aSIM, const cSensorImage & aSIS, const cPt2dr & aZIntv);
+
+// Z interval valid for both images of the pair : intersection of the two, error if empty.
+cPt2dr EpipPairZInterval(const cEpipolarMapping & aMap1, const cEpipolarMapping & aMap2);
+
+// Resample one image in its epipolar geometry (crop, optional mask, optional RPC). aSI null => no RPC.
+// aRPCFile : RPC of the full epipolar frame already computed (EpipRectification), cropped here ; if empty, it is fitted from aSI.
+void ResampleEpipImage(const cEpipCropMaskOpts & anOpt,
+                       const std::string & aNameIm,
+                       const cEpipolarMapping & anEpipMap,
+                       const cSensorImage * aSI,
+                       const std::string & aRPCFile,
+                       const cInterpolator1D & aInterp,
+                       bool aNoImage,
+                       const std::string & aOutDir,
+                       const std::string & aOutBaseName);
+
+// Adds a crop (shift of the origin) on top of a cEpipolarMapping, at resampling time only (never serialized).
+class cEpipCropMapping : public cDataInvertibleMapping<tREAL8,2>
+{
+public:
+    cEpipCropMapping(const cEpipolarMapping& aMap, cPt2dr aCropP0)
+        : mMap(aMap), mCropP0(aCropP0) {}
+
+    cPt2dr Value(const cPt2dr& aPt) const override { return mMap.Value(aPt) - mCropP0; }
+    cPt2dr Inverse(const cPt2dr& aPt) const override { return mMap.Inverse(aPt + mCropP0); }
+
+private:
+    const cEpipolarMapping& mMap;
+    cPt2dr mCropP0;
+};
+
 
 
 
@@ -104,9 +257,16 @@ public:
         , mCenter{aCenter}
         , mDir{aDir}
     {}
+    cEpipPolyMapping(const cEpipPolyMapping &aOther)
+        : cEpipolarMapping(aOther)
+        , mV(aOther.mV), mW(aOther.mW), mCenter(aOther.mCenter), mDir(aOther.mDir)
+    {}
 
     cPt2dr Value(const cPt2dr& aPt) const override;
     cPt2dr Inverse(const cPt2dr& aPt) const override;
+
+    /// Serialize : base (ZInterval,GridStep,NbStepX/Y,EpipImFrame) then V,W,Center,Dir
+    void AddData(const cAuxAr2007 &anAux);
 
 private:
     /// (p - C) / D  (complex division = rotation)
@@ -122,6 +282,43 @@ private:
     cPt2dr mCenter;   ///< centroids of the image point sets
     cPt2dr mDir;      ///< unit epipolar direction per image
 };
+
+void AddData(const cAuxAr2007 &anAux, cEpipPolyMapping &aMap);
+
+
+// Epipolar model of an image pair : both mappings + the Ori and image names they were computed from.
+class cEpipPairModel
+{
+public:
+    cEpipPairModel(const cEpipPolyMapping &aMap1, const cEpipPolyMapping &aMap2, const std::string &aOriName,
+                   const std::string &aNameIm1, const std::string &aNameIm2)
+        : mMap1(aMap1), mMap2(aMap2), mOriName(aOriName), mNameIm1(aNameIm1), mNameIm2(aNameIm2)
+    {}
+
+    /// aNum is 1 or 2
+    const cEpipPolyMapping &Map(int aNum) const { return (aNum==1) ? mMap1 : mMap2; }
+    const std::string &ImName(int aNum) const { return (aNum==1) ? mNameIm1 : mNameIm2; }
+    const std::string &OriName() const { return mOriName; }
+    /// File (name relative to the model file) of the RPC of the full epipolar frame of an image, empty if none was saved
+    const std::string &RPCName(int aNum) const { return (aNum==1) ? mRPCName1 : mRPCName2; }
+    void SetRPCNames(const std::string &aName1, const std::string &aName2) { mRPCName1 = aName1; mRPCName2 = aName2; }
+
+    void AddData(const cAuxAr2007 &anAux);
+    void ToFile(const std::string &aNameFile) const;
+    /// Read back a model saved by ToFile()
+    static cEpipPairModel FromFile(const std::string &aNameFile);
+
+private:
+    cEpipPolyMapping mMap1;
+    cEpipPolyMapping mMap2;
+    std::string      mOriName;
+    std::string      mNameIm1;
+    std::string      mNameIm2;
+    std::string      mRPCName1;   ///< RPC of the full frame saved with the model (optional, absent in old models)
+    std::string      mRPCName2;
+};
+
+void AddData(const cAuxAr2007 &anAux, cEpipPairModel &aPairModel);
 
 
 class cEpipPolyModel : public cEpipolarModelTpl<cEpipPolyMapping>

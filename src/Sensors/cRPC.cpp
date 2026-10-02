@@ -98,6 +98,9 @@ class cRatioPolynXY
 
         void PushCoeffs(std::vector<tREAL8>&) const;
 
+        /// Independent copy (cRPC_Polyn is not copyable), caller owns it
+        cRatioPolynXY * Dup() const;
+
         //  Recompute a new RPC using correspondance
         void  InitFromSamples(const std::vector<cPt3dr> & aVIn, const std::vector<cPt3dr> & aVOut);
 
@@ -152,6 +155,9 @@ class cRPCSens : public cSensorImage
 
         cPt3dr  PseudoCenterOfProj() const override;
 
+        /// Polynomials (normalized coordinates) are copied unchanged, only offsets and domain move
+        cSensorImage * CropSensor(const cPt2di & aP0, const cPt2di & aSz) const override;
+
     private:
         const cPt2dr & ImOffset() const {return mImOffset;}
         cPt2dr & ImOffset() {return mImOffset;}
@@ -166,6 +172,9 @@ class cRPCSens : public cSensorImage
         cPt3dr & GroundScale() {return mGroundScale;}
 
         const cPt3dr * CenterOfFootPrint() const override;
+
+        /// Independent copy (cRPCSens is not copyable), caller owns it
+        cRPCSens * Dup() const;
 
     private:
 
@@ -504,9 +513,12 @@ void cRPCSens::InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &a
     mGroundOffset = aBoxOut.Middle();
     mGroundScale = aBoxOut.Sz() / 2.0;
 
-    // TODOCM: ImOffset/scale : force integer value ?
-    mImOffset = Proj(aBoxIn.Middle());
-    mImScale =  Proj(aBoxIn.Sz() / 2.0);
+    // Integer image offset and scale (as in NITF RPC00B), the scale also covers the shift due to rounding the offset
+    const cPt2dr aMidIm = Proj(aBoxIn.Middle());
+    const cPt2dr aHalfIm = Proj(aBoxIn.Sz()) / 2.0;
+    mImOffset = cPt2dr(round_ni(aMidIm.x()), round_ni(aMidIm.y()));
+    mImScale = cPt2dr(std::max(1,round_up(aHalfIm.x() + std::abs(mImOffset.x()-aMidIm.x()))),
+                      std::max(1,round_up(aHalfIm.y() + std::abs(mImOffset.y()-aMidIm.y()))));
 
     m3DImOffset = TP3z(mImOffset, aBoxIn.Middle().z());
     m3DImScale = TP3z(mImScale, aBoxIn.Sz().z() / 2.0);
@@ -526,6 +538,9 @@ void cRPCSens::InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &a
 
     mImOffset = IO_PtIm(mImOffset);
     mImScale = IO_PtIm(mImScale);
+    // Same (line,sample) convention as mImOffset/mImScale, as when read from file (DiffGround2Im uses these)
+    m3DImOffset = TP3z(mImOffset, m3DImOffset.z());
+    m3DImScale = TP3z(mImScale, m3DImScale.z());
     mGroundOffset = IO_PtGr(mGroundOffset);
     mGroundScale = IO_PtGr(mGroundScale);
     mPixelDomain = cPixelDomain(cPt2di(round_down(aBoxIn.Sz().x()),round_down(aBoxIn.Sz().y())));
@@ -553,6 +568,51 @@ void cRPCSens::FinalizeInit()
     mEpsCoord.z() =  1.0 * aNbPixel; // very rough
     //
     // StdOut() << "EPSILON : " << mEpsCoord << "\n";
+}
+
+cRatioPolynXY * cRatioPolynXY::Dup() const
+{
+    auto * aRes = new cRatioPolynXY();
+    std::vector<tREAL8> aVC;
+    mX.PushCoeffs(aVC);
+    aRes->mX.SetCoeffs(aVC);
+    aVC.clear();
+    mY.PushCoeffs(aVC);
+    aRes->mY.SetCoeffs(aVC);
+    return aRes;
+}
+
+cRPCSens * cRPCSens::Dup() const
+{
+    auto * aRes = new cRPCSens(NameImage());
+    aRes->TransferateCoordSys(*this);
+    aRes->mDirectRPC  = mDirectRPC->Dup();
+    aRes->mInverseRPC = mInverseRPC->Dup();
+    aRes->mImOffset = mImOffset;
+    aRes->mImScale = mImScale;
+    aRes->m3DImOffset = m3DImOffset;
+    aRes->m3DImScale = m3DImScale;
+    aRes->mGroundOffset = mGroundOffset;
+    aRes->mGroundScale = mGroundScale;
+    aRes->mCenterOfFootPrint = mCenterOfFootPrint;
+    aRes->mNameRPC = mNameRPC;
+    aRes->mSwapXYGround = mSwapXYGround;
+    aRes->mSwapIJImage = mSwapIJImage;
+    aRes->mAmplZB = mAmplZB;
+    aRes->mPixelDomain = mPixelDomain;
+    aRes->mBoxGround = mBoxGround;
+    aRes->mEpsCoord = mEpsCoord;
+    return aRes;
+}
+
+cSensorImage * cRPCSens::CropSensor(const cPt2di & aP0, const cPt2di & aSz) const
+{
+    auto * aRes = Dup();
+    // Only offsets move : polynomials stay bit-identical.
+    aRes->mImOffset -= IO_PtIm(ToR(aP0));
+    aRes->m3DImOffset -= TP3z(IO_PtIm(ToR(aP0)),0.0);
+    aRes->mPixelDomain = cPixelDomain(aSz);
+    return aRes;
 }
 
 cRPCSens::~cRPCSens()
@@ -957,6 +1017,13 @@ cSensorImage *  AllocRPCDimap(const cAnalyseTSOF & anAnalyse,const std::string &
 }
 
 
+// Grids (XY steps, Z steps) of the samples fitting a generated RPC, tried in turn until the max residual is below TheRPCFitMaxResPx.
+// Empirical : the first gives residuals ~1e-3 px, but the rational fit can be unstable on some grids (denser ones do not cure it).
+std::vector<std::pair<int,int>> TheRPCFitGrids = {{30,5},{20,7},{16,9}};
+tREAL8 TheRPCFitMaxResPx = 0.05;
+int TheRPCFitNbRetry = 0;   // number of grids abandoned (read by the benches)
+tREAL8 TheRPCFitLastMaxRes = 0;   // max residual (px) of the last fit
+
 cSensorImage * cSensorImage::GenerateSensorRPC(const cDataInvertibleMapping<tREAL8,2>* aResampleMap,
                                                const cDataInvertibleMapping<tREAL8,3>* aChSysCoMap,
                                                bool XYisLonLat,
@@ -971,10 +1038,6 @@ cSensorImage * cSensorImage::GenerateSensorRPC(const cDataInvertibleMapping<tREA
         }
         aZIntv = GetIntervalZ();
     }
-    // TODOCM: determiner stepXY et stepZ
-    auto stepsXY = 30;
-    auto stepsZ = 5;
-
     // Maps a `this`-sensor sample to (image,ground): used for the fit set and the
     // residual check below.
     auto ToImGrSample = [&](const cPair2D3D & aPair) -> std::pair<cPt3dr,cPt3dr>
@@ -986,78 +1049,85 @@ cSensorImage * cSensorImage::GenerateSensorRPC(const cDataInvertibleMapping<tREA
         return {aPIm,aPGr};
     };
 
-    cSet2D3D aSet = SyntheticsCorresp3D2D(stepsXY,stepsZ,aZIntv->x(),aZIntv->y(),false,0.0);
-
-    std::vector<cPt3dr> aVIm;
-    std::vector<cPt3dr> aVGr;
-
-    for (const auto & aPair : aSet.Pairs())
+    // Fit on one grid ; aMaxResPx = largest residual (px) of the direct and inverse models
+    auto FitOnGrid = [&](int stepsXY,int stepsZ,tREAL8 & aMaxResPx) -> cRPCSens *
     {
-        auto [aPIm,aPGr] = ToImGrSample(aPair);
-        aVIm.push_back(aPIm);
-        aVGr.push_back(aPGr);
-    }
+        cSet2D3D aSet = SyntheticsCorresp3D2D(stepsXY,stepsZ,aZIntv->x(),aZIntv->y(),false,0.0);
 
-    // Pre-normalization box (InitFromSamples normalizes aVIm/aVGr in place next).
-    cBox3dr aBoxIn = cTplBoxOfPts<tREAL8,3>::FromVect(aVIm).CurBox();
-    cBox3dr aBoxOut = cTplBoxOfPts<tREAL8,3>::FromVect(aVGr).CurBox();
+        std::vector<cPt3dr> aVIm;
+        std::vector<cPt3dr> aVGr;
 
-    auto aGroundScale = aBoxOut.Sz() / 2.0;
-    auto aImScale =  aBoxIn.Sz() / 2.0;
-    auto aGrSigmaScale = aGroundScale.x() / aImScale.x();
+        for (const auto & aPair : aSet.Pairs())
+        {
+            auto [aPIm,aPGr] = ToImGrSample(aPair);
+            aVIm.push_back(aPIm);
+            aVGr.push_back(aPGr);
+        }
 
-    cRPCSens * aRPCSens = new cRPCSens(aNameIm ? *aNameIm : NameImage());
-    aRPCSens->InitFromSamples(aVIm, aVGr);
+        // Pre-normalization box (InitFromSamples normalizes aVIm/aVGr in place next).
+        cBox3dr aBoxIn = cTplBoxOfPts<tREAL8,3>::FromVect(aVIm).CurBox();
+        cBox3dr aBoxOut = cTplBoxOfPts<tREAL8,3>::FromVect(aVGr).CurBox();
 
-    // Direct-model residual, checked against ground truth (not a self-comparison).
-    // Track the max too: an RMS over many points can hide a single bad outlier.
-    aSet = SyntheticsCorresp3D2D(stepsXY-3,stepsZ-1,aZIntv->x(),aZIntv->y(),false,0.0);
-    double dirRes = 0.0;
-    double dirResMax = 0.0;
-    for (const auto& aPair : aSet.Pairs())
-    {
-        auto [aPIm,aPGr] = ToImGrSample(aPair);
-        tREAL8 aSqRes = SqN2(aRPCSens->ImageZToGround(cPt2dr(aPIm.x(),aPIm.y()), aPGr.z()) - aPGr);
-        dirRes += aSqRes;
-        UpdateMax(dirResMax,aSqRes);
-    }
-    dirRes /= aSet.Pairs().size();
+        auto aGroundScale = aBoxOut.Sz() / 2.0;
+        auto aImScale =  aBoxIn.Sz() / 2.0;
+        auto aGrSigmaScale = aGroundScale.x() / aImScale.x();
 
-    // Inverse-model residual: round-trip through aRPCSens's own direct model.
-    aSet = aRPCSens->SyntheticsCorresp3D2D(stepsXY-3,stepsZ-1,aZIntv->x(),aZIntv->y(),false,0.0);
-    double invRes = 0.0;
-    double invResMax = 0.0;
-    for (const auto& aPair : aSet.Pairs())
+        cRPCSens * aRPCSens = new cRPCSens(aNameIm ? *aNameIm : NameImage());
+        aRPCSens->InitFromSamples(aVIm, aVGr);
+
+        // Direct-model residual, checked against ground truth (not a self-comparison).
+        // Track the max too: an RMS over many points can hide a single bad outlier.
+        aSet = SyntheticsCorresp3D2D(stepsXY-3,stepsZ-1,aZIntv->x(),aZIntv->y(),false,0.0);
+        double dirRes = 0.0;
+        double dirResMax = 0.0;
+        for (const auto& aPair : aSet.Pairs())
+        {
+            auto [aPIm,aPGr] = ToImGrSample(aPair);
+            tREAL8 aSqRes = SqN2(aRPCSens->ImageZToGround(cPt2dr(aPIm.x(),aPIm.y()), aPGr.z()) - aPGr);
+            dirRes += aSqRes;
+            UpdateMax(dirResMax,aSqRes);
+        }
+        dirRes /= aSet.Pairs().size();
+
+        // Inverse-model residual: round-trip through aRPCSens's own direct model.
+        aSet = aRPCSens->SyntheticsCorresp3D2D(stepsXY-3,stepsZ-1,aZIntv->x(),aZIntv->y(),false,0.0);
+        double invRes = 0.0;
+        double invResMax = 0.0;
+        for (const auto& aPair : aSet.Pairs())
+        {
+            tREAL8 aSqRes = SqN2(aRPCSens->Ground2Image(aPair.mP3) - aPair.mP2);
+            invRes += aSqRes;
+            UpdateMax(invResMax,aSqRes);
+        }
+        invRes /= aSet.Pairs().size();
+        auto dirSigma = sqrt(dirRes);
+        auto invSigma = sqrt(invRes);
+        auto dirMaxPx = sqrt(dirResMax) / aGrSigmaScale;
+        auto invMaxPx = sqrt(invResMax);
+        StdOut() << "RPC Direct  sigma : " << Color::info << dirSigma / aGrSigmaScale << Color::end << " (~px) (" << dirSigma << " sysco), max : " << dirMaxPx << " (~px)" << std::endl;
+        StdOut() << "RPC Inverse sigma : " << Color::info << invSigma << Color::end << " (px), max : " << invMaxPx << " (px)" << std::endl;
+        aMaxResPx = std::max(dirMaxPx,invMaxPx);
+        return aRPCSens;
+    };
+
+    // Try the grids in turn until the max residual is acceptable (one point off by a pixel is a real problem even if the RMS looks fine)
+    tREAL8 aMaxRes = 0;
+    for (size_t aKG=0 ; aKG<TheRPCFitGrids.size() ; aKG++)
     {
-        tREAL8 aSqRes = SqN2(aRPCSens->Ground2Image(aPair.mP3) - aPair.mP2);
-        invRes += aSqRes;
-        UpdateMax(invResMax,aSqRes);
+        const auto [aStepsXY,aStepsZ] = TheRPCFitGrids.at(aKG);
+        cRPCSens * aRPCSens = FitOnGrid(aStepsXY,aStepsZ,aMaxRes);
+        TheRPCFitLastMaxRes = aMaxRes;
+        if (aMaxRes <= TheRPCFitMaxResPx)
+            return aRPCSens;
+        delete aRPCSens;
+        TheRPCFitNbRetry++;
+        MMVII_USER_WARNING("RPC fit on a grid " + std::to_string(aStepsXY) + "x" + std::to_string(aStepsXY) + "x" + std::to_string(aStepsZ)
+                           + " : max residual " + std::to_string(aMaxRes) + " px > " + std::to_string(TheRPCFitMaxResPx)
+                           + ((aKG+1<TheRPCFitGrids.size()) ? ", trying another grid" : ", no grid left"));
     }
-    invRes /= aSet.Pairs().size();
-    auto dirSigma = sqrt(dirRes);
-    auto invSigma = sqrt(invRes);
-    auto dirMaxPx = sqrt(dirResMax) / aGrSigmaScale;
-    auto invMaxPx = sqrt(invResMax);
-    StdOut() << "RPC Direct  sigma : " << Color::info << dirSigma / aGrSigmaScale << Color::end << " (~px) (" << dirSigma << " sysco), max : " << dirMaxPx << " (~px)" << std::endl;
-    StdOut() << "RPC Inverse sigma : " << Color::info << invSigma << Color::end << " (px), max : " << invMaxPx << " (px)" << std::endl;
-    if (dirSigma > aGrSigmaScale * 0.1)
-    {
-        MMVII_USER_WARNING("High residual for RPC inverse model (" +std::to_string(dirSigma) + " > " + std::to_string(aGrSigmaScale * 0.1) + ")");
-    }
-    if (invSigma > 0.1)
-     {
-        MMVII_USER_WARNING("High residual for RPC inverse model (" +std::to_string(invSigma) + " > 0.1)");
-     }
-    // One point off by a full pixel is a real problem even if the RMS looks fine.
-    if (dirMaxPx > 1.0)
-    {
-        MMVII_USER_WARNING("RPC direct model has an outlier point with residual " + std::to_string(dirMaxPx) + "px");
-    }
-    if (invMaxPx > 1.0)
-    {
-        MMVII_USER_WARNING("RPC inverse model has an outlier point with residual " + std::to_string(invMaxPx) + "px");
-    }
-    return aRPCSens;
+    MMVII_UserError(eTyUEr::eUnClassedError,"The RPC fit failed on all grids (last max residual " + std::to_string(aMaxRes)
+                    + " px > " + std::to_string(TheRPCFitMaxResPx) + " px)");
+    return nullptr;
 }
 
 
