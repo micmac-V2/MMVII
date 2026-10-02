@@ -104,6 +104,9 @@ void BenchTopoComp(cParamExeBench & aParam); ///< Topo compensation
 void BenchTLS(cParamExeBench & aParam); ///< Static lidar
 
 void BenchEpipolar(cParamExeBench & aParam);
+void BenchEpipolarResampling(cParamExeBench & aParam); ///< Crop and validity mask of the epipolar resampling
+void BenchEpipolarSlaveCrop(cParamExeBench & aParam); ///< Slave crop derived from a master crop and the Z interval
+void BenchEpipolarTiles(cParamExeBench & aParam); ///< Tiles of an epipolar pair equal the global resampling
 void BenchEpipolarNoRPC(cParamExeBench & aParam); ///< Epipolar rectif for sensors with no native Z interval
 void BenchEpipolarZFromTieP(cParamExeBench & aParam); ///< Z interval inferred from tie points, incl. priority over ZIntv
 
