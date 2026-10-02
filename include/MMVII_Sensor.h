@@ -106,6 +106,10 @@ class cSensorImage  :   public cObj2DelAtEnd,
 
           /// create a sensor in a new coordinate system, default error
           virtual cSensorImage * SensorChangSys(const std::string & aDir, cChangeSysCo &) const ;
+          /// New sensor (caller owns it) for the crop [aP0,aP0+aSz) of this image : pixel P of the crop
+          /// has the ground geometry of pixel P+aP0 of this one, so overlapping crops agree. Default : error.
+          virtual cSensorImage * CropSensor(const cPt2di & aP0, const cPt2di & aSz) const;
+
           /// Create a RPC sensor with an optional resampling map and an optional change of coordinate system map.
           /// (Use nullptr to indicate that no map is provided).
           /// aZintv specifies the Z interval needed for RPC. If none (std::nullopt) is given, the sensor must have a defined Z interval
@@ -324,6 +328,7 @@ class cSensorImage  :   public cObj2DelAtEnd,
      cDataGenUnTypedIm<2> *                         mImage; ///< By default nullptr,
      bool                                           mOwnsImage; ///< Do we have to delete the image
 };
+
 
 
 
