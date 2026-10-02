@@ -2,18 +2,7 @@
 
 // Test commit
 
-#include "MMVII_Image2D.h"
-#include "MMVII_ImageMorphoMath.h"
-#include "MMVII_Sensor.h"
-#include "MMVII_Ptxd.h"
-#include "MMVII_2Include_Serial_Tpl.h"
-#include "MMVII_Tpl_ElemStrToVal.h"
-#include "MMVII_Tpl_Images.h"
-#include "MMVII_Tpl_ElemFilterLocImages.h"
-
-#include "MMVII_Tpl_GraphStruct.h"
-#include "MMVII_Tpl_Graph_SubGraph.h"
-#include "MMVII_Tpl_GraphAlgo_SPCC.h"
+#include "cAppliNewFranges.h"
 
 
 
@@ -24,139 +13,6 @@ namespace MMVII
 namespace NS_FrangesDetect
 {
 
-/**  An application for  extaction curves on interference images
- *   rather very specific...
- */
-typedef tREAL4            tElIm;
-typedef cIm2D<tElIm >     tIm;
-typedef cDataIm2D<tElIm > tDIm;
-typedef cIm1D<tREAL8>     tIm1D;
-typedef cDataIm1D<tREAL8>     tDIm1D;
-
-
-class cConnComp
-{
-   public :
-
-     cConnComp(std::vector<cPt2di> & aVPts,const tSeg2dr & aSeg,bool isHor) :
-         mPts   (aVPts),
-         mSeg   (aSeg),
-         mIsHor (isHor)
-     {
-     }
-
-    std::vector<cPt2di> mPts;
-    tSeg2dr mSeg;
-    bool    mIsHor;
-
-};
-
-/* =============================================== */
-/*                                                 */
-/*                 cAppliNewFrange                   */
-/*                                                 */
-/* =============================================== */
-
-
-class cAppliNewFrange : public cMMVII_Appli
-{
-     public :
-        cAppliNewFrange(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec);
-     private :
-        //================= typedef part ===============================
-
-
-        typedef cIm2D<tU_INT1 >    tImLabel;
-        typedef cDataIm2D<tU_INT1> tDImLabel;
-
-        //================================================================
-        //       METHODS DECLARATION
-        //================================================================
-
-            //------------------------- overidding cMMVII_Appli ----------------
-        int Exe() override;
-        cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
-        cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
-         std::vector<cOneHelpSampleCmp>  Samples() const override;
-        virtual ~cAppliNewFrange();
-
-     private :
-
-        void  DoOneImage(const std::string & aNameIm);
-        std::string NameVisu(const std::string & aPref) const;
-
-        void MakeImSimul();
-
-        /** Compute images of local maxims, this will reduce "drastically" the number of potential point
-         in shortest path approach (and allow more complexe lins with "big" jumps ) */
-        void MakeImageMaxLoc();
-
-
-        bool NewCC(bool isHoriz,const cPt2di&);
-        void ConnecCompMaxLoc(bool isHoriz);
-
-        void MakeImTgt();
-        void ComputeLowRadiom();
-
-        tREAL8 CostSymTgt(int aY,int aSzY);
-        int DetectSymByTgt();
-        void DoIntegrale(int aDy,int aYLim);
-
-        cPhotogrammetricProject  mPhProj;
-
-        // ----------- Mandatory Args -----------
-        std::string              mPatImage; /// Pattern of all images
-        std::string              mNameIm;
-
-        tREAL8    mZoomRed;     ///< Zoom for initial reduction
-        tREAL8    mDerFactZ1;   ///< Factor of deriche gradient for zoom 1
-        tREAL8    mSigmaTensZ1; ///< Sigma filter on tensor cumulated for zoom 1
-        bool      mDoSimul;
-        int       mDoVisu;
-
-        tIm      mImZ1;
-        tDIm*    mDImZ1;
-
-        bool IsMax(cPt2di aP0,cPt2di aDp,int aNb) const;
-
-
-        //-------- These values are related to reduced image ----------------
-        tIm      mImRed;   /// reduced images
-        tDIm*    mDImRed;  /// data reduced im
-        cPt2di   mSzRed;     /// sz of reduced ima
-        tIm      mImRedBlur;  /// im blured
-        tDIm*    mDImRedBlur;  /// data image blurred
-
-
-        tIm      mImTx;   /// image tensor x
-        tDIm*    mDImTx;  /// data
-        tIm      mImTy;   /// image tensor y
-        tDIm*    mDImTy;   /// data
-
-         cIm2D<tU_INT1> mImMaxHor;
-         cDataIm2D<tU_INT1>* mDImMaxHor;
-         cIm2D<tU_INT1> mImMaxVert;
-         cDataIm2D<tU_INT1>* mDImMaxVert;
-
-         cIm2D<tU_INT1> mImMaxLoc;
-         cDataIm2D<tU_INT1>* mDImMaxLoc;
-
-
-         tIm1D    mImTeta;    /// Image of tangent as x=F(Y)
-         tDIm1D*  mDImTeta;
-        tIm1D    mImTgt;    /// Image of tangent as x=F(Y)
-        tDIm1D*  mDImTgt;
-        int      mYC;
-        tIm1D    mImIntegr;
-        tDIm1D*  mDImIntegr;
-        cRGBImage mImVisu;
-
-
-        std::list<cConnComp>  mListCC;
-        tREAL8   mLowRadiom;
-        tIm1D    mImHighR;
-        tDIm1D*  mDImHighR;
-};
 
     /* =================================================== */
     /*      Overiding of  cMMVII_Appli                     */
@@ -195,7 +51,9 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mImIntegr         (1),
     mDImIntegr        (nullptr),
     mImVisu           (cPt2di(1,1)),
-    mLowRadiom        (-1e9)
+    mRadiomBackGround        (-1e9),
+    mImRadFrange          (1),
+    mDImRadFrange         (nullptr)
 {
 }
 
@@ -257,174 +115,39 @@ int cAppliNewFrange::Exe()
 /* =================================================== */
 /*              Specific functions                     */
 /* =================================================== */
+
+
+// The simulated image is the transformation of a sinus iamges I(x,y) =sin(x)
+// by a mapping  X,Y  ->  (X + aY^2 , Y), we add also an attenaution functin
+// that make image darker
+
 void cAppliNewFrange::MakeImSimul()
 {
-    tREAL8 aMulY=10.0;
-    tREAL8 aPer = 300.0 / mZoomRed;
-    tREAL8 aExp = 4.0;
-    tREAL8 aMilY = mSzRed.y() / 2.0;
+
+    tREAL8 aDistIntrFr = 300.0 / mZoomRed; // Distance betweeb franges
+    tREAL8 aMulY=10.0; // multipiler of the parabol X= MulY YN^2  with normalized YN
+    tREAL8 aExp = 4.0;  // Exponent  of 1+sinus => the highest, give thinner franges
+    tREAL8 aMiddleY = mSzRed.y() / 2.0; // Y of Middle horizonatl line
+
     for (const auto & aPix : *mDImRed)
     {
-        tREAL8 aCorrY = (aPix.y()-aMilY) / aMilY;
+        tREAL8 aYNorm = (aPix.y()-aMiddleY) / aMiddleY;  // Nomalize Y : i.e. in [-1,1]
 
-        tREAL8 aPhase = aPix.x() -Square(aCorrY) * aMilY * aMulY;
+        // Phase  of sinus
+        tREAL8 aPhase = aPix.x() -Square(aYNorm) * aMiddleY * aMulY;
+        aPhase /= (aDistIntrFr /(2*M_PI));
 
-
-        aPhase /= (aPer /(2*M_PI));
+        // compute peridic funtion in [0,1]
         tREAL8 aAmpl = std::max(0.0,(1+sin(aPhase)) /2.0);
-        aAmpl = std::pow(aAmpl,aExp);
+        aAmpl = std::pow(aAmpl,aExp); // make thinner
 
-        aAmpl = aAmpl / (1 + std::pow(std::abs(aCorrY),2)*3.0 );
+        // make an attenuation , darker when we are further away of center
+        aAmpl = aAmpl / (1 + std::pow(std::abs(aYNorm),2)*3.0 );
 
-        mDImRed->SetV(aPix,aAmpl*255.0);
+        mDImRed->SetV(aPix,aAmpl*255.0);  // now put it
     }
 }
 
-
-tREAL8 cAppliNewFrange::CostSymTgt(int aY0,int aSzY)
-{
-    tREAL8 aSumSign = 0;
-    tREAL8 aSumAbs = 0;
-
-    for (int aDY=1 ; aDY<=aSzY; aDY++)
-    {
-        tREAL8 aV1 = mDImTeta->GetV(aY0-aDY);
-        tREAL8 aV2 = mDImTeta->GetV(aY0+aDY);
-
-        tREAL8 aW = aSzY - std::abs(aDY);
-
-        aSumSign += Square(aV1+aV2) * aW;
-        aSumAbs += (Square(aV1) + Square(aV2)) *aW;
-    }
-
-    return aSumSign / aSumAbs;
-}
-
-int cAppliNewFrange::DetectSymByTgt()
-{
-    int aSzY = round_up(100 / mZoomRed);
-    aSzY = std::min(aSzY,mSzRed.y()/4);
-
-    cWhichMin<int,tREAL8> aMinSym;
-
-    int aEndY =  mDImTeta->Sz()-(aSzY+1);
-
-    for (int aY0=aSzY ; aY0 <aEndY ; aY0++)
-        aMinSym.Add(aY0,CostSymTgt(aY0,aSzY));
-
-    return aMinSym.IndexExtre();
-}
-
-void cAppliNewFrange::DoIntegrale(int aDy,int aYLim)
-{
-    for (int aY=mYC+aDy  ; aY!= aYLim ; aY+= aDy)
-    {
-        tREAL8 aPreVal =  mDImIntegr->GetV(aY-aDy);
-        tREAL8 aPreTgt =  mDImTgt->GetV(aY-aDy);
-        tREAL8 aCurTgt =  mDImTgt->GetV(aY);
-
-        mDImIntegr->SetV(aY,aPreVal+(-aDy)*(aPreTgt+aCurTgt)/2.0);
-    }
-}
-
-
-
-void cAppliNewFrange::MakeImTgt()
-{
-    cImGrad<tElIm>  aGrad = Deriche(*mDImRed,mDerFactZ1*mZoomRed);
-    tDIm & aDGx = *(aGrad.mDGx);
-    tDIm & aDGy = *(aGrad.mDGy);
-
-    mImTx =  tIm(mSzRed);
-    mDImTx = &(mImTx.DIm());
-    mImTy  = tIm(mSzRed);
-    mDImTy = &(mImTy.DIm());
-
-    mImMaxLoc = cIm2D<tU_INT1> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
-    mDImMaxLoc = &(mImMaxLoc.DIm());
-
-    // aDGx.ToFile("GradX.tif");
-
-     cIm1D<tREAL8> aPop(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
-     cIm1D<tREAL8> aSumTx(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
-     cIm1D<tREAL8> aSumTy(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
-
-
-     for (const auto & aPix : aDGx)
-     {
-         cPt2dr aGrad(aDGx.GetV(aPix),aDGy.GetV(aPix));
-         cPt2dr aRhoTeta = ToPolar(aGrad,0.0);
-
-         tREAL8 aRho = aRhoTeta.x();
-         tREAL8 aTeta = aRhoTeta.y();
-         cPt2dr aTens = FromPolar(aRho,2.0*aTeta);
-
-         mDImTx->SetV(aPix,aTens.x());
-         mDImTy->SetV(aPix,aTens.y());
-
-         tREAL8 aWeight = 1.0;
-
-          aPop.DIm().AddV(aPix.y(),aRho*aWeight);
-          aSumTx.DIm().AddV(aPix.y(),aTens.x()*aWeight);
-          aSumTy.DIm().AddV(aPix.y(),aTens.y()*aWeight);
-     }
-
-     ExpFilterOfStdDev(*mDImTx,5,3.0);
-     ExpFilterOfStdDev(*mDImTy,5,3.0);
-
-     int aBorder = 5;
-
-     std::vector<cPt2dr> aVN;
-     for (const auto & aPix : mDImMaxLoc->Interior(aBorder))
-     {
-         cPt2dr aTens (mDImTx->GetV(aPix),mDImTy->GetV(aPix));
-         cPt2dr aRhoTeta = ToPolar(aTens,0.0);
-         cPt2dr aDirTens = FromPolar(1.0,aRhoTeta.y()/2.0);
-         tREAL8 aV0 =mDImRedBlur->GetV(aPix);
-         if (      (aV0>mDImRedBlur->GetVBL(ToR(aPix)+aDirTens))
-               &&   (aV0>mDImRedBlur->GetVBL(ToR(aPix)-aDirTens))
-            )
-         {
-             mDImMaxLoc->SetV(aPix,1);
-         }
-     }
-
-
-     ExpFilterOfStdDev(aPop.DIm()  ,5,mSigmaTensZ1/mZoomRed);
-     ExpFilterOfStdDev(aSumTx.DIm(),5,mSigmaTensZ1/mZoomRed);
-     ExpFilterOfStdDev(aSumTy.DIm(),5,mSigmaTensZ1/mZoomRed);
-
-     DivImageInPlace(aSumTx.DIm(),aSumTx.DIm(),aPop.DIm());
-     DivImageInPlace(aSumTy.DIm(),aSumTy.DIm(),aPop.DIm());
-
-
-     mImTgt = cIm1D<tREAL8>(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
-     mDImTgt = & (mImTgt.DIm());
-     mImTeta =  cIm1D<tREAL8>(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
-     mDImTeta = &(mImTeta.DIm());
-
-     for(const auto anY : aPop.DIm())
-     {
-         cPt2dr aTens(aSumTx.DIm().GetV(anY),aSumTy.DIm().GetV(anY));
-         cPt2dr aRhoTeta = ToPolar(aTens,0.0);
-         tREAL8 aTeta = aRhoTeta.y();
-         tREAL8 aTgt = tan(aTeta/2.0);
-
-         mDImTgt->SetV(anY,aTgt);
-         mDImTeta->SetV(anY,aTeta);
-
-     }
-
-     mYC = DetectSymByTgt();
-
-
-     mImIntegr  = cIm1D<tREAL8>(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
-     mDImIntegr = &(mImIntegr.DIm());
-
-     DoIntegrale(-1,0);
-     DoIntegrale(1,mSzRed.y());
-
-}
 
 std::string cAppliNewFrange::NameVisu(const std::string & aPref) const
 {
@@ -466,13 +189,32 @@ bool cAppliNewFrange::NewCC(bool isHoriz,const cPt2di& aPix)
        //     return false;
          aDir = (aBox.P0().y()<mYC)  ? cPt2di(1,0) : cPt2di(-1,0);
      }
+
+
      cWhichMinMax<cPt2di,tREAL8>  aWMM;
+     cWeightAv<tREAL8,tREAL8> aWScore;
 
      for (const auto & aPt : aVCC)
+     {
          aWMM.Add(aPt,Scal(aDir,aPt));
 
+         tREAL8 aV = mDImRedBlur->GetV(aPix);
+         tREAL8 aAmpl = mDImRadFrange->GetV(aPix.y()) -mRadiomBackGround;
+         aV = (aV-mRadiomBackGround)/aAmpl;
+         aV = std::clamp(aV,0.0,1.0);
+         aWScore.Add(1.0,aV);
+     }
+
+     tREAL8 aScore = aWScore.Average();
+     tREAL8 aScoreMixte = aScore * aVCC.size();
+     bool isOk =    (aScore > 0.5)
+                 || (aScoreMixte > 15)
+                 || ((!isHoriz) && (aVCC.size() > 150))
+            ;
      tSeg2dr aSeg(ToR(aWMM.IndMin()),ToR(aWMM.IndMax()));
-     cConnComp aCC(aVCC,aSeg,isHoriz);
+
+
+     cConnComp aCC(aVCC,aSeg,isHoriz,aScore,isOk);
    //  cConnComp(const tSeg2dr & aSeg,bool isHor) :
 
      mListCC.push_back(aCC);
@@ -541,9 +283,14 @@ void cAppliNewFrange::MakeImageMaxLoc()
 
 }
 
-void cAppliNewFrange::ComputeLowRadiom()
+void cAppliNewFrange::ComputeRadiomCste()
 {
+    // Estimation of background, suppose to be constant; estimate at the center
+    // where there is less franges
+
     {
+        tREAL8 mPropEstBack = 1/3.0;
+
         std::vector<tREAL8>   aVRad;
         int aNbY=3;
 
@@ -552,16 +299,25 @@ void cAppliNewFrange::ComputeLowRadiom()
             for (int aDy=-aNbY ; aDy<=aNbY ; aDy++)
                 aVRad.push_back(mDImRed->GetV(cPt2di(anX,mYC+aDy)));
         }
-        mLowRadiom = NC_KthVal(aVRad,1/3.0);
+        mRadiomBackGround = NC_KthVal(aVRad,mPropEstBack);
     }
 
-    mImHighR = tIm1D(mSzRed.y());
-    mDImHighR = &(mImHighR.DIm());
+    // Estimation of radiometry of frange, it's variable and a function of Y
+    mImRadFrange = tIm1D(mSzRed.y());
+    mDImRadFrange = &(mImRadFrange.DIm());
 
     for (int anY=0 ; anY<mSzRed.y() ; anY++)
     {
         std::vector<tREAL8>   aVRad;
+        for (int anX=0 ; anX<mSzRed.x() ; anX++)
+        {
+            aVRad.push_back(mDImRedBlur->GetV(cPt2di(anX,anY)));
+        }
+        tREAL8 aVal = IKthVal(aVRad,aVRad.size()-10);
+        // aVal = NC_KthVal(aVRad,1/3.0);
+        mDImRadFrange->SetV(anY,aVal);
     }
+    ExpFilterOfStdDev(*mDImRadFrange,5,50.0);
 }
 
 
@@ -582,8 +338,8 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
     mDImRedBlur = & (mImRedBlur.DIm());
     ExpFilterOfStdDev(*mDImRedBlur,5,2.0,5.0);
 
-    MakeImTgt();
-    ComputeLowRadiom();
+    DoTensorProcessing();
+    ComputeRadiomCste();
 
     MakeImageMaxLoc();
 
@@ -613,7 +369,7 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
         for (const auto aPix : *mDImRed)
         {
 
-            tREAL8 aRad = ((mDImRed->GetV(aPix)-mLowRadiom) /(mHighRadiom-mLowRadiom)) * 255.0;
+            tREAL8 aRad = ((mDImRed->GetV(aPix)-mRadiomBackGround) /(mHighRadiom-mRadiomBackGround)) * 255.0;
             tINT4 aVal = std::clamp(round_ni(aRad),0,255);
 
             mImVisu.SetGrayPix(aPix,aVal);
@@ -641,6 +397,14 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
 
 
         mImVisu.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x()+aNbX,mYC),cRGBImage::Blue,1.0);
+
+        std::vector<cPt2dr> aVPtsIntegral;
+        for(const auto aPtY : mImTgt.DIm())
+        {
+            int anY = aPtY.x();
+            tREAL8 aXInt = mDImIntegr->GetV(anY);
+            aVPtsIntegral.push_back(cPt2dr(aXInt+200.0,anY));
+        }
         for(const auto aPtY : mImTgt.DIm())
         {
            int aXMil = mSzRed.x()+aNbX/2;
@@ -648,26 +412,48 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
            // show middel line
            mImVisu.SetRGBPix(cPt2di(aXMil,anY),cRGBImage::Green);
 
+
+           cPt2di  aPtRad(round_ni(mSzRed.x()+mDImRadFrange->GetV(anY)*0.5),anY);
+           mImVisu.SetRGBPix(aPtRad,cRGBImage::Gray128);
+
+
            cPt2di  aPtTgt(round_ni(aXMil+mDImTgt->GetV(anY)*10.0),anY);
            mImVisu.SetRGBPix(aPtTgt,cRGBImage::Red);
-           cPt2di  aPtTeta(round_ni(aXMil+mDImTeta->GetV(anY)*15.0),anY);
+           cPt2di  aPtTeta(round_ni(aXMil+mDImTeta->GetV(anY)*25.0),anY);
            mImVisu.SetRGBPix(aPtTeta,cRGBImage::Blue);
 
 
 
            // Show image integrale in image
-           int aXInt = mDImIntegr->GetV(anY);
-           mImVisu.SetRGBPix(cPt2di(aXInt+100,anY),cRGBImage::Red);
+           //int aXInt = mDImIntegr->GetV(anY);
+           //mImVisu.SetRGBPix(cPt2di(aXInt+100,anY),cRGBImage::Red);
+           if (anY>0)
+           {
+               cPt2dr aP1 = aVPtsIntegral.at(anY) ;
+               cPt2dr aP2 = aVPtsIntegral.at(anY-1);
+               if (mImVisu.InsideBL(aP1) && mImVisu.InsideBL(aP2))
+               {
+                 // StdOut() << "PTTTT " << aP1 << aP2 << "\n";
+                  mImVisu.DrawLine(aP1,aP2,cRGBImage::Red);
+               }
+           }
         }
 
+
+        // "ARROW"  visu
         for (const auto & aCC : mListCC)
         {
             const tSeg2dr& aSeg = aCC.mSeg;
             cPt3di aCol = aCC.mIsHor ? cRGBImage::Yellow : cRGBImage::Cyan;
-            for (const auto & aPix : aCC.mPts)
-                aVisuArrow.SetRGBPix(aPix,aCol);
-            aVisuArrow.DrawCircle(cRGBImage::Red,aSeg.P1(),3.0);
-            aVisuArrow.DrawCircle(cRGBImage::Green,aSeg.P2(),3.0);
+            if (!aCC.mIsOk)
+                aCol = cRGBImage::Magenta;
+            if (true) // (aCC.mIsOk)
+            {
+                for (const auto & aPix : aCC.mPts)
+                    aVisuArrow.SetRGBPix(aPix,aCol);
+                aVisuArrow.DrawCircle(cRGBImage::Red,aSeg.P1(),3.0);
+                aVisuArrow.DrawCircle(cRGBImage::Green,aSeg.P2(),3.0);
+            }
         }
 
 
@@ -678,11 +464,9 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
            mDImRedBlur->ToFile(NameVisu("Blured"));
            aVisuTeta.ToFile(NameVisu("TetaTens"));
            aVisuMaxHor.ToFile(NameVisu("ImMaxHor"));
-           mImVisu.ToFile(NameVisu("ImRed"));
+           aVisuArrow.ToFile(NameVisu("ImArrow"));
         }
-        aVisuArrow.ToFile(NameVisu("ImArrow"));
-
-
+        mImVisu.ToFile(NameVisu("ImRed"));
 
 
      }
@@ -715,4 +499,4 @@ cSpecMMVII_Appli  TheSpecAppliFranges_2
 
 
 
-};
+}; //  namespace MMVII

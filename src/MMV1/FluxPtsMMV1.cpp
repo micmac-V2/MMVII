@@ -504,15 +504,22 @@ class cDilateSetPoints
 
 cDilateSetPoints::cDilateSetPoints(tREAL8 aRay) :
     mRay    (aRay),
-    mRAR     (aRay * std::abs(aRay)),
+    mRAR     (mRay * std::abs(mRay)),
     mTrans  (8),
     mCFO    (true,true)
 {
+    if (aRay<=0)
+    {
+        mDisk0.push_back(cPt2di(0,0));
+    }
+    else
+    {
      for (const auto & aPix : cRect2::BoxWindow(round_up(aRay)))
      {
          if (SqN2(aPix) <= mRAR)
             mDisk0.push_back(aPix);
      }
+    }
 }
 
 const std::vector<cPt2di> &  cDilateSetPoints::Trans(const cPt2di & aDelta) const
