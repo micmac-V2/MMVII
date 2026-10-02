@@ -303,3 +303,17 @@ add_custom_target(rebuild
   VERBATIM USES_TERMINAL
 )
 
+## HelpByCmd : help of the commands, .md -> .tex (pandoc) -> .pdf (pdflatex). Unix only for now.
+## Every build of MMVII tries to update it (target HelpByCmd_opt, never an error) ; the PDF are not versioned.
+## Without pdflatex nothing is done, without pandoc only the .tex -> .pdf step is.
+if(UNIX)
+  find_program(HELP_PDFLATEX pdflatex)
+  find_program(HELP_PANDOC pandoc)
+  if(NOT HELP_PDFLATEX)
+    message(WARNING "pdflatex not found : the help PDF of the commands (MMVII-RessourceDir/HelpByCmd) will not be generated")
+  elseif(NOT HELP_PANDOC)
+    message(WARNING "pandoc not found : the .tex of the help of the commands will not be regenerated from the .md")
+  endif()
+  add_subdirectory(MMVII-RessourceDir/HelpByCmd)
+  add_dependencies(MMVII HelpByCmd_opt)
+endif()
