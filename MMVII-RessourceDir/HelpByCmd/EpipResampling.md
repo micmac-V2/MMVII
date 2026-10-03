@@ -8,9 +8,15 @@ This command resamples the two images of a pair in epipolar geometry,
 from the model computed by `EpipRectification` and saved with
 `SaveModel=true`. The geometry is not recomputed: the model file holds
 the mapping of each image, the names of the two images, the name of
-the orientation used to compute it and, if they were computed, the names
-of the RPC of the full frames. The command has therefore a single
-mandatory parameter, the model file.
+the orientation used to compute it and, for a polynomial model, if they
+were computed, the names of the RPC of the full frames. The command has
+therefore a single mandatory parameter, the model file.
+
+A model is of one of two types, stored in the file: polynomial (generic
+solver, RPC or any sensor) or closed form (two central perspective
+cameras, see `EpipRectification`). A closed form model holds only the
+parameters of the virtual camera of each image (focal, rotation, frame);
+the original cameras are read from the orientation stored in the model.
 
 Splitting the two commands allows to compute the geometry once, then to
 produce as many outputs as needed: the full frame, a crop, masks, or a
@@ -34,11 +40,18 @@ image of the pair, without directory nor extension; `.tif` is added if
 the pattern, or `MaskName`, has no extension): the resampled
 images, and for each of them the RPC of the resampled image
 (`RPC_Epip_Im1_Im2.tif.xml` with the default pattern, unless
-`NoRPC=true`). The RPC of the full frames saved by `EpipRectification`
+`NoOri=true`). The RPC of the full frames saved by `EpipRectification`
 are not computed again: their names are stored in the model, the files
 are searched next to it, and they are cropped if there is a crop. If one
-is missing (model saved with `NoRPC=true`, older model, file removed),
-the RPC is fitted again, with a warning.
+is missing (model saved with `NoOri=true`, file removed), the RPC is
+fitted again, with a warning.
+
+With a closed form model there is no RPC: the sensor of a resampled image
+is its virtual camera, rebuilt from the model (no fit, nothing to read)
+and written as a standard orientation, `Ori-PerspCentral-Epip_Im1_Im2.tif.xml`
+with the default pattern, and its calibration file, in `OutDir`.
+`NoOri=true` suppresses it. A crop shifts the principal point of the
+camera, the other parameters being unchanged.
 
 With `Mask=true`, or when `MaskName=` is given, a 1-bit mask of the
 valid pixels is also written for each image (a pixel is valid when it
@@ -56,7 +69,9 @@ file of the pair (suffix `.Info.`, named after the resampled image
 selected by `Master`), with the boxes of the crops and the disparity
 range, as `EpipRectification` does (see its help; without a crop the
 boxes are the whole frames). The RPC of a crop shares the polynomials of
-the RPC of the full frame, and differs only by its image offsets.
+the RPC of the full frame, and differs only by its image offsets; the
+camera of a crop of a closed form model differs from the full frame one
+only by its principal point.
 
 Only the window of the source image needed by a crop is read from the
 file.

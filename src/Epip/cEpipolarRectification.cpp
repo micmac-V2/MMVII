@@ -70,15 +70,15 @@ void AddData(const cAuxAr2007 &anAux, cRect2 &aRect)
 void cEpipolarMapping::AddDataBase(const cAuxAr2007 &anAux)
 {
     MMVII::AddData(cAuxAr2007("ZInterval", anAux), mZInterval);
-    MMVII::AddData(cAuxAr2007("GridStep", anAux), mGridStep);
-    MMVII::AddData(cAuxAr2007("NbStepX", anAux), mNbStepX);
-    MMVII::AddData(cAuxAr2007("NbStepY", anAux), mNbStepY);
     MMVII::AddData(cAuxAr2007("EpipImFrame", anAux), mEpipImFrame);
 }
 
 void cEpipPolyMapping::AddData(const cAuxAr2007 &anAux)
 {
     AddDataBase(anAux);
+    MMVII::AddData(cAuxAr2007("GridStep", anAux), mGridStep);
+    MMVII::AddData(cAuxAr2007("NbStepX", anAux), mNbStepX);
+    MMVII::AddData(cAuxAr2007("NbStepY", anAux), mNbStepY);
     MMVII::AddData(cAuxAr2007("V", anAux), mV);
     MMVII::AddData(cAuxAr2007("W", anAux), mW);
     MMVII::AddData(cAuxAr2007("Center", anAux), mCenter);
@@ -90,15 +90,46 @@ void AddData(const cAuxAr2007 &anAux, cEpipPolyMapping &aMap)
     aMap.AddData(anAux);
 }
 
+// A mapping is saved with a tag of its type, read back through this factory
+static void AddDataMapping(const cAuxAr2007 &anAux, const std::string &aTag, std::unique_ptr<cEpipolarMapping> &aMap)
+{
+    cAuxAr2007 aAuxMap(aTag, anAux);
+    std::string aType = anAux.Input() ? std::string() : aMap->TypeName();
+    MMVII::AddData(cAuxAr2007("Type", aAuxMap), aType);
+    if (anAux.Input())
+    {
+        if (aType == "Poly")
+            aMap = std::make_unique<cEpipPolyMapping>(cPolyXY_Nd(1), cPolyXY_Nd(1), cPt2dr(0,0), cPt2dr(1,0), cPt2dr(0,0), 1.0, 1, 1);   // placeholder, AddData overwrites it
+        else if (aType == "PC")
+            aMap = std::make_unique<cEpipMappingPC>();
+        else
+            MMVII_UserError(eTyUEr::eOpenFile, "Unknown type of epipolar mapping : " + aType);
+    }
+    aMap->AddData(aAuxMap);
+}
+
 void cEpipPairModel::AddData(const cAuxAr2007 &anAux)
 {
-    MMVII::AddData(cAuxAr2007("Mapping1", anAux), mMap1);
-    MMVII::AddData(cAuxAr2007("Mapping2", anAux), mMap2);
+    AddDataMapping(anAux, "Mapping1", mMap1);
+    AddDataMapping(anAux, "Mapping2", mMap2);
     MMVII::AddData(cAuxAr2007("OriName", anAux), mOriName);
     MMVII::AddData(cAuxAr2007("Image1", anAux), mNameIm1);
     MMVII::AddData(cAuxAr2007("Image2", anAux), mNameIm2);
-    MMVII::AddData(anAux, "RPCName1", mRPCName1, std::string());   // absent in the models saved before the RPC were kept
+    MMVII::AddData(anAux, "RPCName1", mRPCName1, std::string());   // absent when no RPC was saved
     MMVII::AddData(anAux, "RPCName2", mRPCName2, std::string());
+}
+
+cEpipPairModel::cEpipPairModel(const cEpipPairModel &aOther)
+    : mMap1(aOther.mMap1->Clone()), mMap2(aOther.mMap2->Clone())
+    , mOriName(aOther.mOriName), mNameIm1(aOther.mNameIm1), mNameIm2(aOther.mNameIm2)
+    , mRPCName1(aOther.mRPCName1), mRPCName2(aOther.mRPCName2)
+{
+}
+
+void cEpipPairModel::BindSensors(const cSensorImage &aSensor1, const cSensorImage &aSensor2)
+{
+    mMap1->SetSourceSensor(aSensor1);
+    mMap2->SetSourceSensor(aSensor2);
 }
 
 void AddData(const cAuxAr2007 &anAux, cEpipPairModel &aPairModel)
@@ -118,12 +149,7 @@ void cEpipPairModel::ToFile(const std::string &aNameFile) const
 
 cEpipPairModel cEpipPairModel::FromFile(const std::string &aNameFile)
 {
-    // Placeholder ; AddData on input overwrites every field.
-    cEpipPolyMapping aPlaceholder(
-            cPolyXY_Nd(1), cPolyXY_Nd(1),
-            cPt2dr(0, 0), cPt2dr(1, 0),
-            cPt2dr(0, 0), 1.0, 1, 1);
-    cEpipPairModel aPairModel(aPlaceholder, aPlaceholder, "", "", "");
+    cEpipPairModel aPairModel;
     ReadFromFile(aPairModel, aNameFile);
     return aPairModel;
 }
@@ -660,7 +686,7 @@ void cEpipolarRectification::GenerateData(const cSensorImage &aCamM,
     aOutDirS = cPt2dr(0, 0);
 
     // Altitude range for this master camera : mZIntv > tie-point-derived > native.
-    aZInterval = EffectiveZInterval(aCamM);
+    aZInterval = EpipEffectiveZInterval(mParams,aCamM,mCam1,mCam2,mCachedHomolZIntv);
     const double Zmin = aZInterval.x();
     const double Zmax = aZInterval.y();
 
@@ -769,64 +795,25 @@ void cEpipolarRectification::EstimateIndepResiduals(
 }
 
 // ============================================================
-//  EffectiveZInterval : mZIntv > tie-point-derived > aCamM's own native.
-//  Overriding a lower-priority source only warns.
+//  Z interval of a master camera : mZIntv > tie-point-derived > aCamM's own native
+//  (EpipEffectiveZInterval below). Overriding a lower-priority source only warns.
 // ============================================================
 
-cPt2dr cEpipolarRectification::EffectiveZInterval(const cSensorImage & aCamM) const
+static cPt2dr ZIntervalFromHomolPts(const cEpipolarRectification::cParams & aParams,const cSensorImage & aCam1,const cSensorImage & aCam2,std::optional<cPt2dr> & aCache)
 {
-    cPt2dr aResult(0,0);
-
-    if (mParams.mZIntv)
-    {
-        if (aCamM.HasIntervalZ() && !mParams.mNoWarnings)
-        {
-            MMVII_USER_WARNING("Provided ZIntv overrides sensor's own Z validity interval");
-        }
-        if (mParams.mHomolPts && !mParams.mNoWarnings)
-        {
-            MMVII_USER_WARNING("Provided ZIntv overrides tie-point-derived Z validity interval");
-        }
-        aResult = *mParams.mZIntv;
-    }
-    else if (mParams.mHomolPts)
-    {
-        aResult = ZIntervalFromHomolPts();
-        if (aCamM.HasIntervalZ() && !mParams.mNoWarnings)
-        {
-            MMVII_USER_WARNING("Tie-point-derived Z validity interval overrides sensor's own Z validity interval");
-        }
-    }
-    else
-    {
-        MMVII_INTERNAL_ASSERT_User(aCamM.HasIntervalZ(), eTyUEr::eUnClassedError,
-            "Sensor has no Z validity interval (no RPC); provide ZIntv=[Zmin,Zmax] or TieP=<dir>");
-        aResult = aCamM.GetIntervalZ();
-    }
-
-    return aResult;
-}
-
-// ============================================================
-//  ZIntervalFromHomolPts : Z envelope of triangulated tie points, inflated
-//  by mZMargin. Memoized : identical for both master cameras.
-// ============================================================
-
-cPt2dr cEpipolarRectification::ZIntervalFromHomolPts() const
-{
-    if (mCachedHomolZIntv)
-        return *mCachedHomolZIntv;
+    if (aCache)
+        return *aCache;
 
     int aNbKept = 0;
     tREAL8 aZmin = 0.0;
     tREAL8 aZmax = 0.0;
-    for (const auto & aCple : mParams.mHomolPts->SetH())
+    for (const auto & aCple : aParams.mHomolPts->SetH())
     {
-        const tREAL8 aRes = mCam1.PixResInterBundle(aCple, mCam2);
-        if (aRes > mParams.mTiePMaxRes)
+        const tREAL8 aRes = aCam1.PixResInterBundle(aCple, aCam2);
+        if (aRes > aParams.mTiePMaxRes)
             continue;
 
-        const tREAL8 aZ = mCam1.PInterBundle(aCple, mCam2).z();
+        const tREAL8 aZ = aCam1.PInterBundle(aCple, aCam2).z();
         if (aNbKept == 0)
         {
             aZmin = aZmax = aZ;
@@ -839,9 +826,9 @@ cPt2dr cEpipolarRectification::ZIntervalFromHomolPts() const
         ++aNbKept;
     }
 
-    const cPt2dr aSz = mCam1.PixelDomain().Box().Sz();
-    const int aMinNb = std::max(mParams.mTiePMinNbFloor,
-                                 (int)std::ceil(mParams.mTiePMinNbRatio * std::sqrt(aSz.x() * aSz.y())));
+    const cPt2dr aSz = aCam1.PixelDomain().Box().Sz();
+    const int aMinNb = std::max(aParams.mTiePMinNbFloor,
+                                 (int)std::ceil(aParams.mTiePMinNbRatio * std::sqrt(aSz.x() * aSz.y())));
     MMVII_INTERNAL_ASSERT_User(aNbKept >= aMinNb, eTyUEr::eUnClassedError,
         "Not enough tie points after residual filtering to infer Z interval (" + ToStr(aNbKept)
         + " < " + ToStr(aMinNb) + "); provide ZIntv=[Zmin,Zmax], relax TiePMaxRes/TiePMinNb*, or add tie points");
@@ -850,9 +837,44 @@ cPt2dr cEpipolarRectification::ZIntervalFromHomolPts() const
         "Tie points give a degenerate (near-flat) Z interval [" + ToStr(aZmin) + "," + ToStr(aZmax)
         + "]; provide ZIntv=[Zmin,Zmax] explicitly for this scene");
 
-    const tREAL8 aMargin = mParams.mZMargin * (aZmax - aZmin);
-    mCachedHomolZIntv = cPt2dr(aZmin - aMargin, aZmax + aMargin);
-    return *mCachedHomolZIntv;
+    const tREAL8 aMargin = aParams.mZMargin * (aZmax - aZmin);
+    aCache = cPt2dr(aZmin - aMargin, aZmax + aMargin);
+    return *aCache;
+}
+
+cPt2dr EpipEffectiveZInterval(const cEpipolarRectification::cParams & aParams,const cSensorImage & aCamM,
+                              const cSensorImage & aCam1,const cSensorImage & aCam2,std::optional<cPt2dr> & aCache)
+{
+    cPt2dr aResult(0,0);
+
+    if (aParams.mZIntv)
+    {
+        if (aCamM.HasIntervalZ() && !aParams.mNoWarnings)
+        {
+            MMVII_USER_WARNING("Provided ZIntv overrides sensor's own Z validity interval");
+        }
+        if (aParams.mHomolPts && !aParams.mNoWarnings)
+        {
+            MMVII_USER_WARNING("Provided ZIntv overrides tie-point-derived Z validity interval");
+        }
+        aResult = *aParams.mZIntv;
+    }
+    else if (aParams.mHomolPts)
+    {
+        aResult = ZIntervalFromHomolPts(aParams,aCam1,aCam2,aCache);
+        if (aCamM.HasIntervalZ() && !aParams.mNoWarnings)
+        {
+            MMVII_USER_WARNING("Tie-point-derived Z validity interval overrides sensor's own Z validity interval");
+        }
+    }
+    else
+    {
+        MMVII_INTERNAL_ASSERT_User(aCamM.HasIntervalZ(), eTyUEr::eUnClassedError,
+            "Sensor has no Z validity interval (no RPC); provide ZIntv=[Zmin,Zmax] or TieP=<dir>");
+        aResult = aCamM.GetIntervalZ();
+    }
+
+    return aResult;
 }
 
 void cEpipolarModel::ComputeCommonFraming(
@@ -941,15 +963,14 @@ void BenchEpipolar(cParamExeBench & aParam)
     {
         const std::string aOriName = "OriTest";
         auto aModelFile = aTmpDir + "EpipModel." + GlobTaggedNameDefSerial();
-        cEpipPairModel(static_cast<const cEpipPolyMapping&>(aEpipModel.EpipMap1()),
-                       static_cast<const cEpipPolyMapping&>(aEpipModel.EpipMap2()), aOriName, Name1, Name2).ToFile(aModelFile);
+        cEpipPairModel(aEpipModel.EpipMap1().Clone(), aEpipModel.EpipMap2().Clone(), aOriName, Name1, Name2).ToFile(aModelFile);
         auto aReloaded = cEpipPairModel::FromFile(aModelFile);
 
         MMVII_INTERNAL_ASSERT_bench(aReloaded.OriName() == aOriName, "Epip model round-trip : OriName mismatch");
         MMVII_INTERNAL_ASSERT_bench((aReloaded.ImName(1) == Name1) && (aReloaded.ImName(2) == Name2), "Epip model round-trip : image names mismatch");
 
-        for (const auto& [aOrig,aReload] : {std::make_pair(&aEpipModel.EpipMap1(),&aReloaded.Map(1)),
-                                             std::make_pair(&aEpipModel.EpipMap2(),&aReloaded.Map(2))})
+        for (const auto& [aOrig,aReload] : {std::make_pair(static_cast<const cEpipPolyMapping*>(&aEpipModel.EpipMap1()),static_cast<const cEpipPolyMapping*>(&aReloaded.Map(1))),
+                                             std::make_pair(static_cast<const cEpipPolyMapping*>(&aEpipModel.EpipMap2()),static_cast<const cEpipPolyMapping*>(&aReloaded.Map(2)))})
         {
             MMVII_INTERNAL_ASSERT_bench(aOrig->ZInterval() == aReload->ZInterval(), "Epip model round-trip : ZInterval mismatch");
             MMVII_INTERNAL_ASSERT_bench(aOrig->GridStep() == aReload->GridStep(), "Epip model round-trip : GridStep mismatch");
@@ -1073,9 +1094,8 @@ void BenchEpipolar(cParamExeBench & aParam)
 //  The source image is small (mask is only meaningful where the source ends), constant, sparse content.
 // ----------------------------------------------------------------------
 
-void BenchEpipolarResampling(cParamExeBench & aParam)
+static void EpipolarResamplingBody(cParamExeBench & aParam)
 {
-    if (! aParam.NewBench("EpipolarResampling")) return;
 
     const std::string & aInDir = cMMVII_Appli::CurrentAppli().InputDirTestMMVII() + "/Epipolar/";
     const std::string & aTmpDir = cMMVII_Appli::CurrentAppli().TmpDirTestMMVII();
@@ -1121,7 +1141,8 @@ void BenchEpipolarResampling(cParamExeBench & aParam)
 
     // Run 1 : image + mask (default name pattern) + RPC
     const std::string aBase1 = "EpipRes1.tif";
-    ResampleEpipImage(aOpt, aSrcName, aMap, aSensor.get(), "", *anInterp, false, aTmpDir, aBase1);
+    std::unique_ptr<cSensorImage> aEpipSI1(EpipSensor(*aSensor, aMap, aTmpDir + aBase1));
+    ResampleEpipImage(aOpt, aSrcName, aMap, aEpipSI1.get(), *anInterp, false, aTmpDir, aBase1);
     const std::string aImName1 = Path(aBase1), aMaskName1 = Path("mask_EpipRes1.tif"), aRPCName1 = Path("RPC_EpipRes1.tif.xml");
     MMVII_INTERNAL_ASSERT_bench(ExistFile(aImName1) && ExistFile(aMaskName1) && ExistFile(aRPCName1), "EpipolarResampling : output files missing (default mask name)");
 
@@ -1157,7 +1178,7 @@ void BenchEpipolarResampling(cParamExeBench & aParam)
 
     // Run 2 : user mask pattern, no RPC : same mask, only the requested files
     aOpt.mMaskName = "m_$1_v.tif";
-    ResampleEpipImage(aOpt, aSrcName, aMap, nullptr, "", *anInterp, false, aTmpDir, "EpipRes2.tif");
+    ResampleEpipImage(aOpt, aSrcName, aMap, nullptr, *anInterp, false, aTmpDir, "EpipRes2.tif");
     const std::string aMaskName2 = Path("m_EpipRes2_v.tif");
     Path("EpipRes2.tif");
     MMVII_INTERNAL_ASSERT_bench(ExistFile(aMaskName2), "EpipolarResampling : mask with user pattern missing");
@@ -1169,7 +1190,7 @@ void BenchEpipolarResampling(cParamExeBench & aParam)
     // Run 3 : no mask requested : no mask file, same image
     aOpt.mMaskName = TheDefaultMaskNamePat;
     aOpt.mMaskOn = false;
-    ResampleEpipImage(aOpt, aSrcName, aMap, nullptr, "", *anInterp, false, aTmpDir, "EpipRes3.tif");
+    ResampleEpipImage(aOpt, aSrcName, aMap, nullptr, *anInterp, false, aTmpDir, "EpipRes3.tif");
     const std::string aImName3 = Path("EpipRes3.tif");
     MMVII_INTERNAL_ASSERT_bench(ExistFile(aImName3) && ! ExistFile(aTmpDir + "mask_EpipRes3.tif"), "EpipolarResampling : mask produced although not requested");
     auto aIm3 = cIm2D<tU_INT1>::FromFile(aImName3);
@@ -1178,16 +1199,18 @@ void BenchEpipolarResampling(cParamExeBench & aParam)
 
     // Run 4 : mask without image
     aOpt.mMaskOn = true;
-    ResampleEpipImage(aOpt, aSrcName, aMap, nullptr, "", *anInterp, true, aTmpDir, "EpipRes4.tif");
+    ResampleEpipImage(aOpt, aSrcName, aMap, nullptr, *anInterp, true, aTmpDir, "EpipRes4.tif");
     Path("mask_EpipRes4.tif");
     MMVII_INTERNAL_ASSERT_bench(ExistFile(aTmpDir + "mask_EpipRes4.tif") && ! ExistFile(aTmpDir + "EpipRes4.tif"), "EpipolarResampling : NoImage with mask");
 
     // Run 5 : the crop RPC made from the saved RPC of the full frame is the one fitted directly (same polynomials, bit for bit)
     cEpipCropMaskOpts aFullOpt;   // no crop, no mask
-    ResampleEpipImage(aFullOpt, aSrcName, aMap, aSensor.get(), "", *anInterp, true, aTmpDir, "EpipResFull.tif");
+    std::unique_ptr<cSensorImage> aEpipSIFull(EpipSensor(*aSensor, aMap, aTmpDir + "EpipResFull.tif"));
+    ResampleEpipImage(aFullOpt, aSrcName, aMap, aEpipSIFull.get(), *anInterp, true, aTmpDir, "EpipResFull.tif");
     const std::string aRPCFull = Path("RPC_EpipResFull.tif.xml");
     aOpt.mMaskOn = false;
-    ResampleEpipImage(aOpt, aSrcName, aMap, aSensor.get(), aRPCFull, *anInterp, true, aTmpDir, "EpipRes5.tif");
+    std::unique_ptr<cSensorImage> aEpipSI5(EpipSensor(*aSensor, aMap, aTmpDir + "EpipRes5.tif", aRPCFull));
+    ResampleEpipImage(aOpt, aSrcName, aMap, aEpipSI5.get(), *anInterp, true, aTmpDir, "EpipRes5.tif");
     const std::string aRPCReused = Path("RPC_EpipRes5.tif.xml");
     auto aCropFit = std::unique_ptr<cSensorImage>(ReadExternalSensor(aRPCName1, "EpipRes1.tif", false));
     auto aCropReused = std::unique_ptr<cSensorImage>(ReadExternalSensor(aRPCReused, "EpipRes5.tif", false));
@@ -1214,7 +1237,6 @@ void BenchEpipolarResampling(cParamExeBench & aParam)
     for (const auto & aName : aToRemove)
         RemoveFile(aName,SVP::Yes);
 
-    aParam.EndBench();
 }
 
 namespace {
@@ -1262,9 +1284,8 @@ cSensorCamPC * BuildLookAtConicCam(const std::string & aName, const cPt3dr & aCe
 //  interval, every point matching a point of the master crop (same row, disparity in range).
 // ============================================================
 
-void BenchEpipolarSlaveCrop(cParamExeBench & aParam)
+static void EpipolarSlaveCropBody(cParamExeBench & aParam)
 {
-    if (! aParam.NewBench("EpipolarSlaveCrop")) return;
 
     const std::string & aInDir = cMMVII_Appli::CurrentAppli().InputDirTestMMVII() + "/Epipolar/";
     auto aSensor1 = std::unique_ptr<cSensorImage>(ReadExternalSensor(aInDir + "RPC-Sensor1.xml", "Sensor1", false));
@@ -1360,7 +1381,6 @@ void BenchEpipolarSlaveCrop(cParamExeBench & aParam)
     cEpipPolyMapping aMapB(cPolyXY_Nd(1),cPolyXY_Nd(1),cPt2dr(0,0),cPt2dr(1,0),cPt2dr(5,20),1.0,1,1);
     MMVII_INTERNAL_ASSERT_bench(EpipPairZInterval(aMapA,aMapB)==cPt2dr(5,10), "EpipolarSlaveCrop : Z intervals intersection");
 
-    aParam.EndBench();
 }
 
 
@@ -1370,9 +1390,8 @@ void BenchEpipolarSlaveCrop(cParamExeBench & aParam)
 //  global resampling, and the RPC of every tile must keep the pixel <-> ground relation.
 // ============================================================
 
-void BenchEpipolarTiles(cParamExeBench & aParam)
+static void EpipolarTilesBody(cParamExeBench & aParam)
 {
-    if (! aParam.NewBench("EpipolarTiles")) return;
 
     // ---- 1. Tile grid (pure function)
     for (const int aLen : {1,99,100,101,250,1000})
@@ -1530,7 +1549,8 @@ void BenchEpipolarTiles(cParamExeBench & aParam)
         anOpt.mMaskOn = true;
         anOpt.mCropP0 = aP0;
         anOpt.mCropP1 = aP1;
-        ResampleEpipImage(anOpt,aSrc,aMap,aSI,"",*anInterp,false,aTmpDir,aBase);
+        std::unique_ptr<cSensorImage> aEpipSI(aSI ? EpipSensor(*aSI,aMap,aTmpDir+aBase) : nullptr);
+        ResampleEpipImage(anOpt,aSrc,aMap,aEpipSI.get(),*anInterp,false,aTmpDir,aBase);
         aToRemove.push_back(aTmpDir+aBase);
         aToRemove.push_back(aTmpDir+"mask_"+LastPrefix(aBase)+".tif");
         aToRemove.push_back(aTmpDir+"RPC_"+aBase+".xml");
@@ -1668,7 +1688,6 @@ void BenchEpipolarTiles(cParamExeBench & aParam)
     for (const auto & aName : aToRemove)
         RemoveFile(aName,SVP::Yes);
 
-    aParam.EndBench();
 }
 
 
@@ -1678,9 +1697,8 @@ void BenchEpipolarTiles(cParamExeBench & aParam)
 //  GenerateSensorRPC's own override.
 // ============================================================
 
-void BenchEpipolarNoRPC(cParamExeBench & aParam)
+static void EpipolarNoRPCBody(cParamExeBench & aParam)
 {
-    if (! aParam.NewBench("EpipolarNoRPC")) return;
 
     const std::string aTmpDir = cMMVII_Appli::CurrentAppli().TmpDirTestMMVII() + "EpipolarNoRPC/";
     CreateDirectories(aTmpDir);
@@ -1794,18 +1812,73 @@ void BenchEpipolarNoRPC(cParamExeBench & aParam)
         TheRPCFitMaxResPx = aSavedThr;
     }
 
-    aParam.EndBench();
 }
 
+
+// ============================================================
+//  BenchEpipolarCompare : closed form vs generic algorithm on the same synthetic pair of central perspective cameras.
+//  The two geometries are different images, so they are compared by the property they share : the same ground point
+//  has the same row in both images of the pair, through each model.
+// ============================================================
+
+static void EpipolarCompareBody(cParamExeBench & aParam)
+{
+
+    std::unique_ptr<cPerspCamIntrCalib> aCalib(cPerspCamIntrCalib::SimpleCalib("SimulConicCmp",cPt2di(4000,3000),4000.0));
+    const cPt3dr aTarget(0.0,0.0,0.0);
+    std::unique_ptr<cSensorCamPC> aCam1(BuildLookAtConicCam("ConicCmp1",cPt3dr(-100.0,0.0,500.0),aTarget,aCalib.get()));
+    std::unique_ptr<cSensorCamPC> aCam2(BuildLookAtConicCam("ConicCmp2",cPt3dr( 100.0,0.0,500.0),aTarget,aCalib.get()));
+    const cPt2dr aZIntv(-50.0,50.0);
+
+    auto aParamsGen = cEpipolarRectification::cParams{3,7,3};
+    aParamsGen.mZIntv = aZIntv;
+    aParamsGen.mNoWarnings = true;
+    const auto aModelGen = cEpipolarRectification(*aCam1,*aCam2,aParamsGen).Compute();
+
+    cEpipolarRectificationPC::cParams aParamsPC;
+    aParamsPC.mZIntv = aZIntv;
+    aParamsPC.mNoWarnings = true;
+    const auto aModelPC = cEpipolarRectificationPC(*aCam1,*aCam2,aParamsPC).Compute();
+
+    // Same ground points (random Z in the interval) through both models
+    tREAL8 aMaxRowGen = 0, aMaxRowPC = 0, aSumSqGen = 0;
+    int aNbTested = 0;
+    for (int aTry=0 ; (aNbTested<300) && (aTry<20000) ; aTry++)
+    {
+        bool isOk = false;
+        const cHomogCpleIm aCple = aCam1->RandomVisibleCple(RandInInterval(aZIntv),*aCam2,10000,&isOk);
+        if (! isOk)
+            continue;
+        aNbTested++;
+        const tREAL8 aRowGen = std::abs(aModelGen.EpipMap1().Value(aCple.mP1).y() - aModelGen.EpipMap2().Value(aCple.mP2).y());
+        aMaxRowGen = std::max(aMaxRowGen,aRowGen);
+        aSumSqGen += Square(aRowGen);
+        aMaxRowPC  = std::max(aMaxRowPC ,std::abs(aModelPC .EpipMap1().Value(aCple.mP1).y() - aModelPC .EpipMap2().Value(aCple.mP2).y()));
+    }
+    MMVII_INTERNAL_ASSERT_bench(aNbTested==300,"EpipolarCompare : not enough ground points");
+    MMVII_INTERNAL_ASSERT_bench(aMaxRowPC<1e-3,"EpipolarCompare : closed form rows differ : " + ToStr(aMaxRowPC));
+    // generic : fitted polynomials (low degrees here), the command bounds the sigma of the residuals by MaxResid (0.1)
+    MMVII_INTERNAL_ASSERT_bench(std::sqrt(aSumSqGen/aNbTested)<0.1,"EpipolarCompare : generic rows differ (rms) : " + ToStr(std::sqrt(aSumSqGen/aNbTested)));
+    MMVII_INTERNAL_ASSERT_bench(aMaxRowGen<0.5,"EpipolarCompare : generic rows differ (max) : " + ToStr(aMaxRowGen));
+
+    // Both frames are usable and of the same order
+    for (const auto & aPair : {std::make_pair(&aModelGen.EpipMap1(),&aModelPC.EpipMap1()),std::make_pair(&aModelGen.EpipMap2(),&aModelPC.EpipMap2())})
+    {
+        const cPt2di aSzGen = aPair.first->EpipImSz(), aSzPC = aPair.second->EpipImSz();
+        MMVII_INTERNAL_ASSERT_bench((aSzGen.x()>0) && (aSzPC.x()>0) && (aSzGen.y()>0) && (aSzPC.y()>0),"EpipolarCompare : empty frame");
+        MMVII_INTERNAL_ASSERT_bench((aSzPC.x()<2*aSzGen.x()) && (aSzGen.x()<2*aSzPC.x()) && (aSzPC.y()<2*aSzGen.y()) && (aSzGen.y()<2*aSzPC.y()),
+                                    "EpipolarCompare : frame sizes of the two algorithms differ by more than a factor 2");
+    }
+
+}
 
 // ============================================================
 //  BenchEpipolarZFromTieP : Z inferred from tie points, and priority order
 //  (ZIntv must win over a valid TieP-derived interval).
 // ============================================================
 
-void BenchEpipolarZFromTieP(cParamExeBench & aParam)
+static void EpipolarZFromTiePBody(cParamExeBench & aParam)
 {
-    if (! aParam.NewBench("EpipolarZFromTieP")) return;
 
     std::unique_ptr<cPerspCamIntrCalib> aCalib(cPerspCamIntrCalib::SimpleCalib("SimulConicZT",cPt2di(4000,3000),4000.0));
     const cPt3dr aTarget(0.0,0.0,0.0);
@@ -1859,6 +1932,47 @@ void BenchEpipolarZFromTieP(cParamExeBench & aParam)
             "ZIntv did not take priority over TieP-derived Z for camera 2");
     }
 
+    // ---- Closed form refused for a 360 degrees (EquiRect) camera, with an explicit error
+    {
+        std::unique_ptr<cPerspCamIntrCalib> aCalibEq(cPerspCamIntrCalib::RandomCalib(eProjPC::eEquiRect,0));
+        cSensorCamPC aEq1("EquiRect1",cIsometry3D<tREAL8>::Identity(),aCalibEq.get());
+        cSensorCamPC aEq2("EquiRect2",cIsometry3D<tREAL8>(cPt3dr(1,0,0),cRotation3D<tREAL8>::Identity()),aCalibEq.get());
+        bool aGotExpectedError = false;
+        {
+            cBenchErrorCatcher aCatcher;
+            try
+            {
+                cEpipolarRectificationPC::cParams aParams;
+                aParams.mZIntv = cPt2dr(0,1);
+                cEpipolarRectificationPC(aEq1,aEq2,aParams).Compute();
+            }
+            catch (const cBenchNoZIntvError &)
+            {
+                aGotExpectedError = true;
+            }
+        }
+        MMVII_INTERNAL_ASSERT_bench(aGotExpectedError && (TheBenchLastErrorMes.find("EquiRect") != std::string::npos),"Closed form : expected an explicit error for EquiRect cameras");
+    }
+
+    // ---- Closed form (central perspective cameras) : same rules for the Z interval
+    {
+        cEpipolarRectificationPC::cParams aParams;
+        aParams.mHomolPts = aSetH;
+        const auto aModelTieP = cEpipolarRectificationPC(*aCam1,*aCam2,aParams).Compute();
+        for (const auto & aMap : {&aModelTieP.EpipMap1(),&aModelTieP.EpipMap2()})
+        {
+            const cPt2dr aUsed = aMap->ZInterval();
+            MMVII_INTERNAL_ASSERT_bench((aUsed.x() <= aKnownZ.x()) && (aUsed.x() > aKnownZ.x()-20.0),"Closed form : TieP-derived Zmin implausible : " + ToStr(aUsed.x()));
+            MMVII_INTERNAL_ASSERT_bench((aUsed.y() >= aKnownZ.y()) && (aUsed.y() < aKnownZ.y()+20.0),"Closed form : TieP-derived Zmax implausible : " + ToStr(aUsed.y()));
+        }
+
+        const cPt2dr anAbsurdZIntv(1.0e6,1.0e6 + 1.0);
+        aParams.mZIntv = anAbsurdZIntv;
+        aParams.mNoWarnings = true;
+        const auto aModelZIntv = cEpipolarRectificationPC(*aCam1,*aCam2,aParams).Compute();
+        MMVII_INTERNAL_ASSERT_bench((aModelZIntv.EpipMap1().ZInterval() == anAbsurdZIntv) && (aModelZIntv.EpipMap2().ZInterval() == anAbsurdZIntv),"Closed form : ZIntv did not take priority over TieP-derived Z");
+    }
+
     // ---- Too few tie points after filtering : error, not a silent small interval.
     {
         bool aGotExpectedError = false;
@@ -1880,8 +1994,36 @@ void BenchEpipolarZFromTieP(cParamExeBench & aParam)
             "Expected error when too few tie points survive residual filtering");
     }
 
+}
+
+
+// ============================================================
+//  Groups of epipolar benches (one registered bench per topic)
+// ============================================================
+
+void BenchEpipolarCrop(cParamExeBench & aParam)
+{
+    if (! aParam.NewBench("EpipolarCrop")) return;
+    EpipolarResamplingBody(aParam);   // crop and validity mask of the resampling
+    EpipolarSlaveCropBody(aParam);    // slave crop derived from a master crop and the Z interval
+    EpipolarTilesBody(aParam);        // tiles of a pair equal the global resampling
     aParam.EndBench();
 }
 
+void BenchEpipolarZ(cParamExeBench & aParam)
+{
+    if (! aParam.NewBench("EpipolarZ")) return;
+    EpipolarNoRPCBody(aParam);        // sensors with no native Z interval
+    EpipolarZFromTiePBody(aParam);    // Z interval from tie points, priority of ZIntv, closed form, EquiRect refused
+    aParam.EndBench();
+}
+
+void BenchEpipolarPC(cParamExeBench & aParam)
+{
+    if (! aParam.NewBench("EpipolarPC")) return;
+    BenchEpipolarPCBody(aParam);      // closed form: rows, round trips, virtual cameras, model on disk
+    EpipolarCompareBody(aParam);      // closed form vs generic on the same pair
+    aParam.EndBench();
+}
 
 } // namespace MMVII

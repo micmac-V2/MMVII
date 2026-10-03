@@ -3,6 +3,7 @@
 
 #include "cPolyXY_N.h"
 #include "MMVII_Mappings.h"
+#include "MMVII_Geom3D.h"
 #include "MMVII_AllClassDeclare.h"  // cPt2dr, cPt3dr, cPt2di, etc.
 #include "MMVII_Tpl_ElemStrToVal.h"
 #include "MMVII_MeasuresIm.h"  // cSetHomogCpleIm
@@ -12,6 +13,8 @@
 namespace MMVII {
 
 class cSensorImage;
+class cSensorCamPC;
+class cParamExeBench;
 
 /// Serialization for cRect2 (no existing AddData for cTplBox/cPixBox in MMVII)
 void AddData(const cAuxAr2007 &anAux, cRect2 &aRect);
@@ -31,30 +34,28 @@ enum class eEpipFrm
 class cEpipolarMapping : public cDataInvertibleMapping<tREAL8,2>
 {
 public:
-    cEpipolarMapping(const cPt2dr& aZInterval, tREAL8 aGridStep, int aNbStepX, int aNbStepY)
-        : mZInterval(aZInterval), mGridStep(aGridStep), mNbStepX(aNbStepX), mNbStepY(aNbStepY) {}
+    cEpipolarMapping(const cPt2dr& aZInterval) : mZInterval(aZInterval) {}
     // Base's copy ctor is deleted but holds no state we rely on ; reconstruct it fresh.
     cEpipolarMapping(const cEpipolarMapping &aOther)
         : mEpipImFrame(aOther.mEpipImFrame), mZInterval(aOther.mZInterval)
-        , mGridStep(aOther.mGridStep), mNbStepX(aOther.mNbStepX), mNbStepY(aOther.mNbStepY)
     {}
     void SetEpipImFrame(const cRect2& aFrame) { mEpipImFrame = aFrame;}
     cRect2 EpipFrame() const { return mEpipImFrame; }
     cPt2di EpipImSz() const { return mEpipImFrame.Sz(); }
     cPt2dr ZInterval() const { return mZInterval; }
-    /// GenerateData's XY grid : pixel step and step count per axis
-    tREAL8 GridStep() const { return mGridStep; }
-    int NbStepX() const { return mNbStepX; }
-    int NbStepY() const { return mNbStepY; }
+
+    /// Tag of the type in a serialized pair model
+    virtual std::string TypeName() const = 0;
+    virtual std::unique_ptr<cEpipolarMapping> Clone() const = 0;
+    virtual void AddData(const cAuxAr2007 &anAux) = 0;
+    /// Gives the mapping the sensor it applies to when it needs one (after reading a model) ; nothing by default
+    virtual void SetSourceSensor(const cSensorImage &) {}
 protected:
     /// Serialize the fields common to every cEpipolarMapping ; called by derived classes' own AddData
     void AddDataBase(const cAuxAr2007 &anAux);
 
     cRect2 mEpipImFrame{cPt2di{0,0},cPt2di{0,0},true}; ///< frame in epipolar space (for resampling)
     cPt2dr mZInterval;
-    tREAL8 mGridStep;
-    int    mNbStepX;
-    int    mNbStepY;
 };
 
 // Default mask name pattern : $1 = output image name without extension
@@ -170,13 +171,15 @@ std::pair<int,int> EpipFoldCount(const cEpipolarMapping & aMap, const cSensorIma
 // Z interval valid for both images of the pair : intersection of the two, error if empty.
 cPt2dr EpipPairZInterval(const cEpipolarMapping & aMap1, const cEpipolarMapping & aMap2);
 
-// Resample one image in its epipolar geometry (crop, optional mask, optional RPC). aSI null => no RPC.
-// aRPCFile : RPC of the full epipolar frame already computed (EpipRectification), cropped here ; if empty, it is fitted from aSI.
+// Sensor of the full epipolar frame of an image, named aName. Read from aSensorFile if not empty (saved by EpipRectification), else fitted
+// from aSI and the Z interval of the mapping. Caller owns it.
+cSensorImage * EpipSensor(const cSensorImage & aSI, const cEpipolarMapping & anEpipMap, const std::string & aName, const std::string & aSensorFile = "");
+
+// Resample one image in its epipolar geometry (crop, optional mask, optional sensor). aEpipSI : sensor of the full epipolar frame (EpipSensor), cropped here ; null => none written.
 void ResampleEpipImage(const cEpipCropMaskOpts & anOpt,
                        const std::string & aNameIm,
                        const cEpipolarMapping & anEpipMap,
-                       const cSensorImage * aSI,
-                       const std::string & aRPCFile,
+                       const cSensorImage * aEpipSI,
                        const cInterpolator1D & aInterp,
                        bool aNoImage,
                        const std::string & aOutDir,
@@ -251,7 +254,8 @@ public:
                      cPt2dr aDir,
                      cPt2dr aZInterval,
                      tREAL8 aGridStep, int aNbStepX, int aNbStepY)
-        : cEpipolarMapping(aZInterval, aGridStep, aNbStepX, aNbStepY)
+        : cEpipolarMapping(aZInterval)
+        , mGridStep(aGridStep), mNbStepX(aNbStepX), mNbStepY(aNbStepY)
         , mV(aV)
         , mW(aW)
         , mCenter{aCenter}
@@ -259,14 +263,22 @@ public:
     {}
     cEpipPolyMapping(const cEpipPolyMapping &aOther)
         : cEpipolarMapping(aOther)
+        , mGridStep(aOther.mGridStep), mNbStepX(aOther.mNbStepX), mNbStepY(aOther.mNbStepY)
         , mV(aOther.mV), mW(aOther.mW), mCenter(aOther.mCenter), mDir(aOther.mDir)
     {}
 
     cPt2dr Value(const cPt2dr& aPt) const override;
     cPt2dr Inverse(const cPt2dr& aPt) const override;
 
-    /// Serialize : base (ZInterval,GridStep,NbStepX/Y,EpipImFrame) then V,W,Center,Dir
-    void AddData(const cAuxAr2007 &anAux);
+    /// GenerateData's XY grid : pixel step and step count per axis
+    tREAL8 GridStep() const { return mGridStep; }
+    int NbStepX() const { return mNbStepX; }
+    int NbStepY() const { return mNbStepY; }
+
+    std::string TypeName() const override { return "Poly"; }
+    std::unique_ptr<cEpipolarMapping> Clone() const override { return std::make_unique<cEpipPolyMapping>(*this); }
+    /// Serialize : base (ZInterval,EpipImFrame) then GridStep,NbStepX/Y,V,W,Center,Dir
+    void AddData(const cAuxAr2007 &anAux) override;
 
 private:
     /// (p - C) / D  (complex division = rotation)
@@ -275,6 +287,9 @@ private:
     /// q * D + C
     cPt2dr FromRotatedFrame(const cPt2dr& q) const;
 
+    tREAL8 mGridStep;
+    int    mNbStepX;
+    int    mNbStepY;
     // --- Forward polynomial Vk (image -> epipolar) ---
     cPolyXY_Nd mV;
     // --- Inverse polynomial Wk (epipolar -> image) ---
@@ -286,17 +301,23 @@ private:
 void AddData(const cAuxAr2007 &anAux, cEpipPolyMapping &aMap);
 
 
-// Epipolar model of an image pair : both mappings + the Ori and image names they were computed from.
+// Epipolar model of an image pair : both mappings (polynomial or central perspective) + the Ori and image names they were computed from.
 class cEpipPairModel
 {
 public:
-    cEpipPairModel(const cEpipPolyMapping &aMap1, const cEpipPolyMapping &aMap2, const std::string &aOriName,
+    cEpipPairModel() {}   ///< for ReadFromFile
+    cEpipPairModel(std::unique_ptr<cEpipolarMapping> aMap1, std::unique_ptr<cEpipolarMapping> aMap2, const std::string &aOriName,
                    const std::string &aNameIm1, const std::string &aNameIm2)
-        : mMap1(aMap1), mMap2(aMap2), mOriName(aOriName), mNameIm1(aNameIm1), mNameIm2(aNameIm2)
+        : mMap1(std::move(aMap1)), mMap2(std::move(aMap2)), mOriName(aOriName), mNameIm1(aNameIm1), mNameIm2(aNameIm2)
     {}
+    cEpipPairModel(const cEpipPairModel &aOther);
+    cEpipPairModel(cEpipPairModel &&) = default;
+    cEpipPairModel & operator = (cEpipPairModel &&) = default;
 
     /// aNum is 1 or 2
-    const cEpipPolyMapping &Map(int aNum) const { return (aNum==1) ? mMap1 : mMap2; }
+    const cEpipolarMapping &Map(int aNum) const { return (aNum==1) ? *mMap1 : *mMap2; }
+    /// Gives the mappings that need it (central perspective) the sensors of the images, to call after reading the model
+    void BindSensors(const cSensorImage &aSensor1, const cSensorImage &aSensor2);
     const std::string &ImName(int aNum) const { return (aNum==1) ? mNameIm1 : mNameIm2; }
     const std::string &OriName() const { return mOriName; }
     /// File (name relative to the model file) of the RPC of the full epipolar frame of an image, empty if none was saved
@@ -309,12 +330,12 @@ public:
     static cEpipPairModel FromFile(const std::string &aNameFile);
 
 private:
-    cEpipPolyMapping mMap1;
-    cEpipPolyMapping mMap2;
+    std::unique_ptr<cEpipolarMapping> mMap1;
+    std::unique_ptr<cEpipolarMapping> mMap2;
     std::string      mOriName;
     std::string      mNameIm1;
     std::string      mNameIm2;
-    std::string      mRPCName1;   ///< RPC of the full frame saved with the model (optional, absent in old models)
+    std::string      mRPCName1;   ///< RPC of the full frame saved with the model (optional)
     std::string      mRPCName2;
 };
 
@@ -326,6 +347,51 @@ class cEpipPolyModel : public cEpipolarModelTpl<cEpipPolyMapping>
 public:
     using cEpipolarModelTpl<cEpipPolyMapping>::cEpipolarModelTpl;
 };
+
+
+// ============================================================
+//  Epipolar rectification of a pair of central perspective cameras (cSensorCamPC), closed form.
+//  The epipolar image of a camera is the image of a virtual camera with the same centre, a rotation common to the pair
+//  (X axis = baseline), a common focal and no distortion : no Z interval, no fit.
+//  Epipolar space : pixel of the virtual camera with principal point (0,0), minus the origin of the frame.
+// ============================================================
+
+class cEpipMappingPC : public cEpipolarMapping
+{
+public:
+    /// aEpipRot : virtual camera to world ; aZInterval : information only (not used by the mapping)
+    cEpipMappingPC(const cSensorCamPC & aCam,const cRotation3D<tREAL8> & aEpipRot,tREAL8 aFocal,const cPt2dr & aZInterval=cPt2dr(0,0));
+    /// Placeholder to be filled by AddData, then bound to its camera by SetSourceSensor
+    cEpipMappingPC();
+
+    cPt2dr Value(const cPt2dr& aPt) const override;
+    cPt2dr Inverse(const cPt2dr& aPt) const override;
+
+    const cRotation3D<tREAL8> & EpipRot() const { return mRot; }
+    tREAL8 Focal() const { return mFocal; }
+    /// Virtual camera of the full epipolar frame (frame must be set), named aName ; caller owns it, its calibration is deleted at end of application
+    cSensorCamPC * VirtualCamera(const std::string & aName) const;
+
+    std::string TypeName() const override { return "PC"; }
+    std::unique_ptr<cEpipolarMapping> Clone() const override { return std::make_unique<cEpipMappingPC>(*this); }
+    /// Serialize : base then Focal and the three axes of the virtual camera (the source camera is not saved)
+    void AddData(const cAuxAr2007 &anAux) override;
+    void SetSourceSensor(const cSensorImage & aSensor) override;
+
+private:
+    cPt2dr ValueInDomain(const cPt2dr& aPt) const;
+    const cSensorCamPC &  Cam() const;
+    const cSensorCamPC *  mCam;    ///< Source camera, not owned, null until bound when read from a file
+    cRotation3D<tREAL8>   mRot;
+    tREAL8                mFocal;
+};
+
+class cEpipModelPC : public cEpipolarModelTpl<cEpipMappingPC>
+{
+public:
+    using cEpipolarModelTpl<cEpipMappingPC>::cEpipolarModelTpl;
+};
+
 
 
 // ============================================================
@@ -426,17 +492,7 @@ private:
             const cPolyXY_Nd& aV1, const cPolyXY_Nd& aV2,
             const cPolyXY_Nd& aW1, const cPolyXY_Nd& aW2);
 
-    // ----------------------------------------------------------
-    //  Resolve the Z interval for a master camera : mZIntv > tie-point-derived
-    //  > aCamM's own native interval.
-    // ----------------------------------------------------------
-    cPt2dr EffectiveZInterval(const cSensorImage & aCamM) const;
-
-    // ----------------------------------------------------------
-    //  Z envelope of mParams.mHomolPts, triangulated and filtered by
-    //  residual, plus mZMargin. Memoized.
-    // ----------------------------------------------------------
-    cPt2dr ZIntervalFromHomolPts() const;
+    /// Memoized tie-point-derived Z interval (see EpipEffectiveZInterval)
     mutable std::optional<cPt2dr> mCachedHomolZIntv;
 
     // ----------------------------------------------------------
@@ -478,6 +534,30 @@ private:
     double mW2VarIndep = 0.0;
 };
 
+// Z interval of a master camera aCamM of the pair (aCam1,aCam2) : mZIntv > tie-point-derived > aCamM's own native.
+// aCache memoizes the tie-point-derived one (identical for both masters).
+cPt2dr EpipEffectiveZInterval(const cEpipolarRectification::cParams & aParams,const cSensorImage & aCamM,
+                              const cSensorImage & aCam1,const cSensorImage & aCam2,std::optional<cPt2dr> & aCache);
+
+// Closed-form rectification of a pair of central perspective cameras. Uses the frame, Z interval and tie-point
+// parameters of cEpipolarRectification::cParams ; the polynomial ones are ignored.
+class cEpipolarRectificationPC
+{
+public:
+    typedef cEpipolarRectification::cParams cParams;
+    cEpipolarRectificationPC(const cSensorCamPC & aCam1,const cSensorCamPC & aCam2,const cParams & aParams);
+    /// Mappings of both images, common frame set
+    cEpipModelPC Compute();
+private:
+    const cSensorCamPC & mCam1;
+    const cSensorCamPC & mCam2;
+    cParams              mParams;
+};
+
+
+
+// Body of the closed form bench, run inside the group BenchEpipolarPC
+void BenchEpipolarPCBody(cParamExeBench & aParam);
 
 } // namespace MMVII
 
