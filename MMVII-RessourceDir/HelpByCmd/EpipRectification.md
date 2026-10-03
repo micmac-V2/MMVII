@@ -13,18 +13,65 @@ is the geometry expected by dense matching.
 
 The command works with any sensor that can project a ground point and
 build the bundle of an image point: RPC (satellite) sensors as well as
-central perspective cameras. The rectification does not need a regular
-epipolar geometry: the transformation of each image is a polynomial
-model fitted from synthetic correspondences, generated between the two
-sensors over a Z interval.
+central perspective cameras. It has two algorithms, described below: a
+specific closed form for pairs of central perspective cameras, and a
+generic one for everything else. The algorithm is chosen automatically;
+`Generique=true` forces the generic one.
 
-The result of the computation is a *model* (one polynomial mapping per
-image), which can be saved with `SaveModel=true` and reused later by the
-command `EpipResampling` (see the last section).
+The result of the computation is a *model* (one mapping per image,
+closed form or polynomial), which can be saved with `SaveModel=true` and
+reused later by the command `EpipResampling` (see the last section).
 
-# Principle and conventions
+# The two algorithms
 
-The epipolar mapping of an image is
+-   **Closed form** (default when both sensors are central perspective
+    cameras, i.e. MMVII orientations): each image is replaced by that of
+    a virtual camera. Exact up to the inversion of the distortion, no
+    fit, no Z interval needed by the geometry, and the epipolar sensors
+    are standard orientations (cameras). Not available for 360 degrees
+    (`EquiRect`) cameras.
+
+-   **Generic** (RPC and any other sensor, or `Generique=true`): the
+    transformation of each image is a polynomial fitted on synthetic
+    correspondences generated between the two sensors over a Z interval.
+    It needs no regular epipolar geometry (pushbroom satellites for
+    instance); its epipolar sensors are RPC fitted on the mappings.
+
+Both give images whose rows match, but the two geometries are not the
+same images: the closed form re-projects on a pinhole virtual camera, the
+generic one straightens the epipolar curves by a polynomial on `y`. In
+both cases the mapping of an image starts at 0 in the epipolar frame,
+`y` is common to the pair and the disparity `x2 - x1` depends on the
+ground Z and on the position in the image. The options `Degree`,
+`DegreeInv`, `MaxResid` and `ZSteps`, the quality control and the checks
+on the overlap concern the generic algorithm only; `ZIntv`/`TieP`,
+`FrameAlgo`, `Interpol` and the outputs concern both.
+
+# Closed form algorithm (pairs of central perspective cameras)
+
+When both images have a central perspective camera (an MMVII orientation),
+the rectification is computed in closed form, without fit: each image is
+replaced by the image of a *virtual camera* with the same centre, a
+rotation common to the pair (its `x` axis is the baseline, its `z` axis the
+mean viewing direction made orthogonal to the baseline), the mean of the two
+focals and no distortion. The mapping of an image is then the removal of
+the distortion followed by a homography; its epipolar coordinates are the
+pixels of the virtual camera, minus the frame origin. The rows match to the
+accuracy of the distortion inversion of the calibrations.
+
+`Generique=true` forces the generic algorithm below for such a pair. The
+Z interval (`ZIntv`, or `TieP`) is still required: it is not used by the
+mapping, but by the info file and by the derivation of the crop of the
+second image. `FrameAlgo` chooses the common frame as for the generic
+algorithm.
+
+The sensor of an epipolar image is then the virtual camera, saved as a
+standard orientation file (`Ori-PerspCentral-<image>.xml`, with its
+calibration) instead of an RPC; `NoOri=true` suppresses it too.
+
+# Generic algorithm (principle and conventions)
+
+The epipolar mapping of an image is, for this algorithm,
 
     (x,y) -> (x_rot, V(x_rot,y_rot)) - frame origin
 
@@ -51,8 +98,9 @@ are split into a training pool, used for the fit, and a held-out pool,
 used for the quality control (see below). `ZSteps` is the number of Z
 steps used for this generation.
 
-The size of the output images is controlled by `FrameAlgo`, which chooses
-how the common frame of the two epipolar images is built: `Intersect`
+The size of the output images is controlled by `FrameAlgo` (both
+algorithms), which chooses how the common frame of the two epipolar
+images is built: `Intersect`
 (default) keeps only the common part, `Union` keeps all the parts,
 `Img_1` (resp. `Img_2`) takes the height of the frame from the first
 (resp. second) image.
@@ -96,7 +144,7 @@ must be retained, otherwise the command stops. For a scene that is
 almost flat, the Z interval inferred from tie points can be too narrow:
 give `ZIntv=` explicitly.
 
-# Quality control
+# Quality control (generic algorithm)
 
 The fit is controlled on a set of points that were not used to compute
 it. The command prints the standard deviation (in pixels) of the
@@ -108,7 +156,7 @@ interval.
 
 # Checks on the pair
 
-Before the fit, the command samples the first image over the Z interval
+Generic algorithm: before the fit, the command samples the first image over the Z interval
 and counts the points visible in the second one, and conversely. If the
 images do not overlap enough (fewer than 50 points in each pool), it
 stops with an error that gives the number of points seen and the Z
@@ -118,7 +166,7 @@ After the fit, a warning is issued if an epipolar mapping folds over the
 overlap (the sign of its Jacobian changes: the resampled image would be
 unusable there); try a lower `Degree` or check the Z interval.
 
-When the info file is written, the command prints the mean parallax over
+Both algorithms: when the info file is written, the command prints the mean parallax over
 the Z interval, that is the change of the disparity with Z alone (the
 disparity range also contains its variation with the position in the
 image). A warning is issued if it is under 1 pixel (nearly parallel
@@ -127,7 +175,7 @@ the width of the epipolar image (almost surely a wrong Z interval).
 
 # Resampling and outputs
 
-Unless `NoImage=true` and `NoRPC=true`, both images are resampled with
+Unless `NoImage=true` and `NoOri=true`, both images are resampled with
 the interpolator given by `Interpol` (default: `[Cubic,-0.5]`). The
 files are written in `OutDir` (default: `VISU/EpipRectification`).
 
@@ -141,17 +189,21 @@ pair; `.tif` is added if the pattern has no extension (same for
 
 -   `RPC_Epip_Im1_Im2.tif.xml` and `RPC_Epip_Im2_Im1.tif.xml`: the RPC
     sensor of each resampled image, usable in the following steps (not
-    generated with `NoRPC=true`);
+    generated with `NoOri=true`). For a closed form pair these are
+    standard orientations, `Ori-PerspCentral-Epip_Im1_Im2.tif.xml` and
+    `Ori-PerspCentral-Epip_Im2_Im1.tif.xml`, each with its calibration
+    file `Epip_Im1_Im2.tif-Calib.xml`;
 
 -   with `SaveModel=true`, the model of the pair, in a single file named
     after the resampled first image, with the suffix `.EpipModel.` and
     the usual tagged suffix of the profile (`Epip_Im1_Im2.EpipModel.xml`
-    by default). It also names the RPC files of the two full frames
-    (unless `NoRPC=true`), which `EpipResampling` reuses instead of
-    fitting them again.
+    by default). For a polynomial model it also names the RPC files of
+    the two full frames (unless `NoOri=true`), which `EpipResampling`
+    reuses instead of fitting them again; a closed form model holds the
+    parameters of the virtual cameras, which are rebuilt without fit.
 
 `NoImage=true` suppresses the resampled images (for instance to compute
-only the model, or only the RPC), `NoRPC=true` suppresses the RPC.
+only the model, or only the orientations), `NoOri=true` suppresses the orientations (RPC, or cameras for a closed form pair).
 
 The validity mask is optional. With `Mask=true`, or when `MaskName=` is
 given, a 1-bit image is written for each resampled image: a pixel is 1
@@ -190,9 +242,13 @@ Rectification of a pair of RPC images, saving the model:
 
     MMVII EpipRectification Im1.tif Im2.tif Ori SaveModel=true
 
-Central perspective cameras, Z interval given:
+Central perspective cameras (closed form), Z interval given:
 
     MMVII EpipRectification Im1.tif Im2.tif Ori ZIntv=[0,100]
+
+The same pair with the generic polynomial solver:
+
+    MMVII EpipRectification Im1.tif Im2.tif Ori ZIntv=[0,100] Generique=true
 
 Z interval inferred from the tie points of the project:
 
@@ -205,7 +261,7 @@ With validity masks:
 Computation of the model only:
 
     MMVII EpipRectification Im1.tif Im2.tif Ori \
-        SaveModel=true NoImage=true NoRPC=true
+        SaveModel=true NoImage=true NoOri=true
 
 # Related commands
 

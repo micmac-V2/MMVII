@@ -1120,12 +1120,9 @@ cSensorImage * cSensorImage::GenerateSensorRPC(const cDataInvertibleMapping<tREA
         if (aMaxRes <= TheRPCFitMaxResPx)
             return aRPCSens;
         delete aRPCSens;
-        TheRPCFitNbRetry++;
-        MMVII_USER_WARNING("RPC fit on a grid " + std::to_string(aStepsXY) + "x" + std::to_string(aStepsXY) + "x" + std::to_string(aStepsZ)
-                           + " : max residual " + std::to_string(aMaxRes) + " px > " + std::to_string(TheRPCFitMaxResPx)
-                           + ((aKG+1<TheRPCFitGrids.size()) ? ", trying another grid" : ", no grid left"));
+        TheRPCFitNbRetry++;   // a retry is a fallback, not a problem : only the failure of every grid is reported
     }
-    MMVII_UserError(eTyUEr::eUnClassedError,"The RPC fit failed on all grids (last max residual " + std::to_string(aMaxRes)
+    MMVII_UserError(eTyUEr::eUnClassedError,"The RPC fit failed on all " + std::to_string(TheRPCFitGrids.size()) + " grids (last max residual " + std::to_string(aMaxRes)
                     + " px > " + std::to_string(TheRPCFitMaxResPx) + " px)");
     return nullptr;
 }

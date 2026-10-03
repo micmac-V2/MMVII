@@ -1,5 +1,6 @@
 #include "cMMVII_Appli.h"
 #include "MMVII_Sensor.h"
+#include "MMVII_PCSens.h"
 #include "cEpipolarRectification.h"
 #include "MMVII_Interpolators.h"
 #include "MMVII_CodeTiming.h"
@@ -129,11 +130,21 @@ static bool SourceWindow(const cDataInvertibleMapping<tREAL8,2> & aMap, const cP
     return true;
 }
 
+cSensorImage * EpipSensor(const cSensorImage & aSI,const cEpipolarMapping & anEpipMap,const std::string & aName,const std::string & aSensorFile)
+{
+    // Closed form : the virtual camera of the mapping
+    if (auto * aMapPC = dynamic_cast<const cEpipMappingPC*>(&anEpipMap))
+        return aMapPC->VirtualCamera(FileOfPath(aName,false));   // names without directory : the calibration is written next to the sensor
+    // Strategy for RPC : read the saved sensor, else fit it from the source sensor and the Z interval of the mapping
+    return aSensorFile.empty()
+        ? aSI.GenerateSensorRPC(&anEpipMap, nullptr, false, aName, anEpipMap.ZInterval())
+        : ReadExternalSensor(aSensorFile, aName, false);
+}
+
 void ResampleEpipImage(const cEpipCropMaskOpts & anOpt,
                               const std::string & aNameIm,
                               const cEpipolarMapping & anEpipMap,
-                              const cSensorImage * aSI,
-                              const std::string & aRPCFile,
+                              const cSensorImage * aEpipSI,
                               const cInterpolator1D & aInterp,
                               bool aNoImage,
                               const std::string & aOutDir,
@@ -185,22 +196,20 @@ void ResampleEpipImage(const cEpipCropMaskOpts & anOpt,
         delete aImRectif;
     }
 
-    if (aSI)
+    if (aEpipSI)
     {
-        auto aRPCName = aOutDir + "RPC_" + aOutBaseName + ".xml";
-        StdOut() << "RPC : " << aRPCName << std::endl;
-        // RPC of the full frame (read, or fitted), then cropped : all crops of an image share the same polynomials.
-        auto aResampSI = aRPCFile.empty()
-            ? aSI->GenerateSensorRPC(&anEpipMap, nullptr, false, anOutName, anEpipMap.ZInterval())
-            : ReadExternalSensor(aRPCFile, anOutName, false);
+        // A camera is saved as a standard orientation, an RPC as an RPC file
+        const bool aIsCam = aEpipSI->IsSensorCamPC();
+        auto aRPCName = aOutDir + (aIsCam ? cSensorCamPC::NameOri_From_Image(aOutBaseName) : "RPC_" + aOutBaseName + ".xml");
+        StdOut() << (aIsCam ? "Ori : " : "RPC : ") << aRPCName << std::endl;
+        // Sensor of the full frame, then cropped : all crops of an image share the same geometry.
         if (anOpt.mHasCrop)
         {
-            auto aCropSI = aResampSI->CropSensor(ToI(aCropP0), aOutSz);
-            delete aResampSI;
-            aResampSI = aCropSI;
+            std::unique_ptr<cSensorImage> aCropSI(aEpipSI->CropSensor(ToI(aCropP0), aOutSz));
+            aCropSI->ToFile(aRPCName);
         }
-        aResampSI->ToFile(aRPCName);
-        delete aResampSI;
+        else
+            aEpipSI->ToFile(aRPCName);
     }
 }
 
@@ -240,7 +249,8 @@ private :
     std::vector<std::string> mInterpol = {"Cubic","-0.5"};
     eEpipFrm mFrame = eEpipFrm::eIntersect;
     bool mSaveModel = false;
-    bool mNoRPC = false;
+    bool mGeneric = false;
+    bool mNoOri = false;
     bool mNoImage = false;
     cEpipCropMaskOpts mCropMask;
 };
@@ -264,7 +274,8 @@ void cAppli_EpipRectification::Resample(const std::string& aMasterName,
                                      )
 {
     auto aBaseName = EpipOutBaseName(mOutNamePat,aMasterName,aSlaveName);
-    ResampleEpipImage(aCropMask, aMasterName, anEpipMap, mNoRPC ? nullptr : aSI, "", *aInterp, mNoImage, mOutDir, aBaseName);
+    std::unique_ptr<cSensorImage> aEpipSI(mNoOri ? nullptr : EpipSensor(*aSI,anEpipMap,mOutDir+aBaseName));
+    ResampleEpipImage(aCropMask, aMasterName, anEpipMap, aEpipSI.get(), *aInterp, mNoImage, mOutDir, aBaseName);
 }
 
 
@@ -330,44 +341,58 @@ int cAppli_EpipRectification::Exe()
             "No tie points found between the two images in the TieP directory");
         aParams.mHomolPts = aSetH;
     }
-    auto aRectifier = cEpipolarRectification(*aSI1, *aSI2, aParams);
-    auto aEpipModel = aRectifier.Compute();
-
-    StdOut() << "Nb Pairs 1->2 : " << aRectifier.NbPairs12() << std::endl;
-    StdOut() << "Nb Pairs 2->1 : " << aRectifier.NbPairs21() << std::endl;
-
-    for (const auto& [aName,aMap] : {std::make_pair("Image_1",&aEpipModel.EpipMap1()), std::make_pair("Image_2",&aEpipModel.EpipMap2())})
+    // Two central perspective cameras : closed form with virtual cameras, unless the generic solver is forced
+    const bool aClosedForm = (! mGeneric) && aSI1->GetSensorCamPC() && aSI2->GetSensorCamPC();
+    std::unique_ptr<cEpipolarModel> aEpipModel;
+    if (aClosedForm)
     {
-        StdOut() << "Grid " << aName << " : step=" << aMap->GridStep() << "px, "
-                 << aMap->NbStepX() << "*" << aMap->NbStepY() << "=" << (aMap->NbStepX()*aMap->NbStepY()) << " cells" << std::endl;
+        StdOut() << "Algorithm: closed form (central perspective cameras)" << std::endl;
+        aEpipModel = std::make_unique<cEpipModelPC>(cEpipolarRectificationPC(*aSI1->GetSensorCamPC(),*aSI2->GetSensorCamPC(),aParams).Compute());
+    }
+    else
+    {
+        StdOut() << "Algorithm: generic (polynomial)" << std::endl;
+        auto aRectifier = cEpipolarRectification(*aSI1, *aSI2, aParams);
+        aEpipModel = std::make_unique<cEpipPolyModel>(aRectifier.Compute());
+
+        StdOut() << "Nb Pairs 1->2 : " << aRectifier.NbPairs12() << std::endl;
+        StdOut() << "Nb Pairs 2->1 : " << aRectifier.NbPairs21() << std::endl;
+
+        for (const auto& [aName,aMap] : {std::make_pair("Image_1",static_cast<const cEpipPolyMapping*>(&aEpipModel->EpipMap1())),
+                                     std::make_pair("Image_2",static_cast<const cEpipPolyMapping*>(&aEpipModel->EpipMap2()))})
+        {
+            StdOut() << "Grid " << aName << " : step=" << aMap->GridStep() << "px, "
+                     << aMap->NbStepX() << "*" << aMap->NbStepY() << "=" << (aMap->NbStepX()*aMap->NbStepY()) << " cells" << std::endl;
+        }
+
+        // Independent (held-out) residual check, complementing the train-biased variance above.
+        const tREAL8 aV1V2ResidIndep = std::sqrt(aRectifier.V1V2VarIndep());
+        const tREAL8 aW1ResidIndep   = std::sqrt(aRectifier.W1VarIndep());
+        const tREAL8 aW2ResidIndep   = std::sqrt(aRectifier.W2VarIndep());
+        StdOut() << "V1,V2 errors sigma (indep, px) : " << Color::info << aV1V2ResidIndep << Color::end << std::endl;
+        StdOut() << "W1 errors sigma (indep, px) : " << Color::info << aW1ResidIndep << Color::end << std::endl;
+        StdOut() << "W2 errors sigma (indep, px) : " << Color::info << aW2ResidIndep << Color::end << std::endl;
+        if (aV1V2ResidIndep > mMaxResid)
+        {
+            MMVII_UserError(eTyUEr::eUnClassedError,
+                "Independent V1/V2 residual too high (" + ToStr(aV1V2ResidIndep) + " > " + ToStr(mMaxResid) + ")");
+        }
+        if (aW1ResidIndep > mMaxResid)
+        {
+            MMVII_UserError(eTyUEr::eUnClassedError,
+                "Independent W1 residual too high (" + ToStr(aW1ResidIndep) + " > " + ToStr(mMaxResid) + ")");
+        }
+        if (aW2ResidIndep > mMaxResid)
+        {
+            MMVII_UserError(eTyUEr::eUnClassedError,
+                "Independent W2 residual too high (" + ToStr(aW2ResidIndep) + " > " + ToStr(mMaxResid) + ")");
+        }
+
+
     }
 
-    // Independent (held-out) residual check, complementing the train-biased variance above.
-    const tREAL8 aV1V2ResidIndep = std::sqrt(aRectifier.V1V2VarIndep());
-    const tREAL8 aW1ResidIndep   = std::sqrt(aRectifier.W1VarIndep());
-    const tREAL8 aW2ResidIndep   = std::sqrt(aRectifier.W2VarIndep());
-    StdOut() << "V1,V2 errors sigma (indep, px) : " << Color::info << aV1V2ResidIndep << Color::end << std::endl;
-    StdOut() << "W1 errors sigma (indep, px) : " << Color::info << aW1ResidIndep << Color::end << std::endl;
-    StdOut() << "W2 errors sigma (indep, px) : " << Color::info << aW2ResidIndep << Color::end << std::endl;
-    if (aV1V2ResidIndep > mMaxResid)
-    {
-        MMVII_UserError(eTyUEr::eUnClassedError,
-            "Independent V1/V2 residual too high (" + ToStr(aV1V2ResidIndep) + " > " + ToStr(mMaxResid) + ")");
-    }
-    if (aW1ResidIndep > mMaxResid)
-    {
-        MMVII_UserError(eTyUEr::eUnClassedError,
-            "Independent W1 residual too high (" + ToStr(aW1ResidIndep) + " > " + ToStr(mMaxResid) + ")");
-    }
-    if (aW2ResidIndep > mMaxResid)
-    {
-        MMVII_UserError(eTyUEr::eUnClassedError,
-            "Independent W2 residual too high (" + ToStr(aW2ResidIndep) + " > " + ToStr(mMaxResid) + ")");
-    }
-
-
-    const auto& anEpipMap1 = aEpipModel.EpipMap1();
-    const auto& anEpipMap2 = aEpipModel.EpipMap2();
+    const auto& anEpipMap1 = aEpipModel->EpipMap1();
+    const auto& anEpipMap2 = aEpipModel->EpipMap2();
 
     if (mSaveModel)
     {
@@ -375,16 +400,15 @@ int cAppli_EpipRectification::Exe()
         StdOut() << Color::sub_title << "*** Model" << Color::end << std::endl;
         auto aBaseName = EpipOutBaseName(mOutNamePat,mNameIm1,mNameIm2);
         auto aModelName = mOutDir + LastPrefix(aBaseName) + ".EpipModel." + GlobTaggedNameDefSerial();
-        cEpipPairModel aModel(static_cast<const cEpipPolyMapping&>(anEpipMap1), static_cast<const cEpipPolyMapping&>(anEpipMap2),
-                              mPhProj.DPOrient().DirIn(), mNameIm1, mNameIm2);
-        if (! mNoRPC)   // the RPC of the full frames are written with the images, in the directory of the model
+        cEpipPairModel aModel(anEpipMap1.Clone(), anEpipMap2.Clone(), mPhProj.DPOrient().DirIn(), mNameIm1, mNameIm2);
+        if ((! mNoOri) && (anEpipMap1.TypeName() == "Poly"))   // the RPC of the full frames are written with the images, in the directory of the model
             aModel.SetRPCNames("RPC_" + EpipOutBaseName(mOutNamePat,mNameIm1,mNameIm2) + ".xml",
                                "RPC_" + EpipOutBaseName(mOutNamePat,mNameIm2,mNameIm1) + ".xml");
         aModel.ToFile(aModelName);
         StdOut() << "Model: " << aModelName << std::endl;
     }
 
-    if ((! mNoImage) || (! mNoRPC))
+    if ((! mNoImage) || (! mNoOri))
     {
         StdOut() << Color::sub_title << "*** Resampling" << Color::end << std::endl;
 
@@ -421,6 +445,7 @@ cCollecSpecArg2007 & cAppli_EpipRectification::ArgOpt(cCollecSpecArg2007 & anArg
 {
     anArgOpt
         << cHeaderSectionArg("Rectification")
+        << AOpt2007(mGeneric,"Generique","Force the generic (polynomial) solver for two central perspective cameras (closed form by default); the options below up to Z interval ones apply to it only",{eTA2007::HDV})
         << AOpt2007(mDegree,"Degree","Poly degree",{eTA2007::HDV})
         << AOpt2007(mDegreeInv,"DegreeInv","Inv Poly degree",{eTA2007::HDV})
         << AOpt2007(mMaxResid,"MaxResid","Max independent (held-out) V1/V2, W1 and W2 residual (px), error above",{eTA2007::HDV})
@@ -440,7 +465,7 @@ cCollecSpecArg2007 & cAppli_EpipRectification::ArgOpt(cCollecSpecArg2007 & anArg
         << AOpt2007(mOutDir,"OutDir","Output directory (Default: VISU/" + Specs().Name()+")")
         << AOpt2007(mOutNamePat,"OutName","Output name pattern for images and other output files (must not be empty ; .tif is added if there is no extension)", {eTA2007::HDV})
         << AOpt2007(mSaveModel,"SaveModel","Serialize the computed model (name derived from OutName)",{eTA2007::HDV})
-        << AOpt2007(mNoRPC,"NoRPC","Don't write the RPC of the resampled images",{eTA2007::HDV})
+        << AOpt2007(mNoOri,"NoOri","Don't write the orientation (RPC, or camera for a closed form pair) of the resampled images",{eTA2007::HDV})
         << AOpt2007(mNoImage,"NoImage","Don't produce the resampled TIF images",{eTA2007::HDV})
         << AOpt2007(mCropMask.mMask,"Mask","Also write a 1-bit mask of the valid pixels of the resampled image (1 = maps inside the source image)",{eTA2007::HDV})
         << AOpt2007(mCropMask.mMaskName,"MaskName","Mask name pattern, $1 = output image name without extension ; implies Mask",{eTA2007::HDV})
@@ -456,13 +481,15 @@ std::vector<cOneHelpSampleCmp> cAppli_EpipRectification::Samples() const
     {
         cOneHelpSampleCmp::Header("Rectify a pair (RPC sensors) and save the model"),
         {"MMVII EpipRectification Im1.tif Im2.tif Ori SaveModel=true"},
-        cOneHelpSampleCmp::Header("Central perspective cameras : Z interval given or inferred from tie points"),
+        cOneHelpSampleCmp::Header("Central perspective cameras (closed form) : Z interval given or inferred from tie points"),
         {"MMVII EpipRectification Im1.tif Im2.tif Ori ZIntv=[0,100]"},
         {"MMVII EpipRectification Im1.tif Im2.tif Ori TieP=Std"},
+        cOneHelpSampleCmp::Header("Central perspective cameras with the generic polynomial solver"),
+        {"MMVII EpipRectification Im1.tif Im2.tif Ori ZIntv=[0,100] Generique=true"},
         cOneHelpSampleCmp::Header("With validity masks (to crop, use EpipResampling on the saved model)"),
         {"MMVII EpipRectification Im1.tif Im2.tif Ori SaveModel=true Mask=true"},
         cOneHelpSampleCmp::Header("Only compute and save the model, no resampling"),
-        {"MMVII EpipRectification Im1.tif Im2.tif Ori SaveModel=true NoImage=true NoRPC=true"}
+        {"MMVII EpipRectification Im1.tif Im2.tif Ori SaveModel=true NoImage=true NoOri=true"}
     };
 }
 
@@ -510,7 +537,7 @@ private :
     std::vector<std::string> mInterpol = {"Cubic","-0.5"};
     std::string  mOutDir;
     std::string  mOutNamePat = TheDefaultOutNamePat;
-    bool         mNoRPC = false;
+    bool         mNoOri = false;
     cEpipCropMaskOpts mCropMask;
 };
 
@@ -565,6 +592,7 @@ int cAppli_EpipResampling::Exe()
         aSIs[aKIm] = mPhProj.ReadSensor(FileOfPath(aStoredNames[aKIm],false /* Ok Not Exist*/),true/*DelAuto*/,false /* Not SVP*/);
     }
 
+    aModel.BindSensors(*aSIs[0],*aSIs[1]);
     const auto aCropOpts = EpipPairCropOpts(mCropMask,aModel.Map(1),aModel.Map(2),*aSIs[0],*aSIs[1],mOutDir,
                 {EpipOutBaseName(mOutNamePat,aStoredNames[0],aStoredNames[1]),EpipOutBaseName(mOutNamePat,aStoredNames[1],aStoredNames[0])},true);
 
@@ -573,7 +601,7 @@ int cAppli_EpipResampling::Exe()
         StdOut() << Color::title << "* Image " << aKIm+1 << Color::end << std::endl;
         // RPC of the full frame saved by EpipRectification, next to the model : reused, else fitted again
         std::string aRPCFile;
-        if (! mNoRPC)
+        if ((! mNoOri) && (aModel.Map(aKIm+1).TypeName() == "Poly"))
         {
             const std::string aRPCName = aModel.RPCName(aKIm+1);
             if (! aRPCName.empty())
@@ -584,8 +612,9 @@ int cAppli_EpipResampling::Exe()
                 aRPCFile.clear();
             }
         }
-        ResampleEpipImage(aCropOpts[aKIm], aNameIms[aKIm], aModel.Map(aKIm+1), mNoRPC ? nullptr : aSIs[aKIm], aRPCFile, *aInterp, false, mOutDir,
-                          EpipOutBaseName(mOutNamePat,aStoredNames[aKIm],aStoredNames[1-aKIm]));
+        const std::string aBaseName = EpipOutBaseName(mOutNamePat,aStoredNames[aKIm],aStoredNames[1-aKIm]);
+        std::unique_ptr<cSensorImage> aEpipSI(mNoOri ? nullptr : EpipSensor(*aSIs[aKIm],aModel.Map(aKIm+1),mOutDir+aBaseName,aRPCFile));
+        ResampleEpipImage(aCropOpts[aKIm], aNameIms[aKIm], aModel.Map(aKIm+1), aEpipSI.get(), *aInterp, false, mOutDir,aBaseName);
     }
 
     delete aInterp;
@@ -698,7 +727,7 @@ cCollecSpecArg2007 & cAppli_EpipResampling::ArgOpt(cCollecSpecArg2007 & anArgOpt
         << cHeaderSectionArg("Output")
         << AOpt2007(mOutDir,"OutDir","Output directory (Default: VISU/" + Specs().Name()+")")
         << AOpt2007(mOutNamePat,"OutName","Output name pattern for images and other output files (%1 = image, %2 = other image ; must not be empty ; .tif is added if there is no extension)",{eTA2007::HDV})
-        << AOpt2007(mNoRPC,"NoRPC","Don't write the RPC of the resampled images",{eTA2007::HDV})
+        << AOpt2007(mNoOri,"NoOri","Don't write the orientation (RPC, or camera for a closed form pair) of the resampled images",{eTA2007::HDV})
         << AOpt2007(mCropMask.mMask,"Mask","Also write a 1-bit mask of the valid pixels of the resampled image (1 = maps inside the source image)",{eTA2007::HDV})
         << AOpt2007(mCropMask.mMaskName,"MaskName","Mask name pattern, $1 = output image name without extension ; implies Mask",{eTA2007::HDV})
         ;
