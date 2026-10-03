@@ -627,11 +627,10 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
         BenchLinearConstr(aParam);
 
         BenchEpipolar(aParam);
-        BenchEpipolarResampling(aParam);
-        BenchEpipolarSlaveCrop(aParam);
-        BenchEpipolarTiles(aParam);
-        BenchEpipolarNoRPC(aParam);
-        BenchEpipolarZFromTieP(aParam);
+        BenchEpipolarCrop(aParam);
+        BenchEpipolarZ(aParam);
+        BenchEpipolarPC(aParam);
+        BenchEpipolarPCCmd(aParam);
 
         Bench_HBA(aParam);
     }
