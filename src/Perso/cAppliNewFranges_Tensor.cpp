@@ -80,8 +80,8 @@ void cAppliNewFrange::DoTensorProcessing()
     mDImTx = &(mImTx.DIm());
     mImTy  = tIm(mSzRed);
     mDImTy = &(mImTy.DIm());
-    mImMaxLoc = cIm2D<tU_INT1> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
-    mDImMaxLoc = &(mImMaxLoc.DIm());
+    mImMaxLocTD = cIm2D<tU_INT1> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
+    mDImMaxLocTD = &(mImMaxLocTD.DIm());
 
     // Images of tensor accumulation
      cIm1D<tREAL8> aPop(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
@@ -117,7 +117,7 @@ void cAppliNewFrange::DoTensorProcessing()
      // in direction of tensor
      int aBorder = 5;
      std::vector<cPt2dr> aVN;
-     for (const auto & aPix : mDImMaxLoc->Interior(aBorder))
+     for (const auto & aPix : mDImMaxLocTD->Interior(aBorder))
      {
          cPt2dr aTens (mDImTx->GetV(aPix),mDImTy->GetV(aPix));
          cPt2dr aRhoTeta = ToPolar(aTens,0.0);
@@ -127,7 +127,7 @@ void cAppliNewFrange::DoTensorProcessing()
                &&   (aV0>mDImRedBlur->GetVBL(ToR(aPix)-aDirTens))
             )
          {
-             mDImMaxLoc->SetV(aPix,1);
+             mDImMaxLocTD->SetV(aPix,1);
          }
      }
 

@@ -87,19 +87,34 @@ class cAppliNewFrange : public cMMVII_Appli
      private :
 
         void  DoOneImage(const std::string & aNameIm);
+
+        /// Generate several visualization
+        void DoVisu();
         std::string NameVisu(const std::string & aPref) const;
 
         /** Generete simulation images with "perfect" parabols, not realistic model, but
          *  to test correctnes of some computation */
         void MakeImSimul();
 
+
+
+        /// Compute the theoretical value of back ground & franges
+        void ComputeRadiomCste();
+
+
+
         /** Compute images of local maxims, this will reduce "drastically" the number of potential point
          in shortest path approach (and allow more complexe lins with "big" jumps ) */
         void MakeImageMaxLoc();
 
+        bool IsMax(cPt2di aP0,cPt2di aDp,int aNb) const;
 
         bool NewCC(bool isHoriz,const cPt2di&);
         void ConnecCompMaxLoc(bool isHoriz);
+
+
+
+        // ===================  Tensor & angle from tensor processing ==================
 
         /** Make different tensor like computation :
              compute 2D tensor
@@ -108,9 +123,6 @@ class cAppliNewFrange : public cMMVII_Appli
          */
         void DoTensorProcessing();
 
-        /// Compute the theoretical value of back ground & franges
-        void ComputeRadiomCste();
-
         /// Estimate for a given Y, with window aSzY, how it is a good center of anti-symetry
         tREAL8 QualityCenterAntiSymetry(int aY,int aSzY);
         /// Compute the centre as "best" anti symetric local point
@@ -118,6 +130,10 @@ class cAppliNewFrange : public cMMVII_Appli
 
         /// Integrate one way the tangent image and save it in integrale image
         void OneWayIntegrateTangent(int aDy,int aYLim);
+
+
+
+        //=========================================  DATA ========================================
 
         cPhotogrammetricProject  mPhProj;
 
@@ -129,44 +145,42 @@ class cAppliNewFrange : public cMMVII_Appli
         tREAL8    mDerFactZ1;   ///< Factor of deriche gradient for zoom 1
         tREAL8    mSigmaTensZ1; ///< Sigma filter on tensor cumulated for zoom 1
         bool      mDoSimul;
-        int       mDoVisu;
+        std::string mPatVisu;        ///< Pattern for selecting visualizations
+
 
         tIm      mImZ1;
         tDIm*    mDImZ1;
 
-        bool IsMax(cPt2di aP0,cPt2di aDp,int aNb) const;
 
 
         //-------- These values are related to reduced image ----------------
-        tIm      mImRed;   /// reduced images
-        tDIm*    mDImRed;  /// data reduced im
-        cPt2di   mSzRed;     /// sz of reduced ima
-        tIm      mImRedBlur;  /// im blured
-        tDIm*    mDImRedBlur;  /// data image blurred
+        tIm      mImRed;       ///< reduced images
+        tDIm*    mDImRed;      ///< data reduced im
+        cPt2di   mSzRed;       ///< sz of reduced ima
+        tIm      mImRedBlur;   ///< im blured
+        tDIm*    mDImRedBlur;  ///< data image blurred
 
 
-        tIm      mImTx;   /// image tensor x
-        tDIm*    mDImTx;  /// data
-        tIm      mImTy;   /// image tensor y
-        tDIm*    mDImTy;   /// data
+        tIm      mImTx;   ///< 2d-image tensor x
+        tDIm*    mDImTx;  ///< 2d-data
+        tIm      mImTy;   ///< 2d-image tensor y
+        tDIm*    mDImTy;   ///< 2d-data
 
-         cIm2D<tU_INT1> mImMaxHor;
-         cDataIm2D<tU_INT1>* mDImMaxHor;
-         cIm2D<tU_INT1> mImMaxVert;
-         cDataIm2D<tU_INT1>* mDImMaxVert;
+         cIm2D<tU_INT1> mImMaxHor;           ///<  image of max in horizontal direction
+         cDataIm2D<tU_INT1>* mDImMaxHor;     ///<  data
+         cIm2D<tU_INT1> mImMaxVert;          ///< image of max in vertical direction
+         cDataIm2D<tU_INT1>* mDImMaxVert;    ///<  data
+         cIm2D<tU_INT1> mImMaxLocTD;           ///<  local maxima in tensor direction
+         cDataIm2D<tU_INT1>* mDImMaxLocTD;     ///< data
 
-         cIm2D<tU_INT1> mImMaxLoc;
-         cDataIm2D<tU_INT1>* mDImMaxLoc;
 
-
-         tIm1D    mImTeta;    /// Image of tangent as x=F(Y)
+         tIm1D    mImTeta;    /// Image of teta as x=F(Y)
          tDIm1D*  mDImTeta;
-        tIm1D    mImTgt;    /// Image of tangent as x=F(Y)
+        tIm1D    mImTgt;      /// Image of tangent as x=F(Y)
         tDIm1D*  mDImTgt;
-        int      mYC;
-        tIm1D    mImIntegr;
-        tDIm1D*  mDImIntegr;
-        cRGBImage mImVisu;
+        int      mYC;          ///<  estimation of Y center
+        tIm1D    mImIntegr;    ///<  integration of tangent
+        tDIm1D*  mDImIntegr;   ///<  data
 
 
         std::list<cConnComp>  mListCC;
