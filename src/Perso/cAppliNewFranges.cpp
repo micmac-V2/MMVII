@@ -25,17 +25,21 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mZoomRed          (2.0),
     mDerFactZ1        (0.5),
     mSigmaTensZ1      (10.0),
-    mDoSimul          (false),
+    mDoSimul          (0),
+    mNbVisuGen        (0),
     mImZ1             (cPt2di(1,1)),
     mDImZ1            (nullptr),
     mImRed            (cPt2di(1,1)),
     mDImRed           (nullptr),
     mImRedBlur        (cPt2di(1,1)),
     mDImRedBlur       (nullptr),
+    mImGrad           (cPt2di(1,1)),
+    mImTens           (cPt2di(1,1)),
+    /*
     mImTx             (cPt2di(1,1)),
     mDImTx            (nullptr),
     mImTy             (cPt2di(1,1)),
-    mDImTy            (nullptr),
+    mDImTy            (nullptr),*/
     mImMaxHor         (cPt2di(1,1)),
     mDImMaxHor        (nullptr),
     mImMaxVert        (cPt2di(1,1)),
@@ -72,7 +76,7 @@ cCollecSpecArg2007 & cAppliNewFrange::ArgOpt(cCollecSpecArg2007 & anArgOpt)
               << AOpt2007(mZoomRed,"Zoom","Zoom Red process init" ,{eTA2007::HDV})
               << AOpt2007(mDerFactZ1,"DericheF","Factor of deriche filter (for Zoom=1)" ,{eTA2007::HDV})
               << AOpt2007(mSigmaTensZ1,"SigmaTens","Sigma for avaragin tensor (Z=1)" ,{eTA2007::HDV})
-              << AOpt2007(mDoSimul,"DoSimul","Make simulation/syntheic images" ,{eTA2007::HDV})
+              << AOpt2007(mDoSimul,"DoSimul","Make simulation/syntheic images : 1 parab, 2 circles" ,{eTA2007::HDV})
               << AOpt2007(mPatVisu,"PatVisu","Pattern for generating visualization" )
 
             //  << AOpt2007(mSigCurv,"SigCurv","Sima for smoothig curve",{eTA2007::HDV})
@@ -115,42 +119,7 @@ int cAppliNewFrange::Exe()
 /* =================================================== */
 
 
-// The simulated image is the transformation of a sinus iamges I(x,y) =sin(x)
-// by a mapping  X,Y  ->  (X + aY^2 , Y), we add also an attenaution functin
-// that make image darker
 
-void cAppliNewFrange::MakeImSimul()
-{
-
-    tREAL8 aDistIntrFr = 300.0 / mZoomRed; // Distance betweeb franges
-    tREAL8 aMulY=10.0; // multipiler of the parabol X= MulY YN^2  with normalized YN
-    tREAL8 aExp = 4.0;  // Exponent  of 1+sinus => the highest, give thinner franges
-    tREAL8 aMiddleY = mSzRed.y() / 2.0; // Y of Middle horizonatl line
-
-    for (const auto & aPix : *mDImRed)
-    {
-        tREAL8 aYNorm = (aPix.y()-aMiddleY) / aMiddleY;  // Nomalize Y : i.e. in [-1,1]
-
-        // Phase  of sinus
-        tREAL8 aPhase = aPix.x() -Square(aYNorm) * aMiddleY * aMulY;
-        aPhase /= (aDistIntrFr /(2*M_PI));
-
-        // compute peridic funtion in [0,1]
-        tREAL8 aAmpl = std::max(0.0,(1+sin(aPhase)) /2.0);
-        aAmpl = std::pow(aAmpl,aExp); // make thinner
-
-        // make an attenuation , darker when we are further away of center
-        aAmpl = aAmpl / (1 + std::pow(std::abs(aYNorm),2)*3.0 );
-
-        mDImRed->SetV(aPix,aAmpl*255.0);  // now put it
-    }
-}
-
-
-std::string cAppliNewFrange::NameVisu(const std::string & aPref) const
-{
-    return mPhProj.DirVisuAppli() + LastPrefix(mNameIm) + aPref + ".tif";
-}
 
 
 void cAppliNewFrange::ComputeRadiomCste()
@@ -187,135 +156,11 @@ void cAppliNewFrange::ComputeRadiomCste()
         // aVal = NC_KthVal(aVRad,1/3.0);
         mDImRadFrange->SetV(anY,aVal);
     }
+
     ExpFilterOfStdDev(*mDImRadFrange,5,50.0);
 }
 
 
-void cAppliNewFrange::DoVisu()
-{
-    if (!IsInit(&mPatVisu))
-        return;
-
-    tREAL8 aNbX=400;
-
-    cRGBImage anImVisu = cRGBImage(mSzRed + cPt2di(aNbX,0),cRGBImage::White);
-    cRGBImage aVisuMaxHor (mSzRed);
-    cRGBImage aVisuMaxVert (mSzRed);
-    cRGBImage aVisuMaxTens (mSzRed);
-    cRGBImage aVisuArrow (mSzRed);
-
-    cRGBImage aVisuTeta(mSzRed);
-    for (const auto aPix : *mDImRed)
-    {
-        cPt2dr aTens(mDImTx->GetV(aPix),mDImTy->GetV(aPix));
-        cPt2dr aRhoTeta = ToPolar(aTens,0.0);
-        tREAL8 aTeta =  aRhoTeta.y();
-        aVisuTeta.SetRGBPix(aPix,HSI_2_RGB(cPt3dr(aTeta,1.0,0.5)));
-    }
-
-    tElIm aVMin,mHighRadiom;
-    GetBounds(aVMin,mHighRadiom,*mDImRed);
-
-    for (const auto aPix : *mDImRed)
-    {
-
-        tREAL8 aRad = ((mDImRed->GetV(aPix)-mRadiomBackGround) /(mHighRadiom-mRadiomBackGround)) * 255.0;
-        tINT4 aVal = std::clamp(round_ni(aRad),0,255);
-
-        anImVisu.SetGrayPix(aPix,aVal);
-        aVisuMaxHor.SetGrayPix(aPix,aVal);
-        aVisuMaxVert.SetGrayPix(aPix,aVal);
-        aVisuMaxTens.SetGrayPix(aPix,aVal);
-
-        aVisuArrow.SetGrayPix(aPix,aVal);
-    }
-
-
-    for (const auto aPix : * mDImRed)
-    {
-        if ( mDImMaxLocTD->GetV(aPix))
-            aVisuMaxTens.SetRGBPix(aPix,cRGBImage::Green);
-        if ( mDImMaxHor->GetV(aPix))
-            aVisuMaxHor.SetRGBPix(aPix,cRGBImage::Yellow);
-        if ( mDImMaxVert->GetV(aPix))
-            aVisuMaxVert.SetRGBPix(aPix,cRGBImage::Cyan);
-    }
-    //aVisuMaxHor.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Blue,1.0);
-    aVisuMaxVert.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Blue,1.0);
-    aVisuArrow.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Blue,1.0);
-
-
-
-    anImVisu.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x()+aNbX,mYC),cRGBImage::Blue,1.0);
-
-    std::vector<cPt2dr> aVPtsIntegral;
-    for(const auto aPtY : mImTgt.DIm())
-    {
-        int anY = aPtY.x();
-        tREAL8 aXInt = mDImIntegr->GetV(anY);
-        aVPtsIntegral.push_back(cPt2dr(aXInt+200.0,anY));
-    }
-    for(const auto aPtY : mImTgt.DIm())
-    {
-       int aXMil = mSzRed.x()+aNbX/2;
-       int anY = aPtY.x();
-       // show middel line
-       anImVisu.SetRGBPix(cPt2di(aXMil,anY),cRGBImage::Green);
-
-
-       cPt2di  aPtRad(round_ni(mSzRed.x()+mDImRadFrange->GetV(anY)*0.5),anY);
-       anImVisu.SetRGBPix(aPtRad,cRGBImage::Gray128);
-
-
-       cPt2di  aPtTgt(round_ni(aXMil+mDImTgt->GetV(anY)*10.0),anY);
-       anImVisu.SetRGBPix(aPtTgt,cRGBImage::Red);
-       cPt2di  aPtTeta(round_ni(aXMil+mDImTeta->GetV(anY)*25.0),anY);
-       anImVisu.SetRGBPix(aPtTeta,cRGBImage::Blue);
-
-
-
-       // Show image integrale in image
-       //int aXInt = mDImIntegr->GetV(anY);
-       //mImVisu.SetRGBPix(cPt2di(aXInt+100,anY),cRGBImage::Red);
-       if (anY>0)
-       {
-           cPt2dr aP1 = aVPtsIntegral.at(anY) ;
-           cPt2dr aP2 = aVPtsIntegral.at(anY-1);
-           if (anImVisu.InsideBL(aP1) && anImVisu.InsideBL(aP2))
-           {
-             // StdOut() << "PTTTT " << aP1 << aP2 << "\n";
-              anImVisu.DrawLine(aP1,aP2,cRGBImage::Red);
-           }
-       }
-    }
-
-
-    // "ARROW"  visu
-    for (const auto & aCC : mListCC)
-    {
-        const tSeg2dr& aSeg = aCC.mSeg;
-        cPt3di aCol = aCC.mIsHor ? cRGBImage::Yellow : cRGBImage::Cyan;
-        if (!aCC.mIsOk)
-            aCol = cRGBImage::Magenta;
-        if (true) // (aCC.mIsOk)
-        {
-            for (const auto & aPix : aCC.mPts)
-                aVisuArrow.SetRGBPix(aPix,aCol);
-            aVisuArrow.DrawCircle(cRGBImage::Red,aSeg.P1(),3.0);
-            aVisuArrow.DrawCircle(cRGBImage::Green,aSeg.P2(),3.0);
-        }
-    }
-
-    aVisuMaxVert.ToFile(NameVisu("ImMaxVert"));
-    aVisuMaxHor.ToFile(NameVisu("ImMaxHor"));
-    aVisuMaxTens.ToFile(NameVisu("ImMaxTens"));
-
-    mDImRedBlur->ToFile(NameVisu("Blured"));
-    aVisuTeta.ToFile(NameVisu("TetaTens"));
-    aVisuArrow.ToFile(NameVisu("ImArrow"));
-    anImVisu.ToFile(NameVisu("ImRed"));
-
-}
 
 void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
 {

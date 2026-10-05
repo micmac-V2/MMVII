@@ -1,4 +1,5 @@
 #include "MMVII_Linear2DFiltering.h"
+#include "MMVII_Geom2D.h"
 
 // #include <Eigen/Dense>
 
@@ -283,8 +284,48 @@ template <class Type> cImGrad<Type>::cImGrad(const cIm2D<Type> & aImIn) :
 
 
 /* ========================== */
+/*       cTensor              */
+/* ========================== */
+
+template <class Type> cPtxd<Type,2> cTensor<Type>::Grad2Tens(const tPt& aGrad)
+{
+    cPt2dr aRhoTeta = ToPolar(ToR(aGrad),0.0);
+
+    tREAL8 aRho = aRhoTeta.x();
+    tREAL8 aTeta = aRhoTeta.y();
+    return   cPtxd<Type,2>::FromPtR(FromPolar(aRho,2.0*aTeta));
+}
+
+template <class Type> cPtxd<Type,2> cTensor<Type>::Tens2Grad(const tPt& aGrad,Type aRho0)
+{
+    cPt2dr aRhoTeta = ToPolar(ToR(aGrad),0.0);
+
+    tREAL8 aRho = (aRho0<0) ? aRhoTeta.x() : aRho0 ;
+    tREAL8 aTeta = aRhoTeta.y();
+    return  cPtxd<Type,2>::FromPtR(FromPolar(aRho,aTeta/2.0));
+}
+
+template <class Type> cImGrad<Type> cTensor<Type>::Grad2Tens(const cImGrad<Type>& aImGrad)
+{
+    cImGrad<Type> aImTens(aImGrad.mDGx->Sz());
+
+    for (const auto & aPix :*aImGrad.mDGx)
+    {
+        tPt aGrad = aImGrad.Grad(aPix);
+        tPt aTens = Grad2Tens(aGrad);
+        aImTens.SetGrad(aPix,aTens);
+    }
+
+    return aImTens;
+}
+
+/* ========================== */
 /*     cDataGenUnTypedIm      */
 /* ========================== */
+
+template  class cTensor<tREAL8>;
+template  class cTensor<tREAL4>;
+
 
 
 #define MACRO_INSTANTIATE_ExpoFilter(Type)\

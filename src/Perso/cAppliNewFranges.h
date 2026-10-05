@@ -30,8 +30,9 @@ namespace NS_FrangesDetect
 typedef tREAL4            tElIm;
 typedef cIm2D<tElIm >     tIm;
 typedef cDataIm2D<tElIm > tDIm;
-typedef cIm1D<tREAL8>     tIm1D;
-typedef cDataIm1D<tREAL8>     tDIm1D;
+typedef cIm1D<tREAL8>      tIm1D;
+typedef cDataIm1D<tREAL8>  tDIm1D;
+typedef cImGrad<tElIm>    tImGrad;
 
 
 class cConnComp
@@ -90,7 +91,18 @@ class cAppliNewFrange : public cMMVII_Appli
 
         /// Generate several visualization
         void DoVisu();
+        /// Name of visualisation image
         std::string NameVisu(const std::string & aPref) const;
+
+        template <class TypeIm> void GenVisu(const TypeIm & anIm,const std::string & aPref)
+        {
+            if (MatchRegex(aPref,mPatVisu))
+            {
+                anIm.ToFile(NameVisu(aPref));
+                mNbVisuGen++;
+            }
+            mVNameVisu.push_back(aPref);
+        }
 
         /** Generete simulation images with "perfect" parabols, not realistic model, but
          *  to test correctnes of some computation */
@@ -144,8 +156,10 @@ class cAppliNewFrange : public cMMVII_Appli
         tREAL8    mZoomRed;     ///< Zoom for initial reduction
         tREAL8    mDerFactZ1;   ///< Factor of deriche gradient for zoom 1
         tREAL8    mSigmaTensZ1; ///< Sigma filter on tensor cumulated for zoom 1
-        bool      mDoSimul;
+        int       mDoSimul;
         std::string mPatVisu;        ///< Pattern for selecting visualizations
+        std::vector<std::string> mVNameVisu;  ///< Memorize all visu
+        int         mNbVisuGen; ///< Number of visu generated
 
 
         tIm      mImZ1;
@@ -161,10 +175,14 @@ class cAppliNewFrange : public cMMVII_Appli
         tDIm*    mDImRedBlur;  ///< data image blurred
 
 
-        tIm      mImTx;   ///< 2d-image tensor x
+        tImGrad mImGrad;
+        tImGrad mImTens;
+
+
+        /*tIm      mImTx;   ///< 2d-image tensor x
         tDIm*    mDImTx;  ///< 2d-data
         tIm      mImTy;   ///< 2d-image tensor y
-        tDIm*    mDImTy;   ///< 2d-data
+        tDIm*    mDImTy;   ///< 2d-data */
 
          cIm2D<tU_INT1> mImMaxHor;           ///<  image of max in horizontal direction
          cDataIm2D<tU_INT1>* mDImMaxHor;     ///<  data
