@@ -207,6 +207,13 @@ void BenchLstSqEstimUncert(cParamExeBench & aParam);
 void BenchValuatedGraph(cParamExeBench & aParam);
 void BenchGroupGraph(cParamExeBench & aParam);
 
+
+/**  A non elemntary Bench that calls MMVII command :
+  -   generated simulated noisy image
+  -   add target in simulation
+  -   detect them
+*/
+void BenchTargetSimulAndDetect(cParamExeBench & aParam);
 };
 
 #endif  //  _MMVII_Bench_H_

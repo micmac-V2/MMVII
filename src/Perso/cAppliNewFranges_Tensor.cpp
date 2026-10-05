@@ -10,6 +10,7 @@
 namespace MMVII
 {
 
+
 namespace NS_FrangesDetect
 {
 
@@ -71,15 +72,10 @@ void cAppliNewFrange::OneWayIntegrateTangent(int aDy,int aYLim)
 void cAppliNewFrange::DoTensorProcessing()
 {
     // Compute the deriche gradient
-    cImGrad<tElIm>  aGrad = Deriche(*mDImRed,mDerFactZ1*mZoomRed);
-    tDIm & aDGx = *(aGrad.mDGx);
-    tDIm & aDGy = *(aGrad.mDGy);
+    mImGrad = Deriche(*mDImRed,mDerFactZ1*mZoomRed);
+    mImTens = cTensor<tElIm>::Grad2Tens(mImGrad);
 
-    // Resize the images of tensor-2D and
-    mImTx =  tIm(mSzRed);
-    mDImTx = &(mImTx.DIm());
-    mImTy  = tIm(mSzRed);
-    mDImTy = &(mImTy.DIm());
+    // Resize ImMaxLoc
     mImMaxLocTD = cIm2D<tU_INT1> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
     mDImMaxLocTD = &(mImMaxLocTD.DIm());
 
@@ -90,28 +86,19 @@ void cAppliNewFrange::DoTensorProcessing()
 
 
      // Parse all point to store 2D-tensor and accumlate in 1D images
-     for (const auto & aPix : aDGx)
+     for (const auto & aPix : *mDImRed)
      {
-         cPt2dr aGrad(aDGx.GetV(aPix),aDGy.GetV(aPix));
-         cPt2dr aRhoTeta = ToPolar(aGrad,0.0);
-
-         tREAL8 aRho = aRhoTeta.x();
-         tREAL8 aTeta = aRhoTeta.y();
-         cPt2dr aTens = FromPolar(aRho,2.0*aTeta);
-
-         mDImTx->SetV(aPix,aTens.x());
-         mDImTy->SetV(aPix,aTens.y());
-
+         cPt2dr   aTens = mImTens.GradR(aPix);//Tensor<tREAL8>::Grad2Tens(mImGrad.GradR(aPix));
          tREAL8 aWeight = 1.0;
 
-          aPop.DIm().AddV(aPix.y(),aRho*aWeight);
+          aPop.DIm().AddV(aPix.y(),1.0);
           aSumTx.DIm().AddV(aPix.y(),aTens.x()*aWeight);
           aSumTy.DIm().AddV(aPix.y(),aTens.y()*aWeight);
      }
 
      // Regularize 2D images of tensor
-     ExpFilterOfStdDev(*mDImTx,5,3.0);
-     ExpFilterOfStdDev(*mDImTy,5,3.0);
+     ExpFilterOfStdDev(*mImTens.mDGx,5,3.0);
+     ExpFilterOfStdDev(*mImTens.mDGy,5,3.0);
 
      // tentative extraction of centers of lines as maxima of grey
      // in direction of tensor
@@ -119,9 +106,8 @@ void cAppliNewFrange::DoTensorProcessing()
      std::vector<cPt2dr> aVN;
      for (const auto & aPix : mDImMaxLocTD->Interior(aBorder))
      {
-         cPt2dr aTens (mDImTx->GetV(aPix),mDImTy->GetV(aPix));
-         cPt2dr aRhoTeta = ToPolar(aTens,0.0);
-         cPt2dr aDirTens = FromPolar(1.0,aRhoTeta.y()/2.0);
+         cPt2dr aDirTens = ToR(cTensor<tElIm>::Tens2Grad(mImTens.Grad(aPix),1.0));
+
          tREAL8 aV0 =mDImRedBlur->GetV(aPix);
          if (      (aV0>mDImRedBlur->GetVBL(ToR(aPix)+aDirTens))
                &&   (aV0>mDImRedBlur->GetVBL(ToR(aPix)-aDirTens))
@@ -156,7 +142,6 @@ void cAppliNewFrange::DoTensorProcessing()
 
          mDImTgt->SetV(anY,aTgt);
          mDImTeta->SetV(anY,aTeta);
-
      }
 
      // --------  Extract center ------------------------
@@ -169,8 +154,9 @@ void cAppliNewFrange::DoTensorProcessing()
 
      OneWayIntegrateTangent(-1,0);
      OneWayIntegrateTangent(1,mSzRed.y());
-
 }
+
+
 
 
 };  // NS_FrangesDetect

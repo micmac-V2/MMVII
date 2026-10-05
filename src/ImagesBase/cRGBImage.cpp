@@ -92,8 +92,6 @@ cPt3dr Claude_rgbToHsi(double r, double g, double b)
     return {h, s, i};
 }
 
-
-
 }; // Claude_HSI_2_RGB
 
 using namespace Claude_HSI_2_RGB;
@@ -438,7 +436,7 @@ void cRGBImage::Read(const std::string & aName,const cPt2di & aP0,double aDyn,co
 
                //  file  create/write
 
-void cRGBImage::ToFile(const std::string & aName, const std::vector<std::string>& aOptions)
+void cRGBImage::ToFile(const std::string & aName, const std::vector<std::string>& aOptions) const
 {
     mImR.DIm().ToFile(aName,mImG.DIm(),mImB.DIm(),aOptions);
 }
