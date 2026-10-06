@@ -23,6 +23,19 @@ bool cAppliNewFrange::NewCC(bool isHoriz,const cPt2di& aPix)
 
     ConnectedComponent (aVCC,aImMax ,a8Neigh, aPix,1,2);
 
+    bool isInMax = false;
+    if (mHasMask && isHoriz)
+    {
+       for (const auto & aPix : aVCC)
+       {
+          if (mImMask.DIm().GetV(aPix))
+          {
+              isInMax = true;
+          }
+       }
+       FakeUseIt(isInMax);
+    }
+
     tREAL8 aThrs = isHoriz ? 5 : 20 ;
     if (aVCC.size()<aThrs)
         return false;
@@ -35,6 +48,8 @@ bool cAppliNewFrange::NewCC(bool isHoriz,const cPt2di& aPix)
     // MMVII_INTERNAL_ASSERT_always(aY0Inf<=aY1Sup," Ordeeerr in box");
 
      bool doCross = (aY0Inf && aY1Sup);
+
+
 // FakeUseIt(doCross);
      cPt2di aDir(0,1);
      if (isHoriz)
@@ -58,10 +73,11 @@ bool cAppliNewFrange::NewCC(bool isHoriz,const cPt2di& aPix)
      {
          aWMM.Add(aPt,Scal(aDir,aPt));
 
-         tREAL8 aV = mDImRedBlur->GetV(aPix);
-         tREAL8 aAmpl = mDImRadFrange->GetV(aPix.y()) -mRadiomBackGround;
+         tREAL8 aV = mDImRedBlur->GetV(aPt);
+         tREAL8 aAmpl = mDImRadFrange->GetV(aPt.y()) -mRadiomBackGround;
          aV = (aV-mRadiomBackGround)/aAmpl;
-         aV = std::clamp(aV,0.0,1.0);
+         aV = std::min(1.0,std::max(aV,0.0));
+
          aWScore.Add(1.0,aV);
      }
 
@@ -71,6 +87,9 @@ bool cAppliNewFrange::NewCC(bool isHoriz,const cPt2di& aPix)
                  || (aScoreMixte > 15)
                  || ((!isHoriz) && (aVCC.size() > 150))
             ;
+
+
+
      tSeg2dr aSeg(ToR(aWMM.IndMin()),ToR(aWMM.IndMax()));
 
 
