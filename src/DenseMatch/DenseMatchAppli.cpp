@@ -85,7 +85,8 @@ namespace MMVII
             aNameIm2,
             mPhProj.DPOrient().DirIn(),
             mPhProj.DPTieP().DirInIsInit() ? "TieP=" + mPhProj.DPTieP().DirIn() : "MulTieP=" + mPhProj.DPMulTieP().DirIn(),
-            "TiePMinNbRatio="+ToStr(0.006)
+            "TiePMinNbRatio="+ToStr(0.006),
+            "TiePMaxRes="+ToStr(5)
             //"OutDir="+mPhProj.DirPhp()+"/VISU/DenseMatch/"+aNameIm1+"_"+aNameIm2
         );
     }
