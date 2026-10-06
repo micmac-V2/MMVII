@@ -507,16 +507,31 @@ template<class T1> tREAL8  cDataIm1D<T1>::AvgInterv(int aX0,int aX1) const
 /*          NORMALIZATION                            */
 /*                                                   */
 /*****************************************************/
-
 template<class T,int Dim>
-   void NormalizedAvgDev(cDataTypedIm<T,Dim> & aIm,tREAL8 aEpsilon,tREAL8 aMul=1.0)
+       cComputeStdDev<tREAL8>  ComputedAvgDev(cDataTypedIm<T,Dim> & aIm,tREAL8 aEpsilon)
 {
     cComputeStdDev<tREAL8>  aCSD;
     for (int aK=0 ; aK<aIm.NbElem() ; aK++)
     {
-        aCSD.Add(1.0,aIm.GetRDL(aK));
+         aCSD.Add(1.0,aIm.GetRDL(aK));
     }
     aCSD = aCSD.Normalize(aEpsilon);
+
+    return aCSD;
+}
+
+template<class T,int Dim>
+   void GenNormalizedAvgDev(cDataTypedIm<T,Dim> & aIm,tREAL8 aEpsilon,tREAL8 aMul=1.0)
+{
+  /*  cComputeStdDev<tREAL8>  aCSD;
+    for (int aK=0 ; aK<aIm.NbElem() ; aK++)
+    {
+        aCSD.Add(1.0,aIm.GetRDL(aK));
+    }
+    aCSD = aCSD.Normalize(aEpsilon);*/
+
+    cComputeStdDev<tREAL8>  aCSD = ComputedAvgDev(aIm,aEpsilon);
+
     for (int aK=0 ; aK<aIm.NbElem() ; aK++)
     {
         T& aV = aIm.GetRDL(aK);
@@ -524,10 +539,10 @@ template<class T,int Dim>
     }
 }
 
-template<class T>  cIm2D<T> NormalizedAvgDev(const cIm2D<T> & aIm,tREAL8 aEpsilon)
+template<class T>  cIm2D<T> Im2DNormalizedAvgDev(const cIm2D<T> & aIm,tREAL8 aEpsilon)
 {
     cIm2D<T> aRes = aIm.Dup();
-    NormalizedAvgDev(aRes.DIm(),aEpsilon);
+    GenNormalizedAvgDev(aRes.DIm(),aEpsilon);
     return aRes;
 }
 

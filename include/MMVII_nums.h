@@ -392,6 +392,8 @@ template <> class tElemNumTrait<tREAL4> : public tBaseNumTrait<tStdDouble>
 template <> class tElemNumTrait<tREAL8> : public tBaseNumTrait<tStdDouble>
 {
     public :
+        static tREAL8 MaxVal() {return  std::numeric_limits<tREAL8>::max();}
+        static tREAL8 MinVal() {return  std::numeric_limits<tREAL8>::min();}
         static tREAL8 DummyVal() {return std::nan("");}
         static tREAL8 Accuracy() {return 1e-4;}
         static bool   Signed() {return true;} ///< Not usefull but have same interface
@@ -408,6 +410,15 @@ template <> class tElemNumTrait<tREAL16> : public tBaseNumTrait<tREAL16>
         typedef tREAL16  tFloatAssoc;
 };
 
+template<class Type> tREAL8 GlobCenteredValue()
+{
+    if (tElemNumTrait<Type>::Signed())
+        return 0.0;
+    else
+        return  static_cast<tREAL8>(std::numeric_limits<Type>::max()) / 2.0 ;
+}
+
+
     // ========================================================================
     //  tNumTrait class to be used
     // ========================================================================
@@ -423,6 +434,10 @@ class cVirtualTypeNum
        virtual bool V_IsInt()  const = 0;
        virtual bool V_Signed() const = 0;
        virtual int  V_Size()   const = 0;
+       virtual tREAL8  CenteredValue()   const = 0;
+//       virtual tREAL8  MaxVal()   const = 0;
+//       virtual tREAL8  MinVal()   const = 0;
+
        virtual eTyNums  V_TyNum() const = 0; ///< Used to check FromEnum, else ??
   
 
@@ -448,6 +463,12 @@ template <class Type> class tNumTrait : public tElemNumTrait<Type> ,
          bool V_Signed() const override {return  tETrait::Signed();}
          int  V_Size()   const override {return  sizeof(Type);}
          eTyNums  V_TyNum() const override {return  tETrait::TyNum();}
+
+
+         tREAL8  CenteredValue()   const override {return GlobCenteredValue<Type>() ;}
+        // tREAL8  MaxVal()   const override {return tElemNumTrait<Type>::MaxVal();}
+        // tREAL8  MinVal()   const override {return tElemNumTrait<Type>::MinVal();}
+        //  tREAL8  MinVal()   const = 0;
 
         // For these type rounding mean something
         static int RoundDownToType(const double & aV) {return tBaseNumTrait<tBase>::RoundDownToType(aV);}

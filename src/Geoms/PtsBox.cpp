@@ -264,6 +264,37 @@ template <class Type,const int Dim> Type  cSegmentCompiled<Type,Dim>::Dist(const
     return Norm2(aPt-Proj(aPt));
 }
 
+template <class Type,const int Dim> Type  cSegmentCompiled<Type,Dim>::DistSeg(const tPt & aPt) const
+{
+  Type  anAbscissa = Abscissa(aPt);
+
+  if (anAbscissa<0)
+      return Norm2(aPt-this->P1());
+
+  if (anAbscissa>mN2)
+      return  Norm2(aPt-this->P2());
+
+  return Dist(aPt);
+}
+
+bool Cross(const cSegment2DCompiled<tREAL8>& aS1, const cSegment2DCompiled<tREAL8>& aS2)
+{
+      return      (aS1.ToCoordLoc(aS2.P1()).y()>0 )
+              !=  (aS1.ToCoordLoc(aS2.P2()).y()>0 );
+}
+
+tREAL8  DistSegSeg(const cSegment2DCompiled<tREAL8>& aS1, const cSegment2DCompiled<tREAL8>& aS2)
+{
+    if (Cross(aS1,aS2) && (Cross(aS2,aS1)))
+        return 0.0;
+
+    return std::min
+            (
+                  std::min(  aS1.DistSeg(aS2.P1())  ,  aS1.DistSeg(aS2.P2())  )  ,
+                  std::min(  aS2.DistSeg(aS1.P1())  ,  aS2.DistSeg(aS1.P2())  )
+            );
+}
+
 
 
 template <class Type,const int Dim> const Type &   cSegmentCompiled<Type,Dim>::N2 () const {return mN2;}
@@ -1557,6 +1588,9 @@ template  cPtxd<TYPE,DIM>  cPtxd<TYPE,DIM>::FromPtInt(const cPtxd<int,DIM> & aPI
 template  cPtxd<TYPE,DIM>  cPtxd<TYPE,DIM>::FromPtR(const cPtxd<tREAL8,DIM> & aPInt);\
 template  cPtxd<TYPE,DIM>  cPtxd<TYPE,DIM>::OrientInSameDir(const cPtxd<TYPE,DIM> & aPInt)const;\
 template std::pair<cPtxd<TYPE,DIM>,cPtxd<TYPE,DIM>>  OrthogonalizePair(const cPtxd<TYPE,DIM> & aP1,const cPtxd<TYPE,DIM> & aP2);
+
+
+//template tREAL8  DistSegSeg(const cSegmentCompiled<tREAL8,2>& aS1, const cSegmentCompiled<tREAL8,2>& aS2);
 
 
 //MACRO_ORTHOG_PAIR(cPtxd<TYPE,DIM>)

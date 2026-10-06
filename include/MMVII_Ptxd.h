@@ -112,7 +112,7 @@ template <class Type,const int Dim> class cPtxd
        static cPtxd<Type,Dim>  Dummy();
        /// Initialisation from name "i..."  "-j..."    valide are "ijkl"
        static cPtxd<Type,Dim>  PFromCanonicalName(const std::string & aName,size_t & anIndex);
-      
+
        /// Initialisation from PInt
        static cPtxd<Type,Dim>  FromPtInt(const  cPtxd<int,Dim> & aVal) ;
        /// Initialisation from PInt
@@ -723,7 +723,7 @@ extern cPt2di  TAB4Corner[4] ; ///< {{1,1},{-1,1},{-1,-1},{1,-1}};
 template <class Type,const int Dim>  class cTplBox
 {
     public :
-        
+
         typedef Type                             tNum ;
         typedef typename  tNumTrait<Type>::tBig  tBigNum ;
         typedef cTplBox<Type,Dim>                tBox;
@@ -742,7 +742,7 @@ template <class Type,const int Dim>  class cTplBox
 
         cTplBox<tREAL8,Dim> ToR() const;
         cTplBox<tINT4,Dim>  ToI() const;
-        
+
 
         void AddData(const  cAuxAr2007 & anAux);
 
@@ -928,6 +928,8 @@ template <class Type,const int Dim> class cSegmentCompiled : public cSegment<Typ
        cSegmentCompiled(const cSegment<Type,Dim>&);
        tPt  Proj(const tPt &) const;
        Type Dist(const tPt &) const; // dist to full line
+       Type DistSeg(const tPt &) const; // dist to segment
+
        Type Abscissa(const tPt& aPt) const;
        tPt  PtOfAbscissa(const Type & anAbsc) const;
 
@@ -937,6 +939,8 @@ template <class Type,const int Dim> class cSegmentCompiled : public cSegment<Typ
        Type    mN2;
        tPt     mTgt;
 };
+
+
 
 /// class for modelization of an affine space : a point + vectorials
 template<const int Dim> class cAffineSpace
