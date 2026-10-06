@@ -431,7 +431,9 @@ enum class eModeEpipMatch
    eMEM_MMV1,  // Mode MicMac V1
    eMEM_PSMNet,// Mode PSMNet
    eMEM_RAFTStereo, // Mode RAFTStereo
+   #if MMVII_USE_LIBTORCH
    eMEM_UNETDECISION, // MODE WITH SGM CUDA EXTERNAL TO MICMAC
+   #endif
    eMEM_NoMatch,  // Do no match, used for debuging
    /********************************************************/
     //eMEM_MVCNN,

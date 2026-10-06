@@ -341,11 +341,13 @@ void  cOneLevel::MakeImPx()
    cDataFileIm2D aDataIm = cDataFileIm2D::Create(mNameIm,eForceGray::No);
    cDataFileIm2D::Create(mAppli.DirProject()+mAppli.mOutDir+mNamePx,eTyNums::eTN_REAL4,aDataIm.Sz());
 
+   #if MMVII_USE_LIBTORCH
    if (mAppli.mModeMatchCur==eModeEpipMatch::eMEM_UNETDECISION)
    {
       cDataFileIm2D::Create(mAppli.DirProject()+mAppli.mOutDir+NameSimOfIm(mNamePx),
                eTyNums::eTN_REAL4,aDataIm.Sz());
    }
+   #endif
 
 }
 
@@ -780,6 +782,7 @@ cParamCallSys cAppli::ComMatch(cParam1Match & aParam)
                  //"Inc="+ToStr(4000)
           );
        }
+       # if MMVII_USE_LIBTORCH
        case eModeEpipMatch::eMEM_UNETDECISION :
        {
           cParamCallSys aCom = cParamCallSys(
@@ -800,8 +803,8 @@ cParamCallSys cAppli::ComMatch(cParam1Match & aParam)
                  StdOut() << "ComMatch Similarity Learning : " << aCom.Com() << "\n";
           break;
        }
+       #endif
        /*******************************************************************/
-
        case eModeEpipMatch::eMEM_PSMNet :
        {
                   std::string aDenseMDir = TopDirMMVII() + "src/DenseMatch/";
@@ -963,13 +966,10 @@ void  cAppli::MatchOneLevel(int aLevel)
                 aAmplMax = 0;
            break;
 
-           /* case eModeEpipMatch::eMEM_RAFTStereo :
-            aModePad = eModePaddingEpip::eMPE_NoPad;
-            break;*/
             #if MMVII_USE_LIBTORCH
-            case eModeEpipMatch::eMEM_UNETDECISION  :
-                 aModePad = eModePaddingEpip::eMPE_NoPad;
-            break;
+               case eModeEpipMatch::eMEM_UNETDECISION  :
+                  aModePad = eModePaddingEpip::eMPE_NoPad;
+               break;
             #endif
 
             case eModeEpipMatch::eMEM_NoMatch :
@@ -1040,10 +1040,12 @@ void  cAppli::MatchOneLevel(int aLevel)
                 if (aParam.mCanDoMatch)
                 {
                    aILev1.SaveGlobPx(aParam);
+                   #if MMVII_USE_LIBTORCH
                    if ((aLevel<mNbLevel) && 
                         (mModeMatchCur==eModeEpipMatch::eMEM_UNETDECISION)
                      )
                      aILev1.SaveGlobSim(aParam);
+                   #endif
                 }
             }
             // empty all that for next computation not to redo the same stuff
@@ -1082,7 +1084,9 @@ int cAppli::Exe()
             case eModeEpipMatch::eMEM_MMV1      :  mModePad = eModePaddingEpip::eMPE_NoPad; break;
             case eModeEpipMatch::eMEM_PSMNet    :  mModePad = eModePaddingEpip::eMPE_PxNeg; break;
             case eModeEpipMatch::eMEM_RAFTStereo:  mModePad = eModePaddingEpip::eMPE_SzEq; break;
+            #if MMVII_USE_LIBTORCH
             case eModeEpipMatch::eMEM_UNETDECISION :    mModePad = eModePaddingEpip::eMPE_NoPad; break;
+            #endif
             case eModeEpipMatch::eMEM_NoMatch   :  mModePad = eModePaddingEpip::eMPE_NoPad; break;
             case eModeEpipMatch::eNbVals        :                                             break;
        }
