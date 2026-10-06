@@ -162,6 +162,8 @@ class cAppliNewFrange : public cMMVII_Appli
         int         mNbVisuGen; ///< Number of visu generated
 
 
+        bool mHasMask;  ///< Is there a mask
+        cIm2D<tU_INT1> mImMask; ///< Possible mask
         tIm      mImZ1;
         tDIm*    mDImZ1;
 

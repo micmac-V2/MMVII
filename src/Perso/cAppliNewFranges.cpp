@@ -27,6 +27,8 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mSigmaTensZ1      (10.0),
     mDoSimul          (0),
     mNbVisuGen        (0),
+    mHasMask          (false),
+    mImMask           (cPt2di(1,1)),
     mImZ1             (cPt2di(1,1)),
     mDImZ1            (nullptr),
     mImRed            (cPt2di(1,1)),
@@ -78,6 +80,7 @@ cCollecSpecArg2007 & cAppliNewFrange::ArgOpt(cCollecSpecArg2007 & anArgOpt)
               << AOpt2007(mSigmaTensZ1,"SigmaTens","Sigma for avaragin tensor (Z=1)" ,{eTA2007::HDV})
               << AOpt2007(mDoSimul,"DoSimul","Make simulation/syntheic images : 1 parab, 2 circles" ,{eTA2007::HDV})
               << AOpt2007(mPatVisu,"PatVisu","Pattern for generating visualization" )
+              << mPhProj.DPMask().ArgDirInOpt()
 
             //  << AOpt2007(mSigCurv,"SigCurv","Sima for smoothig curve",{eTA2007::HDV})
             //  << AOpt2007(mIntY,"IntY","Interval for Y",{eTA2007::HDV})
@@ -165,11 +168,21 @@ void cAppliNewFrange::ComputeRadiomCste()
 void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
 {
     mNameIm = aNameIm;
+    mHasMask = mPhProj.ImageHasMask(aNameIm);
     mImZ1 = tIm::FromFile(mNameIm);
     mDImZ1 = & (mImZ1.DIm());
     mImRed = mImZ1.BiCubicDeZoom(mZoomRed);
     mDImRed = &(mImRed.DIm());
     mSzRed = mDImRed->Sz();
+
+    if (mHasMask)
+    {
+        MMVII_INTERNAL_ASSERT_User_UndefE(mZoomRed==(int)mZoomRed,"Non int DeZoom with mask");
+        mImMask = cIm2D<tU_INT1>::FromFile(mPhProj.NameMaskOfImage(aNameIm));
+        mImMask = mImMask.Decimate((int)mZoomRed);
+
+        StdOut() << "SZ MASK= " << mImMask.DIm().Sz() << "\n";
+    }
 
     if (mDoSimul)
         MakeImSimul();
