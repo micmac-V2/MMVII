@@ -245,7 +245,7 @@ namespace MMVII
         );
 
         StdOut() <<  aComCloudFusion.Com() << "\n";
-        
+
         if (mExec)
         {
             // run Epipolar resampling
@@ -253,14 +253,12 @@ namespace MMVII
             //run dense matching
             // set allowed proc to 3
             mNbProcAllowed = 3;
-            ExeComParal(aVecComDenseMatch,true);
+            ExeComSerial(aVecComDenseMatch,true);
             //project to ground
             // large nbproc for projonground 
             mNbProcAllowed=12;
             // later scale with computation load
             ExeComParal(aVecComProjGround,true);
-
-
             ExeComSerial({aComCloudFusion},true);
         }
         else
