@@ -160,7 +160,7 @@ namespace MMVII
             aResSsEch.DIm().SetV(aPix, RandUnif_C());
 
         ExpFilterOfStdDev(aResSsEch.DIm(), 5, Norm2(aSzRed) / aNbBlob);
-        NormalizedAvgDev(aResSsEch.DIm(), 1e-10, mAmplDef);
+        GenNormalizedAvgDev(aResSsEch.DIm(), 1e-10, mAmplDef);
 
         tImDispl aRes(mSz);
         for (const cPt2di &aPix : aRes.DIm())

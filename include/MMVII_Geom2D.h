@@ -113,6 +113,9 @@ template <class Type> class cSegment2DCompiled : public cSegmentCompiled<Type,2>
        tPt     mNorm;
 };
 
+tREAL8  DistSegSeg(const cSegment2DCompiled<tREAL8>&, const cSegment2DCompiled<tREAL8> &);
+
+
 /** this class a represent a "closed" segment , it has same data than cSegment2DCompiled,
  * but as a set/geometric primitive, it is limited by extremities
  */

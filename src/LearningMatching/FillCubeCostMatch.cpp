@@ -355,10 +355,10 @@ void cAppliFillCubeCost::MakeNormalizedIm()
 {
     if (mDINorm1!= nullptr) return;
 
-    mImNorm1 = NormalizedAvgDev(mIm1,1e-4);
+    mImNorm1 = Im2DNormalizedAvgDev(mIm1,1e-4);
     mDINorm1 = &(mImNorm1.DIm());
 
-    mImNorm2 = NormalizedAvgDev(mIm2,1e-4);
+    mImNorm2 = Im2DNormalizedAvgDev(mIm2,1e-4);
     mDINorm2 = &(mImNorm2.DIm());
 
     mLayerCor  = tLayerCor(mImZMin,mImZMax);
