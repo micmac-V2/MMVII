@@ -323,7 +323,7 @@ void cAppliCloudProjectOnGround::MakeFastBasc()
     aZBuf.MakeZBufForBasc(eZBufModeIter::ProjInit);
 
 
-    cAutoTimerSegm aTSBufferSurfDev(TimeSegm(),"ZBuffer::SurfaceDevelopment"); 
+    cAutoTimerSegm aTSBufferSurfDev(TimeSegm(),"ZBuffer::SurfDevlpt"); 
 
     aZBuf.MakeZBufForBasc(eZBufModeIter::SurfDevlpt);
  
@@ -471,7 +471,7 @@ void cAppliCloudProjectOnGround::MakeBasculeTris(cZBuffer & aZB)
             std::vector<cPt2di> aVPix;
             std::vector<cPt3dr> aVW;
 
-            aTriComp.PixelsInside(aVPix,1e-8,&aVW);
+            aTriComp.PixelsInside(aVPix,1e-10,&aVW);
 
             for (size_t aK=0; aK<aVPix.size();aK++)
             {

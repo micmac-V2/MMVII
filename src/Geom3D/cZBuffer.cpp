@@ -369,7 +369,24 @@ eZBufRes cZBuffer::MakeOneTri(const tTri3dr & aTriIn,const tTri3dr &aTri3,eZBufM
      ///  the axe K of camera is in direction of view, the normal is in direction of visibility => they are opposite
     bool WellOriented =  mZF_SameOri ?  (aSign>0)  :(aSign<0);
 
-    aTri2.PixelsInside(aVPix,1e-9,&aVW);
+    // test scaled tolerance 
+    // Robust, scale-aware inside tolerance.
+    // Barycentric coords are dimensionless, but their rounding error scales like
+    // machine-epsilon * (pixel-coordinate magnitude).  A fixed absolute value such
+    // as 1e-8 can fall inside that numerical noise for large images / thin triangles,
+    // making edge pixels be kept or dropped at random.  We make the tolerance:
+    //   - negative, so shared edges are covered (no cracks between adjacent triangles),
+    //   - proportional to the vertex coordinate magnitude (robust across image sizes).
+    tREAL8 aScale = 1.0;
+    for (int aKp=0 ; aKp<3 ; aKp++)
+    {
+        aScale = std::max(aScale,std::abs(aTri2.Pt(aKp).x()));
+        aScale = std::max(aScale,std::abs(aTri2.Pt(aKp).y()));
+    }
+    tREAL8 aTol = -8.0 * std::numeric_limits<tREAL8>::epsilon() * aScale;
+
+
+    aTri2.PixelsInside(aVPix,aTol,&aVW);
 
     tDIm & aDZImB = mZBufIm.DIm();
     int aNbVis = 0;
