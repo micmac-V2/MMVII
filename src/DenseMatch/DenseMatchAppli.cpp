@@ -139,13 +139,15 @@ namespace MMVII
         
         std::string aNameDMPerPair = "RAFTStereo_" +aNameEpipIm1;
 
+        std::string aNameBasc = "BASC_" + aName1 + "_" + aName2;
+
         return cParamCallSys (
             "MMVII",
             "CloudProjectOnGround",
             aNameEpipIm1,
             aNameDMPerPair+"/Px1_Num3_DeZoom1_LeChantier.tif",
             "Epi",
-            "BASC",
+            aNameBasc,
             "Masq1="+aNameEpipIm1Masq,
             "Im2="+aNameEpipIm2,
             "ImCorrel="+aNameDMPerPair+"/Correl_LeChantier_Num3.tif",
