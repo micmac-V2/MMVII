@@ -403,15 +403,18 @@ cEpipConicModel cEpipolarRectification::ComputeEpipConic()
 
     MMVII_INTERNAL_ASSERT_User((aSzX>0), eTyUEr::eUnClassedError , "Sz Epip Cam is negative");
 
+    std::string aNameCalib12 = LastPrefix(aName1)+"_"+LastPrefix(aName2);
+    std::string aNameCalib21 = LastPrefix(aName2)+"_"+LastPrefix(aName1);
 
-    std::shared_ptr<cPerspCamIntrCalib> aCalibNew1 ( cPerspCamIntrCalib::SimpleCalib("FinalEpipConicInterCalib1_"+aName1,
+
+    std::shared_ptr<cPerspCamIntrCalib> aCalibNew1 ( cPerspCamIntrCalib::SimpleCalib("FinalEpipConicInterCalib1_"+aNameCalib12,
                                                 eProjPC::eStenope,
                                                 cPt2di(aSzX,aSzY),
                                                 cPt3dr(-aBoxEp1.P0().x()-aDX1,-aYMin,aFocEpip),
                                                 cPt3di(0,0,0))
                                                 );
     
-    std::shared_ptr<cPerspCamIntrCalib> aCalibNew2 ( cPerspCamIntrCalib::SimpleCalib("FinalEpipConicInterCalib2_"+aName2,
+    std::shared_ptr<cPerspCamIntrCalib> aCalibNew2 ( cPerspCamIntrCalib::SimpleCalib("FinalEpipConicInterCalib2_"+aNameCalib21,
                                                 eProjPC::eStenope,
                                                 cPt2di(aSzX,aSzY),
                                                 cPt3dr(-aBoxEp2.P0().x()-aDX2,-aYMin,aFocEpip),

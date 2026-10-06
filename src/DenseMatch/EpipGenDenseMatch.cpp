@@ -339,11 +339,11 @@ void  cOneLevel::MakeImPx()
 {
 
    cDataFileIm2D aDataIm = cDataFileIm2D::Create(mNameIm,eForceGray::No);
-   cDataFileIm2D::Create(mAppli.mOutDir+mNamePx,eTyNums::eTN_REAL4,aDataIm.Sz());
+   cDataFileIm2D::Create(mAppli.DirProject()+mAppli.mOutDir+mNamePx,eTyNums::eTN_REAL4,aDataIm.Sz());
 
    if (mAppli.mModeMatchCur==eModeEpipMatch::eMEM_UNETDECISION)
    {
-      cDataFileIm2D::Create(mAppli.mOutDir+NameSimOfIm(mNamePx),
+      cDataFileIm2D::Create(mAppli.DirProject()+mAppli.mOutDir+NameSimOfIm(mNamePx),
                eTyNums::eTN_REAL4,aDataIm.Sz());
    }
 
@@ -468,7 +468,7 @@ void cOneLevel::SaveGlobPx(const cParam1Match & aParam) const
    {
         aDIm.AddVal(aP, aParam.mOffsetPx);
    }
-   aImClipPx.Write(cDataFileIm2D::Create(mAppli.mOutDir+mNamePx,eForceGray::No),aParam.mBoxOut.P0());
+   aImClipPx.Write(cDataFileIm2D::Create(mAppli.DirProject()+mAppli.mOutDir+mNamePx,eForceGray::No),aParam.mBoxOut.P0());
 
 }
 
@@ -479,7 +479,7 @@ void cOneLevel::SaveGlobSim(const cParam1Match & aParam) const
    cIm2D<tREAL4>  aImClipSim(aParam.mBoxOut.Sz());
    cPt2di aDecInOut = aParam.mBoxOut.P0()-aParam.mBoxIn1.P0();
    aImClipSim.Read(cDataFileIm2D::Create(NameClipPx(aParam.mIndex)+"_AutoSim.tif",eForceGray::No),aDecInOut);
-   aImClipSim.Write(cDataFileIm2D::Create(mAppli.mOutDir+NameSimOfIm(mNamePx),eForceGray::No),aParam.mBoxOut.P0());
+   aImClipSim.Write(cDataFileIm2D::Create(mAppli.DirProject()+mAppli.mOutDir+NameSimOfIm(mNamePx),eForceGray::No),aParam.mBoxOut.P0());
 }
 
 
@@ -508,9 +508,8 @@ void cOneLevel::EstimateIntervPx
       double aRatio= mAppli.mRatioByL;
 
       // Be inialized with def values
-      cDataFileIm2D aRedFilePx   = cDataFileIm2D::Create(mAppli.mOutDir+mDownLev->mNamePx,eForceGray::No);
+      cDataFileIm2D aRedFilePx   = cDataFileIm2D::Create(mAppli.DirProject()+mAppli.mOutDir+mDownLev->mNamePx,eForceGray::No);
       cDataFileIm2D aRedFileMasq = cDataFileIm2D::Create(mDownLev->mNameMasq,eForceGray::No);
-
 
 
       // Box of Im1, of reduced size, include in reduce file
@@ -1094,8 +1093,6 @@ int cAppli::Exe()
    mIms.push_back(tPtrIm (new cOneIm (*this,mNameIm1,true )));
    mIms.push_back(tPtrIm (new cOneIm (*this,mNameIm2,false)));
 
-
-
    // Compute mains numeric values
 
    cPt2di aSzFull1 = Im1().mPFileImFull.Sz();  // Size of firt full image
@@ -1108,79 +1105,36 @@ int cAppli::Exe()
       aIm->CreateLevels(mNbLevel);
 
 
-   // create Masq Images if they do not exist
-   /*for (auto & aIm : mIms)
-     {
-       std::string aImMasq0=aIm->LevAt(0).NameImOrMasq(false);
-       if (!ExistFile(aImMasq0))
-         {
-           //create a Masq of Ones at the same size as the considered image
-           cIm2D<tINT1> mImMasq =cIm2D<tINT1>(aIm->mPFileImFull.Sz(),nullptr,eModeInitImage::eMIA_V1);
-           cDataIm2D<tINT1> & mDataImMasq= mImMasq.DIm();
-           mDataImMasq.ToFile(aImMasq0);
-         }
-     }*/
-
-   // Create Masq Enveloppe Convexe
-   /*std::list<cParamCallSys> aComMasqs;
-   for (auto & aIm: mIms)
-     {
-       int aMin=0;
-       int aMax=255;
-
-       if ((aIm->mPFileImFull.Type()==eTyNums::eTN_INT2)
-           || (aIm->mPFileImFull.Type()==eTyNums::eTN_U_INT2))
-         {
-           aMax=65535;
-         }
-
-        std::string aImName=aIm->LevAt(0).NameImOrMasq(true);
-        cParamCallSys aCom(
-              cMMVII_Appli::MMV1Bin(),
-              "MasqMaker",
-               aImName,
-               ToStr(aMin),
-               ToStr(aMax),
-               "@ExitOnBrkp"
-            );
-        aComMasqs.push_back(aCom);
-
-     }
-
-   ExeComParal(aComMasqs);*/
    // Compute pyramid of images
    MakePyramid();
 
    for (int aLevel = mNbLevel ; aLevel>=0 ; aLevel--)
    {
-        MatchOneLevel(aLevel);
+      MatchOneLevel(aLevel);
    }
+
    // Create Occlusion Masq and Correlation Image
    if (mDoCorrel)
      {
        std::string NameCorrel="Correl_LeChantier_Num"+ToStr(mNbLevel+1)+".tif";
        std::string NameMasq="AutoMask_LeChantier_Num"+ToStr(mNbLevel+1)+".tif";
 
-        /*std::string aCom="MMVII DenseMatchEpipEval" + BLANK + mNameIm1 + BLANK + mNameIm2
-                         +  BLANK + mOutDir+mOutPx + BLANK + "true" + BLANK +"Masq1="+Im1().LevAt(0).NameImOrMasq(false)
-                         +  BLANK + "Masq2="+Im2().LevAt(0).NameImOrMasq(false)+ BLANK + "ImCorrel="+mOutDir+NameCorrel
-                         +  BLANK + "HiddenMask="+mOutDir+NameMasq;
-                         */
-
        cParamCallSys aCom(
              "MMVII",
              "DenseMatchEpipEval",
               mNameIm1,
               mNameIm2,
-              mOutDir+mOutPx,
+              DirProject()+mOutDir+mOutPx,
               "true",
               "Masq1="+Im1().LevAt(0).NameImOrMasq(false),
               "Masq2="+Im2().LevAt(0).NameImOrMasq(false),
-              "ImCorrel="+mOutDir+NameCorrel,
-              "HiddenMask="+mOutDir+NameMasq,
-              "NbProc=6"
+              "ImCorrel="+DirProject()+mOutDir+NameCorrel,
+              "HiddenMask="+DirProject()+mOutDir+NameMasq,
+              "NbProc="+ToStr(mNbProcAllowed),
+              "DirProj="+DirProject()
               //"@ExitOnBrkp"
            );
+           StdOut() << "ComMatch Similarity Learning : " << aCom.Com() << "\n";
         ExeComSerial({aCom},true);
      }
    return EXIT_SUCCESS;

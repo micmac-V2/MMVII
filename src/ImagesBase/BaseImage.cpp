@@ -158,6 +158,27 @@ cDataGenUnTypedIm<Dim>* cDataGenUnTypedIm<Dim>::AllocReSampleGen(
 }
 
 template <const int Dim>
+std::pair<cDataGenUnTypedIm<Dim>*,cDataGenUnTypedIm<Dim>*> cDataGenUnTypedIm<Dim>::AllocReSampleWithMaskGen(
+        const cInterpolator1D &anInterpol,
+        const cDataInvertibleMapping<tREAL8, Dim> &aMap,
+        const cPixBox<Dim> aBox,
+        double aDefValOut) const
+{
+    auto aResult = AllocImGen(aBox.Sz(),this->TypeVal());
+    auto aMask = AllocImGen(aBox.Sz(),eTyNums::eTN_U_INT1); // Assuming mask is of type unsigned 1-byte integer
+
+    for (auto & aPixOut : *aResult)
+    {
+        auto aPixIn = aMap.Inverse(MMVII::ToR(aPixOut+aBox.P0()));
+        auto val = this->Inside(MMVII::ToI(aPixIn)) ? this->ClipedGetValueInterpol(anInterpol,aPixIn) : aDefValOut;
+        aResult->VD_SetV(aPixOut,val);
+        aMask->VD_SetV(aPixOut,this->Inside(MMVII::ToI(aPixIn)) ? 1 : 0);
+    }
+    return {aResult,aMask};
+}
+
+
+template <const int Dim>
 std::pair<cPtxd<int,Dim>,cDataGenUnTypedIm<Dim>*> cDataGenUnTypedIm<Dim>::AllocReSampleGen(
     const cInterpolator1D &anInterpol,
     const cDataInvertibleMapping<tREAL8, Dim> &aMap,

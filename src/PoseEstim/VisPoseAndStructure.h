@@ -57,6 +57,7 @@ private:
     cPhotogrammetricProject   mPhProj;
     std::string               mPatImIn;
     double                    mErrProjMax;
+    bool                      mExportCam;
     double                    mCamScale;
     cEstimLengthPyrCam        mEstimmLengthPyrCam;
     int                       mTSLCloudDezoom; //  0 for no point clouds

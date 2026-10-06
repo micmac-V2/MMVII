@@ -359,6 +359,13 @@ template <const int Dim> class cDataGenUnTypedIm : public cPixBox<Dim>,
             const cDataInvertibleMapping<tREAL8, Dim> &aMap,
             const cPixBox<Dim> aBox,
             double aDefValOut=0) const;
+
+        std::pair<cDataGenUnTypedIm<Dim>*,cDataGenUnTypedIm<Dim>*> AllocReSampleWithMaskGen(
+            const cInterpolator1D &anInterpol,
+            const cDataInvertibleMapping<tREAL8, Dim> &aMap,
+            const cPixBox<Dim> aBox,
+            double aDefValOut) const;
+            
         std::pair<cPtxd<int,Dim>,cDataGenUnTypedIm<Dim>*> AllocReSampleGen(
             const cInterpolator1D &anInterpol,
             const cDataInvertibleMapping<tREAL8, Dim> &aMap,

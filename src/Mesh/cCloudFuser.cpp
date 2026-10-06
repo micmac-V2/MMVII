@@ -754,6 +754,7 @@ class cAppliCloudFuser : public cMMVII_Appli,
     tREAL8 mGlobGSD;
     std::string mTilingIndexFile;
     bool IsOutputTiled;
+    std::string mNameDirOut; 
     std::string mNamePrefixOut;
     std::string mNameFusionDemResult;
     std::string mNameFusionCorrelResult;
@@ -806,6 +807,7 @@ cAppliCloudFuser::cAppliCloudFuser(const std::vector<std::string> & aVArgs, cons
     mGlobGSD(0.0),
     mTilingIndexFile(""),
     IsOutputTiled(false),
+    mNameDirOut(Specs().Name()),
     mNamePrefixOut("Fusion"),
     mNameFusionDemResult(""),
     mNameFusionCorrelResult(""),
@@ -1328,15 +1330,20 @@ int cAppliCloudFuser::ExeOnParsedBox()
 
 int cAppliCloudFuser::Exe()
 {
-    // may be mPhProj.FinishInit();
-   mSetDemsNames = VectMainSet(0);
+  
+    // create output directory if it does not exist
+    CreateDirectories(mNameDirOut);
 
+    mNamePrefixOut = mNameDirOut + "/" + mNamePrefixOut;
+
+   mSetDemsNames = VectMainSet(0);
    
    int aNB=0;
    // read serialized cloudRaster objects from bascule to get global context
-    for(const auto & aCldName: mSetDemsNames)
+    for(auto & aCldName: mSetDemsNames)
     {
         cCloudRaster aCldRst;
+        aCldName = DirProject() + aCldName;
         ReadFromFile_Std(aCldRst,aCldName);
         mSetDems.push_back(aCldRst);
 

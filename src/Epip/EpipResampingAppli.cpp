@@ -83,18 +83,24 @@ void cAppli_EpipResampling::Resample(const std::string& aMasterName,
 
     auto anEpipBaseName = replaceFirstOccurrence(replaceFirstOccurrence(mOutNamePat,"%1",aName1),"%2",aName2);
     auto anEpipName = mOutDir + anEpipBaseName;
+    auto anEpipMasqName = mOutDir + LastPrefix(anEpipBaseName) + "_Masq.tif";
     auto aRPCName = anEpipName + ".xml";
     const auto* aIm = ReadIm2DGen(aMasterName);
-    auto aIm1Rectif = aIm->AllocReSampleGen(*aInterp, anEpipMap, cTplBox(anEpipMap.EpipImSz()));
+    auto [aIm1Rectif, aMask] = aIm->AllocReSampleWithMaskGen(*aInterp, anEpipMap, cTplBox(anEpipMap.EpipImSz()), 0.0);
     StdOut() << "Name: " << anEpipName << std::endl;
     StdOut() << "Size: " << anEpipMap.EpipImSz() << std::endl;
     aIm1Rectif->ToFile(anEpipName);
+    aMask->ToFile(anEpipMasqName);
     
     // If Conic, save the cSensorCamPC instead of the RPC model
     if (const auto* aConicModel = dynamic_cast<const cEpipConicMapping*>(&anEpipMap))
     {
         auto anEpipConicOrientationName =  cSensorCamPC::NameOri_From_Image(anEpipBaseName);
-        aConicModel->CamOutToFile(mOutDir+anEpipConicOrientationName);
+        // set dir of orientation to Epi to get orientation in an Ori Folder
+        mPhProj.DPOrient().SetDirOut("Epi");
+        std::string aOutOrientationDir = mPhProj.DPOrient().FullDirOut();
+        CreateDirectories(aOutOrientationDir);
+        aConicModel->CamOutToFile(aOutOrientationDir+anEpipConicOrientationName);
     }
     else
     {
@@ -105,6 +111,7 @@ void cAppli_EpipResampling::Resample(const std::string& aMasterName,
     }
 
     delete aIm1Rectif;
+    delete aMask;
     delete aIm;
 }
 

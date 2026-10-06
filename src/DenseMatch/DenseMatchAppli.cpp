@@ -16,8 +16,7 @@ namespace MMVII
             cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
             cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
             cParamCallSys StrComEpipResample(const tNamePair * aPair);
-            std::pair<cParamCallSys,cParamCallSys> StrComMasqMaker(const tNamePair * aPair);
-            cParamCallSys StrComDenseMatchEpip(const tNamePair * aPair, int aGpuId);
+            cParamCallSys StrComDenseMatchEpip(const tNamePair * aPair, int aGpuId, int aNbProc);
             cParamCallSys StrComProjGround(const tNamePair * aPair);
         private :
             cPhotogrammetricProject  mPhProj;
@@ -27,6 +26,7 @@ namespace MMVII
             std::vector<const tNamePair *> mVecPairs;
             std::string mDirSelectPairs;
             std::string mDirEpipolarResampling;
+            bool mExec;  // If 1, execute the command, if 0, only print it
             std::string mDirDenseMatchingEpip;
             std::string mDirCloudProjOnGround;
             std::string mDirCloudFusion;
@@ -67,6 +67,7 @@ namespace MMVII
             << AOpt2007(mSetGpuPool,"GpusList", "List of Gpu Ids to dispatch computation if ", {eTA2007::CanRepeat})
             << AOpt2007(mGSD,"GndSamplingD", "Ground sampling distance of bascule")
             << AOpt2007(mDirEpipolarResampling,"DirDenseMatch","Directory for overall Dense Matching")
+            << AOpt2007(mExec,"Exec","If 1, execute the command, if 0, only print it")
             ;
     }
 
@@ -89,39 +90,7 @@ namespace MMVII
         );
     }
 
-    std::pair<cParamCallSys,cParamCallSys> cAppli_DenseMatch::StrComMasqMaker(const tNamePair * aPair)
-    {
-        std::string aName1 = LastPrefix(aPair->V1());
-        std::string aName2 = LastPrefix(aPair->V2());
-
-        std::string aNameEpipIm1 = replaceFirstOccurrence(
-                            replaceFirstOccurrence(mNameEpipPattern,"%1",aName1),
-                            "%2",
-                            aName2);
-        std::string aNameEpipIm2 = replaceFirstOccurrence(
-                            replaceFirstOccurrence(mNameEpipPattern,"%1",aName2),
-                            "%2",
-                            aName1);
-        
-        return std::make_pair(
-            cParamCallSys (
-                MMV1Bin(),
-                "MasqMaker",
-                mDirEpipolarResampling + "/" + aNameEpipIm1,
-                "0",
-                "255"
-            ),
-            cParamCallSys (
-                MMV1Bin(),
-                "MasqMaker",
-                mDirEpipolarResampling + "/" + aNameEpipIm2,
-                "0",
-                "255"
-            )
-        );
-    }
-
-    cParamCallSys cAppli_DenseMatch::StrComDenseMatchEpip(const tNamePair * aPair, int aGpuId)
+    cParamCallSys cAppli_DenseMatch::StrComDenseMatchEpip(const tNamePair * aPair, int aGpuId, int aNbProc)
     {
         std::string aName1 = LastPrefix(aPair->V1());
         std::string aName2 = LastPrefix(aPair->V2());
@@ -144,10 +113,10 @@ namespace MMVII
             aNameEpipIm1,
             aNameEpipIm2,
             "OnGPU="+ToStr(aGpuId),
-            "DirMEC="+mDirDenseMatchingEpip+"/"+aNameDMPerPair+"/",
+            "DirMEC="+aNameDMPerPair+"/",
             "DoCorrel=1",
             "DirProj="+mDirEpipolarResampling,
-            "NbProc=1" // 3 proc per GPU
+            "NbProc="+ToStr(aNbProc)
         );
     }
 
@@ -181,14 +150,15 @@ namespace MMVII
             "Im2="+aNameEpipIm2,
             "ImCorrel="+aNameDMPerPair+"/Correl_LeChantier_Num3.tif",
             "DirProj="+mDirCloudProjOnGround,
-            "GroundResolution="+ToStr(mGSD)
+            "GroundResolution="+ToStr(mGSD),
+            "OriInFatherDir=1",
+            "NbProc=1"
         );
     }
 
     int cAppli_DenseMatch::Exe()
     {
         mPhProj.FinishInit();
-
 
         mDirSelectPairs= mPhProj.DirVisu()+ "/" + "DMSelectBestPairs"+ "/";
         mDirEpipolarResampling=mPhProj.DirVisu() + "/" + "EpipResampling" + "/";
@@ -240,65 +210,64 @@ namespace MMVII
 
         //2. For each pair,  epipolar rectificaton, dense matching, projection to ground
         std::list<cParamCallSys> aVecComEpipResample;
-        std::list<cParamCallSys> aVecComMasqMaker;
         std::list<cParamCallSys> aVecComDenseMatch;
         std::list<cParamCallSys> aVecComProjGround;
 
         int aGpuId = 0;
+        int aNbProc =3 ;
         if (mSetGpuPool.size() == 0)
             aGpuId = -1; // No GPU
-
-        int aDBG_MAX =5;
         
         for (const auto & aPair : mVecPairs)
         {
             cParamCallSys aComEpipResample = StrComEpipResample(aPair);
-            std::pair<cParamCallSys,cParamCallSys> aComMasqMaker = StrComMasqMaker(aPair);
-            
-            cParamCallSys aComDenseMatch   = StrComDenseMatchEpip(aPair,aGpuId);
+            aNbProc = ( aGpuId==-1 ) ? 1 : aNbProc;
+            cParamCallSys aComDenseMatch   = StrComDenseMatchEpip(aPair,aGpuId,aNbProc);
             cParamCallSys aComProjGround   = StrComProjGround(aPair);
 
-            if (aDBG_MAX>0)
-            {
-                StdOut() <<  aComEpipResample.Com() << "\n";
-                aDBG_MAX--;
-                aVecComEpipResample.push_back(aComEpipResample);
-
-                // make mask of defined pixels after epipolar resampling
-                aVecComMasqMaker.push_back(aComMasqMaker.first);
-                aVecComMasqMaker.push_back(aComMasqMaker.second);
-                StdOut() <<  aComMasqMaker.first.Com() << "\n";
-                StdOut() <<  aComMasqMaker.second.Com() << "\n";
-                // dense matching vect
-                aVecComDenseMatch.push_back(aComDenseMatch);
-                StdOut() <<  aComDenseMatch.Com() << "\n";
-                if (mSetGpuPool.size() > 0)
-                    aGpuId = (aGpuId + 1) % mSetGpuPool.size();
-                aVecComProjGround.push_back(aComProjGround);
-                StdOut() <<  aComProjGround.Com() << "\n";
-            }
-            else
-            {
-                break;
-            }
+            aVecComEpipResample.push_back(aComEpipResample);
+            StdOut()<< aComEpipResample.Com()<<std::endl;
+            // dense matching vect
+            aVecComDenseMatch.push_back(aComDenseMatch);
+            StdOut() <<  aComDenseMatch.Com() << "\n";
+            if (mSetGpuPool.size() > 0)
+                aGpuId = (aGpuId + 1) % mSetGpuPool.size();
+            aVecComProjGround.push_back(aComProjGround);
+            StdOut() <<  aComProjGround.Com() << "\n";
         }
-
-        // run Epipolar resampling
-        //ExeComParal(aVecComEpipResample,true);
-        //run dense matching
-        //ExeComSerial(aVecComDenseMatch,true);
-        //project to ground
-        //ExeComSerial(aVecComProjGround,true);
 
         //Finally, fusion of all clouds
         cParamCallSys aComCloudFusion(
             "MMVII",
             "CloudMMVII_Fuse",
-            mDirCloudProjOnGround+"Prof.*xml",
+            "Prof.*xml",
             "DirProj="+mDirCloudProjOnGround
         );
-        //ExeComSerial({aComCloudFusion},true);
+
         StdOut() <<  aComCloudFusion.Com() << "\n";
+        
+        if (mExec)
+        {
+            // run Epipolar resampling
+            ExeComParal(aVecComEpipResample,true);
+            //run dense matching
+            // set allowed proc to 3
+            mNbProcAllowed = 3;
+            ExeComParal(aVecComDenseMatch,true);
+            //project to ground
+            // large nbproc for projonground 
+            mNbProcAllowed=12;
+            // later scale with computation load
+            ExeComParal(aVecComProjGround,true);
+
+
+            ExeComSerial({aComCloudFusion},true);
+        }
+        else
+        {
+             StdOut() << "Execution disabled, only printing commands\n";
+        }
+
         return EXIT_SUCCESS;
     }
 

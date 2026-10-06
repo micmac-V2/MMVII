@@ -32,7 +32,7 @@ namespace MMVII
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
         std::string mNameCloud2D_DepthIn;
-        //std::string mNameIm;
+        std::string mDirOri;
         std::string mNameMasq1;
         std::string mNameCorrel;
         std::string mNameSec;
@@ -64,6 +64,7 @@ namespace MMVII
         tREAL8 mThreshGrad;
         bool mZF_SameOri;
         bool mBascCorrel;
+        bool mOriInFatherDir;  ///< if true, search orientation in father dir, else in DirProj
         int  mMultZ;
         double      mMII;   ///<  Marge Inside Image
         double mStretschingThresh;
@@ -77,6 +78,9 @@ namespace MMVII
         cAppliCloudProjectOnGround(const std::vector<std::string> & aVArgs, const cSpecMMVII_Appli & aSpec );
         static constexpr tREAL8 mInfty =  -1e10;
         std::pair<cPt3dr,cPt3dr> BascOnePoint(cPt2di A,  cPt2di anOffSet, bool & oValid);
+        /// Read a camera whose orientation folder is stored at the project root (father dir),
+        /// and not under DirProj which here points to the epipolar-resampling sub-folder.
+        cSensorCamPC * ReadCamFromFatherDir(const std::string & aNameIm);
         //void MakeBasc();
         void MakeFastBasc();
         void MakeBasculeTris(cZBuffer & aZB);
@@ -114,6 +118,7 @@ cAppliCloudProjectOnGround::cAppliCloudProjectOnGround(const std::vector<std::st
     mThreshGrad(0.3),
     mZF_SameOri(true),
     mBascCorrel(false),
+    mOriInFatherDir(false),
     mMultZ(mZF_SameOri ? 1 : -1),
     mMII(0.0),
     mStretschingThresh(4.0)
@@ -126,7 +131,7 @@ cCollecSpecArg2007 & cAppliCloudProjectOnGround::ArgObl(cCollecSpecArg2007 & anA
     return
             APBI_ArgObl(anArgObl)
            <<   Arg2007(mNameCloud2D_DepthIn,"Name of input depth map", {eTA2007::FileImage} )
-           <<   mPhProj.DPOrient().ArgDirInMand()
+           <<   Arg2007(mDirOri,"Mandatory directory of orientation files (stored under the project root)")
            <<   mPhProj.DPMeshDev().ArgDirOutMand()
         ;
 }
@@ -146,6 +151,7 @@ cCollecSpecArg2007 & cAppliCloudProjectOnGround::ArgOpt(cCollecSpecArg2007 & anA
                 << AOpt2007(mGSD,"GroundResolution", "Ground sampling distance of bascule")
                 << AOpt2007(mOutDir,"DirOut","Directory of output files, (def=VISU/"+Specs().Name()+")")
                 << AOpt2007(mMII,"MII","Margin Inside Image (for triangle validation)", {eTA2007::HDV})
+                << AOpt2007(mOriInFatherDir,"OriInFatherDir","If true, search orientation in father dir, else in DirProj",{eTA2007::HDV})
                 << AOpt2007(mStretschingThresh,"ThresholdDistortion","Level of triangle distortion to discard from bascule")
         )
         ;
@@ -747,6 +753,33 @@ void cAppliCloudProjectOnGround::MergeResults()
     }
 }
 
+cSensorCamPC * cAppliCloudProjectOnGround::ReadCamFromFatherDir(const std::string & aNameIm)
+{
+    // When mOriInFatherDir is set, DirProj points to the epipolar-resampling working sub-folder
+    // (where the images live), but the orientation folder is stored at the project root (father
+    // dir). So we anchor the orientation folder to the father dir : everything in DirProject()
+    // before "MMVII-PhgrProj/". Otherwise we keep looking under DirProj (standard behaviour).
+    std::string aFatherDir = DirProject();
+    if (mOriInFatherDir)
+    {
+        size_t aPos = aFatherDir.find(MMVII_DirPhp);
+        if (aPos != std::string::npos)
+            aFatherDir = aFatherDir.substr(0,aPos);
+    }
+
+    std::string aOriFullDir =   aFatherDir
+                              + mPhProj.DPOrient().DirLocOfMode()   // "MMVII-PhgrProj/Ori/"
+                              + mDirOri
+                              + StringDirSeparator();
+
+    std::string aNameCam = aOriFullDir + cSensorCamPC::NameOri_From_Image(aNameIm);
+
+    cSensorCamPC * aCamPC = cSensorCamPC::FromFile(aNameCam,true);
+    cMMVII_Appli::AddObj2DelAtEnd(aCamPC);
+
+    return aCamPC;
+}
+
 int cAppliCloudProjectOnGround::ExeOnParsedBox()
 {
     StdOut()<<"CURBX "<<CurBoxIn()<<std::endl;
@@ -785,12 +818,12 @@ int cAppliCloudProjectOnGround::Exe()
     if (! IsInit(&mNameResult))
         mNameResult = "Dem_" + APBI_NameIm();
     // read camera
-    mCamPC =mPhProj.ReadCamPC(APBI_NameIm(),true);
+    mCamPC = ReadCamFromFatherDir(APBI_NameIm());
 
     if (mModeGeom== eModeGeom::eGEOM_EPIP)
         {
             MMVII_INTERNAL_ASSERT_strong(IsInit(&mNameSec),"should provide secondary image ");
-            mSecCamPC = mPhProj.ReadCamPC(mNameSec, true);
+            mSecCamPC = ReadCamFromFatherDir(mNameSec);
         }
 
     // restore name of input image, as it is used in the APBI_ExecAll() function

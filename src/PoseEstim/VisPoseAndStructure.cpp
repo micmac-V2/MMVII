@@ -19,6 +19,7 @@ cAppli_VisuPoseStr3D::cAppli_VisuPoseStr3D(const std::vector<std::string> & aVAr
     cMMVII_Appli (aVArgs,aSpec),
     mPhProj      (*this),
     mErrProjMax  (10.0),
+    mExportCam(true),
     mCamScale    (0.1), /// replaced by mEstimmLengthPyrCam
     mTSLCloudDezoom(0),
     mOutfile     ("VisuPose3D_${ori}_${features}.ply"),
@@ -41,6 +42,7 @@ cCollecSpecArg2007 & cAppli_VisuPoseStr3D::ArgOpt(cCollecSpecArg2007 & anArgOpt)
     return    anArgOpt
 
             << cHeaderSectionArg("Pose visualisation")
+           << AOpt2007(mExportCam,"ExportCam","Export camera frustum",{eTA2007::HDV})
            << AOpt2007(mCamScale,"CamScale","Scale camera frustum",{eTA2007::HDV})
            << AOpt2007(mEstimmLengthPyrCam,"ELPFD","Param for estimate lenght pyram from depth",{eTA2007::HDV})
 
@@ -162,7 +164,7 @@ int cAppli_VisuPoseStr3D::Exe()
             MakePGround(aPair,aVSens,&aVDist);
         }
 
-        if (! aVDist.empty() && (!IsInit(&mCamScale)))
+        if (! aVDist.empty() && (!IsInit(&mCamScale)) && mExportCam)
         {
             mCamScale = mEstimmLengthPyrCam.mMult * NC_KthVal(aVDist,mEstimmLengthPyrCam.mProp);
             StdOut()  << "Camera scal fixed to " << mCamScale << "\n";
@@ -184,8 +186,11 @@ int cAppli_VisuPoseStr3D::Exe()
         aExpTieP.AddTiePoints(aPlyverts,*aTPts,aVSens);
     }
 
-    cPlyExportCamGeom aExpCamGeom(mCamScale);
-    aExpCamGeom.AddCameras(aPlyverts,aVSens);
+    if (mExportCam)
+    {
+        cPlyExportCamGeom aExpCamGeom(mCamScale);
+        aExpCamGeom.AddCameras(aPlyverts,aVSens);
+    }
 
     double aCurrHue = 0.;
 
