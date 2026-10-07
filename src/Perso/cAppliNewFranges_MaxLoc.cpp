@@ -62,7 +62,7 @@ bool cAppliNewFrange::NewCC(bool isHoriz,const cPt2di& aPix)
      {
       //   if (doCross)
        //     return false;
-         aDir = (aBox.P0().y()<mYC)  ? cPt2di(1,0) : cPt2di(-1,0);
+         aDir = (aBox.P0().y()<mYC)  ? cPt2di(-1,0) : cPt2di(1,0);
      }
 
 
