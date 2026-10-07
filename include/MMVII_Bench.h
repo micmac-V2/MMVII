@@ -208,6 +208,9 @@ void BenchValuatedGraph(cParamExeBench & aParam);
 void BenchGroupGraph(cParamExeBench & aParam);
 
 
+void BenchCodedTarget(cParamExeBench & aParam);
+
+
 /**  A non elemntary Bench that calls MMVII command :
   -   generated simulated noisy image
   -   add target in simulation

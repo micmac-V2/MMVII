@@ -197,10 +197,10 @@ cSpecMMVII_Appli  TheSpec_cAppliGenRandomImage
 (
       TheNameCmd,
       Alloc_cAppliGenRandomImage,
-      "Bundle adjusment between images, using several observations/constraint",
-      {eApF::Ori},
-      {eApDT::Orient},
-      {eApDT::Orient},
+      "Generate random image with specified level of noise (possibly add diracs-comb)",
+      {eApF::ImProc},
+      {eApDT::Console},
+      {eApDT::Image},
       __FILE__
 );
 

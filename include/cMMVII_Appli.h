@@ -349,7 +349,9 @@ class cParamCallSys
 {
     public :
        cParamCallSys();
-       explicit cParamCallSys(const cSpecMMVII_Appli & aCom2007);
+
+       /// if A2FirsArgs=true : Add MMVII + name of command
+       explicit cParamCallSys(const cSpecMMVII_Appli & aCom2007,bool A2FirsArgs);
 
        template<typename ... Targs>
        explicit cParamCallSys(Targs... args)
@@ -358,6 +360,9 @@ class cParamCallSys
        }
 
        void AddArgs(const std::string &);
+       /// Add Arg Opt in MMVII Style, require mSpec exist
+       void AddMMVIIArgsOpt(const std::string & aName,const std::string & aVal);
+
        template<typename ... Targs>
        void AddArgs(const std::string &arg, Targs... args)
        {
@@ -671,6 +676,8 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         bool ChgName(const std::vector<std::string>& aPatSub,std::string & aName) const;
         bool ChgNameIfMatch(const std::vector<std::string>& aPatSub,std::string & aName,bool DefVal=false) const;
 
+        static const std::string & FullBin();            ///< (Public now) accessor to full pathname of MMVII executable
+        static const std::string & DirTestMMVII();       ///< (Public now) accessor to dir to read/write test bench
     private:
         void  AddOneReport(const std::string &anId,const std::string & VecMsg);
         void  DoMergeReport();
@@ -703,8 +710,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         void InitProfile();               ///< init the profile of user ....
         std::string GetProfileName();     ///< get the current profile for user
 
-        static const std::string & FullBin();            ///< Protected accessor to full pathname of MMVII executable
-        static const std::string & DirTestMMVII();       ///< Protected accessor to dir to read/write test bench
+
     private :
         // not very clean, but mutable dont seem enough
         cMultipleOfs & NC_StdOut();

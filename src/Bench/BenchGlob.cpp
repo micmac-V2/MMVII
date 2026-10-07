@@ -631,6 +631,10 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
         BenchEpipolarZFromTieP(aParam);
 
         Bench_HBA(aParam);
+
+
+       BenchCodedTarget(aParam);
+
     }
 
     // Now call the bench of all application that define their own bench
