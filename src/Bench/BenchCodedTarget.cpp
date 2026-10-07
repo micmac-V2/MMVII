@@ -52,8 +52,8 @@ void BenchCodedTarget(cParamExeBench & aParam)
 {
     if (! aParam.NewBench("CodedTarget")) return;
 
-//    std::string aDir = cMMVII_Appli::TmpDirTestMMVII() ;
-    std::string aDir = "/home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/";
+    std::string aDir = cMMVII_Appli::TmpDirTestMMVII() ;
+//    std::string aDir = "/home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/";
     StdOut() << " TMP=" << aDir << "\n";
 
 
@@ -88,7 +88,7 @@ void BenchCodedTarget(cParamExeBench & aParam)
 
        //  StdOut() << "COM=" << aCom.Com() << "\n";  getchar();
 
-        aCom.Execute(false);
+        aCom.Execute(true);
      }
 
 
