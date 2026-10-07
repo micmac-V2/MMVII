@@ -112,7 +112,7 @@ void BenchCodedTarget(cParamExeBench & aParam)
      BenchTargetGenerateImage(3,cPt2di(3000,2000));
    //  BenchTargetGenerate_Specif(eTyCodeTarget::eIGNIndoor,14);
 
-    StdOut() << " xxxTMP=" << aDir << "\n"; getchar();
+    //StdOut() << " xxxTMP=" << aDir << "\n"; getchar();
 
 
     /*
