@@ -170,7 +170,7 @@ void cAppliTestStaticLidarRevEng::CreatePointSphere()
       {
           tREAL8 aN = Norm2(aPt);
           if (aN)
-              AddPt(aPt/aN,aN);
+              AddPt(ToR(aPt)/aN,aN);
           else
               AddPt(cPt3dr(0,0,0),0);
       }

@@ -100,8 +100,8 @@ extern cSpecMMVII_Appli  TheSpec_ImportGCP;
 extern cSpecMMVII_Appli  TheSpec_ImportOBS;
 extern cSpecMMVII_Appli  TheSpec_ImportORGI;
 extern cSpecMMVII_Appli  TheSpec_ImportAiconCamera;
-extern cSpecMMVII_Appli  TheSpec_ImportTSL;
-extern cSpecMMVII_Appli  TheSpec_InitTSL;
+extern cSpecMMVII_Appli  TheSpec_ImportTLS;
+extern cSpecMMVII_Appli  TheSpec_InitTLS;
 extern cSpecMMVII_Appli  TheSpec_ImportTxtCloud;
 extern cSpecMMVII_Appli  TheSpec_MMVII_CloudClip;
 extern cSpecMMVII_Appli  TheSpec_MMVII_Cloud2Ply;
@@ -169,9 +169,9 @@ extern cSpecMMVII_Appli  TheSpec_HierarchSfm;
 extern cSpecMMVII_Appli  TheSpec_VisuPoseStr3D;
 extern cSpecMMVII_Appli  TheSpec_TransformPoses;
 
+extern cSpecMMVII_Appli  TheSpec_EpipRectification;
 extern cSpecMMVII_Appli  TheSpec_EpipResampling;
 extern cSpecMMVII_Appli  TheSpec_OriCreateRPC;
-extern cSpecMMVII_Appli  TheSpec_EpipTest;
 
 extern cSpecMMVII_Appli  TheSpecAppliBenchAPBI;
 extern cSpecMMVII_Appli  TheSpecAppliTestElemBundle;

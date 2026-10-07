@@ -46,7 +46,7 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
     bool aZbufWithDist = true; // zbuffer is in dist or dz?
     std::vector<cSensorCamPC*> aVImages;
 
-    // work on normal images (+ TSL only if aOnScans)
+    // work on normal images (+ TLS only if aOnScans)
     for (const auto aPtrCam : aBA.VSCPC())
     {
         if (aOnScans || (dynamic_cast<cStaticLidar*>(aPtrCam)==nullptr))
@@ -134,6 +134,8 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
                 const cPt2di & aPtScan = *aPatch.mLPatchesP.begin(); // center is 1st point
                 cPt3dr aPtGround = aScanDataA.mLidarRaster->Image2Ground(aPtScan);
                 cPt2dr aPtImage = aCam->Ground2Image(aPtGround);
+                if (!aPtImage.IsValid())
+                    continue;
                 cPt3dr aPtCam3D = aCam->Pt_W2L(aPtGround);
                 tREAL4 aDistWithTolerance = aZbufWithDist ?
                                             -(Norm2(aPtGround - aCam->Center()) - aDistTolerance) :
@@ -183,7 +185,7 @@ cBA_LidarPhotogra::cBA_LidarPhotogra(cPhotogrammetricProject * aPhProj,
     StdOut() << "Read images...\n";
     for (const auto aPtrCam : aBA.VSCPC())
     {
-        // do not read other TSLs
+        // do not read other TLSs
         if (dynamic_cast<cStaticLidar*>(aPtrCam))
             continue;
         auto & aImage = aPtrCam->LoadImage();
@@ -355,7 +357,7 @@ void cBA_LidarPhotograRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, do
 {
     mThreshold = aBA.NbMaxIter() < 2 ? mThresholdFinal :
                      mThresholdInit + (mThresholdFinal - mThresholdInit)*float(aBA.Iter())/(aBA.NbMaxIter()-1);
-    std::cout << "up weighters, th="<<mThreshold<<"\n";
+    //std::cout << "up weighters, th="<<mThreshold<<"\n";
     if (mThreshold>10000)
         mThreshold = -1;
     for (auto & aScanDataA: mVScans)
@@ -476,7 +478,7 @@ void cBA_LidarPhotograRaster::SetVUkVObs
         int                     aKPt
         )
 {
-    cStaticLidar * aScan = mBA.MapTSL().at(aData.mScanAName);
+    cStaticLidar * aScan = mBA.MapTLS().at(aData.mScanAName);
     cPt3dr aPScan = aScan->Pt_W2L(aPGround);  // coordinate of point in ground system
     cSensorCamPC * aCam = mBA.VSCPC().at(aData.mKIm);  // extract the camera
     cPt3dr aPCam = aCam->Pt_W2L(aPGround);  // coordinate of point in image system
@@ -701,6 +703,8 @@ void  cBA_LidarPhotogra::Add1Patch(const cBasicWeighter<tREAL8> &aWeighter,
                    if (aCam->IsVisible(aPGround))  // is the point visible in the camera
                    {
                         cPt2dr aPIm = mBA.VSCPC()[aKIm]->Ground2Image(aPGround); // extract the image  projection
+                       if (!aPIm.IsValid())
+                           continue;
                         if (aGenDIm.InsideInterpolator(*mInterp,aPIm,1.0))  // is it sufficiently inside
                         {
                             auto aVGr = aGenDIm.GetValueAndGradInterpol(*mInterp,aPIm); // extract pair Value/Grad of image
@@ -991,7 +995,7 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
     }
 
     MMVII_INTERNAL_ASSERT_User(!mVScans.empty(),
-                               eTyUEr::eBadFileSetName,"No TSL found!");
+                               eTyUEr::eBadFileSetName,"No TLS found!");
 
     // Creation of the patches, here just center point
     for (auto & aScanData: mVScans)
@@ -1015,7 +1019,20 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
 {
     mThreshold = aBA.NbMaxIter() < 2 ? mThresholdFinal :
                      mThresholdInit + (mThresholdFinal - mThresholdInit)*float(aBA.Iter())/(aBA.NbMaxIter()-1);
-    //std::cout << "up weighters, th="<<aTh<<"\n";
+
+
+    // spend last 15% of iter on final threshold
+    int aNbIterFinalTh = aBA.NbMaxIter()*0.85;
+    mThreshold = mThresholdFinal;
+    if (aBA.NbMaxIter()>2)
+    {
+        if (aBA.Iter() <= aNbIterFinalTh)
+            //mThreshold = mThresholdInit + (mThresholdFinal - mThresholdInit)*float(aBA.Iter())/(aNbIterFinalTh);
+            mThreshold = mThresholdFinal + (mThresholdInit - mThresholdFinal) * (1. + cos(M_PI * float(aBA.Iter())/aNbIterFinalTh ))/2. ;
+    }
+
+
+    //std::cout << "up weighters, th="<<mThreshold<<"\n";
     if (mThreshold>10000)
         mThreshold = -1;
     for (auto & aScanDataA: mVScans)
@@ -1176,8 +1193,8 @@ void cBA_LidarLidarRaster::AddObs()
         for (const auto& [aCpl, aNb] : mMapNbUsedPatches)
         {
             std::string aPath = mPhProj->DirVisuAppli() + "Reproj_on_" + aCpl.first + "_intensity_from_" + aCpl.second + ".tif";
-            cStaticLidar* aScanA =  mBA.MapTSL().at(aCpl.first);
-            cStaticLidar* aScanB =  mBA.MapTSL().at(aCpl.second);
+            cStaticLidar* aScanA =  mBA.MapTLS().at(aCpl.first);
+            cStaticLidar* aScanB =  mBA.MapTLS().at(aCpl.second);
             auto aProjection = aScanA->projectIntensityFrom(*aScanB);
             aProjection.DIm().ToFile(aPath, {"COMPRESS=DEFLATE"});
         }
@@ -1194,9 +1211,9 @@ void cBA_LidarLidarRaster::SetVUkVObs
      int                     aKPt
      )
 {
-    cStaticLidar * aScanA = mBA.MapTSL().at(aData.mScanAName);
+    cStaticLidar * aScanA = mBA.MapTLS().at(aData.mScanAName);
     cPt3dr aPScanA = aScanA->Pt_W2L(aPGround);  // coordinate of point in ground system
-    cStaticLidar * aScanB = mBA.MapTSL().at(aData.mScanBName);
+    cStaticLidar * aScanB = mBA.MapTLS().at(aData.mScanBName);
     cPt3dr aPScanB0 = aScanB->Pt_W2L(aPGround);  // coordinate of point in image system
     tProjImAndGrad aPImGr = aScanB->InternalCalib()->DiffGround2Im(aPScanB0); // compute proj & gradient
 
@@ -1271,6 +1288,8 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             aData.mScanAName = aScanA->NameImage();
             aData.mScanBName = aScanB->NameImage();
             cPt2dr aPIm = aScanB->Ground2Image(aPGround); // extract the image  projection
+            if (!aPIm.IsValid())
+                continue;
             #ifdef SCANSCANDEBUG
             std::cout<<" projection :"<<aPIm<<"\n";
             #endif

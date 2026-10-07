@@ -343,11 +343,11 @@ private :
 };
 
 
-class cEqTSL_GCP
+class cEqTLS_GCP
 {
 public :
-    cEqTSL_GCP(bool aWithDistance) : mWithDistance(aWithDistance) {}
-    std::string FormulaName() const { return std::string("cEqTSL_GCP")+(mWithDistance?"D":"");}
+    cEqTLS_GCP(bool aWithDistance) : mWithDistance(aWithDistance) {}
+    std::string FormulaName() const { return std::string("cEqTLS_GCP")+(mWithDistance?"D":"");}
     std::vector<std::string>  VNamesUnknowns() const
     {
         return Append
@@ -406,8 +406,8 @@ public :
 
         cPtxd<tUk,2> aPPix =  aPP + aPProj * aFoc; // Use Focal and PP to make pixel
 
-        MMVII_INTERNAL_ASSERT_always(aIndUk=aVUk.size(),"cEqColinearityTSL_GCPD : Uk-size");
-        MMVII_INTERNAL_ASSERT_always(aIndObs== aVObs.size(),"cEqColinearityTSL_GCPD : Obs-size");
+        MMVII_INTERNAL_ASSERT_always(aIndUk=aVUk.size(),"cEqColinearityTLS_GCPD : Uk-size");
+        MMVII_INTERNAL_ASSERT_always(aIndObs== aVObs.size(),"cEqColinearityTLS_GCPD : Obs-size");
 
         cPtxd<tUk,2> aResidual2D = aPPix  + aPtErrorProj - aPtIm;  // compare to mesured point
         auto aResidualDistance = mWithDistance ? (aGndDistance - aDistance) : 0;

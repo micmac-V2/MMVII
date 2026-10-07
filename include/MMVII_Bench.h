@@ -101,11 +101,13 @@ void BenchSysCo(cParamExeBench & aParam); ///< SysCo
 
 void BenchTopoComp(cParamExeBench & aParam); ///< Topo compensation
 
-void BenchTSL(cParamExeBench & aParam); ///< Static lidar
+void BenchTLS(cParamExeBench & aParam); ///< Static lidar
 
 void BenchEpipolar(cParamExeBench & aParam);
-void BenchEpipolarNoRPC(cParamExeBench & aParam); ///< Epipolar rectif for sensors with no native Z interval
-void BenchEpipolarZFromTieP(cParamExeBench & aParam); ///< Z interval inferred from tie points, incl. priority over ZIntv
+void BenchEpipolarCrop(cParamExeBench & aParam); ///< Crop, mask, slave crop and tiles of the epipolar resampling
+void BenchEpipolarZ(cParamExeBench & aParam); ///< Z interval of the epipolar rectification: sensor, tie points, ZIntv
+void BenchEpipolarPC(cParamExeBench & aParam); ///< Closed-form epipolar rectification of central perspective cameras, compared with the generic one
+void BenchEpipolarPCCmd(cParamExeBench & aParam); ///< EpipRectification and EpipResampling on central perspective cameras
 
 // void cAppli_MMVII_Bench::Bench_0000_String(); => Bench on string-split
 void BenchSerialization(cParamExeBench & aParam,const std::string & aDirOut,const std::string & aDirIn); ///< Bench on seriaization function
