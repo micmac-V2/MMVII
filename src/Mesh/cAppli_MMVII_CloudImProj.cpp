@@ -11,6 +11,9 @@
 
 #include "cColorateCloud.h"
 
+#include <fstream>
+#include <sstream>
+
 namespace MMVII
 {
 
@@ -71,6 +74,9 @@ class cAppli_MMVII_CloudImProj : public cMMVII_Appli
 
 	void GenerateSynthImage(cProjPointCloud&, const cSensorImage&, const cDemiConeVert*);
 
+	// --- Tile optimization ---
+	void ParseYamlFilesFromDir();
+
 	int mMode;
 	cPhotogrammetricProject mPhProj;
 	// --- Mandatory ----
@@ -106,6 +112,10 @@ class cAppli_MMVII_CloudImProj : public cMMVII_Appli
 	tREAL8 mSurResol_albedo;
 	int mNbSampS;
 	bool mProfIsZ0;
+
+	// --- Tile optimization ---
+	std::string mDirTiles; /// Directory containing YAML files (one per image) with tile names
+	std::map<std::string, std::vector<std::string>> mImageToTilesMap; /// Parsed mapping from YAML files
 };
 
 cAppli_MMVII_CloudImProj::cAppli_MMVII_CloudImProj(const std::vector<std::string>& aVArgs, const cSpecMMVII_Appli& aSpec,
@@ -116,7 +126,7 @@ cAppli_MMVII_CloudImProj::cAppli_MMVII_CloudImProj(const std::vector<std::string
 	  //   mBSurH            (0.1,0.2),
 	  //  mFocal            (-1),
 	  mCalib(nullptr), mVDeltaPax{-1, 1}, mShow(false), mSensDownSample(2.0), mSurResCloud(2.0), mPropRayLeaf(1.0, 1.0),
-	  mSurResol_albedo(2.0), mNbSampS(5)
+	  mSurResol_albedo(2.0), mNbSampS(5), mDirTiles(""), mImageToTilesMap()
 
 {
 	FakeUseIt(mResolOrthoC);
@@ -158,7 +168,8 @@ cCollecSpecArg2007& cAppli_MMVII_CloudImProj::ArgOpt(cCollecSpecArg2007& anArgOp
 				 << AOpt2007(mRInsideMin, "MinInside", "Minimal insideness ratio ", {eTA2007::HDV})
 				 << AOpt2007(mFOV, "FOV", "Field of view, in radian", {eTA2007::HDV})
 				 << AOpt2007(mPrefixImGen, "PrefixIm", "Prefix for generating names", {eTA2007::HDV})
-				 << AOpt2007(mPatIm, "PatIm", "Pattern of images for generation from known orientations");
+				 << AOpt2007(mPatIm, "PatIm", "Pattern of images for generation from known orientations")
+				 << AOpt2007(mDirTiles, "DirTiles", "Directory with YAML files (one per image) containing lidar tile names");
 	}
 
 	return anArgOpt;
@@ -177,6 +188,12 @@ int cAppli_MMVII_CloudImProj::Exe()
 	{
 		StdOut() << "No point cloud files found in directory: " << mDirCloudsIn << std::endl;
 		return EXIT_FAILURE;
+	}
+
+	// Parse YAML files from directory if provided for tile optimization
+	if (IsInit(&mDirTiles) && !mDirTiles.empty())
+	{
+		ParseYamlFilesFromDir();
 	}
 
 	// Compute camera ground footprint
@@ -212,23 +229,58 @@ int cAppli_MMVII_CloudImProj::Exe()
 
 		// Init merged pointcloud
 		cPointCloud aPC_In;
-		// Merge remaining point clouds into aPC_In
-		for (size_t i = 0; i < aCloudFiles.size(); i++)
+
+		// Determine which tiles to process for this image
+		std::vector<std::string> aTilesToProcess;
+		bool aUsingYamlOptimization = false;
+
+		// Check if we have YAML mapping for this image
+		if (!mImageToTilesMap.empty())
 		{
-			StdOut() << "Reading pointcloud: " << aCloudFiles[i] << std::endl;
+			auto aIt = mImageToTilesMap.find(aNameIm);
+			if (aIt != mImageToTilesMap.end() && !aIt->second.empty())
+			{
+				StdOut() << "Using YAML optimization: found " << aIt->second.size() << " tiles for image " << aNameIm << std::endl;
+				aTilesToProcess = aIt->second;
+				aUsingYamlOptimization = true;
+			}
+		}
+
+		// If no YAML optimization or no mapping for this image, use all files
+		if (!aUsingYamlOptimization)
+		{
+			StdOut() << "No YAML optimization for image " << aNameIm << ", processing all tiles" << std::endl;
+			aTilesToProcess = aCloudFiles;
+		}
+
+		// Merge point clouds into aPC_In
+		for (const auto& aTileName : aTilesToProcess)
+		{
+			std::string aTilePath;
+			if (aUsingYamlOptimization)
+			{
+				// YAML contains base names, append .dmp extension
+				aTilePath = mDirCloudsIn + "/" + aTileName + "." + PostF_DumpFiles;
+			}
+			else
+			{
+				// aCloudFiles already includes .dmp extension
+				aTilePath = mDirCloudsIn + "/" + aTileName;
+			}
+			StdOut() << "Reading pointcloud: " << aTilePath << std::endl;
 			cPointCloud aPC_Temp;
-			ReadFromFile(aPC_Temp, mDirCloudsIn + "/" + aCloudFiles[i]);
+			ReadFromFile(aPC_Temp, aTilePath);
 
 			size_t aNbPts = aPC_Temp.NbPts();
 			for (size_t j = 0; j < aNbPts; j++)
 			{
-				// Add point to merged pointcloud only if visile from the camera
+				// Add point to merged pointcloud only if visible from the camera
 				if (aCam->DegreeVisibility(aPC_Temp.KthPt(j)) > 0.0)
 				{
 					aPC_In.AddPt(aPC_Temp.KthPt(j));
 				}
 			}
-			StdOut() << "Read pointcloud: " << aCloudFiles[i] << std::endl;
+			StdOut() << "Read pointcloud: " << aTilePath << std::endl;
 		}
 
 		StdOut() << "Accumulated pointcloud size:" << aPC_In.NbPts() << std::endl;
@@ -351,6 +403,94 @@ void cAppli_MMVII_CloudImProj::ProcessConikModeWithOri(const std::string& aNameI
 	mPhProj.SaveCamPC(*aCam);
 
 	StdOut() << aNameIm << "\n";
+}
+
+void cAppli_MMVII_CloudImProj::ParseYamlFilesFromDir()
+{
+	if (mDirTiles.empty())
+		return;
+
+	StdOut() << "Parsing YAML files from directory: " << mDirTiles << std::endl;
+
+	// Get all YAML files from the directory
+	std::vector<std::string> aYamlFiles = GetFilesFromDir(mDirTiles, AllocRegex(".*\\.(yaml|yml)$"), false);
+	
+	if (aYamlFiles.empty())
+	{
+		StdOut() << "Warning: No YAML files found in directory: " << mDirTiles << std::endl;
+		return;
+	}
+
+	// Parse each YAML file
+	for (const auto& aYamlFile : aYamlFiles)
+	{
+		// Extract image name from YAML filename (remove .yaml or .yml extension)
+		std::string aImageName = aYamlFile;
+		size_t aDotPos = aImageName.find_last_of('.');
+		if (aDotPos != std::string::npos)
+		{
+			aImageName = aImageName.substr(0, aDotPos);
+		}
+
+		std::string aFilePath = mDirTiles + "/" + aYamlFile;
+		StdOut() << "  Processing: " << aFilePath << " (image: " << aImageName << ")" << std::endl;
+
+		std::ifstream aFile(aFilePath);
+		if (!aFile.is_open())
+		{
+			StdOut() << "  Warning: Could not open YAML file: " << aFilePath << std::endl;
+			continue;
+		}
+
+		std::vector<std::string> aTiles;
+		std::string aLine;
+
+		while (std::getline(aFile, aLine))
+		{
+			// Trim leading/trailing whitespace
+			auto aStart = aLine.find_first_not_of(" \t");
+			if (aStart == std::string::npos)
+				continue;
+			auto aEnd = aLine.find_last_not_of(" \t");
+			std::string aTrimmed = aLine.substr(aStart, aEnd - aStart + 1);
+
+			// Skip empty lines and comments
+			if (aTrimmed.empty() || aTrimmed[0] == '#')
+				continue;
+
+			// Check if line starts with "-" (YAML list item)
+			if (aTrimmed.find('-') == 0)
+			{
+				// Extract tile name (remove "-" and any leading whitespace)
+				std::string aTileName = aTrimmed.substr(1);
+				// Trim leading whitespace from tile name
+				aTileName.erase(0, aTileName.find_first_not_of(" \t"));
+				if (!aTileName.empty())
+				{
+					aTiles.push_back(aTileName);
+				}
+			}
+			else
+			{
+				// If no dash, treat as direct tile name
+				aTiles.push_back(aTrimmed);
+			}
+		}
+
+		aFile.close();
+
+		if (!aTiles.empty())
+		{
+			mImageToTilesMap[aImageName] = aTiles;
+			StdOut() << "    Found " << aTiles.size() << " tiles for image " << aImageName << std::endl;
+		}
+	}
+
+	StdOut() << "Parsed " << mImageToTilesMap.size() << " image entries from YAML files" << std::endl;
+	for (const auto& aEntry : mImageToTilesMap)
+	{
+		StdOut() << "  " << aEntry.first << ": " << aEntry.second.size() << " tiles" << std::endl;
+	}
 }
 
 void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud& aPC_In, cProjPointCloud& aPPC)
