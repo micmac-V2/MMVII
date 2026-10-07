@@ -107,6 +107,8 @@ void cAppliNewFrange::DoVisu()
     cRGBImage anImDetail = cRGBImage(mSzRed + cPt2di(aNbX,0),cRGBImage::White);
     // image that visualize oriented chain (+- arrow ...)
     cRGBImage aVisuArrow (mSzRed);
+    cRGBImage aVisuArrowUnif (mSzRed);
+
 
 
     // initialize the raidometry with some enhancement
@@ -119,6 +121,8 @@ void cAppliNewFrange::DoVisu()
 
         anImDetail.SetGrayPix(aPix,aVal);
         aVisuArrow.SetGrayPix(aPix,aVal);
+        aVisuArrowUnif.SetRGBPix(aPix,cRGBImage::Gray128);
+
     }
 
 
@@ -156,7 +160,6 @@ void cAppliNewFrange::DoVisu()
     }
 
     //  Visualize the central line
-    aVisuArrow.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Blue,1.0);
     anImDetail.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x()+aNbX,mYC),cRGBImage::Blue,1.0);
 
 
@@ -207,24 +210,30 @@ void cAppliNewFrange::DoVisu()
 
     //  ------------  visualisation of oriented chains -----------------------
 
-    for (const auto & aCC : mListCC)
+    for (auto aIm : {aVisuArrow,aVisuArrowUnif})
     {
-        const tSeg2dr& aSeg = aCC.mSeg;
-        cPt3di aCol = aCC.mIsHor ? cRGBImage::Yellow : cRGBImage::Cyan;
-        if (!aCC.mIsOk)
-            aCol = cRGBImage::Magenta;
-        if (aCC.mIsOk)
+        aIm.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Blue,1.0);
+        for (const auto & aCC : mListCC)
         {
-            for (const auto & aPix : aCC.mPts)
-                aVisuArrow.SetRGBPix(aPix,aCol);
-            aVisuArrow.DrawCircle(cRGBImage::Red,aSeg.P1(),3.0);
-            aVisuArrow.DrawCircle(cRGBImage::Green,aSeg.P2(),3.0);
+            const tSeg2dr& aSeg = aCC.mSeg;
+            cPt3di aCol = aCC.mIsHor ? cRGBImage::Yellow : cRGBImage::Cyan;
+            if (!aCC.mIsOk)
+                aCol = cRGBImage::Magenta;
+            if (aCC.mIsOk)
+            {
+                for (const auto & aPix : aCC.mPts)
+                    aIm.SetRGBPix(aPix,aCol);
+                aIm.DrawCircle(cRGBImage::Red,aSeg.P1(),3.0);
+                aIm.DrawCircle(cRGBImage::Green,aSeg.P2(),3.0);
+            }
         }
     }
 
 
     GenVisu(anImDetail,"Details");
-    GenVisu(aVisuArrow,"Arrow");
+    GenVisu(aVisuArrow,"ArrowIm");
+    GenVisu(aVisuArrowUnif,"ArrowUnif");
+
     GenVisu(*mDImRedBlur,"Blured");
 
     // Possibly generates names of visu (if PatInit & NoVisu Gene & 1 single file)
