@@ -35,6 +35,12 @@ tREAL8 AngleFromRad(tREAL8 aAngleRad,eTyUnitAngle aUnit)
   return aAngleRad * AngleFromRad(aUnit);
 }
 
+
+tREAL8 AngleToRad(tREAL8 aAngleInUnit,eTyUnitAngle aUnit)
+{
+    return aAngleInUnit / AngleFromRad(aUnit);
+}
+
 tREAL8 Rad2DMgon(tREAL8 aAngInRad)
 {
     return AngleFromRad(aAngInRad,eTyUnitAngle::eUA_DMgon);

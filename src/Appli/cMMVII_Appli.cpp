@@ -71,10 +71,26 @@ cParamCallSys::cParamCallSys() :
 {
 }
 
-cParamCallSys::cParamCallSys(const cSpecMMVII_Appli & aSpec) :
+cParamCallSys::cParamCallSys(const cSpecMMVII_Appli & aSpec,bool A2FirsAgrs) :
    mSpec   (&aSpec)
 {
+    if (A2FirsAgrs)
+    {
+        AddArgs(cMMVII_Appli::FullBin());
+        AddArgs(aSpec.Name());
+    }
 }
+
+
+void cParamCallSys::AddMMVIIArgsOpt(const std::string & aName,const std::string & aVal)
+{
+    // what would be the rationnal to add MMVII-style if not a MMVII command
+    MMVII_INTERNAL_ASSERT_always(mSpec,"No spec in  cParamCallSys::AddMMVIIArgsOpt");
+
+    AddArgs(aName+"="+aVal);
+}
+
+
 
 int cParamCallSys::Execute(bool forceExternal) const
 {
@@ -546,6 +562,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
       }
   }
 
+
   /// MPD2ARGS
 
   if (mDoGlobHelp)
@@ -934,7 +951,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
                 }
                 else
                 {
-                    MMVII_UserError(eTyUEr::eEmptyPattern,"Specified set of files was empty");
+                    MMVII_UserError(eTyUEr::eEmptyPattern,"Specified set of files was empty for [" +aVValues[aK] + "]");
                 }
             } else if (mVMainSets.at(aNum).size() == 1){
                 // If only 1 file matches the pattern, we replace the pattern in this arg by the matched file
@@ -1949,7 +1966,7 @@ cParamCallSys  cMMVII_Appli::StrCallMMVII
                   const std::string & aPatInit
                )
 {
-  cParamCallSys aRes(aCom2007);
+  cParamCallSys aRes(aCom2007,false);
   MMVII_INTERNAL_ASSERT_always(&anAObl==&mColStrAObl,"StrCallMMVII use StrObl() !!");
   MMVII_INTERNAL_ASSERT_always(&anAOpt==&mColStrAOpt,"StrCallMMVII use StrOpt() !!");
 

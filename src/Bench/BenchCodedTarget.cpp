@@ -1,0 +1,132 @@
+#include "MMVII_DeclareAllCmd.h"
+#include "MMVII_DeclareCste.h"
+#include "MMVII_Image2D.h"
+
+#include <filesystem>
+
+
+namespace MMVII
+{
+namespace fs = std::filesystem;
+class ScopedChdir 
+{
+    fs::path old_;
+public:
+    explicit ScopedChdir(const fs::path& dir) : old_(fs::current_path()) {
+        fs::current_path(dir);
+    }
+    ~ScopedChdir() {
+        std::error_code ec;
+        fs::current_path(old_, ec);          // pas d'exception dans un destructeur
+    }
+    ScopedChdir(const ScopedChdir&) = delete;
+    ScopedChdir& operator=(const ScopedChdir&) = delete;
+};
+
+
+/*
+
+
+
+MMVII ImageGenRandom  [3000,2000]   GaussNoise=[100,200] GaussNoise=[5,10]  Out="/home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/ImSynt_1.tif" SeedRand=1
+MMVII ImageGenRandom  [3000,2000]   GaussNoise=[100,200] GaussNoise=[5,10]  Out="/home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/ImSynt_2.tif" SeedRand=2
+
+
+
+MMVII CodedTargetGenerateEncoding IGNIndoor 14 Out=/home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/Encoding.xml
+
+MMVII CodedTargetGenerate  /home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/Encoding.xml Out=/home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/FullSpec.xml
+
+
+MMVII CodedTargetSimul /home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/ImSynt_1.tif  /home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/FullSpec.xml
+
+
+  /home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/Encoding.xml Out=/home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/FullSpec.xml
+
+
+
+
+*/
+
+void BenchTargetGenerateImage(int aNbIm,const cPt2di&  aSzIm)
+{
+    for (int aKIm=0 ; aKIm<aNbIm ; aKIm++)
+    {
+        cParamCallSys aCom(TheSpec_cAppliGenRandomImage,true);
+        aCom.AddArgs(ToStr(aSzIm));
+
+        aCom.AddMMVIIArgsOpt("Type","U_INT1");
+        aCom.AddMMVIIArgsOpt(CurOP_Out,"ImSynt_"+ToStr(aKIm) + ".tif");
+        std::vector<std::vector<double>> aVecNoise{{100.0,70.0},{5.0,10.0}};
+
+        for (const auto & aGaussN : aVecNoise)
+            aCom.AddMMVIIArgsOpt("GaussNoise",ToStr(aGaussN));
+
+        aCom.Execute(aKIm==0);
+     }
+}
+
+std::string BenchTargetGenerate_Specif(eTyCodeTarget aType,int aNBB)
+{
+      std::string aNameEncoding = "Encoding_" + E2Str(aType) + "_" + ToStr(aNBB) + ".xml";
+      {
+          cParamCallSys aComEncoding(TheSpecGenerateEncoding,true);
+          aComEncoding.AddArgs(E2Str(aType));
+          aComEncoding.AddArgs(ToStr(aNBB));
+          aComEncoding.AddMMVIIArgsOpt(CurOP_Out,aNameEncoding);
+          aComEncoding.Execute(false);
+      }
+
+      std::string aNameSpec = "FullSpec_" + E2Str(aType) + "_" + ToStr(aNBB) + ".xml";
+      {
+          cParamCallSys aComGenerate(TheSpecGenCodedTarget,true);
+          aComGenerate.AddArgs(aNameEncoding);
+          aComGenerate.AddMMVIIArgsOpt(CurOP_Out,aNameSpec);
+          // For (still) unexplained reason, there is a memory leak if we do  Execute(false)
+          // (do it in the same process) by the way, the command if it goes untill the end is probably
+          // memory correct as its has been widely used . So, for now, run in a separate process
+          aComGenerate.Execute(true);
+      }
+
+      return aNameSpec;
+}
+
+
+void BenchCodedTarget(cParamExeBench & aParam)
+{
+    if (! aParam.NewBench("CodedTarget")) return;
+
+    std::string aDir = cMMVII_Appli::TmpDirTestMMVII() ;
+
+    StdOut() << "PROFIL NAME=" << cMMVII_Appli::ProfileName() << "\n";
+    if (UserIsMPD())
+    {
+        aDir = "/home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/";
+        StdOut() << " DIR=" << aDir << "\n";
+    }
+
+    // push to the tmp directory
+    ScopedChdir aScopeChD(aDir);
+
+
+     BenchTargetGenerateImage(3,cPt2di(3000,2000));
+   //  BenchTargetGenerate_Specif(eTyCodeTarget::eIGNIndoor,14);
+
+    //StdOut() << " xxxTMP=" << aDir << "\n"; getchar();
+
+
+    /*
+    std::string aDirTmp = "/home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/";
+    ScopedChdir aSChd(aDirTmp);
+
+
+    std::string aCmd1 = "MMVII ImageGenRandom  [3000,2000]   GaussNoise=[100,200] GaussNoise=[5,10]  Out=ImSynt_1.tif SeedRand=1";*/
+
+    aParam.EndBench();
+}
+
+
+
+
+
+};

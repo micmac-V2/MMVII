@@ -379,6 +379,14 @@ template <class Type>  class cImGrad
         const Type & Gx(const cPt2di & aPix) const {return mDGx->GetV(aPix);}
         const Type & Gy(const cPt2di & aPix) const {return mDGy->GetV(aPix);}
         cPtxd<Type,2>  Grad(const cPt2di & aPix) const {return cPtxd<Type,2>(Gx(aPix),Gy(aPix));}
+        cPt2dr  GradR(const cPt2di & aPix) const {return cPt2dr(Gx(aPix),Gy(aPix));}
+
+        void SetGrad(const cPt2di & aPix,const cPtxd<Type,2> &aGrad)
+        {
+            mDGx->SetV(aPix,aGrad.x());
+            mDGy->SetV(aPix,aGrad.y());
+        }
+
 
         Type  GxBL(const cPt2dr & aPix) const {return mDGx->GetVBL(aPix);}
         Type  GyBL(const cPt2dr & aPix) const {return mDGy->GetVBL(aPix);}
@@ -393,6 +401,21 @@ template <class Type>  class cImGrad
 
 template<class Type> cImGrad<Type> Deriche(const cDataIm2D<Type> &aImIn,double aAlpha);
 template<class Type> void ComputeDeriche(cImGrad<Type> & aResGrad,const cDataIm2D<Type> & aImIn,double aAlpha);
+
+template <class Type> class cTensor
+{
+    public :
+       typedef cPtxd<Type,2>  tPt;
+
+       static  tPt  Grad2Tens(const tPt& aGrad);
+       /// If a rho < 0 ?  real rho : else fix value
+       static  tPt  Tens2Grad(const tPt& aGrad,Type aRho=-1);
+
+       static cImGrad<Type>  Grad2Tens(const cImGrad<Type> &);
+
+};
+
+
 
 /**
  * @brief The cSetIm4SparseDist class

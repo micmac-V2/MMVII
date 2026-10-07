@@ -76,6 +76,7 @@ int cSpecMMVII_Appli::AllocExecuteDestruct(const std::vector<std::string> & aVAr
            OpenRandom();
         }
 
+
         if (anAppli->ModeHelp() || anAppli->ModeArgsSpec())
            aRes = EXIT_SUCCESS;
         else
