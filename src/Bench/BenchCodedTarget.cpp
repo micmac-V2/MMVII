@@ -104,8 +104,9 @@ void BenchCodedTarget(cParamExeBench & aParam)
 {
     if (! aParam.NewBench("CodedTarget")) return;
 
-    if (!UserIsMPD())
+    if  (!UserIsMPD())
     {
+        aParam.EndBench();
         return;
     }
     MMVII_DEV_WARNING("BenchCodedTarget not active w/o MPD");
