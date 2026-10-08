@@ -237,10 +237,18 @@ int cAppli_MMVII_CloudImProj::Exe()
 		// Check if we have YAML mapping for this image
 		if (!mImageToTilesMap.empty())
 		{
-			auto aIt = mImageToTilesMap.find(aNameIm);
+			// Strip .tif extension from aNameIm for map lookup (YAML keys don't have extensions)
+			std::string aNameImBase = aNameIm;
+			size_t aDotPos = aNameImBase.find_last_of('.');
+			if (aDotPos != std::string::npos)
+			{
+				aNameImBase = aNameImBase.substr(0, aDotPos);
+			}
+			auto aIt = mImageToTilesMap.find(aNameImBase);
 			if (aIt != mImageToTilesMap.end() && !aIt->second.empty())
 			{
-				StdOut() << "Using YAML optimization: found " << aIt->second.size() << " tiles for image " << aNameIm << std::endl;
+				StdOut() << "Using YAML optimization: found " << aIt->second.size() << " tiles for image " << aNameIm
+						 << std::endl;
 				aTilesToProcess = aIt->second;
 				aUsingYamlOptimization = true;
 			}
@@ -414,7 +422,7 @@ void cAppli_MMVII_CloudImProj::ParseYamlFilesFromDir()
 
 	// Get all YAML files from the directory
 	std::vector<std::string> aYamlFiles = GetFilesFromDir(mDirTiles, AllocRegex(".*\\.(yaml|yml)$"), false);
-	
+
 	if (aYamlFiles.empty())
 	{
 		StdOut() << "Warning: No YAML files found in directory: " << mDirTiles << std::endl;
