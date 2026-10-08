@@ -117,13 +117,16 @@ void cAppliNewFrange::ConnecCompMaxLoc(bool isHoriz)
 
 bool cAppliNewFrange::IsMax(cPt2di aP0,cPt2di aDp0,int aNb) const
 {
-    tREAL4 aV0 = mDImRedBlur->GetV(aP0);
+    auto * anDIm = mDImRedBlur;
+   // anDIm = mDImRed;
+
+    tREAL4 aV0 = anDIm->GetV(aP0);
     for (int aK=1 ; aK<aNb ; aK++)
     {
         cPt2di aDP = aDp0 * aK;
 
-        if (     ( mDImRedBlur->GetV(aP0 + aDP) > aV0)
-              || ( mDImRedBlur->GetV(aP0 - aDP) > aV0)
+        if (     ( anDIm->GetV(aP0 + aDP) > aV0)
+              || ( anDIm->GetV(aP0 - aDP) > aV0)
            )
         {
             return false;

@@ -275,12 +275,41 @@ void cProjPointCloud::ColorizePC()
    }
 }
 
+tREAL8 DepthOfPoint(const cSensorImage & aSensor,const cPt3dr & aPGround,eModeImaDepth aMode)
+{
+    if (aMode==  eModeImaDepth::eZGround )
+        return aPGround.z();
+
+    cPt3dr aPLoc =   aSensor.GetSensorCamPC()-> Pt_W2L(aPGround);
+    if (aMode==  eModeImaDepth::ePlaneSweep )
+    {
+        return aPLoc.z();
+    }
+    if (aMode==  eModeImaDepth::eSphere )
+    {
+        return Norm2(aPLoc) * ( (aPLoc.z()>=0.0) ? 1.0 : -1.0) ;
+    }
+
+
+    MMVII_INTERNAL_ERROR("No DepthOfPoint for " + E2Str(aMode));
+    return -1e30;
+}
+
+tREAL8 DepthIsSignK (const cSensorImage & aSensor,eModeImaDepth aMode)
+{
+    if (aMode==  eModeImaDepth::eZGround )
+        return -1;
+    return 1;
+}
+
+
 void cProjPointCloud::ProcessOneProj
      (
              tREAL8 aSurResol,
              const cSensorImage & aSensor,
              tREAL8 aWeight,
              bool isModeImage,
+             eModeImaDepth  aMode,
              const std::string & aMsg,
              bool  ShowMsg,
              bool  ExportIm,
@@ -569,15 +598,37 @@ void cProjPointCloud::ProcessOneProj
              << "\n";
     }
 
-    // Now put z in image depth
+    // Now put depth  in image depth
 
+    tREAL8 aDepthMax = 1e8;  // compute depth min in
+    tREAL8 aSign = DepthIsSignK(aSensor,aMode);
+    for (const auto & aPix : *mDImIndex)
+    {
+        int aIndex =  mDImIndex->GetV(aPix);
+        if (aIndex!=NoIndex)
+        {
+            tREAL8 aDepth = DepthOfPoint(aSensor,mVPtsInit->at(aIndex),aMode);
+            mDImDepth->SetV(aPix,aDepth);
+            UpdateMax(aDepthMax,aDepth*aSign);
+        }
+    }
+    aDepthMax = (aDepthMax+100.0) * aSign;
+    for (const auto & aPix : *mDImIndex)
+    {
+        if ( mDImIndex->GetV(aPix)==NoIndex)
+        {
+            mDImDepth->SetV(aPix,aDepthMax);
+        }
+    }
+
+    /*
     for (const auto & aPix : *mDImIndex)
     {
         int aIndex =  mDImIndex->GetV(aPix);
         tImageDepth aDepth= (aIndex==NoIndex) ?  (aVMinInit - 100.0) : mVPtsInit->at(aIndex).z();
 
         mDImDepth->SetV(aPix,aDepth);
-    }
+    }*/
 
     if (ExportIm)
     {

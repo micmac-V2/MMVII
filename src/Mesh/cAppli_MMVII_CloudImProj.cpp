@@ -72,6 +72,7 @@ class cAppli_MMVII_CloudImProj : public cMMVII_Appli
 
         int                     mMode;
         cPhotogrammetricProject mPhProj;
+        eModeImaDepth           mModeDepth;
         // --- Mandatory ----
         std::string   mNameCloudIn;
         // --- Optionnal ----
@@ -113,6 +114,7 @@ cAppli_MMVII_CloudImProj::cAppli_MMVII_CloudImProj
      cMMVII_Appli      (aVArgs,aSpec),
      mMode             (aMode),
      mPhProj           (*this),
+     mModeDepth        (eModeImaDepth::eZGround),
      mSurResolSun      (2.0),
      mMakeImRectified  (false),
      mSaveImDepth      (false),
@@ -161,7 +163,7 @@ cCollecSpecArg2007 & cAppli_MMVII_CloudImProj::ArgObl(cCollecSpecArg2007 & anArg
 cCollecSpecArg2007 & cAppli_MMVII_CloudImProj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
    anArgOpt
-          << mPhProj.DPOrient().ArgDirInOpt("","Input orientations")
+      //-----------    << mPhProj.DPOrient().ArgDirInOpt("","Input orientations")  -- MPD : only in mode 1 thei make sens ?
           << AOpt2007(mPrefixOut,CurOP_Out,"Preifix for out images, def= Ima+Input")
           << AOpt2007(mSun,"Sun","Sun : Dir3D=(x,y,1)  ,  Z=WEIGHT !! ")
           << AOpt2007(mNameSavePCSun,"CloudSun","Name of cloud with sun, if sun was added")
@@ -179,11 +181,13 @@ cCollecSpecArg2007 & cAppli_MMVII_CloudImProj::ArgOpt(cCollecSpecArg2007 & anArg
    else if (mMode==1)
    {
        anArgOpt
+           << mPhProj.DPOrient().ArgDirInOpt("","Input orientations")
            << AOpt2007(mOverLap,"Overlap","Ratio of overlap between images",{eTA2007::HDV})
            << AOpt2007(mRInsideMin,"MinInside","Minimal insideness ratio ",{eTA2007::HDV})
            << AOpt2007(mFOV,"FOV","Field of view, in radian",{eTA2007::HDV})
            << AOpt2007(mPrefixImGen,"PrefixIm","Prefix for generating names",{eTA2007::HDV})
            << AOpt2007(mPatIm,"PatIm","Pattern of images for generation from known orientations")
+           << AOpt2007(mModeDepth,"ModeDepth","Mode of generation of depth in enum value",{eTA2007::HDV})
        ;
    }
 
@@ -213,7 +217,7 @@ int  cAppli_MMVII_CloudImProj::Exe()
           StdOut() << " SUN, cart:" << aDirSun  << "\n";
        std::unique_ptr<cCamOrthoC> aCam (aPPC.PPC_CamOrtho(0,false,aDirSun));
 
-       aPPC.ProcessOneProj(mSurResolSun,*aCam,mSun.z(),false,"",false,false);
+       aPPC.ProcessOneProj(mSurResolSun,*aCam,mSun.z(),false,mModeDepth,"",false,false);
 
        aPPC.ColorizePC();
 
@@ -240,7 +244,7 @@ void cAppli_MMVII_CloudImProj::GenerateSynthImage(cProjPointCloud& aPPC,const cS
 {
     std::string aDirIm = mPhProj.DPOrient().FullDirOut();
     std::string aNameIm = aSensor.NameImage();
-    aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,aSensor,0.0,true,"",false,false,aDCV);
+    aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,aSensor,0.0,true,mModeDepth,"",false,false,aDCV);
 
     cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud*mSensDownSample,aSensor);
 
@@ -407,7 +411,7 @@ void cAppli_MMVII_CloudImProj::ProcessOrthoMode(cPointCloud  & aPC_In,cProjPoint
 
        if (mShow)
            StdOut() << "Doing image : " << aCam1->NameImage() << " SzPixInit=" << aCam1->Sz() << "\n";
-       aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,*aCam1,0.0,true,"",false,false); // HERE
+       aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,*aCam1,0.0,true,mModeDepth,"",false,false); // HERE
        cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud*mSensDownSample,*aCam1);
 
       std::string aPost =aCam1->NameImage()+".tif";

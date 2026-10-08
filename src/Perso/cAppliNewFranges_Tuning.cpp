@@ -116,7 +116,7 @@ void cAppliNewFrange::DoVisu()
     for (const auto aPix : *mDImRed)
     {
         tREAL8 aHR = mDImRadFrange->GetV(aPix.y());
-        tREAL8 aRad = ((mDImRed->GetV(aPix)-mRadiomBackGround) /(aHR-mRadiomBackGround)) * 255.0;
+        tREAL8 aRad = ((mDImRedBlur->GetV(aPix)-mRadiomBackGround) /(aHR-mRadiomBackGround)) * 255.0;
         tINT4 aVal = std::clamp(round_ni(aRad),0,255);
 
         anImDetail.SetGrayPix(aPix,aVal);

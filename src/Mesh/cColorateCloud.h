@@ -112,6 +112,7 @@ class cDemiConeVert
 };
 
 
+
 class cProjPointCloud
 {
      public :
@@ -129,7 +130,8 @@ class cProjPointCloud
                     tREAL8 aSurResol,
                     const cSensorImage &,
                     tREAL8 aW,
-                    bool ModeImage,
+                    bool  isModeImage,
+                    eModeImaDepth  aMode,
                     const std::string& aMsg,
                     bool  ShowMsg,
                     bool  ExportIm,

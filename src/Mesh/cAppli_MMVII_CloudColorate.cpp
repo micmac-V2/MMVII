@@ -150,7 +150,7 @@ int  cAppli_MMVII_CloudColorate::Exe()
                    std::unique_ptr<cCamOrthoC> aCam (aPPC.PPC_CamOrtho(aK,mProfIsZ0,aDir));
                    cPt3di aDirI = ToI(aDir*100.0);
                    std::string aMsg = ToStr(aDirI.x()) + "_" +  ToStr(aDirI.y()) + "_" +  ToStr(aDirI.z());
-                   aPPC.ProcessOneProj(mSurResol,*aCam,1.0,false,aMsg,mShowMsg,mExportIm);
+                   aPPC.ProcessOneProj(mSurResol,*aCam,1.0,false,eModeImaDepth::eZGround,aMsg,mShowMsg,mExportIm);
                    aNbStd++;
                    StdOut() << "Still " << aSampS.NbSamples() - aK << "\n";
                }
@@ -160,7 +160,7 @@ int  cAppli_MMVII_CloudColorate::Exe()
         {
             tREAL8 aW0  = mNbSampS ? aNbStd : 1.0;
             std::unique_ptr<cCamOrthoC> aCam (aPPC.PPC_CamOrtho(0,mProfIsZ0,VertSphericalDir(mSun)));
-            aPPC.ProcessOneProj(mSurResol,*aCam,aW0 * mSun.z(),false,"",false,false);
+            aPPC.ProcessOneProj(mSurResol,*aCam,aW0 * mSun.z(),false,eModeImaDepth::eZGround,"",false,false);
         }
         aPPC.ColorizePC();
    }

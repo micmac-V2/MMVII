@@ -24,29 +24,7 @@ public:
 };
 
 
-/*
-
-
-
-MMVII ImageGenRandom  [3000,2000]   GaussNoise=[100,200] GaussNoise=[5,10]  Out="/home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/ImSynt_1.tif" SeedRand=1
-MMVII ImageGenRandom  [3000,2000]   GaussNoise=[100,200] GaussNoise=[5,10]  Out="/home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/ImSynt_2.tif" SeedRand=2
-
-
-
-MMVII CodedTargetGenerateEncoding IGNIndoor 14 Out=/home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/Encoding.xml
-
-MMVII CodedTargetGenerate  /home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/Encoding.xml Out=/home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/FullSpec.xml
-
-
-MMVII CodedTargetSimul /home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/ImSynt_1.tif  /home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/FullSpec.xml
-
-
-  /home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/Encoding.xml Out=/home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/FullSpec.xml
-
-
-
-
-*/
+static const std::string  PrefixIm = "ImSynt_";
 
 void BenchTargetGenerateImage(int aNbIm,const cPt2di&  aSzIm)
 {
@@ -56,7 +34,7 @@ void BenchTargetGenerateImage(int aNbIm,const cPt2di&  aSzIm)
         aCom.AddArgs(ToStr(aSzIm));
 
         aCom.AddMMVIIArgsOpt("Type","U_INT1");
-        aCom.AddMMVIIArgsOpt(CurOP_Out,"ImSynt_"+ToStr(aKIm) + ".tif");
+        aCom.AddMMVIIArgsOpt(CurOP_Out,PrefixIm+ToStr(aKIm) + ".tif");
         std::vector<std::vector<double>> aVecNoise{{100.0,70.0},{5.0,10.0}};
 
         for (const auto & aGaussN : aVecNoise)
@@ -65,6 +43,7 @@ void BenchTargetGenerateImage(int aNbIm,const cPt2di&  aSzIm)
         aCom.Execute(aKIm==0);
      }
 }
+
 
 std::string BenchTargetGenerate_Specif(eTyCodeTarget aType,int aNBB)
 {
@@ -97,6 +76,30 @@ std::string BenchTargetGenerate_Specif(eTyCodeTarget aType,int aNBB)
 }
 
 
+void BenchTarget_GenerateSimul(const std::string & aNameFullSpec,const std::string & aPatNames)
+{
+    // MMVII CodedTargetSimul ImSynt_.*tif FullSpec_IGNIndoor_14.xml Radius=[30,60] Ratio=[0.5,1.0] NoiseAmpl=[0,0] PropLinBias=[0,0]
+
+    cParamCallSys aComSimul(TheSpecSimulCodedTarget,true);
+
+    aComSimul.AddArgs(PrefixIm+".*tif");
+    aComSimul.AddArgs(aNameFullSpec);
+
+    aComSimul.AddMMVIIArgsOpt("PatNames",aPatNames);
+
+    aComSimul.AddMMVIIArgsOpt("Radius",ToStr(cPt2dr(40,60)));
+    aComSimul.AddMMVIIArgsOpt("Ratio",ToStr(cPt2dr(0.7,1.0)));
+    aComSimul.AddMMVIIArgsOpt("NoiseAmpl",ToStr(cPt2dr(0,0)));
+    aComSimul.AddMMVIIArgsOpt("PropLinBias",ToStr(cPt2dr(0,0)));
+    // aComSimul.AddMMVIIArgsOpt("Show","false");
+
+   aComSimul.Execute(true);
+
+    // StdOut() << " COM= " << aComSimul.Com() << "\n";
+}
+
+
+
 void BenchCodedTarget(cParamExeBench & aParam)
 {
     if (! aParam.NewBench("CodedTarget")) return;
@@ -114,18 +117,13 @@ void BenchCodedTarget(cParamExeBench & aParam)
     ScopedChdir aScopeChD(aDir);
 
 
-     BenchTargetGenerateImage(3,cPt2di(3000,2000));
-   //  BenchTargetGenerate_Specif(eTyCodeTarget::eIGNIndoor,14);
+    if (true)
+    {
+       BenchTargetGenerateImage(3,cPt2di(3000,2000));
+    }
+    std::string aNameFullSpec = BenchTargetGenerate_Specif(eTyCodeTarget::eIGNIndoor,14);
 
-    //StdOut() << " xxxTMP=" << aDir << "\n"; getchar();
-
-
-    /*
-    std::string aDirTmp = "/home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/";
-    ScopedChdir aSChd(aDirTmp);
-
-
-    std::string aCmd1 = "MMVII ImageGenRandom  [3000,2000]   GaussNoise=[100,200] GaussNoise=[5,10]  Out=ImSynt_1.tif SeedRand=1";*/
+    BenchTarget_GenerateSimul(aNameFullSpec,".*[05]");
 
     aParam.EndBench();
 }
