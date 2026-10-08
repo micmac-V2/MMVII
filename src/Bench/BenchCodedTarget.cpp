@@ -101,6 +101,13 @@ void BenchCodedTarget(cParamExeBench & aParam)
 {
     if (! aParam.NewBench("CodedTarget")) return;
 
+    if (!UserIsMPD())
+    {
+        return;
+    }
+    MMVII_DEV_WARNING("BenchCodedTarget not active w/o MPD");
+
+
     std::string aDir = cMMVII_Appli::TmpDirTestMMVII() ;
 
     StdOut() << "PROFIL NAME=" << cMMVII_Appli::ProfileName() << "\n";
