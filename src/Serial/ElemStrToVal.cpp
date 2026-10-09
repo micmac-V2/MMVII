@@ -30,6 +30,13 @@ template<> cE2Str<eOpAff>::tMapE2Str cE2Str<eOpAff>::mE2S
            };
 
 
+template<> cE2Str<eModeImaDepth>::tMapE2Str cE2Str<eModeImaDepth>::mE2S
+           {
+               {eModeImaDepth::eZGround,"ZGround"},
+               {eModeImaDepth::ePlaneSweep,"PlaneSweep"},
+               {eModeImaDepth::eSphere,"Sphere"}
+           };
+
 template<> cE2Str<eProjPC>::tMapE2Str cE2Str<eProjPC>::mE2S
            {
                {eProjPC::eStenope,"Stenope"},
@@ -39,7 +46,6 @@ template<> cE2Str<eProjPC>::tMapE2Str cE2Str<eProjPC>::mE2S
                {eProjPC::eOrthoGraphik,"OrthoGraphik"},
                {eProjPC::eEquiRect,"EquiRect"}
            };
-
 
 template<> cE2Str<eSysCo>::tMapE2Str cE2Str<eSysCo>::mE2S
            {
@@ -601,6 +607,8 @@ template<class TypeEnum> void TplBenchEnum()
 void BenchEnum(cParamExeBench & aParam)
 {
     if (! aParam.NewBench("Enum")) return;
+
+    TplBenchEnum<eModeImaDepth>();
 
     TplBenchEnum<eProjPC>();
     TplBenchEnum<eSysCo>();
@@ -1461,6 +1469,8 @@ void BenchStrIO(cParamExeBench & aParam)
 /*    eOpAff,                           */
 /*                                      */
 /* ==================================== */
+
+MACRO_INSTANTIATE_STRIO_ENUM(eModeImaDepth,"ModeImaDepth")
 
 MACRO_INSTANTIATE_STRIO_ENUM(eApF,"ApF")
 MACRO_INSTANTIATE_STRIO_ENUM(eApDT,"ApDT")

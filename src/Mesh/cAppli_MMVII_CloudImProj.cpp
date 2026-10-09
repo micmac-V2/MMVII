@@ -89,6 +89,7 @@ class cAppli_MMVII_CloudImProj : public cMMVII_Appli
 	std::string mPrefixImGen;
 	std::string mPatIm;
 
+<<<<<<< HEAD
 	tREAL8 mResolOrthoC;
 	cPt2di mSzIm;
 	cPt2dr mOverLap;
@@ -96,6 +97,20 @@ class cAppli_MMVII_CloudImProj : public cMMVII_Appli
 	tREAL8 mFOV;
 	// cPt2di        mNbBande;
 	// cPt2dr        mBSurH;
+=======
+        int                     mMode;
+        cPhotogrammetricProject mPhProj;
+        eModeImaDepth           mModeDepth;
+        // --- Mandatory ----
+        std::string   mNameCloudIn;
+        // --- Optionnal ----
+        tREAL8  mSurResolSun;
+        std::string   mPrefixOut;
+        bool mMakeImRectified;
+        bool mSaveImDepth;
+        std::string mPrefixImGen ;
+        std::string mPatIm;
+>>>>>>> cef6f2ed (Add option PlaneSweep in Im from Cloud + in bench target)
 
 	cPerspCamIntrCalib* mCalib;
 
@@ -207,6 +222,7 @@ int cAppli_MMVII_CloudImProj::Exe()
 
 	auto output_files = GetFilesFromDir(aDirIm, AllocRegex(".*tif"));
 
+<<<<<<< HEAD
 	StdOut() << "output_files: " << output_files << std::endl;
 	// Extract image names and filter by mPatIm
 	tNameSelector aSel = AllocRegex(mPatIm);
@@ -217,6 +233,9 @@ int cAppli_MMVII_CloudImProj::Exe()
 		if (aSel.Match(aImName) && (std::find(output_files.begin(), output_files.end(), aImName) == output_files.end()))
 			aSetNames.push_back(aImName);
 	}
+=======
+       aPPC.ProcessOneProj(mSurResolSun,*aCam,mSun.z(),false,mModeDepth,"",false,false);
+>>>>>>> cef6f2ed (Add option PlaneSweep in Im from Cloud + in bench target)
 
 	StdOut() << "aSetNames: " << aSetNames << std::endl;
 
@@ -372,8 +391,14 @@ int cAppli_MMVII_CloudImProj::Exe()
 
 void cAppli_MMVII_CloudImProj::GenerateSynthImage(cProjPointCloud& aPPC, const cSensorImage& aSensor, const cDemiConeVert* aDCV)
 {
+<<<<<<< HEAD
 	std::string aDirIm = mPhProj.DPOrient().FullDirOut();
 	std::string aNameIm = aSensor.NameImage();
+=======
+    std::string aDirIm = mPhProj.DPOrient().FullDirOut();
+    std::string aNameIm = aSensor.NameImage();
+    aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,aSensor,0.0,true,mModeDepth,"",false,false,aDCV);
+>>>>>>> cef6f2ed (Add option PlaneSweep in Im from Cloud + in bench target)
 
 	mSensDownSample = 1.0;
 	mSurResCloud = 1.0;
@@ -536,11 +561,18 @@ void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud& aPC_In, cProjPointC
 		cBox2dr aBoxI = aBoxLoc.Inter(aBox2Glob);
 		tREAL8 aRatio = aBoxI.NbElem() / aBoxLoc.NbElem();
 
+<<<<<<< HEAD
 		if (aRatio > mRInsideMin)
 		{
 			cPt3dr aC3(aC2.x(), aC2.y(), aZ);
 			tPoseR aPose(aC3, tRotR::RotFromCanonicalAxes("i-j-k"));
 			std::string aPrefix = mPrefixImGen + ToStr(aPix.x() + aNb.x()) + "-" + ToStr(aPix.y() + aNb.y());
+=======
+       if (mShow)
+           StdOut() << "Doing image : " << aCam1->NameImage() << " SzPixInit=" << aCam1->Sz() << "\n";
+       aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,*aCam1,0.0,true,mModeDepth,"",false,false); // HERE
+       cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud*mSensDownSample,*aCam1);
+>>>>>>> cef6f2ed (Add option PlaneSweep in Im from Cloud + in bench target)
 
 			std::string aNameImage = aPrefix + "-Radiom-" + ".tif";
 			cSensorCamPC aCam(aNameImage, aPose, mCalib);

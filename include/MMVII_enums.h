@@ -610,6 +610,14 @@ enum class eFormatSensor
 };
 
 
+enum class eModeImaDepth
+{
+    eZGround,
+    ePlaneSweep,
+    eSphere,
+    eNbVals
+};
+
 
 
 enum class eProjPC
@@ -678,6 +686,7 @@ bool IsCircularTarge(eTyCodeTarget);
 
 
 
+
 /// Type of data base for camera
 enum class eTypeDBCam
            {
@@ -738,6 +747,9 @@ const std::string & E2Str(const eFormatExtern &);
 const std::string & E2Str(const eTypeSerial &);
 const std::string & E2Str(const eTAAr &);
 const std::string & E2Str(const eProjPC &);
+const std::string & E2Str(const eModeImaDepth &);
+
+
 const std::string & E2Str(const eSysCo &);
 const std::string & E2Str(const eTopoObsSetType &);
 const std::string & E2Str(const eTopoObsType &);

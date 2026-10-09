@@ -116,9 +116,9 @@ class cProjPointCloud
 	void SetComputeProfMax(bool);
 
 	/// Process on projection for  OR  (1) modify colorization of points (2)
-	int ProcessOneProj(tREAL8 aSurResol, const cSensorImage&, tREAL8 aW, bool ModeImage, const std::string& aMsg, bool ShowMsg,
-					   bool ExportIm,
-					   const cDemiConeVert* aPresel = nullptr ///< Presel to avoid most visb test (for accelerate)
+	void ProcessOneProj(tREAL8 aSurResol, const cSensorImage&, tREAL8 aW, bool isModeImage, eModeImaDepth aMode,
+						const std::string& aMsg, bool ShowMsg, bool ExportIm,
+						const cDemiConeVert* aPresel = nullptr ///< Presel to avoid most visb test (for accelerate)
 
 	);
 
