@@ -11,9 +11,6 @@
 
 #include "cColorateCloud.h"
 
-#include <fstream>
-#include <sstream>
-
 namespace MMVII
 {
 
@@ -74,11 +71,9 @@ class cAppli_MMVII_CloudImProj : public cMMVII_Appli
 
 	void GenerateSynthImage(cProjPointCloud&, const cSensorImage&, const cDemiConeVert*);
 
-	// --- Tile optimization ---
-	void ParseYamlFilesFromDir();
-
 	int mMode;
 	cPhotogrammetricProject mPhProj;
+	eModeImaDepth mModeDepth;
 	// --- Mandatory ----
 	std::string mDirCloudsIn; // Changed from file to directory
 	// --- Optionnal ----
@@ -89,7 +84,6 @@ class cAppli_MMVII_CloudImProj : public cMMVII_Appli
 	std::string mPrefixImGen;
 	std::string mPatIm;
 
-<<<<<<< HEAD
 	tREAL8 mResolOrthoC;
 	cPt2di mSzIm;
 	cPt2dr mOverLap;
@@ -97,20 +91,6 @@ class cAppli_MMVII_CloudImProj : public cMMVII_Appli
 	tREAL8 mFOV;
 	// cPt2di        mNbBande;
 	// cPt2dr        mBSurH;
-=======
-        int                     mMode;
-        cPhotogrammetricProject mPhProj;
-        eModeImaDepth           mModeDepth;
-        // --- Mandatory ----
-        std::string   mNameCloudIn;
-        // --- Optionnal ----
-        tREAL8  mSurResolSun;
-        std::string   mPrefixOut;
-        bool mMakeImRectified;
-        bool mSaveImDepth;
-        std::string mPrefixImGen ;
-        std::string mPatIm;
->>>>>>> cef6f2ed (Add option PlaneSweep in Im from Cloud + in bench target)
 
 	cPerspCamIntrCalib* mCalib;
 
@@ -127,21 +107,18 @@ class cAppli_MMVII_CloudImProj : public cMMVII_Appli
 	tREAL8 mSurResol_albedo;
 	int mNbSampS;
 	bool mProfIsZ0;
-
-	// --- Tile optimization ---
-	std::string mDirTiles; /// Directory containing YAML files (one per image) with tile names
-	std::map<std::string, std::vector<std::string>> mImageToTilesMap; /// Parsed mapping from YAML files
 };
 
 cAppli_MMVII_CloudImProj::cAppli_MMVII_CloudImProj(const std::vector<std::string>& aVArgs, const cSpecMMVII_Appli& aSpec,
 												   int aMode)
-	: cMMVII_Appli(aVArgs, aSpec), mMode(aMode), mPhProj(*this), mSurResolSun(2.0), mMakeImRectified(false), mSaveImDepth(false),
-	  mPrefixImGen("C_"), mPatIm(""), mResolOrthoC(0.2), mOverLap(0.8, 0.6), mRInsideMin(0.5), mFOV(0.7),
+	: cMMVII_Appli(aVArgs, aSpec), mMode(aMode), mPhProj(*this), mModeDepth(eModeImaDepth::ePlaneSweep), mSurResolSun(2.0),
+	  mMakeImRectified(false), mSaveImDepth(false), mPrefixImGen("C_"), mPatIm(""), mResolOrthoC(0.2), mOverLap(0.8, 0.6),
+	  mRInsideMin(0.5), mFOV(0.7),
 	  //   mNbBande          (5,1),
 	  //   mBSurH            (0.1,0.2),
 	  //  mFocal            (-1),
 	  mCalib(nullptr), mVDeltaPax{-1, 1}, mShow(false), mSensDownSample(2.0), mSurResCloud(2.0), mPropRayLeaf(1.0, 1.0),
-	  mSurResol_albedo(2.0), mNbSampS(5), mDirTiles(""), mImageToTilesMap()
+	  mSurResol_albedo(2.0), mNbSampS(5)
 
 {
 	FakeUseIt(mResolOrthoC);
@@ -184,7 +161,7 @@ cCollecSpecArg2007& cAppli_MMVII_CloudImProj::ArgOpt(cCollecSpecArg2007& anArgOp
 				 << AOpt2007(mFOV, "FOV", "Field of view, in radian", {eTA2007::HDV})
 				 << AOpt2007(mPrefixImGen, "PrefixIm", "Prefix for generating names", {eTA2007::HDV})
 				 << AOpt2007(mPatIm, "PatIm", "Pattern of images for generation from known orientations")
-				 << AOpt2007(mDirTiles, "DirTiles", "Directory with YAML files (one per image) containing lidar tile names");
+				 << AOpt2007(mModeDepth, "ModeDepth", "Mode of generation of depth in enum value", {eTA2007::HDV});
 	}
 
 	return anArgOpt;
@@ -205,12 +182,6 @@ int cAppli_MMVII_CloudImProj::Exe()
 		return EXIT_FAILURE;
 	}
 
-	// Parse YAML files from directory if provided for tile optimization
-	if (IsInit(&mDirTiles) && !mDirTiles.empty())
-	{
-		ParseYamlFilesFromDir();
-	}
-
 	// Compute camera ground footprint
 	std::string aDirIm = mPhProj.DPOrient().FullDirOut();
 	std::string aDirIn = mPhProj.DPOrient().FullDirIn();
@@ -222,7 +193,6 @@ int cAppli_MMVII_CloudImProj::Exe()
 
 	auto output_files = GetFilesFromDir(aDirIm, AllocRegex(".*tif"));
 
-<<<<<<< HEAD
 	StdOut() << "output_files: " << output_files << std::endl;
 	// Extract image names and filter by mPatIm
 	tNameSelector aSel = AllocRegex(mPatIm);
@@ -233,9 +203,6 @@ int cAppli_MMVII_CloudImProj::Exe()
 		if (aSel.Match(aImName) && (std::find(output_files.begin(), output_files.end(), aImName) == output_files.end()))
 			aSetNames.push_back(aImName);
 	}
-=======
-       aPPC.ProcessOneProj(mSurResolSun,*aCam,mSun.z(),false,mModeDepth,"",false,false);
->>>>>>> cef6f2ed (Add option PlaneSweep in Im from Cloud + in bench target)
 
 	StdOut() << "aSetNames: " << aSetNames << std::endl;
 
@@ -248,66 +215,23 @@ int cAppli_MMVII_CloudImProj::Exe()
 
 		// Init merged pointcloud
 		cPointCloud aPC_In;
-
-		// Determine which tiles to process for this image
-		std::vector<std::string> aTilesToProcess;
-		bool aUsingYamlOptimization = false;
-
-		// Check if we have YAML mapping for this image
-		if (!mImageToTilesMap.empty())
+		// Merge remaining point clouds into aPC_In
+		for (size_t i = 0; i < aCloudFiles.size(); i++)
 		{
-			// Strip .tif extension from aNameIm for map lookup (YAML keys don't have extensions)
-			std::string aNameImBase = aNameIm;
-			size_t aDotPos = aNameImBase.find_last_of('.');
-			if (aDotPos != std::string::npos)
-			{
-				aNameImBase = aNameImBase.substr(0, aDotPos);
-			}
-			auto aIt = mImageToTilesMap.find(aNameImBase);
-			if (aIt != mImageToTilesMap.end() && !aIt->second.empty())
-			{
-				StdOut() << "Using YAML optimization: found " << aIt->second.size() << " tiles for image " << aNameIm
-						 << std::endl;
-				aTilesToProcess = aIt->second;
-				aUsingYamlOptimization = true;
-			}
-		}
-
-		// If no YAML optimization or no mapping for this image, use all files
-		if (!aUsingYamlOptimization)
-		{
-			StdOut() << "No YAML optimization for image " << aNameIm << ", processing all tiles" << std::endl;
-			aTilesToProcess = aCloudFiles;
-		}
-
-		// Merge point clouds into aPC_In
-		for (const auto& aTileName : aTilesToProcess)
-		{
-			std::string aTilePath;
-			if (aUsingYamlOptimization)
-			{
-				// YAML contains base names, append .dmp extension
-				aTilePath = mDirCloudsIn + "/" + aTileName + "." + PostF_DumpFiles;
-			}
-			else
-			{
-				// aCloudFiles already includes .dmp extension
-				aTilePath = mDirCloudsIn + "/" + aTileName;
-			}
-			StdOut() << "Reading pointcloud: " << aTilePath << std::endl;
+			StdOut() << "Reading pointcloud: " << aCloudFiles[i] << std::endl;
 			cPointCloud aPC_Temp;
-			ReadFromFile(aPC_Temp, aTilePath);
+			ReadFromFile(aPC_Temp, mDirCloudsIn + "/" + aCloudFiles[i]);
 
 			size_t aNbPts = aPC_Temp.NbPts();
 			for (size_t j = 0; j < aNbPts; j++)
 			{
-				// Add point to merged pointcloud only if visible from the camera
+				// Add point to merged pointcloud only if visile from the camera
 				if (aCam->DegreeVisibility(aPC_Temp.KthPt(j)) > 0.0)
 				{
 					aPC_In.AddPt(aPC_Temp.KthPt(j));
 				}
 			}
-			StdOut() << "Read pointcloud: " << aTilePath << std::endl;
+			StdOut() << "Read pointcloud: " << aCloudFiles[i] << std::endl;
 		}
 
 		StdOut() << "Accumulated pointcloud size:" << aPC_In.NbPts() << std::endl;
@@ -355,7 +279,7 @@ int cAppli_MMVII_CloudImProj::Exe()
 
 					StdOut() << ">> aK: " << aK << std::endl;
 					std::unique_ptr<cCamOrthoC> aCam_albedo(aPPC.PPC_CamOrtho(aK, mProfIsZ0, aDir));
-					aPPC.ProcessOneProj(mSurResol_albedo, *aCam_albedo, 1.0, false, "", false, false);
+					aPPC.ProcessOneProj(mSurResol_albedo, *aCam_albedo, 1.0, false, mModeDepth, "", false, false);
 					StdOut() << "Still " << aSampS.NbSamples() - aK << "\n";
 				}
 			}
@@ -374,7 +298,7 @@ int cAppli_MMVII_CloudImProj::Exe()
 
 			// Project pointcloud to image frame
 			std::unique_ptr<cCamOrthoC> aCam_sun(aPPC.PPC_CamOrtho(0, false, aDirSun));
-			aPPC.ProcessOneProj(mSurResolSun, *aCam_sun, mSun.z(), false, "", false, false);
+			aPPC.ProcessOneProj(mSurResolSun, *aCam_sun, mSun.z(), false, mModeDepth, "", false, false);
 
 			aPPC.ColorizePC();
 		}
@@ -391,31 +315,23 @@ int cAppli_MMVII_CloudImProj::Exe()
 
 void cAppli_MMVII_CloudImProj::GenerateSynthImage(cProjPointCloud& aPPC, const cSensorImage& aSensor, const cDemiConeVert* aDCV)
 {
-<<<<<<< HEAD
 	std::string aDirIm = mPhProj.DPOrient().FullDirOut();
 	std::string aNameIm = aSensor.NameImage();
-=======
-    std::string aDirIm = mPhProj.DPOrient().FullDirOut();
-    std::string aNameIm = aSensor.NameImage();
-    aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,aSensor,0.0,true,mModeDepth,"",false,false,aDCV);
->>>>>>> cef6f2ed (Add option PlaneSweep in Im from Cloud + in bench target)
 
 	mSensDownSample = 1.0;
 	mSurResCloud = 1.0;
 
 	StdOut() << ">> ProcessOneProj...\n";
-	int status = aPPC.ProcessOneProj(mSurResCloud * mSensDownSample, aSensor, 0.0, true, "", false, false, aDCV);
+	aPPC.ProcessOneProj(mSurResCloud * mSensDownSample, aSensor, 0.0, true, mModeDepth, "", false, false, aDCV);
 	StdOut() << ">> ProcessOneProj ok\n";
 
 	StdOut() << ">> ProcessImage...\n";
-	if (status == 0)
-	{
-		cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud * mSensDownSample, aSensor);
+	cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud * mSensDownSample, aSensor);
 
-		aResIm.mImRadiom.DIm().ToFile(aDirIm + aNameIm);
-		aResIm.mImWeight.DIm().ToFile(aDirIm + aNameIm + "Weight-" + ".tif");
-		aResIm.mImDepth.DIm().ToFile(aDirIm + aNameIm + "Depth-" + ".tif");
-	}
+	aResIm.mImRadiom.DIm().ToFile(aDirIm + aNameIm);
+	aResIm.mImWeight.DIm().ToFile(aDirIm + aNameIm + "Weight-" + ".tif");
+	aResIm.mImDepth.DIm().ToFile(aDirIm + aNameIm + "Depth-" + ".tif");
+
 	StdOut() << ">> ProcessImage ok\n";
 }
 
@@ -436,94 +352,6 @@ void cAppli_MMVII_CloudImProj::ProcessConikModeWithOri(const std::string& aNameI
 	mPhProj.SaveCamPC(*aCam);
 
 	StdOut() << aNameIm << "\n";
-}
-
-void cAppli_MMVII_CloudImProj::ParseYamlFilesFromDir()
-{
-	if (mDirTiles.empty())
-		return;
-
-	StdOut() << "Parsing YAML files from directory: " << mDirTiles << std::endl;
-
-	// Get all YAML files from the directory
-	std::vector<std::string> aYamlFiles = GetFilesFromDir(mDirTiles, AllocRegex(".*\\.(yaml|yml)$"), false);
-
-	if (aYamlFiles.empty())
-	{
-		StdOut() << "Warning: No YAML files found in directory: " << mDirTiles << std::endl;
-		return;
-	}
-
-	// Parse each YAML file
-	for (const auto& aYamlFile : aYamlFiles)
-	{
-		// Extract image name from YAML filename (remove .yaml or .yml extension)
-		std::string aImageName = aYamlFile;
-		size_t aDotPos = aImageName.find_last_of('.');
-		if (aDotPos != std::string::npos)
-		{
-			aImageName = aImageName.substr(0, aDotPos);
-		}
-
-		std::string aFilePath = mDirTiles + "/" + aYamlFile;
-		StdOut() << "  Processing: " << aFilePath << " (image: " << aImageName << ")" << std::endl;
-
-		std::ifstream aFile(aFilePath);
-		if (!aFile.is_open())
-		{
-			StdOut() << "  Warning: Could not open YAML file: " << aFilePath << std::endl;
-			continue;
-		}
-
-		std::vector<std::string> aTiles;
-		std::string aLine;
-
-		while (std::getline(aFile, aLine))
-		{
-			// Trim leading/trailing whitespace
-			auto aStart = aLine.find_first_not_of(" \t");
-			if (aStart == std::string::npos)
-				continue;
-			auto aEnd = aLine.find_last_not_of(" \t");
-			std::string aTrimmed = aLine.substr(aStart, aEnd - aStart + 1);
-
-			// Skip empty lines and comments
-			if (aTrimmed.empty() || aTrimmed[0] == '#')
-				continue;
-
-			// Check if line starts with "-" (YAML list item)
-			if (aTrimmed.find('-') == 0)
-			{
-				// Extract tile name (remove "-" and any leading whitespace)
-				std::string aTileName = aTrimmed.substr(1);
-				// Trim leading whitespace from tile name
-				aTileName.erase(0, aTileName.find_first_not_of(" \t"));
-				if (!aTileName.empty())
-				{
-					aTiles.push_back(aTileName);
-				}
-			}
-			else
-			{
-				// If no dash, treat as direct tile name
-				aTiles.push_back(aTrimmed);
-			}
-		}
-
-		aFile.close();
-
-		if (!aTiles.empty())
-		{
-			mImageToTilesMap[aImageName] = aTiles;
-			StdOut() << "    Found " << aTiles.size() << " tiles for image " << aImageName << std::endl;
-		}
-	}
-
-	StdOut() << "Parsed " << mImageToTilesMap.size() << " image entries from YAML files" << std::endl;
-	for (const auto& aEntry : mImageToTilesMap)
-	{
-		StdOut() << "  " << aEntry.first << ": " << aEntry.second.size() << " tiles" << std::endl;
-	}
 }
 
 void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud& aPC_In, cProjPointCloud& aPPC)
@@ -561,18 +389,11 @@ void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud& aPC_In, cProjPointC
 		cBox2dr aBoxI = aBoxLoc.Inter(aBox2Glob);
 		tREAL8 aRatio = aBoxI.NbElem() / aBoxLoc.NbElem();
 
-<<<<<<< HEAD
 		if (aRatio > mRInsideMin)
 		{
 			cPt3dr aC3(aC2.x(), aC2.y(), aZ);
 			tPoseR aPose(aC3, tRotR::RotFromCanonicalAxes("i-j-k"));
 			std::string aPrefix = mPrefixImGen + ToStr(aPix.x() + aNb.x()) + "-" + ToStr(aPix.y() + aNb.y());
-=======
-       if (mShow)
-           StdOut() << "Doing image : " << aCam1->NameImage() << " SzPixInit=" << aCam1->Sz() << "\n";
-       aPPC.ProcessOneProj(mSurResCloud*mSensDownSample,*aCam1,0.0,true,mModeDepth,"",false,false); // HERE
-       cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud*mSensDownSample,*aCam1);
->>>>>>> cef6f2ed (Add option PlaneSweep in Im from Cloud + in bench target)
 
 			std::string aNameImage = aPrefix + "-Radiom-" + ".tif";
 			cSensorCamPC aCam(aNameImage, aPose, mCalib);
@@ -639,7 +460,7 @@ void cAppli_MMVII_CloudImProj::ProcessOrthoMode(cPointCloud& aPC_In, cProjPointC
 
 		if (mShow)
 			StdOut() << "Doing image : " << aCam1->NameImage() << " SzPixInit=" << aCam1->Sz() << "\n";
-		aPPC.ProcessOneProj(mSurResCloud * mSensDownSample, *aCam1, 0.0, true, "", false, false); // HERE
+		aPPC.ProcessOneProj(mSurResCloud * mSensDownSample, *aCam1, 0.0, true, mModeDepth, "", false, false); // HERE
 		cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud * mSensDownSample, *aCam1);
 
 		std::string aPost = aCam1->NameImage() + ".tif";
