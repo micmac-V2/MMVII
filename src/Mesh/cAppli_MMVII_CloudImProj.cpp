@@ -432,13 +432,13 @@ void cAppli_MMVII_CloudImProj::ParseYamlFilesFromDir()
 				aTileName.erase(0, aTileName.find_first_not_of(" \t"));
 				if (!aTileName.empty())
 				{
-					aTiles.push_back(aTileName.substr(1, aTileName.length() - 1));
+					aTiles.push_back(aTileName.substr(1, aTileName.length() - 2));
 				}
 			}
 			else
 			{
 				// If no dash, treat as direct tile name
-				aTiles.push_back(aTrimmed.substr(1, aTrimmed.length() - 1));
+				aTiles.push_back(aTrimmed.substr(1, aTrimmed.length() - 2));
 			}
 		}
 
