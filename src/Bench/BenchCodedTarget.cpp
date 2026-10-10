@@ -40,6 +40,9 @@ void BenchTargetGenerateImage(int aNbIm,const cPt2di&  aSzIm)
         for (const auto & aGaussN : aVecNoise)
             aCom.AddMMVIIArgsOpt("GaussNoise",ToStr(aGaussN));
 
+        aCom.AddMMVIIArgsOpt("StdOut","NONE");
+
+
         aCom.Execute(aKIm==0);
      }
 }
@@ -56,7 +59,12 @@ std::string BenchTargetGenerate_Specif(eTyCodeTarget aType,int aNBB)
           aComEncoding.AddArgs(E2Str(aType));
           aComEncoding.AddArgs(ToStr(aNBB));
           aComEncoding.AddMMVIIArgsOpt(CurOP_Out,aNameEncoding);
-          aComEncoding.Execute(false);
+          aComEncoding.AddMMVIIArgsOpt("StdOut","NONE");
+
+ //std::cout << "COOOM= " << aComEncoding.Com() << "\n";
+          aComEncoding.Execute(true);
+
+
       }
 
       //  ----------------- Generate the full spec, with geometry  -----------------------------------------------
@@ -66,17 +74,21 @@ std::string BenchTargetGenerate_Specif(eTyCodeTarget aType,int aNBB)
           cParamCallSys aComGenerate(TheSpecGenCodedTarget,true);
           aComGenerate.AddArgs(aNameEncoding);
           aComGenerate.AddMMVIIArgsOpt(CurOP_Out,aNameSpec);
+          aComGenerate.AddMMVIIArgsOpt("StdOut","NONE");
+
           // For (still) unexplained reason, there is a memory leak if we do  Execute(false)
           // (do it in the same process) by the way, the command if it goes untill the end is probably
           // memory correct as its has been widely used . So, for now, run in a separate process
+
           aComGenerate.Execute(true);
+
       }
 
       return aNameSpec;
 }
 
 
-void BenchTarget_GenerateSimul(const std::string & aNameFullSpec,const std::string & aPatNames)
+void BenchTarget_GenerateSimul(const std::string & aNameFullSpec,int aNbTarget)
 {
     // MMVII CodedTargetSimul ImSynt_.*tif FullSpec_IGNIndoor_14.xml Radius=[30,60] Ratio=[0.5,1.0] NoiseAmpl=[0,0] PropLinBias=[0,0]
 
@@ -85,17 +97,22 @@ void BenchTarget_GenerateSimul(const std::string & aNameFullSpec,const std::stri
     aComSimul.AddArgs(PrefixIm+".*tif");
     aComSimul.AddArgs(aNameFullSpec);
 
-    aComSimul.AddMMVIIArgsOpt("PatNames",aPatNames);
+    aComSimul.AddMMVIIArgsOpt("NbSel",ToStr(aNbTarget));
 
     aComSimul.AddMMVIIArgsOpt("Radius",ToStr(cPt2dr(40,60)));
     aComSimul.AddMMVIIArgsOpt("Ratio",ToStr(cPt2dr(0.7,1.0)));
     aComSimul.AddMMVIIArgsOpt("NoiseAmpl",ToStr(cPt2dr(0,0)));
     aComSimul.AddMMVIIArgsOpt("PropLinBias",ToStr(cPt2dr(0,0)));
-    // aComSimul.AddMMVIIArgsOpt("Show","false");
+    aComSimul.AddMMVIIArgsOpt("StdOut","NONE");
 
    aComSimul.Execute(true);
 
     // StdOut() << " COM= " << aComSimul.Com() << "\n";
+}
+
+void BenchTarget_Extract(const std::string & aNameFullSpec)
+{
+
 }
 
 
@@ -127,11 +144,11 @@ void BenchCodedTarget(cParamExeBench & aParam)
 
     if (true)
     {
-       BenchTargetGenerateImage(3,cPt2di(3000,2000));
+       BenchTargetGenerateImage(3,cPt2di(1500,1000));
     }
     std::string aNameFullSpec = BenchTargetGenerate_Specif(eTyCodeTarget::eIGNIndoor,14);
 
-    BenchTarget_GenerateSimul(aNameFullSpec,".*[05]");
+    BenchTarget_GenerateSimul(aNameFullSpec,15);
 
     aParam.EndBench();
 }

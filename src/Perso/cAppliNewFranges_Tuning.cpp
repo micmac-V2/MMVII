@@ -224,7 +224,10 @@ void cAppliNewFrange::DoVisu()
                 for (const auto & aPix : aCC.mPts)
                     aIm.SetRGBPix(aPix,aCol);
                 aIm.DrawCircle(cRGBImage::Red,aSeg.P1(),3.0);
+                aIm.DrawLine(aSeg.P1(),aSeg.P1()-aCC.mTg1*20.0,cRGBImage::Red);
                 aIm.DrawCircle(cRGBImage::Green,aSeg.P2(),3.0);
+                aIm.DrawLine(aSeg.P2(),aSeg.P2()-aCC.mTg2*20.0,cRGBImage::Green);
+
             }
         }
     }

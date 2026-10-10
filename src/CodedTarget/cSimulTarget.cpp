@@ -451,6 +451,7 @@ int  cAppliSimulCodeTarget::Exe()
    mImIn = tIm::FromFile(mNameIm);
 
 
+   // ------ select the encoding that match the pattern --------------------
    std::vector<cOneEncoding> aVEncSels;
    for (const auto & anEncod : mSpec->Encodings())
    {
@@ -460,6 +461,19 @@ int  cAppliSimulCodeTarget::Exe()
         }
    }
 
+   // -------- possibly restrain the number of target to  mNbSelRand --------
+   if (IsInit(&mNbSelRand))
+   {
+       std::vector<cOneEncoding> aNewVec;
+       cRandKAmongN  aSel(mNbSelRand,aVEncSels.size());
+
+       for (size_t aK=0 ; aK<aVEncSels.size() ; aK++)
+           if (aSel.GetNext())
+               aNewVec.push_back(aVEncSels.at(aK));
+       aVEncSels = aNewVec;
+   }
+
+   //  ------------ finally incrustate the targets in the image -----------------
    for (const auto & anEncod : aVEncSels)
    {
         if (true)

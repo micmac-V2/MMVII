@@ -13,6 +13,43 @@ namespace MMVII
 namespace NS_FrangesDetect
 {
 
+cPt2di cAppliNewFrange::OneStepBackTrackExtre(const cPt2di & aP0,const cPt2di & aPLast,const cDataIm2D<tU_INT1> & aImMax) const
+{
+    cPt2di aRes = aPLast;
+    const std::vector<cPt2di> & aVec8Neigh =  Alloc8Neighbourhood();
+
+    int aNb=0;
+    int aCoul = aImMax.GetV(aPLast);
+
+    for (const auto & aNeigh : aVec8Neigh)
+    {
+        cPt2di aPt = aP0 + aNeigh;
+        if ((aImMax.GetV(aPt)==aCoul) && (aPt!=aPLast))
+        {
+            aRes = aPt;
+            aNb++;
+        }
+    }
+    if (aNb!=1) aRes = aPLast;
+
+    return aRes;
+}
+
+
+
+cPt2di cAppliNewFrange::BackTrackExtre(cPt2di  aP0,const cDataIm2D<tU_INT1> & aImMax) const
+{
+   cPt2di aP1 =    OneStepBackTrackExtre(aP0,aP0,aImMax);
+
+   for (int aK=0 ; (aK< 10) && (aP1!=aP0) ; aK++ )
+   {
+       cPt2di aP2 =  OneStepBackTrackExtre(aP1,aP0,aImMax);
+       aP0 = aP1;
+       aP1 = aP2;
+   }
+
+   return aP1;
+}
 
 
 bool cAppliNewFrange::NewCC(bool isHoriz,const cPt2di& aPix)
@@ -89,11 +126,25 @@ bool cAppliNewFrange::NewCC(bool isHoriz,const cPt2di& aPix)
             ;
 
 
-
      tSeg2dr aSeg(ToR(aWMM.IndMin()),ToR(aWMM.IndMax()));
 
 
-     cConnComp aCC(aVCC,aSeg,isHoriz,aScore,isOk);
+     cPt2dr aP1 =  ToR(BackTrackExtre(ToI(aSeg.P1()),aImMax));
+     cPt2dr aP2 =  ToR(BackTrackExtre(ToI(aSeg.P2()),aImMax));
+
+   //  StdOut() << "SEG=" << aP1-aSeg.P1() << aP2-aSeg.P2() << "\n";
+
+     if ( (Norm2(aP1-aSeg.P1())<3.0) || (Norm2(aP2-aSeg.P2())<3.0))
+         return false;
+
+
+     aP1 = VUnit(aSeg.P1() - aP1);
+     aP2 = VUnit(aSeg.P2() - aP2);
+
+    // StdOut() << "P1P2=" << aP1 << aP2 << "\n";
+
+
+     cConnComp aCC(aVCC,aSeg,aP1,aP2,isHoriz,aScore,isOk);
    //  cConnComp(const tSeg2dr & aSeg,bool isHor) :
 
      mListCC.push_back(aCC);
@@ -118,7 +169,6 @@ void cAppliNewFrange::ConnecCompMaxLoc(bool isHoriz)
 bool cAppliNewFrange::IsMax(cPt2di aP0,cPt2di aDp0,int aNb) const
 {
     auto * anDIm = mDImRedBlur;
-   // anDIm = mDImRed;
 
     tREAL4 aV0 = anDIm->GetV(aP0);
     for (int aK=1 ; aK<aNb ; aK++)

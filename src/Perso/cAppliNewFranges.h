@@ -39,17 +39,21 @@ class cConnComp
 {
    public :
 
-     cConnComp(std::vector<cPt2di> & aVPts,const tSeg2dr & aSeg,bool isHor,tREAL8 aScore,bool isOk) :
+     cConnComp(std::vector<cPt2di> & aVPts,const tSeg2dr & aSeg,cPt2dr aTg1,cPt2dr aTg2,bool isHor,tREAL8 aScore,bool isOk) :
          mPts   (aVPts),
          mSeg   (aSeg),
+         mTg1   (aTg1),
+         mTg2   (aTg2),
          mIsHor (isHor),
          mScore (aScore),
-         mIsOk   (isOk)
+         mIsOk  (isOk)
      {
      }
 
     std::vector<cPt2di> mPts;
     tSeg2dr mSeg;
+    cPt2dr  mTg1;
+    cPt2dr  mTg2;
     bool    mIsHor;
     tREAL8  mScore;
     bool    mIsOk;
@@ -108,8 +112,6 @@ class cAppliNewFrange : public cMMVII_Appli
          *  to test correctnes of some computation */
         void MakeImSimul();
 
-
-
         /// Compute the theoretical value of back ground & franges
         void ComputeRadiomCste();
 
@@ -119,10 +121,20 @@ class cAppliNewFrange : public cMMVII_Appli
          in shortest path approach (and allow more complexe lins with "big" jumps ) */
         void MakeImageMaxLoc();
 
+        /// is P0 it a maxmima in direction Dp on aNbPixels
         bool IsMax(cPt2di aP0,cPt2di aDp,int aNb) const;
 
-        bool NewCC(bool isHoriz,const cPt2di&);
+        /** Compute the connect component of Horiz/Vertical chain
+         !! Horiz  is the direction for compuing max, so the chain with be +- orthog */
         void ConnecCompMaxLoc(bool isHoriz);
+
+
+        /// Compute the connected component and eventually memorize it
+        bool NewCC(bool isHoriz,const cPt2di&);
+
+        /// Follow the chain, on a fix number of points stop if dead end or branch
+        cPt2di BackTrackExtre( cPt2di aP0,const cDataIm2D<tU_INT1> & aImMax) const;
+        cPt2di OneStepBackTrackExtre(const cPt2di & aP0,const cPt2di & aPLast,const cDataIm2D<tU_INT1> & aImMax) const;
 
 
 
