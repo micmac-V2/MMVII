@@ -399,6 +399,7 @@ void cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSens
 			}
 		}
 
+		StdOut() << ">> aVVdisk ok\n";
 		// ==================================================================================================================
 		// == [1] ==================   compute the depth image : accumulate for each pixel the maximal depth ================
 		// ==================================================================================================================
@@ -426,101 +427,86 @@ void cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSens
 						mDImIndex->SetV(aPt, aKPt);
 						aNbPtsCover++;
 					}
-
-					/* for ( auto & aPixBug : aVPixBugImage)
-					 {
-						 if (aPt==aPixBug)
-						 {
-							 StdOut() << " Pix=" << aPt
-									  << " Kpt=" << aKPt
-									  << " Index=" << aIndex
-									  << " Proj=" << mVPtsProj.at(aKPt)
-									  << " PInit=" << mVPtsInit->at(aKPt)
-
-									  << "\n";
-						   //  aPixBug = cPt2di(-100,-100);
-						 }
-					 }*/
 				}
 			}
+		}
+		StdOut() << ">> mDImIndex ok\n";
 
-			// StdOut() << " AvgNb=" << aAvgNb.Average() << "\n";
-			/*
-				 StdOut() << "SZIII = " << mSzIm
-						  << " PropPtIn=" <<  mVPtsProj.size() / (tREAL8) (mSzIm.x() * mSzIm.y())
-						  << " PropPtCov=" <<  aNbPtsCover / (tREAL8) (mSzIm.x() * mSzIm.y())
-						  << "\n";
-				  getchar();
-			*/
+		// ===========================================================================================================================
+		// == [2] ===   for each point use depth image and if it is visible
+		//         * in mode std  accumulate its visibility
+		//         * in mode image, project its radiometry
+		// ===========================================================================================================================
 
-			// ===========================================================================================================================
-			// == [2] ===   for each point use depth image and if it is visible
-			//         * in mode std  accumulate its visibility
-			//         * in mode image, project its radiometry
-			// ===========================================================================================================================
+		cWeightAv<tREAL8, tREAL8> aLumPt;
+		cWeightAv<tREAL8, tREAL8> aLumVis;
+		int aNbVisTot = 0;
 
-			cWeightAv<tREAL8, tREAL8> aLumPt;
-			cWeightAv<tREAL8, tREAL8> aLumVis;
-			int aNbVisTot = 0;
+		tImageDepth aVMinInit = aPlusInfty;
+		for (size_t aKPt = 0; aKPt < mVPtsProj.size(); aKPt++) // parse all points
+		{
+			const cPt2di& aCenter = mVPtImages.at(aKPt);
+			tImageDepth aDepth = mVPtsProj.at(aKPt).z();
+			UpdateMin(aVMinInit, aDepth);
+			int aNbVis = 0;
+			const auto& aVDisk = aVVdisk.at(mPC.GetIntSzLeave(aKPt));
+			tREAL8 aDegVis = mPC.GetDegVis(aVIndeSel.at(aKPt));
 
-			tImageDepth aVMinInit = aPlusInfty;
-			for (size_t aKPt = 0; aKPt < mVPtsProj.size(); aKPt++) // parse all points
+			aLumPt.Add(1.0, aDegVis);
+
+			for (const auto& aNeigh : aVDisk) // parse all point of leaf
 			{
-				const cPt2di& aCenter = mVPtImages.at(aKPt);
-				tImageDepth aDepth = mVPtsProj.at(aKPt).z();
-				UpdateMin(aVMinInit, aDepth);
-				int aNbVis = 0;
-				const auto& aVDisk = aVVdisk.at(mPC.GetIntSzLeave(aKPt));
-				tREAL8 aDegVis = mPC.GetDegVis(aVIndeSel.at(aKPt));
+				cPt2di aPt = aCenter + aNeigh;
+				bool IsVisible = (mDImIndex->DefGetV(aPt, NoIndex) == (int)aKPt);
 
-				aLumPt.Add(1.0, aDegVis);
+				aNbVisTot += IsVisible;
+				if (!isModeImage)
+					aLumVis.Add(1.0, IsVisible);
 
-				for (const auto& aNeigh : aVDisk) // parse all point of leaf
+				if (IsVisible) // if the point is visible
 				{
-					cPt2di aPt = aCenter + aNeigh;
-					bool IsVisible = (mDImIndex->DefGetV(aPt, NoIndex) == (int)aKPt);
-
-					aNbVisTot += IsVisible;
-					if (!isModeImage)
-						aLumVis.Add(1.0, IsVisible);
-
-					if (IsVisible) // if the point is visible
+					if (isModeImage)
+						aLumVis.Add(1.0, aDegVis);
+					// aNbModif++;
+					if (isModeImage) // in mode image udpate radiometry & image
 					{
-						if (isModeImage)
-							aLumVis.Add(1.0, aDegVis);
-						// aNbModif++;
-						if (isModeImage) // in mode image udpate radiometry & image
-						{
-							mDImWeigth->SetV(aPt, 1.0);
-							mDImRad->SetV(aPt, aDegVis * 255);
-						}
-						else // in mode standard uptdate visib count
-						{
-							aNbVis++;
-						}
+						mDImWeigth->SetV(aPt, 1.0);
+						mDImRad->SetV(aPt, aDegVis * 255);
+					}
+					else // in mode standard uptdate visib count
+					{
+						aNbVis++;
 					}
 				}
-				if (!isModeImage) // in mode std we know the visibility
-				{
-					tREAL8 aGray = aNbVis / tREAL8(aVDisk.size());
-					mSumRad.at(aKPt) += aGray * aWeight;
-				}
 			}
-
-			if (ShowMsg)
+			if (!isModeImage) // in mode std we know the visibility
 			{
-				StdOut() << " MSG=[" << aMsg << "]"
-						 << "LumStd=" << aLumPt.Average() << " LumVis=" << aLumVis.Average()
-						 << " NbVis/Im=" << tREAL8(aNbVisTot) / (mSzIm.x() * mSzIm.y()) << "\n";
+				tREAL8 aGray = aNbVis / tREAL8(aVDisk.size());
+				mSumRad.at(aKPt) += aGray * aWeight;
 			}
+		}
+		StdOut() << ">> mDImRad ok\n";
 
-			// Now put depth  in image depth
+		if (ShowMsg)
+		{
+			StdOut() << " MSG=[" << aMsg << "]"
+					 << "LumStd=" << aLumPt.Average() << " LumVis=" << aLumVis.Average()
+					 << " NbVis/Im=" << tREAL8(aNbVisTot) / (mSzIm.x() * mSzIm.y()) << "\n";
+		}
 
+		// Now put depth  in image depth
+		if (isModeImage)
+		{
+			StdOut() << ">> mDImIndex: " << mDImIndex << "\n";
+			StdOut() << ">> mDImDepth: " << mDImDepth << "\n";
+			StdOut() << ">> mVPtsInit: " << mVPtsInit << "\n";
 			tREAL8 aDepthMax = 1e8; // compute depth min in
 			tREAL8 aSign = DepthIsSignK(aSensor, aMode);
 			for (const auto& aPix : *mDImIndex)
 			{
+				StdOut() << ">> pix ok\n";
 				int aIndex = mDImIndex->GetV(aPix);
+				StdOut() << ">> pix ok ok\n";
 				if (aIndex != NoIndex)
 				{
 					tREAL8 aDepth = DepthOfPoint(aSensor, mVPtsInit->at(aIndex), aMode);
@@ -528,6 +514,7 @@ void cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSens
 					UpdateMax(aDepthMax, aDepth * aSign);
 				}
 			}
+			StdOut() << ">> aDepthMax ok\n";
 			aDepthMax = (aDepthMax + 100.0) * aSign;
 			for (const auto& aPix : *mDImIndex)
 			{
@@ -537,26 +524,27 @@ void cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSens
 				}
 			}
 
-			/*
-			for (const auto & aPix : *mDImIndex)
-			{
-				int aIndex =  mDImIndex->GetV(aPix);
-				tImageDepth aDepth= (aIndex==NoIndex) ?  (aVMinInit - 100.0) : mVPtsInit->at(aIndex).z();
+			StdOut() << ">> mDImDepth ok\n";
+		}
+		/*
+		for (const auto & aPix : *mDImIndex)
+		{
+			int aIndex =  mDImIndex->GetV(aPix);
+			tImageDepth aDepth= (aIndex==NoIndex) ?  (aVMinInit - 100.0) : mVPtsInit->at(aIndex).z();
 
-				mDImDepth->SetV(aPix,aDepth);
-			}*/
+			mDImDepth->SetV(aPix,aDepth);
+		}*/
 
-			if (ExportIm)
+		if (ExportIm)
+		{
+			std::string aPrefix = (isModeImage ? "IIIP-" : "Colorate-") + aMsg;
+			if (mDImRad)
+				mDImRad->ToFile(aPrefix + "-RAD.tif");
+			if (mDImWeigth)
+				mDImWeigth->ToFile(aPrefix + "-WEIGHT.tif");
+			if (mDImDepth)
 			{
-				std::string aPrefix = (isModeImage ? "IIIP-" : "Colorate-") + aMsg;
-				if (mDImRad)
-					mDImRad->ToFile(aPrefix + "-RAD.tif");
-				if (mDImWeigth)
-					mDImWeigth->ToFile(aPrefix + "-WEIGHT.tif");
-				if (mDImDepth)
-				{
-					mDImDepth->ToFile(aPrefix + "-DEPTH.tif");
-				}
+				mDImDepth->ToFile(aPrefix + "-DEPTH.tif");
 			}
 		}
 	}
@@ -630,5 +618,4 @@ cIm2D<tImageDepth>      ImDepth()  const;
 cIm2D<tREAL4>           ImRadiom() const;
 cIm2D<tREAL4>           ImWeight() const;
 */
-
 }; // namespace MMVII
