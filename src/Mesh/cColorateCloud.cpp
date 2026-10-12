@@ -307,7 +307,6 @@ void cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSens
 
 		StdOut() << ">> mGlobPtsInit size:" << mGlobPtsInit.size() << std::endl;
 
-		StdOut() << ">> mVPtsProj...\n";
 		for (const auto& aPt : mGlobPtsInit)
 		{
 			// StdOut() << ">> aPt:" << aPt << std::endl;
@@ -315,7 +314,6 @@ void cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSens
 			aCenter3D += aPt;
 		}
 		aCenter3D = aCenter3D / tREAL8(mGlobPtsInit.size());
-		StdOut() << ">> mVPtsProj ok\n";
 
 		//  In "std" mode the image is a private one, its origin is the min of projections; the offset must be
 		//  the exact min : initialized at (0,0) it stays at 0 as soon as the projection does not reach the
@@ -324,27 +322,23 @@ void cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSens
 		cPt2dr aPMin(0.0, 0.0);
 		if ((!isModeImage) && (!mVPtsProj.empty()))
 		{
-			StdOut() << ">> aPMin ...\n";
 			aPMin = Proj(mVPtsProj.at(0));
 			for (const auto& aPt : mVPtsProj)
 			{
 				SetInfEq(aPMin, Proj(aPt));
 			}
-			StdOut() << ">> aPMin ok\n";
 		}
 
 		//    [0.2]  ---------- compute the images indexes of points + its box  & sz ---
 		mBoxInd = cTplBoxOfPts<int, 2>(); //
 		mVPtImages.clear();
 
-		StdOut() << ">> mVPtImages ...\n";
 		for (const auto& aPt : mVPtsProj)
 		{
 			cPt2di anInd = ToI((Proj(aPt) - aPMin) * aSurResol); // compute image index
 			mBoxInd.Add(anInd);									 // memo in box
 			mVPtImages.push_back(anInd);
 		}
-		StdOut() << ">> mVPtImages ok\n";
 
 		//  indexes are >=0 in both modes, so P1+1 is the size that contains them all (in std mode P0 is now
 		//  0 by construction, so this is equivalent to the size of the box, but robust to any rounding)
@@ -360,7 +354,6 @@ void cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSens
 		//    [0.3]  ---------- Alloc images --------------------
 		//    [0.3.1]   image of depth
 
-		StdOut() << ">> Alloc ...\n";
 		mDImIndex = &(mImIndex.DIm());
 		mDImIndex->Resize(mSzIm);
 		// StdOut() << "xxxSZ_IM=" << mSzIm << "\n";
@@ -385,7 +378,6 @@ void cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSens
 			mDImWeigth->Resize(mSzIm);
 			mDImWeigth->InitCste(0.0);
 		}
-		StdOut() << ">> Alloc ok\n";
 
 		//    [0.4]  ---------- Alloc vector SzLeaf -> neighboor in image coordinate (time efficiency) ----------------
 		std::vector<std::vector<cPt2di>> aVVdisk(256); // as size if store 8-byte, its sufficient
@@ -399,7 +391,6 @@ void cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSens
 			}
 		}
 
-		StdOut() << ">> aVVdisk ok\n";
 		// ==================================================================================================================
 		// == [1] ==================   compute the depth image : accumulate for each pixel the maximal depth ================
 		// ==================================================================================================================
@@ -430,7 +421,6 @@ void cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSens
 				}
 			}
 		}
-		StdOut() << ">> mDImIndex ok\n";
 
 		// ===========================================================================================================================
 		// == [2] ===   for each point use depth image and if it is visible
@@ -485,7 +475,6 @@ void cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSens
 				mSumRad.at(aKPt) += aGray * aWeight;
 			}
 		}
-		StdOut() << ">> mDImRad ok\n";
 
 		if (ShowMsg)
 		{
@@ -497,16 +486,11 @@ void cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSens
 		// Now put depth  in image depth
 		if (isModeImage)
 		{
-			StdOut() << ">> mDImIndex: " << mDImIndex << "\n";
-			StdOut() << ">> mDImDepth: " << mDImDepth << "\n";
-			StdOut() << ">> mVPtsInit: " << mVPtsInit << "\n";
 			tREAL8 aDepthMax = 1e8; // compute depth min in
 			tREAL8 aSign = DepthIsSignK(aSensor, aMode);
 			for (const auto& aPix : *mDImIndex)
 			{
-				StdOut() << ">> pix ok\n";
 				int aIndex = mDImIndex->GetV(aPix);
-				StdOut() << ">> pix ok ok\n";
 				if (aIndex != NoIndex)
 				{
 					tREAL8 aDepth = DepthOfPoint(aSensor, mVPtsInit->at(aIndex), aMode);
@@ -514,7 +498,6 @@ void cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSens
 					UpdateMax(aDepthMax, aDepth * aSign);
 				}
 			}
-			StdOut() << ">> aDepthMax ok\n";
 			aDepthMax = (aDepthMax + 100.0) * aSign;
 			for (const auto& aPix : *mDImIndex)
 			{
@@ -523,17 +506,7 @@ void cProjPointCloud::ProcessOneProj(tREAL8 aSurResol, const cSensorImage& aSens
 					mDImDepth->SetV(aPix, aDepthMax);
 				}
 			}
-
-			StdOut() << ">> mDImDepth ok\n";
 		}
-		/*
-		for (const auto & aPix : *mDImIndex)
-		{
-			int aIndex =  mDImIndex->GetV(aPix);
-			tImageDepth aDepth= (aIndex==NoIndex) ?  (aVMinInit - 100.0) : mVPtsInit->at(aIndex).z();
-
-			mDImDepth->SetV(aPix,aDepth);
-		}*/
 
 		if (ExportIm)
 		{
