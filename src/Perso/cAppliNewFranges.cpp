@@ -196,6 +196,8 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
 
     MakeImageMaxLoc();
 
+    GraphCompute();
+
     DoVisu();
 }
 

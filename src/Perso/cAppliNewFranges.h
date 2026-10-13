@@ -39,26 +39,66 @@ class cConnComp
 {
    public :
 
-     cConnComp(std::vector<cPt2di> & aVPts,const tSeg2dr & aSeg,cPt2dr aTg1,cPt2dr aTg2,bool isHor,tREAL8 aScore,bool isOk) :
-         mPts   (aVPts),
-         mSeg   (aSeg),
-         mTg1   (aTg1),
-         mTg2   (aTg2),
-         mIsHor (isHor),
-         mScore (aScore),
-         mIsOk  (isOk)
-     {
-     }
+     cConnComp(std::vector<cPt2di> & aVPts,const tSeg2dr & aSeg,cPt2dr aTg1,cPt2dr aTg2,bool isHor,tREAL8 aScore,bool isOk);
 
-    std::vector<cPt2di> mPts;
-    tSeg2dr mSeg;
-    cPt2dr  mTg1;
-    cPt2dr  mTg2;
-    bool    mIsHor;
-    tREAL8  mScore;
-    bool    mIsOk;
+        std::vector<cPt2di> mPts;
+        tSeg2dr mSeg;
+        cPt2dr  mTg1;
+        cPt2dr  mTg2;
+        bool    mIsHor;
+        tREAL8  mScore;
+        bool    mIsOk;
 
 };
+
+
+/* *********************************************************** */
+/*                                                             */
+/*          Declaration of Vector-Graph                        */
+/*                                                             */
+/* *********************************************************** */
+
+
+enum class eTypeSom
+{
+     eH1,
+     eH2,
+     eV1,
+     eV2,
+     eBorder
+
+};
+
+eTypeSom TypeSomStd(const bool isHor,const bool isP1);
+
+struct cAVVertex
+{
+  public :
+      cAVVertex(const cPt2di & aPt,const cPt2dr & aTgt,eTypeSom aType);
+
+      cPt2di     mPt;
+      cPt2dr     mTgt;
+      eTypeSom   mType;
+};
+
+struct cAVEdgeSym
+{
+   public :
+      cAVEdgeSym(cConnComp*);
+      cConnComp * mCC;
+};
+
+struct cAVEdgeOriented
+{
+    public :
+       cAVEdgeOriented(const tREAL8 aCost) ;
+       tREAL8 mCost;
+};
+
+typedef cVG_Vertex<cAVVertex,cAVEdgeOriented,cAVEdgeSym> tVertexVFrange;
+typedef cVG_Edge<cAVVertex,cAVEdgeOriented,cAVEdgeSym>  tEdgeVFrange;
+typedef cVG_Graph<cAVVertex,cAVEdgeOriented,cAVEdgeSym> tGraphVFrange;
+
 
 /* =============================================== */
 /*                                                 */
@@ -117,6 +157,8 @@ class cAppliNewFrange : public cMMVII_Appli
 
 
 
+        // =================== MaxLoc & Pix -CC  ==================
+
         /** Compute images of local maxims, this will reduce "drastically" the number of potential point
          in shortest path approach (and allow more complexe lins with "big" jumps ) */
         void MakeImageMaxLoc();
@@ -128,6 +170,9 @@ class cAppliNewFrange : public cMMVII_Appli
          !! Horiz  is the direction for compuing max, so the chain with be +- orthog */
         void ConnecCompMaxLoc(bool isHoriz);
 
+        /// Add heuristically some horizontal CC
+        void ComplemCCHoriz();
+
 
         /// Compute the connected component and eventually memorize it
         bool NewCC(bool isHoriz,const cPt2di&);
@@ -135,6 +180,15 @@ class cAppliNewFrange : public cMMVII_Appli
         /// Follow the chain, on a fix number of points stop if dead end or branch
         cPt2di BackTrackExtre( cPt2di aP0,const cDataIm2D<tU_INT1> & aImMax) const;
         cPt2di OneStepBackTrackExtre(const cPt2di & aP0,const cPt2di & aPLast,const cDataIm2D<tU_INT1> & aImMax) const;
+
+        cPt2di NewBackTrackExtre( cPt2di aP0,const std::vector<cPt2di> & aVPts,tREAL8 aDist) const;
+
+        // =================== "High-level" Graph (on max-loc)  ==================
+
+         void GraphCompute();
+         void GraphCreate();
+         void GraphCCHoriz();
+
 
 
 
@@ -215,11 +269,14 @@ class cAppliNewFrange : public cMMVII_Appli
         tDIm1D*  mDImIntegr;   ///<  data
 
 
-        std::list<cConnComp>  mListCC;
+        std::vector<cConnComp*>  mVectCC;
 
         tREAL8   mRadiomBackGround;  ///< Estimation of radiometry of background
         tIm1D    mImRadFrange;       ///< Estimation of radiometry of franges, depend of Y
         tDIm1D*  mDImRadFrange;      ///< Data of mImRadFrange
+
+
+        tGraphVFrange   mGrVect;
 };
 
 }; // namespace NS_FrangesDetect

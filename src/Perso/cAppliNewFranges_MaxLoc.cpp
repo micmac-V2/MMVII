@@ -13,6 +13,32 @@ namespace MMVII
 namespace NS_FrangesDetect
 {
 
+
+/* ******************************************** */
+/*                                              */
+/*             cConnComp                        */
+/*                                              */
+/* ******************************************** */
+
+cConnComp::cConnComp(std::vector<cPt2di> & aVPts,const tSeg2dr & aSeg,cPt2dr aTg1,cPt2dr aTg2,bool isHor,tREAL8 aScore,bool isOk) :
+    mPts   (aVPts),
+    mSeg   (aSeg),
+    mTg1   (aTg1),
+    mTg2   (aTg2),
+    mIsHor (isHor),
+    mScore (aScore),
+    mIsOk  (isOk)
+{
+}
+
+
+/* ******************************************** */
+/*                                              */
+/*             cAppliNewFrange                  */
+/*                                              */
+/* ******************************************** */
+
+/*
 cPt2di cAppliNewFrange::OneStepBackTrackExtre(const cPt2di & aP0,const cPt2di & aPLast,const cDataIm2D<tU_INT1> & aImMax) const
 {
     cPt2di aRes = aPLast;
@@ -49,6 +75,18 @@ cPt2di cAppliNewFrange::BackTrackExtre(cPt2di  aP0,const cDataIm2D<tU_INT1> & aI
    }
 
    return aP1;
+}
+*/
+
+cPt2di cAppliNewFrange::NewBackTrackExtre(cPt2di  aP0,const std::vector<cPt2di> & aVPts,tREAL8 aRay) const
+{
+    tREAL8 aR2 = Square(aRay);
+    cWhichMin<cPt2di,tREAL8> aWMin;
+
+    for (const auto & aPt : aVPts)
+        aWMin.Add(aPt,std::abs(SqN2(aP0-aPt)-aR2));
+
+    return aWMin.IndexExtre();
 }
 
 
@@ -129,8 +167,8 @@ bool cAppliNewFrange::NewCC(bool isHoriz,const cPt2di& aPix)
      tSeg2dr aSeg(ToR(aWMM.IndMin()),ToR(aWMM.IndMax()));
 
 
-     cPt2dr aP1 =  ToR(BackTrackExtre(ToI(aSeg.P1()),aImMax));
-     cPt2dr aP2 =  ToR(BackTrackExtre(ToI(aSeg.P2()),aImMax));
+     cPt2dr aP1 =  ToR(NewBackTrackExtre(ToI(aSeg.P1()),aVCC,10.0));
+     cPt2dr aP2 =  ToR(NewBackTrackExtre(ToI(aSeg.P2()),aVCC,10.0));
 
    //  StdOut() << "SEG=" << aP1-aSeg.P1() << aP2-aSeg.P2() << "\n";
 
@@ -144,10 +182,10 @@ bool cAppliNewFrange::NewCC(bool isHoriz,const cPt2di& aPix)
     // StdOut() << "P1P2=" << aP1 << aP2 << "\n";
 
 
-     cConnComp aCC(aVCC,aSeg,aP1,aP2,isHoriz,aScore,isOk);
+     cConnComp * aCC = new cConnComp(aVCC,aSeg,aP1,aP2,isHoriz,aScore,isOk);
    //  cConnComp(const tSeg2dr & aSeg,bool isHor) :
 
-     mListCC.push_back(aCC);
+     mVectCC.push_back(aCC);
 
      return true;
 }
@@ -163,6 +201,75 @@ void cAppliNewFrange::ConnecCompMaxLoc(bool isHoriz)
             NewCC(isHoriz,aPix);
         }
     }
+}
+
+
+void cAppliNewFrange::ComplemCCHoriz()
+{
+    tREAL8 aPropLow = 0.6;
+    tREAL8 aThreshold = ((aPropLow*mRadiomBackGround) + (1-aPropLow) * mDImRadFrange->GetV(mYC));
+    int aNbMaxLoc = 40;
+    tREAL8 aDistCC = 100.0;
+    //int aNbX = mSzRed.x();
+
+
+    for (int anX=aNbMaxLoc ; anX< mSzRed.x()-1-aNbMaxLoc ; anX++)
+    {
+        cPt2di aPt(anX,mYC);
+        tREAL8 aVC = mDImRedBlur->GetV(aPt) ;
+        bool isMaxLoc = aVC > aThreshold;
+
+        if (isMaxLoc)
+        {
+            for (int aDx=1 ; (aDx<aNbMaxLoc) && isMaxLoc ; aDx++)
+            {
+                tREAL8 aVPDx =  mDImRedBlur->GetV(cPt2di(anX+aDx,mYC));
+                tREAL8 aVPMx =  mDImRedBlur->GetV(cPt2di(anX-aDx,mYC));
+
+                 isMaxLoc = isMaxLoc && (aVC>=aVPMx) && (aVC>aVPDx);
+            }
+        }
+
+        if (isMaxLoc)
+        {
+           for (size_t aKC=0 ; (aKC<mVectCC.size()) && isMaxLoc ; aKC++)
+           {
+               const cConnComp & aCC = *mVectCC.at(aKC);
+               if (aCC.mIsHor && aCC.mIsOk)
+               {
+                   cSegment2DCompiled<tREAL8> aSeg(aCC.mSeg);
+                   tREAL8 aD = aSeg.DistClosedSeg(ToR(aPt));
+                   isMaxLoc = isMaxLoc && (aD>aDistCC);
+               }
+           }
+        }
+
+
+      //(std::vector<cPt2di> & aVPts,const tSeg2dr & aSeg,cPt2dr aTg1,cPt2dr aTg2,bool isHor,tREAL8 aScore,bool isOk) :
+
+        if (isMaxLoc)
+        {
+            int aBorder = std::min(mSzRed.y()/4,aNbMaxLoc);
+            int anY0 = mYC;
+            while ((anY0>aBorder) &&  (mDImRedBlur->GetV(cPt2di(anX,anY0))>aThreshold) )
+                anY0--;
+
+            int anY1 = mYC;
+            while (anY1<mSzRed.y() - aBorder &&  (mDImRedBlur->GetV(cPt2di(anX,anY1))>aThreshold) )
+                anY1++;
+
+            std::vector<cPt2di>  aVPt;
+            for (int anY=anY0 ; anY<=anY1 ; anY++)
+                aVPt.push_back(cPt2di(anX,anY));
+
+            tSeg2dr aSeg(cPt2dr(anX,anY0),cPt2dr(anX,anY1));
+            cConnComp* aCC = new cConnComp(aVPt,aSeg,cPt2dr(0,-1),cPt2dr(0,1),true,1.0,true);
+            mVectCC.push_back(aCC);
+        }
+
+    }
+
+   // for (int a)
 }
 
 
@@ -213,6 +320,7 @@ void cAppliNewFrange::MakeImageMaxLoc()
     ConnecCompMaxLoc(true);
     ConnecCompMaxLoc(false);
 
+    ComplemCCHoriz();
 }
 
 
