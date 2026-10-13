@@ -1,8 +1,9 @@
 //#include "MMVII_PCSens.h"
 
+#if (0)
+
 #include "MMVII_ExtractLines.h"
 #include "MMVII_Sensor.h"
-
 #include "cAppliIA.h"
 
 
@@ -88,6 +89,7 @@ std::vector<cOneHelpSampleCmp>  cAppli_IA::Samples() const
 int cAppli_IA::Exe()
 {
 
+   // CONVERTIR_PY({"123","EUR","EUR"});
     CONVERTIR(mFileTaux);
 
 
@@ -112,7 +114,6 @@ cSpecMMVII_Appli  TheSpecAppliIA
       __FILE__
 );
 
-#if (0)
-#endif
 
 };
+#endif

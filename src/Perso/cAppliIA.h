@@ -1,3 +1,4 @@
+#if (0)
 /**
  * @file convertisseur.cpp
  * @brief Convertisseur de devises interactif avec complétion automatique.
@@ -117,6 +118,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <utility>
 
 //#define HAVE_READLINE  0
 
@@ -214,8 +216,14 @@ public:
     double DepuisEuro(double montantEuro) const { return montantEuro * mTaux; }  // [R1]
 
 private:
-    std::string mCode;  ///< Code de la devise, en majuscules.
-    double      mTaux;  ///< Nombre d'unités de cette devise pour 1 EUR.
+    // ===== MODIFICATION : immutabilité de Devise =====
+    // Les deux attributs sont const : ils doivent être initialisés dans la
+    // liste d'initialisation du constructeur et ne peuvent plus être modifiés
+    // ensuite. Cela garantit qu'un code et son taux restent cohérents pendant
+    // toute la durée de vie de l'objet. Aucun setter n'est nécessaire.
+    const std::string mCode;  ///< Code de la devise, en majuscules.
+    const double      mTaux;  ///< Nombre d'unités de cette devise pour 1 EUR.
+    // ===== FIN MODIFICATION =====
 };
 
 // ============================================================
@@ -299,12 +307,6 @@ public:
     }
 
     /**
-     * @brief Ajoute une devise à la base, ou remplace celle de même code.
-     * @param d Devise à ajouter.
-     */
-    void Ajouter(const Devise& d) { mDevises.insert_or_assign(d.Code(), d); }  // [R16] doublon écrasé sans avertissement
-
-    /**
      * @brief Indique si un code de devise est présent dans la base.
      * @param code Code recherché, en majuscules.
      * @return @c true si la devise existe.
@@ -337,6 +339,24 @@ public:
     }
 
 private:
+    // ===== MODIFICATION : Ajouter() est privée =====
+    // Cette méthode reste utilisable par les constructeurs pour remplir la
+    // base, mais les appelants externes ne peuvent plus ajouter/remplacer une
+    // devise après construction. C'est le contrôle d'accès qui rend la base
+    // immuable depuis son interface publique ; le conteneur reste modifiable
+    // uniquement par les méthodes internes de la classe.
+    void Ajouter(const Devise& d) {
+        // ===== MODIFICATION : remplacement compatible avec Devise immuable =====
+        // Devise contient maintenant des membres const. Pour conserver la règle
+        // R16 (la dernière occurrence d'un code l'emporte), on retire l'entrée
+        // précédente puis on insère la nouvelle, au lieu d'utiliser
+        // insert_or_assign(), qui nécessiterait l'affectation de Devise.
+        mDevises.erase(d.Code());
+        mDevises.emplace(d.Code(), d);
+        // ===== FIN MODIFICATION =====
+    }  // [R16] doublon écrasé sans avertissement
+    // ===== FIN MODIFICATION =====
+
     std::map<std::string, Devise> mDevises;  ///< Devises indexées par leur code.
 };
 
@@ -451,7 +471,13 @@ public:
     }
 
 private:
-    BaseDevises mBase;  ///< Base de devises utilisée pour les conversions.
+    // ===== MODIFICATION : base constante dans Convertisseur =====
+    // La base est copiée/déplacée dans le constructeur, puis conservée comme
+    // membre const. Convertisseur ne peut donc pas remplacer sa base après sa
+    // construction. Les opérations de consultation et de conversion restent
+    // possibles, car elles sont déclarées const dans BaseDevises.
+    const BaseDevises mBase;  ///< Base de devises immuable utilisée pour les conversions.
+    // ===== FIN MODIFICATION =====
 
 #ifdef HAVE_READLINE
     // ------------------------------------------------------------------
@@ -635,3 +661,5 @@ int CONVERTIR(const std::string& fichierTaux = "") {
         return 1;
     }
 }
+
+#endif
