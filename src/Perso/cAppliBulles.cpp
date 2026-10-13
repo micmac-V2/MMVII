@@ -99,10 +99,10 @@ template <class Type>
 
 //    cIm2D<tIm> anIm = cIm2D<tIm>::FromFile(mNameCurIm);
 
-class cAppliBubbles : public cMMVII_Appli
+class cAppli_Bulles : public cMMVII_Appli
 {
      public :
-        cAppliBubbles(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec);
+        cAppli_Bulles(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec);
      private :
         typedef tREAL4            tElIm;
         typedef cIm2D<tElIm >     tIm;
@@ -112,7 +112,7 @@ class cAppliBubbles : public cMMVII_Appli
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
          std::vector<cOneHelpSampleCmp>  Samples() const override;
-        virtual ~cAppliBubbles();
+        virtual ~cAppli_Bulles();
 
         void  DoOneImage(const std::string & aNameIm) ;
 
@@ -139,7 +139,7 @@ class cAppliBubbles : public cMMVII_Appli
 };
 
 
-cAppliBubbles::cAppliBubbles(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
+cAppli_Bulles::cAppli_Bulles(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
     cMMVII_Appli      (aVArgs,aSpec),
     mPhProj           (*this),
     mCurvExtract      (nullptr),
@@ -157,19 +157,19 @@ cAppliBubbles::cAppliBubbles(const std::vector<std::string> & aVArgs,const cSpec
 {
 }
 
-cAppliBubbles::~cAppliBubbles()
+cAppli_Bulles::~cAppli_Bulles()
 {
     delete mCurvExtract;
 }
 
-cCollecSpecArg2007 & cAppliBubbles::ArgObl(cCollecSpecArg2007 & anArgObl)
+cCollecSpecArg2007 & cAppli_Bulles::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
       return    anArgObl
             <<  Arg2007(mPatImage,"Name of input Image", {eTA2007::FileDirProj,{eTA2007::MPatFile,"0"}})
       ;
 }
 
-cCollecSpecArg2007 & cAppliBubbles::ArgOpt(cCollecSpecArg2007 & anArgOpt)
+cCollecSpecArg2007 & cAppli_Bulles::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return anArgOpt
                 << AOpt2007(mParamMatch,"MatchParam","[Angl,DMin,DMax]",{eTA2007::HDV,{eTA2007::ISizeV,"[3,3]"}})
@@ -179,14 +179,14 @@ cCollecSpecArg2007 & cAppliBubbles::ArgOpt(cCollecSpecArg2007 & anArgOpt)
             ;
 }
 
-std::vector<cOneHelpSampleCmp>  cAppliBubbles::Samples() const
+std::vector<cOneHelpSampleCmp>  cAppli_Bulles::Samples() const
 {
    return {
         };
 }
 
 
-void  cAppliBubbles::DoOneImage(const std::string & aNameIm)
+void  cAppli_Bulles::DoOneImage(const std::string & aNameIm)
 {
     mNameCurIm = aNameIm;
     cAutoTimerSegm  anATSInit (mTimeSeg,"Initialisation");
@@ -237,7 +237,7 @@ void  cAppliBubbles::DoOneImage(const std::string & aNameIm)
 
 
 
-void cAppliBubbles::MakeVisu()
+void cAppli_Bulles::MakeVisu()
 {
     std::string aPref = mPhProj.DirVisuAppli() + LastPrefix(mNameCurIm) ;
 
@@ -258,7 +258,7 @@ void cAppliBubbles::MakeVisu()
 
 
 
-int cAppliBubbles::Exe()
+int cAppli_Bulles::Exe()
 {
     mPhProj.FinishInit();
 
@@ -280,7 +280,7 @@ int cAppliBubbles::Exe()
 
 tMMVII_UnikPApli Alloc_AppliBubbles(const std::vector<std::string> &  aVArgs,const cSpecMMVII_Appli & aSpec)
 {
-      return tMMVII_UnikPApli(new cAppliBubbles(aVArgs,aSpec));
+      return tMMVII_UnikPApli(new cAppli_Bulles(aVArgs,aSpec));
 }
 
 

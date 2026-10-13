@@ -121,6 +121,8 @@ void BenchCodedTarget(cParamExeBench & aParam)
 {
     if (! aParam.NewBench("CodedTarget")) return;
 
+    bool DoAll = false;
+
     if  (!UserIsMPD())
     {
         aParam.EndBench();
@@ -142,13 +144,16 @@ void BenchCodedTarget(cParamExeBench & aParam)
     ScopedChdir aScopeChD(aDir);
 
 
-    if (true)
+    if (DoAll)
     {
        BenchTargetGenerateImage(3,cPt2di(1500,1000));
     }
     std::string aNameFullSpec = BenchTargetGenerate_Specif(eTyCodeTarget::eIGNIndoor,14);
 
-    BenchTarget_GenerateSimul(aNameFullSpec,15);
+    if (DoAll)
+    {
+       BenchTarget_GenerateSimul(aNameFullSpec,15);
+    }
 
     aParam.EndBench();
 }

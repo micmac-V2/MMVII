@@ -150,6 +150,8 @@ extern cSpecMMVII_Appli  TheSpec_TutoFormalDeriv;
 extern cSpecMMVII_Appli  TheSpec_ExportUndistMesIm;
 extern cSpecMMVII_Appli  TheSpecAppliExtractLine;
 extern cSpecMMVII_Appli  TheSpecAppliBubbles;
+extern cSpecMMVII_Appli  TheSpecAppliIA;
+
 extern cSpecMMVII_Appli  TheSpecAppliFranges_0;
 extern cSpecMMVII_Appli  TheSpecAppliFranges_1;
 extern cSpecMMVII_Appli  TheSpecAppliFranges_2;
