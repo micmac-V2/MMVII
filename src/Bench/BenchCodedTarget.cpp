@@ -1,6 +1,7 @@
 #include "MMVII_DeclareAllCmd.h"
 #include "MMVII_DeclareCste.h"
 #include "MMVII_Image2D.h"
+#include "MMVII_MeasuresIm.h"
 
 #include <filesystem>
 
@@ -26,7 +27,7 @@ public:
 
 static const std::string  PrefixIm = "ImSynt_";
 
-void BenchTargetGenerateImage(int aNbIm,const cPt2di&  aSzIm)
+void BenchTarget_GenerateImage(int aNbIm,const cPt2di&  aSzIm)
 {
     for (int aKIm=0 ; aKIm<aNbIm ; aKIm++)
     {
@@ -90,15 +91,11 @@ std::string BenchTargetGenerate_Specif(eTyCodeTarget aType,int aNBB)
 
 void BenchTarget_GenerateSimul(const std::string & aNameFullSpec,int aNbTarget)
 {
-    // MMVII CodedTargetSimul ImSynt_.*tif FullSpec_IGNIndoor_14.xml Radius=[30,60] Ratio=[0.5,1.0] NoiseAmpl=[0,0] PropLinBias=[0,0]
-
     cParamCallSys aComSimul(TheSpecSimulCodedTarget,true);
 
     aComSimul.AddArgs(PrefixIm+".*tif");
     aComSimul.AddArgs(aNameFullSpec);
-
     aComSimul.AddMMVIIArgsOpt("NbSel",ToStr(aNbTarget));
-
     aComSimul.AddMMVIIArgsOpt("Radius",ToStr(cPt2dr(40,60)));
     aComSimul.AddMMVIIArgsOpt("Ratio",ToStr(cPt2dr(0.7,1.0)));
     aComSimul.AddMMVIIArgsOpt("NoiseAmpl",ToStr(cPt2dr(0,0)));
@@ -106,13 +103,37 @@ void BenchTarget_GenerateSimul(const std::string & aNameFullSpec,int aNbTarget)
     aComSimul.AddMMVIIArgsOpt("StdOut","NONE");
 
    aComSimul.Execute(true);
-
-    // StdOut() << " COM= " << aComSimul.Com() << "\n";
 }
 
-void BenchTarget_Extract(const std::string & aNameFullSpec)
-{
 
+cSetMesPtOf1Im  FileMeasureIm(const std::string & aPrefix,const std::string & aNameIm)
+{
+    std::string aRes =     MMVII_DirPhp
+                         + E2Str(eTA2007::ObjMesInstr) +  StringDirSeparator()
+                         + aPrefix +   StringDirSeparator()
+                         + cSetMesPtOf1Im::StdNameFileOfIm(aNameIm);;
+
+    //StdOut() << " FILEMEASURE=" << aRes << "\n";
+    return cSetMesPtOf1Im::FromFile(aRes);
+
+}
+
+void BenchTarget_Verif(const std::string & aNameIm)
+{
+    FileMeasureIm("Simul",aNameIm);
+    //FileMeasureIm("Simul",aNameIm);
+
+}
+
+void BenchTarget_Extract(const std::string & aPat,const std::string & aFileSpec,bool isIGN)
+{
+    cParamCallSys aComExtract(isIGN ? TheSpecExtractCheckBoardTarget : TheSpecExtractCircTarget,true);
+
+    aComExtract.AddArgs(aPat);
+    aComExtract.AddArgs(aFileSpec);
+    aComExtract.AddMMVIIArgsOpt("OutObjMesInstr","Bench");
+
+    StdOut() << " ComExtr= " << aComExtract.Com() << "\n";
 }
 
 
@@ -133,7 +154,7 @@ void BenchCodedTarget(cParamExeBench & aParam)
 
     std::string aDir = cMMVII_Appli::TmpDirTestMMVII() ;
 
-    StdOut() << "PROFIL NAME=" << cMMVII_Appli::ProfileName() << "\n";
+   // StdOut() << "PROFIL NAME=" << cMMVII_Appli::ProfileName() << "\n";
     if (UserIsMPD())
     {
         aDir = "/home/MPierrot-Deseilligny/MMVII/MMVII-TestDir/Tmp/";
@@ -146,14 +167,27 @@ void BenchCodedTarget(cParamExeBench & aParam)
 
     if (DoAll)
     {
-       BenchTargetGenerateImage(3,cPt2di(1500,1000));
+       BenchTarget_GenerateImage(3,cPt2di(1500,1000));
     }
     std::string aNameFullSpec = BenchTargetGenerate_Specif(eTyCodeTarget::eIGNIndoor,14);
+
 
     if (DoAll)
     {
        BenchTarget_GenerateSimul(aNameFullSpec,15);
     }
+
+    std::string aPatImSimul = "SimulTarget_"+ PrefixIm +".*tif";
+    std::vector<std::string> aVecIm =  GetFilesFromDir("./",AllocRegex(aPatImSimul));
+    StdOut() << "VECIMSIM=" << aVecIm << "\n";
+
+    if (DoAll)
+    {
+       BenchTarget_Extract(aPatImSimul,aNameFullSpec,true);
+    }
+
+    for (const auto & aNameIm : aVecIm)
+        BenchTarget_Verif(aNameIm);
 
     aParam.EndBench();
 }

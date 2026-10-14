@@ -42,16 +42,16 @@ endif()
 ##        COMPLETION
 #######################################################
 
-option(USE_READLINE "Complétion par Tab avec GNU Readline (licence GPL)" OFF)
+#option(USE_READLINE "Complétion par Tab avec GNU Readline (licence GPL)" OFF)
 
-if(USE_READLINE)
-    find_path(READLINE_INCLUDE_DIR readline/readline.h REQUIRED)
-    find_library(READLINE_LIB readline REQUIRED)
-
-    add_compile_definitions(HAVE_READLINE)
-    include_directories(${READLINE_INCLUDE_DIR})
-    link_libraries(${READLINE_LIB})
-endif()
+#if(USE_READLINE)
+#    find_path(READLINE_INCLUDE_DIR readline/readline.h REQUIRED)
+#    find_library(READLINE_LIB readline REQUIRED)
+#
+#    add_compile_definitions(HAVE_READLINE)
+#    include_directories(${READLINE_INCLUDE_DIR})
+#    link_libraries(${READLINE_LIB})
+#endif()
 
 #######################################################
 ##        MMV1 link
