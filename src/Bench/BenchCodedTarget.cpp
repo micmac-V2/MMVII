@@ -133,7 +133,8 @@ void BenchTarget_Extract(const std::string & aPat,const std::string & aFileSpec,
     aComExtract.AddArgs(aFileSpec);
     aComExtract.AddMMVIIArgsOpt("OutObjMesInstr","Bench");
 
-    StdOut() << " ComExtr= " << aComExtract.Com() << "\n";
+    aComExtract.Execute(true);
+    // StdOut() << " ComExtr= " << aComExtract.Com() << "\n";
 }
 
 
@@ -142,7 +143,7 @@ void BenchCodedTarget(cParamExeBench & aParam)
 {
     if (! aParam.NewBench("CodedTarget")) return;
 
-    bool DoAll = false;
+    bool DoAll = true;
 
     if  (!UserIsMPD())
     {

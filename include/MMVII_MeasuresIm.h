@@ -39,9 +39,13 @@ struct  cPair2D3D
 {
      public :
           cPair2D3D(const cPt2dr &,const cPt3dr &);
+
+         cPair2D3D();
+
           cPt2dr mP2;
           cPt3dr mP3;
 };
+void AddData(const  cAuxAr2007 & anAux, cPair2D3D  &  aPair);
 
 /** A cPair2D3D + a Weight */
 struct  cWeightedPair2D3D : public cPair2D3D

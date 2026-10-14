@@ -148,6 +148,7 @@ extern cSpecMMVII_Appli  TheSpecParametrizeSensor;
 extern cSpecMMVII_Appli  TheSpec_TutoSerial;
 extern cSpecMMVII_Appli  TheSpec_TutoFormalDeriv;
 extern cSpecMMVII_Appli  TheSpec_ExportUndistMesIm;
+extern cSpecMMVII_Appli  TheSpec_ExportSimulMeasures;
 extern cSpecMMVII_Appli  TheSpecAppliExtractLine;
 extern cSpecMMVII_Appli  TheSpecAppliBubbles;
 // extern cSpecMMVII_Appli  TheSpecAppliIA;

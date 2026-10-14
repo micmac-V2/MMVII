@@ -1827,7 +1827,7 @@ bool cMMVII_Appli::ExistAppli()
 
 bool UserIsMPD()
 {
-     return cMMVII_Appli::CurrentAppli().ProfileName() == "MPD";
+     return UCaseEqual(cMMVII_Appli::CurrentAppli().ProfileName() , "MPD");
 }
  
     // ========== Random seed  =================

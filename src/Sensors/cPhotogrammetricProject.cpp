@@ -386,6 +386,9 @@ void cPhotogrammetricProject::FinishInit()
     mDirSysCo = mDirPhp + E2Str(eTA2007::SysCo) + StringDirSeparator();
     mDirImportInitOri =  mDirPhp + "InitialOrientations" + StringDirSeparator();
 
+    mDirSimul = mDirPhp + "SIMUL" + StringDirSeparator();
+    mDirSimulAppli = mDirSimul +  mAppli.Specs().Name()  + StringDirSeparator();
+
     if (mAppli.LevelCall()==0)
     {
         CreateDirectories(mDirVisu);
@@ -393,6 +396,8 @@ void cPhotogrammetricProject::FinishInit()
         CreateDirectories(mDirSysCo);
         CreateDirectories(mDirImportInitOri);
         CreateDirectories(mDirStaticLidarRasters);
+        CreateDirectories(mDirSimul);
+        CreateDirectories(mDirSimulAppli);
     }
 
 
@@ -544,6 +549,9 @@ const std::string &   cPhotogrammetricProject::DirPhp() const   {return mDirPhp;
 const std::string &   cPhotogrammetricProject::DirVisu() const  {return mDirVisu;}
 const std::string &   cPhotogrammetricProject::DirVisuAppli() const  {return mDirVisuAppliFinal;}
 const std::string &   cPhotogrammetricProject::DirStaticLidarRasters() const  {return mDirStaticLidarRasters;}
+
+const std::string &   cPhotogrammetricProject::DirSimul() const  {return mDirSimul;}
+const std::string &   cPhotogrammetricProject::DirSimulAppli() const  {return mDirSimulAppli;}
 
 void cPhotogrammetricProject::SetVisuSubDir(const std::string & aDir)
 {

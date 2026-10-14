@@ -1009,6 +1009,18 @@ const cMes1Gnd3D & cSetMesGnd3D::GetMeasureOfNamePt(const std::string& aName) co
 {
 }
 
+cPair2D3D::cPair2D3D() :
+    mP2 (cPt2dr::Dummy()),
+    mP3 (cPt3dr::Dummy())
+{
+}
+
+void AddData(const  cAuxAr2007 & anAux, cPair2D3D  &  aPair)
+{
+    AddData(cAuxAr2007("Ground",anAux),aPair.mP3);
+    AddData(cAuxAr2007("Ima",anAux),aPair.mP2);
+}
+
 /**********************************************/
 /*                                            */
 /*           cWeightedPair2D3D                */
