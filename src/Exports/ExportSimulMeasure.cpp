@@ -13,15 +13,17 @@ class cAlloc_ExportSimulMeasures : public cMMVII_Appli
         int Exe() override;
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override;
+         std::vector<cOneHelpSampleCmp>  Samples() const override;
+
 
         void DoExportSimCampPC(const cSensorCamPC * aCamPC, const cSet2D3D &);
+
 
         std::string NameFileSauv(const std::string & aNaemIm) const;
 
 
         cPhotogrammetricProject  mPhProj;
         std::string              mSpecImIn;
-        bool                     mShow;
         eTypeSerial              mTypeSerial;
 
         int                      mNbXY;
@@ -33,7 +35,6 @@ class cAlloc_ExportSimulMeasures : public cMMVII_Appli
 cAlloc_ExportSimulMeasures::cAlloc_ExportSimulMeasures(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
     cMMVII_Appli    (aVArgs,aSpec),
     mPhProj         (*this),
-    mShow           (false),
     mNbXY           (6),
     mNbDepth        (2),
     mOnlyPairs      (false)
@@ -54,8 +55,8 @@ cCollecSpecArg2007 & cAlloc_ExportSimulMeasures::ArgObl(cCollecSpecArg2007 & anA
 cCollecSpecArg2007 & cAlloc_ExportSimulMeasures::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return anArgOpt
-               <<  mPhProj.DPGndPt2D().ArgDirOutOptWithDef("Undist")
-               << AOpt2007(mShow,"ShowD","Show details",{eTA2007::HDV})
+             //  <<  mPhProj.DPGndPt2D().ArgDirOutOptWithDef("Undist")
+             //  << AOpt2007(mShow,"ShowD","Show details",{eTA2007::HDV})
                << AOpt2007(mNbXY,"NbPlani","Number of samples in each dim X-Y",{eTA2007::HDV})
                << AOpt2007(mNbDepth,"NbDepth","Number of depth sampled",{eTA2007::HDV})
                << AOpt2007(mTypeSerial,"TypeS","Type of serial file (xml,json,csv..) default from user profile")
@@ -64,6 +65,13 @@ cCollecSpecArg2007 & cAlloc_ExportSimulMeasures::ArgOpt(cCollecSpecArg2007 & anA
             ;
 }
 
+std::vector<cOneHelpSampleCmp>  cAlloc_ExportSimulMeasures::Samples() const
+{
+    return
+    {
+        {"MMVII ExportSimulMesIm \"IMG_.*.JPG\" Adjust   TypeS=json"}
+    };
+}
 
 class cExportSimCampPC
 {
@@ -94,7 +102,7 @@ void AddData(const  cAuxAr2007 & anAux, cExportSimCampPC  &  anExp)
     AddData(cAuxAr2007("Ground",anAux),anExp.mPGround);
     AddData(cAuxAr2007("Cam",anAux),anExp.mPCam);
     AddData(cAuxAr2007("Proj",anAux),anExp.mPProj);
-    AddData(cAuxAr2007("UnDist",anAux),anExp.mPUnitDist);
+    AddData(cAuxAr2007("Dist",anAux),anExp.mPUnitDist);
     AddData(cAuxAr2007("Im",anAux),anExp.mPIm);
 }
 
@@ -149,8 +157,6 @@ int cAlloc_ExportSimulMeasures::Exe()
 
         }
 
-
-        //StdOut() << "NB= " << aSet32.NbPair() << "\n";
     }
 
     return EXIT_SUCCESS;
