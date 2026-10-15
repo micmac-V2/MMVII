@@ -110,7 +110,11 @@ template <class Type>  std::string Vect2Str(const std::vector<Type>  & aV)
 {
     std::string aRes = "[";
     char aSep='\0';
-    for (const auto& aVal: aV) {
+    // Not "const auto&": for std::vector<bool>, libc++ yields a proxy reference
+    // (__bit_const_reference) rather than bool, so ToStr would be instantiated on
+    // the proxy, for which no cStrIO exists -- a link error on macOS. Naming Type
+    // keeps the element type on every standard library.
+    for (const Type & aVal: aV) {
         if (aSep != '\0')
             aRes += aSep;
         aRes += ToStr(aVal);
