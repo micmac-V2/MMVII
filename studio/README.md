@@ -23,13 +23,16 @@ calibration estimation, dense cloud, DEM, orthomosaic.
 
 ## Run
 
+Needs a built MMVII (https://github.com/micmac-V2/MMVII). From this folder (the repo root
+of MMVII-studio, or `studio/` inside an MMVII checkout):
+
 ```bash
-cd studio
 uv venv .venv && uv pip install --python .venv/bin/python -e '.[test]'
 .venv/bin/python -m mmvii_studio [project-folder]
 ```
 
-Studio looks for MMVII in `$MMVII_BIN`, then on `PATH`, then in `../bin/MMVII`.
+Studio looks for MMVII in `$MMVII_BIN`, then on `PATH`, then in `../bin/MMVII` (when
+`studio/` sits inside an MMVII checkout).
 
 The project folder is the folder holding the images (subfolders such as MicaSense
 `0000SET/000/` are scanned too). Studio writes `studio.json` and, through MMVII,
@@ -55,3 +58,7 @@ The project folder is the folder holding the images (subfolders such as MicaSens
 - MicaSense RedEdge raw captures (about 8 MB each): https://sample.micasense.com
 - ICAERUS DJI Mavic 3M and Mavic 3 datasets: https://github.com/ICAERUS-EU/Zenodo_Datasets
   (for example https://zenodo.org/records/15114347, 342 RGB images, 6.1 GB)
+
+## Licence
+
+CeCILL-B, the same licence as MMVII. See [LICENSE.md](LICENSE.md).

@@ -7,6 +7,7 @@ name = "mmvii-studio"
 version = "0.1.0"
 description = "Desktop front end for MMVII: project setup, image import, GCPs and map view"
 requires-python = ">=3.10"
+license = {text = "CeCILL-B"}
 dependencies = [
     "PySide6>=6.5",
     "pyvista>=0.43",
