@@ -50,13 +50,13 @@ the bundles}. In the case of central perspective it gives all the intermediar
 computation :
 
 \begin{itemize}
-   \item \bf{Ground:} ground point $P_g$  in word coordinate
-   \item \bf{Cam:} ground point $P_c$ in camera coordinate  $P_c = R^t (P_g-C)$
-   \item \bf{Proj:} projection of $P_c$ , it's the  result of a mapping $\pi : \mathbb{R}^3  \mapsto \mathbb{R}^2$ ,
+   \item {\bf Ground:} ground point $P_g$  in word coordinate
+   \item {\bf Cam:} ground point $P_c$ in camera coordinate  $P_c = R^t (P_g-C)$
+   \item {\bf Proj:} projection of $P_c$ , it's the  result of a mapping $\pi : \mathbb{R}^3  \mapsto \mathbb{R}^2$ ,
          for  stenope camera the formula is $\pi(x,y,z) = \frac{(x,y)}{z}$ , for fisheye there is
          several variant to avoid infinite coordinates .
-   \item \bf{Dist:}  application of distortion
-   \item \bf{Im:}  use focal an principal point to get pixel coordinates.
+   \item {\bf Dist:}  application of distortion
+   \item {\bf Im:}  use focal an principal point to get pixel coordinates.
 \end{itemize}
 
 
@@ -100,7 +100,8 @@ The optionnal parameters are :
 \begin{itemize}
    \item {\bf NbPlani,NbDepth} fix number of point on grid, and number of depth;
    \item {\bf TypeS} fix the format of export (\FileSty{xml,json \dots});
-   \item {\bf OnlyGrIm} if true, for central perspective, export only ground and images.
+   \item {\bf OnlyGrIm} if true, for central perspective, export only ground and images
+   % \item {\bf EpsilonCheck} tolerance when we checks that image projection ;
 \end{itemize}
 
 

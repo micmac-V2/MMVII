@@ -828,6 +828,24 @@ class cCamSimul : public cMemCheck
       // cSetHomogCpleIm
 };
 
+/** Small "data class" for exporting the detailled path
+ *  that goes  ground -> image for central perspective camera
+ */
+
+class cExportSimCampPC
+{
+   public :
+       cExportSimCampPC();
+       cExportSimCampPC(const cSensorCamPC * aCamPC,const cPt3dr & aPGround);
+
+       cPt3dr mPGround;    ///<  point in ground/word coordinates
+       cPt3dr mPCam;       ///< point in camera coordinates
+       cPt2dr mPProj;      ///<  projected point (like x/z,y/z for stenope)
+       cPt2dr mPUnitDist;  ///< unitary point distorded
+       cPt2dr mPIm;        ///<  finally, image point
+};
+void AddData(const  cAuxAr2007 & anAux, cExportSimCampPC  &  anExp);
+
 };
 
 #endif  //  _MMVII_PCSENS_H_
