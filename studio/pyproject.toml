@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mmvii-studio"
+version = "0.1.0"
+description = "Desktop front end for MMVII: project setup, image import, GCPs and map view"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.5",
+    "pyvista>=0.43",
+    "pyvistaqt>=0.11",
+    "pyproj>=3.6",
+    "Pillow>=10",
+    "matplotlib>=3.7",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+mmvii-studio = "mmvii_studio.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["mmvii_studio*"]
