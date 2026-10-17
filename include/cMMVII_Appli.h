@@ -371,6 +371,9 @@ class cParamCallSys
        }
 
        int Execute(bool forceExternal) const;
+       /// run execute external, add StdOut=NONE
+       int ExecuteWithoutMsg() ;
+
        const std::string & Com() const ; ///< Accessor
     private :
        const cSpecMMVII_Appli * mSpec;

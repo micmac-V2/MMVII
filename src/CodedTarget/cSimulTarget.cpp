@@ -204,7 +204,11 @@ cCollecSpecArg2007 & cAppliSimulCodeTarget::ArgObl(cCollecSpecArg2007 & anArgObl
 {
    return  anArgObl
              <<   Arg2007(mNameIm,"Pattern of files",{{eTA2007::MPatFile,"0"},eTA2007::FileImage})
-             <<   Arg2007(mNameSpecif,"Name of target file specification",{{eTA2007::XmlOfTopTag,cFullSpecifTarget::TheMainTag}})
+
+            // MPD : too strict, cannot use with dmp file ....
+            // <<   Arg2007(mNameSpecif,"Name of target file specification",{{eTA2007::XmlOfTopTag,cFullSpecifTarget::TheMainTag}})
+               <<   Arg2007(mNameSpecif,"Name of target file specification",{{eTA2007::FileAny}})
+
    ;
 }
 
@@ -393,7 +397,11 @@ void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
 }
 
 const std::string ThePrefixSimulTarget = "SimulTarget_";
-const std::string ThePostfixGTSimulTarget = "_GroundTruth.xml";
+std::string NameGTSimulTargetFromIm(const std::string & aNameIm)
+{
+    return "GroundTruth-"+ aNameIm + "." + GlobTaggedNameDefSerial();
+}
+
 
 // make sure that interval.x<interval.y, check if all in [0,1]
 bool orderAndAssertInterval01(cPt2dr & interval, const std::string & aIntervalName)
@@ -505,7 +513,7 @@ int  cAppliSimulCodeTarget::Exe()
         mPhProj.SaveMeasureIm(aSetM);
    }
 
-   SaveInFile(mRS,mPhProj.DPGndPt2D().FullDirOut() + mPrefixOut + ThePostfixGTSimulTarget);
+   SaveInFile(mRS,mPhProj.DPGndPt2D().FullDirOut() + NameGTSimulTargetFromIm(aNameOut));// mPrefixOut + ThePostfixGTSimulTarget);
    // StdOut() <<  "ooo--OOOOO=" << mPhProj.DPPointsMeasures().FullDirOut() + mPrefixOut + ThePostfixGTSimulTarget << "\n";
 
    mImIn.DIm().ToFile(aNameOut,eTyNums::eTN_U_INT1);

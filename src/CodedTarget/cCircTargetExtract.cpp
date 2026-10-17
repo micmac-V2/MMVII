@@ -219,6 +219,9 @@ void AddData(const  cAuxAr2007 & anAux, cSaveExtrEllipe & aCTE)
      AddData(cAuxAr2007("White",anAux)    , aCTE.mWhite);
 }
 
+const std::string cSaveExtrEllipe::PrefixAttr = "Attribute";
+const std::string cSaveExtrEllipe::PrefixGroundTruth = "GroundTruth";
+
 std::string cSaveExtrEllipe::NameFile(const cPhotogrammetricProject & aPhp,const cSetMesPtOf1Im &  aSetM,bool Input)
 {
     return  (Input ? aPhp.DPGndPt2D().FullDirIn() :   aPhp.DPGndPt2D().FullDirOut() )
@@ -226,6 +229,7 @@ std::string cSaveExtrEllipe::NameFile(const cPhotogrammetricProject & aPhp,const
             +  aSetM.StdNameFile()
     ;
 }
+
 
 /* ********************************************* */
 /*                                               */
@@ -1363,7 +1367,7 @@ int  cAppliExtractCircTarget::Exe()
    }
    if (mUseSimul)  // If use it, read the ground truth
    {
-       std::string aNameResSim = LastPrefix(APBI_NameIm()) + ThePostfixGTSimulTarget;
+       std::string aNameResSim = NameGTSimulTargetFromIm(APBI_NameIm());// LastPrefix(APBI_NameIm()) + ThePostfixGTSimulTarget;
        mGT_Simul = cResSimul::FromFile(aNameResSim);
    }
 

@@ -106,6 +106,13 @@ int cParamCallSys::Execute(bool forceExternal) const
    }
 }
 
+int cParamCallSys::ExecuteWithoutMsg()
+{
+   AddMMVIIArgsOpt("StdOut","NONE");
+   return   Execute(true);
+}
+
+
 #if (THE_MACRO_MMVII_SYS==MMVII_SYS_L || THE_MACRO_MMVII_SYS==MMVII_SYS_A)
 static std::string QuoteCmdLine(const std::string& aParam)
 {

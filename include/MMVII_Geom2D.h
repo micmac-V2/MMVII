@@ -910,6 +910,10 @@ struct cSaveExtrEllipe
 
           cSaveExtrEllipe ();
           static std::string NameFile(const cPhotogrammetricProject & ,const cSetMesPtOf1Im &,bool Input);
+          static const std::string PrefixAttr ;         ///< Used in extraction
+          static const std::string PrefixGroundTruth ;  ///< Used in simulation
+
+
 
           tAff2Dr    mAffIm2Ref;
           cEllipse    mEllipse;
@@ -917,6 +921,8 @@ struct cSaveExtrEllipe
           tREAL4 mBlack;
           tREAL4 mWhite;
 };
+extern std::string NameGTSimulTargetFromIm(const std::string & aNameIm);
+
 void AddData(const  cAuxAr2007 & anAux, cSaveExtrEllipe & aCTE);
 
 
