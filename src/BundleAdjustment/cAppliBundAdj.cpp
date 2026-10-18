@@ -127,7 +127,8 @@ struct cLidarLidarParam
     double ThresholdInit = 1;
     double ThresholdFinal = 0.1;
     double NormalTolDeg = 15;
-    cWeighterParam ModeWeighter;
+    cWeighterParam ModeWeighterDist;
+    cWeighterParam ModeWeighterAngle;
     std::vector<std::string> InterpD = {"Linear"};
     ARG2007_STRUCT_FIELDS (
         PatScan,FieldSem({eTA2007::AddCom,"Pattern of scan names to use"}),
@@ -135,7 +136,8 @@ struct cLidarLidarParam
         ThresholdInit,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold at first iteration, <0 = infinite"}}),
         ThresholdFinal,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold at last iteration, <0 = infinite"}}),
         NormalTolDeg,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Max normal angle tolerance (degrees)"}}),
-        ModeWeighter,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Weighter"}}),
+        ModeWeighterDist,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Weighter Dist"}}),
+        ModeWeighterAngle,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Weighter Angle"}}),
         InterpD,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Distance interpolator"}})
         )
 };
@@ -594,7 +596,7 @@ int cAppliBundlAdj::Exe()
     {
         mMeasureAdded = true;
         mBA.Add1AdjLidarLidar(aParam.PatScan, aParam.Sigma, aParam.ThresholdInit,
-                              aParam.ThresholdFinal, aParam.NormalTolDeg, aParam.InterpD, aParam.ModeWeighter);
+                              aParam.ThresholdFinal, aParam.NormalTolDeg, aParam.InterpD, aParam.ModeWeighterDist, aParam.ModeWeighterAngle);
     }
 
     if (mCheckMeasureAdded)
