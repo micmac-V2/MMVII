@@ -1005,10 +1005,10 @@ const std::unordered_map<std::string, cStaticLidar *> &cMMVII_BundleAdj::MapTLS(
 
 void cMMVII_BundleAdj::Add1AdjLidarLidar(const std::string & aPatScan, double aSigma, double aThresholdInit,
                                          double aThresholdFinal, double aNormalTolDeg, const std::vector<std::string> & aInterpD,
-                                         const cWeighterParam & aWParam)
+                                         const cWeighterParam & aWParamDist, const cWeighterParam & aWParamAngle)
 {
     mVBA_LidarLidar.push_back(new cBA_LidarLidarRaster(mPhProj, *this, aPatScan, aSigma, aThresholdInit,
-                                                       aThresholdFinal, aNormalTolDeg, aInterpD, aWParam));
+                                                       aThresholdFinal, aNormalTolDeg, aInterpD, aWParamDist, aWParamAngle));
 }
 
 

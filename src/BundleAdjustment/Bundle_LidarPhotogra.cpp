@@ -364,7 +364,7 @@ void cBA_LidarPhotograRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, do
     {
         auto &aScanA = aScanDataA.mLidarRaster;
         tREAL8 aSigma = 1.; // TODO use image res for W? aScanA->Sigma() converted with incidence?
-        mWeightersMap[aScanA->NameImage()].reset(new cStdWeighterResidual(sqrt(aWFactor)*aSigma, mThreshold / 2., mThreshold, 1));
+        mDistWeightersMap[aScanA->NameImage()].reset(new cStdWeighterResidual(sqrt(aWFactor)*aSigma, mThreshold / 2., mThreshold, 1));
     }
 }
 
@@ -392,7 +392,7 @@ void cBA_LidarPhotograRaster::AddObs()
     {
         for (auto & aScan : mVScans)
         {
-            auto & aWeighter = mWeightersMap.at(aScan.mLidarRaster->NameImage());
+            auto & aWeighter = mDistWeightersMap.at(aScan.mLidarRaster->NameImage());
             int aNbPatch = 0;
             for (const auto& aPatch : aScan.mLPatches)
             {
@@ -407,7 +407,7 @@ void cBA_LidarPhotograRaster::AddObs()
     {
         for (auto & aScan : mVScans)
         {
-            auto & aWeighter = mWeightersMap.at(aScan.mLidarRaster->NameImage());
+            auto & aWeighter = mDistWeightersMap.at(aScan.mLidarRaster->NameImage());
             int aNbPatch = 0;
             for (const auto& aPatch : aScan.mLPatches)
             {
@@ -967,8 +967,8 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
                                            cMMVII_BundleAdj& aBA, const std::string & aPatScan, double aSigma,
                                            double aThresholdInit, double aThresholdFinal,
                                            double aNormalTolDeg, const std::vector<std::string> & aInterpD,
-                                           const cWeighterParam & aWParam) :
-    cBA_LidarBase(aPhProj, aBA, aSigma, aInterpD), mWParam(aWParam)
+                                           const cWeighterParam & aWParamD, const cWeighterParam &aWParamA) :
+    cBA_LidarBase(aPhProj, aBA, aSigma, aInterpD), mWParamDist(aWParamD)
 {
     mEq = EqEqLidarLidar (true,1,true);
 
@@ -978,7 +978,6 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
 
     MMVII_INTERNAL_ASSERT_User((aNormalTolDeg>=0) && (aNormalTolDeg<=180),
                                eTyUEr::eBadOptParam,"Normal tolerance must be inside [0,180], got "+ToStr(aNormalTolDeg));
-    mNormalDiffMinCos = cos(aNormalTolDeg*M_PI/180.);
 
     //read scans files from directory corresponding to pattern in aPatScan
     tNameSelector aSel =   AllocRegex(aPatScan);
@@ -1008,6 +1007,21 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
         //    StdOut() << "Test " << aScanData.mScanName << " " << aTestRasterPoint << ": "
         //             << aScanData.mLidarRaster->Image2Ground(aTestRasterPoint) <<"\n";
     }
+
+    switch (aWParamA.Mode) {
+    case eModeWeighter::eStd:
+        MMVII_INTERNAL_ASSERT_User(aWParamA.VParams.size()==2,eTyUEr::eBadEnum,"Weighter mode "+ToStr(aWParamA.Mode)+" must have 2 params");
+        mWeighterAngle.reset(new cStdWeighterResidual(1., aNormalTolDeg*aWParamA.VParams.at(0), aNormalTolDeg, aWParamA.VParams.at(1)));
+        break;
+    case eModeWeighter::eLin:
+        MMVII_INTERNAL_ASSERT_User(aWParamA.VParams.size()==1,eTyUEr::eBadEnum,"Weighter mode "+ToStr(aWParamA.Mode)+" must have 1 param");
+        mWeighterAngle.reset(new cLinearWeighterResidual(1., aNormalTolDeg, aNormalTolDeg*aWParamA.VParams.at(0)));
+        break;
+    case eModeWeighter::eNbVals:
+        MMVII_INTERNAL_ASSERT_User(false,eTyUEr::eBadEnum,"Weighter mode "+ToStr(aWParamA.Mode)+" not allowed!");
+        break;
+    }
+
 }
 
 cBA_LidarLidarRaster::~cBA_LidarLidarRaster()
@@ -1051,20 +1065,20 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
                 //);
 
             cBasicWeighter<tREAL8> * aW = nullptr;
-            switch (mWParam.Mode) {
+            switch (mWParamDist.Mode) {
             case eModeWeighter::eStd:
-                MMVII_INTERNAL_ASSERT_User(mWParam.VParams.size()==2,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParam.Mode)+" must have 2 params");
-                aW = new cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, mThreshold*mWParam.VParams.at(0), mThreshold, mWParam.VParams.at(1));
+                MMVII_INTERNAL_ASSERT_User(mWParamDist.VParams.size()==2,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParamDist.Mode)+" must have 2 params");
+                aW = new cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, mThreshold*mWParamDist.VParams.at(0), mThreshold, mWParamDist.VParams.at(1));
                 break;
             case eModeWeighter::eLin:
-                MMVII_INTERNAL_ASSERT_User(mWParam.VParams.size()==1,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParam.Mode)+" must have 1 param");
-                aW = new cLinearWeighterResidual(sqrt(aWFactor)*aSigmaAB, mThreshold, mThreshold*mWParam.VParams.at(0));
+                MMVII_INTERNAL_ASSERT_User(mWParamDist.VParams.size()==1,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParamDist.Mode)+" must have 1 param");
+                aW = new cLinearWeighterResidual(sqrt(aWFactor)*aSigmaAB, mThreshold, mThreshold*mWParamDist.VParams.at(0));
                 break;
             case eModeWeighter::eNbVals:
-                MMVII_INTERNAL_ASSERT_User(false,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParam.Mode)+" not allowed!");
+                MMVII_INTERNAL_ASSERT_User(false,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParamDist.Mode)+" not allowed!");
                 break;
             }
-            mWeightersMap[aScanA->NameImage()+"-"+aScanB->NameImage()].reset( aW );
+            mDistWeightersMap[aScanA->NameImage()+"-"+aScanB->NameImage()].reset( aW );
         }
     }
 }
@@ -1241,6 +1255,9 @@ void cBA_LidarLidarRaster::SetVUkVObs
 
 tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cStaticLidarBAData & aScanAData)
 {
+    //tREAL8 aStatstNormalDiffMinCos = cos(60*M_PI/180);
+    tREAL8 aStatsMaxDist = 0.2;
+
     auto & aScanA = aScanAData.mLidarRaster;
     cPt2dr aPatchCenterA = ToR(*aPatch.mLPatchesP.begin());
     // TODO: use mInterpolD or normal (adaptative) interpol??
@@ -1258,7 +1275,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
     for (auto & aScanBData: mVScans)
     {
         auto & aScanB = aScanBData.mLidarRaster;
-        auto & aWeighter = mWeightersMap.at(aScanA->NameImage()+"-"+aScanB->NameImage());
+        auto & aWeighter = mDistWeightersMap.at(aScanA->NameImage()+"-"+aScanB->NameImage());
         if (aScanB->NameImage()==aScanA->NameImage())
             continue; // no obs on the same scan
 
@@ -1320,14 +1337,19 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                 tREAL8 aValIm = aData.mVGr.at(0).first;   // value of first/central pixel in this image
                 tREAL8 aResidual = aValIm-aDist;
 
-                if (fabs(aResidual)<std::max(0.1,mThreshold*20)) // suppose that 10cm is always an error
+                cPt3dr aNormalInstrB = aScanB->Image2NormalInstr(aPIm);
+                cPt3dr aNormalGndB = aScanB->Pose().Rot().Value(aNormalInstrB);
+
+                if ((fabs(aResidual)<std::max(aStatsMaxDist,mThreshold*10))
+                   )// &&(Scal(aNormalGndA,aNormalGndB)<aStatstNormalDiffMinCos)) //std::max(0.1,mThreshold*20)) // suppose that 10cm is always an error
                     mNbUsableObs++;
 
                 if (fabs(aResidual)<fabs(aMinResidual))
                     aMinResidual = aResidual;
                 //StdOut() << "UUU  " << ((cStdWeighterResidual*)&aWeighter)->SingleWOfResidual(std::vector<tREAL8>{aResidual})
                 //         << " " << aWeighter->WeightOfResidual({aResidual})[0] << std::endl;
-                if (aWeighter->WeightOfResidual({aResidual})[0]==0.0)
+                aData.mW = aWeighter->WeightOfResidual({aResidual})[0];
+                if (aData.mW==0.0)
                 {
                     #ifdef SCANSCANDEBUG
                     std::cout<<"removed W\n";
@@ -1339,9 +1361,10 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                     #endif
                     continue;
                 }
-                cPt3dr aNormalInstrB = aScanB->Image2NormalInstr(aPIm);
-                cPt3dr aNormalGndB = aScanB->Pose().Rot().Value(aNormalInstrB);
-                if (Scal(aNormalGndA,aNormalGndB)<mNormalDiffMinCos)
+                tREAL8 aNormalDiffAngle = acos(Scal(aNormalGndA,aNormalGndB)) * 180 / M_PI;
+                tREAL8 aWFactorAngle = mWeighterAngle->WeightOfResidual({aNormalDiffAngle})[0];
+                aData.mW *=  aWFactorAngle;
+                if (aWFactorAngle==0.0)
                 {
                     #ifdef SCANSCANDEBUG
                     std::cout<<"Removed "<<aPatch.mLPatchesP[0]<<" due to normals: "<<aNormalGndA<<" "<<aNormalGndB
@@ -1426,8 +1449,7 @@ void cBA_LidarLidarRaster::AddPatchDist
         std::vector<int>       aVIndUk;
         std::vector<tREAL8>    aVObs;
         SetVUkVObs (aPGround,&aVIndUk,aVObs,aData,0);
-        aSys->CalcAndAddObs(mEq,aVIndUk,aVObs,
-                            *mWeightersMap.at(aData.mScanAName+"-"+aData.mScanBName));
+        aSys->CalcAndAddObs(mEq, aVIndUk, aVObs, aData.mW);
     }
 }
 
