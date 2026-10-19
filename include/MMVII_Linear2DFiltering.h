@@ -401,6 +401,7 @@ template <class Type>  class cImGrad
 
 template<class Type> cImGrad<Type> Deriche(const cDataIm2D<Type> &aImIn,double aAlpha);
 template<class Type> void ComputeDeriche(cImGrad<Type> & aResGrad,const cDataIm2D<Type> & aImIn,double aAlpha);
+template<class Type> cImGrad<Type> Sobel(const cDataIm2D<Type> &aImIn);
 
 template <class Type> class cTensor
 {
@@ -412,6 +413,8 @@ template <class Type> class cTensor
        static  tPt  Tens2Grad(const tPt& aGrad,Type aRho=-1);
 
        static cImGrad<Type>  Grad2Tens(const cImGrad<Type> &);
+
+      static  tREAL8  SigmaTensor(const std::vector<cPtxd<Type,2>>& aVTens);
 
 };
 

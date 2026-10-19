@@ -67,17 +67,99 @@ void cAppliNewFrange::OneWayIntegrateTangent(int aDy,int aYLim)
     }
 }
 
+void cAppliNewFrange::ComputeProjIntegrX()
+{
+
+    /*  To take into account the delocalsation of the curve :
+     *     - make a "strong" smoothing along line of ImRed save it in mDImSmoothTgt,
+     *     - the smmothing depend of the line : higer when Y is far from YC
+     *     - mehod :
+     *         o parse lines
+     *         o make a copy of each line, make the gaussian filter and save back
+     */
+
+    mImSmoothTgt = tIm(mSzRed);
+    mDImSmoothTgt = &mImSmoothTgt.DIm();
+    for (int anY=0 ; anY<mSzRed.y() ; anY++)
+    {
+        tIm1D anImL(mSzRed.x());
+        for (int anX=0 ; anX<mSzRed.x() ; anX++)
+        {
+            anImL.DIm().SetV(anX,mDImRed->GetV(cPt2di(anX,anY)));
+        }
+
+        tREAL8 aSig0 = 3.0;
+        tREAL8 aSigMin = 30.0;
+        tREAL8 aSigm = std::sqrt(Square(aSig0)+ Square(mDImTgt->GetV(anY)));
+        aSigm *= aSigMin/aSig0;
+        ExpFilterOfStdDev(anImL.DIm(),2,aSigm);
+
+        for (int anX=0 ; anX<mSzRed.x() ; anX++)
+        {
+            mDImSmoothTgt->SetV(cPt2di(anX,anY),anImL.DIm().GetV(anX));
+        }
+    }
+
+
+    tREAL8 aDistW = 50.0;
+    mImProjInt = tIm1D(mSzRed.x());
+    mDImProjInt = &mImProjInt.DIm();
+
+    cIm1D<tU_INT2> aImCpt(mSzRed.x(),nullptr,eModeInitImage::eMIA_Null);
+    int aThrsNb = mSzRed.y()/10;
+    mMinDPI = 1e10;
+    mMaxDPI = 0;
+    for (int anX=0 ; anX<mSzRed.x() ; anX++)
+    {
+        cWeightAv<tREAL8> aAvg;
+        int aNb =0;
+        for (int anY=0 ; anY<mSzRed.y() ; anY++)
+        {
+            tREAL8 aXTgt = anX+ mDImIntegr->GetV(anY);
+            cPt2dr aPt(aXTgt,anY);
+            if (mDImSmoothTgt->InsideBL(aPt))
+            {
+                aNb++;
+                tREAL8 aW =  aDistW / (aDistW + std::abs(anY-mYC));
+                aAvg.Add(aW,mDImSmoothTgt->GetVBL(aPt));
+            }
+        }
+        if (aNb>aThrsNb)
+        {
+            mDImProjInt->SetV(anX,aAvg.Average());
+            UpdateMin(mMinDPI,aAvg.Average());
+            UpdateMax(mMaxDPI,aAvg.Average());
+
+        }
+        aImCpt.DIm().SetV(anX,aNb);
+    }
+
+    for (int anX=0 ; anX<mSzRed.x() ; anX++)
+    {
+        if (aImCpt.DIm().GetV(anX)<=aThrsNb)
+        {
+            mDImProjInt->SetV(anX,mMinDPI);
+        }
+    }
+}
+
 
 
 void cAppliNewFrange::DoTensorProcessing()
 {
     // Compute the deriche gradient
-    mImGrad = Deriche(*mDImRed,mDerFactZ1*mZoomRed);
+   // mImGrad = Deriche(*mDImRed,mDerFactZ1*mZoomRed);
+
+    mImGrad = Sobel(*mDImRed);
+
     mImTens = cTensor<tElIm>::Grad2Tens(mImGrad);
 
     // Resize ImMaxLoc
     mImMaxLocTD = cIm2D<tU_INT1> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
     mDImMaxLocTD = &(mImMaxLocTD.DIm());
+
+    mImCumNormT = tIm1D(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
+    mDImCumNormT = & mImCumNormT.DIm();
 
     // Images of tensor accumulation
      cIm1D<tREAL8> aPop(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
@@ -94,6 +176,17 @@ void cAppliNewFrange::DoTensorProcessing()
           aPop.DIm().AddV(aPix.y(),1.0);
           aSumTx.DIm().AddV(aPix.y(),aTens.x()*aWeight);
           aSumTy.DIm().AddV(aPix.y(),aTens.y()*aWeight);
+          mDImCumNormT->AddV(aPix.y(),Norm2(aTens));
+     }
+
+     for (int anY=0 ; anY<mSzRed.y() ; anY++)
+     {
+         std::vector<cPt2dr> aVTens;
+         for (int anX=0 ; anX<mSzRed.x() ; anX++)
+         {
+              aVTens.push_back(mImTens.GradR(cPt2di(anX,anY)));
+         }
+         mDImCumNormT->SetV(anY,cTensor<tREAL8>::SigmaTensor(aVTens));
      }
 
      // Regularize 2D images of tensor
@@ -140,6 +233,7 @@ void cAppliNewFrange::DoTensorProcessing()
          tREAL8 aTeta = aRhoTeta.y() /2.0;
          tREAL8 aTgt = tan(aTeta);
 
+
          mDImTgt->SetV(anY,aTgt);
          mDImTeta->SetV(anY,aTeta);
      }
@@ -152,8 +246,10 @@ void cAppliNewFrange::DoTensorProcessing()
      mImIntegr  = cIm1D<tREAL8>(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
      mDImIntegr = &(mImIntegr.DIm());
 
-     OneWayIntegrateTangent(-1,0);
+     OneWayIntegrateTangent(-1,-1);
      OneWayIntegrateTangent(1,mSzRed.y());
+
+     ComputeProjIntegrX();
 }
 
 

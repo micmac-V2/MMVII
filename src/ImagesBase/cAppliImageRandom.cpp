@@ -4,6 +4,7 @@
 #include "MMVII_Geom2D.h"
 #include "MMVII_Interpolators.h"
 #include "MMVII_Tpl_ElemStrToVal.h"
+#include "MMVII_Tpl_NormImage.h"
 
 
 namespace MMVII

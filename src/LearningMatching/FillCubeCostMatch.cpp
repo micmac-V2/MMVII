@@ -2,6 +2,7 @@
 #include "MMVII_2Include_Serial_Tpl.h"
 #include "LearnDM.h"
 #include "MMVII_Tpl_Images.h"
+#include "MMVII_Tpl_NormImage.h"
 #include "MMVII_TplLayers3D.h"
 
 /*

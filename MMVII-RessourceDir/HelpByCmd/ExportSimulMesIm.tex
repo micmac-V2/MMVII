@@ -10,100 +10,108 @@
 
 \tableofcontents
 
- %=================================================================================
+%=============================================================================
 
 \SecDescr
 
-This command generates  \emph{artificial} correspondance between ground points
-and image points for a given set of sensors. It can be used  mainly in programm
-exterior to \MMVII for different purpose :
+This command generates \emph{artificial} correspondences between ground points
+and image points for a given set of sensors. It can be used mainly in programs
+external to \MMVII for different purposes:
 
 \begin{itemize}
-   \item  check in a programm that a sensor implemented is coherent with a given \MMVII  sensor;
-   \item  use the data to create a sensor identical to \MMVII using some reverse
-          engenering approach.
-   \item  use to make a transformation of sensor format using some bundle adjusment
-          techniques;
+  \item check in a program that an implemented sensor is consistent with a
+        given \MMVII sensor;
+  \item create a sensor identical to an \MMVII one, using some reverse
+        engineering approach;
+  \item transform a sensor format, using some bundle adjustment techniques.
 \end{itemize}
 
- %=================================================================================
+%=============================================================================
 
 \section{Generated result}
 
-     %  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+%  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
 \subsection{Files and localisation}
 
-A files is generated for each image. This file is located in the folder
-\FileSty{MMVII-PhgrProj/SIMUL/ExportSimulMesIm/} .  It can be
-generated in any serialization format supported by \MMVII (\FileSty{xml,json,csv \dots}).
-If not specied it uses the  format  associated to the profile, but this can be changed
-using the {\tt TypeS} parameter.
+A file is generated for each image. This file is located in the folder :
 
-     %  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+\begin{itemize}
+ \item \FileSty{MMVII-PhgrProj/SIMUL/ExportSimulMesIm/}. 
+\end{itemize}
+
+
+It can be generated in any
+serialization format supported by \MMVII (\FileSty{xml, json, csv \dots}).
+If not specified, it uses the format associated with the profile, but this can
+be changed using the \texttt{TypeS} parameter.
+
+%  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
 \subsection{Data generated}
 
-The level of detail is different according to the type of sensor. In the general
-case it gives only ground point and their image projection\footnote{maybe later add
-the bundles}. In the case of central perspective it gives all the intermediar
-computation :
+The level of detail depends on the type of sensor. In the general case, it
+gives only the ground points and their image projections%
+\footnote{Bundles may be added later.}.
+In the case of central perspective, it gives all the intermediate computations:
 
 \begin{itemize}
-   \item {\bf Ground:} ground point $P_g$  in word coordinate
-   \item {\bf Cam:} ground point $P_c$ in camera coordinate  $P_c = R^t (P_g-C)$
-   \item {\bf Proj:} projection of $P_c$ , it's the  result of a mapping $\pi : \mathbb{R}^3  \mapsto \mathbb{R}^2$ ,
-         for  stenope camera the formula is $\pi(x,y,z) = \frac{(x,y)}{z}$ , for fisheye there is
-         several variant to avoid infinite coordinates .
-   \item {\bf Dist:}  application of distortion
-   \item {\bf Im:}  use focal an principal point to get pixel coordinates.
+  \item \textbf{Ground:} ground point $P_g$ in world coordinates;
+  \item \textbf{Cam:} ground point $P_c$ in camera coordinates,
+        $P_c = R^t (P_g - C)$;
+  \item \textbf{Proj:} projection of $P_c$, which is the result of a mapping
+        $\pi : \mathbb{R}^3 \to \mathbb{R}^2$. For a pinhole camera, the
+        formula is $\pi(x,y,z) = \frac{(x,y)}{z}$; for a fisheye, there are
+        several variants to avoid infinite coordinates;
+  \item \textbf{Dist:} application of the distortion;
+  \item \textbf{Im:} use of the focal length and the principal point to get
+        pixel coordinates.
 \end{itemize}
 
+%  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
-     %  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+\subsection{Generated points}
 
-\subsection{Generated point}
-
-The $3$ points used for creating the correspondance are $100\%$ artificial,
-they are generated using the following algorithm :
+The $3$D points used for creating the correspondences are $100\%$ artificial.
+They are generated using the following algorithm:
 
 \begin{itemize}
-   \item we generate point $p_{i,j}$  on a $N \times N$ regular grid on the sensor ;
-   \item for each point  $p_{i,j}$  we generate $Q$  $3d$ points at different depths
-         on the bundle issued from $p_{i,j}$ .
+  \item we generate points $p_{i,j}$ on an $N \times N$ regular grid on the
+        sensor;
+  \item for each point $p_{i,j}$, we generate $Q$ $3$D points at different
+        depths on the bundle issued from $p_{i,j}$.
 \end{itemize}
 
- %=================================================================================
+%=============================================================================
 
-\section{Mandatory and optionnal parameters}
+\section{Mandatory and optional parameters}
 
-     %  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+%  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
-\subsection{Mandatory  parameters}
+\subsection{Mandatory parameters}
 
-The two mandatory  parameters are  :
+The two mandatory parameters are:
 
 \begin{itemize}
-   \item  the set of images to which it applies;
-   \item  the localisation of orientation, each image must have an orientation, 
-          they can be of any type (central perpective, pushbroom \dots) ,
-          result may varying with the type.
+  \item the set of images to which it applies;
+  \item the localisation of the orientations; each image must have an
+        orientation, which can be of any type (central perspective,
+        pushbroom \dots); the result may vary with the type.
 \end{itemize}
 
-     %  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+%  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
 
-\subsection{Optionnale  parameters}
+\subsection{Optional parameters}
 
-The optionnal parameters are :
-
+The optional parameters are:
 
 \begin{itemize}
-   \item {\bf NbPlani,NbDepth} fix number of point on grid, and number of depth;
-   \item {\bf TypeS} fix the format of export (\FileSty{xml,json \dots});
-   \item {\bf OnlyGrIm} if true, for central perspective, export only ground and images
-   % \item {\bf EpsilonCheck} tolerance when we checks that image projection ;
+  \item \textbf{NbPlani, NbDepth}: fix the number of points on the grid and
+        the number of depths;
+  \item \textbf{TypeS}: fixes the export format (\FileSty{xml, json \dots});
+  \item \textbf{OnlyGrIm}: if true, for central perspective, export only
+        ground points and images.
+  % \item \textbf{EpsilonCheck}: tolerance when we check the image projection;
 \end{itemize}
-
-
 
 \end{document}

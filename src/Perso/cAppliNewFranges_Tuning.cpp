@@ -3,9 +3,8 @@
 // Test commit
 
 #include "cAppliNewFranges.h"
-
-
-
+#include "MMVII_Tpl_Images.h"
+#include "MMVII_Tpl_NormImage.h"
 
 namespace MMVII
 {
@@ -89,6 +88,7 @@ void cAppliNewFrange::DoVisu()
 
     // Generate images of angle of tensor using Hue (teinte)
     {
+        cIm2D<tREAL8> aINorm(mSzRed);
         cRGBImage aVisuTeta(mSzRed);
         for (const auto aPix : *mDImRed)
         {
@@ -97,14 +97,21 @@ void cAppliNewFrange::DoVisu()
             cPt2dr aRhoTeta = ToPolar(aTens,0.0);
             tREAL8 aTeta =  aRhoTeta.y();
             aVisuTeta.SetRGBPix(aPix,HSI_2_RGB(cPt3dr(aTeta,1.0,0.5)));
+            aINorm.DIm().SetV(aPix,aRhoTeta.x());
         }
         GenVisu(aVisuTeta,"TetaTens");
+        GenVisu(Im2Make8BByMinMax(aINorm.DIm()).DIm(),"NormTens");
+
     }
 
-    tREAL8 aNbX=400;
+    tREAL8 aRabXDetail=400;
+    tREAL8 aRabYDetail=200;
+
 
     //  Image with several detail : tang/ teta-tens / integrale / Rad(Y) of Frange
-    cRGBImage anImDetail = cRGBImage(mSzRed + cPt2di(aNbX,0),cRGBImage::White);
+    cPt2di aSzImDetail = mSzRed + cPt2di(aRabXDetail,aRabYDetail);
+    cRGBImage anImDetail = cRGBImage(aSzImDetail,cRGBImage::White);
+    anImDetail.FillRectangle(cRGBImage::Yellow,mSzRed,aSzImDetail,cPt3dr::PCste(0.0));
     // image that visualize oriented chain (+- arrow ...)
     cRGBImage aVisuArrow (mSzRed);
     cRGBImage aVisuArrowUnif (mSzRed);
@@ -159,12 +166,16 @@ void cAppliNewFrange::DoVisu()
         GenVisu(aVisuMaxMixte,"MaxLocMixte");
     }
 
+    GenVisu(*mImGrad.mDGx,"GradX");
+    GenVisu(*mImGrad.mDGy,"GradY");
+
     //  Visualize the central line
-    anImDetail.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x()+aNbX,mYC),cRGBImage::Blue,1.0);
+    anImDetail.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x()+aRabXDetail,mYC),cRGBImage::Cyan,1.0);
 
 
 
     // Transformate vector Integal in points, arbirary origin
+
     std::vector<cPt2dr> aVPtsIntegral;
     for(const auto aPtY : mImTgt.DIm())
     {
@@ -173,11 +184,11 @@ void cAppliNewFrange::DoVisu()
         aVPtsIntegral.push_back(cPt2dr(aXInt+200.0,anY));
     }
 
-
+    tIm1D aImVisuNT = Im1DFixDynByMax(*mDImCumNormT,100.0);
     //  ---------- Make image details ----------------------
     for(const auto aPtY : mImTgt.DIm())
     {
-       int aXMil = mSzRed.x()+aNbX/2;
+       int aXMil = mSzRed.x()+aRabXDetail/2;
        int anY = aPtY.x();
 
        // ----------------- Curves in the white rectangle ------------------------
@@ -188,6 +199,10 @@ void cAppliNewFrange::DoVisu()
            //   ---  show curves that estimate radiomtry of franges ------------
        cPt2di  aPtRad(round_ni(mSzRed.x()+mDImRadFrange->GetV(anY)*0.5),anY);
        anImDetail.SetRGBPix(aPtRad,cRGBImage::Gray128);
+
+       cPt2di  aPNormFr(round_ni(mSzRed.x()+aImVisuNT.DIm().GetV(anY)+10),anY);
+       anImDetail.SetRGBPix(aPNormFr,cRGBImage::Green);
+
 
            //   ---  curves of teta and tangent --------
        cPt2di  aPtTgt(round_ni(aXMil+mDImTgt->GetV(anY)*10.0),anY);
@@ -206,6 +221,13 @@ void cAppliNewFrange::DoVisu()
            }
        }
     }
+    for(const auto aPtX : *mDImProjInt)
+    {
+        int anX = aPtX.x();
+        tREAL8 anY  = ((mDImProjInt->GetV(anX)-mMinDPI) / (mMaxDPI-mMinDPI)) * aRabYDetail;
+        anImDetail.SetRGBPix(cPt2di(anX,mSzRed.y() + anY *0.95 + 5),cRGBImage::Black);
+    }
+
 
 
     //  ------------  visualisation of oriented chains -----------------------
@@ -238,6 +260,8 @@ void cAppliNewFrange::DoVisu()
     GenVisu(aVisuArrowUnif,"ArrowUnif");
 
     GenVisu(*mDImRedBlur,"Blured");
+
+
 
     // Possibly generates names of visu (if PatInit & NoVisu Gene & 1 single file)
 

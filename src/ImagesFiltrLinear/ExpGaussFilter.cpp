@@ -319,6 +319,36 @@ template <class Type> cImGrad<Type> cTensor<Type>::Grad2Tens(const cImGrad<Type>
     return aImTens;
 }
 
+template <class Type>  tREAL8   cTensor<Type>::SigmaTensor(const std::vector<cPtxd<Type,2>>& aVTens)
+{
+    cWeightAv<tREAL8,tREAL8> aRx;
+    cWeightAv<tREAL8,tREAL8> aRx2;
+    cWeightAv<tREAL8,tREAL8> aRy;
+    cWeightAv<tREAL8,tREAL8> aRy2;
+
+    for (auto  aTens : aVTens)
+    {
+         tREAL8 aN = Norm2(aTens);
+         if (aN)
+         {
+             aTens = aTens / Type(aN);
+             aRx.Add(aN,aTens.x());
+             aRx2.Add(aN,Square(aTens.x()));
+             aRy.Add(aN,aTens.y());
+             aRy2.Add(aN,Square(aTens.y()));
+         }
+    }
+    if (aRx.SW()==0)
+        return 0.0;
+
+    tREAL8 aS2x = aRx2.Average() - Square(aRx.Average());
+    tREAL8 aS2y = aRy2.Average() - Square(aRy.Average());
+
+    return std::sqrt(std::max(0.0,aS2x+aS2y));
+
+}
+
+
 /* ========================== */
 /*     cDataGenUnTypedIm      */
 /* ========================== */

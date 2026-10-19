@@ -209,6 +209,8 @@ class cAppliNewFrange : public cMMVII_Appli
         /// Integrate one way the tangent image and save it in integrale image
         void OneWayIntegrateTangent(int aDy,int aYLim);
 
+        ///< compute projection on x using integral
+        void ComputeProjIntegrX();
 
 
         //=========================================  DATA ========================================
@@ -260,13 +262,21 @@ class cAppliNewFrange : public cMMVII_Appli
          cDataIm2D<tU_INT1>* mDImMaxLocTD;     ///< data
 
 
+         tIm1D    mImCumNormT;    /// Image of teta as x=F(Y)
+         tDIm1D*  mDImCumNormT;
          tIm1D    mImTeta;    /// Image of teta as x=F(Y)
          tDIm1D*  mDImTeta;
         tIm1D    mImTgt;      /// Image of tangent as x=F(Y)
         tDIm1D*  mDImTgt;
         int      mYC;          ///<  estimation of Y center
-        tIm1D    mImIntegr;    ///<  integration of tangent
-        tDIm1D*  mDImIntegr;   ///<  data
+        tIm1D    mImIntegr;        ///<  integration of tangent
+        tDIm1D*  mDImIntegr;       ///<  data
+        tIm      mImSmoothTgt;  ///< Image smoothed takin account tgt
+        tDIm *   mDImSmoothTgt;  ///< Data
+        tIm1D    mImProjInt;     ///< cumulated projection
+        tDIm1D*  mDImProjInt;    ///< Data
+        tREAL8   mMinDPI;
+        tREAL8   mMaxDPI;
 
 
         std::vector<cConnComp*>  mVectCC;

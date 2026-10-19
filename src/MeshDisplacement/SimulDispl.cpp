@@ -2,6 +2,7 @@
 #include "cMMVII_Appli.h"
 #include "MMVII_Linear2DFiltering.h"
 #include "MMVII_Tpl_Images.h"
+#include "MMVII_Tpl_NormImage.h"
 #include "MMVII_Interpolators.h"
 
 /**
