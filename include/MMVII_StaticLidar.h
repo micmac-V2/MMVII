@@ -1,12 +1,11 @@
 #ifndef  _MMVII_STATICLIDAR_H_
 #define  _MMVII_STATICLIDAR_H_
 
-#include <functional>
-
 #include "MMVII_2Include_Serial_Tpl.h"
 #include "MMVII_Geom3D.h"
 #include "MMVII_PCSens.h"
 #include <unordered_set>
+#include <shared_mutex>
 
 // #define EXPORT_RASTER_THETA_PHI
 // #define SCANSCANSHOWPATCHES 8 // make rasters of patches residuals and rejection for each pair, downscale raster by value
@@ -20,6 +19,50 @@ namespace MMVII
 */
 
 tREAL8 toMinusPiPlusPi(tREAL8 aAng, tREAL8 aOffset = 0.);
+
+
+
+/**
+ * @brief The cLazyRaster class is used to have on first access raster reading
+ * Thread safe!
+ */
+template <typename T>
+class cLazyRaster {
+    friend class cStaticLidar;
+private:
+    std::string & mPath;
+    mutable std::unique_ptr<cIm2D<T>> mRaster;
+    mutable std::shared_mutex mMutex;
+
+public:
+    cLazyRaster(std::string & p);// : mPath(p) {}
+
+    bool isReady();// { return mRaster.get();}
+
+    void Fill(cPt2di size, T(*func)(int, const void*), const void* context,
+              const std::vector<int>& vectCol, const std::vector<int>& vectLine, size_t totalPts);// {
+        /*std::unique_lock<std::shared_mutex> lock(mMutex);
+
+        mRaster = std::make_unique<cIm2D<T>>(size, nullptr, eModeInitImage::eMIA_Null);
+        auto& aRasterData = mRaster->DIm();
+
+        for (size_t i = 0; i < totalPts; ++i) {
+            cPt2di aPcl = {vectCol[i], vectLine[i]};
+            aRasterData.SetV(aPcl, func(i, context));
+        }
+    }*/
+
+    cIm2D<T>& GetRawImage() const;// {
+        /*std::shared_lock<std::shared_mutex> lock(mMutex);
+        MMVII_INTERNAL_ASSERT_tiny(mRaster != nullptr, "Raster not ready!");
+        return *mRaster;
+    }*/
+
+    cLazyRaster(const cLazyRaster&) = delete;
+    cLazyRaster& operator=(const cLazyRaster&) = delete;
+};
+
+
 
 
 class cStaticLidarImporter
@@ -71,9 +114,12 @@ public:
 
     void MakeIdImage(const std::string & aNameFile) const; // create miniature to select this scan along images
 
-    template <typename TYPE> void fillRaster(
-                           std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE>> & aIm) const; // keep image in memory
+    // do not use std::function for its cost, do not capture
+    template <typename TYPE>
+    void fillRaster(TYPE(*func)(int, const void*), const void* context, const cLazyRaster<TYPE>& aLazyIm) const; // keep image in memory
 
+    template <typename TYPE>
+    void fillRawRaster(TYPE(*func)(int, const void*), const void* context, std::unique_ptr<cIm2D<TYPE>>& aIm) const; // keep image in memory, not thread safe!
     // line and col for each point
     std::vector<int> mVectPtsLine;
     std::vector<int> mVectPtsCol;
@@ -125,13 +171,23 @@ public :
 
     cStaticLidar(const std::string &aNameFile, const std::string & aStationName,
                  const std::string & aScanName, const tPose &aPose, cPerspCamIntrCalib *aCalib,
-                 cRotation3D<tREAL8> aRotInput2Raster, tREAL8 aSigma);
+                 cRotation3D<tREAL8> aRotInput2Raster, tREAL8 aSigma, const std::string & aDataDir);
     ~cStaticLidar();
 
-    static cStaticLidar *FromFile(const std::string & aNameScanFile, bool aSVP);
-    bool ReadRasters(const std::string & aDataDir);
+    static cStaticLidar *FromFile(const std::string & aNameScanFile, const std::string &aDataDir, bool aSVP);
 
-    bool AreRastersReady() const { return mAreRastersReady;}
+    const cDataIm2D<tREAL4>& GetRasterX() const;
+    const cDataIm2D<tREAL4>& GetRasterY() const;
+    const cDataIm2D<tREAL4>& GetRasterZ() const;
+    const cDataIm2D<tREAL4>& GetRasterDistance() const;
+    const cDataIm2D<tU_INT1>& GetRasterMask() const;
+    cDataIm2D<tU_INT1>& GetRasterMask();
+    const cDataIm2D<tU_INT1> *GetRasterIntensity() const; // return nullptr if no intensity
+#ifdef EXPORT_RASTER_THETA_PHI
+    const cDataIm2D<tREAL4>& GetRasterTheta() const;
+    const cDataIm2D<tREAL4>& GetRasterPhi() const;
+#endif
+
     void ToPly(const std::string & aName, bool useMask=false) const;
     void AddData(const  cAuxAr2007 & anAux) ;
     virtual void ToFile(const std::string &) const override;
@@ -198,7 +254,6 @@ public :
     std::string  V_PrefixName() const override;
     static std::string Pat2Sup(const std::string & aPatSelect);
 
-    cDataIm2D<tREAL4> &getRasterDistance() const;
     bool IsValidPoint(const cPt2dr &aRasterPx) const; ///< is dist>0
     bool IsValidPoint(const cPt2di &aRasterPx) const; ///< is dist>0
     bool IsMaskedPoint(const cPt2dr &aRasterPx) const;
@@ -225,29 +280,32 @@ private :
 
     std::string mStationName;
     std::string mScanName;
+    std::string mDataDir;
     std::string mRasterDistancePath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterDistance;
+    cLazyRaster<tREAL4> mRasterDistance;
     std::string mRasterIntensityPath;
-    std::unique_ptr<cIm2D<tU_INT1>> mRasterIntensity;
+    cLazyRaster<tU_INT1> mRasterIntensity;
     std::string mRasterMaskPath;
-    std::unique_ptr<cIm2D<tU_INT1>> mRasterMask;
+    cLazyRaster<tU_INT1> mRasterMask;
     std::string mRasterXPath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterX;
+    cLazyRaster<tREAL4> mRasterX;
     std::string mRasterYPath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterY;
+    cLazyRaster<tREAL4> mRasterY;
     std::string mRasterZPath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterZ;
+    cLazyRaster<tREAL4> mRasterZ;
 
 #ifdef EXPORT_RASTER_THETA_PHI
     std::string mRasterThetaPath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterTheta;
+    LazyRaster<tREAL4> mRasterTheta;
     std::string mRasterPhiPath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterPhi;
+    LazyRaster<tREAL4> mRasterPhi;
 #endif
     //std::string mRasterThetaErrPath;
     //std::string mRasterPhiErrPath;
 
-    bool mAreRastersReady;
+    template <typename T>
+    cDataIm2D<T>& GetOrLoad(const cLazyRaster<T>& lazyRaster) const;
+
 
     tREAL8 mSigma;   ///< a priori precision on instrument distances
     std::vector<cPt2di> mPatchCenters;

@@ -994,7 +994,6 @@ bool cMMVII_BundleAdj::AddStaticLidar(cStaticLidar* aStaticLidar)
 
     if (mMapTLS.count(aStaticLidar->NameImage())==0)
     {
-        aStaticLidar->ReadRasters(mPhProj->DirStaticLidarRasters());
         MMVII_INTERNAL_ASSERT_tiny (mMapTLS.count(aStaticLidar->NameImage())==0,"Multiple add of TLS : " + aStaticLidar->NameImage());
         mMapTLS[aStaticLidar->NameImage()] = aStaticLidar;
     }

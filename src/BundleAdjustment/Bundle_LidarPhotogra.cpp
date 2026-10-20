@@ -1296,7 +1296,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             #endif
             continue;
         }
-        cDataGenUnTypedIm<2> & aGenDImDist = aScanB->getRasterDistance();
+        const cDataGenUnTypedIm<2> & aGenDImDist = aScanB->GetRasterDistance();
 
         // recheck if central point visible, TODO: remove, aPatch.mImVisible should be enought
         if (aScanB->IsVisible(aPGround))

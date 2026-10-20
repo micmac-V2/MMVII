@@ -113,10 +113,6 @@ int cAppli_VisuPoseStr3D::Exe()
         {
             aVNames.push_back(aIm);
             aVSens.push_back(aSens);
-
-            cStaticLidar* aScan = dynamic_cast<cStaticLidar*>(aSens);
-            if (aScan)
-                aScan->ReadRasters(mPhProj.DirStaticLidarRasters());
         }
         else StdOut() << "Image " << aIm << " has no orientation" << std::endl;
     }

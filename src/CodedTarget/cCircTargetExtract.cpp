@@ -899,8 +899,7 @@ void cAppliExtractCircTarget::DoExport()
      if (cStaticLidar::IsNameTLS(mOriginalNameImage))
      {
          auto aTLSOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mOriginalNameImage,true);
-         aLidar = cStaticLidar::FromFile(aTLSOriFile, false);
-         aLidar->ReadRasters(mPhProj.DirStaticLidarRasters()); // to read distances
+         aLidar = cStaticLidar::FromFile(aTLSOriFile, mPhProj.DirStaticLidarRasters(), false);
          auto aDImIn = cDataFileIm2D::Create(mNameIm, eForceGray::No);
          aImFactor =  RDivCByC(aLidar->PixelDomain().Sz(), aDImIn.Sz());
      }
