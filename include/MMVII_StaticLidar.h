@@ -7,7 +7,7 @@
 #include <unordered_set>
 #include <shared_mutex>
 
-// #define EXPORT_RASTER_THETA_PHI
+// #define EXPORT_RASTER_XYZ
 // #define SCANSCANSHOWPATCHES 8 // make rasters of patches residuals and rejection for each pair, downscale raster by value
 
 namespace MMVII
@@ -176,16 +176,16 @@ public :
 
     static cStaticLidar *FromFile(const std::string & aNameScanFile, const std::string &aDataDir, bool aSVP);
 
-    const cDataIm2D<tREAL4>& GetRasterX() const;
-    const cDataIm2D<tREAL4>& GetRasterY() const;
-    const cDataIm2D<tREAL4>& GetRasterZ() const;
     const cDataIm2D<tREAL4>& GetRasterDistance() const;
     const cDataIm2D<tU_INT1>& GetRasterMask() const;
     cDataIm2D<tU_INT1>& GetRasterMask();
     const cDataIm2D<tU_INT1> *GetRasterIntensity() const; // return nullptr if no intensity
-#ifdef EXPORT_RASTER_THETA_PHI
     const cDataIm2D<tREAL4>& GetRasterTheta() const;
     const cDataIm2D<tREAL4>& GetRasterPhi() const;
+#ifdef EXPORT_RASTER_XYZ
+    const cDataIm2D<tREAL4>& GetRasterX() const;
+    const cDataIm2D<tREAL4>& GetRasterY() const;
+    const cDataIm2D<tREAL4>& GetRasterZ() const;
 #endif
 
     void ToPly(const std::string & aName, bool useMask=false) const;
@@ -287,18 +287,18 @@ private :
     cLazyRaster<tU_INT1> mRasterIntensity;
     std::string mRasterMaskPath;
     cLazyRaster<tU_INT1> mRasterMask;
+    std::string mRasterThetaPath;
+    cLazyRaster<tREAL4> mRasterTheta;
+    std::string mRasterPhiPath;
+    cLazyRaster<tREAL4> mRasterPhi;
+
+#ifdef EXPORT_RASTER_XYZ
     std::string mRasterXPath;
     cLazyRaster<tREAL4> mRasterX;
     std::string mRasterYPath;
     cLazyRaster<tREAL4> mRasterY;
     std::string mRasterZPath;
     cLazyRaster<tREAL4> mRasterZ;
-
-#ifdef EXPORT_RASTER_THETA_PHI
-    std::string mRasterThetaPath;
-    LazyRaster<tREAL4> mRasterTheta;
-    std::string mRasterPhiPath;
-    LazyRaster<tREAL4> mRasterPhi;
 #endif
     //std::string mRasterThetaErrPath;
     //std::string mRasterPhiErrPath;

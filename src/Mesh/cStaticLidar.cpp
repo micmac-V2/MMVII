@@ -739,12 +739,12 @@ cStaticLidar::cStaticLidar(const std::string & aNameFile, const std::string & aS
     mRasterDistancePath(),mRasterDistance(mRasterDistancePath),
     mRasterIntensityPath(),mRasterIntensity(mRasterIntensityPath),
     mRasterMaskPath(),mRasterMask(mRasterMaskPath),
+    mRasterThetaPath(),mRasterTheta(mRasterThetaPath),
+    mRasterPhiPath(),mRasterPhi(mRasterPhiPath),
+#ifdef EXPORT_RASTER_XYZ
     mRasterXPath(),mRasterX(mRasterXPath),
     mRasterYPath(),mRasterY(mRasterYPath),
     mRasterZPath(),mRasterZ(mRasterZPath),
-#ifdef EXPORT_RASTER_THETA_PHI
-    mRasterThetaPath(),mRasterTheta(mRasterThetaPath),
-    mRasterPhiPath(),mRasterPhi(mRasterPhiPath),
 #endif
     mSigma(aSigma),
     mRotInput2Raster(aRotInput2Raster),
@@ -865,6 +865,7 @@ cPt3dr cStaticLidar::Image2InputXYZ(cPt2di aRasterPxI) const
     cPt2dr aRasterPx = ToR(aRasterPxI);
     InternalCalib()->FixLoopPixelsInImage(aRasterPx);
     aRasterPxI = ToI(aRasterPx);
+#ifdef EXPORT_RASTER_XYZ
     auto & aRasterXData = GetRasterX();
     auto & aRasterYData = GetRasterY();
     auto & aRasterZData = GetRasterZ();
@@ -874,12 +875,24 @@ cPt3dr cStaticLidar::Image2InputXYZ(cPt2di aRasterPxI) const
         aRasterXData.GetV(aRasterPxI),
         aRasterYData.GetV(aRasterPxI),
         aRasterZData.GetV(aRasterPxI),
-    };
-}
+#else
+    auto & aRasterTData = GetRasterTheta();
+    auto & aRasterPData = GetRasterPhi();
+    auto & aRasterDData = GetRasterDistance();
+    if (!aRasterDData.Inside(aRasterPxI))
+        return {0.,0.,0.};
+    return ToR(spher2cart(cPt3df(
+                aRasterTData.GetV(aRasterPxI),
+                aRasterPData.GetV(aRasterPxI),
+                aRasterDData.GetV(aRasterPxI)
+        )));
+#endif
+};
 
 cPt3dr cStaticLidar::Image2InputXYZ(cPt2dr aRasterPx) const
 {
     InternalCalib()->FixLoopPixelsInImage(aRasterPx);
+#ifdef EXPORT_RASTER_XYZ
     auto & aRasterXData = GetRasterX();
     auto & aRasterYData = GetRasterY();
     auto & aRasterZData = GetRasterZ();
@@ -890,6 +903,18 @@ cPt3dr cStaticLidar::Image2InputXYZ(cPt2dr aRasterPx) const
         aRasterYData.GetVBL(aRasterPx),
         aRasterZData.GetVBL(aRasterPx),
     };
+#else
+    auto & aRasterTData = GetRasterTheta();
+    auto & aRasterPData = GetRasterPhi();
+    auto & aRasterDData = GetRasterDistance();
+    if (!aRasterDData.InsideBL(aRasterPx))
+        return {0.,0.,0.};
+    return ToR(spher2cart(cPt3df(
+        aRasterTData.GetVBL(aRasterPx),
+        aRasterPData.GetVBL(aRasterPx),
+        aRasterDData.GetVBL(aRasterPx)
+        )));
+#endif
 }
 
 cPt3dr cStaticLidar::Image2InputXYZ_InterpoleDist(cPt2dr aRasterPx,
@@ -1367,18 +1392,36 @@ void cStaticLidar::ToPly(const std::string & aName,bool useMask) const
     aSelectionXYZI.reserve(SzPix().x()*SzPix().y());
     auto & aMaskImData = GetRasterMask();
     const cDataIm2D<tU_INT1> * aRasterIntensityData = GetRasterIntensity();
+#ifdef EXPORT_RASTER_XYZ
     auto & aRasterXData = GetRasterX();
     auto & aRasterYData = GetRasterY();
     auto & aRasterZData = GetRasterZ();
+#else
+    auto & aRasterTData = GetRasterTheta();
+    auto & aRasterPData = GetRasterPhi();
+    auto & aRasterDData = GetRasterDistance();
+#endif
     for (int l = 0 ; l < SzPix().y(); ++l)
     {
         for (int c = 0 ; c < SzPix().x(); ++c)
         {
             cPt2di aPt(c, l);
             if (aMaskImData.GetV(aPt))
+            {
+#ifdef EXPORT_RASTER_XYZ
                 aSelectionXYZI.push_back(cPt4dr(aRasterXData.GetV(aPt),aRasterYData.GetV(aPt),
                                                 aRasterZData.GetV(aPt),
                                                 aRasterIntensityData?aRasterIntensityData->GetV(aPt):255));
+#else
+                cPt3df aPtXYZ = spher2cart(cPt3df(
+                    aRasterTData.GetV(aPt),
+                    aRasterPData.GetV(aPt),
+                    aRasterDData.GetV(aPt)
+                    ));
+                aSelectionXYZI.push_back(cPt4dr(aPtXYZ.x(),aPtXYZ.y(),aPtXYZ.z(),
+                                            aRasterIntensityData?aRasterIntensityData->GetV(aPt):255));
+#endif
+            }
         }
     }
 
@@ -1484,11 +1527,30 @@ void cStaticLidar::FillRasters(const cStaticLidarImporter & aSL_importer)
     aSL_importer.fillRaster<tREAL4>(
         [](int i, const void* ctx) {
             auto& importer = *static_cast<const cStaticLidarImporter*>(ctx);
+            return importer.mVectPtsTPD[i].x();
+        },
+        &aSL_importer,
+        mRasterTheta
+        );
+    aSL_importer.fillRaster<tREAL4>(
+        [](int i, const void* ctx) {
+            auto& importer = *static_cast<const cStaticLidarImporter*>(ctx);
+            return importer.mVectPtsTPD[i].y();
+        },
+        &aSL_importer,
+        mRasterPhi
+        );
+
+#ifdef EXPORT_RASTER_XYZ
+
+    aSL_importer.fillRaster<tREAL4>(
+        [](int i, const void* ctx) {
+            auto& importer = *static_cast<const cStaticLidarImporter*>(ctx);
             return importer.mVectPtsXYZ[i].x();
         },
         &aSL_importer,
         mRasterX
-    );
+        );
     aSL_importer.fillRaster<tREAL4>(
         [](int i, const void* ctx) {
             auto& importer = *static_cast<const cStaticLidarImporter*>(ctx);
@@ -1496,7 +1558,7 @@ void cStaticLidar::FillRasters(const cStaticLidarImporter & aSL_importer)
         },
         &aSL_importer,
         mRasterY
-    );
+        );
     aSL_importer.fillRaster<tREAL4>(
         [](int i, const void* ctx) {
             auto& importer = *static_cast<const cStaticLidarImporter*>(ctx);
@@ -1504,11 +1566,7 @@ void cStaticLidar::FillRasters(const cStaticLidarImporter & aSL_importer)
         },
         &aSL_importer,
         mRasterZ
-    );
-
-#ifdef EXPORT_RASTER_THETA_PHI
-    aSL_importer.fillRaster<tREAL4>([&aSL_importer](int i){ return aSL_importer.mVectPtsTPD[i].x(); }, mRasterTheta);
-    aSL_importer.fillRaster<tREAL4>([&aSL_importer](int i){ return aSL_importer.mVectPtsTPD[i].y(); }, mRasterPhi);
+        );
 #endif
 
     mRasterScore.reset(new cIm2D<tREAL4>(cPt2di(aSL_importer.NbCol()+1, aSL_importer.NbLine()+1), 0, eModeInitImage::eMIA_Null));
@@ -1522,19 +1580,21 @@ void cStaticLidar::SaveRasters(const cStaticLidarImporter & aSL_importer, const 
     else
         mRasterIntensityPath = "";
     mRasterMaskPath = NameImage() + "_mask.tif";
-    mRasterXPath = NameImage() + "_X.tif";
-    mRasterYPath = NameImage() + "_Y.tif";
-    mRasterZPath = NameImage()+ "_Z.tif";
+    mRasterThetaPath = NameImage() + "_Theta.tif";
+    mRasterPhiPath = NameImage() + "_Phi.tif";
     // do not save intensity raster, it should have been done before, before decimation
     mRasterDistance.GetRawImage().DIm().ToFile(aPhProjDirOut + NameImage() + "_distance.tif");
     mRasterMask.GetRawImage().DIm().ToFile(aPhProjDirOut + NameImage() + "_mask.tif");
+    mRasterTheta.GetRawImage().DIm().ToFile(aPhProjDirOut + NameImage() + "_Theta.tif");
+    mRasterPhi.GetRawImage().DIm().ToFile(aPhProjDirOut + NameImage() + "_Phi.tif");
+
+#ifdef EXPORT_RASTER_XYZ
+    mRasterXPath = NameImage() + "_X.tif";
+    mRasterYPath = NameImage() + "_Y.tif";
+    mRasterZPath = NameImage()+ "_Z.tif";
     mRasterX.GetRawImage().DIm().ToFile(aPhProjDirOut + NameImage() + "_X.tif");
     mRasterY.GetRawImage().DIm().ToFile(aPhProjDirOut + NameImage() + "_Y.tif");
     mRasterZ.GetRawImage().DIm().ToFile(aPhProjDirOut + NameImage() + "_Z.tif");
-
-#ifdef EXPORT_RASTER_THETA_PHI
-    mRasterTheta.GetRawImage().DIm().ToFile(aPhProjDirOut + NameImage() + "_Theta.tif");
-    mRasterPhi.GetRawImage().DIm().ToFile(aPhProjDirOut + NameImage() + "_Phi.tif");
 #endif
 }
 
@@ -2004,7 +2064,7 @@ void cStaticLidar::MakePatches
         cPt3dr aCenterThetaPhiDist = Image2ThetaPhiDist(aCenter);
         //StdOut() << "CenterThetaPhiDist: " << aCenterThetaPhiDist << "\n";
         tREAL4 aThetaStep = NAN;
-        if (aCenter.x() < GetRasterX().SzX()/2) // TODO: strange way to compute steps?
+        if (aCenter.x() < GetRasterDistance().SzX()/2) // TODO: strange way to compute steps?
             aThetaStep = aCenterThetaPhiDist.x() - Image2ThetaPhiDist(aCenter+cPt2di(1, 0)).x();
         else
             aThetaStep = Image2ThetaPhiDist(aCenter-cPt2di(1, 0)).x() - aCenterThetaPhiDist.x();
@@ -2106,21 +2166,6 @@ cDataIm2D<T>& cStaticLidar::GetOrLoad(const cLazyRaster<T>& lazyRaster) const
     return lazyRaster.mRaster->DIm();
 }
 
-const cDataIm2D<tREAL4>& cStaticLidar::GetRasterX() const
-{
-    return GetOrLoad(mRasterX);
-}
-
-const cDataIm2D<tREAL4>& cStaticLidar::GetRasterY() const
-{
-    return GetOrLoad(mRasterY);
-}
-
-const cDataIm2D<tREAL4>& cStaticLidar::GetRasterZ() const
-{
-    return GetOrLoad(mRasterZ);
-}
-
 const cDataIm2D<tREAL4>& cStaticLidar::GetRasterDistance() const
 {
     return GetOrLoad(mRasterDistance);
@@ -2143,7 +2188,6 @@ const cDataIm2D<tU_INT1>* cStaticLidar::GetRasterIntensity() const
     return &GetOrLoad(mRasterIntensity);
 }
 
-#ifdef EXPORT_RASTER_THETA_PHI
 const cDataIm2D<tREAL4>& cStaticLidar::GetRasterTheta() const
 {
     return GetOrLoad(mRasterTheta);
@@ -2152,6 +2196,22 @@ const cDataIm2D<tREAL4>& cStaticLidar::GetRasterTheta() const
 const cDataIm2D<tREAL4>& cStaticLidar::GetRasterPhi() const
 {
     return GetOrLoad(mRasterPhi);
+}
+
+#ifdef EXPORT_RASTER_XYZ
+const cDataIm2D<tREAL4>& cStaticLidar::GetRasterX() const
+{
+    return GetOrLoad(mRasterX);
+}
+
+const cDataIm2D<tREAL4>& cStaticLidar::GetRasterY() const
+{
+    return GetOrLoad(mRasterY);
+}
+
+const cDataIm2D<tREAL4>& cStaticLidar::GetRasterZ() const
+{
+    return GetOrLoad(mRasterZ);
 }
 #endif
 
@@ -2164,10 +2224,13 @@ void cStaticLidar::AddData(const  cAuxAr2007 & anAux)
     MMVII::AddData(cAuxAr2007("RasterDistance",anAux),mRasterDistancePath);
     MMVII::AddData(cAuxAr2007("RasterIntensity",anAux),mRasterIntensityPath);
     MMVII::AddData(cAuxAr2007("RasterMask",anAux),mRasterMaskPath);
+    MMVII::AddData(cAuxAr2007("RasterTheta",anAux),mRasterThetaPath);
+    MMVII::AddData(cAuxAr2007("RasterPhi",anAux),mRasterPhiPath);
+#ifdef EXPORT_RASTER_XYZ
     MMVII::AddData(cAuxAr2007("RasterX",anAux),mRasterXPath);
     MMVII::AddData(cAuxAr2007("RasterY",anAux),mRasterYPath);
     MMVII::AddData(cAuxAr2007("RasterZ",anAux),mRasterZPath);
-
+#endif
     //MMVII::AddData(cAuxAr2007("RasterTheta",anAux),mRasterThetaPath);
     //MMVII::AddData(cAuxAr2007("RasterPhi",anAux),mRasterPhiPath);
     //MMVII::AddData(cAuxAr2007("RasterThetaErr",anAux),mRasterThetaErrPath);
