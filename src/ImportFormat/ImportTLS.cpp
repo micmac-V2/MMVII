@@ -804,7 +804,7 @@ int cAppli_ImportTLS::Exe()
 
     cStaticLidar aSL_data(aScanName, mStationName, mScanName,
                           cIsometry3D<tREAL8>({}, cRotation3D<tREAL8>::Identity()),
-                          aCalib, mSL_importer.RotInput2Raster(), mSigma);
+                          aCalib, mSL_importer.RotInput2Raster(), mSigma, mPhProj.DirStaticLidarRasters());
 
     aSL_data.FillRasters(mSL_importer);
 
@@ -1227,8 +1227,7 @@ int cAppli_InitTLS::Exe()
     mPhProj.FinishInit();
 
     auto aTLSOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mNameFileTLSId,true);
-    mLidar = cStaticLidar::FromFile(aTLSOriFile, false);
-    mLidar->ReadRasters(mPhProj.DirStaticLidarRasters());
+    mLidar = cStaticLidar::FromFile(aTLSOriFile, mPhProj.DirStaticLidarRasters(), false);
 
     // try to read pose from cloud file
     std::string aInputPoseFileName = cStaticLidarImporter::DefaultPoseName(mPhProj.DirStaticLidarRasters(),mLidar->NameImage());

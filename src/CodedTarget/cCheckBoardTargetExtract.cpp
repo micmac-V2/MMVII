@@ -579,8 +579,7 @@ void  cAppliCheckBoardTargetExtract::DoExport()
      if (cStaticLidar::IsNameTLS(mNameIm))
      {
          auto aTLSOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mNameIm,true);
-         aLidar = cStaticLidar::FromFile(aTLSOriFile, false);
-         aLidar->ReadRasters(mPhProj.DirStaticLidarRasters()); // to read distances
+         aLidar = cStaticLidar::FromFile(aTLSOriFile, mPhProj.DirStaticLidarRasters(), false);
          aImFactor =  RDivCByC(aLidar->PixelDomain().Sz(), mSzIm0);
      }
 
