@@ -339,9 +339,15 @@ void cAppli_ImportTLS::computeAngStartStep()
         // theta step may be bad because of looping between any col. compute median of diff theta between col for several lines near the center
         // fill theta raster
         std::unique_ptr<cIm2D<tREAL4>> aRasterTheta;
-        mSL_importer.fillRaster<tREAL4>(
-            [&aVectPtsTPD = mSL_importer.mVectPtsTPD](int i){auto aPtTPD = aVectPtsTPD[i];return aPtTPD.x();},
+        mSL_importer.fillRawRaster<tREAL4>(
+            //[&aVectPtsTPD = mSL_importer.mVectPtsTPD](int i){auto aPtTPD = aVectPtsTPD[i];return aPtTPD.x();},
+            [](int i, const void* ctx) {
+                auto& importer = *static_cast<const cStaticLidarImporter*>(ctx);
+                return importer.mVectPtsTPD[i].x();
+            },
+            &mSL_importer,
             aRasterTheta);
+
         //aRasterTheta->DIm().ToFile("dbg_theta.tif");
         std::vector<tREAL8> aVdiffTheta;
         aVdiffTheta.reserve(mSL_importer.NbCol());
@@ -362,8 +368,13 @@ void cAppli_ImportTLS::computeAngStartStep()
 
 
         std::unique_ptr<cIm2D<tREAL4>> aRasterPhi;
-        mSL_importer.fillRaster<tREAL4>(
-            [&aVectPtsTPD = mSL_importer.mVectPtsTPD](int i){auto aPtTPD = aVectPtsTPD[i];return aPtTPD.y();},
+        mSL_importer.fillRawRaster<tREAL4>(
+            //[&aVectPtsTPD = mSL_importer.mVectPtsTPD](int i){auto aPtTPD = aVectPtsTPD[i];return aPtTPD.y();},
+            [](int i, const void* ctx) {
+                auto& importer = *static_cast<const cStaticLidarImporter*>(ctx);
+                return importer.mVectPtsTPD[i].y();
+            },
+            &mSL_importer,
             aRasterPhi);
         //aRasterPhi->DIm().ToFile("dbg_phi.tif");
         std::vector<tREAL8> aVdiffPhi;
@@ -678,9 +689,13 @@ int cAppli_ImportTLS::Exe()
     {
         std::unique_ptr<cIm2D<tU_INT1>> aRasterIntensityFull;
         std::string aRasterIntensityPath = cStaticLidar::RasterIntensityPath(mStationName + "-" + mScanName + cStaticLidar::GetIdSuffix());
-        mSL_importer.fillRaster<tU_INT1>(
-                                          [this](int i){return this->mSL_importer.mVectPtsIntens[i]*255;},
-                                          aRasterIntensityFull );
+        mSL_importer.fillRawRaster<tU_INT1>(
+            [](int i, const void* ctx) -> tU_INT1 {
+                auto& importer = *static_cast<const cStaticLidarImporter*>(ctx);
+                return importer.mVectPtsIntens[i]*255;
+            },
+            &mSL_importer,
+            aRasterIntensityFull );
         aRasterIntensityFull->DIm().ToFile(mPhProj.DirStaticLidarRasters()+aRasterIntensityPath);
     }
 
@@ -976,6 +991,7 @@ void cAppli_InitTLS::poseFromGCP()
 
     for (auto & aPair : aSet23.Pairs())
     {
+        // TODO: use distance from target detection?
         tREAL4 aMesDistance = mLidar->Image2Distance(aPair.mP2);
         if (aMesDistance == 0.)
             continue; // eliminated, even if 2D may be used...
