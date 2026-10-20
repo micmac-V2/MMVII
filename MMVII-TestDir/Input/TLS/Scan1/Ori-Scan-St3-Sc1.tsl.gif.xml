@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<Root>
+   <Type>"MMVII_Serialization"</Type>
+   <Version>"0.0.0"</Version>
+   <Data>
+      <CameraPose>
+         <NameImage>"St3-Sc1.tsl.gif"</NameImage>
+         <NameInternalCalib>"CalibIntr_Scan-St3-Sc1.tsl.gif"</NameInternalCalib>
+         <Center>0.972774028778076 -1.044489979743958 -1.081230044364929</Center>
+         <RotMatrix>
+            <AxeI>-0.176412795212284 -0.579371028611588 0.795743512000531</AxeI>
+            <AxeJ>0.403954705225823 -0.779822102035804 -0.478223886168788</AxeJ>
+            <AxeK>0.897607443045849 0.237079523329219 0.371610249867631</AxeK>
+         </RotMatrix>
+         <EQ>-0.322248100312299 0.554932215895754 -0.079026013610785 0.762863871722164</EQ> <!--EigenQuaternion, for information-->
+         <WPK>-32.537019081103324 63.845336946478525 -113.591581691422874</WPK> <!--Omega Phi Kapa in degree, for information-->
+         <YPR>-106.934978178671244 -52.725538728342485 -52.150530408366862</YPR> <!--Yaw Pitch Roll in degree, for information-->
+      </CameraPose>
+      <StationName>"St3"</StationName>
+      <ScanName>"Sc1"</ScanName>
+      <RasterDistance>"St3-Sc1.tsl.gif_distance.tif"</RasterDistance>
+      <RasterIntensity>""</RasterIntensity>
+      <RasterMask>"St3-Sc1.tsl.gif_mask.tif"</RasterMask>
+      <RasterTheta>"St3-Sc1.tsl.gif_Theta.tif"</RasterTheta>
+      <RasterPhi>"St3-Sc1.tsl.gif_Phi.tif"</RasterPhi>
+      <Sigma>0.002</Sigma>
+      <RotInput2Raster>
+         <RotMatrix>
+            <AxeI>0 0 1</AxeI>
+            <AxeJ>-1 0 0</AxeJ>
+            <AxeK>0 -1 0</AxeK>
+         </RotMatrix>
+      </RotInput2Raster>
+      <PatchCenters>
+         <el>6 6</el> <!--Kth=0-->
+         <el>18 6</el> <!--Kth=1-->
+         <el>6 18</el> <!--Kth=2-->
+         <el>18 18</el> <!--Kth=3-->
+         <el>31 6</el> <!--Kth=4-->
+         <el>43 6</el> <!--Kth=5-->
+         <el>31 18</el> <!--Kth=6-->
+         <el>43 18</el> <!--Kth=7-->
+         <el>56 6</el> <!--Kth=8-->
+         <el>68 6</el> <!--Kth=9-->
+         <el>56 18</el> <!--Kth=10-->
+         <el>68 18</el> <!--Kth=11-->
+         <el>81 6</el> <!--Kth=12-->
+         <el>93 6</el> <!--Kth=13-->
+         <el>81 18</el> <!--Kth=14-->
+         <el>93 18</el> <!--Kth=15-->
+         <el>6 31</el> <!--Kth=16-->
+         <el>18 31</el> <!--Kth=17-->
+         <el>6 43</el> <!--Kth=18-->
+         <el>18 43</el> <!--Kth=19-->
+         <el>31 31</el> <!--Kth=20-->
+         <el>43 31</el> <!--Kth=21-->
+         <el>31 43</el> <!--Kth=22-->
+         <el>43 43</el> <!--Kth=23-->
+         <el>56 31</el> <!--Kth=24-->
+         <el>68 31</el> <!--Kth=25-->
+         <el>56 43</el> <!--Kth=26-->
+         <el>68 43</el> <!--Kth=27-->
+         <el>81 31</el> <!--Kth=28-->
+         <el>93 31</el> <!--Kth=29-->
+         <el>81 43</el> <!--Kth=30-->
+         <el>93 43</el> <!--Kth=31-->
+         <el>6 56</el> <!--Kth=32-->
+         <el>18 56</el> <!--Kth=33-->
+         <el>6 68</el> <!--Kth=34-->
+         <el>18 68</el> <!--Kth=35-->
+         <el>31 56</el> <!--Kth=36-->
+         <el>43 56</el> <!--Kth=37-->
+         <el>31 68</el> <!--Kth=38-->
+         <el>43 68</el> <!--Kth=39-->
+         <el>56 56</el> <!--Kth=40-->
+         <el>68 56</el> <!--Kth=41-->
+         <el>56 68</el> <!--Kth=42-->
+         <el>68 68</el> <!--Kth=43-->
+         <el>81 56</el> <!--Kth=44-->
+         <el>93 56</el> <!--Kth=45-->
+         <el>81 68</el> <!--Kth=46-->
+         <el>93 68</el> <!--Kth=47-->
+         <el>6 81</el> <!--Kth=48-->
+         <el>18 81</el> <!--Kth=49-->
+         <el>6 93</el> <!--Kth=50-->
+         <el>18 93</el> <!--Kth=51-->
+         <el>31 81</el> <!--Kth=52-->
+         <el>43 81</el> <!--Kth=53-->
+         <el>31 93</el> <!--Kth=54-->
+         <el>43 93</el> <!--Kth=55-->
+         <el>56 81</el> <!--Kth=56-->
+         <el>68 81</el> <!--Kth=57-->
+         <el>56 93</el> <!--Kth=58-->
+         <el>68 93</el> <!--Kth=59-->
+         <el>81 81</el> <!--Kth=60-->
+         <el>93 81</el> <!--Kth=61-->
+         <el>81 93</el> <!--Kth=62-->
+         <el>93 93</el> <!--Kth=63-->
+      </PatchCenters>
+   </Data>
+</Root>
