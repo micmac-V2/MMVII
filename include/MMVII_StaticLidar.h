@@ -125,13 +125,23 @@ public :
 
     cStaticLidar(const std::string &aNameFile, const std::string & aStationName,
                  const std::string & aScanName, const tPose &aPose, cPerspCamIntrCalib *aCalib,
-                 cRotation3D<tREAL8> aRotInput2Raster, tREAL8 aSigma);
+                 cRotation3D<tREAL8> aRotInput2Raster, tREAL8 aSigma, const std::string & aDataDir);
     ~cStaticLidar();
 
-    static cStaticLidar *FromFile(const std::string & aNameScanFile, bool aSVP);
-    bool ReadRasters(const std::string & aDataDir);
+    static cStaticLidar *FromFile(const std::string & aNameScanFile, const std::string &aDataDir, bool aSVP);
 
-    bool AreRastersReady() const { return mAreRastersReady;}
+    const cDataIm2D<tREAL4>& GetRasterX() const;
+    const cDataIm2D<tREAL4>& GetRasterY() const;
+    const cDataIm2D<tREAL4>& GetRasterZ() const;
+    const cDataIm2D<tREAL4>& GetRasterDistance() const;
+    const cDataIm2D<tU_INT1>& GetRasterMask() const;
+    cDataIm2D<tU_INT1>& GetRasterMask();
+    const cDataIm2D<tU_INT1> *GetRasterIntensity() const; // return nullptr if no intensity
+#ifdef EXPORT_RASTER_THETA_PHI
+    const cDataIm2D<tREAL4>& GetRasterTheta() const;
+    const cDataIm2D<tREAL4>& GetRasterPhi() const;
+#endif
+
     void ToPly(const std::string & aName, bool useMask=false) const;
     void AddData(const  cAuxAr2007 & anAux) ;
     virtual void ToFile(const std::string &) const override;
@@ -198,7 +208,6 @@ public :
     std::string  V_PrefixName() const override;
     static std::string Pat2Sup(const std::string & aPatSelect);
 
-    cDataIm2D<tREAL4> &getRasterDistance() const;
     bool IsValidPoint(const cPt2dr &aRasterPx) const; ///< is dist>0
     bool IsValidPoint(const cPt2di &aRasterPx) const; ///< is dist>0
     bool IsMaskedPoint(const cPt2dr &aRasterPx) const;
@@ -225,29 +234,35 @@ private :
 
     std::string mStationName;
     std::string mScanName;
+    std::string mDataDir;
     std::string mRasterDistancePath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterDistance;
+    mutable std::unique_ptr<cIm2D<tREAL4>> mRasterDistance;
     std::string mRasterIntensityPath;
-    std::unique_ptr<cIm2D<tU_INT1>> mRasterIntensity;
+    mutable std::unique_ptr<cIm2D<tU_INT1>> mRasterIntensity;
     std::string mRasterMaskPath;
-    std::unique_ptr<cIm2D<tU_INT1>> mRasterMask;
+    mutable std::unique_ptr<cIm2D<tU_INT1>> mRasterMask;
     std::string mRasterXPath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterX;
+    mutable std::unique_ptr<cIm2D<tREAL4>> mRasterX;
     std::string mRasterYPath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterY;
+    mutable std::unique_ptr<cIm2D<tREAL4>> mRasterY;
     std::string mRasterZPath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterZ;
+    mutable std::unique_ptr<cIm2D<tREAL4>> mRasterZ;
 
 #ifdef EXPORT_RASTER_THETA_PHI
     std::string mRasterThetaPath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterTheta;
+    mutable std::unique_ptr<cIm2D<tREAL4>> mRasterTheta;
     std::string mRasterPhiPath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterPhi;
+    mutable std::unique_ptr<cIm2D<tREAL4>> mRasterPhi;
 #endif
     //std::string mRasterThetaErrPath;
     //std::string mRasterPhiErrPath;
 
-    bool mAreRastersReady;
+    template <typename T>
+    const cDataIm2D<T>& GetOrCreateRaster(std::unique_ptr<cIm2D<T>>& rasterPtr, const std::string& path) const;
+
+    template <typename T>
+    cDataIm2D<T>& GetOrCreateRaster(std::unique_ptr<cIm2D<T>>& rasterPtr, const std::string& path);
+
 
     tREAL8 mSigma;   ///< a priori precision on instrument distances
     std::vector<cPt2di> mPatchCenters;

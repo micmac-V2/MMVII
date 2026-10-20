@@ -475,7 +475,7 @@ void cAppli_VisuPoseStr3D::AddPointCould(cPlyVertices& aPlyverts, cStaticLidar* 
 
     cImGrad<tREAL4> aMask({1,1});
     if (aOnlyEdges)
-        aMask = Deriche(aScan->getRasterDistance(),0.1);
+        aMask = Deriche(aScan->GetRasterDistance(),0.1);
 
     int aStep = 1;
     for (int i=1;i<aTLSCloudDezoom;++i)
