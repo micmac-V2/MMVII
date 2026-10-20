@@ -7,7 +7,7 @@
 #include <unordered_set>
 #include <shared_mutex>
 
-// #define EXPORT_RASTER_THETA_PHI
+// #define EXPORT_RASTER_XYZ
 // #define SCANSCANSHOWPATCHES 8 // make rasters of patches residuals and rejection for each pair, downscale raster by value
 
 namespace MMVII
@@ -29,37 +29,20 @@ tREAL8 toMinusPiPlusPi(tREAL8 aAng, tREAL8 aOffset = 0.);
 template <typename T>
 class cLazyRaster {
     friend class cStaticLidar;
+public:
+    cLazyRaster(std::string & p);
+    bool isReady();
+    void Fill(cPt2di size, T(*func)(int, const void*), const void* context,
+              const std::vector<int>& vectCol, const std::vector<int>& vectLine, size_t totalPts);
+    cIm2D<T>& GetRawImage() const;
+    void Forget();
+
+    cLazyRaster(const cLazyRaster&) = delete;
+    cLazyRaster& operator=(const cLazyRaster&) = delete;
 private:
     std::string & mPath;
     mutable std::unique_ptr<cIm2D<T>> mRaster;
     mutable std::shared_mutex mMutex;
-
-public:
-    cLazyRaster(std::string & p);// : mPath(p) {}
-
-    bool isReady();// { return mRaster.get();}
-
-    void Fill(cPt2di size, T(*func)(int, const void*), const void* context,
-              const std::vector<int>& vectCol, const std::vector<int>& vectLine, size_t totalPts);// {
-        /*std::unique_lock<std::shared_mutex> lock(mMutex);
-
-        mRaster = std::make_unique<cIm2D<T>>(size, nullptr, eModeInitImage::eMIA_Null);
-        auto& aRasterData = mRaster->DIm();
-
-        for (size_t i = 0; i < totalPts; ++i) {
-            cPt2di aPcl = {vectCol[i], vectLine[i]};
-            aRasterData.SetV(aPcl, func(i, context));
-        }
-    }*/
-
-    cIm2D<T>& GetRawImage() const;// {
-        /*std::shared_lock<std::shared_mutex> lock(mMutex);
-        MMVII_INTERNAL_ASSERT_tiny(mRaster != nullptr, "Raster not ready!");
-        return *mRaster;
-    }*/
-
-    cLazyRaster(const cLazyRaster&) = delete;
-    cLazyRaster& operator=(const cLazyRaster&) = delete;
 };
 
 
@@ -176,17 +159,18 @@ public :
 
     static cStaticLidar *FromFile(const std::string & aNameScanFile, const std::string &aDataDir, bool aSVP);
 
-    const cDataIm2D<tREAL4>& GetRasterX() const;
-    const cDataIm2D<tREAL4>& GetRasterY() const;
-    const cDataIm2D<tREAL4>& GetRasterZ() const;
     const cDataIm2D<tREAL4>& GetRasterDistance() const;
     const cDataIm2D<tU_INT1>& GetRasterMask() const;
     cDataIm2D<tU_INT1>& GetRasterMask();
     const cDataIm2D<tU_INT1> *GetRasterIntensity() const; // return nullptr if no intensity
-#ifdef EXPORT_RASTER_THETA_PHI
     const cDataIm2D<tREAL4>& GetRasterTheta() const;
     const cDataIm2D<tREAL4>& GetRasterPhi() const;
+#ifdef EXPORT_RASTER_XYZ
+    const cDataIm2D<tREAL4>& GetRasterX() const;
+    const cDataIm2D<tREAL4>& GetRasterY() const;
+    const cDataIm2D<tREAL4>& GetRasterZ() const;
 #endif
+    void ForgetRasters();
 
     void ToPly(const std::string & aName, bool useMask=false) const;
     void AddData(const  cAuxAr2007 & anAux) ;
@@ -287,18 +271,18 @@ private :
     cLazyRaster<tU_INT1> mRasterIntensity;
     std::string mRasterMaskPath;
     cLazyRaster<tU_INT1> mRasterMask;
+    std::string mRasterThetaPath;
+    cLazyRaster<tREAL4> mRasterTheta;
+    std::string mRasterPhiPath;
+    cLazyRaster<tREAL4> mRasterPhi;
+
+#ifdef EXPORT_RASTER_XYZ
     std::string mRasterXPath;
     cLazyRaster<tREAL4> mRasterX;
     std::string mRasterYPath;
     cLazyRaster<tREAL4> mRasterY;
     std::string mRasterZPath;
     cLazyRaster<tREAL4> mRasterZ;
-
-#ifdef EXPORT_RASTER_THETA_PHI
-    std::string mRasterThetaPath;
-    LazyRaster<tREAL4> mRasterTheta;
-    std::string mRasterPhiPath;
-    LazyRaster<tREAL4> mRasterPhi;
 #endif
     //std::string mRasterThetaErrPath;
     //std::string mRasterPhiErrPath;
