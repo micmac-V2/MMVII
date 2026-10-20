@@ -796,7 +796,14 @@ int cAppli_ImportTLS::Exe()
     std::cout << "X axis " << aOxAxisInput << ", angles: " << aOxAxisAngles << ", in pixels: "
               << mSL_importer.LocalThetaToColPrecise(aOxAxisAngles.x()) << " "
               << mSL_importer.LocalPhiToLinePrecise(aOxAxisAngles.y()) << "\n";
-    cPt2dr aPP(mSL_importer.LocalThetaToColPrecise(aOxAxisAngles.x()), mSL_importer.LocalPhiToLinePrecise(aOxAxisAngles.y()));
+    float aOxCol = mSL_importer.LocalThetaToColPrecise(aOxAxisAngles.x());
+    float aOxLine =  mSL_importer.LocalPhiToLinePrecise(aOxAxisAngles.y());
+    if (std::isnan(aOxCol))
+        aOxCol = mSL_importer.LocalThetaToColApprox(aOxAxisAngles.x());
+    if (std::isnan(aOxLine))
+        aOxLine = mSL_importer.LocalPhiToLineApprox(aOxAxisAngles.y());
+    cPt2dr aPP(aOxCol, aOxLine);
+
     if (aPP.x()<0)
         aPP.x() += mSL_importer.NbCol();
     //find F: scale from angle to pixels
