@@ -78,6 +78,12 @@ cIm2D<T>& cLazyRaster<T>::GetRawImage() const {
     return *mRaster;
 }
 
+template <typename T>
+void cLazyRaster<T>::Forget()
+{
+    mRaster.reset(nullptr);
+}
+
 // explicit instanciation
 template class cLazyRaster<tREAL4>;
 template class cLazyRaster<tU_INT1>;
@@ -756,6 +762,7 @@ cStaticLidar::cStaticLidar(const std::string & aNameFile, const std::string & aS
 
 cStaticLidar::~cStaticLidar()
 {
+    std::cout<<"Delete TLS"<<std::endl;
     if (mTriangulation)
         delete mTriangulation;
     for (auto & [aDistMin, aInterp] : mVInterpN)
@@ -2215,6 +2222,21 @@ const cDataIm2D<tREAL4>& cStaticLidar::GetRasterZ() const
     return GetOrLoad(mRasterZ);
 }
 #endif
+
+void cStaticLidar::ForgetRasters()
+{
+    mRasterDistance.Forget();
+    mRasterIntensity.Forget();
+    mRasterMask.Forget();
+    mRasterTheta.Forget();
+    mRasterPhi.Forget();
+
+#ifdef EXPORT_RASTER_XYZ
+    mRasterX.Forget();
+    mRasterY.Forget();
+    mRasterZ.Forget();
+#endif
+}
 
 void cStaticLidar::AddData(const  cAuxAr2007 & anAux)
 {
