@@ -874,7 +874,8 @@ cPt3dr cStaticLidar::Image2InputXYZ(cPt2di aRasterPxI) const
     return cPt3dr{
         aRasterXData.GetV(aRasterPxI),
         aRasterYData.GetV(aRasterPxI),
-        aRasterZData.GetV(aRasterPxI),
+        aRasterZData.GetV(aRasterPxI)
+    };
 #else
     auto & aRasterTData = GetRasterTheta();
     auto & aRasterPData = GetRasterPhi();
@@ -885,7 +886,7 @@ cPt3dr cStaticLidar::Image2InputXYZ(cPt2di aRasterPxI) const
                 aRasterTData.GetV(aRasterPxI),
                 aRasterPData.GetV(aRasterPxI),
                 aRasterDData.GetV(aRasterPxI)
-        )));
+    )));
 #endif
 };
 
@@ -1947,7 +1948,7 @@ void cStaticLidar::SelectPatchCenters3(int aNbPatches, cDataIm2D<tU_INT1> * aSup
         auto aLeafCenter = (aLeaf->GetArea().P0() + aLeaf->GetArea().P1())/2;
         cPt2di aBestPt = aLeafCenter;
         float aBestScore = 0;
-        for (auto &aPx: aLeaf->GetArea())
+        for (auto &aPx: aLeaf->GetArea()) // very long if big leafs...
         {
             float aCurScore = aRasterMaskData.GetV(aPx) * aRasterDistData.GetV(aPx) / (1. + Norm2(aPx-aLeafCenter));
             if (aSupMaskDIm)
