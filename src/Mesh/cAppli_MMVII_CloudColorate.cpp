@@ -1,14 +1,8 @@
 #include "cMMVII_Appli.h"
 #include "MMVII_DeclareCste.h"
 #include "MMVII_Geom3D.h"
-#include "MMVII_Sensor.h"
 #include "MMVII_2Include_Serial_Tpl.h"
-#include "MMVII_Tpl_Images.h"
 #include "MMVII_PointCloud.h"
-#include "MMVII_Linear2DFiltering.h"
-#include "MMVII_Interpolators.h"
-#include "MMVII_PCSens.h"
-
 #include "cColorateCloud.h"
 
 namespace MMVII
@@ -116,6 +110,49 @@ int  cAppli_MMVII_CloudColorate::Exe()
 
    StdOut() << "ColNB COLIN=" << aPC_In.GetNbColours() << "\n";
 
+   if (1)
+   {
+
+       cBox2dr aBox = aPC_In.Box2d();
+       StdOut() << "LLL " << __LINE__ << "\n";
+       cPt3dr aC = aPC_In.Centroid();
+       tREAL8 aZ0 = aC.z();
+       tREAL8 aStep = 1 / std::sqrt(aPC_In.CurStdDensity());
+       StdOut() << "LLL " << __LINE__ << "\n";
+
+       cPt2di aSz = ToI(aBox.Sz());
+       cRect2 aRect (cPt2di(0,0),aSz);
+
+       StdOut() << "LLL " << __LINE__ << " " << aSz << "\n";
+
+       cPointCloud aNewPC ;
+       cPt2dr aLastP;
+       for (const auto & aPix : aRect)
+       {
+           cPt2dr aP2G = aBox.P0() + ToR(aPix)*aStep;
+           aNewPC.AddPt(TP3z(aP2G,aZ0));
+           StdOut() << " PPPiix=" << TP3z(aP2G,aZ0)  <<  ToR(aPix)*aStep << " DELTA=" << aP2G - aLastP<< "\n";
+
+           aLastP = aP2G;
+       }
+
+       const auto & aBOP = aNewPC.BoxOfPts();
+       StdOut() << "LLL " << __LINE__  << "\n";
+       StdOut() << aBOP.NbPts() << aBOP.P0() << " " << aBOP.P1() << " " << aBOP.P1() - aBOP.P0() << "\n";
+        StdOut() << "LLL " << __LINE__  << "\n";
+
+       aNewPC.ComputeCurFineDensity();
+       StdOut() << "LLL " << __LINE__  << "\n";
+
+       aPC_In = aNewPC;
+       StdOut() << "LLL " << __LINE__ << " " << aSz  << "\n";
+       StdOut() << "LLL " << __LINE__ << " " << aNewPC.CurStdDensity() << "\n";
+       StdOut() << "LLL " << __LINE__ << " " << aPC_In.CurStdDensity() << "\n";
+
+
+
+   }
+
    // generate the sz of leaves
    if (! aPC_In.LeavesIsInit())
    {
@@ -166,6 +203,21 @@ int  cAppli_MMVII_CloudColorate::Exe()
    }
    else
    {
+
+       if (1)
+       {
+           cTplBoxOfPts<tREAL8,2> aBoxOfPt;
+           for (size_t aKPt=0 ; aKPt<aPC_In.NbPts(); aKPt++)
+           {
+               aBoxOfPt.Add(Proj( aPC_In.KthPt(aKPt)));
+           }
+           cBox2dr aBox = aBoxOfPt.CurBox();
+           tREAL8 aSurf1Pt = aBox.NbElem() / aPC_In.NbPts();
+           tREAL8 aStep = std::sqrt(aSurf1Pt);
+
+           StdOut() << " NB PTS=" << aPC_In.NbPts() << " Step=" << aStep << " " << aPC_In.CurStdDensity() << "\n";
+
+       }
        cBoundVals<tREAL8> aBounds;
        for (size_t aKPt=0 ; aKPt<aPC_In.NbPts(); aKPt++)
        {

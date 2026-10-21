@@ -174,7 +174,10 @@ bool  cPointCloud::LeavesIsInit() const
 
 
 
-
+const  cTplBoxOfPts<tREAL8,3> &  cPointCloud::BoxOfPts() const
+{
+    return mBox3dOfPts;
+}
 cBox3dr  cPointCloud::Box3d()   const  {return mBox3dOfPts.CurBox();}
 cBox2dr  cPointCloud::Box2d()   const
 {
