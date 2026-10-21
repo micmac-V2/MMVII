@@ -188,13 +188,13 @@ void cAppliNewFrange::DoTensorProcessing()
    // mImGrad = Deriche(*mDImRed,mDerFactZ1*mZoomRed);
 
     tIm aImBlurGrad = mImRed.Dup();
-    ExpFilterOfStdDev(aImBlurGrad.DIm(),5,1.0,1.0);
+    ExpFilterOfStdDev(aImBlurGrad.DIm(),5,2.0,2.0);
     mImGrad = Sobel(aImBlurGrad.DIm());
 
     mImTens = cTensor<tElIm>::Grad2Tens(mImGrad);
     // Regularize 2D images of tensor
-    ExpFilterOfStdDev(*mImTens.mDGx,5,9);
-    ExpFilterOfStdDev(*mImTens.mDGy,5,9);
+    ExpFilterOfStdDev(*mImTens.mDGx,5,20,5);
+    ExpFilterOfStdDev(*mImTens.mDGy,5,20,5);
 
 
 
@@ -272,7 +272,7 @@ void cAppliNewFrange::DoTensorProcessing()
      mYC = ComputeCenterByAntiSym(false,aVDirASym,aVWeight);
 
     // tREAL8 aSigma = std::min(15.0,mSzRed.y()/50.0);
-     ExpFilterOfStdDev(*mDImTeta,3,2.0);
+     ExpFilterOfStdDev(*mDImTeta,3,15.0);
 
      for(const auto anY : aPop.DIm())
      {
