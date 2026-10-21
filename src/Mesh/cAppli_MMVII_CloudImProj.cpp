@@ -80,6 +80,7 @@ class cAppli_MMVII_CloudImProj : public cMMVII_Appli
 	eModeImaDepth mModeDepth;
 	// --- Mandatory ----
 	std::string mDirCloudsIn; // Changed from file to directory
+	std::string mImageName;	  // Changed from file to directory
 	// --- Optionnal ----
 	tREAL8 mSurResolSun;
 	std::string mPrefixOut;
@@ -134,6 +135,8 @@ cAppli_MMVII_CloudImProj::cAppli_MMVII_CloudImProj(const std::vector<std::string
 cCollecSpecArg2007& cAppli_MMVII_CloudImProj::ArgObl(cCollecSpecArg2007& anArgObl)
 {
 	anArgObl << Arg2007(mDirCloudsIn, "Folder containing input point clouds", {eTA2007::FolderAny});
+
+	anArgObl << Arg2007(mImageName, "Name of the image to generate");
 
 	if (mMode == 0)
 	{
@@ -202,170 +205,151 @@ int cAppli_MMVII_CloudImProj::Exe()
 	std::string aOriPrefix = cSensorImage::PrefixName() + "-" + cSensorCamPC::PrefixName() + "-";
 	std::string aOriSuffix = "." + GlobTaggedNameDefSerial();
 
-	// Get all CamPC orientation files from the input dir
-	auto aVOriFiles = GetFilesFromDir(aDirIn, AllocRegex(aOriPrefix + ".*"));
-
 	auto output_files = GetFilesFromDir(aDirIm, AllocRegex(".*tif"));
 
 	StdOut() << "output_files: " << output_files << std::endl;
-	// Extract image names and filter by mPatIm
-	tNameSelector aSel = AllocRegex(mPatIm);
-	std::vector<std::string> aSetNames;
-	for (const auto& aF : aVOriFiles)
+
+	StdOut() << "Processing camera: " << mImageName << std::endl;
+
+	cSensorCamPC* aCam = mPhProj.ReadCamPC(mImageName, true, false);
+
+	// Init merged pointcloud
+	cPointCloud aPC_In;
+
+	// Determine which tiles to process for this image
+	std::vector<std::string> aTilesToProcess;
+	bool aUsingYamlOptimization = false;
+
+	// Check if we have YAML mapping for this image
+	if (!mImageToTilesMap.empty())
 	{
-		std::string aImName = aF.substr(aOriPrefix.size(), aF.size() - aOriPrefix.size() - aOriSuffix.size());
-		if (aSel.Match(aImName) && (std::find(output_files.begin(), output_files.end(), aImName) == output_files.end()))
-			aSetNames.push_back(aImName);
+		// Strip .tif extension from mImageName for map lookup (YAML keys don't have extensions)
+		std::string mImageNameBase = mImageName;
+		size_t aDotPos = mImageNameBase.find_last_of('.');
+		if (aDotPos != std::string::npos)
+		{
+			mImageNameBase = mImageNameBase.substr(0, aDotPos);
+		}
+		auto aIt = mImageToTilesMap.find(mImageNameBase);
+		if (aIt != mImageToTilesMap.end() && !aIt->second.empty())
+		{
+			StdOut() << "Using YAML optimization: found " << aIt->second.size() << " tiles for image " << mImageName << std::endl;
+			aTilesToProcess = aIt->second;
+			aUsingYamlOptimization = true;
+		}
 	}
 
-	StdOut() << "aSetNames: " << aSetNames << std::endl;
-
-	// For each camera
-	for (const auto& aNameIm : aSetNames)
+	// If no YAML optimization or no mapping for this image, use all files
+	if (!aUsingYamlOptimization)
 	{
-		StdOut() << "Processing camera: " << aNameIm << std::endl;
+		StdOut() << "No YAML optimization for image " << mImageName << ", processing all tiles" << std::endl;
+		aTilesToProcess = aCloudFiles;
+	}
 
-		cSensorCamPC* aCam = mPhProj.ReadCamPC(aNameIm, true, false);
-
-		// Init merged pointcloud
-		cPointCloud aPC_In;
-
-		// Determine which tiles to process for this image
-		std::vector<std::string> aTilesToProcess;
-		bool aUsingYamlOptimization = false;
-
-		// Check if we have YAML mapping for this image
-		if (!mImageToTilesMap.empty())
+	// Merge point clouds into aPC_In
+	for (const auto& aTileName : aTilesToProcess)
+	{
+		std::string aTilePath;
+		if (aUsingYamlOptimization)
 		{
-			// Strip .tif extension from aNameIm for map lookup (YAML keys don't have extensions)
-			std::string aNameImBase = aNameIm;
-			size_t aDotPos = aNameImBase.find_last_of('.');
-			if (aDotPos != std::string::npos)
+			// YAML contains base names, append .dmp extension
+			aTilePath = mDirCloudsIn + "/" + aTileName + "." + PostF_DumpFiles;
+		}
+		else
+		{
+			// aCloudFiles already includes .dmp extension
+			aTilePath = mDirCloudsIn + "/" + aTileName;
+		}
+		StdOut() << "Reading pointcloud: " << aTilePath << std::endl;
+		cPointCloud aPC_Temp;
+		ReadFromFile(aPC_Temp, aTilePath);
+
+		size_t aNbPts = aPC_Temp.NbPts();
+		for (size_t j = 0; j < aNbPts; j++)
+		{
+			// Add point to merged pointcloud only if visible from the camera
+			if (aCam->DegreeVisibility(aPC_Temp.KthPt(j)) > 0.0)
 			{
-				aNameImBase = aNameImBase.substr(0, aDotPos);
-			}
-			auto aIt = mImageToTilesMap.find(aNameImBase);
-			if (aIt != mImageToTilesMap.end() && !aIt->second.empty())
-			{
-				StdOut() << "Using YAML optimization: found " << aIt->second.size() << " tiles for image " << aNameIm
-						 << std::endl;
-				aTilesToProcess = aIt->second;
-				aUsingYamlOptimization = true;
+				aPC_In.AddPt(aPC_Temp.KthPt(j));
 			}
 		}
+		StdOut() << "Read pointcloud: " << aTilePath << std::endl;
+	}
 
-		// If no YAML optimization or no mapping for this image, use all files
-		if (!aUsingYamlOptimization)
+	StdOut() << "Accumulated pointcloud size:" << aPC_In.NbPts() << std::endl;
+
+	StdOut() << "Updating density..." << std::endl;
+	aPC_In.UpdateFineDensity();
+	StdOut() << "Updating density ok: " << aPC_In.GetDensity() << std::endl;
+
+	StdOut() << "Processing albedo..." << std::endl;
+	// generate the sz of leaves
+	if (!aPC_In.LeavesIsInit())
+	{
+		StdOut() << ">> initializing leaves..." << std::endl;
+		aPC_In.SetLeavesUnit(0.05, SVP::Yes); // fix unit step,
+
+		StdOut() << ">> initializing leaves..." << std::endl;
+		for (size_t aKPt = 0; aKPt < aPC_In.NbPts(); aKPt++)
 		{
-			StdOut() << "No YAML optimization for image " << aNameIm << ", processing all tiles" << std::endl;
-			aTilesToProcess = aCloudFiles;
+			tREAL8 aRayLeaf = RandInInterval(mPropRayLeaf) * aPC_In.GroundSampling();
+			aPC_In.SetSzLeaves(aKPt, aRayLeaf);
 		}
+		StdOut() << ">> initializing leaves ok" << std::endl;
+	}
 
-		// Merge point clouds into aPC_In
-		for (const auto& aTileName : aTilesToProcess)
+	StdOut() << ">> leaves unit: " << aPC_In.GetLeavesUnit() << std::endl;
+
+	// mNbSampS = 2;
+
+	cAutoTimerSegm aTSInit(TimeSegm(), "Init");
+	tREAL8 aWeightInit = (mNbSampS == 0);
+	cProjPointCloud aPPC(aPC_In, aWeightInit);
+	cAutoTimerSegm aTSProj(TimeSegm(), "1Proj");
+
+	aPC_In.SetMulDegVis(1e4);
+	if (mNbSampS > 0)
+	{
+		cSampleSphere3D aSampS(mNbSampS);
+		StdOut() << ">> aSampS.NbSamples(): " << aSampS.NbSamples() << std::endl;
+		for (int aK = 0; aK < aSampS.NbSamples(); aK++)
 		{
-			std::string aTilePath;
-			if (aUsingYamlOptimization)
+			cPt3dr aDir = VUnit(aSampS.KthPt(aK));
+			if (aDir.z() >= 0.2)
 			{
-				// YAML contains base names, append .dmp extension
-				aTilePath = mDirCloudsIn + "/" + aTileName + "." + PostF_DumpFiles;
-			}
-			else
-			{
-				// aCloudFiles already includes .dmp extension
-				aTilePath = mDirCloudsIn + "/" + aTileName;
-			}
-			StdOut() << "Reading pointcloud: " << aTilePath << std::endl;
-			cPointCloud aPC_Temp;
-			ReadFromFile(aPC_Temp, aTilePath);
+				mSurResol_albedo = 1.0;
 
-			size_t aNbPts = aPC_Temp.NbPts();
-			for (size_t j = 0; j < aNbPts; j++)
-			{
-				// Add point to merged pointcloud only if visible from the camera
-				if (aCam->DegreeVisibility(aPC_Temp.KthPt(j)) > 0.0)
-				{
-					aPC_In.AddPt(aPC_Temp.KthPt(j));
-				}
-			}
-			StdOut() << "Read pointcloud: " << aTilePath << std::endl;
-		}
-
-		StdOut() << "Accumulated pointcloud size:" << aPC_In.NbPts() << std::endl;
-
-		StdOut() << "Updating density..." << std::endl;
-		aPC_In.UpdateFineDensity();
-		StdOut() << "Updating density ok: " << aPC_In.GetDensity() << std::endl;
-
-		StdOut() << "Processing albedo..." << std::endl;
-		// generate the sz of leaves
-		if (!aPC_In.LeavesIsInit())
-		{
-			StdOut() << ">> initializing leaves..." << std::endl;
-			aPC_In.SetLeavesUnit(0.05, SVP::Yes); // fix unit step,
-
-			StdOut() << ">> initializing leaves..." << std::endl;
-			for (size_t aKPt = 0; aKPt < aPC_In.NbPts(); aKPt++)
-			{
-				tREAL8 aRayLeaf = RandInInterval(mPropRayLeaf) * aPC_In.GroundSampling();
-				aPC_In.SetSzLeaves(aKPt, aRayLeaf);
-			}
-			StdOut() << ">> initializing leaves ok" << std::endl;
-		}
-
-		StdOut() << ">> leaves unit: " << aPC_In.GetLeavesUnit() << std::endl;
-
-		// mNbSampS = 2;
-
-		cAutoTimerSegm aTSInit(TimeSegm(), "Init");
-		tREAL8 aWeightInit = (mNbSampS == 0);
-		cProjPointCloud aPPC(aPC_In, aWeightInit);
-		cAutoTimerSegm aTSProj(TimeSegm(), "1Proj");
-
-		aPC_In.SetMulDegVis(1e4);
-		if (mNbSampS > 0)
-		{
-			cSampleSphere3D aSampS(mNbSampS);
-			StdOut() << ">> aSampS.NbSamples(): " << aSampS.NbSamples() << std::endl;
-			for (int aK = 0; aK < aSampS.NbSamples(); aK++)
-			{
-				cPt3dr aDir = VUnit(aSampS.KthPt(aK));
-				if (aDir.z() >= 0.2)
-				{
-					mSurResol_albedo = 1.0;
-
-					StdOut() << ">> aK: " << aK << std::endl;
-					std::unique_ptr<cCamOrthoC> aCam_albedo(aPPC.PPC_CamOrtho(aK, mProfIsZ0, aDir));
-					aPPC.ProcessOneProj(mSurResol_albedo, *aCam_albedo, 1.0, false, mModeDepth, "", false, false);
-					StdOut() << "Still " << aSampS.NbSamples() - aK << "\n";
-				}
+				StdOut() << ">> aK: " << aK << std::endl;
+				std::unique_ptr<cCamOrthoC> aCam_albedo(aPPC.PPC_CamOrtho(aK, mProfIsZ0, aDir));
+				aPPC.ProcessOneProj(mSurResol_albedo, *aCam_albedo, 1.0, false, mModeDepth, "", false, false);
+				StdOut() << "Still " << aSampS.NbSamples() - aK << "\n";
 			}
 		}
+	}
+	aPPC.ColorizePC();
+	StdOut() << "Processing albedo ok" << std::endl;
+
+	StdOut() << "Processing sun..." << std::endl;
+	// Colorize pointcloud accordint to sun
+	if (IsInit(&mSun))
+	{
+		// Convert sun to spherical coordinates
+		cPt3dr aDirSun = VertSphericalDir(mSun);
+
+		mSurResolSun = 1.0;
+
+		// Project pointcloud to image frame
+		std::unique_ptr<cCamOrthoC> aCam_sun(aPPC.PPC_CamOrtho(0, false, aDirSun));
+		aPPC.ProcessOneProj(mSurResolSun, *aCam_sun, mSun.z(), false, mModeDepth, "", false, false);
+
 		aPPC.ColorizePC();
-		StdOut() << "Processing albedo ok" << std::endl;
-
-		StdOut() << "Processing sun..." << std::endl;
-		// Colorize pointcloud accordint to sun
-		if (IsInit(&mSun))
-		{
-			// Convert sun to spherical coordinates
-			cPt3dr aDirSun = VertSphericalDir(mSun);
-
-			mSurResolSun = 1.0;
-
-			// Project pointcloud to image frame
-			std::unique_ptr<cCamOrthoC> aCam_sun(aPPC.PPC_CamOrtho(0, false, aDirSun));
-			aPPC.ProcessOneProj(mSurResolSun, *aCam_sun, mSun.z(), false, mModeDepth, "", false, false);
-
-			aPPC.ColorizePC();
-		}
-		StdOut() << "Sun ok" << std::endl;
-
-		// generate synthetic image
-		StdOut() << "Processing image..." << std::endl;
-		ProcessConikModeWithOri(aNameIm, aPPC);
-		StdOut() << "Image ok" << std::endl;
 	}
+	StdOut() << "Sun ok" << std::endl;
+
+	// generate synthetic image
+	StdOut() << "Processing image..." << std::endl;
+	ProcessConikModeWithOri(mImageName, aPPC);
+	StdOut() << "Image ok" << std::endl;
 
 	return EXIT_SUCCESS;
 }
@@ -461,7 +445,7 @@ void cAppli_MMVII_CloudImProj::ParseYamlFilesFromDir()
 void cAppli_MMVII_CloudImProj::GenerateSynthImage(cProjPointCloud& aPPC, const cSensorImage& aSensor, const cDemiConeVert* aDCV)
 {
 	std::string aDirIm = mPhProj.DPOrient().FullDirOut();
-	std::string aNameIm = aSensor.NameImage();
+	std::string mImageName = aSensor.NameImage();
 
 	mSensDownSample = 1.0;
 	mSurResCloud = 1.0;
@@ -473,18 +457,18 @@ void cAppli_MMVII_CloudImProj::GenerateSynthImage(cProjPointCloud& aPPC, const c
 	StdOut() << ">> ProcessImage...\n";
 	cResImagesPPC aResIm = aPPC.ProcessImage(mSurResCloud * mSensDownSample, aSensor);
 
-	aResIm.mImRadiom.DIm().ToFile(aDirIm + aNameIm);
-	aResIm.mImWeight.DIm().ToFile(aDirIm + aNameIm + "Weight-" + ".tif");
-	aResIm.mImDepth.DIm().ToFile(aDirIm + aNameIm + "Depth-" + ".tif");
+	aResIm.mImRadiom.DIm().ToFile(aDirIm + mImageName);
+	aResIm.mImWeight.DIm().ToFile(aDirIm + mImageName + "Weight-" + ".tif");
+	aResIm.mImDepth.DIm().ToFile(aDirIm + mImageName + "Depth-" + ".tif");
 
 	StdOut() << ">> ProcessImage ok\n";
 }
 
-void cAppli_MMVII_CloudImProj::ProcessConikModeWithOri(const std::string& aNameIm, cProjPointCloud& aPPC)
+void cAppli_MMVII_CloudImProj::ProcessConikModeWithOri(const std::string& mImageName, cProjPointCloud& aPPC)
 {
 	aPPC.SetComputeProfMax(false);
 
-	cSensorCamPC* aCam = mPhProj.ReadCamPC(aNameIm, true, false);
+	cSensorCamPC* aCam = mPhProj.ReadCamPC(mImageName, true, false);
 
 	std::string aDirIm = mPhProj.DPOrient().FullDirOut();
 
@@ -496,7 +480,7 @@ void cAppli_MMVII_CloudImProj::ProcessConikModeWithOri(const std::string& aNameI
 
 	mPhProj.SaveCamPC(*aCam);
 
-	StdOut() << aNameIm << "\n";
+	StdOut() << mImageName << "\n";
 }
 
 void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud& aPC_In, cProjPointCloud& aPPC)
@@ -540,8 +524,8 @@ void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud& aPC_In, cProjPointC
 			tPoseR aPose(aC3, tRotR::RotFromCanonicalAxes("i-j-k"));
 			std::string aPrefix = mPrefixImGen + ToStr(aPix.x() + aNb.x()) + "-" + ToStr(aPix.y() + aNb.y());
 
-			std::string aNameImage = aPrefix + "-Radiom-" + ".tif";
-			cSensorCamPC aCam(aNameImage, aPose, mCalib);
+			std::string mImageNameage = aPrefix + "-Radiom-" + ".tif";
+			cSensorCamPC aCam(mImageNameage, aPose, mCalib);
 
 			std::string aDirIm = mPhProj.DPOrient().FullDirOut();
 
@@ -552,7 +536,7 @@ void cAppli_MMVII_CloudImProj::ProcessConikMode(cPointCloud& aPC_In, cProjPointC
 
 			mPhProj.SaveCamPC(aCam);
 
-			StdOut() << aNameImage << "\n";
+			StdOut() << mImageNameage << "\n";
 		}
 	}
 	// mOverLap
