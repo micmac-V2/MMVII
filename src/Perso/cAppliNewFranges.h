@@ -202,9 +202,9 @@ class cAppliNewFrange : public cMMVII_Appli
         void DoTensorProcessing();
 
         /// Estimate for a given Y, with window aSzY, how it is a good center of anti-symetry
-        tREAL8 QualityCenterAntiSymetry(int aY,int aSzY);
+        tREAL8 QualityCenterAntiSymetry(bool First,int aY,int aSzY,const std::vector<cPt2dr>&,const std::vector<tREAL8>&);
         /// Compute the centre as "best" anti symetric local point
-        int ComputeCenterByAntiSym();
+        int ComputeCenterByAntiSym(bool First,const std::vector<cPt2dr>&,const std::vector<tREAL8>&);
 
         /// Integrate one way the tangent image and save it in integrale image
         void OneWayIntegrateTangent(int aDy,int aYLim);

@@ -18,29 +18,51 @@ namespace NS_FrangesDetect
  *   the formula is :
  *                    Sum (  (Teta(y)+Teta(-y))^2 )  / Sum( Teta(y)^2 +Teta(-y)^2)
  */
-tREAL8 cAppliNewFrange::QualityCenterAntiSymetry(int aY0,int aSzWindow)
+tREAL8 cAppliNewFrange::QualityCenterAntiSymetry(bool First,int aY0,int aSzWindow,const std::vector<cPt2dr>&aVDir,const std::vector<tREAL8>& aVW)
 {
-    tREAL8 aSumSign = 0;
-    tREAL8 aSumAbs = 0;
+
+    cWeightAv<tREAL8,tREAL8> aAvgSign;
+    cWeightAv<tREAL8,tREAL8> aAvg2;
 
     for (int aDY=1 ; aDY<=aSzWindow; aDY++)
     {
-        tREAL8 aV1 = mDImTeta->GetV(aY0-aDY);
-        tREAL8 aV2 = mDImTeta->GetV(aY0+aDY);
+        int aY1 = aY0-aDY;
+        int aY2 = aY0+aDY;
+        tREAL8 aWeight =  (aSzWindow - std::abs(aDY));
 
-        tREAL8 aW = aSzWindow - std::abs(aDY);
 
-        aSumSign += Square(aV1+aV2) * aW;
-        aSumAbs += (Square(aV1) + Square(aV2)) *aW;
+        if (First)
+        {
+           cPt2dr aP1 = aVDir.at(aY1);
+           cPt2dr aP2 = aVDir.at(aY2);
+           aAvgSign.Add(aWeight,SqN2(aP1+aP2));
+           aAvg2.Add(aWeight,SqN2(aP1)+SqN2(aP2));
+        }
+        else
+        {
+            tREAL8 aTeta1 = mDImTeta->GetV(aY1);
+            tREAL8 aTeta2 = mDImTeta->GetV(aY2);
+
+             aAvgSign.Add(aWeight,Square(aTeta1+aTeta2));
+             aAvg2.Add(aWeight,Square(aTeta1)+Square(aTeta2));
+
+        }
+
     }
 
-    return aSumSign / aSumAbs;
+  /*  if (First)
+        return aAvgSign.Average();
+    else */
+        return  aAvgSign.Average() / aAvg2.Average();
 }
 
 /* Compute the center as the value minimzing QualityCenterAntiSymetry */
 
-int cAppliNewFrange::ComputeCenterByAntiSym()
+int cAppliNewFrange::ComputeCenterByAntiSym(bool First,const std::vector<cPt2dr>& aVDir,const std::vector<tREAL8>& aVW)
 {
+
+
+
     // Compute size of window, adapt it height of image
     int aSzY = round_up(100 / mZoomRed);
     aSzY = std::min(aSzY,mSzRed.y()/4);
@@ -49,7 +71,7 @@ int cAppliNewFrange::ComputeCenterByAntiSym()
     int aEndY =  mDImTeta->Sz()-(aSzY+1);
 
     for (int aY0=aSzY ; aY0 <aEndY ; aY0++)
-        aMinSym.Add(aY0,QualityCenterAntiSymetry(aY0,aSzY));
+        aMinSym.Add(aY0,QualityCenterAntiSymetry(First,aY0,aSzY,aVDir,aVW));
 
     return aMinSym.IndexExtre();
 }
@@ -143,6 +165,21 @@ void cAppliNewFrange::ComputeProjIntegrX()
     }
 }
 
+tREAL8 AdaptTetaPos(tREAL8 aTeta,tREAL8 aMaxTeta)
+{
+    if (aTeta < - M_PI/4)
+        aTeta += M_PI;
+
+    return std::max(0.0,std::min(aTeta,aMaxTeta));
+}
+
+tREAL8 AdaptTetaNeg(tREAL8 aTeta,tREAL8 aMaxTeta)
+{
+    return - AdaptTetaPos(-aTeta,aMaxTeta);
+}
+
+
+
 
 
 void cAppliNewFrange::DoTensorProcessing()
@@ -150,13 +187,16 @@ void cAppliNewFrange::DoTensorProcessing()
     // Compute the deriche gradient
    // mImGrad = Deriche(*mDImRed,mDerFactZ1*mZoomRed);
 
-    mImGrad = Sobel(*mDImRed);
+    tIm aImBlurGrad = mImRed.Dup();
+    ExpFilterOfStdDev(aImBlurGrad.DIm(),5,1.0,1.0);
+    mImGrad = Sobel(aImBlurGrad.DIm());
 
     mImTens = cTensor<tElIm>::Grad2Tens(mImGrad);
+    // Regularize 2D images of tensor
+    ExpFilterOfStdDev(*mImTens.mDGx,5,9);
+    ExpFilterOfStdDev(*mImTens.mDGy,5,9);
 
-    // Resize ImMaxLoc
-    mImMaxLocTD = cIm2D<tU_INT1> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
-    mDImMaxLocTD = &(mImMaxLocTD.DIm());
+
 
     mImCumNormT = tIm1D(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
     mDImCumNormT = & mImCumNormT.DIm();
@@ -173,42 +213,13 @@ void cAppliNewFrange::DoTensorProcessing()
          cPt2dr   aTens = mImTens.GradR(aPix);//Tensor<tREAL8>::Grad2Tens(mImGrad.GradR(aPix));
          tREAL8 aWeight = 1.0;
 
-          aPop.DIm().AddV(aPix.y(),1.0);
-          aSumTx.DIm().AddV(aPix.y(),aTens.x()*aWeight);
-          aSumTy.DIm().AddV(aPix.y(),aTens.y()*aWeight);
-          mDImCumNormT->AddV(aPix.y(),Norm2(aTens));
+         aPop.DIm().AddV(aPix.y(),1.0);
+         aSumTx.DIm().AddV(aPix.y(),aTens.x()*aWeight);
+         aSumTy.DIm().AddV(aPix.y(),aTens.y()*aWeight);
+         mDImCumNormT->AddV(aPix.y(),SqN2(aTens));
      }
 
-     for (int anY=0 ; anY<mSzRed.y() ; anY++)
-     {
-         std::vector<cPt2dr> aVTens;
-         for (int anX=0 ; anX<mSzRed.x() ; anX++)
-         {
-              aVTens.push_back(mImTens.GradR(cPt2di(anX,anY)));
-         }
-         mDImCumNormT->SetV(anY,cTensor<tREAL8>::SigmaTensor(aVTens));
-     }
 
-     // Regularize 2D images of tensor
-     ExpFilterOfStdDev(*mImTens.mDGx,5,3.0);
-     ExpFilterOfStdDev(*mImTens.mDGy,5,3.0);
-
-     // tentative extraction of centers of lines as maxima of grey
-     // in direction of tensor
-     int aBorder = 5;
-     std::vector<cPt2dr> aVN;
-     for (const auto & aPix : mDImMaxLocTD->Interior(aBorder))
-     {
-         cPt2dr aDirTens = ToR(cTensor<tElIm>::Tens2Grad(mImTens.Grad(aPix),1.0));
-
-         tREAL8 aV0 =mDImRedBlur->GetV(aPix);
-         if (      (aV0>mDImRedBlur->GetVBL(ToR(aPix)+aDirTens))
-               &&   (aV0>mDImRedBlur->GetVBL(ToR(aPix)-aDirTens))
-            )
-         {
-             mDImMaxLocTD->SetV(aPix,1);
-         }
-     }
 
     // ------------ Filter 1D accumlator, dans make average -------------
 
@@ -226,21 +237,48 @@ void cAppliNewFrange::DoTensorProcessing()
      mImTeta =  cIm1D<tREAL8>(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
      mDImTeta = &(mImTeta.DIm());
 
+     std::vector<cPt2dr> aVDirASym;
+     std::vector<tREAL8>  aVWeight;
+
      for(const auto anY : aPop.DIm())
      {
          cPt2dr aTens(aSumTx.DIm().GetV(anY),aSumTy.DIm().GetV(anY));
          cPt2dr aRhoTeta = ToPolar(aTens,0.0);
-         tREAL8 aTeta = aRhoTeta.y() /2.0;
-         tREAL8 aTgt = tan(aTeta);
+         tREAL8 aRho = aRhoTeta.x();
+         tREAL8 aTeta = aRhoTeta.y();
+         aVDirASym.push_back(FromPolar(1.0,aTeta) - cPt2dr(1.0,0)) ;
+         aVWeight.push_back(aRho);
 
-
-         mDImTgt->SetV(anY,aTgt);
-         mDImTeta->SetV(anY,aTeta);
+         mDImTeta->SetV(anY,aTeta/2.0);
      }
 
-     // --------  Extract center ------------------------
-     mYC = ComputeCenterByAntiSym();
 
+     // --------  Extract center ------------------------
+     mYC = ComputeCenterByAntiSym(true,aVDirASym,aVWeight);
+
+     if (1)
+     {
+         tREAL8 aMaxTan = 15.0;
+         tREAL8 aMaxTeta = atan(aMaxTan);
+         for (const auto anY : aPop.DIm())
+         {
+             tREAL8 aTeta = mDImTeta->GetV(anY);
+             aTeta = (anY.x()<= mYC) ? AdaptTetaPos(aTeta,aMaxTeta) : AdaptTetaNeg(aTeta,aMaxTeta);
+             mDImTeta->SetV(anY,aTeta);
+         }
+     }
+
+     //tREAL8 aSigma = std::min(20.0,);
+     mYC = ComputeCenterByAntiSym(false,aVDirASym,aVWeight);
+
+    // tREAL8 aSigma = std::min(15.0,mSzRed.y()/50.0);
+     ExpFilterOfStdDev(*mDImTeta,3,2.0);
+
+     for(const auto anY : aPop.DIm())
+     {
+         mDImTgt->SetV(anY,tan( mDImTeta->GetV(anY)));
+     }
+   //  mYC = ComputeCenterByAntiSym();
 
      // --------------- Make integrale images ---------------------
      mImIntegr  = cIm1D<tREAL8>(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
@@ -250,6 +288,32 @@ void cAppliNewFrange::DoTensorProcessing()
      OneWayIntegrateTangent(1,mSzRed.y());
 
      ComputeProjIntegrX();
+
+
+     {
+         // Resize ImMaxLoc
+         mImMaxLocTD = cIm2D<tU_INT1> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
+         mDImMaxLocTD = &(mImMaxLocTD.DIm());
+
+
+         // tentative extraction of centers of lines as maxima of grey
+         // in direction of tensor
+         int aBorder = 5;
+         std::vector<cPt2dr> aVN;
+         for (const auto & aPix : mDImMaxLocTD->Interior(aBorder))
+         {
+             cPt2dr aDirTens = ToR(cTensor<tElIm>::Tens2Grad(mImTens.Grad(aPix),1.0));
+
+             tREAL8 aV0 =mDImRedBlur->GetV(aPix);
+             if (      (aV0>mDImRedBlur->GetVBL(ToR(aPix)+aDirTens))
+                   &&   (aV0>mDImRedBlur->GetVBL(ToR(aPix)-aDirTens))
+                )
+             {
+                 mDImMaxLocTD->SetV(aPix,1);
+             }
+         }
+     }
+
 }
 
 

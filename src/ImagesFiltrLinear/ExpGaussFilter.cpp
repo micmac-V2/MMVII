@@ -341,10 +341,10 @@ template <class Type>  tREAL8   cTensor<Type>::SigmaTensor(const std::vector<cPt
     if (aRx.SW()==0)
         return 0.0;
 
-    tREAL8 aS2x = aRx2.Average() - Square(aRx.Average());
-    tREAL8 aS2y = aRy2.Average() - Square(aRy.Average());
+    tREAL8 aSigX2 = aRx2.Average() - Square(aRx.Average());
+    tREAL8 aSigY2 = aRy2.Average() - Square(aRy.Average());
 
-    return std::sqrt(std::max(0.0,aS2x+aS2y));
+    return std::sqrt(std::max(0.0,aSigX2+aSigY2));
 
 }
 

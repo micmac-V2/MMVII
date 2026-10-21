@@ -200,7 +200,7 @@ void cAppliNewFrange::DoVisu()
        cPt2di  aPtRad(round_ni(mSzRed.x()+mDImRadFrange->GetV(anY)*0.5),anY);
        anImDetail.SetRGBPix(aPtRad,cRGBImage::Gray128);
 
-       cPt2di  aPNormFr(round_ni(mSzRed.x()+aImVisuNT.DIm().GetV(anY)+10),anY);
+       cPt2di  aPNormFr(round_ni(mSzRed.x()+aImVisuNT.DIm().GetV(anY)+2),anY);
        anImDetail.SetRGBPix(aPNormFr,cRGBImage::Green);
 
 
