@@ -1038,6 +1038,7 @@ template <class Type,const int Dim>
     for (int aK=0 ; aK<Dim ; aK++)
     {
        mSz[aK] = mP1[aK] - mP0[aK];
+ //StdOut() << "KKKKKkk " << aK << " Sz="<<     mSz[aK] << " P0=" << mP0[aK]  << " P1=" << mP1[aK]  << "\n";
        if (AllowEmpty)
        {
           // make coherent but empty

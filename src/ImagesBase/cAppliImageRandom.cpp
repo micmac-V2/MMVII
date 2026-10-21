@@ -12,20 +12,26 @@ namespace MMVII
 
 static const   std::string TheNameCmd("ImageGenRandom");
 
-
-struct cParamNoise
+void AddImageNoise(cDataIm2D<tREAL8>& aDIm,const std::vector<cParamNoise> & aParamNoise)
 {
-    tREAL8 mSigma ;
-    tREAL8 mWeight  ;
+    for (const auto & aGN : aParamNoise)
+    {
+        cIm2D<tREAL8> aImRand(aDIm.Sz(),nullptr,eModeInitImage::eMIA_RandCenter);
+        ExpFilterOfStdDev(aImRand.DIm(),5,aGN.mSigma);
 
+        GenNormalizedAvgDev(aImRand.DIm(),1e-20);
+        AddMulImageCsteInPlace(aDIm,aImRand.DIm(),aGN.mWeight);
+    }
+}
 
-    ARG2007_STRUCT_FIELDS (
-        mSigma,FieldSem({{eTA2007::AddCom,"Sigma on noise"}}),
-        mWeight, FieldSem({{eTA2007::AddCom,"Weight on noise"}})
-    )
+cIm2D<tREAL8> CreateImageNoise(const cPt2di & aSz,tREAL8 anOffset,const std::vector<cParamNoise> & aParamNoise)
+{
+  cIm2D<tREAL8> aRes(aSz);
+  aRes.DIm().InitCste(anOffset);
+  AddImageNoise(aRes.DIm(),aParamNoise);
 
-};
-
+  return aRes;
+}
 
 
 
@@ -125,8 +131,8 @@ cCollecSpecArg2007 & cAppliGenRandomImage::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
 int cAppliGenRandomImage::Exe()
 {
-    mIm = tIm(mSz,nullptr,eModeInitImage::eMIA_Null);
-    mDIm = & mIm.DIm();
+   // mIm = tIm(mSz,nullptr,eModeInitImage::eMIA_Null);
+   // mDIm = & mIm.DIm();
 
     if (! IsInit(&mNameOut))
     {
@@ -138,10 +144,13 @@ int cAppliGenRandomImage::Exe()
     {
         mOffset = aVTN.CenteredValue();
     }
-    mDIm->InitCste(mOffset);
+ //   mDIm->InitCste(mOffset);
 
 
-    for (const auto & aGN : mParamNoise)
+    mIm = CreateImageNoise(mSz,mOffset,mParamNoise);
+    mDIm = & mIm.DIm();
+
+  /*  for (const auto & aGN : mParamNoise)
     {
        tIm aImRand(mSz,nullptr,eModeInitImage::eMIA_RandCenter);
        ExpFilterOfStdDev(aImRand.DIm(),5,aGN.mSigma);
@@ -151,7 +160,7 @@ int cAppliGenRandomImage::Exe()
        AddMulImageCsteInPlace(*mDIm,aImRand.DIm(),aGN.mWeight);
 
        StdOut() <<  " Done Gaussian noise" << aGN.mSigma << " " << aGN.mWeight << "\n";
-    }
+    }*/
 
 
 

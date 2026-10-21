@@ -178,7 +178,7 @@ const  cTplBoxOfPts<tREAL8,3> &  cPointCloud::BoxOfPts() const
 {
     return mBox3dOfPts;
 }
-cBox3dr  cPointCloud::Box3d()   const  {return mBox3dOfPts.CurBox();}
+cBox3dr  cPointCloud::Box3d()   const  {return mBox3dOfPts.CurBox(true);}
 cBox2dr  cPointCloud::Box2d()   const
 {
     cBox3dr aB3 = Box3d();

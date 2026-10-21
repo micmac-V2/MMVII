@@ -4,6 +4,7 @@
 #include "MMVII_2Include_Serial_Tpl.h"
 #include "MMVII_PointCloud.h"
 #include "cColorateCloud.h"
+#include "MMVII_Image2D.h"
 
 namespace MMVII
 {
@@ -26,7 +27,8 @@ enum eModeCloudCol
 {
     eColShade,
     eColZ,
-    eColXY
+    eColXY,
+    eSimulRand
 };
 
 class cAppli_MMVII_CloudColorate : public cMMVII_Appli
@@ -110,47 +112,38 @@ int  cAppli_MMVII_CloudColorate::Exe()
 
    StdOut() << "ColNB COLIN=" << aPC_In.GetNbColours() << "\n";
 
-   if (1)
+   cIm2D<tREAL8> aImTextSim(cPt2di(1,1));
+   tREAL8 aStep = 1 / std::sqrt(aPC_In.CurStdDensity());
+   cBox2dr aBox = aPC_In.Box2d();
+
+   if (mModeCol== eModeCloudCol::eSimulRand)
    {
 
-       cBox2dr aBox = aPC_In.Box2d();
-       StdOut() << "LLL " << __LINE__ << "\n";
        cPt3dr aC = aPC_In.Centroid();
        tREAL8 aZ0 = aC.z();
-       tREAL8 aStep = 1 / std::sqrt(aPC_In.CurStdDensity());
-       StdOut() << "LLL " << __LINE__ << "\n";
 
        cPt2di aSz = ToI(aBox.Sz());
        cRect2 aRect (cPt2di(0,0),aSz);
 
-       StdOut() << "LLL " << __LINE__ << " " << aSz << "\n";
+       std::vector<cParamNoise> aVParamZ{{100.0,1/aStep}};
+       cIm2D<tREAL8> aImZ = CreateImageNoise(aSz,aZ0,aVParamZ);
 
-       cPointCloud aNewPC ;
+       std::vector<cParamNoise> aVParamT{{30,20},{10,15},{2,10}};
+       aImTextSim = CreateImageNoise(aSz+cPt2di(3,3),128.0,aVParamT);
+
+       cPointCloud aNewPC(false) ;
+       aNewPC.SetOffset(aC);
+
        cPt2dr aLastP;
        for (const auto & aPix : aRect)
        {
            cPt2dr aP2G = aBox.P0() + ToR(aPix)*aStep;
-           aNewPC.AddPt(TP3z(aP2G,aZ0));
-           StdOut() << " PPPiix=" << TP3z(aP2G,aZ0)  <<  ToR(aPix)*aStep << " DELTA=" << aP2G - aLastP<< "\n";
-
+           aNewPC.AddPt(TP3z(aP2G,aImZ.DIm().GetV(aPix)));
+          // StdOut() << " ZZZ " << TP3z(aP2G,aImZ.DIm().GetV(aPix)) << "\n";
            aLastP = aP2G;
        }
-
-       const auto & aBOP = aNewPC.BoxOfPts();
-       StdOut() << "LLL " << __LINE__  << "\n";
-       StdOut() << aBOP.NbPts() << aBOP.P0() << " " << aBOP.P1() << " " << aBOP.P1() - aBOP.P0() << "\n";
-        StdOut() << "LLL " << __LINE__  << "\n";
-
-       aNewPC.ComputeCurFineDensity();
-       StdOut() << "LLL " << __LINE__  << "\n";
-
+     //  aNewPC.ComputeCurFineDensity();
        aPC_In = aNewPC;
-       StdOut() << "LLL " << __LINE__ << " " << aSz  << "\n";
-       StdOut() << "LLL " << __LINE__ << " " << aNewPC.CurStdDensity() << "\n";
-       StdOut() << "LLL " << __LINE__ << " " << aPC_In.CurStdDensity() << "\n";
-
-
-
    }
 
    // generate the sz of leaves
@@ -234,6 +227,20 @@ int  cAppli_MMVII_CloudColorate::Exe()
               // aDegVis =  ((Ix%60)<5) || ((Iy%60)<5);
               // aDegVis = aDegVis>0.5;
            }
+           if (mModeCol==eModeCloudCol::eSimulRand)
+           {
+               cPt2di aPix = ToI((Proj(aPt)- aBox.P0()) /aStep);
+               tREAL8 aText = aImTextSim.DIm().GetV(aPix);
+               aDegVis = aText / 255.0;
+           }
+
+
+           /*
+           cPt2dr aP2G = aBox.P0() + ToR(aPix)*aStep;
+           aNewPC.AddPt(TP3z(aP2G,aImZ.DIm().GetV(aPix)));
+          // StdOut() << " ZZZ " << TP3z(aP2G,aImZ.DIm().GetV(aPix)) << "\n";
+           aLastP = aP2G;
+           */
            aPC_In.SetDegVis(aKPt,aDegVis);
            aBounds.Add(aPC_In.GetDegVis(aKPt) );
        }
