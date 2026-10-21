@@ -1149,7 +1149,7 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
     }
 
 
-    //std::cout << "up weighters, th="<<mThreshold<<"\n";
+    std::cout << "up weighters, th="<<mThreshold<<"\n";
     if (mThreshold>10000)
         mThreshold = -1;
     for (auto & aScanDataA: mVScans)
@@ -1269,6 +1269,8 @@ void cBA_LidarLidarRaster::AddObs()
         //for (auto & aScan:mVScans)
         //    StdOut() << aScan.mLidarRaster->NameImage()<< " " << aScan.mLidarRaster->Center().x() <<
         //         std::setprecision(10) << " " << aScan.mLidarRaster->Center().y()<< " " << aScan.mLidarRaster->Center().z() << "\n";
+        std::cout<<"res "<<mVScans.back().mLidarRaster->NameImage()<<" "<<
+            Norm2(mVScans.back().mLidarRaster->Pose().Tr()-cPt3dr(33.293521357820282, -87.364242468630138, 111.161231866502476))<<"\n";
     }
     else
         StdOut() << "  * Lid/Lid: no obs\n";
