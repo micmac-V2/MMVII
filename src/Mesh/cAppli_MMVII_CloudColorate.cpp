@@ -128,7 +128,7 @@ int  cAppli_MMVII_CloudColorate::Exe()
        std::vector<cParamNoise> aVParamZ{{100.0,1/aStep}};
        cIm2D<tREAL8> aImZ = CreateImageNoise(aSz,aZ0,aVParamZ);
 
-       std::vector<cParamNoise> aVParamT{{30,20},{10,15},{2,10}};
+       std::vector<cParamNoise> aVParamT{{30,30},{15,20},{5,15},{2,10}};
        aImTextSim = CreateImageNoise(aSz+cPt2di(3,3),128.0,aVParamT);
 
        cPointCloud aNewPC(false) ;
@@ -231,7 +231,7 @@ int  cAppli_MMVII_CloudColorate::Exe()
            {
                cPt2di aPix = ToI((Proj(aPt)- aBox.P0()) /aStep);
                tREAL8 aText = aImTextSim.DIm().GetV(aPix);
-               aDegVis = aText / 255.0;
+               aDegVis = std::max(0.0,std::min(1.0,aText / 255.0));
            }
 
 
