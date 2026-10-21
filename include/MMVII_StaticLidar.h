@@ -215,7 +215,7 @@ public :
     template <typename TYPE>
     cPt3dr Image2Camera3D(const TYPE & aRasterPx) const; // in sensor frame (Z forward)
     cPt3dr Image2Camera3D_InterpoleDist(const cPt2dr & aRasterPx, const cInterpolator1D *anInterpol) const; // in sensor frame (Z forward)
-    cPt3dr Image2NormalInstr(const cPt2dr &aRasterPx) const; //< normal in sensor frame
+    cPt3dr Image2NormalInstr1Pt(const cPt2dr &aRasterPx) const; //< normal in sensor frame, only if not enouth points for plan estim
 
     template <typename TYPE>
         cPt3dr Image2ThetaPhiDist(const TYPE & aRasterPx) const;
@@ -250,7 +250,7 @@ public :
     const std::vector<cPt2di> & PatchCenters() const;
 
     bool isInsideNormalInterpolator(cPt2dr & aPt) const;
-    cDiffInterpolator1D * getNormalInterpolator(const cPt2dr &aPt) const;
+    std::pair<int, cDiffInterpolator1D *> getNormalInterpolator(const cPt2dr &aPt) const;
 
     void Show() const override;
     void initInterpolators();
@@ -261,7 +261,7 @@ public :
 
     virtual bool DoAddCalibToUk() const override;
 
-    std::tuple<double, double, cPt3dr> getDistSigmaNormalPlane(cPt2dr aCenter, const cPixBox<2> &aPixBox) const; ///< Adjust a plane on defined points
+    std::tuple<double, double, cPt3dr, cPt2dr> getDistSigmaNormalPlanGrad(cPt2dr aCenter, const cPixBox<2> &aPixBox) const; ///< Adjust a plan on defined points
 
 private :
 
@@ -307,7 +307,7 @@ private :
     // triangulation for patches selection
     cTriangulation3D<tREAL8> * mTriangulation; ///< triangulation of the raster, for zbuffer
 
-    std::vector<std::pair<double,cDiffInterpolator1D *>> mVInterpN;         ///< Interpolators, used to get normal of the images, with min dist to use them (must be sorted by dist)
+    std::vector<std::tuple<double,int,cDiffInterpolator1D *>> mVInterpN;         ///< Interpolators, used to get normal of the images, with min dist to use them (must be sorted by dist), and the blurring size
     cCalculator<double> * mEqDistColinearityDist;
 };
 

@@ -737,7 +737,7 @@ cStaticLidar::~cStaticLidar()
 {
     if (mTriangulation)
         delete mTriangulation;
-    for (auto & [aDistMin, aInterp] : mVInterpN)
+    for (auto & [aDistMin, aSz, aInterp] : mVInterpN)
         delete aInterp;
 }
 
@@ -756,8 +756,15 @@ bool cStaticLidar::DoAddCalibToUk() const
     return false; // F and PP fixed on lidar for now
 }
 
-std::tuple<double, double, cPt3dr> cStaticLidar::getDistSigmaNormalPlane(cPt2dr aCenter, const cPixBox<2> & aPixBox) const
+std::tuple<double, double, cPt3dr, cPt2dr> cStaticLidar::getDistSigmaNormalPlanGrad(cPt2dr aCenter, const cPixBox<2> & aPixBox) const
 {
+    // plan equation in instr coords: normal.P + d0 = 0
+    // d0 distance to origin
+    // normal.P + d0 = 0  =>  normal.d.u + d0 = 0  (u=unitary direction vector, d=distance)
+    // =>  d = -d0/(normal.u)
+
+    // returns : distance to plan, sigma dist to plan, plan normal gnd, plan d0, plan gradient in col, row
+
     //static std::pair<cPlane3D,tREAL8> LSQEstimate(const std::vector<cPt3dr> & aP0,const std::vector<tREAL8>* =nullptr);
     std::vector<cPt3dr> aVPtCam;
     for (const auto & aPt : aPixBox)
@@ -765,36 +772,92 @@ std::tuple<double, double, cPt3dr> cStaticLidar::getDistSigmaNormalPlane(cPt2dr 
         if (IsValidPoint(aPt))
             aVPtCam.push_back(Image2Camera3D(aPt));
     }
-    if (aVPtCam.empty() || (!IsValidPoint(aCenter)))
-        return std::make_tuple(NAN,NAN,cPt3dr::Dummy());
+    double aDistPlan = NAN;
+    double aDistSigma = NAN;
+    cPt3dr aNinstr = cPt3dr::Dummy();
+    cPt3dr aNormalGnd = cPt3dr::Dummy();
+    double aD0 = NAN;
+    cPt2dr aGradDist_cr = cPt2dr::Dummy();
 
-    if (IsValidPoint(aCenter) && (aVPtCam.size()<3))
+    if (aVPtCam.empty() || (!IsValidPoint(aCenter)))
     {
-        return std::make_tuple(Image2Distance(aCenter), Sigma(),
-                               Pose().Rot().Value(Image2NormalInstr(aCenter))); // which interpolator to use for Target extract?
+        return std::make_tuple(aDistPlan,aDistSigma,aNormalGnd,aGradDist_cr); // error
+    }
+    if (aVPtCam.size()<3)
+    {
+        aDistPlan = Image2Distance(aCenter);
+        aDistSigma = Sigma();
+        aNinstr = Image2NormalInstr1Pt(aCenter); // always in the correct direction
+        aD0 = -Scal(aNinstr, Image2Camera3D(aCenter));
+        // which interpolator to use for Target extract?
+    } else {
+        //std::cout<<"Box "<<aPixBox<<" => "<<aPixBox.Sz().x()*aPixBox.Sz().y()
+        //          <<" usable "<<aVPtCam.size()<<" "<<(100.*aVPtCam.size())/(aPixBox.Sz().x()*aPixBox.Sz().y())<<"%\n";
+        auto [aPlane3D, aRes] = cPlane3D::LSQEstimate(aVPtCam,nullptr);
+        // we test 2 methods to get distances => same results
+        //auto anInter = aPlane3D.Inter({0,0,0}, Image2Camera3D(aCenter));
+        //aDist = Norm2(anInter);
+        aNinstr = aPlane3D.AxeK();
+        MMVII_INTERNAL_ASSERT_tiny(Norm2(aNinstr)-1<1e-5 ,"Norm norm");
+        if (Scal(aNinstr,Image2Camera3D(aCenter))>0) // the plan normal may be in inverse dir from instr
+            aNinstr = -aNinstr; //TODO il faut changer autre chose ?
+        aD0 = -Scal(aNinstr,aPlane3D.P0()); // can't use -Scal(aNinstr, Image2Camera3D(aCenter)), since Image2Camera3D(aCenter) is not exactly on the plan
+        aDistPlan = -aD0/Scal(aNinstr,Image2Camera3D(aCenter)/Norm2(Image2Camera3D(aCenter)));
+        aDistSigma = (aRes+Sigma())/2.;
     }
 
-    std::cout<<"Box "<<aPixBox<<" => "<<aPixBox.Sz().x()*aPixBox.Sz().y()
-              <<" usable "<<aVPtCam.size()<<" "<<(100.*aVPtCam.size())/(aPixBox.Sz().x()*aPixBox.Sz().y())<<"%\n";
-    auto [aPlane3D, aRes] = cPlane3D::LSQEstimate(aVPtCam,nullptr);
-    auto anInter = aPlane3D.Inter({0,0,0}, Image2Camera3D(aCenter));
-    auto aDist = Norm2(anInter);
-    auto aNormalGnd = Pose().Rot().Value(aPlane3D.AxeK());
+    // gradient computation: finite diff
+    auto DistPlanAt = [&](const cPt2dr& aP) -> double {
+        cPt3dr aQ = Image2Camera3D(aP);
+        cPt3dr u = aQ / Norm2(aQ);
+        return -aD0 / Scal(aNinstr, u);
+    };
 
-    return std::make_tuple(aDist, (aRes+Sigma())/2., aNormalGnd);
+    cPt2dr aPtL = cPt2dr::Dummy();
+    cPt2dr aPtR = cPt2dr::Dummy();
+    cPt2dr aPtU = cPt2dr::Dummy();
+    cPt2dr aPtD = cPt2dr::Dummy();
+    for (int diff=1; diff<5; ++diff)
+    {
+        if ((!aPtL.IsValid()) && IsValidPoint(aCenter - cPt2dr(diff,0)))
+            aPtL = aCenter - cPt2dr(diff,0);
+        if ((!aPtR.IsValid()) && IsValidPoint(aCenter + cPt2dr(diff,0)))
+            aPtR = aCenter + cPt2dr(diff,0);
+        if ((!aPtU.IsValid()) && IsValidPoint(aCenter - cPt2dr(0,diff)))
+            aPtU = aCenter - cPt2dr(0,diff);
+        if ((!aPtD.IsValid()) && IsValidPoint(aCenter + cPt2dr(0,diff)))
+            aPtD = aCenter + cPt2dr(0,diff);
+    }
+    if (!aPtL.IsValid()) aPtL = aCenter;
+    if (!aPtR.IsValid()) aPtR = aCenter;
+    if (!aPtU.IsValid()) aPtU = aCenter;
+    if (!aPtD.IsValid()) aPtD = aCenter;
+
+    // if coincident points, will give NaN
+    aGradDist_cr.x() = (DistPlanAt(aPtR) - DistPlanAt(aPtL)) / (aPtR.x()-aPtL.x());
+    aGradDist_cr.y() = (DistPlanAt(aPtD) - DistPlanAt(aPtU)) / (aPtD.y()-aPtU.y());
+    //std::cout<<aPtL<<" "<<aPtR<<" "<<aPtU<<" "<<aPtD<<" "<<(aPtR.x()-aPtL.x())<<" "<<(aPtD.y()-aPtU.y())<<" "<<aGradDist_cr<<"\n";
+
+    aNormalGnd = Pose().Rot().Value(aNinstr);
+
+    return std::make_tuple(aDistPlan,aDistSigma,aNormalGnd,aGradDist_cr);
 }
 
-cDiffInterpolator1D * cStaticLidar::getNormalInterpolator(const cPt2dr & aPt) const
+std::pair<int, cDiffInterpolator1D *> cStaticLidar::getNormalInterpolator(const cPt2dr & aPt) const
 {
-    if (!GetRasterDistance().InsideBL(aPt))
+    MMVII_INTERNAL_ASSERT_tiny(!mVInterpN.empty(),"mVInterpN not init")
+
+    auto aSelInt = mVInterpN.front();  // if impossible to get dist, return any interpolator
+    if (GetRasterDistance().InsideBL(aPt))
     {
-        return mVInterpN.front().second; // if impossible to get dist, return any interpolator
+        double aDist = Image2Distance(aPt);
+        size_t i = 0;
+        while ((i<mVInterpN.size()) && (aDist>std::get<0>(mVInterpN[i])))
+            ++i;
+        aSelInt = mVInterpN.at(i-1);
     }
-    double aDist = Image2Distance(aPt);
-    size_t i = 0;
-    while ((i<mVInterpN.size()) && (aDist>mVInterpN[i].first))
-        ++i;
-    return mVInterpN.at(i-1).second;
+
+    return {std::get<1>(aSelInt), std::get<2>(aSelInt)};
 }
 
 void cStaticLidar::Show() const
@@ -807,16 +870,20 @@ void cStaticLidar::Show() const
 void cStaticLidar::initInterpolators()
 {
     // init interpolators
+    mVInterpN.clear();
     double aNormalPrec = 5. * M_PI / 180.;
     std::vector< std::pair<double,double>> aV_Start_Mid_dist_class = {{0,1.25},{2,4},{6,12}}; // distances classes for normal interpolator (start and middle)
     //std::vector<std::string> aParamInterpolN = {"Scale","3","1000","Linear"};
     std::vector<std::string> aParamInterpolN = {"Scale","3","1000","Cubic","-0.5"};
+    std::cout<<"InterpolN "<<NameImage()<<": ";
     for (auto & [aStart,aMid]: aV_Start_Mid_dist_class)
     {
         int aSz = pow(mSigma/(tan(aNormalPrec)*aMid*1./InternalCalib()->F()),2./3.)+1;
         aParamInterpolN[1] = std::to_string(aSz);
-        mVInterpN.emplace_back(aStart,cDiffInterpolator1D::AllocFromNames(aParamInterpolN));
+        std::cout<<aSz<<" ";
+        mVInterpN.emplace_back(aStart,aSz,cDiffInterpolator1D::AllocFromNames(aParamInterpolN));
     }
+    std::cout<<"\n";
 }
 
 cStaticLidar * cStaticLidar::FromFile(const std::string & aNameScanOriFile, const std::string & aDataDir, bool aSVP)
@@ -986,7 +1053,7 @@ std::tuple<tREAL8,tREAL8,tREAL8> cStaticLidar::AvgDistNbValidAndNbNotMasked() co
 
 
 /// normal in sensor frame
-cPt3dr cStaticLidar::Image2NormalInstr(const cPt2dr & aRasterPx) const
+cPt3dr cStaticLidar::Image2NormalInstr1Pt(const cPt2dr & aRasterPx) const
 {
     //std::cout<<"normal for im pt "<<aRasterPx<<"\n";
     //std::cout<<"gnd pt "<<Image2Ground(aRasterPx)<<"\n";
@@ -995,7 +1062,7 @@ cPt3dr cStaticLidar::Image2NormalInstr(const cPt2dr & aRasterPx) const
 
     // all computation is done in Raster frame
     const cDataGenUnTypedIm<2> & aGenDImDist = GetRasterDistance();
-    const auto aInterpN = getNormalInterpolator( aRasterPx);
+    const auto [aSz,aInterpN] = getNormalInterpolator( aRasterPx);
     if (!aGenDImDist.InsideInterpolator(*aInterpN,aRasterPx,0.0))
         return cPt3dr::Dummy();
     auto [aDist, aDistGr] = aGenDImDist.GetValueAndGradInterpol(*aInterpN,aRasterPx);
@@ -1031,7 +1098,7 @@ cPt3dr cStaticLidar::Image2NormalInstr(const cPt2dr & aRasterPx) const
 
 
     // test with std::pair<cPlane3D,tREAL8> LSQEstimate(co
-    return aN;
+    return -aN;
 }
 
 
@@ -1972,7 +2039,7 @@ void cStaticLidar::MakeVisu(const cPhotogrammetricProject & aPhProj) const
 
 bool cStaticLidar::isInsideNormalInterpolator(cPt2dr & aPt) const
 {
-    const auto aInterp = getNormalInterpolator( aPt );
+    const auto [aSz,aInterp] = getNormalInterpolator( aPt );
     return GetRasterDistance().InsideInterpolator(*aInterp,aPt,1.0);
 }
 
@@ -2005,9 +2072,17 @@ void cStaticLidar::MakePatches
             auto aCenterR = ToR(aCenter);
             if (isInsideNormalInterpolator(aCenterR))  // is it sufficiently inside
             {
-                auto aN = Image2NormalInstr(aCenterR);
-                aLPatches.push_back({i, {aCenter}, {}, aN});
-                //std::cout<<"make patch "<<aCenter<<" N="<<aN<<"\n";
+                // normal from grad
+                //auto aN = Image2NormalInstr1Pt(aCenterR);
+                //aLPatches.push_back({i, {aCenter}, {}, aN});
+
+                // normal from plan
+                const auto [aSz,aInterpN] = getNormalInterpolator(ToR(aCenter));
+                auto aBBox = cPixBox<2>::BoxWindow(aCenter, aSz/2);
+                auto [aD,aS,aNormalGnd,aGr] = getDistSigmaNormalPlanGrad(ToR(aCenter),aBBox);
+                auto aNinstr = Pose().Rot().Inverse(aNormalGnd);
+                aLPatches.push_back({i, {aCenter}, {}, aNinstr});
+                //std::cout<<"make patch "<<aSz<<" "<<aCenter<<" N="<<aN<<" or "<<aNinstr<<"\n";
             }
         }
     #ifdef NUMMAKEPATCHDEBUG
@@ -2025,7 +2100,7 @@ void cStaticLidar::MakePatches
     for (size_t i=0; i<mPatchCenters.size(); ++i)
     {
         auto & aCenter = mPatchCenters[i];
-        auto aCenterR = cPt2dr(aCenter.x(),aCenter.y());
+        auto aCenterR = ToR(aCenter);
         if (!isInsideNormalInterpolator(aCenterR))  // is it sufficiently inside
             continue;
         //search for average GndPixelSize
@@ -2113,9 +2188,17 @@ void cStaticLidar::MakePatches
         // some requirement on minimal size
         if ((int)aPatchPts.size() > aSzMin)
         {
-            auto aN = Image2NormalInstr(aCenterR);
-            aLPatches.push_back({i, aPatchPts, {}, aN});
-            //std::cout<<"make patch "<<aCenter<<" N="<<aN<<"\n";
+            // normal from grad
+            //auto aN = Image2NormalInstr1Pt(aCenterR);
+            //aLPatches.push_back({i, aPatchPts, {}, aN});
+            // normal from plan
+            const auto [aSz,aInterpN] = getNormalInterpolator(aCenterR);
+            auto aBBox = cPixBox<2>::BoxWindow(aCenter, aSz/2);
+            auto [aD,aS,aNormalGndB,aGr] = getDistSigmaNormalPlanGrad(aCenterR,aBBox);
+            auto aNinstr = Pose().Rot().Inverse(aNormalGndB);
+            aLPatches.push_back({i, aPatchPts, {}, aNinstr});
+
+            //std::cout<<"make patch "<<aCenter<<" N="<<aN<<" or "<<aNinstr<<"\n";
         #ifdef NUMMAKEPATCHDEBUG
             if (i<NUMMAKEPATCHDEBUG)
             {
@@ -2291,12 +2374,45 @@ void TestRaster2Gnd2Raster(const std::vector<TYPE> &aVectPtsTest, cStaticLidar *
 }
 
 /// tests the scans of a cube, where summit is {8.66,0,0} in ground coords
-void TestPose(const std::string & aInPath, const std::string & aScanName, const cPt2dr& aSummitPx)
+void TestPose(const std::string & aInPath, const std::string & aScanName, const cPt2dr& aSummitPx, bool aTestNormals)
 {
     cStaticLidar * aScan =  cStaticLidar::FromFile(aInPath + aScanName, aInPath, false);
     auto aRasterPx = aScan->Ground2Image({8.66,0,0});
     //std::cout<<"Result: "<<aRasterPx<<" - theoritical "<<aSummitPx<<" -> error "<<Norm2(aRasterPx-aSummitPx)<<"\n";
     MMVII_INTERNAL_ASSERT_bench(Norm2(aRasterPx-aSummitPx)<1e-3 ,"TestPose " + aScanName);
+
+    if (aTestNormals)
+    {
+        // the 3 points on left, right bottom should correspond to cube faces, with simple ground normals extracted from blender's matrix_world
+        static const std::vector<std::pair<cPt2di, cPt3dr>> aVNormals
+          { {{10,40},{-0.5792279839515686, -0.7071067094802856, -0.40557974576950073} },  // top left
+            {{90,40},{-0.5792279839515686,  0.7071067094802856, -0.40557974576950073} }, // top right
+            {{50,90}, {-0.5735763907432556, 0, 0.8191520571708679}} }; // bottom
+        std::unique_ptr<cDiffInterpolator1D> aInterp(cDiffInterpolator1D::AllocFromNames({"Linear"}));
+
+        //std::cout<<aScanName<<"\n";
+        for (const auto& [aTestPt, aTestNgnd]: aVNormals)
+        {
+            // get dist, normal vector and grad from plan estim
+            auto aBBox = cPixBox<2>::BoxWindow(aTestPt, 5);
+            auto [aD,aS,aNgnd,aGr] = aScan->getDistSigmaNormalPlanGrad(ToR(aTestPt),aBBox);
+
+            cPt3dr aNormalIntr1Pt = aScan->Image2NormalInstr1Pt(ToR(aTestPt));
+            cPt3dr aNormalGnd1Pt = aScan->Pose().Rot().Value(aNormalIntr1Pt);
+
+            // compare with direct val ang grad with interpolator
+            auto [aDist, aDistGr] = aScan->GetRasterDistance().GetValueAndGradInterpol(*aInterp,ToR(aTestPt));
+            //std::cout<<"    Dplan="<<aD<<" Dinterpol="<<aDist
+            //         <<"\n    Ntest="<<aTestNgnd<<" Nplan="<<aNgnd<<" N1Pt="<<aNormalGnd1Pt
+            //         <<"\n    GrPlan="<<aGr<< " GrInterpol="<<aDistGr<<"\n";
+
+            MMVII_INTERNAL_ASSERT_bench(fabs(aD-aDist)<1e-3 ,"TestPose " + aScanName + " D");
+            MMVII_INTERNAL_ASSERT_bench(Norm2(aTestNgnd-aNgnd)<1e-3 ,"TestPose " + aScanName + " N");
+            MMVII_INTERNAL_ASSERT_bench(Norm2(aTestNgnd-aNormalGnd1Pt)<1e-2 ,"TestPose " + aScanName + " N1Pt"); // not very precise
+            MMVII_INTERNAL_ASSERT_bench(Norm2(aGr-aDistGr)<1e-3 ,"TestPose " + aScanName + " Gr");
+        }
+
+    }
     delete aScan;
 }
 
@@ -2331,17 +2447,20 @@ void BenchTLS(cParamExeBench & aParam)
 
     delete aScan;
 
+    // tests with scan Id
+    TestPose(aInPath, "Ori-Scan-St1-Sc1.tsl.gif.xml", {50,50}, true);
+
     // tests with scan translation
-    TestPose(aInPath, "Ori-Scan-St2-Sc1.tsl.gif.xml", {35.5508,50});
+    TestPose(aInPath, "Ori-Scan-St2-Sc1.tsl.gif.xml", {35.5508,50}, true);
 
     // tests with scan translation + rotation
-    TestPose(aInPath, "Ori-Scan-St3-Sc1.tsl.gif.xml", {40.7816,64.542});
+    TestPose(aInPath, "Ori-Scan-St3-Sc1.tsl.gif.xml", {40.7816,64.542}, false);
 
     // just rot x
-    TestPose(aInPath, "Ori-Scan-St4-Sc1.tsl.gif.xml", {66.9119,60.7288}); //?? 61 61 ?
+    TestPose(aInPath, "Ori-Scan-St4-Sc1.tsl.gif.xml", {66.91194,60.72881}, true);
 
     // just rot xyz
-    TestPose(aInPath, "Ori-Scan-St5-Sc1.tsl.gif.xml", {67.6836,71.4344});
+    TestPose(aInPath, "Ori-Scan-St5-Sc1.tsl.gif.xml", {67.6836,71.4344}, true);
 
     //std::cout<<"Bench TLS finished."<<std::endl;
     aParam.EndBench();

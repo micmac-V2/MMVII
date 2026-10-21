@@ -608,11 +608,11 @@ void  cAppliCheckBoardTargetExtract::DoExport()
                      auto aEllipseBBox = anEl.GetBoundingBox(aImFactor);
                      std::cout<< "Ellipse " << aCdtM.Code()->Name() << " "
                                << anEl.LGa() * anEl.VGa() << " " << anEl.LSa() * anEl.VSa() <<"\n";
-                     auto [aD,aS,aN] = aLidar->getDistSigmaNormalPlane(aMesIm.mPt,aEllipseBBox);
+                     auto [aD,aS,aNgnd,aGr] = aLidar->getDistSigmaNormalPlanGrad(aMesIm.mPt,aEllipseBBox);
                      std::cout<< "Diff " << aCdtM.Code()->Name() << " " << aD - aLidar->Image2Distance(aMesIm.mPt)<<"    "<<
                          aLidar->Image2Distance(aMesIm.mPt)<< " " <<
-                         aLidar->Image2NormalInstr(aMesIm.mPt) << " => "
-                               << aD <<" " << aS << " " << aN<<"\n";
+                         aLidar->Image2NormalInstr1Pt(aMesIm.mPt) << " => "
+                               << aD <<" " << aS << " " << aNgnd<<"\n";
 
                      aMesIm.mDistWithSigma.emplace( aD, aS );
                      break;

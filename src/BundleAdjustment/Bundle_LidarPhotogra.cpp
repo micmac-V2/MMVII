@@ -1139,7 +1139,7 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
 
 
     // spend last 15% of iter on final threshold
-    int aNbIterFinalTh = aBA.NbMaxIter()*0.85;
+    int aNbIterFinalTh = aBA.NbMaxIter()*0.6;
     mThreshold = mThresholdFinal;
     if (aBA.NbMaxIter()>2)
     {
@@ -1149,7 +1149,7 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
     }
 
 
-    //std::cout << "up weighters, th="<<mThreshold<<"\n";
+    std::cout << "up weighters, th="<<mThreshold<<"\n";
     if (mThreshold>10000)
         mThreshold = -1;
     for (auto & aScanDataA: mVScans)
@@ -1269,6 +1269,8 @@ void cBA_LidarLidarRaster::AddObs()
         //for (auto & aScan:mVScans)
         //    StdOut() << aScan.mLidarRaster->NameImage()<< " " << aScan.mLidarRaster->Center().x() <<
         //         std::setprecision(10) << " " << aScan.mLidarRaster->Center().y()<< " " << aScan.mLidarRaster->Center().z() << "\n";
+        std::cout<<"res "<<mVScans.back().mLidarRaster->NameImage()<<" "<<
+            Norm2(mVScans.back().mLidarRaster->Pose().Tr()-cPt3dr(33.298387398154595, -87.364096907658464, 111.161090316911455))<<"\n";
     }
     else
         StdOut() << "  * Lid/Lid: no obs\n";
@@ -1432,16 +1434,8 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             {
                 auto aVGr = aGenDImDist.GetValueAndGradInterpol(*mInterp,aPIm); // works better than normal interp for gradient, why?
 
-                aData.mVGr = { aVGr };
-                #ifdef SCANSCANDEBUG
-                std::cout<<aPIm<<" GetValueAndGradInterpol: "<<aVGr.first<<" "<<aVGr.second.x()*1940<<" "<<aVGr.second.y()*1940<<"\n";
-                #endif
-
-                tREAL8 aValIm = aData.mVGr.at(0).first;   // value of first/central pixel in this image
+                tREAL8 aValIm = aVGr.first;   // value of first/central pixel in this image
                 tREAL8 aResidual = aValIm-aDist;
-
-                cPt3dr aNormalInstrB = aScanB->Image2NormalInstr(aPIm);
-                cPt3dr aNormalGndB = aScanB->Pose().Rot().Value(aNormalInstrB);
 
                 if ((fabs(aResidual)<std::max(aStatsMaxDist,mThreshold*10))
                    )// &&(Scal(aNormalGndA,aNormalGndB)<aStatstNormalDiffMinCos)) //std::max(0.1,mThreshold*20)) // suppose that 10cm is always an error
@@ -1464,7 +1458,26 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                     #endif
                     continue;
                 }
+
+                // compute plan only if dist is accepted, it takes a lot of time!
+                const auto [aSz,aInterpN] = aScanB->getNormalInterpolator(aPIm);
+                //auto aVGrFlou = aGenDImDist.GetValueAndGradInterpol(*aInterpN,aPIm);
+                auto aBBox = cPixBox<2>::BoxWindow(ToI(aPIm), aSz/2);
+                auto [aD,aS,aNormalGndB,aGr] = aScanB->getDistSigmaNormalPlanGrad(aPIm,aBBox);
+                //std::cout<<"grad: "<<aVGr.second<<" "<<aVGrFlou.second<<" "<<aGr<<"\n";
+                aVGr.second = aGr; // get grad from plan
+
+                //cPt3dr aNormalInstrB = aScanB->Image2NormalInstr1Pt(aPIm);
+                //cPt3dr aNormalGndB = aScanB->Pose().Rot().Value(aNormalInstrB);
+                //std::cout<<"normal match: "<<aNormalGndB<<" "<<aNormalGndB__<<"   vs   "<<aNormalGndA<<"\n";
+
+                aData.mVGr = { aVGr };
+            #ifdef SCANSCANDEBUG
+                std::cout<<aPIm<<" GetValueAndGradInterpol: "<<aVGr.first<<" "<<aVGr.second.x()*1940<<" "<<aVGr.second.y()*1940<<"\n";
+            #endif
+
                 tREAL8 aNormalDiffAngle = acos(Scal(aNormalGndA,aNormalGndB)) * 180 / M_PI;
+                //std::cout<<"Normals: "<<aNormalGndA<<" "<<aNormalGndB<<" => "<<aNormalDiffAngle<<"deg\n";
                 tREAL8 aWFactorAngle = mWeighterAngle->WeightOfResidual({aNormalDiffAngle})[0];
                 aData.mW *=  aWFactorAngle;
                 if (aWFactorAngle==0.0)
