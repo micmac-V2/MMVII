@@ -188,13 +188,13 @@ void cAppliNewFrange::DoTensorProcessing()
    // mImGrad = Deriche(*mDImRed,mDerFactZ1*mZoomRed);
 
     tIm aImBlurGrad = mImRed.Dup();
-    ExpFilterOfStdDev(aImBlurGrad.DIm(),5,2.0,2.0);
+    ExpFilterOfStdDev(aImBlurGrad.DIm(),5,mSigTensors.mSigmaGradX,mSigTensors.mSigmaGradY);
     mImGrad = Sobel(aImBlurGrad.DIm());
 
     mImTens = cTensor<tElIm>::Grad2Tens(mImGrad);
     // Regularize 2D images of tensor
-    ExpFilterOfStdDev(*mImTens.mDGx,5,20,5);
-    ExpFilterOfStdDev(*mImTens.mDGy,5,20,5);
+    ExpFilterOfStdDev(*mImTens.mDGx,5,mSigTensors.mSigmaTensX,mSigTensors.mSigmaTensY);
+    ExpFilterOfStdDev(*mImTens.mDGy,5,mSigTensors.mSigmaTensX,mSigTensors.mSigmaTensY);
 
 
 
@@ -272,7 +272,11 @@ void cAppliNewFrange::DoTensorProcessing()
      mYC = ComputeCenterByAntiSym(false,aVDirASym,aVWeight);
 
     // tREAL8 aSigma = std::min(15.0,mSzRed.y()/50.0);
-     ExpFilterOfStdDev(*mDImTeta,3,15.0);
+    /* tREAL8 aS2T = Square(mSigTensors.mSigmaTeta);
+      StdOut() << " FACT SIG TETA " <<  FactExpFromSigma2(aS2T)
+               << " " << FactExpFromSigma2(aS2T) / aS2T  << "\n";*/
+
+     ExpFilterOfStdDev(*mDImTeta,3,mSigTensors.mSigmaTeta);
 
      for(const auto anY : aPop.DIm())
      {

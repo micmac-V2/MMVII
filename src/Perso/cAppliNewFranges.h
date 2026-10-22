@@ -1,8 +1,4 @@
-﻿//#include "MMVII_PCSens.h"
-
-// Test commit
-
-#include "MMVII_Image2D.h"
+﻿#include "MMVII_Image2D.h"
 #include "MMVII_ImageMorphoMath.h"
 #include "MMVII_Sensor.h"
 #include "MMVII_Ptxd.h"
@@ -106,6 +102,24 @@ typedef cVG_Graph<cAVVertex,cAVEdgeOriented,cAVEdgeSym> tGraphVFrange;
 /*                                                 */
 /* =============================================== */
 
+
+struct cSigmaTensors
+{
+    double mSigmaTeta = 1.0;
+    double mSigmaTensX=20.0;
+    double mSigmaTensY= 5.0;
+    double mSigmaGradX=2.0;
+    double mSigmaGradY=2.0;
+
+
+    ARG2007_STRUCT_FIELDS (
+        mSigmaTeta,FieldSem({{eTA2007::AddCom,"Sigma Teta"},eTA2007::HDV}),
+        mSigmaTensX,FieldSem({{eTA2007::AddCom,"Sigma Tensor-X"},eTA2007::HDV}),
+        mSigmaTensY,FieldSem({{eTA2007::AddCom,"Sigma Tensor-Y"},eTA2007::HDV}),
+        mSigmaGradX,FieldSem({{eTA2007::AddCom,"Sigma Grad-X"},eTA2007::HDV}),
+        mSigmaGradY,FieldSem({{eTA2007::AddCom,"Sigma Grad-Y"},eTA2007::HDV})
+    )
+};
 
 class cAppliNewFrange : public cMMVII_Appli
 {
@@ -220,6 +234,11 @@ class cAppliNewFrange : public cMMVII_Appli
         // ----------- Mandatory Args -----------
         std::string              mPatImage; /// Pattern of all images
         std::string              mNameIm;
+
+
+
+        cSigmaTensors            mSigTensors;
+
 
         tREAL8    mZoomRed;     ///< Zoom for initial reduction
         tREAL8    mDerFactZ1;   ///< Factor of deriche gradient for zoom 1

@@ -86,6 +86,8 @@ cCollecSpecArg2007 & cAppliNewFrange::ArgOpt(cCollecSpecArg2007 & anArgOpt)
               << AOpt2007(mSigmaTensZ1,"SigmaTens","Sigma for avaragin tensor (Z=1)" ,{eTA2007::HDV})
               << AOpt2007(mDoSimul,"DoSimul","Make simulation/syntheic images : 1 parab, 2 circles" ,{eTA2007::HDV})
               << AOpt2007(mPatVisu,"PatVisu","Pattern for generating visualization" )
+
+              << AOpt2007(mSigTensors ,"SigTens","Sigmas on tensors")
               << mPhProj.DPMask().ArgDirInOpt()
 
             //  << AOpt2007(mSigCurv,"SigCurv","Sima for smoothig curve",{eTA2007::HDV})

@@ -34,6 +34,10 @@ double Sigma2FromFactExp(double a)
 
 double FactExpFromSigma2(double aS2)
 {
+    // Taylor expansion for small value to avoid / 0
+    if (aS2<1e-6)
+        return aS2/2.0;
+
     return (aS2+1 - sqrt(Square(aS2+1)-Square(aS2))  ) / aS2 ;
 }
 
