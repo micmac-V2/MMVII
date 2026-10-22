@@ -2003,7 +2003,11 @@ bool cStaticLidar::isInsideNormalInterpolator(cPt2dr & aPt) const
     return GetRasterDistance().InsideInterpolator(*aInterp,aPt,1.0);
 }
 
-
+/**
+ * Fill std::list<cLidarRasterPatch> &aLPatches
+ *
+ * for scan to image patches, computes the list of used points for each patch, given the median distance to images
+ */
 void cStaticLidar::MakePatches
     (std::list<cLidarRasterPatch> &aLPatches,
      const std::vector<cSensorCamPC *> & aVCam,
@@ -2022,7 +2026,7 @@ void cStaticLidar::MakePatches
         {
             auto & aCenter = mPatchCenters[i];
             MMVII_INTERNAL_ASSERT_tiny(IsMaskedPoint(ToR(aCenter))==false, "Error: patch " + ToStr(aCenter) + " is on a masked area");
-            auto aCenterR = cPt2dr(aCenter.x(),aCenter.y());
+            auto aCenterR = ToR(aCenter);
             if (isInsideNormalInterpolator(aCenterR))  // is it sufficiently inside
             {
                 auto aN = Image2NormalInstr(aCenterR);
@@ -2048,6 +2052,8 @@ void cStaticLidar::MakePatches
         int aNumCamVisib = 0;
         for (const auto & aCam: aVCam)
         {
+            if (dynamic_cast<cStaticLidar*>(aCam))
+                continue; // do not try on other scans, and Ground2Image may not work on TLS
             if (aCam->IsVisible(aGndCenter))
             {
                 ++aNumCamVisib;
