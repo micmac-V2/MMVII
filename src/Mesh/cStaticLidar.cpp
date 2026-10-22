@@ -762,7 +762,6 @@ cStaticLidar::cStaticLidar(const std::string & aNameFile, const std::string & aS
 
 cStaticLidar::~cStaticLidar()
 {
-    std::cout<<"Delete TLS"<<std::endl;
     if (mTriangulation)
         delete mTriangulation;
     for (auto & [aDistMin, aInterp] : mVInterpN)
