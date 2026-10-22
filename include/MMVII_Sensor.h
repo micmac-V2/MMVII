@@ -300,6 +300,7 @@ class cSensorImage  :   public cObj2DelAtEnd,
          cDataGenUnTypedIm<2> & LoadImage();
          /// Was the image already loaded
          bool ImageIsLoaded() const;
+         const cDataGenUnTypedIm<2> * GetGenImage() const;
          /// Accesors  to
          //  cDataGenUnTypedIm<2> & GetImage();
 
