@@ -106,9 +106,13 @@ int cParamCallSys::Execute(bool forceExternal) const
    }
 }
 
-int cParamCallSys::ExecuteWithoutMsg()
+int cParamCallSys::ExecuteWithoutMsg(bool ShowCom)
 {
    AddMMVIIArgsOpt("StdOut","NONE");
+   if (ShowCom)
+   {
+       StdOut() << "cParamCallSys::Execute=[ " << Com() << " ]\n";
+   }
    return   Execute(true);
 }
 
@@ -587,7 +591,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
       <<  AOpt2007(mNumOutPut,GOP_NumVO,"Num version for output format (1 or 2)",{eTA2007::Global,{eTA2007::Range,"[1,2]"}})
       <<  AOpt2007(mSeedRand,GOP_SeedRand,"Seed for random,if <=0 init from time",aGlobHDV)
       <<  AOpt2007(mExtendPattern,"ExtPatFile","Do we extend patterns for files (or interpret them literally)",aGlobHDV)
-
+      <<  AOpt2007(mMapDevlopperSpecParam,"DevSpecParam","Key used by devloper for quick&dirty tuning",aGlobHDV)
       <<  AOpt2007(msWithWarning,GOP_WW,"Do we print warnings",aGlobHDV)
       <<  AOpt2007(mNbProcAllowed,GOP_NbProc,"Number of process allowed in parallelisation",aGlobHDV)
       <<  AOpt2007(mShowTimePerThread,"ShowTimePerThread","Show per-thread breakdown in TimerSegm timing reports",aGlobHDV)
@@ -1052,19 +1056,33 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
 
 }
 
-std::string cMMVII_Appli::AppliSpecValue(const std::string & aKey ) const
+std::string cMMVII_Appli::AppliDevloperSpecValue(const std::string & aKey ) const
 {
-    const auto & anIter = mMapAppliSpecParam.find(aKey);
+    const auto & anIter = mMapDevlopperSpecParam.find(aKey);
 
-    if (anIter == mMapAppliSpecParam.end())
+    if (anIter == mMapDevlopperSpecParam.end())
         return MMVII_NONE;
     return anIter->second;
 }
 
-std::string AppliSpecValue(const std::string & aKey )
+std::string AppliDevloperGetSpecValue(const std::string & aKey )
 {
-    return cMMVII_Appli::CurrentAppli().AppliSpecValue(aKey);
+    return cMMVII_Appli::CurrentAppli().AppliDevloperSpecValue(aKey);
 }
+
+bool AppliDevloperHasSpecValue(const std::string & aKey)
+{
+    return    AppliDevloperGetSpecValue(aKey) != MMVII_NONE;
+}
+
+bool AppliDevloperGetBoolSpecValue(const std::string & aKey)
+{
+    std::string aVal = AppliDevloperGetSpecValue(aKey);
+    if (aVal==MMVII_NONE)
+        return false;
+    return cStrIO<bool>::FromStr(aVal);
+}
+
 
 
 const cSpecMMVII_Appli & cMMVII_Appli::Specs() const {return mSpecs;}

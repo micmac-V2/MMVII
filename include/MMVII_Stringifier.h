@@ -3,6 +3,7 @@
 
 #include "MMVII_memory.h"
 #include "MMVII_Ptxd.h"
+#include "MMVII_AllClassDeclare.h"
 #include <sstream>
 #include <functional>
 
@@ -82,6 +83,11 @@ template <>  std::string cStrIO<std::string>::ToStr(const std::string & anI);
 template <>  std::string cStrIO<std::string>::FromStr(const std::string & aStr, bool ExceptionOnError);
 template <>  std::string cStrIO<char>::ToStr(const char & anI);
 template <>  char cStrIO<char>::FromStr(const std::string & aStr, bool ExceptionOnError);
+
+template <>  t2S cStrIO<t2S>::FromStr(const std::string & aStr, bool ExceptionOnError);
+template <>  std::map<std::string,std::string> cStrIO<std::map<std::string,std::string>>::FromStr(const std::string & aStr, bool ExceptionOnError);
+
+
 
 // is it a valid string-int, may be templatized , but not sure very curent use ..
 bool  StringIsIntOk(const std::string & aStr);

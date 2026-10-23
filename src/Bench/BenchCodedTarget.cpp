@@ -53,25 +53,33 @@ cPairTargetMatch::cPairTargetMatch() :
 class cBenchCodedTarget
 {
     public :
-      cBenchCodedTarget();
-      void DoAll(bool);
+      cBenchCodedTarget(bool doOnlyVerif,bool showCom);
+      void DoAll();
 
     private :
 
-      void GenerateImage(int aNbIm,const cPt2di&  aSzIm);
-
+      /// Do all the tesst for a given
       void DoOneTest(eTyCodeTarget aType,int aNBB,int aNbTartget);
 
-      void Generate_Specif(eTyCodeTarget aType,int aNBB);
-      void GenerateSimul(const std::string & aNameFullSpec,int aNbTarget);
-      void Extract(bool isIGN);
+      /// [1] Generate random background image :
+      void GenerateRandomImages(int aNumberOfImages,const cPt2di&  aSizeOfImages);
 
+      /// [2] Generate the current file of specif
+      void GenerateXmlTargetSpecificationFiles();
+      /// [3]  Generate simulation
+      void GenerateImagesWithTargets(const std::string & aNameFullSpec,int aNbTarget);
+      /// [4] Run the target extraction programm adapted to current target model
+      void DoTargetsExtraction(bool isIGN);
+
+      /// [5]  do the verification for current target model
       void VerifTargets();
       void VerifTargetOf1Image(const std::string &);
       void  ReadMeasureIm(const std::string & aPrefix,const std::string & aNameIm,bool isRef);
 
+      std::string NameRandomImage(int aKIm) const {return  mPrefixIm+ToStr(aKIm) + ".tif";}
 
       bool                                    mDoOnlyVerif;
+      bool                                    mShowCom;
       int                                     mCurNbb;
       eTyCodeTarget                           mCurType;
       bool                                    mCurIsIgn;
@@ -92,8 +100,9 @@ class cBenchCodedTarget
       int                                    mNbOverDet;
 };
 
-cBenchCodedTarget::cBenchCodedTarget() :
-     mDoOnlyVerif (false),
+cBenchCodedTarget::cBenchCodedTarget(bool doOnlyVerif,bool showCom) :
+     mDoOnlyVerif (doOnlyVerif),
+     mShowCom     (showCom),
      mPrefixIm    ( "ImSynt_"),
      mPatImInit   (mPrefixIm+".*tif")
 {
@@ -102,70 +111,84 @@ cBenchCodedTarget::cBenchCodedTarget() :
 
 
 
-
-void   cBenchCodedTarget::GenerateImage(int aNbIm,const cPt2di&  aSzIm)
+/**
+ * @brief cBenchCodedTarget::GenerateImage
+ * @param aNbIm
+ * @param aSzIm
+ *
+ *   Generate  NbIm background image for target incrustation
+ */
+void   cBenchCodedTarget::GenerateRandomImages(int aNbIm,const cPt2di&  aSzIm)
 {
     for (int aKIm=0 ; aKIm<aNbIm ; aKIm++)
     {
+        // MMVII ImageGenRandom "[1500,1000]" Type=U_INT1 Out=ImSynt_0.tif
+        //    SeedRand=0 "GaussNoise=[100,70]" "GaussNoise=[5,10]" StdOut=NONE
+
         cParamCallSys aCom(TheSpec_cAppliGenRandomImage,true);
         aCom.AddArgs(ToStr(aSzIm));
 
-        aCom.AddMMVIIArgsOpt("Type","U_INT1");
-        aCom.AddMMVIIArgsOpt(CurOP_Out,mPrefixIm+ToStr(aKIm) + ".tif");
+        aCom.AddMMVIIArgsOpt("Type","U_INT1");  // Make 8-bits
+        aCom.AddMMVIIArgsOpt(CurOP_Out,NameRandomImage(aKIm));  // Generate a diff image for each K
 
-        int aCurS = cRandGenerator::TheOne()->GetCurrentSeed() * 29 + 37*aKIm;
-        aCom.AddMMVIIArgsOpt("SeedRand",ToStr(aCurS));
+        // each image is different , set the seed, +- majic formula using prime number , Chinese Remainder Theorem
+        int aSeed = 11 + cRandGenerator::TheOne()->GetCurrentSeed() * 1009 + 37*aKIm;
+        aCom.AddMMVIIArgsOpt("SeedRand",ToStr(aSeed));
 
         std::vector<std::vector<double>> aVecNoise{{100.0,70.0},{5.0,10.0}};
-
         for (const auto & aGaussN : aVecNoise)
             aCom.AddMMVIIArgsOpt("GaussNoise",ToStr(aGaussN));
 
-      //  aCom.AddMMVIIArgsOpt("StdOut","NONE");
-
-
-        aCom.ExecuteWithoutMsg();
+        aCom.ExecuteWithoutMsg(mShowCom);
      }
 }
 
 
-void  cBenchCodedTarget::Generate_Specif(eTyCodeTarget aType,int aNBB)
+void  cBenchCodedTarget::GenerateXmlTargetSpecificationFiles()
 {
 
     // Opporunity to test dmp + faster when many target
-    std::string aPost = (aNBB<=14 ) ? PostF_XmlFiles :PostF_DumpFiles ;
+    std::string aPost = (mCurNbb<=14 ) ? PostF_XmlFiles : PostF_DumpFiles ;
 
     //  ----------------- Generate the encoding -----------------------------------------------
 
-      std::string aNameEncoding = "Encoding_" + E2Str(aType) + "_" + ToStr(aNBB) + "." + aPost;
+      std::string aNameEncoding = "Encoding_" + E2Str(mCurType) + "_" + ToStr(mCurNbb) + "." + aPost;
       {
+          //  MMVII CodedTargetGenerateEncoding IGNIndoor 14 Out=Encoding_IGNIndoor_14.xml StdOut=NONE
+
           cParamCallSys aComEncoding(TheSpecGenerateEncoding,true);
-          aComEncoding.AddArgs(E2Str(aType));
-          aComEncoding.AddArgs(ToStr(aNBB));
+          aComEncoding.AddArgs(E2Str(mCurType));
+          aComEncoding.AddArgs(ToStr(mCurNbb));
           aComEncoding.AddMMVIIArgsOpt(CurOP_Out,aNameEncoding);
 
-          aComEncoding.ExecuteWithoutMsg();
+          aComEncoding.ExecuteWithoutMsg(mShowCom);
       }
 
       //  ----------------- Generate the full spec, with geometry  -----------------------------------------------
 
-      mNameFullSpecif = "FullSpec_" + E2Str(aType) + "_" + ToStr(aNBB) + "." + aPost;
+      mNameFullSpecif = "FullSpec_" + E2Str(mCurType) + "_" + ToStr(mCurNbb) + "." + aPost;
       {
+          // MMVII CodedTargetGenerate Encoding_IGNIndoor_14.xml Out=FullSpec_IGNIndoor_14.xml StdOut=NONE
+
           cParamCallSys aComGenerate(TheSpecGenCodedTarget,true);
           aComGenerate.AddArgs(aNameEncoding);
           aComGenerate.AddMMVIIArgsOpt(CurOP_Out,mNameFullSpecif);
-          //aComGenerate.AddMMVIIArgsOpt("StdOut","NONE");
+
           // For (still) unexplained reason, there is a memory leak if we do  Execute(false)
           // (do it in the same process) by the way, the command if it goes untill the end is probably
           // memory correct as its has been widely used . So, for now, run in a separate process
 
-          aComGenerate.ExecuteWithoutMsg();
+          aComGenerate.ExecuteWithoutMsg(mShowCom);
       }
 }
 
 
-void cBenchCodedTarget::GenerateSimul(const std::string & ,int aNbTarget)
+void cBenchCodedTarget::GenerateImagesWithTargets(const std::string & ,int aNbTarget)
 {
+
+    // MMVII CodedTargetSimul "ImSynt_.*tif" FullSpec_IGNIndoor_14.xml SuplPref=IGNIndoor14_ NbSel=15
+    //  "Radius=[40,60]" "Ratio=[0.7,1]" "NoiseAmpl=[0,0]" "PropLinBias=[0,0]" StdOut=NONE
+
     cParamCallSys aComSimul(TheSpecSimulCodedTarget,true);
 
     aComSimul.AddArgs(mPatImInit);
@@ -179,19 +202,24 @@ void cBenchCodedTarget::GenerateSimul(const std::string & ,int aNbTarget)
     aComSimul.AddMMVIIArgsOpt("PropLinBias",ToStr(cPt2dr(0,0)));
 
 
-    aComSimul.ExecuteWithoutMsg();
+    aComSimul.ExecuteWithoutMsg(mShowCom);
 }
 
 
-void cBenchCodedTarget::Extract(bool )
+void cBenchCodedTarget::DoTargetsExtraction(bool )
 {
+    // For ex with IGN target :
+    //
+    //    MMVII CodedTargetCheckBoardExtract "SimulTarget_IGNIndoor14_ImSynt_.*tif"
+    //        FullSpec_IGNIndoor_14.xml OutObjMesInstr=Bench StdOut=NONE
+
     cParamCallSys aComExtract(*mCurSpec,true);
 
     aComExtract.AddArgs(mPatImSimul);
     aComExtract.AddArgs(mNameFullSpecif);
     aComExtract.AddMMVIIArgsOpt("OutObjMesInstr","Bench");
 
-    aComExtract.ExecuteWithoutMsg();
+    aComExtract.ExecuteWithoutMsg(mShowCom);
 }
 
 
@@ -286,7 +314,6 @@ void cBenchCodedTarget::VerifTargetOf1Image(const std::string &aNameIm)
         {
             MMVII_INTERNAL_ERROR("Unexpected case in cBenchCodedTarget::VerifTargetOf1Image");
         }
-
     }
 }
 
@@ -318,13 +345,13 @@ void  cBenchCodedTarget::DoOneTest(eTyCodeTarget aType,int aNBB,int aNbTartget)
 
     mCurNbb = aNBB;
     mSuplPrefSim = E2Str(aType)+ToStr(aNBB) +"_";
-    mPatImSimul  = "SimulTarget_"+ mSuplPrefSim+mPrefixIm +".*tif";
+    mPatImSimul  =  ThePrefixSimulTarget + mSuplPrefSim+mPrefixIm +".*tif";
 
     if (! mDoOnlyVerif)
     {
-        Generate_Specif(aType,aNBB);
-        GenerateSimul(mNameFullSpecif,15);
-        Extract(aType!=eTyCodeTarget::eCERN);
+        GenerateXmlTargetSpecificationFiles();
+        GenerateImagesWithTargets(mNameFullSpecif,15);
+        DoTargetsExtraction(aType!=eTyCodeTarget::eCERN);
     }
 
     VerifTargets();
@@ -332,10 +359,8 @@ void  cBenchCodedTarget::DoOneTest(eTyCodeTarget aType,int aNBB,int aNbTartget)
 }
 
 
-void cBenchCodedTarget::DoAll(bool doOnlyVerif)
+void cBenchCodedTarget::DoAll()
 {
-    mDoOnlyVerif = doOnlyVerif;
-
     std::string aDir = cMMVII_Appli::TmpDirTestMMVII() ;
 
     if (UserIsMPD())
@@ -350,7 +375,7 @@ void cBenchCodedTarget::DoAll(bool doOnlyVerif)
 
     if (! mDoOnlyVerif)
     {
-        GenerateImage(3,cPt2di(1500,1000));
+        GenerateRandomImages(3,cPt2di(1500,1000));
     }
 
      DoOneTest(eTyCodeTarget::eIGNIndoor,14,15);
@@ -375,10 +400,15 @@ void BenchCodedTarget(cParamExeBench & aParam)
         MMVII_DEV_WARNING("BenchCodedTarget not active w/o MPD");
     }
 
-    cBenchCodedTarget aBCT;
+    bool OnlyVerif = AppliDevloperGetBoolSpecValue("OnlyVerif");
+    bool ShowCom = AppliDevloperGetBoolSpecValue("ShowCom");
 
-    bool OnlyVerif = true;
-    aBCT.DoAll(OnlyVerif);
+    StdOut() << " SHOW COM=" << ShowCom << "\n";
+
+
+    cBenchCodedTarget aBCT(OnlyVerif,ShowCom);
+
+    aBCT.DoAll();
 
     aParam.EndBench();
 }

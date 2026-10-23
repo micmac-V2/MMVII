@@ -1286,6 +1286,66 @@ std::vector<std::string> Str2VStr(const std::string & aS)
    return cStrIO<std::vector<std::string>>::FromStr(aS);
 }
 
+
+/*
+template <>  std::string cStrIO<std::pair<std::string,std::string>>::ToStr(const std::pair<std::string,std::string>  & aV)
+{
+    std::string aS1 =  cStrIO<std::string>::ToStr(aV.first);
+    std::string aS2 =  ToStr(aV.second);
+    std::string aS12  = aS1+aS2;
+    return  aS12;
+}*/
+
+
+
+//template <>  t2S cStrIO<t2S>::FromStr(const std::string & aStr, bool ExceptionOnError);
+#define MACRO_INSTANTITATE_STRIO_PAIR_TYPE(TYPE1,TYPE2)\
+template <>  std::string cStrIO<std::pair<TYPE1,TYPE2>>::ToStr(const std::pair<TYPE1,TYPE2>  & aV)\
+{\
+    std::string aS1 =  cStrIO<TYPE1>::ToStr(aV.first);\
+    std::string aS2 =  cStrIO<TYPE2>::ToStr(aV.second);\
+    std::string aS12  = aS1+aS2;\
+    return  "["+ aS1+ "," +aS2+"]";\
+}\
+template <>  std::pair<TYPE1,TYPE2> cStrIO<std::pair<TYPE1,TYPE2>>::FromStr(const std::string & aStr, bool ExceptionOnError)\
+{\
+    std::vector<std::string> aV2S = cStrIO<std::vector<std::string>>::FromStr(aStr,ExceptionOnError);\
+    if (aV2S.size()!=2)\
+        ExceptionOrError(ExceptionOnError,eTyUEr::eUnClassedError,"Bad size for pair, got :"+ cStrIO<int>::ToStr(aV2S.size()));\
+    TYPE1 aV1 = cStrIO<TYPE1>::FromStr(aV2S.at(0),ExceptionOnError);\
+    TYPE2 aV2 = cStrIO<TYPE2>::FromStr(aV2S.at(1),ExceptionOnError);\
+    return std::pair<TYPE1,TYPE2>(aV1,aV2);\
+}\
+template <>  std::string cStrIO<std::pair<TYPE1,TYPE2>>::msNameType() \
+{ return  std::string("std::pair<") + cStrIO<TYPE1>::msNameType() + "," + cStrIO<TYPE2>::msNameType()+">" ;}
+
+
+
+MACRO_INSTANTITATE_STRIO_PAIR_TYPE(std::string,std::string)
+MACRO_INSTANTITATE_STRIO_PAIR_TYPE(std::string,tREAL8)
+
+
+#define MACRO_INSTANTITATE_STRIO_MAP_TYPE(TYPE1,TYPE2)\
+template <>  std::string cStrIO<std::map<TYPE1,TYPE2>>::ToStr(const std::map<TYPE1,TYPE2>  & aMap)\
+{\
+    std::vector<std::pair<TYPE1,TYPE2>> aVec(aMap.begin(),aMap.end());\
+    return  Vect2Str(aVec);\
+}\
+template <>  std::map<TYPE1,TYPE2> cStrIO<std::map<TYPE1,TYPE2>>::FromStr(const std::string & aStr, bool ExceptionOnError)\
+{\
+   std::map<TYPE1,TYPE2>  aRes;\
+   std::vector<std::string> aVStr = cStrIO<std::vector<std::string>>::FromStr(aStr,ExceptionOnError);\
+   for (const auto aStr : aVStr)\
+       aRes.insert( cStrIO<std::pair<TYPE1,TYPE2>>::FromStr(aStr));\
+    return aRes;\
+}\
+template <>  std::string cStrIO<std::map<TYPE1,TYPE2>>::msNameType() \
+{ return  std::string("std::map<") + cStrIO<TYPE1>::msNameType() + "," + cStrIO<TYPE2>::msNameType()+">" ;}
+
+
+MACRO_INSTANTITATE_STRIO_MAP_TYPE(std::string,std::string)
+MACRO_INSTANTITATE_STRIO_MAP_TYPE(std::string,tREAL8)
+
 /* ==================================== */
 /*                                      */
 /*         StructuredArg                */

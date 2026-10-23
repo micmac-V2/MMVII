@@ -325,7 +325,7 @@ template <class Type> void cSetInterUK_MultipeObj<Type>::AddOneInterv(cPtxd<Type
 template <class Type> void cSetInterUK_MultipeObj<Type>::IO_UnKnowns(cDenseVect<Type> & aVect,bool isSetUK)
 {
     // for now we offer the possibility to maintain dynamically the old behaviour
-    bool OLDBehave = AppliSpecValue("OldOnUpdate") != MMVII_NONE;
+    bool OLDBehave = false; //  AppliSpecValue("OldOnUpdate") != MMVII_NONE;
    // StdOut() << "          --- OLDBehaveOLDBehaveOLDBehaveOLDBehaveOLDBehaveOL  " << OLDBehave << "\n";
 
     size_t anIndex=0; // index that will parse all unknowns
@@ -354,7 +354,7 @@ template <class Type> void cSetInterUK_MultipeObj<Type>::IO_UnKnowns(cDenseVect<
         {
     //        StdOut() << OLDBehave << " OnuuuuuuuUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUuuuuuupp \n";
             aVinterv.mObj->OnUpdate();
-            // MODIF MPD : BIG BUG , if the Var wher modified it muste the Vect must be updated !!!
+            // MODIF MPD : BIG BUG , if the Var wher modified , the Vect must be updated !!!
             if (! OLDBehave)
              {
                for (auto [anInd,anAdr] : aVModif )

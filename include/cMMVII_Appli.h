@@ -25,7 +25,6 @@ class cMMVII_Appli;
 // class cSetName;
 class cColStrAObl;
 class cColStrAOpt;
-typedef std::pair<std::string,std::string> t2S;
 class cAppliBenchAnswer; // With this class, an Appli indicate how it deal with Bench
 
 
@@ -372,7 +371,7 @@ class cParamCallSys
 
        int Execute(bool forceExternal) const;
        /// run execute external, add StdOut=NONE
-       int ExecuteWithoutMsg() ;
+       int ExecuteWithoutMsg(bool ShowCom=false) ;
 
        const std::string & Com() const ; ///< Accessor
     private :
@@ -561,7 +560,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         void  ShowAllParams() ;
 
         /// Access to mMapAppliSpecParam
-        std::string AppliSpecValue(const std::string & ) const;
+        std::string AppliDevloperSpecValue(const std::string & ) const;
 
 
         template <typename T> inline T ValWithDef(const T & aVar,const T & aDefVal)
@@ -810,7 +809,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         cMultipleOfs                              mStdCerr;     ///< Error Ouput, console and, if any, same file as mStdCout
         std::string                               mParamStdOut; ///< Users value
         int                                       mSeedRand;    ///< Seed for random generator
-        std::map<std::string,std::string>         mMapAppliSpecParam; ///< Mat created from mVecAppliSpecParam
+        std::map<std::string,std::string>         mMapDevlopperSpecParam; ///< Mat created from mVecAppliSpecParam
      //   std::string                               mAppliSpecParam;
         bool                                      mExtendPattern;  ///<  If false Interpret the pattern as single  , def=true !!
         bool                                      mShowTimePerThread; ///< Global opt : show per-thread breakdown in TimerSegm reports
@@ -900,8 +899,13 @@ const std::string & GlobVectNameDefSerial() ; ///< of current appli
 const std::string & GlobTaggedNameDefSerial() ; ///< of current appli
 std::vector<std::string> GlobProfileNames(); ///< Names of user profiles, sorted
 
-/// Access to AppliSpecValue of cMMVII_Appli::CurrentAppli()
-std::string AppliSpecValue(const std::string & );
+/// Access to AppliDevloperSpecValue of cMMVII_Appli::CurrentAppli(), return NONE if false
+std::string AppliDevloperGetSpecValue(const std::string & );
+///  Is there a key for AppliDevloperGetSpecValue
+bool AppliDevloperHasSpecValue(const std::string & );
+/// return conv to boolean , NoKey -> false, Bad Value -> error (not catcthed)
+bool AppliDevloperGetBoolSpecValue(const std::string & );
+
 
 bool    IsInit(const void *);  ///< Call IsInit on the appli def
 

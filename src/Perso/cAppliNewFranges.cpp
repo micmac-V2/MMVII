@@ -78,8 +78,11 @@ cCollecSpecArg2007 & cAppliNewFrange::ArgObl(cCollecSpecArg2007 & anArgObl)
       ;
 }
 
+
 cCollecSpecArg2007 & cAppliNewFrange::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
+
+
     anArgOpt
               << AOpt2007(mZoomRed,"Zoom","Zoom Red process init" ,{eTA2007::HDV})
               << AOpt2007(mDerFactZ1,"DericheF","Factor of deriche filter (for Zoom=1)" ,{eTA2007::HDV})
@@ -88,6 +91,7 @@ cCollecSpecArg2007 & cAppliNewFrange::ArgOpt(cCollecSpecArg2007 & anArgOpt)
               << AOpt2007(mPatVisu,"PatVisu","Pattern for generating visualization" )
 
               << AOpt2007(mSigTensors ,"SigTens","Sigmas on tensors")
+
               << mPhProj.DPMask().ArgDirInOpt()
 
             //  << AOpt2007(mSigCurv,"SigCurv","Sima for smoothig curve",{eTA2007::HDV})
