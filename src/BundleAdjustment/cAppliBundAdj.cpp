@@ -115,7 +115,7 @@ struct cLidarPhotoParam
         Interp,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Interpolator used to sample images"}}),
         ScaleInit,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Interpolator scale at first iteration"}}),
         ScaleFinal,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Interpolator scale at last iteration"}}),
-        Threshold,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold for hidden points, <0 = no threshold"}}),
+        Threshold,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Value diff threshold for hidden points, <0 = no threshold (0-1)"}}),
         NbPtsPerPatch,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Approximate number of points per patch"}})
         )
 };

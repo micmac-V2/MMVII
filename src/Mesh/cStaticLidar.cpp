@@ -1985,12 +1985,15 @@ void cStaticLidar::MakePatches
     (std::list<cLidarRasterPatch> &aLPatches,
      const std::vector<cSensorCamPC *> & aVCam,
      int    aNbPointByPatch,
-     int    aSzMin
+     int    aSzMin,
+     float  aFactor
      ) const
 {
     //StdOut() << "MakePatches\n";
     auto & aRasterDistData = GetRasterDistance();
     auto & aRasterMaskData = GetRasterMask();
+
+    #define NUMMAKEPATCHDEBUG 1000
 
     // shortcut if only 1 point needed: just get the centers
     if (aNbPointByPatch==1)
@@ -2007,9 +2010,15 @@ void cStaticLidar::MakePatches
                 //std::cout<<"make patch "<<aCenter<<" N="<<aN<<"\n";
             }
         }
+    #ifdef NUMMAKEPATCHDEBUG
+        StdOut() << "1 pt patchs: "<<aLPatches.size()<<"\n";
+    #endif
         return;
     }
-//#define NUMMAKEPATCHDEBUG 0
+
+    #ifdef NUMMAKEPATCHDEBUG
+    StdOut() << "Make patch debug\n";
+    #endif
     std::vector<tREAL8> aVectGndPixelSize;
     aVectGndPixelSize.resize(aVCam.size());
     // parse center points
@@ -2038,11 +2047,18 @@ void cStaticLidar::MakePatches
 
             }
         }
-        if (aNumCamVisib<2) continue;
+        if (aNumCamVisib<2)
+        {
+        #ifdef NUMMAKEPATCHDEBUG
+            //if (i<NUMMAKEPATCHDEBUG)
+            //    StdOut() << "Not enought obs: " << aNumCamVisib << "\n";
+        #endif
+            continue;
+        }
         tREAL8 aGndPixelSize = NonConstMediane(aVectGndPixelSize);
     #ifdef NUMMAKEPATCHDEBUG
-        if (i==NUMMAKEPATCHDEBUG)
-            StdOut() << "GndPixelSize: " << aGndPixelSize << "\n";
+        if (i<NUMMAKEPATCHDEBUG)
+            StdOut() << "Patch " << i << ": "<< aCenter << " GndPixelSize: " << aGndPixelSize << "\n";
     #endif
         // compute raster step to get aNbPointByPatch separated by aGndPixelSize
         tREAL4 aMeanDepth = aRasterDistData.GetV(aCenter);
@@ -2059,11 +2075,11 @@ void cStaticLidar::MakePatches
         tREAL4 aNbStepRadius = sqrt(aNbPointByPatch+2) / 2.;
         tREAL4 aRasterPxGndW = fabs(aThetaStep) * aMeanDepth * aProjColFactor;
         tREAL4 aRasterPxGndH = fabs(aThetaStep) * aMeanDepth;
-        tREAL4 aRasterStepPixelsY = aGndPixelSize / aRasterPxGndH;
-        tREAL4 aRasterStepPixelsX = aGndPixelSize / aRasterPxGndW;
+        tREAL4 aRasterStepPixelsY = aFactor * aGndPixelSize / aRasterPxGndH;
+        tREAL4 aRasterStepPixelsX = aFactor * aGndPixelSize / aRasterPxGndW;
     #ifdef NUMMAKEPATCHDEBUG
-        if (i==NUMMAKEPATCHDEBUG)
-            StdOut() << "RasterStepPixels: " << aRasterStepPixelsX << " " << aRasterStepPixelsY << "\n";
+        if (i<NUMMAKEPATCHDEBUG)
+            StdOut() << aLPatches.size() << " RasterStepPixels: " << aRasterStepPixelsX << " " << aRasterStepPixelsY << "\n";
     #endif
         // have a least one scan step of difference between patch points
         if (aRasterStepPixelsX < 1.)
@@ -2073,7 +2089,7 @@ void cStaticLidar::MakePatches
 
         std::vector<cPt2di> aPatchPts = {aCenter}; // convention: center is at first
 #ifdef NUMMAKEPATCHDEBUG
-        if (i==NUMMAKEPATCHDEBUG)
+        if (i<NUMMAKEPATCHDEBUG)
         {
             for (auto const & aPt:aPatchPts)
                 std::cout<<aPt<<" ";
@@ -2097,7 +2113,7 @@ void cStaticLidar::MakePatches
             aLPatches.push_back({i, aPatchPts, {}, aN});
             //std::cout<<"make patch "<<aCenter<<" N="<<aN<<"\n";
         #ifdef NUMMAKEPATCHDEBUG
-            if (i==NUMMAKEPATCHDEBUG)
+            if (i<NUMMAKEPATCHDEBUG)
             {
                 for (auto const & aPt:aPatchPts)
                     std::cout<<aPt<<" ";
@@ -2106,6 +2122,9 @@ void cStaticLidar::MakePatches
         #endif
         }
     }
+#ifdef NUMMAKEPATCHDEBUG
+    StdOut() << "multi-pt patchs: "<<aLPatches.size()<<"\n";
+#endif
 }
 
 cIm2D<tU_INT1> cStaticLidar::projectIntensityFrom(const cStaticLidar& aFrom) const

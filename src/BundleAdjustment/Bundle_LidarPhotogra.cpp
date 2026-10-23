@@ -6,7 +6,7 @@
 namespace MMVII
 {
 
-//#define NUMPATCHDEBUG 3
+#define NUMPATCHDEBUG 10
 //#define SCANSCANDEBUG 10
 //#define EXPORTREPROJLIDAR
 
@@ -43,7 +43,7 @@ void cBA_LidarRaster::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cM
         for (auto & aPatch:aScanDataA.mLPatches)
             aPatch.mHiddenOnImage.clear();
     }
-    bool aZbufWithDist = true; // zbuffer is in dist or dz?
+    bool aZbufWithDist = false; // zbuffer is in dist or dz?
     std::vector<cSensorCamPC*> aVImages;
 
     // work on normal images (+ TLS only if aOnScans)
@@ -280,7 +280,7 @@ cBA_LidarPhotograRaster::cBA_LidarPhotograRaster(cPhotogrammetricProject * aPhPr
     for (auto & aScanData: mVScans)
     {
         auto &aScan = aScanData.mLidarRaster;
-        aScan->MakePatches(aScanData.mLPatches,aBA.VSCPC(),mNbPointByPatch,5);
+        aScan->MakePatches(aScanData.mLPatches,aBA.VSCPC(),mNbPointByPatch,5,10);
         StdOut() << "Nb patches for " << aScan->NameImage() << ": " << aScanData.mLPatches.size() << "\n";
     }
 }
@@ -378,6 +378,71 @@ void cBA_LidarPhotograRaster::AddObs()
         CreateZbuffers(mPhProj, mBA, false, true);
     }
 
+#ifdef SCANPHOTOSHOWPATCHES
+    if (mBA.Iter()==mBA.NbMaxIter()-1)
+    {
+        for (const auto& aScanA : mVScans)
+            for (size_t aKIm=0 ; aKIm<mBA.VSCPC().size() ; aKIm++)
+            {
+                cSensorCamPC * aCam = mBA.VSCPC()[aKIm]; // extract cam
+                if (!dynamic_cast<cStaticLidar*>(aCam))
+                {
+                    mMapPatchesRasters.try_emplace(aScanA.mLidarRaster->NameImage()+"_to_"+aCam->NameImage(),
+                                                   aCam->InternalCalib()->SzPix());
+                    auto & aPatchRaster = mMapPatchesRasters.at(aScanA.mLidarRaster->NameImage()+"_to_"+aCam->NameImage());
+                    for (int y=0; y<aPatchRaster.ImR().DIm().SzY()-1;++y)
+                        for (int x=0; x<aPatchRaster.ImR().DIm().SzX()-1;++x)
+                            aPatchRaster.SetGrayPix({x,y}, aCam->GetGenImage()->GetVBL({x,y}));
+                }
+            }
+
+        for (auto & aScan : mVScans)
+        {
+            for (size_t aKIm=0 ; aKIm<mBA.VSCPC().size() ; aKIm++)
+            {
+                cSensorCamPC * aCam = mBA.VSCPC()[aKIm]; // extract cam
+                if (dynamic_cast<cStaticLidar*>(aCam))
+                    continue; // do not project to other TLS
+                int aNumPatch = -1;
+                for (const auto& aPatch : aScan.mLPatches)
+                {
+                    aNumPatch++;
+                    int aNumPtPatch = -1;
+                    //cPt3dr aCenterPtGround = aScan.mLidarRaster->Image2Ground(aPatch.mLPatchesP.front()); // debug
+                    for (auto & aPtPatch: aPatch.mLPatchesP)
+                    {
+                        aNumPtPatch++;
+                        cPt3dr aPtGround = aScan.mLidarRaster->Image2Ground(aPtPatch);
+                        //cPt3dr aPtGround = aCenterPtGround + cPt3dr(0.01*aNumPtPatch,0,0);
+                        if (!aCam->IsVisible(aPtGround))
+                        {
+                            if (aNumPtPatch==0)
+                                break;
+                            else
+                                continue;
+                        }
+                        cPt2dr aPtImage = aCam->Ground2Image(aPtGround);
+
+                        mMapPatchesRasters.at(aScan.mLidarRaster->NameImage()+"_to_"+aCam->NameImage())
+                            .FillRectangle( (aNumPtPatch==0)?cPt3di(255,0,0):cPt3di(0,255,0),
+                                           ToI(aPtImage)-cPt2di(SCANPHOTOSHOWPATCHES/2,SCANPHOTOSHOWPATCHES/2),
+                                           ToI(aPtImage)+cPt2di(SCANPHOTOSHOWPATCHES/2,SCANPHOTOSHOWPATCHES/2),
+                                           cPt3dr(0.,0.,0.));
+                        if (aNumPatch==8)
+                            std::cout<<"Patch "<<aNumPatch<<" point "<<aNumPtPatch<<" scan "<<aPtPatch<<" gnd "<<aPtGround<<" im "<<aCam->NameImage()<<": "<<aPtImage<<"\n";
+                    }
+                }
+            }
+        }
+
+        for (const auto& [aCpl, aIm] : mMapPatchesRasters)
+        {
+            std::string aPath = mPhProj->DirVisuAppli() + "PatchesTLS_it_" + ToStr(mBA.Iter()) + "_" + aCpl + ".tif";
+            aIm.ToFile(aPath, {"COMPRESS=DEFLATE"});
+        }
+    }
+#endif
+
     mLastResidual.Reset();
     mNbUsedPoints = 0;
     mNbUsedObs = 0;
@@ -411,6 +476,10 @@ void cBA_LidarPhotograRaster::AddObs()
             int aNbPatch = 0;
             for (const auto& aPatch : aScan.mLPatches)
             {
+            #ifdef NUMPATCHDEBUG
+                if (aNbPatch <= NUMPATCHDEBUG)
+                    std::cout<<aScan.mLidarRaster->NameImage()<<" patch "<<aNbPatch<<": "<<aPatch.mLPatchesP[0]<<"\n";
+            #endif
                 std::vector<cPt3dr> aVP;
                 for (const auto aPt : aPatch.mLPatchesP)
                     aVP.push_back(aScan.mLidarRaster->Image2Ground(aPt));
@@ -683,14 +752,23 @@ void  cBA_LidarPhotogra::Add1Patch(const cBasicWeighter<tREAL8> &aWeighter,
      //std::cout<<"New patch\n";
      for (size_t aKIm=0 ; aKIm<mBA.VSCPC().size() ; aKIm++)
      {
+#ifdef NUMPATCHDEBUG
+         if ((aPatchNum<=NUMPATCHDEBUG))
+             std::cout<<"Try Patch "<<aPatchNum<<" on im "<<aKIm<<"\n";
+#endif
           cSensorCamPC * aCam = mBA.VSCPC()[aKIm]; // extract cam
-         if (dynamic_cast<cStaticLidar*>(aCam))
-             continue;
+          if (dynamic_cast<cStaticLidar*>(aCam))
+             continue; // do not project to other TLS
           // 1st test: zbuffer visibility
           //std::cout<<"Im "<<aScanBData.mScanName<<" patch "<<aPatch.mId<<" vis "<<aPatch.mImVisible.at(aScanBData.mScanName)<<"\n";
           if (aHiddenOnImage.count(aCam->NameImage())>0)
+          {
+#ifdef NUMPATCHDEBUG
+              if ((aPatchNum<=NUMPATCHDEBUG))
+                  std::cout<<"Hidden\n";
+#endif
               continue;
-
+          }
           auto & aGenDIm = aCam->LoadImage();
           if (aCam->IsVisible(aVPatchPtGnd.at(0))) // first test : is central point visible
           {
@@ -703,8 +781,18 @@ void  cBA_LidarPhotogra::Add1Patch(const cBasicWeighter<tREAL8> &aWeighter,
                    if (aCam->IsVisible(aPGround))  // is the point visible in the camera
                    {
                         cPt2dr aPIm = mBA.VSCPC()[aKIm]->Ground2Image(aPGround); // extract the image  projection
-                       if (!aPIm.IsValid())
+#ifdef NUMPATCHDEBUG
+                        if ((aPatchNum<=NUMPATCHDEBUG)&&(aKPt==0)) // show central point info
+                           std::cout<<"Patch "<<aPatchNum<<" Gnd: "<<aPGround<< " on "<< mBA.VSCPC()[aKIm]->NameImage()<<": "<<aPIm<<"\n";
+#endif
+                        if (!aPIm.IsValid())
+                        {
+#ifdef NUMPATCHDEBUG
+                            if ((aPatchNum<=NUMPATCHDEBUG)&&(aKPt==0)) // show central point info
+                                std::cout<<"Invalid\n";
+#endif
                            continue;
+                        }
                         if (aGenDIm.InsideInterpolator(*mInterp,aPIm,1.0))  // is it sufficiently inside
                         {
                             auto aVGr = aGenDIm.GetValueAndGradInterpol(*mInterp,aPIm); // extract pair Value/Grad of image
@@ -712,10 +800,20 @@ void  cBA_LidarPhotogra::Add1Patch(const cBasicWeighter<tREAL8> &aWeighter,
                                 continue;
                             aData.mVGr.push_back(aVGr); // push it at end of stack
                         #ifdef NUMPATCHDEBUG
-                            //if ((aPatchNum<=NUMPATCHDEBUG)&&(aData.mVGr.size()==1)) // show central point info
-                            //    std::cout<<"Patch "<<aPatchNum<<" Gnd: "<<aPGround<< " on "<< mBA.VSCPC()[aKIm]->NameImage()<<": "<<aPIm<<" V= "<<aVGr.first<<"\n";
+                            if ((aPatchNum<=NUMPATCHDEBUG)&&(aKPt==0)) // show central point info
+                                std::cout<<"Used\n";
                         #endif
+                        } else {
+#ifdef NUMPATCHDEBUG
+                            if ((aPatchNum<=NUMPATCHDEBUG)&&(aKPt==0)) // show central point info
+                                std::cout<<"Outside interpol\n";
+#endif
                         }
+                   } else {
+#ifdef NUMPATCHDEBUG
+                       if ((aPatchNum<=NUMPATCHDEBUG)&&(aKPt==0)) // show central point info
+                           std::cout<<"Not visible\n";
+#endif
                    }
               }
               //  Does all the point of the patch were inside the image ?
@@ -736,10 +834,14 @@ void  cBA_LidarPhotogra::Add1Patch(const cBasicWeighter<tREAL8> &aWeighter,
      int aSpaceSz = 1;
      if (aPatchNum<=NUMPATCHDEBUG)
      {
+         std::cout<<"Try to draw patch "<<aPatchNum<<"\n";
          for (const auto & aData : aVData)
          {
             if (aData.mVGr.size() != mNbPointByPatch)
+            {
+                 std::cout<<"Not all points visible ("<<aData.mVGr.size()<<"/"<<mNbPointByPatch<<")\n";
                  continue; // not enougth data to export correctly
+            }
             int aW = sqrt(aData.mVGr.size());
             cRGBImage  aImDist8b(cPt2di(aW, aW)*(aPixSz+aSpaceSz)+cPt2di(aSpaceSz,aSpaceSz), cRGBImage::Gray128);
             int aI = 0;
@@ -778,6 +880,7 @@ void  cBA_LidarPhotogra::Add1Patch(const cBasicWeighter<tREAL8> &aWeighter,
             std::string aPath = mPhProj->DirVisuAppli() + "patch_" + ToStr(aPatchNum,3) + "_iter" + ToStr(mBA.Iter(),1)
                                 + "_" + mBA.VSCPC()[aData.mKIm]->NameImage() + ".png";
             aImDist8b.ToFile(aPath);
+            std::cout<<"Patch "<<aPatchNum<<" debug: "<<aPath<<"\n";
          }
      }
 #endif
@@ -1000,7 +1103,7 @@ cBA_LidarLidarRaster::cBA_LidarLidarRaster(cPhotogrammetricProject * aPhProj,
     for (auto & aScanData: mVScans)
     {
         auto & aScan = aScanData.mLidarRaster;
-        aScan->MakePatches(aScanData.mLPatches,{},1,5);
+        aScan->MakePatches(aScanData.mLPatches,{},1,5,1.);
         StdOut() << "Nb patches for " << aScan->NameImage()<< ": " << aScanData.mLPatches.size() << "\n";
 
         //for (auto &aTestRasterPoint: {cPt2di(10672,2238), cPt2di(2552,2121) })
