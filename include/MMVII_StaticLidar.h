@@ -9,6 +9,7 @@
 
 // #define EXPORT_RASTER_XYZ
 // #define SCANSCANSHOWPATCHES 8 // make rasters of patches residuals and rejection for each pair, downscale raster by value
+#define SCANPHOTOSHOWPATCHES 16 // make rasters of patches residuals and rejection for each pair, downscale raster by value
 
 namespace MMVII
 {

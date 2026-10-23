@@ -593,6 +593,10 @@ class cBA_LidarPhotogra: public cBA_LidarBase
        eImatchCrit                    mModeSim;        ///< type of similarity used
        bool                           mPertRad;        ///< do we pertubate the radiometry (simulation & test)
        size_t                         mNbPointByPatch; ///< (approximate) required number of point /patch
+
+#ifdef SCANPHOTOSHOWPATCHES
+       std::map<std::string,cRGBImage> mMapPatchesRasters; ///< indexed by "nameA>nameB"
+#endif
 };
 
 
