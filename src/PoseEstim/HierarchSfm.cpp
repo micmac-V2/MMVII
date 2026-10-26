@@ -80,17 +80,25 @@ cCollecSpecArg2007 & cAppli_HierarchSfm::ArgObl(cCollecSpecArg2007 & anArgObl)
 cCollecSpecArg2007 & cAppli_HierarchSfm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return    anArgOpt
+           << cHeaderSectionArg("Input features")
            <<  mPhProj.DPMulTieP().ArgDirInOpt("","Input features (multiple tie-points format)")
            <<  mPhProj.DPTieP().ArgDirInOpt("","Input features (per-pair format)")
            <<  mPhProj.DPGndPt2D().ArgDirInOpt("","Input features (image measurements format)")
-           <<  mPhProj.DPOrient().ArgDirInOpt("","Ground truth input orientation directory")
+
+           << cHeaderSectionArg("Advanced options")
            <<  AOpt2007(mViscPose,"ViscPose","Regularization on poses for BA: [SigmaTr,SigmaRot]",{eTA2007::HDV})
            <<  AOpt2007(mLVM,"LVM","Levenberg-marquadt regularization",{eTA2007::HDV})
+           <<  AOpt2007(mNbIterBA,"NbIterBA","Number of iteration in BA refinement",{eTA2007::HDV})
+
+           << cHeaderSectionArg("Tuning")
            <<  AOpt2007(mSigmaAtt,"SigmaAtt","Reference sigma for tie-points; the BA anneals from 4*m*SigmaAtt down to 2*sqrt(m)*SigmaAtt, m adapting to node quality",{eTA2007::Tuning})
            <<  AOpt2007(mThrs,"Thrs","Reference outlier threshold",{eTA2007::Tuning})
            << AOpt2007(mCycleThr,"CycleThr","Max inconsistency (deg) with neighbouring triplets, 0=no filter",{eTA2007::HDV,eTA2007::Tuning})
            <<  AOpt2007(mSigmaTri,"SigmaTri","Sigma for triplet-quality weighting in the merge (default: same as SigmaAtt)",{eTA2007::Tuning})
-           <<  AOpt2007(mNbIterBA,"NbIterBA","Number of iteration in BA refinement",{eTA2007::HDV})
+
+
+           << cHeaderSectionArg("Testing")
+           <<  mPhProj.DPOrient().ArgDirInOpt("","Ground truth input orientation directory",{eTA2007::Tuning})
            <<  AOpt2007(mVerbose,"Verbose","More messages prints",{eTA2007::Tuning,eTA2007::HDV})
         ;
 }
