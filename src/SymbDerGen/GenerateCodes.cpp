@@ -100,8 +100,8 @@ std::string NameEqColinearityCamPPC(eProjPC  aType,const cPt3di & aDeg,bool With
         case eProjPC::eStenope        :   return Tpl_NameEqColinearityCamPPC<cProjStenope>       (aType,aDeg,WithDerive,isFraserMode,aTypeEqCol);
         case eProjPC::eFE_EquiDist    :   return Tpl_NameEqColinearityCamPPC<cProjFE_EquiDist>   (aType,aDeg,WithDerive,isFraserMode,aTypeEqCol);
         case eProjPC::eFE_EquiSolid   :   return Tpl_NameEqColinearityCamPPC<cProjFE_EquiSolid>  (aType,aDeg,WithDerive,isFraserMode,aTypeEqCol);
-        case eProjPC::eStereroGraphik :   return Tpl_NameEqColinearityCamPPC<cProjStereroGraphik>(aType,aDeg,WithDerive,isFraserMode,aTypeEqCol);
-        case eProjPC::eOrthoGraphik   :   return Tpl_NameEqColinearityCamPPC<cProjOrthoGraphic>  (aType,aDeg,WithDerive,isFraserMode,aTypeEqCol);
+        case eProjPC::eStereoGraphic :   return Tpl_NameEqColinearityCamPPC<cProjStereoGraphic>(aType,aDeg,WithDerive,isFraserMode,aTypeEqCol);
+        case eProjPC::eOrthoGraphic   :   return Tpl_NameEqColinearityCamPPC<cProjOrthoGraphic>  (aType,aDeg,WithDerive,isFraserMode,aTypeEqCol);
         case eProjPC::eEquiRect       :   return Tpl_NameEqColinearityCamPPC<cProj_EquiRect>     (aType,aDeg,WithDerive,isFraserMode,aTypeEqCol);
 
         default :;
@@ -654,7 +654,7 @@ void BenchProjToDirBundle(cParamExeBench & aParam)
 
    OneBenchProjToDirBundle<cProjStenope> (aParam);
    OneBenchProjToDirBundle<cProjFE_EquiDist> (aParam);
-   OneBenchProjToDirBundle<cProjStereroGraphik> (aParam);
+   OneBenchProjToDirBundle<cProjStereoGraphic> (aParam);
    OneBenchProjToDirBundle<cProjOrthoGraphic> (aParam);
    OneBenchProjToDirBundle<cProjFE_EquiSolid> (aParam);
    OneBenchProjToDirBundle<cProj_EquiRect> (aParam);
@@ -846,7 +846,7 @@ const std::vector<cPt3di>
 
 void PrintGeneratedDegree()
 {
-    //  Stenope,FE_EquiDist,FE_EquiSolid,StereroGraphik,OrthoGraphik,EquiRect
+    //  Stenope,FE_EquiDist,FE_EquiSolid,StereoGraphic,OrthoGraphic,EquiRect
 
         StdOut() << Color::title << "------ Allowed degrees are: ----------\n" << Color::end
                  << "  * " <<  Color::descr << E2Str(eProjPC::eStenope) << Color::end << " : " << TheVectDegree << "\n"
@@ -1054,7 +1054,7 @@ int cAppliGenCode::Exe()
 
    GenerateCodeProjCentralPersp<cProjStenope>();
    GenerateCodeProjCentralPersp<cProjFE_EquiDist>();
-   GenerateCodeProjCentralPersp<cProjStereroGraphik>();
+   GenerateCodeProjCentralPersp<cProjStereoGraphic>();
    GenerateCodeProjCentralPersp<cProjOrthoGraphic>();
    GenerateCodeProjCentralPersp<cProjFE_EquiSolid>(); //  ->  asin
    GenerateCodeProjCentralPersp<cProj_EquiRect>(); //  ->  asin

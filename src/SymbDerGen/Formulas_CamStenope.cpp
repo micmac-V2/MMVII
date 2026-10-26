@@ -233,8 +233,8 @@ const cDefProjPerspC * cDefProjPerspC::ProjOfType(eProjPC aProj,tREAL8 aRhoMax)
     {
           case eProjPC::eStenope          :  return new cProjStenope           (DefT ? 10.0  : aRhoMax);
           case eProjPC::eFE_EquiDist      :  return new cProjFE_EquiDist       (DefT ? (M_PI/2.0)  : aRhoMax);
-          case eProjPC::eStereroGraphik   :  return new cProjStereroGraphik    (DefT ?  10.0       : aRhoMax);
-          case eProjPC::eOrthoGraphik     :  return new cProjOrthoGraphic      (DefT ? 0.999 : aRhoMax);
+          case eProjPC::eStereoGraphic   :  return new cProjStereoGraphic    (DefT ?  10.0       : aRhoMax);
+          case eProjPC::eOrthoGraphic     :  return new cProjOrthoGraphic      (DefT ? 0.999 : aRhoMax);
           case eProjPC::eFE_EquiSolid     :  return new cProjFE_EquiSolid      (DefT ? (M_PI/2.0) : aRhoMax);
           case eProjPC::eEquiRect         :  return new cProj_EquiRect         (DefT ? (M_PI) : aRhoMax);
 

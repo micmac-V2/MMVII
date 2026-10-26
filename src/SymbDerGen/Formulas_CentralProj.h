@@ -199,18 +199,18 @@ class cProjFE_EquiDist : public cDefProjPerspC
    // ==========================================================
 
 
-       /**  fisheye orthographic  */
+       /**  fisheye stereographic  */
 
 
-class cProjStereroGraphik : public cDefProjPerspC
+class cProjStereoGraphic : public cDefProjPerspC
 {
    public :
-        cProjStereroGraphik (tREAL8 aTetaMax = DefRhoMax) :
+        cProjStereoGraphic (tREAL8 aTetaMax = DefRhoMax) :
             cDefProjPerspC (aTetaMax)
         {
         }
         // static const std::string & NameProj() {static std::string aName("FE_StereoGr"); return aName;}
-        static eProjPC  TypeProj() {return eProjPC::eStereroGraphik;}
+        static eProjPC  TypeProj() {return eProjPC::eStereoGraphic;}
         //
         ///< fish eye can have FOV over 180, and mathematicall formula is defined execte at pole (axe 0 0 -1 )
         tREAL8  P3DIsDef(const cPt3dr & aP) const override  {return cUnDefinedAtPole::P3DIsDef(aP);}
@@ -300,7 +300,7 @@ class cProjOrthoGraphic : public cDefProjPerspC
     Invese Norm(N) = sin(alpha) , cos = sqrt(1-sin^2)
 */
         // static const std::string & NameProj() {static std::string aName("FE_OrthoGr"); return aName;}
-        static eProjPC  TypeProj() {return eProjPC::eOrthoGraphik;}
+        static eProjPC  TypeProj() {return eProjPC::eOrthoGraphic;}
         ///< no continuous extension for Z<=0
         tREAL8  P3DIsDef(const cPt3dr & aP) const override  {return cDefinedZPos::P3DIsDef(aP);}
 

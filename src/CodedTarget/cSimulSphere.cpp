@@ -304,7 +304,7 @@ int  cAppliSimulSphere::Exe()
       mCalib =   cPerspCamIntrCalib::SimpleCalib
                  (
                      "SimulSphere",
-                     // eProjPC::eStereroGraphik,
+                     // eProjPC::eStereographic,
                      mTypeProj,
                      mSzIm,
                      cPt3dr(mSzIm.x()/2.0,mSzIm.y()/2.0,aDiag*mFocPDiag),
@@ -357,7 +357,7 @@ int  cAppliSimulSphere::Exe()
        cPerspCamIntrCalib::SimpleCalib
        (
             "SimulSphereStereo",
-             eProjPC::eStereroGraphik,
+             eProjPC::eStereoGraphic,
              aSzOut,
              cPt3dr(aSzOut.x()/2.0,aSzOut.y()/2.0,mCalib->F()),
              cPt3di(0,0,0)

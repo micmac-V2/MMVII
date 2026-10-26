@@ -108,8 +108,8 @@ cExportV1StenopeCalInterne::cExportV1StenopeCalInterne
               eProj = eProjPC::eFE_EquiDist;
            else if (aTypeV1==eModele_EquiSolid_FishEye_10_5_5)
               eProj = eProjPC::eFE_EquiSolid;
-           else if (aTypeV1==eModele_Stereographik_FishEye_10_5_5)
-              eProj = eProjPC::eStereroGraphik;
+           else if (aTypeV1==eModele_Stereographic_FishEye_10_5_5)
+              eProj = eProjPC::eStereographic;
            else if // maybe no exact corresp for distorsion, but stenope
             (
                          ( (iV1>=(int) eModeleEbner) && (iV1<=(int) eModelePolyDeg7))
