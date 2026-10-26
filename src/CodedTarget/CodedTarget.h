@@ -11,7 +11,7 @@ namespace MMVII
 // Everything specific to coded target in this namespace
 
 extern const std::string ThePrefixSimulTarget;
-extern const std::string ThePostfixGTSimulTarget;
+
 
 class cFullSpecifTarget ;  // main class from user's side to create target, know their specification
 

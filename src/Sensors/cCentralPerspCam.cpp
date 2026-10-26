@@ -118,6 +118,7 @@ cDataPerspCamIntrCalib::cDataPerspCamIntrCalib
 }
 
 const std::string & cDataPerspCamIntrCalib::Name() const {return mName;}
+void cDataPerspCamIntrCalib::SetSzPix(const cPt2di & aSz) {mDataPixDomain = cDataPixelDomain(aSz);}
     
 void cDataPerspCamIntrCalib::AddData(const cAuxAr2007 & anAux0)
 {
@@ -264,6 +265,17 @@ cPerspCamIntrCalib * cPerspCamIntrCalib::Duplicate() const
     //StdOut()  << "DUUUp:" << VTmpCopyParams() << aData.VTmpCopyParams() << "\n"; getchar();
    // aData.ResizeVTmpCopyParams();
     return Alloc(aData);
+}
+
+cPerspCamIntrCalib * cPerspCamIntrCalib::CropCalib(const cPt2di & aP0,const cPt2di & aSz,const std::string & aName) const
+{
+    cDataPerspCamIntrCalib aData = *this;
+    aData.SetVTmpCopyParams(VParamDist());
+    aData.MapPProj2Im().PP() -= ToR(aP0);
+    aData.SetSzPix(aSz);
+    cPerspCamIntrCalib * aRes = Alloc(aData);
+    aRes->SetName(aName);
+    return aRes;
 }
 
         //  ==================  read/write 2 files  ====================

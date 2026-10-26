@@ -34,6 +34,10 @@ double Sigma2FromFactExp(double a)
 
 double FactExpFromSigma2(double aS2)
 {
+    // Taylor expansion for small value to avoid / 0
+    if (aS2<1e-6)
+        return aS2/2.0;
+
     return (aS2+1 - sqrt(Square(aS2+1)-Square(aS2))  ) / aS2 ;
 }
 
@@ -360,7 +364,7 @@ template <class Type> void cMatIner2Var<Type>::Normalize()
      mS22 /= mS0;
      mS11 -= Square(mS1);
      mS12 -= mS1 * mS2;
-     mS22 -= mS2 * mS2;
+     mS22 -= Square(mS2); // Suggestion Aubin  * mS2;
 }
 
 template <class Type> Type cMatIner2Var<Type>::CorrelNotC(const Type & aEps) const

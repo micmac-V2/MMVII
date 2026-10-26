@@ -371,6 +371,188 @@ bool GenerateVirtualPts
         std::vector<std::vector<cPt2dr>> & aVVProj   ///< result : [virtual pt][camera]
         );
 
+
+
+
+///  Comparison of cCdtPoseRel2Im for use in heap
+class  cCmp_cCdtPoseRel2Im
+{
+     public :
+         /// In Heap we need to take out the worst candidate , thats why use >
+         bool operator ()(const cCdtPoseRel2Im & aS1,const cCdtPoseRel2Im & aS2) const
+         {
+             return aS1.mScore > aS2.mScore;
+         }
 };
+
+/** Class for computing pose estimation between 2 images using
+ *  different algorithm . In this first raw, it's quite basic to go fast
+ *  for Toronto's echeance ... and test :
+ *
+ *     # global essential matrix in L1 mod
+ *     # ransac essential matrix
+ *     # ransac  planary scene
+ *     # locliazed ransac for planar scene
+ *     # (deprecated)  heurisitk/combinatorial
+ *
+ *  Initial evaluation of solution is made on rank weighted residual :
+ *  Let R1 R2  ... RN be the decreasing residual , we compute
+ *      Avg (k Rk)
+ *   Heuristik, but "universal" formula to un-weight outlayer.
+ *
+ *  Witt this formula, we select N best solution with this criteria, and
+ *  make bundle on it. For weighted bundle we need a "guess" of sigma, it comes
+ *  for the best ranked average.
+ *
+ *  Small detail, for now we select 3 vector of best sol :
+ *
+ *  - 1 for mat-ess
+ *  - 1 for first sol of planar
+ *  - 1 for second sol of planar (when we have 2, its the second accorind to rank weight)
+ *
+ *  It happens that when we have ground-truth , untill now the second solution on residual is also the
+ *  worst on GT. But not reliable in long term with 100% planar scene.
+ *
+ *   The N better result
+ *   It will evolve later with some refinement coded in MM-V1 :
+ *      # use some ransac on essential matrix
+ *      # use patches on planary scenes
+ *      # make a "small&quick" bundle adj on each tested solution
+ *      # maybe some special treatment of quasi-co-centric (co-centric) image
+ */
+
+
+/** Class for doinf all the test, not an application */
+
+class cEstimatePosRel2Im  // Herit for combinatorial opt
+{
+   public :
+    /// Tyope for storing N Best candidate
+    typedef cKBestValue<cCdtPoseRel2Im,cCmp_cCdtPoseRel2Im> tCmpSol;
+
+     cEstimatePosRel2Im
+     (
+         const std::string & aIm1,
+         const std::string & aIm2,
+         const cPerspCamIntrCalib & aCalib1,
+         const cPerspCamIntrCalib & aCalib12,
+         const cSetHomogCpleIm  &    aSetHomFull,
+         const    cSetHomogCpleIm &     aSetHomAvg,
+         const    cSetHomogCpleIm &     aSetHomSmall,
+         tREAL8                  aDensitySol,
+         cTimerSegm *          =nullptr
+     );
+
+     void GenerateAllSolution();
+     void MakeBundleAdjustment(int aNbIter);
+     cCdtFinalPoseRel2Im MakeDecision(bool Show);
+
+
+     /// Free linear system
+     ~cEstimatePosRel2Im();
+
+     /// This method is called with posibly different algorithm & parameters
+     void TestNewSol(const tPoseR&,const std::string & aMsg,eModePE2I aMode);
+     void TestNewSol(cCdtPoseRel2Im);
+
+     /// Show the solution
+     void ShowSol(const tPoseR&,const std::string & aMsg);
+
+     /// Initialize de ground truth
+     void SetGT(const tPoseR&);
+
+     /// Get tie points (as directions)
+     const cSetHomogCpleDir & SetFullCpleDir() const {return mSetFullCpleDir;}
+
+  private :
+        //  --- Avoid unwated copies --------------------------------
+    cEstimatePosRel2Im(const cEstimatePosRel2Im&) = delete;
+    cEstimatePosRel2Im& operator = (const cEstimatePosRel2Im&) = delete;
+
+    tCmpSol & KBS(eModePE2I) ;
+
+
+    void GenerateMatEssSolutions();
+
+    /// Use the essentiall matrix algorithm, on all points, using L1 metric
+    void  EstimPose_By_MatEssL1Glob();
+
+    /// Make NbTest try of Ransac with NbPts point
+    void  EstimPose_By_MatEssRansac(int aNbPts,int aNbTest);
+
+    /// Test the combinatorial/heuristik opt,  unused for now (slow and not efficient)
+    void EstimateHeuristik();
+
+    ///  Put in VRes the residual corresponding to Pose, using mVDir1/mVDir2
+    void EstimateResidual(std::vector<tREAL8>& aVRes,const tPoseR& aPose,const cSetHomogCpleDir& aSetDir) const;
+
+    ///  Score of residual, using ranking weighting
+    tREAL8 RnkW_ScorePose (const tPoseR&,const cSetHomogCpleDir&) const;
+
+
+    ///  Elementary score, +- equiv to angle for now
+    tREAL8 Score2Bundle(const cPt3dr & aP1,const cPt3dr & aP2,const tPoseR& aPose) const;
+
+    /// return weighting of given score
+    tREAL8  WeightOfScore(tREAL8 aScore) const;
+
+    /// Refine pose by bundle adjustement
+    tPoseR BA_RefineOnePose(const tPoseR &,const cSetHomogCpleDir &);
+
+    /// Test with planary model on a set of dir
+    void OneTestPlane(const cSetHomogCpleDir&,const std::string & aMsg);
+    /// Use above, with index to extract dir
+    void OneTestPlane(const std::vector<size_t>&,const std::string & aMsg);
+    /// Make all the planar scene hypothesis
+    void TestPlanar();
+
+
+        //  --------  Data for camera -------------------
+    std::string                  mIm1;
+    std::string                  mIm2;
+    const cPerspCamIntrCalib &         mCalib1;    ///< Calib of first image
+    tREAL8                       mFoc1;      ///< Foc first image
+    const cPerspCamIntrCalib &         mCalib2;    ///< Calib second image
+    tREAL8                       mFoc2;      ///< Foc second image
+    tREAL8                       mFocMoy;    ///< merging of 2 focal
+
+       //  --------  Data  tie points -------------------
+
+    cSetHomogCpleIm              mSetCpleHom;   ///< set of homologous point
+    const std::vector<cHomogCpleIm> & mSetH;    ///< vecto of cpler extract from above
+    cIndexHomOnP1                mIndexP1;      ///< spatial index on set of cple
+    cSetHomogCpleDir             mSetSmallCpleDir;   ///<  set of 3D dir budnles pairs
+    cSetHomogCpleDir             mSetAvgCpleDir;   ///<  set of 3D dir budnles pair
+    cSetHomogCpleDir             mSetFullCpleDir;   ///<  set of 3D dir budnles pair
+
+    const std::vector<cPt3dr>&   mVDir1;        ///< Dir bundle first image
+    const std::vector<cPt3dr>&   mVDir2;        ///< Dir bundel second image
+    int                          mNbPtsTot;
+
+
+        // ----------- Data for optimization -----------------
+    cLinearOverCstrSys<tREAL8>*  mSysL1;    ///< L1 syst system for mat ess
+    cLinearOverCstrSys<tREAL8>*  mSysL2;    ///< L2 syst for mat ess
+
+    int                          mKMaxME;   ///< Store result of direction  in [0-] used for Mat Ess
+    cCmp_cCdtPoseRel2Im          mCmpSol;     ///< Compare Cdt for K Best
+    tREAL8                       mDensitySol;
+    int                          mNbKBestS;
+    std::vector<tCmpSol*>        mVKBS;
+  //  tCmpSol                      mKBSPlane1; ///< struct for K standard best sol
+  //  tCmpSol                      mKBSPlane2; ///< struct for K best, for 2nd cdt of planar test
+  //  tCmpSol                      mKBSMatEss; ///< struct for K best, for 2nd cdt of planar test
+
+    cTimerSegm *                 mTimeSegm;    ///< Struct for time info
+
+    tREAL8                       mBestScoreWR;  ///< Store the best score of weighted rank
+    tREAL8                       mEpsBundle;    ///< Value to avoid // bundle in comp
+    tREAL8                       mLVMBundle;    ///< Levenberg markard  parameter
+    tPoseR                       mGTPose;       ///< Pose use for ground truh, if any
+    bool                         mWithGT;       ///< Do we have a ground truth
+};
+
+};  // MMVII
+
 #endif // _MMVII_POSE_REL_H_
 

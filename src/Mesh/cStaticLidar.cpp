@@ -16,8 +16,8 @@
 
 namespace MMVII
 {
-
-cPt3dr cart2spher(const cPt3dr & aPtCart)
+template <class Type>
+cPtxd<Type,3> cart2spher(const cPtxd<Type,3> & aPtCart)
 {
     tREAL8 dist = Norm2(aPtCart);
     tREAL8 theta =  atan2(aPtCart.y(),aPtCart.x());
@@ -26,7 +26,8 @@ cPt3dr cart2spher(const cPt3dr & aPtCart)
     return {theta, phi, dist};
 }
 
-cPt3dr spher2cart(const cPt3dr & aPtspher)
+template <class Type>
+cPtxd<Type,3> spher2cart(const cPtxd<Type,3> & aPtspher)
 {
     tREAL8 dhz = aPtspher.z()*cos(aPtspher.y());
     tREAL8 x = dhz* cos(aPtspher.x());
@@ -34,6 +35,11 @@ cPt3dr spher2cart(const cPt3dr & aPtspher)
     tREAL8 z = aPtspher.z()*sin(aPtspher.y());
     return {x, y, z};
 }
+
+template cPt3df cart2spher(const cPt3df & aPtspher);
+template cPt3dr cart2spher(const cPt3dr & aPtspher);
+template cPt3df spher2cart(const cPt3df & aPtspher);
+template cPt3dr spher2cart(const cPt3dr & aPtspher);
 
 tREAL8 toMinusPiPlusPi(tREAL8 aAng, tREAL8 aOffset)
 {
@@ -53,7 +59,7 @@ cStaticLidarImporter::cStaticLidarImporter() :
     mThetaStep         (NAN),
     mPhiStart          (NAN),
     mPhiStep           (NAN),
-    mRotInput2TSL      (cRotation3D<tREAL8>::Identity()),
+    mRotInput2TLS      (cRotation3D<tREAL8>::Identity()),
     mVertRot           (cRotation3D<tREAL8>::Identity())
 {
 
@@ -79,7 +85,7 @@ void cStaticLidarImporter::readPlyPoints(std::string aPlyFileName, bool aForceGr
             mVectPtsXYZ.resize(aVecPts.size());
             for (size_t i=0; i<aVecPts.size(); ++i)
             {
-                mVectPtsXYZ[i] = cPt3dr(aVecPts[i][0],aVecPts[i][1],aVecPts[i][2]);
+                mVectPtsXYZ[i] = cPt3df(aVecPts[i][0],aVecPts[i][1],aVecPts[i][2]);
             }
         }
 
@@ -101,7 +107,7 @@ void cStaticLidarImporter::readPlyPoints(std::string aPlyFileName, bool aForceGr
             if (aPropGreenName!= aVertProps.end())
             {
                 mHasIntensity = true;
-                mVectPtsIntens = aPlyF.getElement("vertex").getProperty<tREAL8>(*aPropGreenName);
+                mVectPtsIntens = aPlyF.getElement("vertex").getProperty<tREAL4>(*aPropGreenName);
                 for (size_t i=0; i<mVectPtsIntens.size(); ++i)
                 {
                     mVectPtsIntens[i] = mVectPtsIntens[i]/255.;
@@ -111,7 +117,7 @@ void cStaticLidarImporter::readPlyPoints(std::string aPlyFileName, bool aForceGr
             if (aPropIntensityName!= aVertProps.end())
             {
                 mHasIntensity = true;
-                mVectPtsIntens = aPlyF.getElement("vertex").getProperty<tREAL8>(*aPropIntensityName);
+                mVectPtsIntens = aPlyF.getElement("vertex").getProperty<tREAL4>(*aPropIntensityName);
             }
         }
 
@@ -198,12 +204,12 @@ void cStaticLidarImporter::readE57Points(std::string aE57FileName, bool aForceGr
         }
 
         vectorReader.close();
-        cRotation3D<tREAL8> aRotTSL2MM = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j");
+        cRotation3D<tREAL8> aRotTLS2MM = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j");
         cRotation3D<tREAL8> aRot = cRotation3D(Quat2MatrRot<tREAL8>({data3DHeader.pose.rotation.w,data3DHeader.pose.rotation.x,
                                                  data3DHeader.pose.rotation.y,data3DHeader.pose.rotation.z}).Transpose(), false);
 
         mReadPose.emplace(cPt3dr(data3DHeader.pose.translation.x,data3DHeader.pose.translation.y,data3DHeader.pose.translation.z),
-                          (aRotTSL2MM*aRot).MapInverse());
+                          (aRotTLS2MM*aRot).MapInverse());
     }
     catch (const std::runtime_error &e)
     {
@@ -298,7 +304,7 @@ void cStaticLidarImporter::readPtxPoints(std::string aPtxFileName, bool aForceGr
 }
 
 bool cStaticLidarImporter::read(const std::string & aName, bool OkNone,
-                                bool aForceStructured, std::string aStrInput2TSL, bool aForceGreenAsIntensity)
+                                bool aForceStructured, std::string aStrInput2TLS, bool aForceGreenAsIntensity)
 {
     std::string aPost = LastPostfix(aName);
     if (UCaseEqual(aPost,"ply"))
@@ -331,17 +337,17 @@ bool cStaticLidarImporter::read(const std::string & aName, bool OkNone,
 
     if (HasCartesian() && !HasSpherical())
     {
-        mRotInput2TSL = cRotation3D<tREAL8>::RotFromCanonicalAxes(aStrInput2TSL);
+        mRotInput2TLS = cRotation3D<tREAL8>::RotFromCanonicalAxes(aStrInput2TLS);
         // apply rotframe to original points
         for (auto & aPtXYZ : mVectPtsXYZ)
         {
-            aPtXYZ = mRotInput2TSL.Value(aPtXYZ);
+            aPtXYZ = ToF(mRotInput2TLS.Value(ToR(aPtXYZ)));
         }
         convertToThetaPhiDist();
         // go back to original xyz
         for (auto & aPtXYZ : mVectPtsXYZ)
         {
-            aPtXYZ = mRotInput2TSL.Inverse(aPtXYZ);
+            aPtXYZ = ToF(mRotInput2TLS.Inverse(ToR(aPtXYZ)));
         }
     } else if (!HasCartesian() && HasSpherical()) // mTransfoIJK not used if spherical
     {
@@ -395,7 +401,7 @@ void cStaticLidarImporter::ComputeRotInput2Raster(std::string aTransfoIJK)
 {
     MMVII_INTERNAL_ASSERT_tiny(HasRowCol(),"Error: ComputeRotInput2Raster needs row/col");
 
-    cRotation3D<tREAL8> aRotInput2TSL = cRotation3D<tREAL8>::RotFromCanonicalAxes(aTransfoIJK);
+    cRotation3D<tREAL8> aRotInput2TLS = cRotation3D<tREAL8>::RotFromCanonicalAxes(aTransfoIJK);
     //  scanner     to      raster
     //  z|   y
     //   | /
@@ -406,10 +412,10 @@ void cStaticLidarImporter::ComputeRotInput2Raster(std::string aTransfoIJK)
 
     std::cout<<"aRotZvert2view:\n"<<aRotZvert2view.AxeI()<<"\n"
               <<aRotZvert2view.AxeJ()<<"\n"<<aRotZvert2view.AxeK()<<std::endl;
-    std::cout<<"aRotFrame:\n"<<aRotInput2TSL.AxeI()<<"\n"
-              <<aRotInput2TSL.AxeJ()<<"\n"<<aRotInput2TSL.AxeK()<<std::endl;
+    std::cout<<"aRotFrame:\n"<<aRotInput2TLS.AxeI()<<"\n"
+              <<aRotInput2TLS.AxeJ()<<"\n"<<aRotInput2TLS.AxeK()<<std::endl;
 
-    mRotInput2Raster = aRotZvert2view * aRotInput2TSL; // TODO: use aRotFrame
+    mRotInput2Raster = aRotZvert2view * aRotInput2TLS; // TODO: use aRotFrame
     std::cout<<"mRotInput2Raster:\n"<<mRotInput2Raster.AxeI()<<"\n"
               <<mRotInput2Raster.AxeJ()<<"\n"<<mRotInput2Raster.AxeK()<<std::endl;
 }
@@ -473,11 +479,11 @@ void cStaticLidarImporter::decimXY(const cPt2di & aDecimXY)
     aNewVectPtsLine.reserve(aNewNbPts);
     std::vector<int> aNewVectPtsCol;
     aNewVectPtsCol.reserve(aNewNbPts);
-    std::vector<cPt3dr> aNewVectPtsXYZ;
+    std::vector<cPt3df> aNewVectPtsXYZ;
     aNewVectPtsXYZ.reserve(aNewNbPts);
-    std::vector<tREAL8> aNewVectPtsIntens;
+    std::vector<tREAL4> aNewVectPtsIntens;
     aNewVectPtsIntens.reserve(aNewNbPts);
-    std::vector<cPt3dr> aNewVectPtsTPD;
+    std::vector<cPt3df> aNewVectPtsTPD;
     aNewVectPtsTPD.reserve(aNewNbPts);
     size_t j = 0;
     cPt2di aDecimMid(aDecimXY.x() / 2,aDecimXY.y() / 2);
@@ -672,7 +678,7 @@ void cStaticLidarImporter::MakeIdImage(const std::string & aNameFile) const
             cPt2di aPcl(mVectPtsCol[i],mVectPtsLine[i]);
 
             float aValDist = 127 * (1+cos(2*M_PI*10*(mVectPtsTPD[i].z()-aDistMin)/(aDistMax-aDistMin)));
-            float aVal = HasIntensity() ? (mVectPtsIntens[i]-aIntensMin)/(aIntensMax-aIntensMin) :  aValDist;
+            float aVal = HasIntensity() ? 255.*(mVectPtsIntens[i]-aIntensMin)/(aIntensMax-aIntensMin) :  aValDist;
             if (aVal<0)
                 aVal =0;
             if (aVal>255)
@@ -1224,6 +1230,8 @@ void cStaticLidar::FixPtPxLoopAroundPP(cPt2dr &aPtPx) const
 
 cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
 {
+    double aTargetPrecision = 1e-4;
+
     MMVII_INTERNAL_ASSERT_tiny(mAreRastersReady, "Error: rasters not ready");
     //std::cout<<"  Ground2ImagePrecise for point "<<aGroundPt<<"\n";
     cPt2dr aDirCam3DTheoretical = InternalCalib()->Dir_Proj()->Value(Pose().Inverse(aGroundPt));
@@ -1234,11 +1242,13 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
 
     // test if int value
     cPt2di aPtRasterRounded(round(aPtRaster.x()),round(aPtRaster.y()));
-    if (Norm2(aPtRaster - cPt2dr(aPtRasterRounded.x(),aPtRasterRounded.y()))< 1e-5)
+    cPt3dr aPtCam3DRounded = Image2Camera3D(aPtRasterRounded);
+    if ((Norm2(aPtCam3DRounded)>0.) &&
+        (Norm2(aPtRaster - cPt2dr(aPtRasterRounded.x(),aPtRasterRounded.y()))< aTargetPrecision))
     {
         // in this case Image2Camera3D will not use GetVBL => works on first and last columns
-        cPt2dr aDirTest = InternalCalib()->Dir_Proj()->Value(Image2Camera3D(aPtRasterRounded));
-        if (Norm2(aDirTest - aDirCam3DTheoretical)< 1e-5)
+        cPt2dr aDirTest = InternalCalib()->Dir_Proj()->Value( aPtCam3DRounded );
+        if (Norm2(aDirTest - aDirCam3DTheoretical)< aTargetPrecision)
         {
             //std::cout<<"  skip iter\n";
             return aPtRaster;
@@ -1250,28 +1260,36 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
     if (IsNull(aPtCam3D))
     {
         // we have no data for this point => use default Ground2Image
-        return cSensorCamPC::Ground2Image(aGroundPt);
+        //std::cout<<"PB Ground2ImagePrecise!!\n";
+        return cPt2dr::Dummy();//cSensorCamPC::Ground2Image(aGroundPt);
     }
 
     cPt2dr aDirTest = InternalCalib()->Dir_Proj()->Value(aPtCam3D);
-    if (Norm2(aDirTest - aDirCam3DTheoretical)< 1e-5)
+    if (Norm2(aDirTest - aDirCam3DTheoretical)< aTargetPrecision)
     {
         //std::cout<<"  skip iter\n";
         return aPtRaster;
     }
 
-    for (int i = 0; i<3; ++i)
+    int aMaxIter = 10;
+    for (int i = 0; i<aMaxIter; ++i)
     {
         //std::cout<<"   raster: "<<aPtRaster<<"\n";
         cPt2di aPtRasterUL((int)aPtRaster.x(), (int)aPtRaster.y());
         cPt2di aPtRasterLR((int)aPtRaster.x()+1, (int)aPtRaster.y()+1);
         cPt3dr aPtCam3DUL = Image2Camera3D(aPtRasterUL);
         if (IsNull(aPtCam3DUL))
-            return aPtRaster; // impossible to continue
+        {
+            //std::cout<<"PB Ground2ImagePrecise!! "<<i<<"\n";
+            return cPt2dr::Dummy(); // impossible to continue
+        }
         cPt2dr aDirUL = InternalCalib()->Dir_Proj()->Value(aPtCam3DUL);
         cPt3dr aPtCam3DLR = Image2Camera3D(aPtRasterLR);
         if (IsNull(aPtCam3DLR))
-            return aPtRaster; // impossible to continue
+        {
+            //std::cout<<"PB Ground2ImagePrecise!! "<<i<<"\n";
+            return cPt2dr::Dummy(); // impossible to continue
+        }
         cPt2dr aDirLR = InternalCalib()->Dir_Proj()->Value(aPtCam3DLR);
         //std::cout<<"   Dirs: "<<aDirUL<<" "<<aDirLR<<"\n";
         float aDiffDirX = aDirLR.x()-aDirUL.x();
@@ -1286,8 +1304,22 @@ cPt2dr cStaticLidar::Ground2ImagePrecise(const cPt3dr & aGroundPt) const
                                         : aPtRasterUL.y();
         aPtRaster = {aBetterX, aBetterY};
         FixLoopPixelsInImage(aPtRaster);
+
+        aPtCam3D = Image2Camera3D(aPtRaster);
+        if (IsNull(aPtCam3D))
+        {
+            //std::cout<<"PB Ground2ImagePrecise!! "<<i<<"\n";
+            return cPt2dr::Dummy(); // impossible to continue
+        }
+        aDirTest = InternalCalib()->Dir_Proj()->Value(aPtCam3D);
+        if (Norm2(aDirTest - aDirCam3DTheoretical)< aTargetPrecision)
+        {
+            return aPtRaster;
+        }
     }
-    return aPtRaster;
+
+    //std::cout<<"Ground2ImagePrecise not precise: "<<Norm2(aDirTest - aDirCam3DTheoretical)<<"\n";
+    return cPt2dr::Dummy();
 }
 
 cPt2dr cStaticLidar::Ground2Image(const cPt3dr & aGroundPt) const
@@ -1450,7 +1482,7 @@ void cStaticLidar::SaveRasters(const cStaticLidarImporter & aSL_importer, const 
 
 std::string cStaticLidar::NameFromId(const std::string &aIdName, bool getOriName)
 {
-    if (!IsNameTSL(aIdName))
+    if (!IsNameTLS(aIdName))
         return MMVII_NONE;
     //MMVII_INTERNAL_ASSERT_User(ends_with(aIdName,GetIdSuffix()),eTyUEr::eBadFileRelName,"Error, Scan Id image must end in "+GetIdSuffix());
     std::string aNameImage = aIdName;
@@ -1460,19 +1492,19 @@ std::string cStaticLidar::NameFromId(const std::string &aIdName, bool getOriName
         return aNameImage;
 }
 
-bool cStaticLidar::IsNameTSL(const std::string &aImageName)
+bool cStaticLidar::IsNameTLS(const std::string &aImageName)
 {
     return ends_with(aImageName,GetIdSuffix());
 }
 
 cCalculator<double> * cStaticLidar::CreateEqColinearity(bool WithDerives, int aSzBuf, bool ReUse)
 {
-    return EqTSL_GCP(WithDerives,aSzBuf,ReUse);
+    return EqTLS_GCP(WithDerives,aSzBuf,ReUse);
 }
 
 cCalculator<double> * cStaticLidar::CreateEqColinearityDist(bool WithDerives, int aSzBuf, bool ReUse)
 {
-    return EqTSL_GCPD(WithDerives,aSzBuf,ReUse);
+    return EqTLS_GCPD(WithDerives,aSzBuf,ReUse);
 }
 
 cCalculator<double> * cStaticLidar::GetEqColinearityDist()
@@ -1685,7 +1717,7 @@ void cStaticLidar::SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> * aSup
     if (aSupMaskDIm)
         MMVII_INTERNAL_ASSERT_tiny(
             aSupMaskDIm->Sz() == InternalCalib()->SzPix(),
-            "Error: Sup mask must have the same size as TSL mask");
+            "Error: Sup mask must have the same size as TLS mask");
     mPatchCenters.clear();
     auto & aRasterMaskData = mRasterMask->DIm();
     /*cResultExtremum aRes;
@@ -1765,7 +1797,7 @@ void cStaticLidar::SelectPatchCenters3(int aNbPatches, cDataIm2D<tU_INT1> * aSup
     if (aSupMaskDIm)
         MMVII_INTERNAL_ASSERT_tiny(
             aSupMaskDIm->Sz() == InternalCalib()->SzPix(),
-            "Error: Sup mask must have the same size as TSL mask");
+            "Error: Sup mask must have the same size as TLS mask");
 
     //auto [aAvgDist, aNbValid, aNbNotMasked] = AvgDistNbValidAndNbNotMasked();
     //std::cout<<"aAvgDist="<<aAvgDist<<" aNbValid="<<aNbValid<<
@@ -2059,17 +2091,17 @@ void TestPose(const std::string & aInPath, const std::string & aScanName, const 
     delete aScan;
 }
 
-void BenchTSL(cParamExeBench & aParam)
+void BenchTLS(cParamExeBench & aParam)
 {
-    if (! aParam.NewBench("TSL")) return;
+    if (! aParam.NewBench("TLS")) return;
 
-    const std::string & aInPath = cMMVII_Appli::CurrentAppli().InputDirTestMMVII() + "/TSL/Scan1/";
+    const std::string & aInPath = cMMVII_Appli::CurrentAppli().InputDirTestMMVII() + "/TLS/Scan1/";
 
     // test with scan pose = Id
     cStaticLidar * aScan =  cStaticLidar::FromFile(aInPath + "Scan-St1-Sc1.xml", false);
     aScan->ReadRasters(aInPath);
 
-    //aScan->ToPly(cMMVII_Appli::CurrentAppli().TmpDirTestMMVII() + "/TSL.ply");
+    //aScan->ToPly(cMMVII_Appli::CurrentAppli().TmpDirTestMMVII() + "/TLS.ply");
 
     auto & pp = aScan->InternalCalib()->PP();
     cPt2di ppInt = cPt2di(round(pp.x()), round(pp.y()));
@@ -2105,7 +2137,7 @@ void BenchTSL(cParamExeBench & aParam)
     // just rot xyz
     TestPose(aInPath, "Scan-St5-Sc1.xml", {67.6836,71.4344});
 
-    //std::cout<<"Bench TSL finished."<<std::endl;
+    //std::cout<<"Bench TLS finished."<<std::endl;
     aParam.EndBench();
     return;
 }

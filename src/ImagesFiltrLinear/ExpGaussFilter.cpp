@@ -1,4 +1,5 @@
 #include "MMVII_Linear2DFiltering.h"
+#include "MMVII_Geom2D.h"
 
 // #include <Eigen/Dense>
 
@@ -283,8 +284,78 @@ template <class Type> cImGrad<Type>::cImGrad(const cIm2D<Type> & aImIn) :
 
 
 /* ========================== */
+/*       cTensor              */
+/* ========================== */
+
+template <class Type> cPtxd<Type,2> cTensor<Type>::Grad2Tens(const tPt& aGrad)
+{
+    cPt2dr aRhoTeta = ToPolar(ToR(aGrad),0.0);
+
+    tREAL8 aRho = aRhoTeta.x();
+    tREAL8 aTeta = aRhoTeta.y();
+    return   cPtxd<Type,2>::FromPtR(FromPolar(aRho,2.0*aTeta));
+}
+
+template <class Type> cPtxd<Type,2> cTensor<Type>::Tens2Grad(const tPt& aGrad,Type aRho0)
+{
+    cPt2dr aRhoTeta = ToPolar(ToR(aGrad),0.0);
+
+    tREAL8 aRho = (aRho0<0) ? aRhoTeta.x() : aRho0 ;
+    tREAL8 aTeta = aRhoTeta.y();
+    return  cPtxd<Type,2>::FromPtR(FromPolar(aRho,aTeta/2.0));
+}
+
+template <class Type> cImGrad<Type> cTensor<Type>::Grad2Tens(const cImGrad<Type>& aImGrad)
+{
+    cImGrad<Type> aImTens(aImGrad.mDGx->Sz());
+
+    for (const auto & aPix :*aImGrad.mDGx)
+    {
+        tPt aGrad = aImGrad.Grad(aPix);
+        tPt aTens = Grad2Tens(aGrad);
+        aImTens.SetGrad(aPix,aTens);
+    }
+
+    return aImTens;
+}
+
+template <class Type>  tREAL8   cTensor<Type>::SigmaTensor(const std::vector<cPtxd<Type,2>>& aVTens)
+{
+    cWeightAv<tREAL8,tREAL8> aRx;
+    cWeightAv<tREAL8,tREAL8> aRx2;
+    cWeightAv<tREAL8,tREAL8> aRy;
+    cWeightAv<tREAL8,tREAL8> aRy2;
+
+    for (auto  aTens : aVTens)
+    {
+         tREAL8 aN = Norm2(aTens);
+         if (aN)
+         {
+             aTens = aTens / Type(aN);
+             aRx.Add(aN,aTens.x());
+             aRx2.Add(aN,Square(aTens.x()));
+             aRy.Add(aN,aTens.y());
+             aRy2.Add(aN,Square(aTens.y()));
+         }
+    }
+    if (aRx.SW()==0)
+        return 0.0;
+
+    tREAL8 aSigX2 = aRx2.Average() - Square(aRx.Average());
+    tREAL8 aSigY2 = aRy2.Average() - Square(aRy.Average());
+
+    return std::sqrt(std::max(0.0,aSigX2+aSigY2));
+
+}
+
+
+/* ========================== */
 /*     cDataGenUnTypedIm      */
 /* ========================== */
+
+template  class cTensor<tREAL8>;
+template  class cTensor<tREAL4>;
+
 
 
 #define MACRO_INSTANTIATE_ExpoFilter(Type)\

@@ -502,34 +502,7 @@ template<class T1> tREAL8  cDataIm1D<T1>::AvgInterv(int aX0,int aX1) const
    return SomInterv(aX0,aX1) / double(aX1-aX0);
 }
 
-/*****************************************************/
-/*                                                   */
-/*          NORMALIZATION                            */
-/*                                                   */
-/*****************************************************/
 
-template<class T,int Dim>
-   void NormalizedAvgDev(cDataTypedIm<T,Dim> & aIm,tREAL8 aEpsilon,tREAL8 aMul=1.0)
-{
-    cComputeStdDev<tREAL8>  aCSD;
-    for (int aK=0 ; aK<aIm.NbElem() ; aK++)
-    {
-        aCSD.Add(1.0,aIm.GetRDL(aK));
-    }
-    aCSD = aCSD.Normalize(aEpsilon);
-    for (int aK=0 ; aK<aIm.NbElem() ; aK++)
-    {
-        T& aV = aIm.GetRDL(aK);
-        aV = aCSD.NormalizedVal(aV) * aMul;
-    }
-}
-
-template<class T>  cIm2D<T> NormalizedAvgDev(const cIm2D<T> & aIm,tREAL8 aEpsilon)
-{
-    cIm2D<T> aRes = aIm.Dup();
-    NormalizedAvgDev(aRes.DIm(),aEpsilon);
-    return aRes;
-}
 
 
 template <class TFonc,class TMasq>
@@ -599,6 +572,155 @@ template <class Type> typename tBaseNumTrait<Type>::tBase SumIm(const cDataIm2D<
     return aRes;
 }
 
+
+#if (0)
+
+         /*****************************************************/
+         /*                                                   */
+         /*          NORMALIZATION                            */
+         /*                                                   */
+         /*****************************************************/
+
+         ///  Compute Average and Standard Deviation of 1 image
+template<class T,int Dim>
+cComputeStdDev<tREAL8>  ComputedAvgDev(const cDataTypedIm<T,Dim> & aIm,tREAL8 aEpsilon)
+{
+     cComputeStdDev<tREAL8>  aCSD;
+     for (int aK=0 ; aK<aIm.NbElem() ; aK++)
+     {
+         aCSD.Add(1.0,aIm.GetRDL(aK));
+     }
+     aCSD = aCSD.Normalize(aEpsilon);
+
+     return aCSD;
+}
+
+/// In place, replace value by normalized value using Avg & StdDev
+template<class T,int Dim>
+void GenNormalizedAvgDev(cDataTypedIm<T,Dim> & aIm,tREAL8 aEpsilon,tREAL8 aMul=1.0)
+{
+
+
+    cComputeStdDev<tREAL8>  aCSD = ComputedAvgDev(aIm,aEpsilon);
+
+    for (int aK=0 ; aK<aIm.NbElem() ; aK++)
+    {
+        T& aV = aIm.GetRDL(aK);
+        aV = aCSD.NormalizedVal(aV) * aMul;
+    }
+}
+
+
+
+template<class T>  cIm2D<T> Im2DNormalizedAvgDev(const cIm2D<T> & aIm,tREAL8 aEpsilon=1e-5)
+{
+    cIm2D<T> aRes = aIm.Dup();
+    GenNormalizedAvgDev(aRes.DIm(),aEpsilon);
+    return aRes;
+}
+
+         /*****************************************************/
+         /*                                                   */
+         /*         8-Bits transo, usefull for visu           */
+         /*                                                   */
+         /*****************************************************/
+ /** Tranformat Im in 8Bit Res, using a gaussian modelization : compute avg & ast-dev,
+  *  then use error function to map in [-1,1] -> [0,255]
+  */
+
+ template<class T,int Dim>
+       void Make8BByGaussModel(cDataTypedIm<tU_INT1,Dim> & aRes,const cDataTypedIm<T,Dim> & aIm,tREAL8 aEpsilon=1e-5)
+ {
+    aRes.AssertSameArea(aIm);
+
+    cComputeStdDev<tREAL8>  aCSD = ComputedAvgDev(aIm,aEpsilon);
+
+    for (int aK=0 ; aK<aIm.NbElem() ; aK++)
+    {
+        tREAL8 aV = aIm.GetRDL(aK);
+        aV = aCSD.NormalizedVal(aV);
+        aV = 128 + 128 * std::erf(aV);
+        aRes.GetRDL(aK) = tNumTrait<tU_INT1>::Trunc(aV);
+    }
+ }
+
+ template<class T> cIm2D<tU_INT1> Im2Make8BByGaussModel(const cDataIm2D<T> & aIm,tREAL8 aEpsilon=1e-5)
+ {
+     cIm2D<tU_INT1>  aRes(aIm.Sz());
+     Make8BByGaussModel(aRes.DIm(),aIm,aEpsilon);
+     return aRes;
+ }
+
+
+
+/** Tranformat Im in 8Bit Res, using a gaussian modelization : compute avg & ast-dev,
+*  then use error function to map in [-1,1] -> [0,255]
+*/
+
+template<class T,int Dim>
+     void Make8BByMinMax(cDataTypedIm<tU_INT1,Dim> & aRes,const cDataTypedIm<T,Dim> & aIm,tREAL8 aEpsilon=1e-5)
+{
+  aRes.AssertSameArea(aIm);
+
+  T aVMin,aVMax;
+  GetBounds(aVMin,aVMax,aIm);
+
+  tREAL8 aMul = 255.0 / std::max(aEpsilon,tREAL8(aVMax-aVMin));
+  for (int aK=0 ; aK<aIm.NbElem() ; aK++)
+  {
+      tREAL8 aV = aIm.GetRDL(aK);
+      aV = (aV-aVMin) *  aMul  ;
+      aRes.GetRDL(aK) = tNumTrait<tU_INT1>::Trunc(aV);
+  }
+}
+
+template<class T> cIm2D<tU_INT1> Im2Make8BByMinMax(const cDataIm2D<T> & aIm,tREAL8 aEpsilon=1e-5)
+{
+     cIm2D<tU_INT1>  aRes(aIm.Sz());
+     Make8BByMinMax(aRes.DIm(),aIm,aEpsilon);
+     return aRes;
+}
+
+ /** Tranformat Im in 8Bit Res, using a gaussian modelization : compute avg & ast-dev,
+ *  then use error function to map in [-1,1] -> [0,255]
+ */
+
+ template<class T,int Dim>
+      void Make8BByHistoEq(cDataTypedIm<tU_INT1,Dim> & aRes,const cDataTypedIm<T,Dim> & aIm,int aNbVal=100000,tREAL8 aEpsilon=1e-5)
+ {
+   aRes.AssertSameArea(aIm);
+
+   T aVMin,aVMax;
+   GetBounds(aVMin,aVMax,aIm);
+   tREAL8 aMul = aNbVal / std::max(aEpsilon,tREAL8(aVMax-aVMin));
+
+   cHistoCumul<tREAL8,tREAL8> aHC(aNbVal);
+
+   for (int aK=0 ; aK<aIm.NbElem() ; aK++)
+   {
+       tREAL8 aV = aIm.GetRDL(aK);
+       aV = (aV-aVMin) *  aMul  ;
+       aHC.AddV(round_ni(aV),1.0);
+   }
+   aHC.MakeCumul();
+
+   for (int aK=0 ; aK<aIm.NbElem() ; aK++)
+   {
+       tREAL8 aV = aIm.GetRDL(aK);
+       aV = (aV-aVMin) *  aMul  ;
+       aV = 255.0 * aHC.PropCumul(aV);
+       aRes.GetRDL(aK) = tNumTrait<tU_INT1>::Trunc(aV);
+   }
+ }
+
+template<class T> cIm2D<tU_INT1> Im2Make8BByHistoEq(const cDataIm2D<T> & aIm,int aNbLine=100000,tREAL8 aEpsilon=1e-5)
+{
+   cIm2D<tU_INT1>  aRes(aIm.Sz());
+   Make8BByHistoEq(aRes.DIm(),aIm,aNbLine,aEpsilon);
+   return aRes;
+}
+
+#endif
 
 /*****************************************************/
 /*                                                   */

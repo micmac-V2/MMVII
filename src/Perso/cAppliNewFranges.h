@@ -1,0 +1,313 @@
+﻿#include "MMVII_Image2D.h"
+#include "MMVII_ImageMorphoMath.h"
+#include "MMVII_Sensor.h"
+#include "MMVII_Ptxd.h"
+#include "MMVII_2Include_Serial_Tpl.h"
+#include "MMVII_Tpl_ElemStrToVal.h"
+#include "MMVII_Tpl_Images.h"
+#include "MMVII_Tpl_ElemFilterLocImages.h"
+
+#include "MMVII_Tpl_GraphStruct.h"
+#include "MMVII_Tpl_Graph_SubGraph.h"
+#include "MMVII_Tpl_GraphAlgo_SPCC.h"
+
+
+
+
+namespace MMVII
+{
+
+namespace NS_FrangesDetect
+{
+
+/**  An application for  extaction curves on interference images
+ *   rather very specific...
+ */
+typedef tREAL4            tElIm;
+typedef cIm2D<tElIm >     tIm;
+typedef cDataIm2D<tElIm > tDIm;
+typedef cIm1D<tREAL8>      tIm1D;
+typedef cDataIm1D<tREAL8>  tDIm1D;
+typedef cImGrad<tElIm>    tImGrad;
+
+
+class cConnComp
+{
+   public :
+
+     cConnComp(std::vector<cPt2di> & aVPts,const tSeg2dr & aSeg,cPt2dr aTg1,cPt2dr aTg2,bool isHor,tREAL8 aScore,bool isOk);
+
+        std::vector<cPt2di> mPts;
+        tSeg2dr mSeg;
+        cPt2dr  mTg1;
+        cPt2dr  mTg2;
+        bool    mIsHor;
+        tREAL8  mScore;
+        bool    mIsOk;
+
+};
+
+
+/* *********************************************************** */
+/*                                                             */
+/*          Declaration of Vector-Graph                        */
+/*                                                             */
+/* *********************************************************** */
+
+
+enum class eTypeSom
+{
+     eH1,
+     eH2,
+     eV1,
+     eV2,
+     eBorder
+
+};
+
+eTypeSom TypeSomStd(const bool isHor,const bool isP1);
+
+struct cAVVertex
+{
+  public :
+      cAVVertex(const cPt2di & aPt,const cPt2dr & aTgt,eTypeSom aType);
+
+      cPt2di     mPt;
+      cPt2dr     mTgt;
+      eTypeSom   mType;
+};
+
+struct cAVEdgeSym
+{
+   public :
+      cAVEdgeSym(cConnComp*);
+      cConnComp * mCC;
+};
+
+struct cAVEdgeOriented
+{
+    public :
+       cAVEdgeOriented(const tREAL8 aCost) ;
+       tREAL8 mCost;
+};
+
+typedef cVG_Vertex<cAVVertex,cAVEdgeOriented,cAVEdgeSym> tVertexVFrange;
+typedef cVG_Edge<cAVVertex,cAVEdgeOriented,cAVEdgeSym>  tEdgeVFrange;
+typedef cVG_Graph<cAVVertex,cAVEdgeOriented,cAVEdgeSym> tGraphVFrange;
+
+
+/* =============================================== */
+/*                                                 */
+/*                 cAppliNewFrange                   */
+/*                                                 */
+/* =============================================== */
+
+
+struct cSigmaTensors
+{
+    double mSigmaTeta = 1.0;
+    double mSigmaTensX=20.0;
+    double mSigmaTensY= 5.0;
+    double mSigmaGradX=2.0;
+    double mSigmaGradY=2.0;
+
+
+    ARG2007_STRUCT_FIELDS (
+        mSigmaTeta,FieldSem({{eTA2007::AddCom,"Sigma Teta"},eTA2007::HDV}),
+        mSigmaTensX,FieldSem({{eTA2007::AddCom,"Sigma Tensor-X"},eTA2007::HDV}),
+        mSigmaTensY,FieldSem({{eTA2007::AddCom,"Sigma Tensor-Y"},eTA2007::HDV}),
+        mSigmaGradX,FieldSem({{eTA2007::AddCom,"Sigma Grad-X"},eTA2007::HDV}),
+        mSigmaGradY,FieldSem({{eTA2007::AddCom,"Sigma Grad-Y"},eTA2007::HDV})
+    )
+};
+
+class cAppliNewFrange : public cMMVII_Appli
+{
+     public :
+        cAppliNewFrange(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec);
+     private :
+        //================= typedef part ===============================
+
+
+        typedef cIm2D<tU_INT1 >    tImLabel;
+        typedef cDataIm2D<tU_INT1> tDImLabel;
+
+        //================================================================
+        //       METHODS DECLARATION
+        //================================================================
+
+            //------------------------- overidding cMMVII_Appli ----------------
+        int Exe() override;
+        cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
+        cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
+         std::vector<cOneHelpSampleCmp>  Samples() const override;
+        virtual ~cAppliNewFrange();
+
+     private :
+
+        void  DoOneImage(const std::string & aNameIm);
+
+        /// Generate several visualization
+        void DoVisu();
+        /// Name of visualisation image
+        std::string NameVisu(const std::string & aPref) const;
+
+        template <class TypeIm> void GenVisu(const TypeIm & anIm,const std::string & aPref)
+        {
+            if (MatchRegex(aPref,mPatVisu))
+            {
+                anIm.ToFile(NameVisu(aPref));
+                mNbVisuGen++;
+            }
+            mVNameVisu.push_back(aPref);
+        }
+
+        /** Generete simulation images with "perfect" parabols, not realistic model, but
+         *  to test correctnes of some computation */
+        void MakeImSimul();
+
+        /// Compute the theoretical value of back ground & franges
+        void ComputeRadiomCste();
+
+
+
+        // =================== MaxLoc & Pix -CC  ==================
+
+        /** Compute images of local maxims, this will reduce "drastically" the number of potential point
+         in shortest path approach (and allow more complexe lins with "big" jumps ) */
+        void MakeImageMaxLoc();
+
+        /// is P0 it a maxmima in direction Dp on aNbPixels
+        bool IsMax(cPt2di aP0,cPt2di aDp,int aNb) const;
+
+        /** Compute the connect component of Horiz/Vertical chain
+         !! Horiz  is the direction for compuing max, so the chain with be +- orthog */
+        void ConnecCompMaxLoc(bool isHoriz);
+
+        /// Add heuristically some horizontal CC
+        void ComplemCCHoriz();
+
+
+        /// Compute the connected component and eventually memorize it
+        bool NewCC(bool isHoriz,const cPt2di&);
+
+        /// Follow the chain, on a fix number of points stop if dead end or branch
+        cPt2di BackTrackExtre( cPt2di aP0,const cDataIm2D<tU_INT1> & aImMax) const;
+        cPt2di OneStepBackTrackExtre(const cPt2di & aP0,const cPt2di & aPLast,const cDataIm2D<tU_INT1> & aImMax) const;
+
+        cPt2di NewBackTrackExtre( cPt2di aP0,const std::vector<cPt2di> & aVPts,tREAL8 aDist) const;
+
+        // =================== "High-level" Graph (on max-loc)  ==================
+
+         void GraphCompute();
+         void GraphCreate();
+         void GraphCCHoriz();
+
+
+
+
+        // ===================  Tensor & angle from tensor processing ==================
+
+        /** Make different tensor like computation :
+             compute 2D tensor
+             compute tan of Y=F(X) as tensor accumalation
+             extract the center
+         */
+        void DoTensorProcessing();
+
+        /// Estimate for a given Y, with window aSzY, how it is a good center of anti-symetry
+        tREAL8 QualityCenterAntiSymetry(bool First,int aY,int aSzY,const std::vector<cPt2dr>&,const std::vector<tREAL8>&);
+        /// Compute the centre as "best" anti symetric local point
+        int ComputeCenterByAntiSym(bool First,const std::vector<cPt2dr>&,const std::vector<tREAL8>&);
+
+        /// Integrate one way the tangent image and save it in integrale image
+        void OneWayIntegrateTangent(int aDy,int aYLim);
+
+        ///< compute projection on x using integral
+        void ComputeProjIntegrX();
+
+
+        //=========================================  DATA ========================================
+
+        cPhotogrammetricProject  mPhProj;
+
+        // ----------- Mandatory Args -----------
+        std::string              mPatImage; /// Pattern of all images
+        std::string              mNameIm;
+
+
+
+        cSigmaTensors            mSigTensors;
+
+
+        tREAL8    mZoomRed;     ///< Zoom for initial reduction
+        tREAL8    mDerFactZ1;   ///< Factor of deriche gradient for zoom 1
+        tREAL8    mSigmaTensZ1; ///< Sigma filter on tensor cumulated for zoom 1
+        int       mDoSimul;
+        std::string mPatVisu;        ///< Pattern for selecting visualizations
+        std::vector<std::string> mVNameVisu;  ///< Memorize all visu
+        int         mNbVisuGen; ///< Number of visu generated
+
+
+        bool mHasMask;  ///< Is there a mask
+        cIm2D<tU_INT1> mImMask; ///< Possible mask
+        tIm      mImZ1;
+        tDIm*    mDImZ1;
+
+
+
+        //-------- These values are related to reduced image ----------------
+        tIm      mImRed;       ///< reduced images
+        tDIm*    mDImRed;      ///< data reduced im
+        cPt2di   mSzRed;       ///< sz of reduced ima
+        tIm      mImRedBlur;   ///< im blured
+        tDIm*    mDImRedBlur;  ///< data image blurred
+
+
+        tImGrad mImGrad;
+        tImGrad mImTens;
+
+
+        /*tIm      mImTx;   ///< 2d-image tensor x
+        tDIm*    mDImTx;  ///< 2d-data
+        tIm      mImTy;   ///< 2d-image tensor y
+        tDIm*    mDImTy;   ///< 2d-data */
+
+         cIm2D<tU_INT1> mImMaxHor;           ///<  image of max in horizontal direction
+         cDataIm2D<tU_INT1>* mDImMaxHor;     ///<  data
+         cIm2D<tU_INT1> mImMaxVert;          ///< image of max in vertical direction
+         cDataIm2D<tU_INT1>* mDImMaxVert;    ///<  data
+         cIm2D<tU_INT1> mImMaxLocTD;           ///<  local maxima in tensor direction
+         cDataIm2D<tU_INT1>* mDImMaxLocTD;     ///< data
+
+
+         tIm1D    mImCumNormT;    /// Image of teta as x=F(Y)
+         tDIm1D*  mDImCumNormT;
+         tIm1D    mImTeta;    /// Image of teta as x=F(Y)
+         tDIm1D*  mDImTeta;
+        tIm1D    mImTgt;      /// Image of tangent as x=F(Y)
+        tDIm1D*  mDImTgt;
+        int      mYC;          ///<  estimation of Y center
+        tIm1D    mImIntegr;        ///<  integration of tangent
+        tDIm1D*  mDImIntegr;       ///<  data
+        tIm      mImSmoothTgt;  ///< Image smoothed takin account tgt
+        tDIm *   mDImSmoothTgt;  ///< Data
+        tIm1D    mImProjInt;     ///< cumulated projection
+        tDIm1D*  mDImProjInt;    ///< Data
+        tREAL8   mMinDPI;
+        tREAL8   mMaxDPI;
+
+
+        std::vector<cConnComp*>  mVectCC;
+
+        tREAL8   mRadiomBackGround;  ///< Estimation of radiometry of background
+        tIm1D    mImRadFrange;       ///< Estimation of radiometry of franges, depend of Y
+        tDIm1D*  mDImRadFrange;      ///< Data of mImRadFrange
+
+
+        tGraphVFrange   mGrVect;
+};
+
+}; // namespace NS_FrangesDetect
+}; //  namespace MMVII
+

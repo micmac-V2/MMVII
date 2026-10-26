@@ -186,7 +186,7 @@ template class cComputeCentroids<std::vector<cPtxd<tREAL16,3> >>;
 #define MACRO_ORTHOG_PAIR(TYPE_PT)\
 template std::pair<TYPE_PT,TYPE_PT>  OrthogonalizePair(const TYPE_PT & aP1,const TYPE_PT & aP2);
 
- MACRO_ORTHOG_PAIR(cPt3dr)
+ //MACRO_ORTHOG_PAIR(cPt3dr)
 
 /* ========================== */
 /*        cSegment            */
@@ -262,6 +262,37 @@ template <class Type,const int Dim> cPtxd<Type,Dim>  cSegmentCompiled<Type,Dim>:
 template <class Type,const int Dim> Type  cSegmentCompiled<Type,Dim>::Dist(const tPt & aPt) const
 {
     return Norm2(aPt-Proj(aPt));
+}
+
+template <class Type,const int Dim> Type  cSegmentCompiled<Type,Dim>::DistSeg(const tPt & aPt) const
+{
+  Type  anAbscissa = Abscissa(aPt);
+
+  if (anAbscissa<0)
+      return Norm2(aPt-this->P1());
+
+  if (anAbscissa>mN2)
+      return  Norm2(aPt-this->P2());
+
+  return Dist(aPt);
+}
+
+bool Cross(const cSegment2DCompiled<tREAL8>& aS1, const cSegment2DCompiled<tREAL8>& aS2)
+{
+      return      (aS1.ToCoordLoc(aS2.P1()).y()>0 )
+              !=  (aS1.ToCoordLoc(aS2.P2()).y()>0 );
+}
+
+tREAL8  DistSegSeg(const cSegment2DCompiled<tREAL8>& aS1, const cSegment2DCompiled<tREAL8>& aS2)
+{
+    if (Cross(aS1,aS2) && (Cross(aS2,aS1)))
+        return 0.0;
+
+    return std::min
+            (
+                  std::min(  aS1.DistSeg(aS2.P1())  ,  aS1.DistSeg(aS2.P2())  )  ,
+                  std::min(  aS2.DistSeg(aS1.P1())  ,  aS2.DistSeg(aS1.P2())  )
+            );
 }
 
 
@@ -782,6 +813,31 @@ template <class Type> std::ostream & operator << (std::ostream & OS,const cPtxd<
 
 static std::string MesNegSz="Negative size in rect object";
 
+
+
+template <const int Dim> std::vector<cPtxd<tREAL8,Dim>>  RegularGrid(cPtxd<int,Dim> aSz,int aNbPts)
+{
+    tREAL8 aElemVol = MulCoord(ToR(aSz))/aNbPts;    // elementary volume of each elem box
+    tREAL8 aStep = pow(aElemVol,1/tREAL8(Dim));
+    cPtxd<int,Dim> aPNb =  Pt_round_up(ToR(aSz)/aStep);  // How many shoudl be required for each dim
+
+    std::vector<cPtxd<tREAL8,Dim>> aRes;
+
+    cTplBox<int,Dim> aBox(cPtxd<int,Dim>::PCste(0),aPNb)   ;
+    cPixBox<Dim>   aRect( aBox );
+
+
+    for (const auto aPix : aRect )
+    {
+        cPtxd<tREAL8,Dim>  aP01 = DivCByC(ToR(aPix)+cPtxd<tREAL8,Dim>::PCste(0.5),ToR(aPNb));
+        cPtxd<tREAL8,Dim> aPGrid = MulCByC(aP01,ToR(aSz));
+        aRes.push_back(aPGrid);
+    }
+
+    return aRes;
+}
+
+
 /* ========================== */
 /*          cPixBox           */
 /* ========================== */
@@ -982,6 +1038,7 @@ template <class Type,const int Dim>
     for (int aK=0 ; aK<Dim ; aK++)
     {
        mSz[aK] = mP1[aK] - mP0[aK];
+ //StdOut() << "KKKKKkk " << aK << " Sz="<<     mSz[aK] << " P0=" << mP0[aK]  << " P1=" << mP1[aK]  << "\n";
        if (AllowEmpty)
        {
           // make coherent but empty
@@ -1530,7 +1587,14 @@ template  TYPE DistDirLine(const cPtxd<TYPE,DIM> &,const cPtxd<TYPE,DIM> &,const
 template  cPtxd<TYPE,DIM>  VUnit(const cPtxd<TYPE,DIM> & aP);\
 template  cPtxd<TYPE,DIM>  cPtxd<TYPE,DIM>::FromPtInt(const cPtxd<int,DIM> & aPInt);\
 template  cPtxd<TYPE,DIM>  cPtxd<TYPE,DIM>::FromPtR(const cPtxd<tREAL8,DIM> & aPInt);\
-template  cPtxd<TYPE,DIM>  cPtxd<TYPE,DIM>::OrientInSameDir(const cPtxd<TYPE,DIM> & aPInt)const;
+template  cPtxd<TYPE,DIM>  cPtxd<TYPE,DIM>::OrientInSameDir(const cPtxd<TYPE,DIM> & aPInt)const;\
+template std::pair<cPtxd<TYPE,DIM>,cPtxd<TYPE,DIM>>  OrthogonalizePair(const cPtxd<TYPE,DIM> & aP1,const cPtxd<TYPE,DIM> & aP2);
+
+
+//template tREAL8  DistSegSeg(const cSegmentCompiled<tREAL8,2>& aS1, const cSegmentCompiled<tREAL8,2>& aS2);
+
+
+//MACRO_ORTHOG_PAIR(cPtxd<TYPE,DIM>)
 
 
 // AbsLineAngleTrnk
@@ -1572,7 +1636,9 @@ template class cTplBoxOfPts<tREAL8,DIM>;\
 template class cTplBoxOfPts<tREAL16,DIM>;\
 template class cPixBox<DIM>;\
 template  int NbPixVign(const cPtxd<int,DIM> & aVign);\
-template <> const cPixBox<DIM> cPixBox<DIM>::TheEmptyBox(cPtxd<int,DIM>::PCste(0),cPtxd<int,DIM>::PCste(0),true);
+template <> const cPixBox<DIM> cPixBox<DIM>::TheEmptyBox(cPtxd<int,DIM>::PCste(0),cPtxd<int,DIM>::PCste(0),true);\
+template  std::vector<cPtxd<tREAL8,DIM>>  RegularGrid(cPtxd<int,DIM> aSz,int aNbPts);
+
 
 template void MakeBoxNonEmptyWithMargin(cPtxd<tREAL8,2>&,cPtxd<tREAL8,2>&,tREAL8,tREAL8,tREAL8);
 

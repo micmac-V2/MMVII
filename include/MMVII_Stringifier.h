@@ -3,6 +3,7 @@
 
 #include "MMVII_memory.h"
 #include "MMVII_Ptxd.h"
+#include "MMVII_AllClassDeclare.h"
 #include <sstream>
 #include <functional>
 
@@ -52,6 +53,8 @@ template <class Type, class Enable = void> class  cStrIO
 /// Facilities when the type is well defined
 template <class Type> std::string ToStr(const Type & aV) {return cStrIO<Type>::ToStr(aV);}
 std::string ToStr(int aVal,int aSzMin);
+std::string ToStrIntFixNbDigit(const std::string & aName,int aNbDigit);
+
 bool IsStrInt(const std::string & aStr);
 
 
@@ -80,6 +83,11 @@ template <>  std::string cStrIO<std::string>::ToStr(const std::string & anI);
 template <>  std::string cStrIO<std::string>::FromStr(const std::string & aStr, bool ExceptionOnError);
 template <>  std::string cStrIO<char>::ToStr(const char & anI);
 template <>  char cStrIO<char>::FromStr(const std::string & aStr, bool ExceptionOnError);
+
+template <>  t2S cStrIO<t2S>::FromStr(const std::string & aStr, bool ExceptionOnError);
+template <>  std::map<std::string,std::string> cStrIO<std::map<std::string,std::string>>::FromStr(const std::string & aStr, bool ExceptionOnError);
+
+
 
 // is it a valid string-int, may be templatized , but not sure very curent use ..
 bool  StringIsIntOk(const std::string & aStr);
@@ -303,6 +311,10 @@ class  cSpecOneArg2007 : public cMemCheck
         void SetHeadSep(const cHeaderSectionArg &); ///< Fix the heade (check done once)
         bool HasHeadSep() const; ///< Is  there a separator
         const cHeaderSectionArg&  GetHeadSep() const; ///< Accessor to separato (check was set)
+
+        /// +- to value, but value do not work with vector create by CanRepeat
+        virtual std::string NameVal() const  =0;
+
      private :
         ///  This action defined in heriting-template class initialize "real" the value from its string value
          virtual void V_InitParam(const std::string & aStr, bool aFirstInit) = 0;
@@ -336,8 +348,12 @@ class cCollecSpecArg2007
       cCollecSpecArg2007 & operator << (tPtrArg2007 aVal);
       // cCollecSpecArg2007 & operator << (const std::string & aComment);
       cCollecSpecArg2007 & operator << (const cHeaderSectionArg& aComment);
+
+      cCollecSpecArg2007 & operator << (cCollecSpecArg2007&);
       /// Check that no waiting header remains
       void CheckNoWaitingHeadSA() const;
+       const      tVecArg2007 & Vec() const;
+
    private :
       tVecArg2007 & Vec();
       cCollecSpecArg2007(const cCollecSpecArg2007&) = delete;

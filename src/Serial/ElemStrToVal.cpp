@@ -30,6 +30,13 @@ template<> cE2Str<eOpAff>::tMapE2Str cE2Str<eOpAff>::mE2S
            };
 
 
+template<> cE2Str<eModeImaDepth>::tMapE2Str cE2Str<eModeImaDepth>::mE2S
+           {
+               {eModeImaDepth::eZGround,"ZGround"},
+               {eModeImaDepth::ePlaneSweep,"PlaneSweep"},
+               {eModeImaDepth::eSphere,"Sphere"}
+           };
+
 template<> cE2Str<eProjPC>::tMapE2Str cE2Str<eProjPC>::mE2S
            {
                {eProjPC::eStenope,"Stenope"},
@@ -39,7 +46,6 @@ template<> cE2Str<eProjPC>::tMapE2Str cE2Str<eProjPC>::mE2S
                {eProjPC::eOrthoGraphik,"OrthoGraphik"},
                {eProjPC::eEquiRect,"EquiRect"}
            };
-
 
 template<> cE2Str<eSysCo>::tMapE2Str cE2Str<eSysCo>::mE2S
            {
@@ -92,7 +98,7 @@ template<> cE2Str<eTA2007>::tMapE2Str cE2Str<eTA2007>::mE2S
                 {eTA2007::DirProject,"DP"},
                 {eTA2007::FileDirProj,"FDP"},
                 {eTA2007::FileImage,"Im"},
-                {eTA2007::FileTSL,"TSL"},
+                {eTA2007::FileTLS,"TLS"},
                 {eTA2007::FileCloud,"Cloud"},
                 {eTA2007::FileDmp,"Dmp"},
                 {eTA2007::File3DRegion,"3DReg"},
@@ -602,6 +608,8 @@ void BenchEnum(cParamExeBench & aParam)
 {
     if (! aParam.NewBench("Enum")) return;
 
+    TplBenchEnum<eModeImaDepth>();
+
     TplBenchEnum<eProjPC>();
     TplBenchEnum<eSysCo>();
     TplBenchEnum<eTopoObsSetType>();
@@ -859,6 +867,13 @@ cCollecSpecArg2007 & cCollecSpecArg2007::operator << (tPtrArg2007 aVal)
     return *this;
 }
 
+cCollecSpecArg2007 & cCollecSpecArg2007::operator << (cCollecSpecArg2007& aCSA)
+{
+   MMVII_INTERNAL_ASSERT_always(this==&aCSA," cCollecSpecArg2007::operator << (cCollecSpecArg2007&)");
+    return *this;
+}
+
+
 /*
 cCollecSpecArg2007 & cCollecSpecArg2007::operator << (const std::string & aComment)
 {
@@ -886,11 +901,8 @@ void cCollecSpecArg2007::clear()
    mV.clear();
 }
 
-tVecArg2007 & cCollecSpecArg2007::Vec()
-{
-   return mV;
-}
-
+tVecArg2007 & cCollecSpecArg2007::Vec(){   return mV;}
+const tVecArg2007 & cCollecSpecArg2007::Vec() const {   return mV;}
 
 
 MACRO_INSTANTIATE_ARG2007(char)
@@ -1046,6 +1058,12 @@ std::string ToStr(int aVal, int aSzMin) {
         aRes = "-" + aRes;
     return aRes;
 }
+
+std::string ToStrIntFixNbDigit(const std::string & aName,int aNbDigit)
+{
+   return   ToStr(cStrIO<int>::FromStr(aName),aNbDigit);
+}
+
 
 /*
 std::string  ToS_NbDigit(int aNb,int aNbDig,bool AcceptOverFlow)
@@ -1272,6 +1290,66 @@ std::vector<std::string> Str2VStr(const std::string & aS)
    return cStrIO<std::vector<std::string>>::FromStr(aS);
 }
 
+
+/*
+template <>  std::string cStrIO<std::pair<std::string,std::string>>::ToStr(const std::pair<std::string,std::string>  & aV)
+{
+    std::string aS1 =  cStrIO<std::string>::ToStr(aV.first);
+    std::string aS2 =  ToStr(aV.second);
+    std::string aS12  = aS1+aS2;
+    return  aS12;
+}*/
+
+
+
+//template <>  t2S cStrIO<t2S>::FromStr(const std::string & aStr, bool ExceptionOnError);
+#define MACRO_INSTANTITATE_STRIO_PAIR_TYPE(TYPE1,TYPE2)\
+template <>  std::string cStrIO<std::pair<TYPE1,TYPE2>>::ToStr(const std::pair<TYPE1,TYPE2>  & aV)\
+{\
+    std::string aS1 =  cStrIO<TYPE1>::ToStr(aV.first);\
+    std::string aS2 =  cStrIO<TYPE2>::ToStr(aV.second);\
+    std::string aS12  = aS1+aS2;\
+    return  "["+ aS1+ "," +aS2+"]";\
+}\
+template <>  std::pair<TYPE1,TYPE2> cStrIO<std::pair<TYPE1,TYPE2>>::FromStr(const std::string & aStr, bool ExceptionOnError)\
+{\
+    std::vector<std::string> aV2S = cStrIO<std::vector<std::string>>::FromStr(aStr,ExceptionOnError);\
+    if (aV2S.size()!=2)\
+        ExceptionOrError(ExceptionOnError,eTyUEr::eUnClassedError,"Bad size for pair, got :"+ cStrIO<int>::ToStr(aV2S.size()));\
+    TYPE1 aV1 = cStrIO<TYPE1>::FromStr(aV2S.at(0),ExceptionOnError);\
+    TYPE2 aV2 = cStrIO<TYPE2>::FromStr(aV2S.at(1),ExceptionOnError);\
+    return std::pair<TYPE1,TYPE2>(aV1,aV2);\
+}\
+template <>  std::string cStrIO<std::pair<TYPE1,TYPE2>>::msNameType() \
+{ return  std::string("std::pair<") + cStrIO<TYPE1>::msNameType() + "," + cStrIO<TYPE2>::msNameType()+">" ;}
+
+
+
+MACRO_INSTANTITATE_STRIO_PAIR_TYPE(std::string,std::string)
+MACRO_INSTANTITATE_STRIO_PAIR_TYPE(std::string,tREAL8)
+
+
+#define MACRO_INSTANTITATE_STRIO_MAP_TYPE(TYPE1,TYPE2)\
+template <>  std::string cStrIO<std::map<TYPE1,TYPE2>>::ToStr(const std::map<TYPE1,TYPE2>  & aMap)\
+{\
+    std::vector<std::pair<TYPE1,TYPE2>> aVec(aMap.begin(),aMap.end());\
+    return  Vect2Str(aVec);\
+}\
+template <>  std::map<TYPE1,TYPE2> cStrIO<std::map<TYPE1,TYPE2>>::FromStr(const std::string & aStr, bool ExceptionOnError)\
+{\
+   std::map<TYPE1,TYPE2>  aRes;\
+   std::vector<std::string> aVStr = cStrIO<std::vector<std::string>>::FromStr(aStr,ExceptionOnError);\
+   for (const auto aStr : aVStr)\
+       aRes.insert( cStrIO<std::pair<TYPE1,TYPE2>>::FromStr(aStr));\
+    return aRes;\
+}\
+template <>  std::string cStrIO<std::map<TYPE1,TYPE2>>::msNameType() \
+{ return  std::string("std::map<") + cStrIO<TYPE1>::msNameType() + "," + cStrIO<TYPE2>::msNameType()+">" ;}
+
+
+MACRO_INSTANTITATE_STRIO_MAP_TYPE(std::string,std::string)
+MACRO_INSTANTITATE_STRIO_MAP_TYPE(std::string,tREAL8)
+
 /* ==================================== */
 /*                                      */
 /*         StructuredArg                */
@@ -1455,6 +1533,8 @@ void BenchStrIO(cParamExeBench & aParam)
 /*    eOpAff,                           */
 /*                                      */
 /* ==================================== */
+
+MACRO_INSTANTIATE_STRIO_ENUM(eModeImaDepth,"ModeImaDepth")
 
 MACRO_INSTANTIATE_STRIO_ENUM(eApF,"ApF")
 MACRO_INSTANTIATE_STRIO_ENUM(eApDT,"ApDT")

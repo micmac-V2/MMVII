@@ -517,6 +517,9 @@ template <class Type> class cDenseMatrix : public cUnOptDenseMatrix<Type>
 
         double Unitarity() const; ///< test the fact that M is unatiry, basic : distance of Id to tM M
         cResulSymEigenValue<Type> SymEigenValue() const;
+        //  Condition of a symetric matrix, uses SymEigenValue
+         Type  SymCond(Type aDef) const;
+
         /**  cannot waranty that, when matrix is direct, both orthog matrix are direct because order
          *   of eigen value is fixed, but at least if PremMatDirect is true, the first one will be */
 
@@ -579,6 +582,7 @@ template <class Type> class cDenseMatrix : public cUnOptDenseMatrix<Type>
         void  Weighted_Add_tAA(Type aWeight,const tSpV & aColLine,bool OnlySup=true) override;
 
         // === method implemente with DIm
+        Type L2Norm(bool Avg=false) const;
         Type L2Dist(const cDenseMatrix<Type> & aV,bool Avg=false) const;
         Type SqL2Dist(const cDenseMatrix<Type> & aV,bool Avg=false) const;
         //  void operator -= (const cDenseMatrix<Type> &) ;  => see  "include/MMVII_Tpl_Images.h"

@@ -1009,6 +1009,18 @@ const cMes1Gnd3D & cSetMesGnd3D::GetMeasureOfNamePt(const std::string& aName) co
 {
 }
 
+cPair2D3D::cPair2D3D() :
+    mP2 (cPt2dr::Dummy()),
+    mP3 (cPt3dr::Dummy())
+{
+}
+
+void AddData(const  cAuxAr2007 & anAux, cPair2D3D  &  aPair)
+{
+    AddData(cAuxAr2007("Ground",anAux),aPair.mP3);
+    AddData(cAuxAr2007("Ima",anAux),aPair.mP2);
+}
+
 /**********************************************/
 /*                                            */
 /*           cWeightedPair2D3D                */
@@ -1170,6 +1182,31 @@ void AddData(const cAuxAr2007 & anAux,cTiePMul & aPMul)
 cVecTiePMul::cVecTiePMul(const std::string & anIm) :
    mNameIm (anIm)
 {
+}
+
+void cVecTiePMul::SortId(bool WithWarnIfNotSorted)
+{
+    bool isSorted = true;
+
+    for (size_t aK=1 ; (aK<mVecTPM.size()) && isSorted; aK++)
+    {
+        if (mVecTPM.at(aK-1).mId>=mVecTPM.at(aK).mId)
+            isSorted = false;
+    }
+
+    if (!isSorted)
+    {
+         if (WithWarnIfNotSorted)
+         {
+             MMVII_USER_WARNING("cVecTiePMul indexe not sorted, sort them");
+         }
+         std::sort
+         (
+              mVecTPM.begin(),
+              mVecTPM.end(),
+             [](const auto& aV1,const auto & aV2) {return aV1.mId < aV2.mId;}
+         );
+    }
 }
 
 

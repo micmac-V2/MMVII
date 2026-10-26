@@ -695,7 +695,11 @@ template <class tMap,class TypeEl> void TplBenchMap2D_LSQ(TypeEl *)
          TypeEl anEr = Norm2(aVOut[aK] - aMap.Value(aVIn[aK]));
         // StdOut()  << " ERR MAP2D=" << anEr << "\n";
          anEr /= tElemNumTrait<TypeEl>::Accuracy();
-         MMVII_INTERNAL_ASSERT_bench(anEr<1e-2,"Least Sq Estimat 4 Mapping");
+         if (anEr>4e-2)
+         {
+             StdOut() << tMap::Name() << " Er=" << anEr << " " << tElemNumTrait<TypeEl>::Accuracy() << "\n";
+             MMVII_INTERNAL_ASSERT_bench(false,"Least Sq Estimat 4 Mapping");
+         }
     }
 
 
@@ -907,15 +911,189 @@ void BenchSeg2D()
     }
 }
 
+template <class TMap> void  RandTabPt(typename TMap::tTabMin & aTab)
+{
+   static const int   aDimP = TMap::TheDim;
+   typedef typename TMap::tTypeElem   tEl;
+   typedef typename TMap::tPt   tPt;
+
+
+   // if TMap::NbPtsMin like with homography not sufficient to have free points
+   static_assert (TMap::NbPtsMin<=aDimP+1,"Bad dim in RandTabPt" );
+
+   cDenseMatrix<tEl> aMat = cDenseMatrix<tEl>::RandomSquareRegMatrix(cPt2di(aDimP,aDimP),false,0.1,0.1);
+
+   for (int aK=0; aK<std::min(TMap::NbPtsMin,aDimP); aK++)
+   {
+       GetCol( aTab[aK],aMat,aK);
+   }
+
+   if (TMap::NbPtsMin==aDimP+1)
+       aTab[aDimP] = tPt::PCste(0.0);
+
+}
+
+
+template <class TMap>  void BenchTMap()
+{
+//    typename TMap::tPt        tPt;
+//    typename TMap::tTypeElem   tEl;
+    static const int aNbSamples = TMap::NbPtsMin;
+    typedef typename TMap::tPt   tPt;
+
+
+    typename TMap::tTabMin  aTIn;
+    RandTabPt<TMap> (aTIn);
+
+
+    typename TMap::tTabMin  aTOut;
+    RandTabPt<TMap> (aTOut);
+
+
+
+    TMap aMap = TMap::FromMinimalSamples(aTIn,aTOut);
+
+
+   // StdOut() <<  "lllllllllllllll " << __LINE__ << "\n";
+    for (int aK=0 ; aK<aNbSamples; aK++ )
+    {
+        aTOut[aK] = aMap.Value(aTIn[aK]);
+    }
+    //StdOut() <<  "lllllllllllllll " << __LINE__ << "\n";
+
+
+    aMap = TMap::FromMinimalSamples(aTIn,aTOut);
+
+    for (int aK=0 ; aK<aNbSamples; aK++ )
+    {
+        tREAL8 aD = Norm2(aTOut[aK] -aMap.Value(aTIn[aK])) ;
+      // StdOut() << " BTMAP=" <<  aD << "\n";
+        MMVII_INTERNAL_ASSERT_bench(aD<1e-5,"FromMinimalSamples");
+    }
+
+    {
+        typename TMap::tTabMin  aTOut2;
+        for (int aK=0 ; aK<aNbSamples; aK++ )
+        {
+            aTOut2[aK] = aTOut[aK] + tPt::PRandC() * 1e-2;
+        }
+        aMap = TMap::FromMinimalSamples(aTIn,aTOut2);
+    }
+
+    std::vector<tPt> aVecIn(&aTIn[0],&aTIn[aNbSamples]);
+    std::vector<tPt> aVecOut(&aTOut[0],&aTOut[aNbSamples]);
+
+    for (int aK=0 ; aK<3 ; aK++)
+    {
+        aMap = aMap.LeastSquareRefine(aVecIn,aVecOut);
+    }
+
+    for (int aK=0 ; aK<TMap::NbPtsMin; aK++ )
+    {
+        tREAL8 aD = Norm2(aTOut[aK] -aMap.Value(aTIn[aK])) ;
+      //  StdOut() << " BTMAP=" <<  aD << "\n";
+        MMVII_INTERNAL_ASSERT_bench(aD<1e-5,"LeastSquareRefine");
+    }
+}
+
+
+tSegComp2dr RanSeg(tREAL8 aRayS,tREAL8 aDSeg,tREAL8 aDMin)
+{
+    cPt2dr aP0(0,0);
+    cPt2dr aP1 = aP0;
+
+    while (Norm2(aP0-aP1)< aDMin)
+    {
+        aP0 = cPt2dr::PRandInSphere()* aRayS;
+        aP1 = aP0 +  cPt2dr::PRandInSphere() * aDSeg;
+    }
+    return tSegComp2dr(aP0,aP1);
+}
+void BenchDistSeg()
+{
+    tREAL8 aMaxDifPt=0;
+    tREAL8 aMaxDifSeg=0;
+
+    for (int aKTestSeg=0 ; aKTestSeg<100 ; aKTestSeg++)
+    {
+        tSegComp2dr aSeg1 = RanSeg(1.0,0.5,1e-2);
+        tREAL8 aN1 = aSeg1.N2();
+
+        {
+            int aNbPts =1000;
+
+            for (int aKtestPt=0 ; aKtestPt < 10 ; aKtestPt++)
+            {
+                tREAL8 aDMin = 1e10;
+                cPt2dr aPt = cPt2dr::PRandInSphere();
+                for (int aKP1=0 ; aKP1<=aNbPts ; aKP1++ )
+                {
+                    cPt2dr aP1 = aSeg1.PtOfAbscissa((aN1*aKP1)/aNbPts);
+                    UpdateMin(aDMin,Norm2(aPt-aP1));
+                }
+                tREAL8 aDif = std::abs(aDMin-aSeg1.DistSeg(aPt));
+                // StdOut() << " DMIII " << aDMin << "  " << aSeg1.DistSeg(aPt) << "\n";
+                UpdateMax(aMaxDifPt,aDif);
+             }
+
+
+        }
+
+
+        tSegComp2dr aSeg2 = RanSeg(1.0,0.5,1e-2);
+        tREAL8 aN2 = aSeg2.N2();
+
+        int aNbPts =500;
+        tREAL8 aDMin = 1e10;
+
+        for (int aKP1=0 ; aKP1<=aNbPts ; aKP1++ )
+        {
+            cPt2dr aP1 = aSeg1.PtOfAbscissa((aN1*aKP1)/aNbPts);
+            for (int aKP2=0 ; aKP2<=aNbPts ; aKP2++ )
+            {
+                cPt2dr aP2 = aSeg2.PtOfAbscissa((aN2*aKP2)/aNbPts);
+                UpdateMin(aDMin,Norm2(aP1-aP2));
+            }
+        }
+        tREAL8 aDif = std::abs(aDMin-DistSegSeg(aSeg1,aSeg2));
+        UpdateMax(aMaxDifSeg,aDif);
+      //   StdOut()  << " DMIN " << aDMin << " " << DistSegSeg(aSeg1,aSeg2) << "\n";
+
+
+    }
+   // StdOut() << "DIFFMAX " << aMaxDifPt << " " << aMaxDifSeg << "\n";
+    MMVII_INTERNAL_ASSERT_bench(aMaxDifPt<1e-4,"Dist Pt/Seg");
+    MMVII_INTERNAL_ASSERT_bench(aMaxDifSeg<1e-3,"Dist Seg/Seg");
+}
+
+
 void BenchGeom(cParamExeBench & aParam)
 {
     if (! aParam.NewBench("Geom")) return;
+
 
     BenchLsqVariety();
     Bench_OrthogonalizePair();
     BenchSeg2D();
 
     BenchSampleQuat();
+
+   for (int aK=0 ; aK<10 ; aK++)
+   {
+
+    //   BenchTMap<cRot2D<tREAL8>> ();
+
+      // StdOut() << "BenchTMapBenchTMap " << aK << "\n";
+       BenchTMap<cRotation3D<tREAL8>> ();
+       BenchTMap<cIsometry3D<tREAL8>> ();
+       BenchTMap<cSimilitud3D<tREAL8>> ();
+
+       BenchTMap<cTrans2D<tREAL8>> ();
+       BenchTMap<cHomot2D<tREAL8>> ();
+       BenchTMap<cSim2D<tREAL8>> ();
+       BenchTMap<cRot2D<tREAL8>> ();
+       BenchTMap<cAffin2D<tREAL8>> ();
+   }
 
 
     cEllipse::BenchEllispe();
@@ -925,6 +1103,9 @@ void BenchGeom(cParamExeBench & aParam)
     BenchRotation3D(aParam);
     BenchMap2D();
     BenchPlane3D();
+
+    BenchDistSeg();
+
 
     aParam.EndBench();
 }

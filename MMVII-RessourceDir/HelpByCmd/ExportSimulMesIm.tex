@@ -1,0 +1,117 @@
+\documentclass[a4paper]{article}
+\usepackage{MMVII}
+
+\newcommand{\TheCmd}{ExportSimulMesIm}
+
+\begin{document}
+
+\CmdTitle
+%\maketitle
+
+\tableofcontents
+
+%=============================================================================
+
+\SecDescr
+
+This command generates \emph{artificial} correspondences between ground points
+and image points for a given set of sensors. It can be used mainly in programs
+external to \MMVII for different purposes:
+
+\begin{itemize}
+  \item check in a program that an implemented sensor is consistent with a
+        given \MMVII sensor;
+  \item create a sensor identical to an \MMVII one, using some reverse
+        engineering approach;
+  \item transform a sensor format, using some bundle adjustment techniques.
+\end{itemize}
+
+%=============================================================================
+
+\section{Generated result}
+
+%  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+
+\subsection{Files and localisation}
+
+A file is generated for each image. This file is located in the folder :
+
+\begin{itemize}
+ \item \FileSty{MMVII-PhgrProj/SIMUL/ExportSimulMesIm/}. 
+\end{itemize}
+
+
+It can be generated in any
+serialization format supported by \MMVII (\FileSty{xml, json, csv \dots}).
+If not specified, it uses the format associated with the profile, but this can
+be changed using the \texttt{TypeS} parameter.
+
+%  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+
+\subsection{Data generated}
+
+The level of detail depends on the type of sensor. In the general case, it
+gives only the ground points and their image projections%
+\footnote{Bundles may be added later.}.
+In the case of central perspective, it gives all the intermediate computations:
+
+\begin{itemize}
+  \item \textbf{Ground:} ground point $P_g$ in world coordinates;
+  \item \textbf{Cam:} ground point $P_c$ in camera coordinates,
+        $P_c = R^t (P_g - C)$;
+  \item \textbf{Proj:} projection of $P_c$, which is the result of a mapping
+        $\pi : \mathbb{R}^3 \to \mathbb{R}^2$. For a pinhole camera, the
+        formula is $\pi(x,y,z) = \frac{(x,y)}{z}$; for a fisheye, there are
+        several variants to avoid infinite coordinates;
+  \item \textbf{Dist:} application of the distortion;
+  \item \textbf{Im:} use of the focal length and the principal point to get
+        pixel coordinates.
+\end{itemize}
+
+%  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+
+\subsection{Generated points}
+
+The $3$D points used for creating the correspondences are $100\%$ artificial.
+They are generated using the following algorithm:
+
+\begin{itemize}
+  \item we generate points $p_{i,j}$ on an $N \times N$ regular grid on the
+        sensor;
+  \item for each point $p_{i,j}$, we generate $Q$ $3$D points at different
+        depths on the bundle issued from $p_{i,j}$.
+\end{itemize}
+
+%=============================================================================
+
+\section{Mandatory and optional parameters}
+
+%  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+
+\subsection{Mandatory parameters}
+
+The two mandatory parameters are:
+
+\begin{itemize}
+  \item the set of images to which it applies;
+  \item the localisation of the orientations; each image must have an
+        orientation, which can be of any type (central perspective,
+        pushbroom \dots); the result may vary with the type.
+\end{itemize}
+
+%  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+
+\subsection{Optional parameters}
+
+The optional parameters are:
+
+\begin{itemize}
+  \item \textbf{NbPlani, NbDepth}: fix the number of points on the grid and
+        the number of depths;
+  \item \textbf{TypeS}: fixes the export format (\FileSty{xml, json \dots});
+  \item \textbf{OnlyGrIm}: if true, for central perspective, export only
+        ground points and images.
+  % \item \textbf{EpsilonCheck}: tolerance when we check the image projection;
+\end{itemize}
+
+\end{document}

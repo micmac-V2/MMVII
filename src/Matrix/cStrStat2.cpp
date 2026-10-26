@@ -77,7 +77,8 @@ template <class Type> Type  cResulSymEigenValue<Type>::Cond(Type aDef) const
    {
           aIMM.Add(aK,std::abs(mEigenValues(aK)));
    }
-   if (aIMM.Max().ValExtre() == Type(0.0))
+   // Chg MPD, because after JMM change (more canonical definition of cond) the denominator change ..
+   if (aIMM.Min().ValExtre() == Type(0.0))
    {
        MMVII_INTERNAL_ASSERT_strong(aDef>=0,"Conditioning of null eigen value without default");
        return aDef;

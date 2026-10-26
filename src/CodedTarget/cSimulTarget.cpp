@@ -150,9 +150,11 @@ class cAppliSimulCodeTarget : public cMMVII_Appli
         std::string mNameSpecif;   ///< Name of specification file
 
         // =========== Optionnal args ============
-        cResSimul           mRS;        /// List of result
-        double              mSzKernel;  /// Sz of interpolation kernel
-        std::string         mPatternNames;
+        bool                mShow;          ///< do we print msg
+        cResSimul           mRS;            ///< List of result
+        double              mSzKernel;      ///< Sz of interpolation kernel
+        std::string         mPatternNames;  ///< Pattern for selection of names
+        int                 mNbSelRand;     ///< Number of randomly selected targets
 
                 //  --
         int                 mDownScale;       ///< initial downscale of target
@@ -182,8 +184,10 @@ class cAppliSimulCodeTarget : public cMMVII_Appli
 cAppliSimulCodeTarget::cAppliSimulCodeTarget(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
    cMMVII_Appli     (aVArgs,aSpec),
    mPhProj          (*this),
+   mShow            (true),
    mSzKernel        (2.0),
    mPatternNames    (".*"),
+   mNbSelRand       (-1),
    mDownScale       (3.0),
    mAttenContrast   (0.,0.2),
    mAttenMul        (0.0,0.4),
@@ -200,7 +204,11 @@ cCollecSpecArg2007 & cAppliSimulCodeTarget::ArgObl(cCollecSpecArg2007 & anArgObl
 {
    return  anArgObl
              <<   Arg2007(mNameIm,"Pattern of files",{{eTA2007::MPatFile,"0"},eTA2007::FileImage})
-             <<   Arg2007(mNameSpecif,"Name of target file specification",{{eTA2007::XmlOfTopTag,cFullSpecifTarget::TheMainTag}})
+
+            // MPD : too strict, cannot use with dmp file ....
+            // <<   Arg2007(mNameSpecif,"Name of target file specification",{{eTA2007::XmlOfTopTag,cFullSpecifTarget::TheMainTag}})
+               <<   Arg2007(mNameSpecif,"Name of target file specification",{{eTA2007::FileAny}})
+
    ;
 }
 
@@ -209,19 +217,30 @@ cCollecSpecArg2007 & cAppliSimulCodeTarget::ArgOpt(cCollecSpecArg2007 & anArgOpt
 {
    return
                 anArgOpt
+
+             << cHeaderSectionArg("Input/Output")
+
              <<   mPhProj.DPGndPt2D().ArgDirOutOptWithDef("Simul")
-             <<   AOpt2007(mRS.mRadiusMinMax,"Radius","Min/Max radius for gen target",{eTA2007::HDV})
-             <<   AOpt2007(mRS.mRatioMinMax,"Ratio","Min/Max ratio between target ellipses axis (<=1)",{eTA2007::HDV})
+             <<   AOpt2007(mSuplPref,"SuplPref","Suplementary prefix for outputs")
              <<   AOpt2007(mPatternNames,"PatNames","Pattern for selection of names",{eTA2007::HDV})
+             <<   AOpt2007(mShow,"Show","Print msgs on console",{eTA2007::HDV})
+             <<   AOpt2007(mNbSelRand,"NbSel","Number of randomy selected pattern")
+
+             << cHeaderSectionArg("General")
+             <<   AOpt2007(mRS.mBorder,"Border","Border w/o target, prop to R Max",{eTA2007::HDV})
              <<   AOpt2007(mSzKernel,"SzK","Sz of Kernel for interpol",{eTA2007::HDV})
              <<   AOpt2007(mDownScale,"DownS","Initial Down scale factor before ressampling",{eTA2007::HDV})
-             <<   AOpt2007(mRS.mBorder,"Border","Border w/o target, prop to R Max",{eTA2007::HDV})
+
+             << cHeaderSectionArg("Geometry")
+             <<   AOpt2007(mRS.mRadiusMinMax,"Radius","Min/Max radius for gen target",{eTA2007::HDV})
+             <<   AOpt2007(mRS.mRatioMinMax,"Ratio","Min/Max ratio between target ellipses axis (<=1)",{eTA2007::HDV})
+             <<   AOpt2007(mAmplHomog,"AmplHomogDef","Amplitude of homographic deformation (recomand <0.1)",{eTA2007::HDV})
+
+             << cHeaderSectionArg("Radiometry")
              <<   AOpt2007(mAmplWhiteNoise,"NoiseAmpl","Amplitude White Noise",{eTA2007::HDV})
              <<   AOpt2007(mPropSysLin,"PropLinBias","Amplitude Linear Bias",{eTA2007::HDV})
-             <<   AOpt2007(mAmplHomog,"AmplHomogDef","Amplitude of homographic deformation (recomand <0.1)",{eTA2007::HDV})
              <<   AOpt2007(mAttenContrast,"ContrastAtten","Attenution of B/W contrast",{eTA2007::HDV})
              <<   AOpt2007(mAttenMul,"MulAtten","Attenution multiplicatives",{eTA2007::HDV})
-             <<   AOpt2007(mSuplPref,"SuplPref","Suplementary prefix for outputs")
 
    ;
 }
@@ -371,12 +390,18 @@ void  cAppliSimulCodeTarget::IncrustTarget(cGeomSimDCT & aGSD)
         }
     }
 
-
-    StdOut() << "NNN= " << aGSD.mEncod.Name() << " C0=" << aC0 <<  aBoxIm.Sz() <<  " " << aGSD.mR2/aGSD.mR1 << std::endl;
+    if (mShow)
+    {
+       StdOut() << "NNN= " << aGSD.mEncod.Name() << " C0=" << aC0 <<  aBoxIm.Sz() <<  " " << aGSD.mR2/aGSD.mR1 << std::endl;
+    }
 }
 
 const std::string ThePrefixSimulTarget = "SimulTarget_";
-const std::string ThePostfixGTSimulTarget = "_GroundTruth.xml";
+std::string NameGTSimulTargetFromIm(const std::string & aNameIm)
+{
+    return "GroundTruth-"+ aNameIm + "." + GlobTaggedNameDefSerial();
+}
+
 
 // make sure that interval.x<interval.y, check if all in [0,1]
 bool orderAndAssertInterval01(cPt2dr & interval, const std::string & aIntervalName)
@@ -433,9 +458,33 @@ int  cAppliSimulCodeTarget::Exe()
 
    mImIn = tIm::FromFile(mNameIm);
 
+
+   // ------ select the encoding that match the pattern --------------------
+   std::vector<cOneEncoding> aVEncSels;
    for (const auto & anEncod : mSpec->Encodings())
    {
         if (MatchRegex(anEncod.Name(),mPatternNames))
+        {
+            aVEncSels.push_back(anEncod);
+        }
+   }
+
+   // -------- possibly restrain the number of target to  mNbSelRand --------
+   if (IsInit(&mNbSelRand))
+   {
+       std::vector<cOneEncoding> aNewVec;
+       cRandKAmongN  aSel(mNbSelRand,aVEncSels.size());
+
+       for (size_t aK=0 ; aK<aVEncSels.size() ; aK++)
+           if (aSel.GetNext())
+               aNewVec.push_back(aVEncSels.at(aK));
+       aVEncSels = aNewVec;
+   }
+
+   //  ------------ finally incrustate the targets in the image -----------------
+   for (const auto & anEncod : aVEncSels)
+   {
+        if (true)
         {
             // We want that random is different for each image, but deterministic for one given image
             cRandGenerator::TheOne()->setSeed(HashValue(mNameIm+"/"+anEncod.Name()+mStrSeedR,true));
@@ -444,8 +493,10 @@ int  cAppliSimulCodeTarget::Exe()
         }
    }
 
-   if (!mRS.mVG.empty())
+   if ((!mRS.mVG.empty()) && mShow)
+   {
        StdOut() <<  "1st target " << mRS.mVG[0].mName << " " << mRS.mVG[0].mC << std::endl;
+   }
 
    for (auto  & aG : mRS.mVG)
    {
@@ -462,7 +513,7 @@ int  cAppliSimulCodeTarget::Exe()
         mPhProj.SaveMeasureIm(aSetM);
    }
 
-   SaveInFile(mRS,mPhProj.DPGndPt2D().FullDirOut() + mPrefixOut + ThePostfixGTSimulTarget);
+   SaveInFile(mRS,mPhProj.DPGndPt2D().FullDirOut() + NameGTSimulTargetFromIm(aNameOut));// mPrefixOut + ThePostfixGTSimulTarget);
    // StdOut() <<  "ooo--OOOOO=" << mPhProj.DPPointsMeasures().FullDirOut() + mPrefixOut + ThePostfixGTSimulTarget << "\n";
 
    mImIn.DIm().ToFile(aNameOut,eTyNums::eTN_U_INT1);

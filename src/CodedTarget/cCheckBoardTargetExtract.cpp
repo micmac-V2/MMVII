@@ -116,7 +116,7 @@ cCollecSpecArg2007 & cAppliCheckBoardTargetExtract::ArgOpt(cCollecSpecArg2007 & 
              <<  AOpt2007(mNbMinPtEllipse,"NbMinPtEl","Number minimal of point for ellipse estimation",{eTA2007::HDV})
              <<  AOpt2007(mTryC,"TryC","Try also circle when ellipse fails",{eTA2007::HDV})
              <<  AOpt2007(mStepHeuristikRefinePos,"HeuristikStepRefinePos","Step Gradient-Refine final position with SinC interpol & over sampling (<0 : no refine)",{eTA2007::HDV,eTA2007::Tuning})
-             <<  AOpt2007(mModeDistance,"ModeDist","With TSL, how to estimate target distance",{eTA2007::HDV})
+             <<  AOpt2007(mModeDistance,"ModeDist","With TLS, how to estimate target distance",{eTA2007::HDV})
 
              <<  AOpt2007(mStepGradRefinePos,"GradStepRefinePos","Step Gradient-Refine final position with SinC interpol & over sampling (<0 : no refine)",{eTA2007::HDV})
              <<  AOpt2007(mScales,"Scales","Diff scales of compute (! 0.5 means bigger)",{eTA2007::HDV})
@@ -306,7 +306,7 @@ void cAppliCheckBoardTargetExtract::GenerateVisuFinal() const
       if ( contains(mStrShow,'J') || contains(mStrShow,'T')  )
       {
          std::string aImFileName = mNameIm;
-         if (cStaticLidar::IsNameTSL(mNameIm))
+         if (cStaticLidar::IsNameTLS(mNameIm))
              aImFileName = cStaticLidar::RasterIntensityPath(mPhProj,mNameIm);
          cRGBImage  aIm = cRGBImage::FromFile(aImFileName);
          aIm.ResetGray();
@@ -574,12 +574,12 @@ void  cAppliCheckBoardTargetExtract::DoExport()
      cSetMesPtOf1Im  aSetM(FileOfPath(mNameIm));
 
      cStaticLidar* aLidar = nullptr;
-     // return to reduced size if TSL
+     // return to reduced size if TLS
      cPt2dr aImFactor(1.,1.);
-     if (cStaticLidar::IsNameTSL(mNameIm))
+     if (cStaticLidar::IsNameTLS(mNameIm))
      {
-         auto aTSLOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mNameIm,true);
-         aLidar = cStaticLidar::FromFile(aTSLOriFile, false);
+         auto aTLSOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mNameIm,true);
+         aLidar = cStaticLidar::FromFile(aTLSOriFile, false);
          aLidar->ReadRasters(mPhProj.DirStaticLidarRasters()); // to read distances
          aImFactor =  RDivCByC(aLidar->PixelDomain().Sz(), mSzIm0);
      }
@@ -649,9 +649,9 @@ void cAppliCheckBoardTargetExtract::DoOneImage()
    // Redirect the reports on folder of result
    SetReportRedir(mIdExportCSV,mPhProj.DPGndPt2D().FullDirOut());
 
-   // if TSL name, use intensity raster
+   // if TLS name, use intensity raster
    std::string aOriginalNameIm = mNameIm;
-   if (cStaticLidar::IsNameTSL(mNameIm))
+   if (cStaticLidar::IsNameTLS(mNameIm))
        mNameIm = cStaticLidar::RasterIntensityPath(mPhProj,mNameIm);
 
     mInterpol = new   cTabulatedDiffInterpolator(cSinCApodInterpolator(5.0,5.0));

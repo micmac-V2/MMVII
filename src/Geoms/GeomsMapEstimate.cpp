@@ -262,6 +262,8 @@ MACRO_DEFINE_MAP_ESTIMATE(cSim2D)
 MACRO_DEFINE_MAP_ESTIMATE(cHomot2D)
 MACRO_DEFINE_MAP_ESTIMATE(cHomogr2D)
 MACRO_DEFINE_MAP_ESTIMATE(cAffin2D)
+MACRO_DEFINE_MAP_ESTIMATE(cRotation3D)
+
 
 
 //=====================================================================================================================

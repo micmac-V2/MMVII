@@ -128,7 +128,10 @@ int cAppli_BlockInstrInitCam::Exe()
         mBlock->CalBlock().SetCams().KthCam(aKC1).SetPose(std::get<tPoseR>(aSg_Pose_Sigm));
     }
 
-    mBlock->CalBlock().ShowDescr(eTyInstr::eCamera);
+    if (mBlock->NbCams()>1)
+    {
+        mBlock->CalBlock().ShowDescr(eTyInstr::eCamera);
+    }
     //const std::map<std::string,cIrb_Desc1Intsr> & DescrIndiv() const;
 
 

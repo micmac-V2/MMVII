@@ -41,9 +41,12 @@ template <class Type> inline cPtxd<Type,3> PSymXY (const cPtxd<Type,3> & aP)
 cPt3dr Cart2Cyl(const cPt3dr & aPtCart);
 cPt3dr Cyl2Cart(const cPt3dr & aPtspher);
 ///  Phi-longitude[0,2PI],Teta-latitude [-PI/2,PI/2] ,Rho  =>  x,y,z
-cPt3dr spher2cart(const cPt3dr & aPtspher);
+
+template <class Type>
+cPtxd<Type,3> spher2cart(const cPtxd<Type,3> & aPtspher);
 /// Invert spher2cart
-cPt3dr cart2spher(const cPt3dr & aPtCart);
+template <class Type>
+cPtxd<Type,3> cart2spher(const cPtxd<Type,3> & aPtCart);
 
 
 
@@ -118,6 +121,8 @@ template <class Type> class cRotation3D
        typedef std::vector<tPt>   tVPts;
        typedef const tVPts&       tCRVPts;
        typedef tPt   tTabMin[NbPtsMin];  // Used for estimate with min number of point=> for ransac
+       typedef std::vector<Type> tVVals;
+       typedef const tVVals *    tCPVVals;
 
        /// Create a "dummy" rotation, initialized with null matrix (to force problem if not init later)
        cRotation3D();
@@ -228,6 +233,31 @@ template <class Type> class cRotation3D
        static cRotation3D<Type>  RotFromYPR(const tPt & aWPK);
        tPt                       ToYPR() const;
 
+
+       // ********************************************************************************************
+       // **********************  MAP ESTIMATION *****************************************************
+       // ********************************************************************************************
+
+       //  --------------------- Function to do the map estimate (Ransac/LeastSq ...) usign ge
+       ///  Estimate using ransac
+       static tTypeMap RansacL1Estimate(tCRVPts aVIn,tCRVPts aVOut,int aNbTest);
+      ///  Refine least square solution
+      tTypeMap LeastSquareRefine(tCRVPts aVIn,tCRVPts aVOut,Type * aRes2=nullptr,tCPVVals=nullptr)const;
+      /// Global estimate Ransac + Weight Least squares
+      static tTypeMap StdGlobEstimate ( tCRVPts aVIn, tCRVPts aVOut, tTypeElem* aRes, tCPVVals   aVW, cParamCtrlOpt aParam);
+
+       /// Estimate from 3 point , interface to "FromTriOut"  for  "RansacL1Estimate"
+       static tTypeMap FromMinimalSamples(const tTabMin&,const tTabMin&);
+      /// Basic   Value(aPIn) - aPOUt
+      tPt DiffInOut(const tPt & aPIn,const tPt & aPOUt) const;
+      /// compute the vector used in least square equation
+      static void ToEqParam(tPt & aRHS,std::vector<cDenseVect<Type>>&,const tPt &In,const tPt & Out);
+      ///  evaluate from a vec [TrX,TrY,ScX,ScY], typycally result of mean square
+      static tTypeMap  FromParam(const cDenseVect<Type> &);
+
+      /// return a rotation such that 2 first vector are computed by  OrthogonalizePair
+      static  tTypeMap RotInPlane(const tTabMin&);
+
     private :
        cDenseMatrix<Type>  mMat;
 };
@@ -329,7 +359,7 @@ template <class Type> class cIsometry3D
       ///  Refine least square solution
       tTypeMap LeastSquareRefine(tCRVPts aVIn,tCRVPts aVOut,Type * aRes2=nullptr,tCPVVals=nullptr)const;
       /// Global estimate Ransac + Weight Least squares
-      tTypeMap StdGlobEstimate ( tCRVPts aVIn, tCRVPts aVOut, tTypeElem* aRes, tCPVVals   aVW, cParamCtrlOpt aParam);
+      static tTypeMap StdGlobEstimate ( tCRVPts aVIn, tCRVPts aVOut, tTypeElem* aRes, tCPVVals   aVW, cParamCtrlOpt aParam);
 
        /// Estimate from 3 point , interface to "FromTriOut"  for  "RansacL1Estimate"
        static tTypeMap FromMinimalSamples(const tTabMin&,const tTabMin&);
@@ -409,7 +439,7 @@ template <class Type> class cSimilitud3D
       ///  Refine least square solution
       tTypeMap LeastSquareRefine(tCRVPts aVIn,tCRVPts aVOut,Type * aRes2=nullptr,tCPVVals=nullptr)const;
       /// Global estimate Ransac + Weight Least squares
-      tTypeMap StdGlobEstimate ( tCRVPts aVIn, tCRVPts aVOut, tTypeElem* aRes, tCPVVals   aVW, cParamCtrlOpt aParam);
+      static tTypeMap StdGlobEstimate ( tCRVPts aVIn, tCRVPts aVOut, tTypeElem* aRes, tCPVVals   aVW, cParamCtrlOpt aParam);
 
        /// Estimate from 3 point , interface to "FromTriOut"  for  "RansacL1Estimate"
        static tTypeMap FromMinimalSamples(const tTabMin&,const tTabMin&);

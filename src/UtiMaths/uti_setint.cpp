@@ -76,7 +76,7 @@ void cSetIntDyn::AddInd(size_t aK)
 /* ======================================================= */
 
 cRandKAmongN::cRandKAmongN(int aK,int aN) :
-   mK (aK),
+   mK (std::max(0,std::min(aK,aN))),
    mN (aN)
 {
 }

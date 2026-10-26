@@ -59,6 +59,15 @@
             </V>
          </Pair>
          <Pair>
+            <K>"Canon EOS R5"</K>
+            <V>
+               <Name>"Canon EOS R5"</Name>
+               <SzPix_micron>4.39 4.39</SzPix_micron>
+               <SzSensor_mm>24 36</SzSensor_mm>
+               <NbPixels>8192 5464</NbPixels>
+            </V>
+         </Pair>
+         <Pair>
             <K>"DC-GX9"</K>
             <V>
                <Name>"DC-GX9"</Name>
@@ -110,6 +119,24 @@
                <SzPix_micron>3.9 3.9</SzPix_micron>
                <SzSensor_mm>23.399999999999999 15.6</SzSensor_mm>
                <NbPixels>6000 4000</NbPixels>
+            </V>
+         </Pair>
+         <Pair>
+            <K>"Sony ILX-LR1"</K>
+            <V>
+               <Name>"Sony ILX-LR1"</Name>
+               <SzPix_micron>3.787 3.787</SzPix_micron>
+               <SzSensor_mm>36 24</SzSensor_mm>
+               <NbPixels>9504 6336</NbPixels>
+            </V>
+         </Pair>
+         <Pair>
+            <K>"Sony ILX-LR1-DS2"</K>
+            <V>
+               <Name>"Sony ILX-LR1-DS2"</Name>
+               <SzPix_micron>7.575 7.575</SzPix_micron>
+               <SzSensor_mm>36 24</SzSensor_mm>
+               <NbPixels>4752 3168</NbPixels>
             </V>
          </Pair>
          <Pair>

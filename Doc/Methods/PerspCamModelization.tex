@@ -957,6 +957,66 @@ Using standard convention, we name $\alpha = k_1  \Delta_x $ and $\beta = k_1  \
 
 %-----------------------------------------------------
 
+\subsection{Standard notation}
+
+It's not that there is no standard in photgrammetric notation, it's rather that there is many ... 
+So be aware that   that in some publications/software $\alpha ,  \beta$ are often noted $p_1 ,  p_2$.
+
+%-----------------------------------------------------
+
+\subsection{More radial parameters}
+
+The limitation to  the first term $k_1 \rho_1^2$  of radial is a bit arbitrary. We can decide
+to use $k_1 \rho_1^2 + k_2 \rho_1^4 \dots + k_N \rho_1^{2N}$ leading to $2N$
+parameters $\alpha_1,\alpha_2 \dots \beta_1 \dots \beta_N$ for decentric
+distorsion .
+
+The formula for polynal function associtaed to  $\alpha_k,\beta_k$ are given by the equation :
+
+
+\begin{equation}
+   \alpha_k \rightarrow \frac{\partial (x,y)(x^2+y^2)^k}{\partial x} \label{Eq:Dec:DerKDx}
+\end{equation}
+
+And idem for $\beta_k$.
+
+{\tt MMVII} gives access to such parameterization if required. Note that on some 
+camera it appeared to be interesting to use $4$ parameters.
+
+%-----------------------------------------------------
+
+\subsection{Even more radial parameters ?}
+
+Another arbitrary choice in parametrization of decentric distorsion is to limit
+ourselve to firt degree of Taylor expansion. From theoreticall point of view, we could imagine to add terms like :
+
+\begin{equation}
+   \gamma_{i,j,k} = \rightarrow \frac{\partial (x,y)(x^2+y^2)^k}{\partial x^i \partial y^j}
+\end{equation}
+
+Until now we have only consider the $\gamma_{1,0,k}=\alpha_k$  \footnote{i.e. equation \ref{Eq:Dec:DerKDx}} and  $\gamma_{0,1,k} = \beta_k$.
+Why dont consider the term $ \frac{\partial^2 }{\partial x^2} $, $ \frac{\partial^2 }{\partial x \partial y} $,
+ $ \frac{\partial^2 }{\partial y ^2} $ ? 
+
+For $k=1$ , the $3$ term of second order derivative would lead to term of degree $1$. But 
+generally this term are alerady integrated in  the parametric model (see \ref{CalibInt:LinearParam}).
+
+
+So, if we use these terms, this would begin for $k=2$. But we would  first have to select the  first $4$ parameters
+correspond to first derivative for $k=1$.  So the problem  would arrise is :  if we want more than $4$ parameters
+for decentric distorsion, do we select fisrt :
+
+
+\begin{itemize}
+   \item  $\gamma_{1,0,3},\gamma_{0,1,3}$;
+   \item or  $\gamma_{2,0,2}, \gamma_{1,1,2} , \gamma_{0,2,2}$
+\end{itemize}
+
+I see no theoreticall argument for the choice.  From practicall point of view, first option would be almost 
+instantenous to add in {\tt MMVII} while second would require more devlopment in the core system.
+
+%-----------------------------------------------------
+
 \subsection{N block case}
 
 We now analyse the case where have more than $2$ block.  
@@ -992,6 +1052,9 @@ Naming $\alpha =  \alpha_1+\alpha_2 + \dots$ and $\beta$ idem we then have again
 
 So we see that, to the first order, any combination of radial distorsion with slightly different centers,
 can be approximated by a \emph{unique} radial distorsion plus a decentric distorsin parametrized by the two value $\alpha,\beta$.
+
+
+
 
 %-----------------------------------------------------
 %-----------------------------------------------------
@@ -1411,6 +1474,46 @@ In fact the separation between $PP_a$ and $PP_s$ has the following drawback :
 Of course there is way to overcome this kind of of problem : 
 initially fix $PP_a$ and $PP_s$ with some constraints
 
+%-----------------------------------------------------
+%-----------------------------------------------------
+%-----------------------------------------------------
+
+\section{Linear parameter}
+
+\label{CalibInt:LinearParam}
+
+{\it On les ajoute parceque :
+
+\begin{itemize}
+   \item ils peuvent modéliser des pixels non carres voir non recngulaires (skew)
+   \item si on a ajouté des termes de degres élevés, c'est un peu bizare de pas mettre
+         aussi ces termes là de degré $0$ ou $1$.
+\end{itemize}
+
+
+Mais pas vraiment de justification physique rigoureuse à ma connaissance, et (à confirmer)
+il semble pas si utiles que cela sur les tests concrets  ... 
+Si on le fait, sur les 6 paramètres d'une affinité :
+
+\begin{itemize}
+   \item trivialement les termes constants sont déjà modélisés par le point principal,
+          donc reste $4$ terme linéaires ;
+
+   \item une terme linéaire est modélisé par la focale , reste $3$ termes linéaires;
+
+   \item une autre terme lin\'eaire est modélisé les rotation autour de l'axe principal
+         compte tenu de la redondance calibration/rotation pure (voir~\ref{UpToARot}).
+   
+\end{itemize}
+
+Il reste à "bien" choisir les 2 termes restants, plusieurs choix sont possibles, 
+{\tt MMVII} utilise mes deux termes $b_1$ et $b_2$ de \cite{Fraser} :
+
+\begin{equation}
+   \delta_x = b_1 * x + b_2 y    ;  \delta_y = 0
+\end{equation}
+
+}
 
 
 %-----------------------------------------------------

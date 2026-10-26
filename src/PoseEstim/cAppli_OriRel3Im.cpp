@@ -761,7 +761,7 @@ cCollecSpecArg2007 & cAppli_OriRelTripletsOfIm::ArgObl(cCollecSpecArg2007 & anAr
 cCollecSpecArg2007 & cAppli_OriRelTripletsOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
    return       anArgOpt
-           << cHeaderSectionArg("Input for tie points")
+           << cHeaderSectionArg("Input for tie points (at least one must  be provided)")
             <<  mPhProj.DPTieP().ArgDirInOpt()
             <<  mPhProj.DPGndPt2D().ArgDirInOpt()
             <<  mPhProj.DPMulTieP().ArgDirInOpt()

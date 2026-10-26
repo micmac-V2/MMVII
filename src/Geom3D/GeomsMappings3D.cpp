@@ -7,6 +7,15 @@
 namespace MMVII
 {
 
+
+static constexpr int IsomInd_W_x  =  0;
+static constexpr int IsomInd_W_y  =  1;
+static constexpr int IsomInd_W_z  =  2;
+static constexpr int IsomInd_Tr_x =  3;
+static constexpr int IsomInd_Tr_y =  4;
+static constexpr int IsomInd_Tr_z =  5;
+static constexpr int SimInd_Scale  =  6;
+
 /**  Return the index of obj O  that miminise  sum of distance to all other */
 
 
@@ -76,6 +85,8 @@ template <class Type> int  IndexPseudoMediane(const std::vector<Type> & aVObj,in
 /*                                                   */
 /* ************************************************* */
 
+
+
 template <class Type> cRotation3D<Type>::cRotation3D() :
         mMat (3,3,eModeInitImage::eMIA_Null)
 {
@@ -135,6 +146,65 @@ template <class Type> cRotation3D<Type> cRotation3D<Type>::PseudoMediane(const s
       aSz = aVRot.size()+1;
    return aVRot.at(IndexPseudoMediane(aVRot,aSz));
 }
+
+
+template <class Type>  cRotation3D<Type>   cRotation3D<Type>::RotInPlane(const tTabMin& aTab12)
+{
+    auto [aP1,aP2] = OrthogonalizePair(aTab12[0],aTab12[1]);
+    return  cRotation3D<Type>(aP1,aP2,aP1^aP2,false);
+}
+
+
+template <class Type>  cRotation3D<Type> cRotation3D<Type>::FromMinimalSamples(const tTabMin& aTabIn,const tTabMin& aTabOut)
+{
+  return RotInPlane(aTabOut) * RotInPlane(aTabIn).MapInverse();
+}
+
+
+//    static tTypeMap  FromParam(const cDenseVect<Type> &);
+
+template <class Type>  cRotation3D<Type>   cRotation3D<Type>::FromParam(const cDenseVect<Type> & aV)
+{
+       cDenseMatrix<Type>  aMat =    MatProdVect(tPt(aV(IsomInd_W_x),aV(IsomInd_W_y),aV(IsomInd_W_z)))
+                                  +  cDenseMatrix<Type>(3,eModeInitImage::eMIA_MatrixId);
+       return cRotation3D<Type>(aMat,true);
+}
+
+
+template <class Type> void  cRotation3D<Type>::ToEqParam(tPt & aRHS,std::vector<cDenseVect<Type>>& aVV,const tPt &In,const tPt & Out)
+{
+    // ========  O.x = I.x - W.z I.y + W.y I.z  ==============
+    cDenseVect<Type>& aVX = aVV.at(0);
+
+    aVX(IsomInd_W_x) = 0;
+    aVX(IsomInd_W_y) = In.z();
+    aVX(IsomInd_W_z) = -In.y();
+
+    // ========  O.y = I.y + W.z I.x -W.x I.z  ==============
+    cDenseVect<Type>& aVY = aVV.at(1);
+
+    aVY(IsomInd_W_x) = -In.z();
+    aVY(IsomInd_W_y) = 0;
+    aVY(IsomInd_W_z) = In.x();
+
+    // ========  O.z =  + I.z - W.y I.x + W.x I.y  ==============
+    cDenseVect<Type>& aVZ = aVV.at(2);
+
+    aVZ(IsomInd_W_x) = In.y();
+    aVZ(IsomInd_W_y) = -In.x();
+    aVZ(IsomInd_W_z) = 0;
+
+    aRHS = Out-In;
+    }
+
+template <class Type>  cPtxd<Type,3> cRotation3D<Type>::DiffInOut(const tPt & aPIn,const tPt & aPOut) const {return Value(aPIn)-aPOut; }
+
+  //  tPt DiffInOut(const tPt & aPIn,const tPt & aPOUt) const;
+
+
+   // static void (tPt & aRHS,std::vector<cDenseVect<Type>>&,const tPt &In,const tPt & Out);
+    ///  evaluate from a vec [TrX,TrY,ScX,ScY], typycally result of mean square
+
 
 
 template <class Type> cRotation3D<Type> cRotation3D<Type>::RobustAvg
@@ -731,22 +801,19 @@ template <class Type>  cIsometry3D<Type> cIsometry3D<Type>::FromMinimalSamples(c
   return FromTriInAndOut(0,aTriIn,0,aTriOut,true);
 }
 
-static constexpr int IsomInd_Tr_x =  0;
-static constexpr int IsomInd_Tr_y =  1;
-static constexpr int IsomInd_Tr_z =  2;
-static constexpr int IsomInd_W_x  =  3;
-static constexpr int IsomInd_W_y  =  4;
-static constexpr int IsomInd_W_z  =  5;
+
+
+
 
 template <class Type>  cIsometry3D<Type>   cIsometry3D<Type>::FromParam(const cDenseVect<Type> & aV)
 {
-   cDenseMatrix<Type>  aMat =    MatProdVect(tPt(aV(IsomInd_W_x),aV(IsomInd_W_y),aV(IsomInd_W_z)))
-                              +  cDenseMatrix<Type>(3,eModeInitImage::eMIA_MatrixId);
+   /*cDenseMatrix<Type>  aMat =    MatProdVect(tPt(aV(IsomInd_W_x),aV(IsomInd_W_y),aV(IsomInd_W_z)))
+                              +  cDenseMatrix<Type>(3,eModeInitImage::eMIA_MatrixId);*/
 
     return cIsometry3D<Type>
            (
                 tPt(aV(IsomInd_Tr_x),aV(IsomInd_Tr_y),aV(IsomInd_Tr_z)),
-                tRot(aMat, true)
+                cRotation3D<Type>::FromParam(aV)// tRot(aMat, true)
            );
 }
 
@@ -760,6 +827,7 @@ template <class Type>  cIsometry3D<Type>   cIsometry3D<Type>::FromParam(const cD
 
 template <class Type> void  cIsometry3D<Type>::ToEqParam(tPt & aRHS,std::vector<cDenseVect<Type>>& aVV,const tPt &In,const tPt & Out)
 {
+  cRotation3D<Type>::ToEqParam(aRHS,aVV,In,Out);
 
   // ========  O.x = Tr.x + I.x - W.z I.y + W.y I.z  ==============
   cDenseVect<Type>& aVX = aVV.at(0);
@@ -767,9 +835,9 @@ template <class Type> void  cIsometry3D<Type>::ToEqParam(tPt & aRHS,std::vector<
   aVX(IsomInd_Tr_y) = 0;
   aVX(IsomInd_Tr_z) = 0;
 
-  aVX(IsomInd_W_x) = 0;
+ /* aVX(IsomInd_W_x) = 0;
   aVX(IsomInd_W_y) = In.z();
-  aVX(IsomInd_W_z) = -In.y();
+  aVX(IsomInd_W_z) = -In.y();*/
 
   // ========  O.y = Tr.y + I.y + W.z I.x -W.x I.z  ==============
   cDenseVect<Type>& aVY = aVV.at(1);
@@ -777,9 +845,9 @@ template <class Type> void  cIsometry3D<Type>::ToEqParam(tPt & aRHS,std::vector<
   aVY(IsomInd_Tr_y) = 1;
   aVY(IsomInd_Tr_z) = 0;
 
-  aVY(IsomInd_W_x) = -In.z();
+ /* aVY(IsomInd_W_x) = -In.z();
   aVY(IsomInd_W_y) = 0;
-  aVY(IsomInd_W_z) = In.x();
+  aVY(IsomInd_W_z) = In.x();*/
 
   // ========  O.z = Tr.z + I.z - W.y I.x + W.x I.y  ==============
   cDenseVect<Type>& aVZ = aVV.at(2);
@@ -787,14 +855,14 @@ template <class Type> void  cIsometry3D<Type>::ToEqParam(tPt & aRHS,std::vector<
   aVZ(IsomInd_Tr_y) = 0;
   aVZ(IsomInd_Tr_z) = 1;
 
-  aVZ(IsomInd_W_x) = In.y();
+/*  aVZ(IsomInd_W_x) = In.y();
   aVZ(IsomInd_W_y) = -In.x();
-  aVZ(IsomInd_W_z) = 0;
+  aVZ(IsomInd_W_z) = 0;*/
   //     O.x =  I.x    (1   x  y
   //     O.y =  I.y  + (0
   //     O.z =  I.z    (0
 
-  aRHS = Out-In;
+  aRHS = Out-In;  //redundant because done in cRotation3D
 }
 
 
@@ -1054,7 +1122,6 @@ template <class Type>  cPtxd<Type,3> cSimilitud3D<Type>::DiffInOut(const tPt & a
 
 /*    Out = Tr + R * S In = Tr + (Id+W)(1+e) In
 */
-static constexpr int SimInd_Scale  =  IsomInd_W_z+1;
 template <class Type> void  cSimilitud3D<Type>::ToEqParam(tPt & aRHS,std::vector<cDenseVect<Type>>& aVV,const tPt &In,const tPt & Out)
 {
     cIsometry3D<Type>::ToEqParam(aRHS,aVV,In,Out);

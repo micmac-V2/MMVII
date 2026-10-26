@@ -4,6 +4,7 @@
 #include "MMVII_Matrix.h"
 #include "MMVII_Triangles.h"
 #include "MMVII_ImageInfoExtract.h"
+#include "MMVII_Tpl_ElemStrToVal.h"
 
 
 namespace MMVII
@@ -112,6 +113,9 @@ template <class Type> class cSegment2DCompiled : public cSegmentCompiled<Type,2>
     private :
        tPt     mNorm;
 };
+
+tREAL8  DistSegSeg(const cSegment2DCompiled<tREAL8>&, const cSegment2DCompiled<tREAL8> &);
+
 
 /** this class a represent a "closed" segment , it has same data than cSegment2DCompiled,
  * but as a set/geometric primitive, it is limited by extremities
@@ -733,6 +737,9 @@ class cEllipse
        cEllipse(cDenseVect<tREAL8> aDV,const cPt2dr & aC0);
        ///  A more physicall creation
        cEllipse(const cPt2dr & aCenter,tREAL8 aTeta,tREAL8 aLGa,tREAL8 aLSa);
+
+    /// in
+       static cEllipse EllipseNotOk();
        /// Create a circle
        cEllipse (const cPt2dr & aCenter,tREAL8 aRay);
        cEllipse Scale(tREAL8 aScale) const;
@@ -904,6 +911,10 @@ struct cSaveExtrEllipe
 
           cSaveExtrEllipe ();
           static std::string NameFile(const cPhotogrammetricProject & ,const cSetMesPtOf1Im &,bool Input);
+          static const std::string PrefixAttr ;         ///< Used in extraction
+          static const std::string PrefixGroundTruth ;  ///< Used in simulation
+
+
 
           tAff2Dr    mAffIm2Ref;
           cEllipse    mEllipse;
@@ -911,6 +922,8 @@ struct cSaveExtrEllipe
           tREAL4 mBlack;
           tREAL4 mWhite;
 };
+extern std::string NameGTSimulTargetFromIm(const std::string & aNameIm);
+
 void AddData(const  cAuxAr2007 & anAux, cSaveExtrEllipe & aCTE);
 
 
@@ -919,6 +932,23 @@ template <class TypeMap>  void CheckSzInOut(const  typename TypeMap::tVPts& aVIn
    MMVII_INTERNAL_ASSERT_medium(aVIn.size()==aVOut.size(),"Bad sizes in cMapEstimate");
    MMVII_INTERNAL_ASSERT_medium(aVIn.size()>= TypeMap::NbPtsMin,"Not enough obs in cMapEstimate");
 }
+
+
+struct cParamNoise
+{
+    tREAL8 mSigma ;
+    tREAL8 mWeight  ;
+
+
+    ARG2007_STRUCT_FIELDS (
+        mSigma,FieldSem({{eTA2007::AddCom,"Sigma on noise"}}),
+        mWeight, FieldSem({{eTA2007::AddCom,"Weight on noise"}})
+    )
+
+};
+
+void AddImageNoise(cDataIm2D<tREAL8>& aDIm,const std::vector<cParamNoise> & aParamNoise);
+cIm2D<tREAL8> CreateImageNoise(const cPt2di & aSz,tREAL8 anOffset,const std::vector<cParamNoise> & aParamNoise);
 
 };
 

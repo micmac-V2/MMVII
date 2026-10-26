@@ -20,7 +20,7 @@ cAppli_VisuPoseStr3D::cAppli_VisuPoseStr3D(const std::vector<std::string> & aVAr
     mPhProj      (*this),
     mErrProjMax  (10.0),
     mCamScale    (0.1), /// replaced by mEstimmLengthPyrCam
-    mTSLCloudDezoom(0),
+    mTLSCloudDezoom(0),
     mOutfile     ("VisuPose3D_${ori}_${features}.ply"),
     mBinary      (true),
     mWithRGB     (true),
@@ -50,7 +50,7 @@ cCollecSpecArg2007 & cAppli_VisuPoseStr3D::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            << mPhProj.DPGndPt2D().ArgDirInOpt("","Input features (image measurements format)")
            << AOpt2007(mWithRGB,"RGB","Output colored pointcloud",{eTA2007::HDV})
            << AOpt2007(mWithAvgRGB,"AvgRGB","RGB values averaged over all images",{eTA2007::Tuning,eTA2007::HDV})
-           << AOpt2007(mTSLCloudDezoom,"TSLcloudDezoom","Add TSL point clouds with DeZoom (0 for no points)",{eTA2007::HDV})
+           << AOpt2007(mTLSCloudDezoom,"TLScloudDezoom","Add TLS point clouds with DeZoom (0 for no points)",{eTA2007::HDV})
 
            << cHeaderSectionArg("Output control")
            << AOpt2007(mOutfile,"Outfile","Output filename",{eTA2007::HDV})
@@ -189,13 +189,13 @@ int cAppli_VisuPoseStr3D::Exe()
 
     double aCurrHue = 0.;
 
-    if (mTSLCloudDezoom>0)
+    if (mTLSCloudDezoom>0)
         for (auto &aSens : aVSens)
         {
             cStaticLidar* aScan = dynamic_cast<cStaticLidar*>(aSens);
             if (aScan)
             {
-                AddPointCould(aPlyverts, aScan, mTSLCloudDezoom, getNextColor(aCurrHue));
+                AddPointCould(aPlyverts, aScan, mTLSCloudDezoom, getNextColor(aCurrHue));
             }
         }
 

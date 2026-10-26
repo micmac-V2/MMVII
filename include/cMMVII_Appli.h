@@ -25,7 +25,6 @@ class cMMVII_Appli;
 // class cSetName;
 class cColStrAObl;
 class cColStrAOpt;
-typedef std::pair<std::string,std::string> t2S;
 class cAppliBenchAnswer; // With this class, an Appli indicate how it deal with Bench
 
 
@@ -349,7 +348,10 @@ class cParamCallSys
 {
     public :
        cParamCallSys();
-       explicit cParamCallSys(const cSpecMMVII_Appli & aCom2007);
+
+       /// if A2FirsArgs=true : Add MMVII + name of command
+       explicit cParamCallSys(const cSpecMMVII_Appli & aCom2007,bool A2FirsArgs);
+
 
        template<typename ... Targs>
        explicit cParamCallSys(Targs... args)
@@ -358,6 +360,28 @@ class cParamCallSys
        }
 
        void AddArgs(const std::string &);
+       /// Add Arg Opt in MMVII Style, require mSpec exist
+       void AddMMVIIArgsOpt(const std::string & aName,const std::string & aVal);
+
+       /// Add arg for "standard" directory with "standard" name like InOri/OutOri
+       void AddMMVIIArgsOpt(eTA2007,bool IsIn,const std::string & aVal);
+
+       /// Add arg of "standard" directory in or out, if it was initialized
+       void AddMMVIIArgsOptIfInit(const cDirsPhProj&,bool IsIn);
+
+       /// Add arg of tie points that were used
+       void AddMMVIIAllTiepInInit(const cPhotogrammetricProject&);
+
+       /// copy  mandatory & opt args of command
+       void AddArgsOfAppli(const cMMVII_Appli &,const std::vector<std::string> & aVNumOrNames);
+       void AddOneArgOfAppli(const cMMVII_Appli &,const std::string & aName);
+       void AddOneMandArgOfAppli(const cMMVII_Appli &,int aK);
+       void AddMandArgsOfAppli(const cMMVII_Appli &,const std::vector<int>);
+       void AddAllMandArgsOfAppli(const cMMVII_Appli &);
+
+
+
+
        template<typename ... Targs>
        void AddArgs(const std::string &arg, Targs... args)
        {
@@ -366,6 +390,9 @@ class cParamCallSys
        }
 
        int Execute(bool forceExternal) const;
+       /// run execute external, add StdOut=NONE
+       int ExecuteWithoutMsg(bool ShowCom=false) ;
+
        const std::string & Com() const ; ///< Accessor
     private :
        const cSpecMMVII_Appli * mSpec;
@@ -553,7 +580,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         void  ShowAllParams() ;
 
         /// Access to mMapAppliSpecParam
-        std::string AppliSpecValue(const std::string & ) const;
+        std::string AppliDevloperSpecValue(const std::string &,const std::string & aComment="") const;
 
 
         template <typename T> inline T ValWithDef(const T & aVar,const T & aDefVal)
@@ -623,6 +650,8 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         eTypeSerial TaggedDefSerial() const; ///< Accessor
         eTypeSerial VectDefSerial() const; ///< Accessor
 
+        bool ShowUnusedDevKey() const; ///< Accessor
+
         // For now in=out, may be later separate
         const std::string & VectNameDefSerial() const;     ///< Accessor
         const std::string & TaggedNameDefSerial() const;   ///< Accessor
@@ -668,7 +697,15 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         const std::string & NameFileCSVReport(const std::string & anId) const;
 
         /// if "aPatSubst" was initialized, make a pattern replacement with aPatSubst[0] as pattern and aPatSubst[1] as substitution
-        void ChgName(const std::vector<std::string>& aPatSub,std::string & aName) const;
+        bool ChgName(const std::vector<std::string>& aPatSub,std::string & aName) const;
+        bool ChgNameIfMatch(const std::vector<std::string>& aPatSub,std::string & aName,bool DefVal=false) const;
+
+        static const std::string & FullBin();            ///< (Public now) accessor to full pathname of MMVII executable
+        static const std::string & DirTestMMVII();       ///< (Public now) accessor to dir to read/write test bench
+        const cCollecSpecArg2007 &                ArgObl() const;        ///< Mandatory args
+        const cCollecSpecArg2007 &                ArgFac() const;        ///< Optional/Facultative args
+
+
     private:
         void  AddOneReport(const std::string &anId,const std::string & VecMsg);
         void  DoMergeReport();
@@ -701,8 +738,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         void InitProfile();               ///< init the profile of user ....
         std::string GetProfileName();     ///< get the current profile for user
 
-        static const std::string & FullBin();            ///< Protected accessor to full pathname of MMVII executable
-        static const std::string & DirTestMMVII();       ///< Protected accessor to dir to read/write test bench
+
     private :
         // not very clean, but mutable dont seem enough
         cMultipleOfs & NC_StdOut();
@@ -744,7 +780,6 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         static bool                               msWithWarning;  ///<   do we print warnings
         void                                      AssertInitParam() const; ///< Check Init was called
     protected :
-        const cCollecSpecArg2007 &                ArgObl() const;        ///< Mandatory args
         virtual int                               DefSeedRand();  ///< Clas can redefine instead of msDefSeedRand, value <=0 mean init from time:w
         cMemState                                 mMemStateBegin; ///< To check memory management
 
@@ -799,7 +834,9 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         cMultipleOfs                              mStdCerr;     ///< Error Ouput, console and, if any, same file as mStdCout
         std::string                               mParamStdOut; ///< Users value
         int                                       mSeedRand;    ///< Seed for random generator
-        std::map<std::string,std::string>         mMapAppliSpecParam; ///< Mat created from mVecAppliSpecParam
+        std::map<std::string,std::string>         mMapDevlopperSpecParam; ///< Mat created from mVecAppliSpecParam
+        bool                                      mShowUnusedDevKey; ///< Print a key if called by prog and not init by user
+        mutable std::set<std::string>             mUnusedKeyPrinted; ///< Memo Unused key already printed, to print once
      //   std::string                               mAppliSpecParam;
         bool                                      mExtendPattern;  ///<  If false Interpret the pattern as single  , def=true !!
         bool                                      mShowTimePerThread; ///< Global opt : show per-thread breakdown in TimerSegm reports
@@ -889,8 +926,16 @@ const std::string & GlobVectNameDefSerial() ; ///< of current appli
 const std::string & GlobTaggedNameDefSerial() ; ///< of current appli
 std::vector<std::string> GlobProfileNames(); ///< Names of user profiles, sorted
 
-/// Access to AppliSpecValue of cMMVII_Appli::CurrentAppli()
-std::string AppliSpecValue(const std::string & );
+/// Access to AppliDevloperSpecValue of cMMVII_Appli::CurrentAppli(), return NONE if false
+std::string AppliDevloperGetSpecValue(const std::string & ,const std::string & aComment="");
+///  Is there a key for AppliDevloperGetSpecValue
+bool AppliDevloperHasSpecValue(const std::string & );
+/// return conv to boolean , NoKey -> false, Bad Value -> error (not catcthed)
+bool AppliDevloperGetBoolSpecValue(const std::string &,const std::string & aComment="" );
+
+/// return ShowUnusedDevKey of cMMVII_Appli::CurrentAppli()
+bool ShowUnusedDevKey();
+
 
 bool    IsInit(const void *);  ///< Call IsInit on the appli def
 

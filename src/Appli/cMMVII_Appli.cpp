@@ -2,7 +2,7 @@
 #include "MMVII_Sys.h"
 #include "MMVII_DeclareCste.h"
 #include "MMVII_Tpl_ElemStrToVal.h"
-
+#include "MMVII_Sensor.h"
 
 #include <thread>
 #include <mutex>
@@ -71,10 +71,90 @@ cParamCallSys::cParamCallSys() :
 {
 }
 
-cParamCallSys::cParamCallSys(const cSpecMMVII_Appli & aSpec) :
+cParamCallSys::cParamCallSys(const cSpecMMVII_Appli & aSpec,bool A2FirsAgrs) :
    mSpec   (&aSpec)
 {
+    if (A2FirsAgrs)
+    {
+        AddArgs(cMMVII_Appli::FullBin());
+        AddArgs(aSpec.Name());
+    }
 }
+
+
+void cParamCallSys::AddMMVIIArgsOpt(const std::string & aName,const std::string & aVal)
+{
+    // what would be the rationnal to add MMVII-style if not a MMVII command
+    MMVII_INTERNAL_ASSERT_always(mSpec,"No spec in  cParamCallSys::AddMMVIIArgsOpt");
+
+    AddArgs(aName+"="+aVal);
+}
+
+void cParamCallSys::AddMMVIIArgsOpt(eTA2007 aMode,bool isIn,const std::string & aVal)
+{
+    AddMMVIIArgsOpt
+    (
+       // std::string(IsIn ? "In" : "Out") + E2Str(aMode),
+        cDirsPhProj::DefNameArgOpt(aMode,isIn),
+        aVal
+    );
+}
+
+
+void cParamCallSys::AddMMVIIArgsOptIfInit(const cDirsPhProj& aDP,bool isIn)
+{
+    if (aDP.DirIsInit(isIn) )
+    {
+        AddMMVIIArgsOpt(aDP.Mode(),isIn,aDP.DirInOut(isIn));
+    }
+}
+
+void cParamCallSys::AddMMVIIAllTiepInInit(const cPhotogrammetricProject& aPhP)
+{
+    for (const auto & aPtrDP : aPhP.AllDpTieP())
+        AddMMVIIArgsOptIfInit(*aPtrDP,true);
+}
+
+void cParamCallSys::AddOneArgOfAppli(const cMMVII_Appli & anAppli,const std::string & aName)
+{
+    if (aName.size()==1 && isdigit(aName[0]))
+    {
+         const auto & aVal = anAppli.ArgObl()[aName[0]-'0']->NameVal();        ///< Mandatory args
+         AddArgs(aVal);
+    }
+    else
+    {
+         for (const auto & anArg : anAppli.ArgFac().Vec())
+         {
+             if (anArg->NbMatch() && anArg->Name()==aName)
+             {
+                   AddMMVIIArgsOpt(aName,anArg->NameVal());
+             }
+         }
+    }
+}
+void cParamCallSys::AddArgsOfAppli(const cMMVII_Appli &anAppli,const std::vector<std::string> & aVNumOrNames)
+{
+    for (const auto & aName : aVNumOrNames)
+        AddOneArgOfAppli(anAppli,aName);
+}
+
+
+void cParamCallSys::AddOneMandArgOfAppli(const cMMVII_Appli &anAppli,int aK)
+{
+    AddOneArgOfAppli(anAppli,ToStr(aK));
+}
+void cParamCallSys::AddMandArgsOfAppli(const cMMVII_Appli &anAppli,const std::vector<int> aVNum)
+{
+   for (const auto & aNum : aVNum)
+       AddOneMandArgOfAppli(anAppli,aNum);
+}
+void cParamCallSys::AddAllMandArgsOfAppli(const cMMVII_Appli &anAppli)
+{
+     for (size_t aK=0 ; aK< anAppli.ArgObl().size() ; aK++)
+         AddOneMandArgOfAppli(anAppli,aK);
+}
+
 
 int cParamCallSys::Execute(bool forceExternal) const
 {
@@ -89,6 +169,17 @@ int cParamCallSys::Execute(bool forceExternal) const
        return aRes;
    }
 }
+
+int cParamCallSys::ExecuteWithoutMsg(bool ShowCom)
+{
+   AddMMVIIArgsOpt("StdOut","NONE");
+   if (ShowCom)
+   {
+       StdOut() << "cParamCallSys::Execute=[ " << Com() << " ]\n";
+   }
+   return   Execute(true);
+}
+
 
 #if (THE_MACRO_MMVII_SYS==MMVII_SYS_L || THE_MACRO_MMVII_SYS==MMVII_SYS_A)
 static std::string QuoteCmdLine(const std::string& aParam)
@@ -195,7 +286,7 @@ void cMMVII_Appli::AddObj2DelAtEnd(cObj2DelAtEnd * aPtrO)
 void cMMVII_Appli::ToDoBeforeDestruction()
 {
    // Merge report call virtual methode :q
- 
+
    DoMergeReport();
 
 }
@@ -299,6 +390,7 @@ cMMVII_Appli::cMMVII_Appli
    mStdCout       (std::cout),
    mStdCerr       (std::cerr),
    mSeedRand      (msDefSeedRand), // In constructor, don't use virtual, wait ...
+   mShowUnusedDevKey (false),
    mExtendPattern (true),
    mShowTimePerThread (false),
    mVSPO          (aVSPO),
@@ -313,7 +405,7 @@ cMMVII_Appli::cMMVII_Appli
 {
    mNumCallInsideP = TheNbCallInsideP;
    TheNbCallInsideP++;
-   
+
    mMainAppliInsideP = (mNumCallInsideP==0);
    TheStackAppli.push_back(this);
    /// Minimal consistency test for installation, does the MicMac binary exist ?
@@ -546,6 +638,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
       }
   }
 
+
   /// MPD2ARGS
 
   if (mDoGlobHelp)
@@ -563,7 +656,8 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
       <<  AOpt2007(mNumOutPut,GOP_NumVO,"Num version for output format (1 or 2)",{eTA2007::Global,{eTA2007::Range,"[1,2]"}})
       <<  AOpt2007(mSeedRand,GOP_SeedRand,"Seed for random,if <=0 init from time",aGlobHDV)
       <<  AOpt2007(mExtendPattern,"ExtPatFile","Do we extend patterns for files (or interpret them literally)",aGlobHDV)
-
+      <<  AOpt2007(mMapDevlopperSpecParam,"DevSpecParam","Key used by devloper for quick&dirty tuning",aGlobHDV)
+      <<  AOpt2007(mShowUnusedDevKey,"ShowUnusedKeyDev","To konw which devloper's key are used in this command",aGlobHDV)
       <<  AOpt2007(msWithWarning,GOP_WW,"Do we print warnings",aGlobHDV)
       <<  AOpt2007(mNbProcAllowed,GOP_NbProc,"Number of process allowed in parallelisation",aGlobHDV)
       <<  AOpt2007(mShowTimePerThread,"ShowTimePerThread","Show per-thread breakdown in TimerSegm timing reports",aGlobHDV)
@@ -934,7 +1028,7 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
                 }
                 else
                 {
-                    MMVII_UserError(eTyUEr::eEmptyPattern,"Specified set of files was empty");
+                    MMVII_UserError(eTyUEr::eEmptyPattern,"Specified set of files was empty for [" +aVValues[aK] + "]");
                 }
             } else if (mVMainSets.at(aNum).size() == 1){
                 // If only 1 file matches the pattern, we replace the pattern in this arg by the matched file
@@ -970,18 +1064,35 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
 
 
   // MakeNameDir(mDirProject);
-  
+
   // Print the info, debugging
   if (mShowAll)
   {
      // Print the value of all parameter
      for (size_t aK=0 ; aK<aNbArgTot; aK++)
      {
-         HelpOut() << aVSpec[aK]->Name()  << " => [" << aVValues[aK] << "]" << std::endl;
+         HelpOut() << aVSpec[aK]->Name()  << " => {: " << aVValues[aK] << " :}" << std::endl;
      }
      HelpOut() << "---------------------------------------" << std::endl;
      HelpOut() << "IS INIT  DP: " << IsInit(&aDP) << std::endl;
      HelpOut() << "DIRPROJ=[" << mDirProject << "]" << std::endl;
+
+
+     if (1)
+     {
+        StdOut() << " NB-Obl=" <<  mArgObl.size() << " Nb-Opt=" << mArgFac.size() << "\n";
+
+        for (const auto & anArgO : mArgObl.Vec() )
+        {
+            StdOut() << " OBL=[" << anArgO->Name() << "] [" << " " << anArgO->Value()  << "]\n";
+        }
+        StdOut() << " ------------------------------\n";
+        for (const auto & anArgF : mArgFac.Vec() )
+        {
+            if (anArgF->NbMatch())
+               StdOut() << " OBL=[" << anArgF->Name() << "] [" << anArgF->NameVal()  << "]\n";
+        }
+     }
   }
 
     // By default, if calls is done at top level, assure that everything is init
@@ -1028,19 +1139,46 @@ void cMMVII_Appli::InitParam(cGenArgsSpecContext *aArgsSpecs)
 
 }
 
-std::string cMMVII_Appli::AppliSpecValue(const std::string & aKey ) const
+std::string cMMVII_Appli::AppliDevloperSpecValue(const std::string & aKey,const std::string & aComment) const
 {
-    const auto & anIter = mMapAppliSpecParam.find(aKey);
+    const auto & anIter = mMapDevlopperSpecParam.find(aKey);
 
-    if (anIter == mMapAppliSpecParam.end())
+    if (anIter == mMapDevlopperSpecParam.end())
+    {
+        if (mShowUnusedDevKey && (! BoolFind(mUnusedKeyPrinted,aKey)))
+        {
+            mUnusedKeyPrinted.insert(aKey);
+            StdOut() << Color::warning <<  "-- Key-Dev unused : "
+                     << Color::end << aKey
+                     << Color::descr <<  " [" << aComment << "]"
+                     << Color::end   <<   "\n";
+        }
         return MMVII_NONE;
+    }
     return anIter->second;
 }
+bool cMMVII_Appli::ShowUnusedDevKey() const {return mShowUnusedDevKey;}
 
-std::string AppliSpecValue(const std::string & aKey )
+std::string AppliDevloperGetSpecValue(const std::string & aKey,const std::string & aComment)
 {
-    return cMMVII_Appli::CurrentAppli().AppliSpecValue(aKey);
+    return cMMVII_Appli::CurrentAppli().AppliDevloperSpecValue(aKey,aComment);
 }
+
+bool ShowUnusedDevKey() {return cMMVII_Appli::CurrentAppli().ShowUnusedDevKey(); }
+
+bool AppliDevloperHasSpecValue(const std::string & aKey)
+{
+    return    AppliDevloperGetSpecValue(aKey) != MMVII_NONE;
+}
+
+bool AppliDevloperGetBoolSpecValue(const std::string & aKey,const std::string & aComment)
+{
+    std::string aVal = AppliDevloperGetSpecValue(aKey,aComment);
+    if (aVal==MMVII_NONE)
+        return false;
+    return cStrIO<bool>::FromStr(aVal);
+}
+
 
 
 const cSpecMMVII_Appli & cMMVII_Appli::Specs() const {return mSpecs;}
@@ -1113,7 +1251,7 @@ std::string  cMMVII_Appli::NamePCarGen
              ) const
 {
     std::string aPref = (InPut ? PrefixPCarIn(aNameIm) : PrefixPCarOut(aNameIm));
-    
+
     std::string  aStrMode;
     std::string  aPost;
 
@@ -1137,9 +1275,9 @@ std::string  cMMVII_Appli::NamePCarGen
         aStrMode = "V2AimePCar";
         aPost    = "xml";
     }
-    
+
     std::string aMinus("-");
-    
+
     std::string  aStrTile;
     if (aTile.x()>=0)
     {
@@ -1591,14 +1729,18 @@ void cMMVII_Appli::GenerateHelp()
    {
        bool ArgIsInternal = Arg->HasType(eTA2007::Internal);
        bool ArgIsGlobal = Arg->HasType(eTA2007::Global);
+       bool ArgIsTuning =  Arg->HasType(eTA2007::Tuning);
        // The rule :
        //   - if ArgIsInternal : print if mDoInternalHelp (used for internal MMVII purpose)
        //   - if ArgIsGlobal   :  print if  mDoGlobHelp   (usefull but alwayse the same)
        //    - else print
 
-       bool DoIt =     ((!ArgIsInternal) && (!ArgIsGlobal))
+       bool DoIt =     ((!ArgIsInternal) && (!ArgIsGlobal) && (!ArgIsTuning))
                     || (mDoGlobHelp && (!ArgIsInternal))
                     ||  mDoInternalHelp ;
+
+       //if (ArgIsTuning && (!mDoGlobHelp))
+       //    DoIt = false;
 
        if (DoIt)
        {
@@ -1624,7 +1766,7 @@ void cMMVII_Appli::GenerateHelp()
          {
               HelpOut() << Color::warning  << "(!!== INTERNAL DONT USE DIRECTLY ==!!)" << Color::end ;
           }
-          if ( Arg->HasType(eTA2007::Tuning))
+          if (ArgIsTuning)
           {
                HelpOut() << Color::warning  << "(Tuning) " << Color::end ;
           }
@@ -1806,9 +1948,9 @@ bool cMMVII_Appli::ExistAppli()
 
 bool UserIsMPD()
 {
-     return cMMVII_Appli::CurrentAppli().ProfileName() == "MPD";
+     return UCaseEqual(cMMVII_Appli::CurrentAppli().ProfileName() , "MPD");
 }
- 
+
     // ========== Random seed  =================
 
 const int cMMVII_Appli::msDefSeedRand = 42;
@@ -1822,6 +1964,8 @@ int  cMMVII_Appli::DefSeedRand()
 }
 
 const cCollecSpecArg2007 &   cMMVII_Appli::ArgObl() const { return mArgObl; }
+const cCollecSpecArg2007 &   cMMVII_Appli::ArgFac() const { return mArgFac; }
+
 
 bool cMMVII_Appli::msWithWarning =  true;
 bool cMMVII_Appli::WithWarnings() {return  msWithWarning;}
@@ -1945,7 +2089,7 @@ cParamCallSys  cMMVII_Appli::StrCallMMVII
                   const std::string & aPatInit
                )
 {
-  cParamCallSys aRes(aCom2007);
+  cParamCallSys aRes(aCom2007,false);
   MMVII_INTERNAL_ASSERT_always(&anAObl==&mColStrAObl,"StrCallMMVII use StrObl() !!");
   MMVII_INTERNAL_ASSERT_always(&anAOpt==&mColStrAOpt,"StrCallMMVII use StrOpt() !!");
 
@@ -1961,11 +2105,11 @@ cParamCallSys  cMMVII_Appli::StrCallMMVII
 
    // Theoretically we can create the command  (dealing with unik msTheAppli before !) and check
    // the parameters, but it will be done in the call so maybe it's not worth the price ?
-  
+
    // aComGlob += aCom2007.Name() + " ";
    aRes.AddArgs(aCom2007.Name());
 
-   
+
    // Add mandatory args
    int aK=0;
    for (const auto & aStr : anAObl.V())
@@ -2058,7 +2202,7 @@ std::list<cParamCallSys>  cMMVII_Appli::ListStrCallMMVII
                         )
 {
     std::list<cParamCallSys> aRes;
-     
+
     int aKthCall=0;
     for (const auto & aVal : aLVals)
     {
@@ -2125,7 +2269,7 @@ int  cMMVII_Appli::ExeOnePackComParal(const std::list<cParamCallSys> & aLCom,boo
 {
    if (aLCom.empty()) return EXIT_SUCCESS;
    std::string aNameMk = "MkFile_" + mPrefixNameAppli ;
- 
+
    std::string aName  = NameFileLog(false);
    {
       cMMVII_Ofs  aOfs(aName, eFileModeOut::AppendText);

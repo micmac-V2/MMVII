@@ -53,10 +53,8 @@ cCollecSpecArg2007 & cAppli_OriRelPipeline::ArgOpt(cCollecSpecArg2007 & anArgOpt
 {
     return anArgOpt
            <<  AOpt2007(mExe,"Exe","Execute pipeline",{eTA2007::HDV})
-           << cHeaderSectionArg("Input for tie points")
-           <<  mPhProj.DPMulTieP().ArgDirInOpt()
-           <<  mPhProj.DPTieP().ArgDirInOpt()
-           <<  mPhProj.DPGndPt2D().ArgDirInOpt()
+           << cHeaderSectionArg("Input for tie points (at least one must be provided)")
+           << mPhProj.AddAllDpTieP(anArgOpt)
 
            << cHeaderSectionArg("Export virtual points")
            <<  mPhProj.DPMulTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
@@ -71,6 +69,8 @@ int cAppli_OriRelPipeline::Exe()
 {
     mPhProj.FinishInit();
 
+    bool  PreviousBehaviour = false;
+
     MMVII_INTERNAL_ASSERT_always((mPhProj.DPTieP().DirInIsInit() ||
                                   mPhProj.DPMulTieP().DirInIsInit() ||
                                   mPhProj.DPGndPt2D().DirInIsInit()),"Input tie-points not provided");
@@ -81,54 +81,92 @@ int cAppli_OriRelPipeline::Exe()
 
     // ===============================================
     // select pairs
-    std::string aTieP = mPhProj.DPTieP().DirInIsInit() ? ("InTieP="+mPhProj.DPTieP().DirIn()) :
-                    (mPhProj.DPMulTieP().DirInIsInit() ? ("InMulTieP="+mPhProj.DPMulTieP().DirIn()) :
-                                                         ("InObjMesInstr="+mPhProj.DPGndPt2D().DirIn()) );
-    cParamCallSys aComSelPairs(cMMVII_Appli::FullBin(),
-                               "OriPoseSelecAllPAir",
-                               mPatIm,
-                               mPhProj.DPOriRel().DirOut(),
-                               aTieP);
-    aLPCS.push_back(aComSelPairs);
 
+    if (PreviousBehaviour)
+    {
+
+        std::string aTieP = mPhProj.DPTieP().DirInIsInit() ? ("InTieP="+mPhProj.DPTieP().DirIn()) :
+                        (mPhProj.DPMulTieP().DirInIsInit() ? ("InMulTieP="+mPhProj.DPMulTieP().DirIn()) :
+                                                             ("InObjMesInstr="+mPhProj.DPGndPt2D().DirIn()) );
+        cParamCallSys aComSelPairs(cMMVII_Appli::FullBin(),
+                                   "OriPoseSelecAllPAir",
+                                   mPatIm,
+                                   mPhProj.DPOriRel().DirOut(),
+                                   aTieP);
+        aLPCS.push_back(aComSelPairs);
+    }
+    else
+    {
+        cParamCallSys aComSelPairs(TheSpec_SelectPairOriRel,true);
+
+        aComSelPairs.AddMandArgsOfAppli(*this,{0,1}); // Add 2 first args
+        aComSelPairs.AddMMVIIAllTiepInInit(mPhProj);   // all the parameters relative to TieP
+        aLPCS.push_back(aComSelPairs);
+    }
 
 
     // ===============================================
     // compute relative orientations between pairs
-    cParamCallSys aComEstimRelPair(cMMVII_Appli::FullBin(),
-                                   "OriPoseEstimRelAllPairs");
-
-    for (size_t aKP=3; aKP<mArgv.size() ; aKP++)
+    if (PreviousBehaviour)
     {
-        if (starts_with(mArgv[aKP], "Exe"))
-            continue;
-        if (starts_with(mArgv[aKP], "VirTP")) //omit virtual points
-            continue;
-        if (starts_with(mArgv[aKP], "OutOri")) // omit output ori
-            continue;
 
-        aComEstimRelPair.AddArgs(mArgv[aKP]);
+        cParamCallSys aComEstimRelPair(cMMVII_Appli::FullBin(),
+                                       "OriPoseEstimRelAllPairs");
+
+        for (size_t aKP=3; aKP<mArgv.size() ; aKP++)
+        {
+            if (starts_with(mArgv[aKP], "Exe"))
+                continue;
+            if (starts_with(mArgv[aKP], "VirTP")) //omit virtual points
+                continue;
+            if (starts_with(mArgv[aKP], "OutOri")) // omit output ori
+                continue;
+
+            aComEstimRelPair.AddArgs(mArgv[aKP]);
+        }
+        aLPCS.push_back(aComEstimRelPair);
     }
-    aLPCS.push_back(aComEstimRelPair);
+    else
+    {
+        cParamCallSys aComEstimRelPair(TheSpec_OriRelAllPairs,true);
+
+        // aComEstimRelPair.AddAllMandArgsOfAppli(*this);
+        aComEstimRelPair.AddMandArgsOfAppli(*this,{1,2});
+        aComEstimRelPair.AddMMVIIAllTiepInInit(mPhProj);   // all the parameters relative to TieP
+        aLPCS.push_back(aComEstimRelPair);
+
+    }
 
 
 
     // ===============================================
     // compute relative orientations within triplets
-    cParamCallSys aComEstimRelTri(cMMVII_Appli::FullBin(),
-                                  "OriPoseEstimRelAllTriplets");
-
-
-    for (size_t aKP=3; aKP<mArgv.size() ; aKP++)
+    if (PreviousBehaviour)
     {
-        if (starts_with(mArgv[aKP], "Exe"))
-            continue;
-        if (starts_with(mArgv[aKP], "OutOri")) // omit output ori
-            continue;
+        cParamCallSys aComEstimRelTri(cMMVII_Appli::FullBin(),
+                                      "OriPoseEstimRelAllTriplets");
 
-        aComEstimRelTri.AddArgs(mArgv[aKP]);
+
+        for (size_t aKP=3; aKP<mArgv.size() ; aKP++)
+        {
+            if (starts_with(mArgv[aKP], "Exe"))
+                continue;
+            if (starts_with(mArgv[aKP], "OutOri")) // omit output ori
+                continue;
+
+            aComEstimRelTri.AddArgs(mArgv[aKP]);
+        }
+        aLPCS.push_back(aComEstimRelTri);
     }
-    aLPCS.push_back(aComEstimRelTri);
+    else
+    {
+        cParamCallSys aComEstimRelTri(TheSpec_OriRelAllTriplets,true);
+
+        // aComEstimRelPair.AddAllMandArgsOfAppli(*this);
+        aComEstimRelTri.AddMandArgsOfAppli(*this,{1,2});
+        aComEstimRelTri.AddMMVIIAllTiepInInit(mPhProj);   // all the parameters relative to TieP
+        aLPCS.push_back(aComEstimRelTri);
+    }
 
 
     // ===============================================

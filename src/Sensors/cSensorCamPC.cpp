@@ -524,6 +524,15 @@ double cSensorCamPC::DegreeVisibilityOnImFrame(const cPt2dr & aP) const
 
 bool   cSensorCamPC::HasImageAndDepth() const {return true;}
 
+cSensorImage * cSensorCamPC::CropSensor(const cPt2di & aP0,const cPt2di & aSz) const
+{
+    // The image loops on its width (360 degrees), a crop is not a simple shift
+    MMVII_INTERNAL_ASSERT_User(mInternalCalib->TypeProj()!=eProjPC::eEquiRect,eTyUEr::eUnClassedError,"CropSensor: not implemented for EquiRect cameras");
+    auto * aCalib = mInternalCalib->CropCalib(aP0,aSz,mInternalCalib->Name() + "_Crop");
+    cMMVII_Appli::AddObj2DelAtEnd(aCalib);  // a sensor never owns its calib
+    return new cSensorCamPC(NameImage(),Pose(),aCalib);
+}
+
 const cPt2di & cSensorCamPC::SzPix() const {return  mInternalCalib->SzPix();}
 
 
@@ -1006,6 +1015,21 @@ void cSensorCamPC::BenchOneCalib(cPerspCamIntrCalib * aCalib)
 
     cSensorCamPC aCam("BenchCam",aPose,aCalib);
     aCam.Bench();
+
+    // Crop : same ground point, image position shifted by -P0 (not for a 360 degrees image)
+    if (aCalib->TypeProj()==eProjPC::eEquiRect)
+        return;
+    const cPt2di aSz = aCalib->SzPix();
+    const cPt2di aP0(aSz.x()/5,aSz.y()/4);
+    const cPt2di aSzCrop(aSz.x()/2,aSz.y()/2);
+    std::unique_ptr<cSensorImage> aCrop(aCam.CropSensor(aP0,aSzCrop));
+    MMVII_INTERNAL_ASSERT_bench(aCrop->GetSensorCamPC()->SzPix()==aSzCrop,"CamPC crop : size");
+    for (int aK=0 ; aK<20 ; aK++)
+    {
+        const cPt3dr aPG = aCam.Pt_L2W(cPt3dr(RandUnif_C(),RandUnif_C(),1.0+RandUnif_0_1()));
+        const tREAL8 aDist = Norm2(aCrop->Ground2Image(aPG) - (aCam.Ground2Image(aPG)-ToR(aP0)));
+        MMVII_INTERNAL_ASSERT_bench(aDist<1e-6,"CamPC crop : Ground2Image");
+    }
 }
 
      // =================  Cast ===================

@@ -219,6 +219,9 @@ void AddData(const  cAuxAr2007 & anAux, cSaveExtrEllipe & aCTE)
      AddData(cAuxAr2007("White",anAux)    , aCTE.mWhite);
 }
 
+const std::string cSaveExtrEllipe::PrefixAttr = "Attribute";
+const std::string cSaveExtrEllipe::PrefixGroundTruth = "GroundTruth";
+
 std::string cSaveExtrEllipe::NameFile(const cPhotogrammetricProject & aPhp,const cSetMesPtOf1Im &  aSetM,bool Input)
 {
     return  (Input ? aPhp.DPGndPt2D().FullDirIn() :   aPhp.DPGndPt2D().FullDirOut() )
@@ -226,6 +229,7 @@ std::string cSaveExtrEllipe::NameFile(const cPhotogrammetricProject & aPhp,const
             +  aSetM.StdNameFile()
     ;
 }
+
 
 /* ********************************************* */
 /*                                               */
@@ -250,7 +254,16 @@ class cCCDecode
 
 
 
-         cCCDecode(cCircTargExtr & anEE,tCDIm & aDIm,tCDIm & aDGx , tCDIm & aDGy,const cFullSpecifTarget &,const cThresholdCircTarget &);
+         cCCDecode
+         (
+                 const cPhotogrammetricProject  & anAppli,
+                 cCircTargExtr & anEE,
+                 tCDIm & aDIm,
+                 tCDIm & aDGx ,
+                 tCDIm & aDGy,
+                 const cFullSpecifTarget &,
+                 const cThresholdCircTarget &
+            );
 
          void ShowCDecoded(const std::string & aPrefix);
 
@@ -287,6 +300,7 @@ class cCCDecode
          int KEndInterv(int aK0,int aNumBit) const;
 
 
+         const cPhotogrammetricProject &            mPhProj;
          cCircTargExtr &           mEE;
          const cDataIm2D<tREAL4> & mDIm;
          const cDataIm2D<tREAL4> & mDGx;
@@ -330,6 +344,7 @@ class cCCDecode
 
 cCCDecode::cCCDecode
 (
+   const cPhotogrammetricProject &            aPhProj ,
    cCircTargExtr & anEE,
    tCDIm & aDIm,
    tCDIm & aDGx,
@@ -337,6 +352,7 @@ cCCDecode::cCCDecode
    const cFullSpecifTarget & aSpec,
    const cThresholdCircTarget & aThresh
 ) :
+        mPhProj       (aPhProj),
         mEE          (anEE),
         mDIm         (aDIm),
         mDGx         (aDGx),
@@ -720,7 +736,7 @@ void  cCCDecode::ShowCDecoded(const std::string & aPrefix)
        }
     }
 
-    aIm.ToJpgFileDeZoom(aPrefix + "_ImPolar_"+ToStr(aCpt)+".tif",1);
+    aIm.ToJpgFileDeZoom(mPhProj.DirVisuAppli()+ aPrefix + "_ImPolar_"+ToStr(aCpt)+".tif",1);
 
     StdOut() << "Adr=" << mEnCode << " Ok=" << mOK << " BitCode=" << StrOfBitFlag(mFlagCode,2<<mNbB) ;
     if (mEnCode)
@@ -795,7 +811,7 @@ class cAppliExtractCircTarget : public cMMVII_Appli,
         double                      mNbMaxMT_Init;    ///< Number of Multiple Target OK for 0 image
         double                      mNbMaxMT_PerIm;    ///<  Number of Multiple Target OK per additional image
         double                      mNbMaxMulTargetTot;  ///<  Number of Multiple Target OK per additional image
-        eTargetDistanceEstim        mModeDistance; // for TSL, which target distance estimation mode
+        eTargetDistanceEstim        mModeDistance; // for TLS, which target distance estimation mode
 
         cThresholdCircTarget        mThresh;
 
@@ -862,7 +878,7 @@ cCollecSpecArg2007 & cAppliExtractCircTarget::ArgOpt(cCollecSpecArg2007 & anArgO
              << AOpt2007(mZoomVisuElFinal,"ZoomVisuEllipse","Make a visualisation extracted ellispe & target",{eTA2007::HDV})
              << AOpt2007(mShowOnlyMul,"ShowOnlyMul","Show Only Mutlipe detectection",{eTA2007::HDV})
              << AOpt2007(mPatHihlight,"PatHL","Pattern for highliting targets in visu",{eTA2007::HDV})
-             <<  AOpt2007(mModeDistance,"ModeDist","With TSL, how to estimate target distance",{eTA2007::HDV})
+             <<  AOpt2007(mModeDistance,"ModeDist","With TLS, how to estimate target distance",{eTA2007::HDV})
 
              << AOpt2007(mNbMaxMT_Init,"NbMMT0","Nb max of multiple target acceptable initial (for 0 image)",{eTA2007::HDV})
              << AOpt2007(mNbMaxMT_PerIm,"NbMMT1","Nb max of multiple target acceptable per image",{eTA2007::HDV})
@@ -878,19 +894,22 @@ void cAppliExtractCircTarget::DoExport()
 {
      int aCptUnCoded=0;
      cStaticLidar* aLidar = nullptr;
-     // return to reduced size if TSL
+     // return to reduced size if TLS
      cPt2dr aImFactor(1.,1.);
-     if (cStaticLidar::IsNameTSL(mOriginalNameImage))
+     if (cStaticLidar::IsNameTLS(mOriginalNameImage))
      {
-         auto aTSLOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mOriginalNameImage,true);
-         aLidar = cStaticLidar::FromFile(aTSLOriFile, false);
+         auto aTLSOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mOriginalNameImage,true);
+         aLidar = cStaticLidar::FromFile(aTLSOriFile, false);
          aLidar->ReadRasters(mPhProj.DirStaticLidarRasters()); // to read distances
          auto aDImIn = cDataFileIm2D::Create(mNameIm, eForceGray::No);
          aImFactor =  RDivCByC(aLidar->PixelDomain().Sz(), aDImIn.Sz());
      }
 
      mNameIm = mOriginalNameImage;
-     cVecTiePMul aVTPMul(mNameIm); FakeUseIt(aVTPMul);
+     cVecTiePMul aVTPMul(mNameIm); //FakeUseIt(aVTPMul);
+
+   //  bool mDoExportPtsMul = true;
+    // std::string mExportPtsMul = "PtsMul";
 
      cSetMesPtOf1Im  aSetM(FileOfPath(mNameIm));
      std::vector<cSaveExtrEllipe>  mVSavE;
@@ -947,6 +966,7 @@ void cAppliExtractCircTarget::DoExport()
 
      if (mPhProj.DPMulTieP().DirOutIsInit())
      {
+         aVTPMul.SortId(false);
          mPhProj.SaveMultipleTieP(aVTPMul,mNameIm);
      }
 
@@ -1202,7 +1222,7 @@ int cAppliExtractCircTarget::ExeOnParsedBox()
    {
        if (anEE.mSeed.mMarked4Test)
        {
-          anEE.ShowOnFile(mNameIm,21,mPrefixOut);
+          anEE.ShowOnFile(mNameIm,21,mPhProj.DirVisuAppli()+mPrefixOut);
        }
        if (anEE.mValidated  || anEE.mSeed.mMarked4Test)
        {
@@ -1212,7 +1232,7 @@ int cAppliExtractCircTarget::ExeOnParsedBox()
 
    for (auto & anEE : mVCTE)
    {
-       cCCDecode aCCD(*anEE,APBI_DIm(),mExtrEll->DGx(),mExtrEll->DGy(),*mSpec,mThresh);
+       cCCDecode aCCD(mPhProj,*anEE,APBI_DIm(),mExtrEll->DGx(),mExtrEll->DGy(),*mSpec,mThresh);
        if (anEE->mMarked4Test)
        {
              aCCD.ShowCDecoded(mPrefixOut);
@@ -1347,7 +1367,7 @@ int  cAppliExtractCircTarget::Exe()
    }
    if (mUseSimul)  // If use it, read the ground truth
    {
-       std::string aNameResSim = LastPrefix(APBI_NameIm()) + ThePostfixGTSimulTarget;
+       std::string aNameResSim = NameGTSimulTargetFromIm(APBI_NameIm());// LastPrefix(APBI_NameIm()) + ThePostfixGTSimulTarget;
        mGT_Simul = cResSimul::FromFile(aNameResSim);
    }
 
@@ -1372,10 +1392,10 @@ int  cAppliExtractCircTarget::Exe()
    }
 
 
-   // if TSL name, use intensity raster
+   // if TLS name, use intensity raster
    //std::string aOriginalNameIm = mNameIm;
    mOriginalNameImage = mNameIm;
-   if (cStaticLidar::IsNameTSL(mNameIm))
+   if (cStaticLidar::IsNameTLS(mNameIm))
        mNameIm = cStaticLidar::RasterIntensityPath(mPhProj.DirStaticLidarRasters()+cStaticLidar::NameFromId(mNameIm, false));
 
    APBI_ExecAll();  // run the parse file  SIMPL

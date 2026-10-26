@@ -359,6 +359,49 @@ void Bench_InterpolRegistry()
      }
 }
 
+/** A constant integer image resampled by a partition-of-unity interpolator must stay constant:
+ *  the interpolated value is only within float noise of the constant, so the integer storage must round. */
+template <class Type> static void TplBench_ResampleConstantIm(int aVal)
+{
+     cIm2D<Type> anIm(cPt2di(60,60),nullptr,eModeInitImage::eMIA_Null);
+     for (const auto & aPix : anIm.DIm())
+         anIm.DIm().SetV(aPix,aVal);
+
+     // translation by a non integer vector, its inverse is the opposite translation
+     cInvertMappingFromElem<cHomot2D<tREAL8>> aMap(cHomot2D<tREAL8>(cPt2dr(0.37,0.21),1.0));
+     const cPixBox<2> aBox(cPt2di(15,15),cPt2di(40,40));
+
+     const std::vector<std::vector<std::string>> aVVNames {{"Linear"},{"Cubic","-0.5"},{"Tabul","1000","SinCApod","5","5"}};
+     for (const auto & aVNames : aVVNames)
+     {
+         const std::string aName = aVNames.at(0) + (aVNames.size()>1 ? "," + aVNames.at(1) : "");
+         std::unique_ptr<cInterpolator1D> anInterp(cInterpolator1D::AllocFromNames(aVNames));
+
+         // value of the interpolation itself, before any storage
+         tREAL8 aMaxDif = 0;
+         for (int aK=0 ; aK<100 ; aK++)
+         {
+             cPt2dr aP(RandInInterval(20.0,40.0),RandInInterval(20.0,40.0));
+             aMaxDif = std::max(aMaxDif,std::abs(anIm.DIm().ClipedGetValueInterpol(*anInterp,aP,0.0,nullptr)-aVal));
+         }
+         MMVII_INTERNAL_ASSERT_bench(aMaxDif<1e-6,"Resample constant im : interpolated value not constant, " + aName + " dev=" + ToStr(aMaxDif));
+
+         // after storage in the integer image
+         std::unique_ptr<cDataGenUnTypedIm<2>> aRes(anIm.DIm().AllocReSampleGen(*anInterp,aMap,aBox));
+         int aNbBad = 0;
+         for (const auto & aPix : *aRes)
+             if (aRes->VD_GetV(aPix) != aVal)
+                aNbBad++;
+         MMVII_INTERNAL_ASSERT_bench(aNbBad==0,"Resample constant im : " + aName + " " + ToStr(aNbBad) + " pixels != " + ToStr(aVal));
+     }
+}
+
+static void Bench_ResampleConstantIm()
+{
+     TplBench_ResampleConstantIm<tU_INT1>(100);
+     TplBench_ResampleConstantIm<tINT2>(-100);   // signed : rounding of a negative value
+}
+
 void  BenchInterpol(cParamExeBench & aParam)
 {
      if (! aParam.NewBench("Interpol")) return;
@@ -366,6 +409,8 @@ void  BenchInterpol(cParamExeBench & aParam)
      Bench_InterpolRegistry();
 
      Bench_cMultiScaledInterpolator();
+
+     Bench_ResampleConstantIm();
 
      // This one, obviously should not pass the "unity partition test"
      //  --  BenchIntrinsiqOneInterpol(cSinCApodInterpolator(5,5),true,true);

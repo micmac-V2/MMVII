@@ -288,6 +288,12 @@ cPt3dr cSensorImage::ImageAndDepth2Ground(const cPt2dr & aP2,const double & aDep
 bool   cSensorImage::HasImageAndDepth() const {return false;}
 bool   cSensorImage::HasIntervalZ() const {return false;}
 
+cSensorImage * cSensorImage::CropSensor(const cPt2di &, const cPt2di &) const
+{
+    MMVII_INTERNAL_ERROR("cSensorImage::CropSensor not implemanted for this sensor");
+    return nullptr;
+}
+
 cPt3dr  cSensorImage::EpsDiffGround2Im(const cPt3dr &) const
 {
     MMVII_INTERNAL_ERROR("EspDiffGround2Im has not been defined for sensor class : " + V_PrefixName());

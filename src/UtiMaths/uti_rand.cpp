@@ -377,6 +377,8 @@ class cRand19937 : public cRandGenerator
          double Unif_0_1() override ;
          int    Unif_N(int aN) override;
          double Normal_0_1() override ;
+         int GetCurrentSeed() override;
+
          ~cRand19937() {}
      private :
           // std::random_device mRD;                    //Will be used to obtain a seed for the random number engine
@@ -385,6 +387,7 @@ class cRand19937 : public cRandGenerator
           std::normal_distribution<double> mDisNormal;
           std::unique_ptr<std::uniform_int_distribution<> > mDisInt;
           int                                               mLastN;
+          int                                               mSeed;
           //uniform_01<mt19937> mU01;
 };
 
@@ -394,12 +397,19 @@ cRand19937::cRand19937(int aSeed) :
     mGen     (aSeed),
     mDis01   (0.0,1.0),
     mDisNormal(0.0,1.0),
-    mDisInt  (nullptr)
+    mDisInt  (nullptr),
+    mSeed    (aSeed)
 {
+}
+
+int cRand19937::GetCurrentSeed()
+{
+    return  mSeed;
 }
 
 void cRand19937::setSeed(size_t aSeed)
 {
+    mSeed = aSeed;
     mGen.seed(aSeed);
 }
 
@@ -464,6 +474,8 @@ void CloseRandom()
 {
     cRandGenerator::Close();
 }
+
+
 
 };
 
