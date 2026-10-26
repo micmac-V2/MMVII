@@ -262,6 +262,8 @@ class  cMetaDataImage;
 class  cElemCamDataBase;
 class  cCamDataBase;
 
+class cDirsPhProj;
+class cPhotogrammetricProject;
 
 // MMVII_MeasuresIm.h
 

@@ -75,6 +75,7 @@ extern cSpecMMVII_Appli  TheSpec_GCPSplit;
 extern cSpecMMVII_Appli  TheSpec_OriRel2Im;
 extern cSpecMMVII_Appli  TheSpec_OriRelPairsOf1m;
 extern cSpecMMVII_Appli  TheSpec_OriRelAllPairs;
+extern cSpecMMVII_Appli  TheSpec_OriEstimFocale;
 extern cSpecMMVII_Appli  TheSpec_SelectPairOriRel;
 extern cSpecMMVII_Appli  TheSpec_OriRel3Im;
 extern cSpecMMVII_Appli  TheSpec_OriRelTripletsOf1m;

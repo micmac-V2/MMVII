@@ -317,6 +317,9 @@ template <class Type> class cInstReadOneArgCL2007 : public cSpecOneArg2007
         std::string DefaultNameValue() const override {return ToS(mDefaultVal);}
         const tVecArg2007 & StructFields() const override { return mStructFields; }
 
+
+        std::string NameVal() const  override {return cStrIO<Type>::ToStr(mVal);}
+
     private :
         Type &       mVal;
         Type         mDefaultVal;

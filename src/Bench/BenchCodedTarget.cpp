@@ -3,6 +3,8 @@
 #include "MMVII_Image2D.h"
 #include "MMVII_MeasuresIm.h"
 #include "MMVII_Random.h"
+#include "MMVII_Sensor.h"
+
 #include "../CodedTarget/CodedTarget.h"
 
 #include <filesystem>
@@ -217,7 +219,9 @@ void cBenchCodedTarget::DoTargetsExtraction(bool )
 
     aComExtract.AddArgs(mPatImSimul);
     aComExtract.AddArgs(mNameFullSpecif);
-    aComExtract.AddMMVIIArgsOpt("OutObjMesInstr","Bench");
+
+    aComExtract.AddMMVIIArgsOpt(eTA2007::ObjMesInstr,false,"Bench");
+   // aComExtract.AddMMVIIArgsOpt("OutObjMesInstr","Bench");
 
     aComExtract.ExecuteWithoutMsg(mShowCom);
 }
@@ -227,11 +231,11 @@ void cBenchCodedTarget::DoTargetsExtraction(bool )
 void  cBenchCodedTarget::ReadMeasureIm(const std::string & aPrefix,const std::string & aNameIm,bool isRef)
 
 {
-//    std::string aDir
-    std::string aDir =     MMVII_DirPhp
+  /*  std::string aDir =     MMVII_DirPhp
                          + E2Str(eTA2007::ObjMesInstr) +  StringDirSeparator()
-                         + aPrefix +   StringDirSeparator();
+                         + aPrefix +   StringDirSeparator();*/
 
+    std::string aDir = cDirsPhProj::StdDirOfType(eTA2007::ObjMesInstr,aPrefix);
     std::string aRes = aDir + cSetMesPtOf1Im::StdNameFileOfIm(aNameIm);;
 
 
@@ -387,6 +391,8 @@ void cBenchCodedTarget::DoAll()
 
 void BenchCodedTarget(cParamExeBench & aParam)
 {
+
+
     if (! aParam.NewBench("CodedTarget"))
         return;
 
@@ -399,9 +405,14 @@ void BenchCodedTarget(cParamExeBench & aParam)
     {
         MMVII_DEV_WARNING("BenchCodedTarget not active w/o MPD");
     }
+    bool OnlyVerif = AppliDevloperGetBoolSpecValue("OnlyVerif","If true, do only the comparison extract/ref ");
+    bool ShowCom = AppliDevloperGetBoolSpecValue("ShowCom","If true, print the comment executed");
 
-    bool OnlyVerif = AppliDevloperGetBoolSpecValue("OnlyVerif");
-    bool ShowCom = AppliDevloperGetBoolSpecValue("ShowCom");
+    if (ShowUnusedDevKey())
+    {
+        aParam.EndBench();
+        return;
+    }
 
     StdOut() << " SHOW COM=" << ShowCom << "\n";
 

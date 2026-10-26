@@ -79,6 +79,11 @@ cCollecSpecArg2007 & cAppliNewFrange::ArgObl(cCollecSpecArg2007 & anArgObl)
 }
 
 
+// std::vector<int> aV1;
+// std::vector<int> aV2;
+
+
+
 cCollecSpecArg2007 & cAppliNewFrange::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
 
@@ -91,6 +96,10 @@ cCollecSpecArg2007 & cAppliNewFrange::ArgOpt(cCollecSpecArg2007 & anArgOpt)
               << AOpt2007(mPatVisu,"PatVisu","Pattern for generating visualization" )
 
               << AOpt2007(mSigTensors ,"SigTens","Sigmas on tensors")
+
+            //  << AOpt2007(aV1,"TestV1","Test vector int in once")
+            //  << AOpt2007(aV2,"TestV2","Test vector int in once",{eTA2007::CanRepeat})
+
 
               << mPhProj.DPMask().ArgDirInOpt()
 
@@ -120,6 +129,8 @@ std::vector<cOneHelpSampleCmp>  cAppliNewFrange::Samples() const
 int cAppliNewFrange::Exe()
 {
     mPhProj.FinishInit();
+
+   //  StdOut() << "VVV " << aV1 << " " << aV2 << "\n";
 
     if (RunMultiSet(0,0)) // Case several images in //
     {

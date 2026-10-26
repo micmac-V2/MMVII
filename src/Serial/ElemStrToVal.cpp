@@ -867,6 +867,13 @@ cCollecSpecArg2007 & cCollecSpecArg2007::operator << (tPtrArg2007 aVal)
     return *this;
 }
 
+cCollecSpecArg2007 & cCollecSpecArg2007::operator << (cCollecSpecArg2007& aCSA)
+{
+   MMVII_INTERNAL_ASSERT_always(this==&aCSA," cCollecSpecArg2007::operator << (cCollecSpecArg2007&)");
+    return *this;
+}
+
+
 /*
 cCollecSpecArg2007 & cCollecSpecArg2007::operator << (const std::string & aComment)
 {
@@ -894,11 +901,8 @@ void cCollecSpecArg2007::clear()
    mV.clear();
 }
 
-tVecArg2007 & cCollecSpecArg2007::Vec()
-{
-   return mV;
-}
-
+tVecArg2007 & cCollecSpecArg2007::Vec(){   return mV;}
+const tVecArg2007 & cCollecSpecArg2007::Vec() const {   return mV;}
 
 
 MACRO_INSTANTIATE_ARG2007(char)

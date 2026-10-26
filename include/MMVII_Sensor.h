@@ -438,6 +438,9 @@ class cDirsPhProj : public cMemCheck
 {
      public :
 
+         /// Name used in optional arg like  InOri/OutOri
+          static std::string DefNameArgOpt(eTA2007,bool isIn);
+
           cDirsPhProj(eTA2007 aMode,cPhotogrammetricProject & aPhp);
           void Finish();
 
@@ -469,6 +472,10 @@ class cDirsPhProj : public cMemCheck
           tPtrArg2007  ArgDirOutOptWithDef(const std::string & aDef,const std::string & aNameVar="",const std::string & aMesg="") ;
 
 
+          /// Name of standard folder like Full DirIn, allow to construct w/o PhProj
+          static std::string StdDirOfType(eTA2007,const std::string & aPrefix);
+
+
           void  SetDirIn(const std::string&) ; ///< Modifier, use in case many out params were saved in a xml,like with MeshImageDevlp
           void  SetDirInIfNoInit(const std::string&) ; ///< do it only if not init in argopt
           const std::string & DirIn() const;   ///< Accessor
@@ -476,15 +483,20 @@ class cDirsPhProj : public cMemCheck
           const std::string & FullDirIn() const;   ///< Accessor
           const std::string & FullDirOut() const;   ///< Accessor
           const std::string & FullDirInOut(bool In) const;   ///< Facility FullDirIn/FullDirInOut
+          const std::string & DirInOut(bool In) const;   ///< Facility DirIn/lDirInOut
+
           std::string ComputeFullDir(const std::string& aDirIn) const;
 
 
           const std::string & DirLocOfMode() const;   ///< Accessor
 
+
+
           void SetDirOut(const std::string & aDirOut); ///< Modifier, for example to have defaut value to input
           bool  DirInIsInit() const;  ///< Was initialized and not set to NONE
           bool  DirInIsNONE() const;  ///< Was initialized && Set to NONE
           bool  DirOutIsInit() const;
+          bool  DirIsInit(bool isIn) const;
           void  AssertDirInIsInit() const;
           void  AssertDirOutIsInit() const;
           bool CheckDirExists(bool In, bool DoError=false) const;
@@ -626,6 +638,12 @@ class cPhotogrammetricProject : public cIPhProj
           const cDirsPhProj &   DPStaticLidar() const;    ///<  Accessor
 
           const cDirsPhProj &   DPOriRel() const;    ///<  Accessor
+
+          /// Return all the DP that can be used as tiep
+          std::vector<const cDirsPhProj *> AllDpTieP() const;
+          std::vector< cDirsPhProj *> AllDpTieP() ;
+
+          cCollecSpecArg2007 & AddAllDpTieP( cCollecSpecArg2007 &) ;
 
           // Sometime we need several dir of the same type, like "ReportPoseCmp", or RefPose in bundle
           cDirsPhProj * NewDPIn(eTA2007 aType,const std::string & aDirIn);

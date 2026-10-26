@@ -224,6 +224,8 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_OriRel2Im);
         TheVecAll.push_back(&TheSpec_OriRelPairsOf1m);
         TheVecAll.push_back(&TheSpec_OriRelAllPairs);
+        TheVecAll.push_back(&TheSpec_OriEstimFocale);
+
         TheVecAll.push_back(&TheSpec_SelectPairOriRel);
         TheVecAll.push_back(&TheSpec_OriRel3Im);
         TheVecAll.push_back(&TheSpec_OriRelTripletsOf1m);
