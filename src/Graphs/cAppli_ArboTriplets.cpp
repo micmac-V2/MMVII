@@ -2276,13 +2276,13 @@ void cMakeArboTriplet::ComputeArbor()
         // [1]  Check that all the triplet minimal  are belonging to the connection stuff
         for (const auto & aTriC : aVectTriMin)
         {
-            MMVII_INTERNAL_ASSERT_always(aSubGrKernel.InsideVertex(*aTriC),"Kernel doesnot contain all  anchors");
+            MMVII_INTERNAL_ASSERT_always(aSubGrKernel.InsideVertex(*aTriC),"Kernel do not contain all anchors");
         }
         // [2]  Check that aSetEdgeKern is a tree ...
         std::list<std::vector<t3G3_Vertex *>>  allCC =  cAlgoCC<t3G3_Graph>::All_ConnectedComponent(mGTriC,aSubGrKernel);
         MMVII_INTERNAL_ASSERT_always(allCC.size()==1,"Kernel is not connected");
         const std::vector<t3G3_Vertex *>& aCC0 =  *(allCC.begin());
-        MMVII_INTERNAL_ASSERT_always(aCC0.size()==(aSetEdgeKern.size()+1),"Kernel is not tree");
+        MMVII_INTERNAL_ASSERT_always(aCC0.size()==(aSetEdgeKern.size()+1),"Kernel is not a tree");
 
    }
    // ==============    [5]  compute the tree : =====================================================

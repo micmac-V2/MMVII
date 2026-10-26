@@ -42,8 +42,8 @@ template<> cE2Str<eProjPC>::tMapE2Str cE2Str<eProjPC>::mE2S
                {eProjPC::eStenope,"Stenope"},
                {eProjPC::eFE_EquiDist,"FE_EquiDist"},
                {eProjPC::eFE_EquiSolid,"FE_EquiSolid"},
-               {eProjPC::eStereroGraphik,"StereroGraphik"},
-               {eProjPC::eOrthoGraphik,"OrthoGraphik"},
+               {eProjPC::eStereoGraphic,"StereoGraphic"},
+               {eProjPC::eOrthoGraphic,"OrthoGraphic"},
                {eProjPC::eEquiRect,"EquiRect"}
            };
 

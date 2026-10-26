@@ -403,9 +403,9 @@ cPt2dr cPerspCamIntrCalib::PtSeedInv() const
 {
      /**  Regarding the seed :
       *      - if we put at PP we have problem if PP is outside image (like with shift lense camera)
-      *      - if we put it in midle with have problem with orthographik camera if midle is outside definition
+      *      - if we put it in midle with have problem with orthographic camera if midle is outside definition
       *
-      *      However the case of thes orthographik camera, with short F and PP far from middle is very unrealistic
+      *      However the case of thes orthographic camera, with short F and PP far from middle is very unrealistic
       *      due to simulation , so we maintain it at midle for now , maybe more sophisticated later ...
      */
 
@@ -1278,7 +1278,7 @@ void BenchCentralePerspective(cParamExeBench & aParam)
    }
 
 
-    BenchCentralePerspective(aParam,eProjPC::eOrthoGraphik);
+    BenchCentralePerspective(aParam,eProjPC::eOrthoGraphic);
 
     BenchStenopeSat();
     BenchImAndZ();

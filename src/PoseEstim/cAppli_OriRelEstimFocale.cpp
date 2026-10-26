@@ -232,8 +232,8 @@ int cAppli_OriRelEstimFocale::Exe()
 
             case eProjPC::eFE_EquiDist :
             case eProjPC::eFE_EquiSolid :
-            case eProjPC::eStereroGraphik :
-            case eProjPC::eOrthoGraphik :
+            case eProjPC::eStereoGraphic :
+            case eProjPC::eOrthoGraphic :
                 mIntervFocal35mm = cPt2dr(6,25);
             break;
 

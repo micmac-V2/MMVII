@@ -63,7 +63,7 @@ class cUnDefinedAtPole;  // define definition validity for some projection , def
       // projection
 class cProjStenope ;      //  classical  stenope
 class cProjFE_EquiDist;    // fish-eye equidisant
-class cProjStereroGraphik ; // stereographic
+class cProjStereoGraphic ; // stereographic
 class cProjOrthoGraphic ;   // orthographic
 class cProjFE_EquiSolid ;   // fish-eye equi solid
  // to do xyz <--> teta phi for "360" degree images

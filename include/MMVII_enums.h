@@ -625,8 +625,8 @@ enum class eProjPC
      eStenope,
      eFE_EquiDist,
      eFE_EquiSolid,
-     eStereroGraphik,
-     eOrthoGraphik,
+     eStereoGraphic,
+     eOrthoGraphic,
      eEquiRect,
      eNbVals
 };
