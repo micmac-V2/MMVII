@@ -341,6 +341,16 @@ void AddData(const  cAuxAr2007 & anAux,cCdtFinalPoseRel2Im & aCdt);
 /// Given a set of pose, normalize it to relative : first pose identity, first base unitary
 void NormalizePosesRef(std::vector<tPoseR> & aVPose);
 
+/// Filter homologous points on angular residual, keeping proportion aProp; poses are Im2->Im1, often 1
+void FilterHomOnPropResidualAng
+    (
+        cSetHomogCpleIm & aSetH,
+        const std::vector<tPoseR> aVPoseRel2to1,
+        const cPerspCamIntrCalib &aCam1,
+        const cPerspCamIntrCalib &aCam2,
+        tREAL8 aProp
+        );
+
 class cDataSolOriTriplet
 {
     public :

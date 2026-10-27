@@ -139,7 +139,7 @@ void FilterHomOnPropResidualAng
       {
           const cHomogCpleIm & aCple = aSetH.KthHom(aKH);
           cPt3dr aDir1 = aCam1.DirBundle(aCple.mP1);
-          cPt3dr aDir2 = aCam1.DirBundle(aCple.mP2);
+          cPt3dr aDir2 = aCam2.DirBundle(aCple.mP2);
           std::vector aVDir{aDir1,aDir2};
 
           for (size_t aKP = 0 ; aKP<aNbPose ; aKP++ )
