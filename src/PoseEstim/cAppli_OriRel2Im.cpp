@@ -9,6 +9,9 @@
 namespace MMVII
 {
 
+const std::string NP_VirTP         = "VirTP";
+const std::string NP_DistribVirTP =  "DistribVirTP";
+
 
 
 cCdtPoseRel2Im::cCdtPoseRel2Im(const tPoseR& aPose,eModePE2I aMode,tREAL8 aScore,const std::string& aMsg) :
@@ -676,8 +679,8 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt
 
      if (mModeCompute!=0)
             anArgOpt << cHeaderSectionArg("Export virtual points")
-             <<  mPhProj.DPTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
-             << AOpt2007(mDistribVirTPs,"DistribVirTP","Distribution of virtual tie points",{eTA2007::HDV});
+             <<  mPhProj.DPTieP().ArgDirOutOpt(NP_VirTP,"Output folder for virtual tie points")
+             << AOpt2007(mDistribVirTPs,NP_DistribVirTP,"Distribution of virtual tie points",{eTA2007::HDV});
 
 
      anArgOpt << cHeaderSectionArg("Fine parametrization")
@@ -808,7 +811,7 @@ int cAppli_OriRelPairOfIm::DoAllPairs()
         aListCom.push_back(aParam);
        // StdOut() << aParam.Com() << "\n";
     }
-    ExeComParal(aListCom);
+    ExeComParal(aListCom,OutIsNone());
     //StdOut() <<  mArgv << "\n";
 
     return EXIT_SUCCESS;

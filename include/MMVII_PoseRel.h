@@ -552,6 +552,14 @@ class cEstimatePosRel2Im  // Herit for combinatorial opt
     bool                         mWithGT;       ///< Do we have a ground truth
 };
 
+// Name of parameter that are used in several command
+extern const std::string NP_VirTP;
+extern const std::string NP_DistribVirTP;
+extern  const std::vector<std::string> & Vec_NP_VirTP();
+extern const std::string  NP_CalledByEstimFocal;
+extern const std::string  NP_StepEndEstimFocal;
+
+
 };  // MMVII
 
 #endif // _MMVII_POSE_REL_H_

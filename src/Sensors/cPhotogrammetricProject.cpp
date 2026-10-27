@@ -1606,13 +1606,13 @@ std::vector<std::string> cPhotogrammetricProject::ReadTopoMes() const
 
 //  see cMetaDataImages.cpp
 
-std::vector<cDataSolOriTriplet> cPhotogrammetricProject::ReadAllTriplets(const std::vector<std::string>& aVImages,bool OkEmpty)
+std::vector<cDataSolOriTriplet> cPhotogrammetricProject::ReadAllTriplets(const std::vector<std::string>& aVImages,bool OkEmpty,bool isIn)
     const
 {
     std::vector<cDataSolOriTriplet> aRes;
     for (const auto& aNameIm : aVImages)
     {
-        std::string aFileName = OriRel_OrientAllTripletsOf1Image(aNameIm,true);
+        std::string aFileName = OriRel_OrientAllTripletsOf1Image(aNameIm,isIn);
         if (!ExistFile(aFileName))
             continue;
 

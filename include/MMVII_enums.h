@@ -72,6 +72,7 @@ enum class eTA2007
                 Shared,        ///< Parameter  Shared by many (several) command
                 Global,        ///< Parameter  Common to all commands
                 Internal,      ///< Reserved to internall use by MMVII
+                ExternalCall,  ///< Parameter that are use when MMVII calls itself, not tuning, but no usefull for users
                 Tuning,        ///< Used for testing/tuning command but not targeted for user
                 HDV,           ///< Has Default Value, will be printed on help
                 CanRepeat,     ///< Parameter can be repeated several times, and will be stored in a vector
@@ -618,7 +619,14 @@ enum class eModeImaDepth
     eNbVals
 };
 
-
+enum class eStepOriRelPipeline
+{
+    eSelectSets,
+    eOriPairs,
+    eOriTriplets,
+    eOriAll,
+    eNbVals
+};
 
 enum class eProjPC
 {
@@ -748,6 +756,7 @@ const std::string & E2Str(const eTypeSerial &);
 const std::string & E2Str(const eTAAr &);
 const std::string & E2Str(const eProjPC &);
 const std::string & E2Str(const eModeImaDepth &);
+const std::string & E2Str(const eStepOriRelPipeline &);
 
 
 const std::string & E2Str(const eSysCo &);

@@ -1,9 +1,16 @@
 #include "MMVII_DeclareAllCmd.h"
 #include "MMVII_Sensor.h"
+#include "MMVII_PoseRel.h"
 
 namespace MMVII
 {
 
+const std::vector<std::string> & Vec_NP_VirTP()
+{
+    static    std::vector<std::string> aRes {NP_VirTP,NP_DistribVirTP} ;
+
+    return aRes;
+}
 
 /* ********************************************************** */
 /*                                                            */
@@ -28,6 +35,8 @@ class cAppli_OriRelPipeline : public cMMVII_Appli
      //   std::string               mOriRelOut;
      //   std::string               mOriGlobOut;
         bool                      mExe;
+        bool                      mCalledByEstimFocal;
+        eStepOriRelPipeline       mStepEnd;
 };
 
 cAppli_OriRelPipeline::cAppli_OriRelPipeline(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
@@ -36,7 +45,9 @@ cAppli_OriRelPipeline::cAppli_OriRelPipeline(const std::vector<std::string> & aV
     mDistribVirTPs(eDistrVirTPs::e5Pts),
 //    mOriRelOut("Relative"),
 //    mOriGlobOut("Global"),
-    mExe(true)
+    mExe                (true),
+    mCalledByEstimFocal (false),
+    mStepEnd            (eStepOriRelPipeline::eOriAll)
 {
 }
 
@@ -49,6 +60,7 @@ cCollecSpecArg2007 & cAppli_OriRelPipeline::ArgObl(cCollecSpecArg2007 & anArgObl
 
 }
 
+
 cCollecSpecArg2007 & cAppli_OriRelPipeline::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
     return anArgOpt
@@ -57,11 +69,15 @@ cCollecSpecArg2007 & cAppli_OriRelPipeline::ArgOpt(cCollecSpecArg2007 & anArgOpt
            << mPhProj.AddAllDpTieP(anArgOpt)
 
            << cHeaderSectionArg("Export virtual points")
-           <<  mPhProj.DPMulTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
-           << AOpt2007(mDistribVirTPs,"DistribVirTP","Distribution of virtual tie points",{eTA2007::HDV})
+           <<  mPhProj.DPMulTieP().ArgDirOutOpt(NP_VirTP,"Output folder for virtual tie points")
+           << AOpt2007(mDistribVirTPs,NP_DistribVirTP,"Distribution of virtual tie points",{eTA2007::HDV})
 
            << cHeaderSectionArg("Run global orientation")
            <<  mPhProj.DPOrient().ArgDirOutOpt("","Output Ori: if set, the global orientation is computed")
+
+            << cHeaderSectionArg("For Call by Estim Focal")
+            << AOpt2007(mCalledByEstimFocal,NP_CalledByEstimFocal,"Signal a call by estim focal",{eTA2007::HDV,eTA2007::ExternalCall})
+            << AOpt2007(mStepEnd,NP_StepEndEstimFocal,"Step where we stop",{eTA2007::HDV,eTA2007::ExternalCall})
         ;
 }
 
@@ -101,6 +117,8 @@ int cAppli_OriRelPipeline::Exe()
 
         aComSelPairs.AddMandArgsOfAppli(*this,{0,1}); // Add 2 first args
         aComSelPairs.AddMMVIIAllTiepInInit(mPhProj);   // all the parameters relative to TieP
+        if (mCalledByEstimFocal)
+           aComSelPairs.AddNoMsg() ;
         aLPCS.push_back(aComSelPairs);
     }
 
@@ -133,8 +151,12 @@ int cAppli_OriRelPipeline::Exe()
         // aComEstimRelPair.AddAllMandArgsOfAppli(*this);
         aComEstimRelPair.AddMandArgsOfAppli(*this,{1,2});
         aComEstimRelPair.AddMMVIIAllTiepInInit(mPhProj);   // all the parameters relative to TieP
-        aLPCS.push_back(aComEstimRelPair);
+        aComEstimRelPair.AddArgsOfAppli(*this,Vec_NP_VirTP());  // All the parmeter relative to Vir Tiep
+        if (mCalledByEstimFocal)
+           aComEstimRelPair.AddNoMsg() ;
 
+        if (int(mStepEnd)>= (int) eStepOriRelPipeline::eOriPairs)
+           aLPCS.push_back(aComEstimRelPair);
     }
 
 
@@ -165,7 +187,12 @@ int cAppli_OriRelPipeline::Exe()
         // aComEstimRelPair.AddAllMandArgsOfAppli(*this);
         aComEstimRelTri.AddMandArgsOfAppli(*this,{1,2});
         aComEstimRelTri.AddMMVIIAllTiepInInit(mPhProj);   // all the parameters relative to TieP
-        aLPCS.push_back(aComEstimRelTri);
+        aComEstimRelTri.AddArgsOfAppli(*this,Vec_NP_VirTP());
+        if (mCalledByEstimFocal)
+           aComEstimRelTri.AddNoMsg() ;
+
+        if (int(mStepEnd)>= (int) eStepOriRelPipeline::eOriTriplets)
+            aLPCS.push_back(aComEstimRelTri);
     }
 
 
@@ -173,42 +200,74 @@ int cAppli_OriRelPipeline::Exe()
     // global hierarchical SFM
     if (mPhProj.DPOrient().DirOutIsInit())
     {
-        cParamCallSys aComHSfM (cMMVII_Appli::FullBin(),
-                               "OriPoseEstimGlobHierarchical",
-                               mPatIm);
-
-        // add relative and calibration
-        for (size_t aKP=3; aKP<5 ; aKP++)
+        if (PreviousBehaviour)
         {
-            aComHSfM.AddArgs(mArgv[aKP]);
-        }
+            cParamCallSys aComHSfM (cMMVII_Appli::FullBin(),
+                                   "OriPoseEstimGlobHierarchical",
+                                   mPatIm);
 
-        // add output global ori
-        aComHSfM.AddArgs(mPhProj.DPOrient().DirOut());
-
-        for (size_t aKP=5; aKP<mArgv.size() ; aKP++)
-        {
-            if (starts_with(mArgv[aKP], "InMulTieP"))
+            // add relative and calibration
+            for (size_t aKP=3; aKP<5 ; aKP++)
             {
-                // use virtual points
-                if (mPhProj.DPMulTieP().DirOutIsInit())
-                {
-                    aComHSfM.AddArgs("InMulTieP="+mPhProj.DPMulTieP().DirOut());
-                    continue;
-                }
-
+                aComHSfM.AddArgs(mArgv[aKP]);
             }
-            if (starts_with(mArgv[aKP], "OutOri")) // already added
-                continue;
-            if (starts_with(mArgv[aKP], "VirTP")) // already added
-                continue;
-            if (starts_with(mArgv[aKP], "Exe"))
-                continue;
+
+            // add output global ori
+            aComHSfM.AddArgs(mPhProj.DPOrient().DirOut());
+
+            for (size_t aKP=5; aKP<mArgv.size() ; aKP++)
+            {
+                if (starts_with(mArgv[aKP], "InMulTieP"))
+                {
+                    // MPD=>ER : la il y a un pb, pk si avait utilise des tiep "normaux" ou des cible, ca passe pas
+                    // use virtual points
+                    if (mPhProj.DPMulTieP().DirOutIsInit())
+                    {
+                        aComHSfM.AddArgs("InMulTieP="+mPhProj.DPMulTieP().DirOut());
+                        continue;
+                    }
+
+                }
+                if (starts_with(mArgv[aKP], "OutOri")) // already added
+                    continue;
+                if (starts_with(mArgv[aKP], "VirTP")) // already added
+                    continue;
+                if (starts_with(mArgv[aKP], "Exe"))
+                    continue;
 
 
-            aComHSfM.AddArgs(mArgv[aKP]);
+                aComHSfM.AddArgs(mArgv[aKP]);
+            }
+            aLPCS.push_back(aComHSfM);
         }
-        aLPCS.push_back(aComHSfM);
+        else
+        {
+            cParamCallSys aComHSfM(TheSpec_HierarchSfm,true);
+
+            // the vir tie points are  given as  mPhProj.DPMulTieP().ArgDirOutOpt()
+            bool UseVirtTieP = mPhProj.DPMulTieP().DirOutIsInit();
+
+            aComHSfM.AddMandArgsOfAppli(*this,{0,1,2});     // Add Pattern +
+            aComHSfM.AddArgs(mPhProj.DPOrient().DirOut());  // The optionnal dirout is a mandatoy param of SFM
+
+            if (UseVirtTieP)
+            {
+                // Extract name  "InMulTieP" using standar interface
+                std::string aNameParam = cDirsPhProj::DefNameArgOpt(eTA2007::MulTieP,true);
+                aComHSfM.AddMMVIIArgsOpt(aNameParam,mPhProj.DPMulTieP().DirOut());
+            }
+             else
+            {
+                // as usual : add all the parameters relative to TieP
+               aComHSfM.AddMMVIIAllTiepInInit(mPhProj);
+            }
+
+            if (mCalledByEstimFocal)
+               aComHSfM.AddNoMsg() ;
+
+            if (int(mStepEnd)>= (int) eStepOriRelPipeline::eOriAll)
+               aLPCS.push_back(aComHSfM);
+        }
     }
 
 

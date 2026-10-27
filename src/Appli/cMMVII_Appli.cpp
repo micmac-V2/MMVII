@@ -124,12 +124,19 @@ void cParamCallSys::AddOneArgOfAppli(const cMMVII_Appli & anAppli,const std::str
     }
     else
     {
+         bool GotArg = false;
          for (const auto & anArg : anAppli.ArgFac().Vec())
          {
-             if (anArg->NbMatch() && anArg->Name()==aName)
+             if (anArg->Name()==aName)
              {
-                   AddMMVIIArgsOpt(aName,anArg->NameVal());
+                 GotArg = true;
+                 if (anArg->NbMatch())
+                    AddMMVIIArgsOpt(aName,anArg->NameVal());
              }
+         }
+         if (!GotArg)
+         {
+             MMVII_INTERNAL_ERROR("AddOneArgOfAppli name don exist in appli "+ aName);
          }
     }
 }
@@ -170,10 +177,14 @@ int cParamCallSys::Execute(bool forceExternal) const
    }
 }
 
+void cParamCallSys::AddNoMsg()
+{
+     AddMMVIIArgsOpt("StdOut","NONE");
+}
 int cParamCallSys::ExecuteWithoutMsg(bool ShowCom)
 {
-   AddMMVIIArgsOpt("StdOut","NONE");
-   if (ShowCom)
+    AddNoMsg();
+    if (ShowCom)
    {
        StdOut() << "cParamCallSys::Execute=[ " << Com() << " ]\n";
    }
@@ -510,6 +521,8 @@ cMultipleOfs &  cMMVII_Appli::StdOut() const
 {
         return const_cast<cMMVII_Appli *>(this)->NC_StdOut();
 }
+
+bool cMMVII_Appli::OutIsNone() const {return mParamStdOut==MMVII_NONE;}
 
 void TestMainSet(const cCollecSpecArg2007 & aVSpec,bool &aMain0,bool & aMain1)
 {
@@ -1730,12 +1743,14 @@ void cMMVII_Appli::GenerateHelp()
        bool ArgIsInternal = Arg->HasType(eTA2007::Internal);
        bool ArgIsGlobal = Arg->HasType(eTA2007::Global);
        bool ArgIsTuning =  Arg->HasType(eTA2007::Tuning);
+       bool ArgIsExtGlob =  Arg->HasType(eTA2007::ExternalCall);
+
        // The rule :
        //   - if ArgIsInternal : print if mDoInternalHelp (used for internal MMVII purpose)
        //   - if ArgIsGlobal   :  print if  mDoGlobHelp   (usefull but alwayse the same)
        //    - else print
 
-       bool DoIt =     ((!ArgIsInternal) && (!ArgIsGlobal) && (!ArgIsTuning))
+       bool DoIt =     ((!ArgIsInternal) && (!ArgIsGlobal) && (!ArgIsTuning) && (!ArgIsExtGlob))
                     || (mDoGlobHelp && (!ArgIsInternal))
                     ||  mDoInternalHelp ;
 
@@ -1755,8 +1770,13 @@ void cMMVII_Appli::GenerateHelp()
              }
              std::string aDeco1 = "----------------";
              std::string aDeco2 = "===";
+             Color aColSep = ArgIsExtGlob ? Color::warning  : Color::sub_title;
+
              HelpOut() << " " << Color::sub_title  << aDeco1 << aDeco2 << " ["
-                       << Arg->GetHeadSep().GetComment()
+                        << aColSep
+                        << (ArgIsExtGlob ? std::string("FOR EXTERNAL CALL") : std::string(""))
+                        << Arg->GetHeadSep().GetComment()
+                        << Color::sub_title
                        <<  "] " << aDeco2 << aDeco1 << Color::end << "\n" ;
 
          }
