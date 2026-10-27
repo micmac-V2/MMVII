@@ -60,6 +60,8 @@ bool IsStrInt(const std::string & aStr);
 
 std::string FixDigToStr(double aSignedVal,int aNbDig); // Nb Dig after .
 std::string FixDigToStr(double aSignedVal,int aNbDigBefore,int aNbDigAfter); // Nb Dig before and  after .
+/// Work better ... ;-(((
+std::string ClaudeToFixDigit(double aVal, int aNb);
 
 /// Make a printinf "adapted" to residual, very quick & dirty 4 now, but at least isolate the process
 std::string ResidualToStr(tREAL8 aRes);

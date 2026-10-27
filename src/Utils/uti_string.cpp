@@ -28,6 +28,109 @@ namespace fs=std::filesystem;
 namespace MMVII
 {
 
+namespace Claude_Format {
+
+/*  Prompt :
+ *    (1) une fonction C++  std::strinf F(double F,int aNb) pour transfomer un double F en un chaine de caractère
+ *      ayant exactement Nb . Si le resultat est trop court la completion de fait par des blanc avant,
+ *      ....
+ *
+ *     (2) Ok, mais je souhait enlever les 0 inutile et avoir plutot des blanc "42.000" => "    42",  "42.1000" => "    42.1"
+ */
+
+#include <string>
+#include <cstdio>
+#include <cmath>
+
+// Enlève les zéros inutiles en fin de mantisse : "42.1000" -> "42.1", "42.000" -> "42"
+static std::string StripZeros(const std::string& aS)
+{
+    // Sépare l'éventuel exposant ("1.500e+08" -> "1.500" + "e+08")
+    size_t aPosE = aS.find_first_of("eE");
+    std::string aMant = (aPosE == std::string::npos) ? aS : aS.substr(0, aPosE);
+    std::string aExp  = (aPosE == std::string::npos) ? "" : aS.substr(aPosE);
+
+    if (aMant.find('.') != std::string::npos)
+    {
+        size_t aLast = aMant.find_last_not_of('0');
+        aMant.erase(aLast + 1);
+        if (!aMant.empty() && aMant.back() == '.')
+            aMant.pop_back();
+    }
+    return aMant + aExp;
+}
+
+static std::string FormatC(const char* aFmt, int aPrec, double aVal)
+{
+    char aBuf[512];
+    std::snprintf(aBuf, sizeof(aBuf), aFmt, aPrec, aVal);
+    return std::string(aBuf);
+}
+
+std::string FixDig(double aVal, int aNb)
+{
+    if (aNb <= 0)
+        return "";
+
+    std::string aRes;
+
+    if (std::isfinite(aVal))
+    {
+        // 1) Notation fixe : max de décimales qui tient dans aNb, puis nettoyage des 0
+        if (std::fabs(aVal) < 1e100)
+        {
+            for (int aDec = aNb; aDec >= 0; aDec--)
+            {
+                std::string aS = FormatC("%.*f", aDec, aVal);
+                if ((int)aS.size() <= aNb)
+                {
+                    // Refuse un résultat qui écrase une valeur non nulle en 0
+                    if ((aVal != 0.0) && (std::stod(aS) == 0.0))
+                        break;
+                    aRes = StripZeros(aS);
+                    break;
+                }
+            }
+        }
+
+        // 2) Notation scientifique si la notation fixe n'a pas convenu
+        if (aRes.empty())
+        {
+            for (int aDec = aNb; aDec >= 0; aDec--)
+            {
+                std::string aS = FormatC("%.*e", aDec, aVal);
+                if ((int)aS.size() <= aNb)
+                {
+                    aRes = StripZeros(aS);
+                    break;
+                }
+            }
+        }
+    }
+    else
+    {
+        aRes = std::isnan(aVal) ? "nan" : (aVal > 0 ? "inf" : "-inf");
+        if ((int)aRes.size() > aNb)
+            aRes.clear();
+    }
+
+    // 3) Rien ne tient
+    if (aRes.empty())
+        return std::string(aNb, '*');
+
+    // 4) Complétion par des blancs à gauche
+    return std::string(aNb - aRes.size(), ' ') + aRes;
+}
+
+
+}; //  namespace Claude_Format
+
+std::string ClaudeToFixDigit(double aVal, int aNb)
+{
+   return Claude_Format::FixDig(aVal,aNb);
+}
+
+
 std::vector<std::string >  AddPostFix(const std::vector<std::string>  & aV,const std::string  & aPost)
 {
     std::vector<std::string > aRes;
