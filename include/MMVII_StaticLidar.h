@@ -63,7 +63,6 @@ public:
 
     void convertToThetaPhiDist();
     void convertToXYZ();
-    void ComputeRotInput2Raster(std::string aTransfoIJK); //< give frame used to return to primary rotation axis = z
 
     bool HasCartesian() const {return mHasCartesian;}
     bool HasIntensity() const {return mHasIntensity;}
@@ -82,7 +81,6 @@ public:
     const std::optional<tPoseR> & ReadPose() const { return mReadPose;}
     bool checkLineCol(); // verify that mMaxCol/mMaxLine ar compatible with mVectPtsLine/mVectPtsCol
     void decimXY(const cPt2di & aDecim);
-    const cRotation3D<tREAL8> & RotInput2TLS() const { return mRotInput2TLS; }
     const cRotation3D<tREAL8> & RotInput2Raster() const { return mRotInput2Raster; }
 
     float ColToLocalThetaApprox(float aCol) const;
@@ -92,7 +90,7 @@ public:
     void ComputeAgregatedAngles();
     float LocalPhiToLinePrecise(float aPhi) const;
     float LocalThetaToColPrecise(float aTheta) const;
-    cPt2dr Input3DtoRasterAngle(const cPt3dr & aPt3DInput) const;
+    cPt2dr Cam3DtoRasterAngle(const cPt3dr & aPt3DInput) const;
     static std::string DefaultPoseName(const std::string & aDirStaticLidarRasters, const std::string & aLidarId);
 
     void MakeIdImage(const std::string & aNameFile) const; // create miniature to select this scan along images
@@ -131,9 +129,15 @@ protected:
     int mNbCol, mNbLine;
     tREAL8 mThetaStart, mThetaStep;
     tREAL8 mPhiStart, mPhiStep;
-    cRotation3D<tREAL8> mRotInput2TLS; // from xyz input file to classical TLS (rot around z)
     cRotation3D<tREAL8> mVertRot; //< verticalizarion rotation in cloud frame
-    cRotation3D<tREAL8> mRotInput2Raster; //< to go from z vertical to z view direction of PP, and make PPx in center
+
+    //  scanner     to      raster
+    //  z|   y
+    //   | /
+    //   + --- x            + --- z
+    //                      | `x
+    //                     y|
+    cRotation3D<tREAL8> mRotInput2Raster; //< to go from z vertical to z view direction of PP
 };
 
 // record all data for each patch

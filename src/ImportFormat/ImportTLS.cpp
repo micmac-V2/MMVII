@@ -780,20 +780,18 @@ int cAppli_ImportTLS::Exe()
     file1.close();
 */
 
-    // compute transfo from scan instrument frame to sensor frame
-    mSL_importer.ComputeRotInput2Raster(mStrInput2TLS);
     mSL_importer.ComputeAgregatedAngles();
 
     // create sensor from imported data
     std::string aScanName = mStationName + "-" + mScanName + cStaticLidar::GetIdSuffix();
     // find PP: image of the (Oz) axis
-    cPt3dr aOxAxisInput = mSL_importer.RotInput2TLS().Inverse({1.,0.,0.});  // axis 1,0,0 in TLS frame, to get PP
-    cPt2dr aOxAxisAngles = mSL_importer.Input3DtoRasterAngle(aOxAxisInput);
+    cPt3dr aOxAxisCam3D = {0.,0.,1.};  // axis 1,0,0 in TLS frame, to get PP
+    cPt2dr aOxAxisAngles = mSL_importer.Cam3DtoRasterAngle(aOxAxisCam3D);
     std::cout<< aOxAxisAngles.y()<<" approx "
              << mSL_importer.LocalPhiToLineApprox(aOxAxisAngles.y())
               <<" precise "
               << mSL_importer.LocalPhiToLinePrecise(aOxAxisAngles.y()) <<"\n";
-    std::cout << "X axis " << aOxAxisInput << ", angles: " << aOxAxisAngles << ", in pixels: "
+    std::cout << "X axis Cam3D " << aOxAxisCam3D << ", angles: " << aOxAxisAngles << ", in pixels: "
               << mSL_importer.LocalThetaToColPrecise(aOxAxisAngles.x()) << " "
               << mSL_importer.LocalPhiToLinePrecise(aOxAxisAngles.y()) << "\n";
     float aOxCol = mSL_importer.LocalThetaToColPrecise(aOxAxisAngles.x());
@@ -804,8 +802,6 @@ int cAppli_ImportTLS::Exe()
         aOxLine = mSL_importer.LocalPhiToLineApprox(aOxAxisAngles.y());
     cPt2dr aPP(aOxCol, aOxLine);
 
-    if (aPP.x()<0)
-        aPP.x() += mSL_importer.NbCol();
     //find F: scale from angle to pixels
     tREAL8 aFx = 1./fabs(mSL_importer.mThetaStep); //TODO: add polynomial disto for different angular steps
     //tREAL8 aFy = 1./fabs(mSL_importer.mPhiStep);
@@ -815,6 +811,13 @@ int cAppli_ImportTLS::Exe()
         StdOut() << "Warning: different steps in theta and phi are not well supported yet!\n";
     //MMVII_INTERNAL_ASSERT_tiny(fabs((fabs(mSL_importer.mPhiStep)-fabs(mSL_importer.mThetaStep))/mSL_importer.mPhiStep)<1e-2,
     //                           "Error: different steps in theta and phi are not supported yet!");
+
+    // make PP in [0;2pi]
+    tREAL8 aW2piInPixels = (1./aFx)*2*M_PI;
+    if (aPP.x() >= aW2piInPixels) aPP.x() -= aW2piInPixels;
+    if (aPP.x() < 0.) aPP.x() += aW2piInPixels;
+
+    StdOut()<<"Final PP: "<<aPP<<"\n";
 
     cPerspCamIntrCalib* aCalib = cPerspCamIntrCalib::SimpleCalib(
                                         cPerspCamIntrCalib::SharedCalibPrefixName()

@@ -100,8 +100,8 @@ cStaticLidarImporter::cStaticLidarImporter() :
     mThetaStep         (NAN),
     mPhiStart          (NAN),
     mPhiStep           (NAN),
-    mRotInput2TLS      (cRotation3D<tREAL8>::Identity()),
-    mVertRot           (cRotation3D<tREAL8>::Identity())
+    mVertRot           (cRotation3D<tREAL8>::Identity()),
+    mRotInput2Raster   (cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j"))
 {
 
 }
@@ -378,18 +378,13 @@ bool cStaticLidarImporter::read(const std::string & aName, bool OkNone,
 
     if (HasCartesian() && !HasSpherical())
     {
-        mRotInput2TLS = cRotation3D<tREAL8>::RotFromCanonicalAxes(aStrInput2TLS);
+        auto aRotInput2TLS = cRotation3D<tREAL8>::RotFromCanonicalAxes(aStrInput2TLS);
         // apply rotframe to original points
         for (auto & aPtXYZ : mVectPtsXYZ)
         {
-            aPtXYZ = ToF(mRotInput2TLS.Value(ToR(aPtXYZ)));
+            aPtXYZ = ToF(aRotInput2TLS.Value(ToR(aPtXYZ)));
         }
         convertToThetaPhiDist();
-        // go back to original xyz
-        for (auto & aPtXYZ : mVectPtsXYZ)
-        {
-            aPtXYZ = ToF(mRotInput2TLS.Inverse(ToR(aPtXYZ)));
-        }
     } else if (!HasCartesian() && HasSpherical()) // mTransfoIJK not used if spherical
     {
         convertToXYZ();
@@ -437,30 +432,6 @@ void cStaticLidarImporter::convertToXYZ()
     mNoMiss = mIsStrucured || (aNbPtsNul>0);
     mAllPointsReturn = (aNbPtsNul==0);
 }
-
-void cStaticLidarImporter::ComputeRotInput2Raster(std::string aTransfoIJK)
-{
-    MMVII_INTERNAL_ASSERT_tiny(HasRowCol(),"Error: ComputeRotInput2Raster needs row/col");
-
-    cRotation3D<tREAL8> aRotInput2TLS = cRotation3D<tREAL8>::RotFromCanonicalAxes(aTransfoIJK);
-    //  scanner     to      raster
-    //  z|   y
-    //   | /
-    //   + --- x            + --- z
-    //                      | `x
-    //                     y|
-    cRotation3D<tREAL8> aRotZvert2view = cRotation3D<tREAL8>::RotFromCanonicalAxes("k-i-j");
-
-    std::cout<<"aRotZvert2view:\n"<<aRotZvert2view.AxeI()<<"\n"
-              <<aRotZvert2view.AxeJ()<<"\n"<<aRotZvert2view.AxeK()<<std::endl;
-    std::cout<<"aRotFrame:\n"<<aRotInput2TLS.AxeI()<<"\n"
-              <<aRotInput2TLS.AxeJ()<<"\n"<<aRotInput2TLS.AxeK()<<std::endl;
-
-    mRotInput2Raster = aRotZvert2view * aRotInput2TLS; // TODO: use aRotFrame
-    std::cout<<"mRotInput2Raster:\n"<<mRotInput2Raster.AxeI()<<"\n"
-              <<mRotInput2Raster.AxeJ()<<"\n"<<mRotInput2Raster.AxeK()<<std::endl;
-}
-
 
 bool cStaticLidarImporter::checkLineCol()
 {
@@ -655,13 +626,12 @@ float cStaticLidarImporter::LocalThetaToColPrecise(float aTheta) const
 }
 
 
-cPt2dr cStaticLidarImporter::Input3DtoRasterAngle(const cPt3dr &aPt3DInput) const
+cPt2dr cStaticLidarImporter::Cam3DtoRasterAngle(const cPt3dr &aPtCam3DInput) const
 {
-    //std::cout<<"Input3DtoRasterAngle: "<<aPt3DInput<<"\n";
-    cPt3dr aPt3DInputNorm = aPt3DInput/Norm2(aPt3DInput);
-    cPt3dr aPt3DRaster = RotInput2Raster().Value(aPt3DInputNorm);
+    //std::cout<<"Cam3DtoRasterAngle: "<<aPt3DInput<<"\n";
+    cPt3dr aPtCam3DInputNorm = aPtCam3DInput/Norm2(aPtCam3DInput);
     cProj_EquiRect aProjEquiRect(2*M_PI);
-    auto aThetaPhi = cPt2dr::FromStdVector(aProjEquiRect.Proj(aPt3DRaster.ToStdVector()));
+    auto aThetaPhi = cPt2dr::FromStdVector(aProjEquiRect.Proj(aPtCam3DInputNorm.ToStdVector()));
     return aThetaPhi;
 }
 /*    cPt2dr aP2d_approx;
