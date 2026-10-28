@@ -1060,6 +1060,16 @@ cPerspCamIntrCalib * cPerspCamIntrCalib::RandomCalib(eProjPC aTypeProj,int aKDeg
        return aCam;
 }
 
+tREAL8  F35toFPix(const tREAL8 aFocEq35,cPt2di aSzIm)
+{
+   return    aFocEq35 * Norm2(aSzIm) / Norm2(cPt2dr(24,36));
+}
+
+tREAL8  FPixtoF35(const tREAL8 aFocPix,cPt2di aSzIm)
+{
+   return    aFocPix * Norm2(cPt2dr(24,36)) / Norm2(aSzIm);
+}
+
 tSeg2dr  cPerspCamIntrCalib::ExtenSegUndistIncluded
          (
              bool   doRedist,

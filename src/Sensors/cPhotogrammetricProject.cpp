@@ -591,6 +591,22 @@ std::vector<const cDirsPhProj *> cPhotogrammetricProject::AllDpTieP() const
 {
     return {&DPTieP(),&DPMulTieP(),&DPGndPt2D()};
 }
+
+bool cPhotogrammetricProject::AtLeastOneTiePModeIsInit() const
+{
+   for (const auto & aDP : AllDpTieP())
+       if (aDP->DirInIsInit())
+           return true;
+   return false;
+}
+
+void cPhotogrammetricProject::AssertAtLeastOneTiePModeIsInit() const
+{
+    MMVII_INTERNAL_ASSERT_User(AtLeastOneTiePModeIsInit(),eTyUEr::eNoTiePOrEquiv,"None of possible tie points source was init");
+}
+
+
+
 std::vector< cDirsPhProj *> cPhotogrammetricProject::AllDpTieP()
 {
     return {&DPTieP(),&DPMulTieP(),&DPGndPt2D()};

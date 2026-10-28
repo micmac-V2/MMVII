@@ -74,38 +74,32 @@ class cAppli_OriRelEstimFocale : public cMMVII_Appli
 
 
         cPhotogrammetricProject   mPhProj;
-        std::string               mPrefixTmp;  /// Prefix used for temporary results (calib & OriRel)
+        std::string               mPrefixTmp;  ///< Prefix used for temporary results (calib & OriRel)
 
 
         // =========== Mandatory args ================
-        std::string               mPatIm;
+        std::string               mPatIm;     ///< Images used
 
         // =========== Optionnal args ================
 
-        eStepOriRelPipeline       mStepEnd;
-        eProjPC                   mTypeProj;
-        cPt2dr                    mIntervFocal35mm;
-        tREAL8                    mRatioFocSucc;
+        eStepOriRelPipeline       mStepEnd;           ///< At which step of compute (pair, triplet ...) do we stop ?
+        eProjPC                   mTypeProj;          ///< Type of camera projection
+        cPt2dr                    mIntervFocal35mm;   ///<  Min-max focal to test
+        tREAL8                    mRatioFocSucc;      ///< Ratio between to focal teste
 
-        cPt2di                    mSzIm;
-        std::string               mNameCalib;
+        // ============ Internal parameter
+        cPt2di                    mSzIm;      ///< size of images computed
+        std::string               mNameCalib; ///< name of calibration
+        cPt3di                    mDegree;    ///< Fix to 3,1,1 now
 
-        //cPerspCamIntrCalib        * mCalib;
-        cPt3di                    mDegree;
+        int                      mKCurTest;  ///<  Num or current test
+        cWhichMin<int,tREAL8>    mMinRes;    ///< structure to extract num test minimizing score
+        std::vector<cPt2dr>      mVFocRes;   ///< Pair Foc/Residual :
 
-
-        int                      mKTest;
-        cWhichMin<int,tREAL8>    mMinRes;
-        std::vector<cPt2dr>      mVFocRes;
-
-        cTimerSegm *              mTimeSegm ;
-        bool                      mShow;
-
-
-        tREAL8                    mLogF0;
-        tREAL8                    mLogF1;
-        tREAL8                    mLogStep;
-        int                       mNbStep;
+        tREAL8                    mLogF0;       ///< log of min focal
+        tREAL8                    mLogF1;       ///< log of max focal
+        tREAL8                    mLogStep;     ///< log of each ratio between succ focal
+        int                       mNbFocTested; ///< number of focal to  teste
 
 };
 
@@ -114,10 +108,9 @@ cAppli_OriRelEstimFocale::cAppli_OriRelEstimFocale(const std::vector<std::string
     mPhProj         (*this),
     mStepEnd        (eStepOriRelPipeline::eOriTriplets),
     mTypeProj       (eProjPC::eStenope),
-    mRatioFocSucc   (1.1),
+    mRatioFocSucc   (1.3),
     mDegree         (3,1,1),
-    mKTest          (0),
-    mShow           (false)
+    mKCurTest       (0)
 {
 }
 
@@ -148,8 +141,10 @@ cCollecSpecArg2007 & cAppli_OriRelEstimFocale::ArgOpt(cCollecSpecArg2007 & anArg
             << AOpt2007(mIntervFocal35mm,"IntFoc35","Interval focal in equiv 35mm, def value depend of model")
             << AOpt2007(mTypeProj,"Proj","Type of projection",{eTA2007::HDV})
             << AOpt2007(mRatioFocSucc,"RatioFocal","Ratio between sucessively tested focals",{eTA2007::HDV})
-            << AOpt2007(mNbStep,"NbStep","Fix number of step, rather than ratio",{eTA2007::HDV})
-            << AOpt2007(mStepEnd,NP_StepEndEstimFocal,"Step of process at which it eval is made",{eTA2007::HDV})
+            << AOpt2007(mNbFocTested,"NbStep","Fix number of step, rather than ratio",{eTA2007::HDV})
+
+            //  Supress 4 now acces to this option : Pairs in no good, Global is not implemented
+            //  << AOpt2007(mStepEnd,NP_StepEndEstimFocal,"Step of process at which it eval is made",{eTA2007::HDV})
       ;
 
     return anArgOpt;
@@ -158,19 +153,34 @@ cCollecSpecArg2007 & cAppli_OriRelEstimFocale::ArgOpt(cCollecSpecArg2007 & anArg
 std::vector<cOneHelpSampleCmp>  cAppli_OriRelEstimFocale::Samples() const
 {
 
-    return {};
+    return {
+               cOneHelpSampleCmp::Header("Examples with Ramses data set, in two steps"),
+               {
+                    "MMVII OriPoseEstimFocale \"IMG_034[036].JPG\" TMP InTieP=V1",
+
+               },
+               {
+                   "MMVII OriPoseEstimFocale \"IMG_034[036].JPG\" TMP InTieP=V1  IntFoc35=[40,60] RatioFocal=1.1"
+               },
+
+               cOneHelpSampleCmp::Header("Examples with Niche data set"),
+               {
+                   "MMVII OriPoseEstimFocale \"IMG_569[456].JPG\" TMP InTieP=V1  Proj=FE_EquiDist"
+               }
+    };
 }
 
 
 tREAL8 cAppli_OriRelEstimFocale::ScorePairs() const
 {
-    cWeightAv<tREAL8,tREAL8> aRes;
-
+    // extract pairs computed
     std::vector<const tNamePair *>  aVecP;
     tNameRel  aSetOfPair;
     ReadFromFile(aSetOfPair, mPhProj.OriRel_NamePairsOfAllImages(false));
     aSetOfPair.PutInVect(aVecP,false);
 
+    // compute average of score
+    cWeightAv<tREAL8,tREAL8> aRes;
     for (const auto  & aPair : aVecP )
     {
         std::string aNameFile = mPhProj.OriRel_NameOriPair2Images(aPair->V1(),aPair->V2(),false);
@@ -184,19 +194,18 @@ tREAL8 cAppli_OriRelEstimFocale::ScorePairs() const
 
 tREAL8 cAppli_OriRelEstimFocale::ScoreTriplet() const
 {
-    cWeightAv<tREAL8,tREAL8> aRes;
+    // extract triplet computed
     tNameSet aSetN1;
     ReadFromFile(aSetN1,mPhProj.OriRel_NameAllImages(false));
     std::vector<std::string > aVecName = ToVect(aSetN1);
-
-
     std::vector<cDataSolOriTriplet>  aV3 = mPhProj.ReadAllTriplets(ToVect(aSetN1),false,false);
 
+    // compute average of scores
+    cWeightAv<tREAL8,tREAL8> aRes;
     for (const auto & a3 : aV3)
     {
         aRes.Add(1.0,a3.mScore);
     }
-
 
     return aRes.Average();
 }
@@ -214,27 +223,18 @@ cPerspCamIntrCalib  * cAppli_OriRelEstimFocale::CalibOfFocalePixel(tREAL8 aFocal
             );
 }
 
-tREAL8  F35toFPix(const tREAL8 aFocEq35,cPt2di aSzIm)
-{
-   return    aFocEq35 * Norm2(aSzIm) / Norm2(cPt2dr(24,36));
-}
-
-tREAL8  FPixtoF35(const tREAL8 aFocPix,cPt2di aSzIm)
-{
-   return    aFocPix * Norm2(cPt2dr(24,36)) / Norm2(aSzIm);
-}
 
 void cAppli_OriRelEstimFocale::TestOneFoc35(tREAL8 aFocEq35)
 {
+    // ----------- Generate file with calibration for use by command
     tREAL8 aFocPix = F35toFPix(aFocEq35,mSzIm) ; // aFocEq35 * Norm2(mSzIm) / Norm2(cPt2dr(24,36));
     cPerspCamIntrCalib  * aCalib = CalibOfFocalePixel(aFocPix );
-
-    //std::string mPrefix = TheSpec_OriEstimFocale.Name();
     std::string aDir =     cDirsPhProj::StdDirOfType(eTA2007::Orient,mPrefixTmp);
     CreateDirectories(aDir);
     aCalib->ToFile(aDir+mNameCalib+"."+TaggedNameDefSerial());
 
 
+    //   ------------ Generate and execut the command -----------------
     {
         cParamCallSys aComPipeline(TheSpec_OriPoseEstimRel,true);
         aComPipeline.AddArgs(mPatIm);      // images
@@ -248,6 +248,7 @@ void cAppli_OriRelEstimFocale::TestOneFoc35(tREAL8 aFocEq35)
         aComPipeline.ExecuteWithoutMsg();
     }
 
+    // ----------------- Extract the score, print, and update structures
     tREAL8 aScore2 = ScorePairs();
     tREAL8 aScore3 =  ((int)mStepEnd >= (int) eStepOriRelPipeline::eOriTriplets) ? ScoreTriplet() : 0.0;
 
@@ -259,11 +260,12 @@ void cAppli_OriRelEstimFocale::TestOneFoc35(tREAL8 aFocEq35)
              << "\n";
 
     tREAL8 aScore = aScore3;
-    mMinRes.Add(mKTest,aScore);
+    mMinRes.Add(mKCurTest,aScore);
     mVFocRes.push_back(cPt2dr(aFocEq35,aScore));
 
+    // ------------ final
     delete aCalib;
-    mKTest++;
+    mKCurTest++;
 }
 
 
@@ -276,9 +278,9 @@ tREAL8   cAppli_OriRelEstimFocale::FocOfLogInd(const tREAL8 aKTest) const
 
 int cAppli_OriRelEstimFocale::Exe()
 {
-    mTimeSegm = mShow ? new cTimerSegm(this) : nullptr ;
     mPhProj.FinishInit();
 
+    mPhProj.AssertAtLeastOneTiePModeIsInit();
 
     mPrefixTmp   = mPhProj.DPOriRel().DirOut();
 
@@ -313,6 +315,7 @@ int cAppli_OriRelEstimFocale::Exe()
 
 
     std::vector<std::string> aVNamesIm =  VectMainSet(0);
+
 
     // ------------- [2]   Compute size of camera/image, Name of calib and check = for all images ----------
     for (size_t aK1 =0 ; aK1<aVNamesIm.size(); aK1++)
@@ -353,16 +356,18 @@ int cAppli_OriRelEstimFocale::Exe()
 
     mLogF0 = std::log(mIntervFocal35mm.x());
     mLogF1 = std::log(mIntervFocal35mm.y());
-    if (!IsInit(&mNbStep))
-        mNbStep = round_up ((mLogF1-mLogF0)/ std::log(mRatioFocSucc));
-    mLogStep = (mLogF1-mLogF0) / mNbStep;
+    if (!IsInit(&mNbFocTested))
+        mNbFocTested = round_up ((mLogF1-mLogF0)/ std::log(mRatioFocSucc));
+    mLogStep = (mLogF1-mLogF0) / mNbFocTested;
 
-    for (int aKTest=0 ; aKTest<=mNbStep ; aKTest++)
+    for (int aKTest=0 ; aKTest<=mNbFocTested ; aKTest++)
     {
        TestOneFoc35(FocOfLogInd(aKTest));
     }
 
     //------------ [4]  Print the result -------------------------------
+
+             // [4.1]  print "basic" min
 
     int aKMin = mMinRes.IndexExtre();
     cPt2dr aFRoc = mVFocRes.at(aKMin);
@@ -373,8 +378,11 @@ int cAppli_OriRelEstimFocale::Exe()
               << Color::descr << " Res= "    << Color::end  <<   ClaudeToFixDigit(aFRoc.y(),5)
              << "\n";
 
+             // [4.2]  Extract and print parabolic refinement
+
     if ((aKMin>=1) && (aKMin<((int)mVFocRes.size()-1)))
     {
+
           tREAL8 aS0 =  mVFocRes.at(aKMin-1).y();
           tREAL8 aS1 =  mVFocRes.at(aKMin  ).y();
           tREAL8 aS2 =  mVFocRes.at(aKMin+1).y();
@@ -386,8 +394,16 @@ int cAppli_OriRelEstimFocale::Exe()
            StdOut() << Color::success << "     --- F35-Parabolic-Refine ---- " << "\n";
            StdOut() <<  "   "
                     << Color::descr << "F35= "     << Color::end  <<   ClaudeToFixDigit(aF35Refine,5)
-                    << Color::descr << " FPix= "    << Color::end  <<  ClaudeToFixDigit(aFPixRefine,5)
-                    << "\n";
+                    << Color::descr << " FPix= "    << Color::end  <<  ClaudeToFixDigit(aFPixRefine,5);
+
+           cMetaDataImage  aMTD = mPhProj.GetMetaData(aVNamesIm.at(0)) ;
+           const cElemCamDataBase *  anEDB = mPhProj.GetCamFromNameCam(aMTD.CameraName(),true);
+           if (anEDB)
+           {
+               tREAL8 aFocReal = aF35Refine * Norm2(anEDB->mSzSensor_Mm) / Norm2(cPt2dr(36,24)) ;
+               StdOut() << Color::descr << " Freal= "     << Color::end  <<   ClaudeToFixDigit(aFocReal,5);
+           }
+           StdOut ()      << "\n";
 
     }
     else
@@ -398,14 +414,12 @@ int cAppli_OriRelEstimFocale::Exe()
 
     StdOut() << "\n" << Color::title  <<"========================================== \n" << Color::end;
 
-
-    delete mTimeSegm;
     return EXIT_SUCCESS;
 }
 
 
 /* ====================================================== */
-/*               OriPoseEstimRel2Im                       */
+/*               OriPoseEstimFocale                       */
 /* ====================================================== */
 
 tMMVII_UnikPApli Alloc_OriRelEstimFocale(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)

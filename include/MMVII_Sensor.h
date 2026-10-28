@@ -620,7 +620,7 @@ class cPhotogrammetricProject : public cIPhProj
 
                                     
           const cDirsPhProj &   DPOrient() const; ///< Accessor
-      const cDirsPhProj &   DPOriTriplets() const; ///< Accessor
+          const cDirsPhProj &   DPOriTriplets() const; ///< Accessor
           const cDirsPhProj &   DPRadiomData() const; ///< Accessor
           const cDirsPhProj &   DPRadiomModel() const; ///< Accessor
           const cDirsPhProj &   DPMeshDev() const; ///< Accessor
@@ -641,7 +641,11 @@ class cPhotogrammetricProject : public cIPhProj
 
           /// Return all the DP that can be used as tiep
           std::vector<const cDirsPhProj *> AllDpTieP() const;
-          std::vector< cDirsPhProj *> AllDpTieP() ;
+          std::vector< cDirsPhProj *> AllDpTieP() ;   
+
+          bool AtLeastOneTiePModeIsInit() const;
+          /// Check exit TieP or MutTieP or ObjMesInstr ...
+          void AssertAtLeastOneTiePModeIsInit() const;
 
           cCollecSpecArg2007 & AddAllDpTieP( cCollecSpecArg2007 &) ;
 
@@ -661,6 +665,7 @@ class cPhotogrammetricProject : public cIPhProj
           tPtrArg2007           ArgChSys(bool DefaultUndefined=false);
           /// To fix the "cur" sys co, its In,Out, or InOut, if both and diff use ArgChSys
           tPtrArg2007           ArgSysCo();
+
 
           //===================================================================
           //==================   ORIENTATION      =============================

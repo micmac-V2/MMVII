@@ -980,6 +980,8 @@ int cAppli_OriRelTripletsOfIm::Exe()
     mTimeSegm    = mShow ? (new cTimerSegm(this)) : nullptr ;
     mGenVirtTP = mPhProj.DPMulTieP().DirOutIsInit();
 
+    mPhProj.AssertAtLeastOneTiePModeIsInit();
+
     // So that is is logged in MMVII-LogCmdModif.txt
     if (mModeCompute!=0)
        mPhProj.DPOriRel().SetDirOutInIfNotInit();

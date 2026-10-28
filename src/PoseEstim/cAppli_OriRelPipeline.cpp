@@ -87,9 +87,11 @@ int cAppli_OriRelPipeline::Exe()
 
     bool  PreviousBehaviour = false;
 
+    mPhProj.AssertAtLeastOneTiePModeIsInit();
+    /*
     MMVII_INTERNAL_ASSERT_always((mPhProj.DPTieP().DirInIsInit() ||
                                   mPhProj.DPMulTieP().DirInIsInit() ||
-                                  mPhProj.DPGndPt2D().DirInIsInit()),"Input tie-points not provided");
+                                  mPhProj.DPGndPt2D().DirInIsInit()),"Input tie-points not provided");*/
 
 
 

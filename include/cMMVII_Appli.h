@@ -709,6 +709,8 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         const cCollecSpecArg2007 &                ArgFac() const;        ///< Optional/Facultative args
 
 
+
+
     private:
         void  AddOneReport(const std::string &anId,const std::string & VecMsg);
         void  DoMergeReport();

@@ -277,6 +277,7 @@ enum class eTyUEr
               eNoFocaleEqui35,
               eNoNumberPixel,
               eNoCameraName,
+              eNoTiePOrEquiv,
               eMultipleTargetInOneImage,
               eSysCo,
               eConstraintsError,

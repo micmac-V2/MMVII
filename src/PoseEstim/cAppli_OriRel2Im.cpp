@@ -764,10 +764,13 @@ int cAppli_OriRelPairOfIm::Exe()
 
     if (mModeCompute==0)
     {
+        // Dont do AssertAtLeastOneTiePModeIsInit, it can run with simulated point ...
        EstimatePose2IM(mIm1,mIm2);
     }
     else if ((mModeCompute==1) || (mModeCompute==2))
     {
+        mPhProj.AssertAtLeastOneTiePModeIsInit();
+
         mPhProj.DPOriRel().SetDirOutInIfNotInit();
         tNameRel  aSetOfPair = RelNameFromFile (mPhProj.OriRel_NamePairsOfAllImages(true));
 

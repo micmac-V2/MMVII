@@ -269,6 +269,7 @@ template<> cE2Str<eTyUEr>::tMapE2Str cE2Str<eTyUEr>::mE2S
                 {eTyUEr::eNoFocaleEqui35,"NoFocaleEqui35"},
                 {eTyUEr::eNoNumberPixel,"NoNumberPixel"},
                 {eTyUEr::eNoCameraName,"NoCameraName"},
+                {eTyUEr::eNoTiePOrEquiv,"NoTieP_MulTiep_ObjMesInstr"},
                 {eTyUEr::eMultipleTargetInOneImage,"MultipleTargetInOneImage,"},
                 {eTyUEr::eSysCo,"SysCo"},
                 {eTyUEr::eConstraintsError,"ConstraintsError"},
