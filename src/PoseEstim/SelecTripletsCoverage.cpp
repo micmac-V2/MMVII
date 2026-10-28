@@ -6,7 +6,7 @@
 
 #include "SelecTripletsCoverage.h"
 #include "MMVII_Bench.h"
-
+#include "MMVII_PCSens.h"
 
 namespace MMVII
 {
@@ -206,6 +206,81 @@ std::vector<std::pair<int,tREAL8>> cSelecTripletsCoverage::Select()
 
 /* ******************************** */
 /*                                  */
+/*      Geometry of the triplet     */
+/*                                  */
+/* ******************************** */
+
+tPoseR NormalizedPoseOfPair(const tPoseR & aPoseAB)
+{
+    tREAL8 aNorm = Norm2(aPoseAB.Tr());
+    MMVII_INTERNAL_ASSERT_always(aNorm>0,"NormalizedPoseOfPair : null base");
+    return tPoseR(aPoseAB.Tr()/aNorm,aPoseAB.Rot());
+}
+
+tREAL8 DepthOfPair(const tPoseR & aPoseAB,const std::vector<cPt3dr> & aVDirA,const std::vector<cPt3dr> & aVDirB)
+{
+    MMVII_INTERNAL_ASSERT_always(aVDirA.size()==aVDirB.size(),"DepthOfPair : different sizes");
+    std::vector<tREAL8> aVX,aVY,aVZ;
+    for (size_t aK=0 ; aK<aVDirA.size() ; aK++)
+    {
+        tSeg3dr aBundA(cPt3dr(0,0,0),aVDirA.at(aK));
+        tSeg3dr aBundB(aPoseAB.Tr(),aPoseAB.Value(aVDirB.at(aK)));
+        if (! QuasiParallelSegs(aBundA,aBundB))
+        {
+            cPt3dr aP = BundleInters(aBundA,aBundB);
+            aVX.push_back(aP.x());
+            aVY.push_back(aP.y());
+            aVZ.push_back(aP.z());
+        }
+    }
+    if (aVX.empty())
+        return -1.0;
+    return Norm2(cPt3dr(NonConstMediane(aVX),NonConstMediane(aVY),NonConstMediane(aVZ)));
+}
+
+bool CenterOfThirdImage
+    (
+        cPt3dr &                    aCenter,
+        const tPoseR &              aPoseAB,
+        const tPoseR &              aPoseAC,
+        const std::vector<cPt3dr> & aVDirA,
+        const std::vector<cPt3dr> & aVDirB,
+        const std::vector<cPt3dr> & aVDirC,
+        size_t                      aMinNb
+        )
+{
+    MMVII_INTERNAL_ASSERT_always
+    (
+        (aVDirA.size()==aVDirB.size()) && (aVDirA.size()==aVDirC.size()),
+        "CenterOfThirdImage : different sizes"
+    );
+    std::vector<tREAL8> aVLambda;
+    for (size_t aK=0 ; aK<aVDirA.size() ; aK++)
+    {
+        tREAL8 aLambda = 0.0;
+        if (LambdaThirdCenter(aLambda,aPoseAB,aPoseAC,aVDirA.at(aK),aVDirB.at(aK),aVDirC.at(aK)))
+            aVLambda.push_back(aLambda);
+    }
+    if (aVLambda.empty() || (aVLambda.size()<aMinNb))
+        return false;
+    tREAL8 aLambda = NonConstMediane(aVLambda);
+    if (aLambda <= 0)
+        return false;
+    aCenter = aPoseAC.Tr() * aLambda;
+    return true;
+}
+
+tREAL8 AngleCycleRot(const tPoseR & aPoseAB,const tPoseR & aPoseAC,const tPoseR & aPoseBC)
+{
+    // poses map ImK->ImA, so R_AB.R_BC maps C->A as R_AC
+    tRotR aRCycle = aPoseAC.Rot().MapInverse() * (aPoseAB.Rot() * aPoseBC.Rot());
+    return std::abs(aRCycle.Angle());
+}
+
+
+
+/* ******************************** */
+/*                                  */
 /*              Bench               */
 /*                                  */
 /* ******************************** */
@@ -246,6 +321,73 @@ tResSTC BenchSTC_Run(const cParamSelTriCov & aParam,const std::vector<cCandTriCo
     for (const auto & aCand : aVCand)
         aSel.AddCandidate(aCand);
     return aSel.Select();
+}
+
+/// T2 : geometry on 3 simulated cameras, exact then noisy directions
+void BenchSTC_Geometry()
+{
+    cCamSimul * aCamSim = cCamSimul::AllocNVIewTerrestrial(3,eProjPC::eStenope,false);
+    const tPoseR aPA = aCamSim->ListCam().at(0)->Pose();  // Cam->World
+    const tPoseR aPB = aCamSim->ListCam().at(1)->Pose();
+    const tPoseR aPC = aCamSim->ListCam().at(2)->Pose();
+    delete aCamSim;
+
+    tPoseR aPoseAB = aPA.MapInverse() * aPB;   // ImB -> ImA
+    tPoseR aPoseAC = aPA.MapInverse() * aPC;
+    tPoseR aPoseBC = aPB.MapInverse() * aPC;
+    tREAL8 aScale = Norm2(aPoseAB.Tr());
+    tPoseR aPoseABN = NormalizedPoseOfPair(aPoseAB);
+    tPoseR aPoseACN = NormalizedPoseOfPair(aPoseAC);  // scale of AC lost : lambda must recover it
+    cPt3dr aCenterGT = aPoseAC.Tr() / aScale;
+
+    // ground points around the optical axis of A ; directions (not unit) in the frame of each camera
+    const tREAL8 aNoise = 1e-3;
+    auto aUnit = [](const cPt3dr & aP) {return aP/Norm2(aP);};
+    std::vector<cPt3dr> aVA,aVB,aVC,aVAN,aVBN,aVCN;
+    std::vector<tREAL8> aVX,aVY,aVZ;
+    for (size_t aK=0 ; aK<100 ; aK++)
+    {
+        cPt3dr aRand = cPt3dr::PRandC();
+        cPt3dr aPLocA = cPt3dr(0.3*aRand.x(),0.3*aRand.y(),1.0) * (15.0+5.0*aRand.z());
+        cPt3dr aPGround = aPA.Value(aPLocA);
+        aVA.push_back(aUnit(aPLocA));
+        aVB.push_back(aUnit(aPB.MapInverse().Value(aPGround)));
+        aVC.push_back(aUnit(aPC.MapInverse().Value(aPGround)));
+        aVAN.push_back(aVA.back()+cPt3dr::PRandC()*aNoise);
+        aVBN.push_back(aVB.back()+cPt3dr::PRandC()*aNoise);
+        aVCN.push_back(aVC.back()+cPt3dr::PRandC()*aNoise);
+        aVX.push_back(aPLocA.x()/aScale);
+        aVY.push_back(aPLocA.y()/aScale);
+        aVZ.push_back(aPLocA.z()/aScale);
+    }
+    tREAL8 aHGT = Norm2(cPt3dr(NonConstMediane(aVX),NonConstMediane(aVY),NonConstMediane(aVZ)));
+
+    // exact data
+    tREAL8 aH = DepthOfPair(aPoseABN,aVA,aVB);
+    MMVII_INTERNAL_ASSERT_bench(std::abs(aH-aHGT)<1e-6*aHGT,"T2 : depth H");
+    cPt3dr aCenter;
+    MMVII_INTERNAL_ASSERT_bench(CenterOfThirdImage(aCenter,aPoseABN,aPoseACN,aVA,aVB,aVC,5),"T2 : center rejected");
+    MMVII_INTERNAL_ASSERT_bench(Norm2(aCenter-aCenterGT)<1e-6*Norm2(aCenterGT),"T2 : center");
+    MMVII_INTERNAL_ASSERT_bench(AngleCycleRot(aPoseAB,aPoseAC,aPoseBC)<1e-8,"T2 : cycle angle");
+
+    // noisy data : loose tolerance (not derived), values printed with Verbose
+    tREAL8 aHN = DepthOfPair(aPoseABN,aVAN,aVBN);
+    cPt3dr aCenterN;
+    MMVII_INTERNAL_ASSERT_bench(CenterOfThirdImage(aCenterN,aPoseABN,aPoseACN,aVAN,aVBN,aVCN,5),"T2 : noisy center rejected");
+    tREAL8 aErrH = std::abs(aHN-aHGT)/aHGT;
+    tREAL8 aErrC = Norm2(aCenterN-aCenterGT)/Norm2(aCenterGT);
+    StdOut() << "T2 noise=" << aNoise << " ErrRelH=" << aErrH << " ErrRelC=" << aErrC << "\n";
+    MMVII_INTERNAL_ASSERT_bench((aErrH<0.01) && (aErrC<0.01),"T2 : noisy H/center");
+
+    // rejections : too few points ; negative lambda (base AC reversed) ; parallel rays
+    MMVII_INTERNAL_ASSERT_bench(!CenterOfThirdImage(aCenter,aPoseABN,aPoseACN,aVA,aVB,aVC,101),"T2 : MinNb");
+    tPoseR aPoseACRev(aPoseACN.Tr()*-1.0,aPoseACN.Rot());
+    MMVII_INTERNAL_ASSERT_bench(!CenterOfThirdImage(aCenter,aPoseABN,aPoseACRev,aVA,aVB,aVC,5),"T2 : lambda<0");
+    tREAL8 aLambda = 0.0;
+    tPoseR aPoseX(cPt3dr(1,0,0),tRotR::Identity());
+    cPt3dr aDirX(1,0,0);
+    MMVII_INTERNAL_ASSERT_bench(!LambdaThirdCenter(aLambda,aPoseX,aPoseX,aDirX,aDirX,aDirX),"T2 : parallel rays");
+    MMVII_INTERNAL_ASSERT_bench(DepthOfPair(aPoseX,{aDirX},{aDirX})<0,"T2 : depth parallel");
 }
 }
 
@@ -330,7 +472,11 @@ void Bench_SelecTripletsCoverage(cParamExeBench & aParam)
         MMVII_INTERNAL_ASSERT_bench(std::abs(aRes.at(3).second)<aEps,"T5 : zero gain");
     }
 
+    // ---- T2 : geometry on 3 simulated cameras, exact then noisy directions
+    BenchSTC_Geometry();
+
     aParam.EndBench();
 }
+
 
 } // MMVII

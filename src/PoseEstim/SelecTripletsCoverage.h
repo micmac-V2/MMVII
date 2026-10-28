@@ -2,6 +2,7 @@
 #define _MMVII_SelecTripletsCoverage_H_
 
 #include "MMVII_Ptxd.h"
+#include "MMVII_PoseRel.h"
 
 namespace MMVII
 {
@@ -106,6 +107,26 @@ private :
     std::vector<cCandInternal>  mVCand;
 };
 
+/// pair pose with unitary base : same rotation, Tr/|Tr|
+tPoseR NormalizedPoseOfPair(const tPoseR & aPoseAB);
+
+/// depth H of the pair (scale of aPoseAB) : norm of componentwise median of bundle intersections, as MMV1 MedianNuage ; -1 if none
+tREAL8 DepthOfPair(const tPoseR & aPoseAB,const std::vector<cPt3dr> & aVDirA,const std::vector<cPt3dr> & aVDirB);
+
+/// centre of C in the frame of A (scale of aPoseAB) = median lambda * aPoseAC.Tr() ; false if < aMinNb valid lambda or lambda<=0
+bool CenterOfThirdImage
+    (
+        cPt3dr &                    aCenter,
+        const tPoseR &              aPoseAB,
+        const tPoseR &              aPoseAC,
+        const std::vector<cPt3dr> & aVDirA,
+        const std::vector<cPt3dr> & aVDirB,
+        const std::vector<cPt3dr> & aVDirC,
+        size_t                      aMinNb
+        );
+
+/// angle (radian) between R_AC and R_AB.R_BC : cycle consistency of rotations, for diagnostic
+tREAL8 AngleCycleRot(const tPoseR & aPoseAB,const tPoseR & aPoseAC,const tPoseR & aPoseBC);
 
 } // MMVII
 
