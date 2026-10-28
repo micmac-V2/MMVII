@@ -2071,12 +2071,12 @@ void cStaticLidar::MakePatches
         else
             aThetaStep = Image2ThetaPhiDist(aCenter-cPt2di(1, 0)).x() - aCenterThetaPhiDist.x();
 
-        tREAL4 aProjColFactor = 1/cos(aCenterThetaPhiDist.y());
+        tREAL4 aProjColFactor = cos(aCenterThetaPhiDist.y());
         tREAL4 aNbStepRadius = sqrt(aNbPointByPatch+2) / 2.;
-        tREAL4 aRasterPxGndW = fabs(aThetaStep) * aMeanDepth * aProjColFactor;
-        tREAL4 aRasterPxGndH = fabs(aThetaStep) * aMeanDepth;
-        tREAL4 aRasterStepPixelsY = aFactor * aGndPixelSize / aRasterPxGndH;
-        tREAL4 aRasterStepPixelsX = aFactor * aGndPixelSize / aRasterPxGndW;
+        tREAL4 aScanPxGndW = fabs(aThetaStep) * aMeanDepth * aProjColFactor; // TODO: use normale?
+        tREAL4 aScanPxGndH = fabs(aThetaStep) * aMeanDepth;
+        tREAL4 aRasterStepPixelsY = aFactor * aGndPixelSize / aScanPxGndH;
+        tREAL4 aRasterStepPixelsX = aFactor * aGndPixelSize / aScanPxGndW;
     #ifdef NUMMAKEPATCHDEBUG
         if (i<NUMMAKEPATCHDEBUG)
             StdOut() << aLPatches.size() << " RasterStepPixels: " << aRasterStepPixelsX << " " << aRasterStepPixelsY << "\n";
@@ -2086,6 +2086,10 @@ void cStaticLidar::MakePatches
             aRasterStepPixelsX = 1.;
         if (aRasterStepPixelsY < 1.)
             aRasterStepPixelsY = 1.;
+
+        //std::cout<<"Patch TLSdist="<<aMeanDepth<<", aScanPxGndW="<<aScanPxGndW
+        //          <<", aScanPxGndH="<<aScanPxGndH<<", aGndPixelSize="<<aGndPixelSize
+        //          <<", aRasterStepPixelsX="<<aRasterStepPixelsX<<", aRasterStepPixelsY="<<aRasterStepPixelsY<<"\n";
 
         std::vector<cPt2di> aPatchPts = {aCenter}; // convention: center is at first
 #ifdef NUMMAKEPATCHDEBUG
