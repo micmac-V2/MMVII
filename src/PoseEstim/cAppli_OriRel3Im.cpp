@@ -531,6 +531,40 @@ std::vector<tPoseR>*  cOriTriplets::ReadPoseRel(int aK1,int aK2)
     return aResult;
 }
 
+bool QuasiParallelSegs(const tSeg3dr & aS1,const tSeg3dr & aS2,tREAL8 aEps)
+{
+    cPt3dr aV1 = aS1.V12();
+    cPt3dr aV2 = aS2.V12();
+    return Norm2(aV1^aV2) <= aEps * Norm2(aV1) * Norm2(aV2);
+}
+
+bool LambdaThirdCenter
+    (
+        tREAL8 & aLambda,
+        const tPoseR & aPoseAB,
+        const tPoseR & aPoseAC,
+        const cPt3dr & aDirA,
+        const cPt3dr & aDirB,
+        const cPt3dr & aDirC
+        )
+{
+    tSeg3dr aBundA(cPt3dr(0,0,0),aDirA);
+    tSeg3dr aBundB(aPoseAB.Tr(),aPoseAB.Value(aDirB));
+    if (QuasiParallelSegs(aBundA,aBundB))
+        return false;
+    cPt3dr aCoeff;
+    cPt3dr aPGround = BundleInters(aCoeff,aBundA,aBundB);
+
+    // X TrAC + Y RAC(DirC) = PGround
+    tSeg3dr aLineAC(cPt3dr(0,0,0),aPoseAC.Tr());
+    tSeg3dr aBundC(aPGround,aPGround+aPoseAC.Rot().Value(aDirC));
+    if (QuasiParallelSegs(aLineAC,aBundC))
+        return false;
+    BundleInters(aCoeff,aLineAC,aBundC);
+
+    aLambda = aCoeff.x();
+    return std::isfinite(aLambda);
+}
 
 void cOriTriplets::ComputeLambdaFrom3P
     (
@@ -540,22 +574,9 @@ void cOriTriplets::ComputeLambdaFrom3P
             const cPt3dr & aP2
     )
 {
-     tSeg3dr aBund0(cPt3dr(0,0,0),aP0);
-
-     tSeg3dr aBund1(aVPose.at(1).Tr(),aVPose.at(1).Value(aP1));
-     cPt3dr aCoeff;
-
-     cPt3dr aPGround = BundleInters(aCoeff,aBund0,aBund1);
-
-     // X TR2 + Y R2(P2) = PGround
-     tSeg3dr aBund2(cPt3dr(0,0,0),aVPose.at(2).Tr());
-
-     tSeg3dr aBund3(aPGround,aPGround+aVPose.at(2).Rot().Value(aP2));
-
-     aPGround = BundleInters(aCoeff,aBund2,aBund3);
-
-     mVLambda2.push_back(aCoeff.x());
-    // StdOut() << " CooEfff=" << aCoeff  << "\n";
+    tREAL8 aLambda = 0.0;
+    if (LambdaThirdCenter(aLambda,aVPose.at(1),aVPose.at(2),aP0,aP1,aP2))
+        mVLambda2.push_back(aLambda);
 }
 
 void cOriTriplets::TestSol

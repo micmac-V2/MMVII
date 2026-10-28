@@ -351,6 +351,23 @@ void FilterHomOnPropResidualAng
         tREAL8 aProp
         );
 
+/// true if the directions of the 2 segments make an angle whose sinus is <= aEps
+bool QuasiParallelSegs(const tSeg3dr & aS1,const tSeg3dr & aS2,tREAL8 aEps=1e-8);
+
+/** Scale of the 3rd centre from one triple point : A at origin, B at aPoseAB.Tr() ; intersect bundles of A and B,
+ *  then intersect line 0->aPoseAC.Tr() with the bundle of C issued from this point ; aLambda = coefficient on the line.
+ *  Directions in the frame of each camera, poses ImK->ImA. Return false if (quasi) parallel rays. */
+bool LambdaThirdCenter
+    (
+        tREAL8 & aLambda,
+        const tPoseR & aPoseAB,
+        const tPoseR & aPoseAC,
+        const cPt3dr & aDirA,
+        const cPt3dr & aDirB,
+        const cPt3dr & aDirC
+        );
+
+
 class cDataSolOriTriplet
 {
     public :
