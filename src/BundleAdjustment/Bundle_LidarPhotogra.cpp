@@ -1426,15 +1426,18 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                 #endif
                 continue;
             }
-            //auto aInterpolB = aScanB->getNormalInterpolator(aPIm);
+
             if (aGenDImDist.InsideInterpolator(*mInterp,aPIm,1.0)
                 && aScanB->isInsideNormalInterpolator(aPIm))  // is it sufficiently inside for each interpolators
             {
-                auto aVGr = aGenDImDist.GetValueAndGradInterpol(*mInterp,aPIm); // works better than normal interp for gradient, why?
 
-                aData.mVGr = { aVGr };
+                auto aVGr_baseInterp = aGenDImDist.GetValueAndGradInterpol(*mInterp,aPIm);
+                auto aInterpolB = aScanB->getNormalInterpolator(aPIm);
+                auto aVGr_normaleInterp = aGenDImDist.GetValueAndGradInterpol(*aInterpolB,aPIm);
+
+                aData.mVGr.push_back({aVGr_baseInterp.first, aVGr_normaleInterp.second}); // only 1 point of TLs-TLS
                 #ifdef SCANSCANDEBUG
-                std::cout<<aPIm<<" GetValueAndGradInterpol: "<<aVGr.first<<" "<<aVGr.second.x()*1940<<" "<<aVGr.second.y()*1940<<"\n";
+                std::cout<<aPIm<<" GetValueAndGradInterpol: "<<aVGr_baseInterp.first<<" "<<aVGr_normaleInterp.second.x()*1940<<" "<<aVGr_normaleInterp.second.y()*1940<<"\n";
                 #endif
 
                 tREAL8 aValIm = aData.mVGr.at(0).first;   // value of first/central pixel in this image
