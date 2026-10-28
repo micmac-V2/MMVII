@@ -425,6 +425,10 @@ cOriTriplets::cOriTriplets
         }
     }
 
+    if (mVSols.empty())
+    {
+        return;
+    }
 
     cAutoTimerSegm aTS_BA(mTimeSegm,"BundleAdj");
     for (int aNbIter=0 ; aNbIter<4 ; aNbIter++)
@@ -573,12 +577,15 @@ void cOriTriplets::TestSol
 
 
     // compute all the possible lambdas
+    mVLambda2.clear();
     for (size_t aKPt=0 ; aKPt<mVP3->size() ; aKPt+=3 )
     {
          ComputeLambdaFrom3P(aVPose,mVP3->at(aKPt),mVP3->at(aKPt+1),mVP3->at(aKPt+2));
     }
 
     // estimate lambda and set the value of Pose(2)
+    if (mVLambda2.empty())
+        return;
     tREAL8 aL2 = NonConstMediane(mVLambda2);
     aVPose.at(2) = tPoseR(aVPose.at(2).Tr()*aL2,aVPose.at(2).Rot());
 
