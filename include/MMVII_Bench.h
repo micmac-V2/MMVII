@@ -168,7 +168,7 @@ void Bench_MatEss(cParamExeBench & aParam); /// test that L1 solver is ok
 void Bench_ToHomMult(cParamExeBench & aParam); // Test conversion set pair Hom => Hom Multiple
 
 void Bench_HBA(cParamExeBench & aParam); // test hierarchical initial solution and BA
-
+void Bench_SelecTripletsCoverage(cParamExeBench & aParam); // test triplet selection by coverage and B/H
 
 
 void Bench_AlgoHongrois(cParamExeBench & aParam);

@@ -633,6 +633,7 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
         BenchEpipolarPCCmd(aParam);
 
         Bench_HBA(aParam);
+        Bench_SelecTripletsCoverage(aParam);
 
 
        BenchCodedTarget(aParam);

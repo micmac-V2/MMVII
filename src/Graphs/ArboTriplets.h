@@ -1,9 +1,10 @@
+#ifndef  _MMVII_ARBOTRIPLETS_H_
+#define  _MMVII_ARBOTRIPLETS_H_
+
 #include "MMVII_GraphTriplets.h"
 #include "MMVII_PoseRel.h"
 
 #include "MMVII_nums.h"
-#ifndef  _MMVII_ARBOTRIPLETS_H_
-#define  _MMVII_ARBOTRIPLETS_H_
 
 #include "cMMVII_Appli.h"
 #include "MMVII_util_tpl.h"
