@@ -388,7 +388,7 @@ int cAppli_SelecTripletsOriRel::DoAllImages()
         aParam.AddArgs(GIP_KthCall + "=" + ToStr(aKName));
         aListCom.push_back(aParam);
     }
-    int aResult = ExeComParal(aListCom);
+    int aResult = ExeComParal(aListCom,OutIsNone());
     MMVII_INTERNAL_ASSERT_User(aResult==EXIT_SUCCESS,eTyUEr::eUnClassedError,"Failure of a sub-process OriPoseSelecTripletsOf1Im, see log file");
 
     // ---- merge : each triplet goes in the file of its smallest name
@@ -425,6 +425,8 @@ int cAppli_SelecTripletsOriRel::DoAllImages()
 int cAppli_SelecTripletsOriRel::Exe()
 {
     mPhProj.FinishInit();
+    mPhProj.AssertAtLeastOneTiePModeIsInit();
+
     if (mModeCompute==2)
         return DoAllImages();
     mParamSel.mNbMax = mNbMax;

@@ -162,7 +162,7 @@ int cAppli_OriRelPipeline::Exe()
 
     // ===============================================
     // select triplets by coverage and B/H
-    if (mSelTriCov)
+    if (mSelTriCov && (int(mStepEnd) >= (int) eStepOriRelPipeline::eOriTriplets))
     {
         // the pair selection below rewrites the cycle triplets : the backup of a previous run is stale
         if (mExe)
@@ -180,6 +180,8 @@ int cAppli_OriRelPipeline::Exe()
 
         aComSelTri.AddMandArgsOfAppli(*this,{1,2});
         aComSelTri.AddMMVIIAllTiepInInit(mPhProj);   // all the parameters relative to TieP
+        if (mCalledByEstimFocal)
+            aComSelTri.AddNoMsg();
         aLPCS.push_back(aComSelTri);
     }
 
