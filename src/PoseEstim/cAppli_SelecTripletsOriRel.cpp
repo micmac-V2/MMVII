@@ -51,6 +51,9 @@ private :
     /// selected triplets of the oriented pair (aNA,aNB), aNA<aNB
     std::vector<cTripletName> SelecOfPair(const std::string & aNA,const std::string & aNB);
 
+    /// mode 2 : backup of cycle triplets, mode 1 on all images, merge of their selections
+    int DoAllImages();
+
     int                       mModeCompute;
     cPhotogrammetricProject   mPhProj;
     std::string               mIm1;
@@ -60,6 +63,7 @@ private :
     int                       mNbMax;
     int                       mMinNb3;
     tREAL8                    mPropResFilter;
+    size_t                    mNbPairNoHom;  ///< oriented pairs without tie point
     bool                      mShow;
 
     std::vector<std::string>                         mVNamesIm;       ///< all images of the OriRel folder
@@ -83,6 +87,7 @@ cAppli_SelecTripletsOriRel::cAppli_SelecTripletsOriRel
     mNbMax         (mParamSel.mNbMax),
     mMinNb3        (5),
     mPropResFilter (0.85),
+    mNbPairNoHom   (0),
     mShow          (false)
 {
 }
@@ -199,6 +204,13 @@ const cSetHomogCpleIm & cAppli_SelecTripletsOriRel::FilteredHom(const std::strin
     cSetHomogCpleIm & aSetH = mCacheHom[aKey];
     int aNbInit;
     mPhProj.ReadHomolMultiSrce(aNbInit,aSetH,aN1,aN2);
+    if (aSetH.NbH()==0)  // oriented pair without tie point in the source : filter would fail on empty set
+    {
+        mNbPairNoHom++;
+        if (mShow)
+            StdOut() << "  WARNING : no tie point for oriented pair " << aN1 << " " << aN2 << "\n";
+        return aSetH;
+    }
     MMVII_INTERNAL_ASSERT_User(aNbInit!=0,eTyUEr::eUnClassedError,"No source for homologous points");
     FilterHomOnPropResidualAng
         (
@@ -338,9 +350,83 @@ std::vector<cTripletName> cAppli_SelecTripletsOriRel::SelecOfPair(const std::str
     return aRes;
 }
 
+int cAppli_SelecTripletsOriRel::DoAllImages()
+{
+    mPhProj.DPOriRel().SetDirOutInIfNotInit();
+    tNameSet aSetIm;
+    ReadFromFile(aSetIm,mPhProj.OriRel_NameAllImages(true));
+    std::vector<std::string> aVNames = ToVect(aSetIm);
+
+    // ---- backup of the cycle triplets, once, before the originals are overwritten (input of pool (ii))
+    std::string aPostCyc = "Cyc." + GlobTaggedNameDefSerial();
+    size_t aNbBackup = 0;
+    for (const auto & aNameIm : aVNames)
+    {
+        std::string aNameCyc = mPhProj.OriRel_NameAllTripletsOf1Image(aNameIm,false,aPostCyc);
+        std::string aNameOri = mPhProj.OriRel_NameAllTripletsOf1Image(aNameIm,true);
+        if ((! ExistFile(aNameCyc)) && ExistFile(aNameOri))
+        {
+            tSet3N aSet3;
+            ReadFromFile(aSet3,aNameOri);
+            SaveInFile(aSet3,aNameCyc);
+            aNbBackup++;
+        }
+        // remove selection of a previous run, so that a failed sub-process cannot be merged silently
+        std::string aNameSel = mPhProj.OriRel_NameSelecTripletsOf1Image(aNameIm,false);
+        if (ExistFile(aNameSel))
+            RemoveFile(aNameSel,SVP::No);
+    }
+
+    // ---- selection by image, in parallel sub-processes (mode 1)
+    std::list<cParamCallSys> aListCom;
+    for (size_t aKName=0 ; aKName<aVNames.size() ; aKName++)
+    {
+        cParamCallSys aParam(cMMVII_Appli::FullBin(),TheSpec_SelecTripletsOf1Im.Name(),aVNames.at(aKName));
+        for (size_t aKP=2 ; aKP<mArgv.size() ; aKP++)
+            aParam.AddArgs(mArgv[aKP]);
+        aParam.AddArgs(GIP_LevCall + "=" + ToStr(mLevelCall+1));
+        aParam.AddArgs(GIP_KthCall + "=" + ToStr(aKName));
+        aListCom.push_back(aParam);
+    }
+    int aResult = ExeComParal(aListCom);
+    MMVII_INTERNAL_ASSERT_User(aResult==EXIT_SUCCESS,eTyUEr::eUnClassedError,"Failure of a sub-process OriPoseSelecTripletsOf1Im, see log file");
+
+    // ---- merge : each triplet goes in the file of its smallest name
+    std::map<std::string,tSet3N> aMapSet3;
+    size_t aNbSel = 0;
+    for (const auto & aNameIm : aVNames)
+    {
+        std::string aNameSel = mPhProj.OriRel_NameSelecTripletsOf1Image(aNameIm,true);
+        MMVII_INTERNAL_ASSERT_User(ExistFile(aNameSel),eTyUEr::eUnClassedError,"No selection file for image "+aNameIm);
+        tSet3N aSet3;
+        ReadFromFile(aSet3,aNameSel);
+        std::vector<const cTripletName *> aV3;
+        aSet3.PutInVect(aV3,false);
+        for (const auto & a3 : aV3)
+            aMapSet3[a3->mNames[0]].Add(*a3);
+        aNbSel += aV3.size();
+    }
+
+    size_t aNbTri = 0;
+    for (const auto & aNameIm : aVNames)
+    {
+        tSet3N aSet3 = aMapSet3[aNameIm];
+        aNbTri += aSet3.size();
+        SaveInFile(aSet3,mPhProj.OriRel_NameAllTripletsOf1Image(aNameIm,false));
+    }
+
+    StdOut() << "Images=" << aVNames.size()
+             << " CycleBackups=" << aNbBackup
+             << " Selections=" << aNbSel
+             << " Triplets=" << aNbTri << "\n";
+    return EXIT_SUCCESS;
+}
+
 int cAppli_SelecTripletsOriRel::Exe()
 {
     mPhProj.FinishInit();
+    if (mModeCompute==2)
+        return DoAllImages();
     mParamSel.mNbMax = mNbMax;
 
     ReadOrientedPairs();
@@ -369,7 +455,8 @@ int cAppli_SelecTripletsOriRel::Exe()
             for (const auto & a3 : SelecOfPair(aPair.first,aPair.second))
                 aSet3.Add(a3);
         }
-        StdOut() << "Image " << mIm1 << " : " << aNbPair << " pairs, " << aSet3.size() << " triplets selected\n";
+        StdOut() << "Image " << mIm1 << " : " << aNbPair << " pairs, " << aSet3.size() << " triplets selected, "
+                 << " PairsNoTieP=" << mNbPairNoHom << std::endl;
 
         if (! aOnlyPair)
         {
@@ -397,6 +484,26 @@ cSpecMMVII_Appli  TheSpec_SelecTripletsOf1Im
         "OriPoseSelecTripletsOf1Im",
         Alloc_SelecTripletsOf1Im,
         "Select triplets of the oriented pairs of one image by image coverage and B/H",
+        {eApF::Ori},
+        {eApDT::TieP,eApDT::Orient},
+        {eApDT::Orient},
+        __FILE__
+        );
+
+/* ====================================================== */
+/*               OriPoseSelecAllTriplets                  */
+/* ====================================================== */
+
+tMMVII_UnikPApli Alloc_SelecAllTriplets(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec)
+{
+    return tMMVII_UnikPApli(new cAppli_SelecTripletsOriRel(aVArgs,aSpec,2));
+}
+
+cSpecMMVII_Appli  TheSpec_SelecAllTriplets
+    (
+        "OriPoseSelecAllTriplets",
+        Alloc_SelecAllTriplets,
+        "Select triplets of all oriented pairs by image coverage and B/H, for OriPoseEstimRelAllTriplets",
         {eApF::Ori},
         {eApDT::TieP,eApDT::Orient},
         {eApDT::Orient},
