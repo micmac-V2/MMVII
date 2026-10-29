@@ -149,6 +149,27 @@ tREAL8 cSelecTripletsCoverage::TotalGain(const cCandInternal & aCand) const
     return aSum / mGrid.NbCells();
 }
 
+cSelecTripletsCoverage::cInfoCand cSelecTripletsCoverage::InfoOfCandidate(size_t aKCand) const
+{
+    const cCandInternal & aCand = mVCand.at(aKCand);
+    cInfoCand aRes;
+    aRes.mGammaA    = GainBsH(cPt3dr(0,0,0),aCand.mCenter);
+    aRes.mGammaB    = GainBsH(mCenterB,aCand.mCenter);
+    aRes.mGamma     = std::min(aRes.mGammaA,aRes.mGammaB);
+    aRes.mNbCellCov = 0;
+    aRes.mNbCells   = mGrid.NbCells();
+    aRes.mMeanCover = 0.0;
+    for (const auto & aCover : aCand.mCover)
+    {
+        if (aCover>0)
+            aRes.mNbCellCov++;
+        aRes.mMeanCover += aCover;
+    }
+    aRes.mMeanCover /= aRes.mNbCells;
+    aRes.mGain      = TotalGain(aCand);
+    return aRes;
+}
+
 void cSelecTripletsCoverage::UpdateGain(cCandInternal & aCand,const cCandInternal & aSel)
 {
     tREAL8 aGammaCS = GainBsH(aCand.mCenter,aSel.mCenter);

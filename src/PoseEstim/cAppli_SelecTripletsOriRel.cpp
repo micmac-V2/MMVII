@@ -299,18 +299,12 @@ std::vector<cTripletName> cAppli_SelecTripletsOriRel::SelecOfPair(const std::str
         cPt3dr aCenterC;
         bool aOk = (aVPts3.size()>=size_t(mMinNb3))
                    && CenterOfThirdImage(aCenterC,aPoseAB,aPoseAC,aVDirA3,aVDirB3,aVDirC3,size_t(mMinNb3));
-        if (mShow)
-        {
-            StdOut() << "  C=" << aNC << " Nb3=" << aVPts3.size();
-            if (aOk)
-                StdOut() << " Center=" << aCenterC
-                         << " AngCycle=" << AngleCycleRot(aPoseAB,aPoseAC,PoseOfPair(aNB,aNC));
-            else
-                StdOut() << " REJECTED";
-            StdOut() << "\n";
-        }
         if (! aOk)
+        {
+            if (mShow)
+                StdOut() << "  C=" << aNC << " Nb3=" << aVPts3.size() << " REJECTED\n";
             continue;
+        }
 
         cCandTriCov aCand;
         aCand.mId     = int(aVNameOfId.size());
@@ -318,6 +312,19 @@ std::vector<cTripletName> cAppli_SelecTripletsOriRel::SelecOfPair(const std::str
         aCand.mVPts3  = aVPts3;
         aSelec.AddCandidate(aCand);
         aVNameOfId.push_back(aNC);
+
+        if (mShow)
+        {
+            cSelecTripletsCoverage::cInfoCand anInfo = aSelec.InfoOfCandidate(aVNameOfId.size()-1);
+            StdOut() << "  C=" << aNC << " Nb3=" << aVPts3.size()
+                     << " Center=" << aCenterC
+                     << " GamA=" << anInfo.mGammaA << " GamB=" << anInfo.mGammaB
+                     << " Cells=" << anInfo.mNbCellCov << "/" << anInfo.mNbCells
+                     << " MeanCov=" << anInfo.mMeanCover
+                     << " Gain0=" << anInfo.mGain
+                     << " AngCycle=" << AngleCycleRot(aPoseAB,aPoseAC,PoseOfPair(aNB,aNC)) << "\n";
+        }
+
     }
 
     // ----------- greedy selection -----------

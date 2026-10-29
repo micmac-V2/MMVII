@@ -82,6 +82,21 @@ public :
     /// B/H gain : bsh/(bsh+Lim)
     static tREAL8 GainOfBsH(tREAL8 aBsH,tREAL8 aBsHLim);
 
+    /// diagnostic of one candidate, from the internal state of the selection
+    class cInfoCand
+    {
+    public :
+        tREAL8  mGammaA;     ///< B/H gain of C with A
+        tREAL8  mGammaB;     ///< B/H gain of C with B
+        tREAL8  mGamma;      ///< min of both, the one used in the gain
+        size_t  mNbCellCov;  ///< number of cells where the cover of C is > 0
+        size_t  mNbCells;    ///< total number of cells of the grid
+        tREAL8  mMeanCover;  ///< mean of the cover D_C over all cells
+        tREAL8  mGain;       ///< current normalised gain (= initial gain if called before Select)
+    };
+    /// diagnostic of the candidate of rank aKCand in the order of AddCandidate
+    cInfoCand InfoOfCandidate(size_t aKCand) const;
+
 private :
     /// internal state of one candidate
     class cCandInternal
