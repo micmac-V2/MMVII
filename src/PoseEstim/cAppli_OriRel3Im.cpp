@@ -505,7 +505,8 @@ const std::vector<cPt3dr> * cOriTriplets::ComputeDirBundles(cComputeMergeMulTieP
         for (size_t aKPts =0 ; aKPts <aNbPts ; aKPts++)
         {
             int aKIm = aKPts%aNbIm;
-            aPts.mVPGround.push_back(mVCalibs.at(aKIm)->DirBundle(aPts.mVPIm.at(aKPts)));
+            //aPts.mVPGround.push_back(mVCalibs.at(aKIm)->DirBundle(aPts.mVPIm.at(aKPts))); // ER: bug, takes position within config instead the image id
+            aPts.mVPGround.push_back(mVCalibs.at(aConf.at(aKIm))->DirBundle(aPts.mVPIm.at(aKPts)));
         }
         if (aConf.size()==3)
             aVP3 = & aPts.mVPGround;
