@@ -43,7 +43,7 @@ cAppli_OriRelPipeline::cAppli_OriRelPipeline(const std::vector<std::string> & aV
     mPhProj (*this),
     mDistribVirTPs(eDistrVirTPs::e5Pts),
     mExe(true),
-    mSelTriCov(false)
+    mSelTriCov(false),
     mCalledByEstimFocal (false),
     mStepEnd            (eStepOriRelPipeline::eOriAll)
 {
