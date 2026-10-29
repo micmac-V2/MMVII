@@ -103,6 +103,7 @@ void BenchTopoComp(cParamExeBench & aParam); ///< Topo compensation
 
 void BenchTLS(cParamExeBench & aParam); ///< Static lidar
 
+void BenchRPCTxt(cParamExeBench & aParam); ///< Import of RPC text files: given model unchanged, missing one fitted, ground box
 void BenchEpipolar(cParamExeBench & aParam);
 void BenchEpipolarCrop(cParamExeBench & aParam); ///< Crop, mask, slave crop and tiles of the epipolar resampling
 void BenchEpipolarZ(cParamExeBench & aParam); ///< Z interval of the epipolar rectification: sensor, tie points, ZIntv

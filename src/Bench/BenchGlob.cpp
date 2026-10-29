@@ -626,6 +626,7 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
         Bench_ToHomMult(aParam);
         BenchLinearConstr(aParam);
 
+        BenchRPCTxt(aParam);
         BenchEpipolar(aParam);
         BenchEpipolarCrop(aParam);
         BenchEpipolarZ(aParam);
