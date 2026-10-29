@@ -1722,6 +1722,10 @@ std::string cPhotogrammetricProject::OriRel_NameVirtualTieP
    return  OriRel_DirOfImage(aNameIm1,isIn) + "VirtualTiePoints." + PostF_DumpFiles;
 }
 
+std::string cPhotogrammetricProject::OriRel_NameSelecTripletsOf1Image(const std::string& aNameIm1,bool isIn) const
+{
+    return  OriRel_DirOfImage(aNameIm1,isIn) + "SelecTriplets." + PostF_DumpFiles;
+}
 
         //  =============  Instrument bloc =================
 

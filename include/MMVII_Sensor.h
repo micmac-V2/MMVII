@@ -737,6 +737,8 @@ class cPhotogrammetricProject : public cIPhProj
     std::string OriRel_NameAllTripletsOf1Image(const std::string&aNameIm1,bool isIn, std::string aPost="") const;
     /// Name of file where the "5" (or any) virtual tie point are saved
     std::string OriRel_NameVirtualTieP(const std::string& aNameIm,bool isIn) const;
+    /// Name of file where the triplets selected (by coverage) from the pairs of 1 image are saved, for merge by the driver
+    std::string OriRel_NameSelecTripletsOf1Image(const std::string& aNameIm,bool isIn) const;
     /// Name of file for all pairs of 1 image (only pairs, not orientation)
     std::string OriRel_OrientAllTripletsOf1Image(const std::string&aNameIm1,bool isIn, std::string aPost="") const;
          //===================================================================

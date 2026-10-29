@@ -318,6 +318,12 @@ template<> cE2Str<eDistrVirTPs>::tMapE2Str cE2Str<eDistrVirTPs>::mE2S
         {eDistrVirTPs::e27Pts,"27Pts"}
     };
 
+template<> cE2Str<eTriCandPool>::tMapE2Str cE2Str<eTriCandPool>::mE2S
+    {
+        {eTriCandPool::eAllOriTri,"AllOriTri"},
+        {eTriCandPool::eCycleSel,"CycleSel"}
+    };
+
 template<> cE2Str<eModeFusionData>::tMapE2Str cE2Str<eModeFusionData>::mE2S
            {
                 {eModeFusionData::eMerge,"Merge"},
@@ -642,7 +648,7 @@ void BenchEnum(cParamExeBench & aParam)
     TplBenchEnum<eTypeDBCam>();
     TplBenchEnum<eTyInstr>();
     TplBenchEnum<eTyCodeTarget>();
-
+    TplBenchEnum<eTriCandPool>();
 
     aParam.EndBench();
 }
@@ -1574,5 +1580,6 @@ MACRO_INSTANTIATE_STRIO_ENUM(eImatchCrit,"ImatchCrit")
 MACRO_INSTANTIATE_STRIO_ENUM(eTargetDistanceEstim,"TargetDistanceEstim")
 MACRO_INSTANTIATE_STRIO_ENUM(eModeWeighter,"ModeWeighter")
 MACRO_INSTANTIATE_STRIO_ENUM(eDistrVirTPs,"DistrVirTPs")
+MACRO_INSTANTIATE_STRIO_ENUM(eTriCandPool,"TriCandPool")
 
 };
