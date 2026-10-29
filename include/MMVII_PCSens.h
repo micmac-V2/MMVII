@@ -440,6 +440,8 @@ class cPerspCamIntrCalib : public cObj2DelAtEnd,
             cCalculator<double> *               mEqProjSeg;
 };
 
+tREAL8  F35toFPix(const tREAL8 aFocEq35,cPt2di aSzIm);
+tREAL8  FPixtoF35(const tREAL8 aFocPix,cPt2di aSzIm);
 
 
 /**  Interface to describe a "cPerspCamIntrCalib" as a invertible mapping for

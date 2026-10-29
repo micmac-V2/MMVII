@@ -37,6 +37,15 @@ template<> cE2Str<eModeImaDepth>::tMapE2Str cE2Str<eModeImaDepth>::mE2S
                {eModeImaDepth::eSphere,"Sphere"}
            };
 
+template<> cE2Str<eStepOriRelPipeline>::tMapE2Str cE2Str<eStepOriRelPipeline>::mE2S
+           {
+               {eStepOriRelPipeline::eSelectSets,"SelectSet"},
+               {eStepOriRelPipeline::eOriPairs,"OriPairs"},
+               {eStepOriRelPipeline::eOriTriplets,"OriTriplet"},
+               {eStepOriRelPipeline::eOriAll,"OriAll"}
+           };
+
+
 template<> cE2Str<eProjPC>::tMapE2Str cE2Str<eProjPC>::mE2S
            {
                {eProjPC::eStenope,"Stenope"},
@@ -137,6 +146,7 @@ template<> cE2Str<eTA2007>::tMapE2Str cE2Str<eTA2007>::mE2S
                 {eTA2007::AllowedValues,"Allowed"},
                 {eTA2007::Internal,"##Intern"},
                 {eTA2007::Tuning,"##Tune"},
+                {eTA2007::ExternalCall,"##ExternalCall"},
                 {eTA2007::Global,"##Glob"},
                 {eTA2007::Shared,"##Shar"},
                 {eTA2007::CanRepeat,"##CanRepeat"},
@@ -259,6 +269,7 @@ template<> cE2Str<eTyUEr>::tMapE2Str cE2Str<eTyUEr>::mE2S
                 {eTyUEr::eNoFocaleEqui35,"NoFocaleEqui35"},
                 {eTyUEr::eNoNumberPixel,"NoNumberPixel"},
                 {eTyUEr::eNoCameraName,"NoCameraName"},
+                {eTyUEr::eNoTiePOrEquiv,"NoTieP_MulTiep_ObjMesInstr"},
                 {eTyUEr::eMultipleTargetInOneImage,"MultipleTargetInOneImage,"},
                 {eTyUEr::eSysCo,"SysCo"},
                 {eTyUEr::eConstraintsError,"ConstraintsError"},
@@ -615,6 +626,8 @@ void BenchEnum(cParamExeBench & aParam)
     if (! aParam.NewBench("Enum")) return;
 
     TplBenchEnum<eModeImaDepth>();
+
+    TplBenchEnum<eStepOriRelPipeline>();
 
     TplBenchEnum<eProjPC>();
     TplBenchEnum<eSysCo>();
@@ -1581,5 +1594,7 @@ MACRO_INSTANTIATE_STRIO_ENUM(eTargetDistanceEstim,"TargetDistanceEstim")
 MACRO_INSTANTIATE_STRIO_ENUM(eModeWeighter,"ModeWeighter")
 MACRO_INSTANTIATE_STRIO_ENUM(eDistrVirTPs,"DistrVirTPs")
 MACRO_INSTANTIATE_STRIO_ENUM(eTriCandPool,"TriCandPool")
+
+MACRO_INSTANTIATE_STRIO_ENUM(eStepOriRelPipeline,"StepOriRelPipeline")
 
 };

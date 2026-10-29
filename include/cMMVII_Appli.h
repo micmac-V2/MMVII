@@ -378,6 +378,8 @@ class cParamCallSys
        void AddOneMandArgOfAppli(const cMMVII_Appli &,int aK);
        void AddMandArgsOfAppli(const cMMVII_Appli &,const std::vector<int>);
        void AddAllMandArgsOfAppli(const cMMVII_Appli &);
+       /// Add something like  "StdOut=NONE"
+       void AddNoMsg();
 
 
 
@@ -530,6 +532,7 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         cMultipleOfs & StdOut() const;
         cMultipleOfs & HelpOut();
         cMultipleOfs & ErrOut();
+        bool OutIsNone() const;  /// mParamStdOut == NONE ; may be used to enforce silence in calling sub-processe
 
         /// External call sys : use GlobalSysCall + register the command in log files
         int ExtSysCall(const cParamCallSys & aCom, bool SVP);
@@ -704,6 +707,8 @@ class cMMVII_Appli : public cMMVII_Ap_NameManip,
         static const std::string & DirTestMMVII();       ///< (Public now) accessor to dir to read/write test bench
         const cCollecSpecArg2007 &                ArgObl() const;        ///< Mandatory args
         const cCollecSpecArg2007 &                ArgFac() const;        ///< Optional/Facultative args
+
+
 
 
     private:
