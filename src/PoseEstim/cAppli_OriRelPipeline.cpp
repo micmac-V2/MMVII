@@ -25,18 +25,16 @@ class cAppli_OriRelPipeline : public cMMVII_Appli
         cPhotogrammetricProject   mPhProj;
         std::string               mPatIm;
         eDistrVirTPs              mDistribVirTPs;
-     //   std::string               mOriRelOut;
-     //   std::string               mOriGlobOut;
         bool                      mExe;
+        bool                      mSelTriCov;
 };
 
 cAppli_OriRelPipeline::cAppli_OriRelPipeline(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
     cMMVII_Appli  (aVArgs,aSpec),
     mPhProj (*this),
     mDistribVirTPs(eDistrVirTPs::e5Pts),
-//    mOriRelOut("Relative"),
-//    mOriGlobOut("Global"),
-    mExe(true)
+    mExe(true),
+    mSelTriCov(false)
 {
 }
 
@@ -53,6 +51,7 @@ cCollecSpecArg2007 & cAppli_OriRelPipeline::ArgOpt(cCollecSpecArg2007 & anArgOpt
 {
     return anArgOpt
            <<  AOpt2007(mExe,"Exe","Execute pipeline",{eTA2007::HDV})
+           <<  AOpt2007(mSelTriCov,"SelTriCov","Select triplets by tie-points coverage and B/H (OriPoseSelecAllTriplets)",{eTA2007::HDV})
            << cHeaderSectionArg("Input for tie points (at least one must be provided)")
            << mPhProj.AddAllDpTieP(anArgOpt)
 
@@ -137,7 +136,28 @@ int cAppli_OriRelPipeline::Exe()
 
     }
 
+    // ===============================================
+    // select triplets by coverage and B/H
+    if (mSelTriCov)
+    {
+        // the pair selection below rewrites the cycle triplets : the backup of a previous run is stale
+        if (mExe)
+        {
+            std::string aPostCyc = "Cyc." + GlobTaggedNameDefSerial();
+            for (const auto & aNameIm : VectMainSet(0))
+            {
+                std::string aNameCyc = mPhProj.OriRel_NameAllTripletsOf1Image(aNameIm,false,aPostCyc);
+                if (ExistFile(aNameCyc))
+                    RemoveFile(aNameCyc,SVP::No);
+            }
+        }
 
+        cParamCallSys aComSelTri(TheSpec_SelecAllTriplets,true);
+
+        aComSelTri.AddMandArgsOfAppli(*this,{1,2});
+        aComSelTri.AddMMVIIAllTiepInInit(mPhProj);   // all the parameters relative to TieP
+        aLPCS.push_back(aComSelTri);
+    }
 
     // ===============================================
     // compute relative orientations within triplets
@@ -203,6 +223,8 @@ int cAppli_OriRelPipeline::Exe()
             if (starts_with(mArgv[aKP], "VirTP")) // already added
                 continue;
             if (starts_with(mArgv[aKP], "Exe"))
+                continue;
+            if (starts_with(mArgv[aKP], "SelTriCov"))
                 continue;
 
 
