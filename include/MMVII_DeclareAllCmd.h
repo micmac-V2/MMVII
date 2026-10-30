@@ -159,6 +159,8 @@ extern cSpecMMVII_Appli  TheSpecAppliBenchAPBI;
 extern cSpecMMVII_Appli  TheSpecAppliTestElemBundle;
 
 extern cSpecMMVII_Appli TheSpecSIFT;
+extern cSpecMMVII_Appli TheSpecMatchSIFT;
+ 
 };
 
 #endif  //  _MMVII_DeclareAllCmd_H_
