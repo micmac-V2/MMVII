@@ -128,21 +128,16 @@ cZBuffer::cZBuffer(cTri3DIterator & aMesh,const tSet &  aSetIn,const tMap & aMap
     cTplBoxOfPts<tREAL8,3> aBoxOfPtsOut;
 
     //  compute the box in put and output space
-     //  compute the box in put and output space
     cPt3dr aPIn;
 
     mMesh.ResetAll();
 
     if (mIsBasc)
         {
-            //cPt3dr aPOutReady;
             mMesh2DDepth.ResetAll();
             while (mMesh.GetNextPoint(aPIn))
             {
                 cPt3dr aPOut = mMapI2O.Value(aPIn);
-                /*MMVII_INTERNAL_ASSERT_strong(Norm1(aPOut-aPOutReady)<0.000001,
-                                "ready points are not correctly mapped in mMesh2DDepth");*/
-
                 aBoxOfPtsIn.Add(aPIn);
                 aBoxOfPtsOut.Add(aPOut);
             }
@@ -308,10 +303,12 @@ void cZBuffer::MakeZBufForBasc(eZBufModeIter aMode)
         }
         if (aMode==eZBufModeIter::SurfDevlpt)
         {
-            // change triangle class to distorted 
-            
-            if (IsStretched(aTriIn,aTriOut,aStretchingThreshold))
+            // change triangle class to distorted.
+            bool aIsDistorted = IsStretched<2>(Proj(aTriIn),Proj(aTriOut),aStretchingThreshold);
+            if (aIsDistorted)
+            {
                 aRes= eZBufRes::Distorted;
+            }
 
             cResModeSurfD aRMS;
             aRMS.mResult = aRes;
@@ -365,7 +362,6 @@ eZBufRes cZBuffer::MakeOneTri(const tTri3dr & aTriIn,const tTri3dr &aTri3,eZBufM
     cPt3dr aNorm = Normal(aTri3);
 
     int aSign = (aNorm.z() > 0) ? 1 : - 1;
-     ///  the axe K of camera is in direction of view, the normal is in direction of visibility => they are opposite
      ///  the axe K of camera is in direction of view, the normal is in direction of visibility => they are opposite
     bool WellOriented =  mZF_SameOri ?  (aSign>0)  :(aSign<0);
 
@@ -436,31 +432,25 @@ eZBufRes cZBuffer::MakeOneTri(const tTri3dr & aTriIn,const tTri3dr &aTri3,eZBufM
 
 
 
-bool cZBuffer::IsStretched(const tTri3dr & aTriIn, const tTri3dr & aTri3, double & aStretchingThreshold)
+template<int Dim> bool cZBuffer::IsStretched(const cTriangle<tREAL8,Dim> & aTriIn, 
+        const cTriangle<tREAL8,Dim> & aTri3, double & aStretchingThreshold)
 {
 
      ///< Evaluate stretching of triangle where Mapping(aTri3) = aTriIn
 
-     cPt3dr aP01 = aTriIn.Pt(1) - aTriIn.Pt(0);
-     cPt3dr aP12 = aTriIn.Pt(2) - aTriIn.Pt(0);
+     cPtxd<tREAL8,Dim> aP01 = aTriIn.Pt(1) - aTriIn.Pt(0);
+     cPtxd<tREAL8,Dim> aP12 = aTriIn.Pt(2) - aTriIn.Pt(0);
 
-     cPt3dr aP01_3d = aTri3.Pt(1) - aTri3.Pt(0);
-     cPt3dr aP12_3d = aTri3.Pt(2) - aTri3.Pt(0);
-
-
-    /*tREAL8 anInArea =  Norm1(aP01 ^ aP12);
-    tREAL8 anOutArea =  Norm1(aP01_3d ^ aP12_3d);
-
-
-    aStretchingThreshold = (anInArea/anOutArea) ;*/
+     cPtxd<tREAL8,Dim> aP01_3d = aTri3.Pt(1) - aTri3.Pt(0);
+     cPtxd<tREAL8,Dim> aP12_3d = aTri3.Pt(2) - aTri3.Pt(0);
 
 
     // create the jacobian of the deformation matrix
-    cDenseMatrix<tREAL8> aMat_Out(2,3);
+    cDenseMatrix<tREAL8> aMat_Out(2,Dim);
     MMVII::SetCol(aMat_Out,0,aP01);
     MMVII::SetCol(aMat_Out,1,aP12);
 
-    cDenseMatrix<tREAL8> aMat_In(2,3);
+    cDenseMatrix<tREAL8> aMat_In(2,Dim);
     MMVII::SetCol(aMat_In,0,aP01_3d);
     MMVII::SetCol(aMat_In,1,aP12_3d);
 

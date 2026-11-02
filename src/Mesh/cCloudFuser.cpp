@@ -167,9 +167,12 @@ template <class tGraph, class Type> class cAlgo_ChambollePock
                     if( conf >= 0.0)
                     {
                         Type mes = aVMes[k].DIm().GetV(aPt);
-                        MMVII_INTERNAL_ASSERT_tiny(mes>=0, "all heights must be positive, use a mask to ignore negative heights"+ToStr(mes));
-                        aValInitToOpt += conf * mes; // use confidence as weight for data term
-                        aSumConf += conf;
+                        if (mes >= 0.0)
+                        {
+                        //MMVII_INTERNAL_ASSERT_tiny(mes>=0, "all heights must be positive, use a mask to ignore negative heights"+ToStr(mes));
+                            aValInitToOpt += conf * mes; // use confidence as weight for data term
+                            aSumConf += conf;
+                        }
                     }
                 }
 

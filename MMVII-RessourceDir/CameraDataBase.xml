@@ -59,6 +59,15 @@
             </V>
          </Pair>
          <Pair>
+            <K>"Canon EOS 5D Mark IV"</K>
+            <V>
+               <Name>"Canon EOS 5D Mark IV"</Name>
+               <SzPix_micron>5.36 5.36</SzPix_micron>
+               <SzSensor_mm>36 24</SzSensor_mm>
+               <NbPixels>6720 4480</NbPixels>
+            </V>
+         </Pair>
+         <Pair>
             <K>"Canon EOS R5"</K>
             <V>
                <Name>"Canon EOS R5"</Name>
@@ -145,7 +154,7 @@
                <Name>"UltraCam Eagle Mark 3"</Name>
                <SzPix_micron>4 4</SzPix_micron>
                <SzSensor_mm>105.840000000000003 68.016000000000005</SzSensor_mm>
-               <NbPixels>26460 17004</NbPixels>
+               <NbPixels>26460 7004</NbPixels>
             </V>
          </Pair>
          <Pair>
@@ -157,6 +166,15 @@
                <NbPixels>2048 1080</NbPixels>
             </V>
          </Pair>
+         <Pair>
+         <K>"Canon EOS 700D"</K>
+         <V>
+            <Name>"Canon EOS 700D"</Name>
+            <SzPix_micron>4.3 4.3</SzPix_micron>
+            <SzSensor_mm>22.3 14.9</SzSensor_mm>
+            <NbPixels>4608 3456</NbPixels>
+         </V>
+      </Pair>
       </CamDataBase>
    </Data>
 </Root>

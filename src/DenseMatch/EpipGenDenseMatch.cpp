@@ -3,6 +3,8 @@
 #include "MMVII_Tpl_Images.h"
 #include "MMVII_TplLayers3D.h"
 #include "MMVII_DeclareCste.h"
+#include "MMVII_2Include_Serial_Tpl.h"
+#include "MMVII_CloudRaster.h"
 
 static bool  DEBUG_EDM = false;
 
@@ -1116,13 +1118,11 @@ int cAppli::Exe()
    {
       MatchOneLevel(aLevel);
    }
-
+   std::string NameCorrel="Correl_LeChantier_Num"+ToStr(mNbLevel+1)+".tif";
+   std::string NameMasq="AutoMask_LeChantier_Num"+ToStr(mNbLevel+1)+".tif";
    // Create Occlusion Masq and Correlation Image
    if (mDoCorrel)
      {
-       std::string NameCorrel="Correl_LeChantier_Num"+ToStr(mNbLevel+1)+".tif";
-       std::string NameMasq="AutoMask_LeChantier_Num"+ToStr(mNbLevel+1)+".tif";
-
        cParamCallSys aCom(
              "MMVII",
              "DenseMatchEpipEval",
@@ -1141,6 +1141,17 @@ int cAppli::Exe()
            StdOut() << "ComMatch Similarity Learning : " << aCom.Com() << "\n";
         ExeComSerial({aCom},true);
      }
+
+   // Create cDMEpipPairResult 
+   cDMEpipPairResult aRes("EPIP",
+                        mNameIm1,
+                        mNameIm2,
+                        mOutDir+mOutPx,
+                        mOutDir+NameCorrel,
+                        mOutDir+NameMasq
+                        );
+   SaveInFile(aRes,DirProject()+mOutDir+"DMEpipPairResult.xml");
+
    return EXIT_SUCCESS;
 }
 

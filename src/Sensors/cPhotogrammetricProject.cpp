@@ -313,6 +313,12 @@ void cDirsPhProj::SetDirIn(const std::string & aDirIn)
     Finish();
 }
 
+void cDirsPhProj::SetFullDirIn(const std::string & aFullDirIn)
+{
+    // In case we want to load oris from another directory
+     mFullDirIn = aFullDirIn;
+}
+
 void cDirsPhProj::SetDirInIfNoInit(const std::string & aDirIn)
 {
     if (! DirInIsInit())

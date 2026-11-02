@@ -31,14 +31,14 @@ namespace MMVII
         cCollecSpecArg2007 & ArgObl(cCollecSpecArg2007 & anArgObl) override ;
         cCollecSpecArg2007 & ArgOpt(cCollecSpecArg2007 & anArgOpt) override ;
 
+        std::string mNameDMEpipPairResult;
         std::string mNameCloud2D_DepthIn;
-        std::string mDirOri;
         std::string mNameMasq1;
         std::string mNameCorrel;
         std::string mNameSec;
 
-        cSensorCamPC * mCamPC;
-        cSensorCamPC * mSecCamPC;
+        cSensorImage * mCamGen;
+        cSensorImage * mSecCamGen;
         cIm2D<tREAL4> mImPx1;
         cIm2D<tU_INT1> mImMasq1;
         cIm2D<tU_INT1> mImCorrel;
@@ -62,10 +62,8 @@ namespace MMVII
         std::string mOutDir;
         tREAL8 mNoiseZ;
         tREAL8 mThreshGrad;
-        bool mZF_SameOri;
         bool mBascCorrel;
         bool mOriInFatherDir;  ///< if true, search orientation in father dir, else in DirProj
-        int  mMultZ;
         double      mMII;   ///<  Marge Inside Image
         double mStretschingThresh;
         //cBox2dr mBoxLocTarget;
@@ -78,10 +76,6 @@ namespace MMVII
         cAppliCloudProjectOnGround(const std::vector<std::string> & aVArgs, const cSpecMMVII_Appli & aSpec );
         static constexpr tREAL8 mInfty =  -1e10;
         std::pair<cPt3dr,cPt3dr> BascOnePoint(cPt2di A,  cPt2di anOffSet, bool & oValid);
-        /// Read a camera whose orientation folder is stored at the project root (father dir),
-        /// and not under DirProj which here points to the epipolar-resampling sub-folder.
-        cSensorCamPC * ReadCamFromFatherDir(const std::string & aNameIm);
-        //void MakeBasc();
         void MakeFastBasc();
         void MakeBasculeTris(cZBuffer & aZB);
         void ProcessNoPix(cZBuffer &  aZB);
@@ -95,8 +89,8 @@ namespace MMVII
 cAppliCloudProjectOnGround::cAppliCloudProjectOnGround(const std::vector<std::string> & aVArgs, const cSpecMMVII_Appli & aSpec ):
     cMMVII_Appli(aVArgs,aSpec),
     cAppliParseBoxIm<tREAL4>(*this,eForceGray::No,cPt2di(2000,2000),cPt2di(50,50),true),
-    mCamPC(nullptr),
-    mSecCamPC(nullptr),
+    mCamGen(nullptr),
+    mSecCamGen(nullptr),
     mImPx1(cPt2di(1,1)),
     mImMasq1(cPt2di(1,1)),
     mImCorrel(cPt2di(1,1)),
@@ -116,10 +110,8 @@ cAppliCloudProjectOnGround::cAppliCloudProjectOnGround(const std::vector<std::st
     mGlobAff(),
     mNoiseZ(0.2),
     mThreshGrad(0.3),
-    mZF_SameOri(true),
     mBascCorrel(false),
     mOriInFatherDir(false),
-    mMultZ(mZF_SameOri ? 1 : -1),
     mMII(0.0),
     mStretschingThresh(4.0)
 {
@@ -128,10 +120,14 @@ cAppliCloudProjectOnGround::cAppliCloudProjectOnGround(const std::vector<std::st
 
 cCollecSpecArg2007 & cAppliCloudProjectOnGround::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
+    // use xml file serialized by cDMEpipPairResult class in MMVII_CloudRaster.h to initialize the application
+    // NB: we do NOT call APBI_ArgObl here, because its only role is to add mNameIm as a mandatory
+    // argument. Here mNameIm is not given on the command line but read from mNameDMEpipPairResult
+    // (NameEpipIm1) in Exe(), so we keep it hidden from the argument list.
     return
-            APBI_ArgObl(anArgObl)
-           <<   Arg2007(mNameCloud2D_DepthIn,"Name of input depth map", {eTA2007::FileImage} )
-           <<   Arg2007(mDirOri,"Mandatory directory of orientation files (stored under the project root)")
+        anArgObl
+           <<   Arg2007(mNameDMEpipPairResult,"xml file containing the result of epipolar resampling",{eTA2007::FileTagged})
+           <<   mPhProj.DPOrient().ArgDirInMand()
            <<   mPhProj.DPMeshDev().ArgDirOutMand()
         ;
 }
@@ -143,16 +139,11 @@ cCollecSpecArg2007 & cAppliCloudProjectOnGround::ArgOpt(cCollecSpecArg2007 & anA
         APBI_ArgOpt
         (
             anArgOpt
-                << AOpt2007(mModeGeom,"ModeGeom","Either epipolar geometry, def=geometry of input depth",{AC_ListVal<eModeGeom>()})
-                << AOpt2007(mNameResult,"Out"," prefix of output files",{eTA2007::HDV})
-                << AOpt2007(mNameMasq1, "Masq1","Masq of first image if any",{eTA2007::HDV})
-                << AOpt2007(mNameSec, "Im2","Secondary image if geom is Epip",{eTA2007::HDV})
-                << AOpt2007(mNameCorrel,"ImCorrel","Name of correlation or confidence image")
-                << AOpt2007(mGSD,"GroundResolution", "Ground sampling distance of bascule")
+                << AOpt2007(mGSD,"GSD", "Ground sampling distance for rasterization")
                 << AOpt2007(mOutDir,"DirOut","Directory of output files, (def=VISU/"+Specs().Name()+")")
                 << AOpt2007(mMII,"MII","Margin Inside Image (for triangle validation)", {eTA2007::HDV})
                 << AOpt2007(mOriInFatherDir,"OriInFatherDir","If true, search orientation in father dir, else in DirProj",{eTA2007::HDV})
-                << AOpt2007(mStretschingThresh,"ThresholdDistortion","Level of triangle distortion to discard from bascule")
+                << AOpt2007(mStretschingThresh,"DistortionThreshold","Level of triangle distortion to discard from bascule")
         )
         ;
 }
@@ -183,18 +174,21 @@ std::pair<cPt3dr,cPt3dr> cAppliCloudProjectOnGround::BascOnePoint(cPt2di A,  cPt
     {
         double  aX2= aPix1.x() + mImPx1.DIm().GetV(A);
         cPt2dr aPix2=cPt2dr(aX2, aPix1.y());
-        tSeg3dr aP2TerCam1 = mCamPC->Image2Bundle(ToR(aPix1));
-        tSeg3dr aP2TerCam2= mSecCamPC->Image2Bundle(aPix2);
+        tSeg3dr aP2TerCam1 = mCamGen->Image2Bundle(ToR(aPix1));
+        tSeg3dr aP2TerCam2= mSecCamGen->Image2Bundle(aPix2);
 
         aPZA=RobustBundleInters({aP2TerCam1,aP2TerCam2});
 
-        // compute 2D + Depth and no need to perform Value of mapI2O Value or TriValue as it is already computed
+        tREAL4 aHgtValue = - aPZA.z();
+        
+        
+        if (dynamic_cast<cSensorCamPC*>(mCamGen))
+            aHgtValue = mCamGen->Ground2ImageAndDepth(aPZA).z();
 
-        // aPWithDepth = Value (aPZA)
 
         aPWithDepth= cPt3dr(aPix1.x(),
                              aPix1.y(),
-                             mCamPC->Pose().Inverse(aPZA).z());
+                             aHgtValue);
     }
     else if (mModeGeom==eModeGeom::eGEOM_DEPTH) ///< entry is a depth map so just compute 3D world coordinates
     {
@@ -209,7 +203,10 @@ std::pair<cPt3dr,cPt3dr> cAppliCloudProjectOnGround::BascOnePoint(cPt2di A,  cPt
                             aPix1.y(),
                             aDepth);
 
-        aPZA = mCamPC->ImageAndDepth2Ground(aPWithDepth);
+        MMVII_INTERNAL_ASSERT_tiny(dynamic_cast<cSensorCamPC*>(mCamGen),
+            "Camera is not a cSensorCamPC in BascOnePoint Mode GEOM_DEPTH");
+
+        aPZA = mCamGen->ImageAndDepth2Ground(aPWithDepth);
     }
     else
     {
@@ -297,9 +294,19 @@ void cAppliCloudProjectOnGround::MakeFastBasc()
 
     cMeshTri3DIterator * aTriIT2DDepth= new cMeshTri3DIterator(mTri2DDepth);
 
-    cSIMap_Ground2ImageAndProf aMapCamDepth(mCamPC);
+    // Keep a real polymorphic mapping object (held by pointer) : cZBuffer stores a reference to
+    // it (const tMap & mMapI2O), so it must outlive the ZBuffer and must NOT be sliced into a
+    // base tIMap_R3 value (slicing would drop the Value()/Inverse() overrides and trigger the
+    // default Value<->Values mutual recursion -> "Forbiden Recursive Call").
+    std::unique_ptr<tIMap_R3> aMapCamDepth;
 
-    cSetVisibility aSetVis(mCamPC,mMII);
+    if (dynamic_cast<cSensorCamPC*>(mCamGen))
+        aMapCamDepth = std::make_unique<cSIMap_Ground2ImageAndProf>(mCamGen);
+    else
+        aMapCamDepth = std::make_unique<cSIMap_Ground2ImageAndZ>(mCamGen);
+
+
+    cSetVisibility aSetVis(mCamGen,mMII);
 
     double Infty =1e20;
 
@@ -310,7 +317,7 @@ void cAppliCloudProjectOnGround::MakeFastBasc()
     StdOut()<<"ZBUFFER::ZBUFFER"<<std::endl;
     cZBuffer aZBuf(aTriIt,
                    aSetVis,
-                   aMapCamDepth,
+                   *aMapCamDepth,
                    aSetCam,
                    1,
                    true,
@@ -323,10 +330,12 @@ void cAppliCloudProjectOnGround::MakeFastBasc()
     aZBuf.MakeZBufForBasc(eZBufModeIter::ProjInit);
 
 
+    
+
     cAutoTimerSegm aTSBufferSurfDev(TimeSegm(),"ZBuffer::SurfDevlpt"); 
 
     aZBuf.MakeZBufForBasc(eZBufModeIter::SurfDevlpt);
- 
+
     cAutoTimerSegm aTSBufferProcNoPix(TimeSegm(),"ZBuffer::ProcessNoPix"); 
 
     ProcessNoPix(aZBuf);
@@ -432,11 +441,11 @@ void cAppliCloudProjectOnGround::MakeBasculeTris(cZBuffer & aZB)
     int aNHidden=0;
     int aNNoPix=0;
 
+
     for (size_t  aKF=0; aKF<mTri3D->NbFace(); aKF++)
     {
         if(aZB.ResSurfD(aKF).mResult == eZBufRes::Distorted )
         {
-            //StdOut()<<"hidden"<<std::endl;
             aNInOut++;
         }
 
@@ -468,8 +477,10 @@ void cAppliCloudProjectOnGround::MakeBasculeTris(cZBuffer & aZB)
 
             cPt3dr aElev(aTri3DW.Pt(0).z(),aTri3DW.Pt(1).z(),aTri3DW.Pt(2).z());
 
+
             std::vector<cPt2di> aVPix;
             std::vector<cPt3dr> aVW;
+
 
             aTriComp.PixelsInside(aVPix,1e-10,&aVW);
 
@@ -477,16 +488,24 @@ void cAppliCloudProjectOnGround::MakeBasculeTris(cZBuffer & aZB)
             {
                 const cPt2di aPix = aVPix[aK];
 
-                tREAL8 aNewZ = mMultZ * Scal(aElev,aVW[aK]);
+                tREAL8 aNewZ =  Scal(aElev,aVW[aK]);
                 mImRed.DIm().SetV(aPix,aNewZ);
-                mImMasqOut.DIm().SetV(aPix,1);
 
                 if( mBascCorrel)
                 {
                     tREAL8 aWeightStretch = std::min(1.0,1/aZB.ResSurfD(aKF).mStretchThresh);
+                    tREAL8 aWeightedCorrel = aWeightStretch * Scal(ToR(aTriCorrel),aVW[aK]);
+
+                    // mask out pixels whose weighted correlation is near 0
+                    mImMasqOut.DIm().SetV(aPix, (std::abs(aWeightedCorrel) < 1e-6) ? 0 : 1);
+
                     mImCorrelOut.DIm().SetV(aPix,
-                                            std::min(255,round_ni(aWeightStretch * Scal(ToR(aTriCorrel),aVW[aK])))
+                                            std::min(255,round_ni(aWeightedCorrel))
                                             );
+                }
+                else
+                {
+                    mImMasqOut.DIm().SetV(aPix,1);
                 }
             }
         }
@@ -496,6 +515,7 @@ void cAppliCloudProjectOnGround::MakeBasculeTris(cZBuffer & aZB)
     // write individual images
 
     StdOut()<<"NB HIDDEN "<<aNHidden<<" NB NO PIX "<<aNNoPix<<std::endl;
+
 
     cDataFileIm2D aDF= cDataFileIm2D::Create(mPhProj.DPMeshDev().FullDirOut()+
                                                   "BLOC-"+
@@ -753,32 +773,6 @@ void cAppliCloudProjectOnGround::MergeResults()
     }
 }
 
-cSensorCamPC * cAppliCloudProjectOnGround::ReadCamFromFatherDir(const std::string & aNameIm)
-{
-    // When mOriInFatherDir is set, DirProj points to the epipolar-resampling working sub-folder
-    // (where the images live), but the orientation folder is stored at the project root (father
-    // dir). So we anchor the orientation folder to the father dir : everything in DirProject()
-    // before "MMVII-PhgrProj/". Otherwise we keep looking under DirProj (standard behaviour).
-    std::string aFatherDir = DirProject();
-    if (mOriInFatherDir)
-    {
-        size_t aPos = aFatherDir.find(MMVII_DirPhp);
-        if (aPos != std::string::npos)
-            aFatherDir = aFatherDir.substr(0,aPos);
-    }
-
-    std::string aOriFullDir =   aFatherDir
-                              + mPhProj.DPOrient().DirLocOfMode()   // "MMVII-PhgrProj/Ori/"
-                              + mDirOri
-                              + StringDirSeparator();
-
-    std::string aNameCam = aOriFullDir + cSensorCamPC::NameOri_From_Image(aNameIm);
-
-    cSensorCamPC * aCamPC = cSensorCamPC::FromFile(aNameCam,true);
-    cMMVII_Appli::AddObj2DelAtEnd(aCamPC);
-
-    return aCamPC;
-}
 
 int cAppliCloudProjectOnGround::ExeOnParsedBox()
 {
@@ -786,7 +780,8 @@ int cAppliCloudProjectOnGround::ExeOnParsedBox()
     mImPx1= APBI_ReadIm<tREAL4>(DirProject() + mNameCloud2D_DepthIn);
     mImMasq1 = ReadMasqWithDef(CurBoxIn(),DirProject() + mNameMasq1);
 
-    if (IsInit(&mNameCorrel))
+    // check if mNameCorrel is provided, if so read the correlation image and set mBascCorrel to true
+    if (!mNameCorrel.empty())
     {
         mBascCorrel=true;
         mImCorrel = APBI_ReadIm<tU_INT1>(DirProject() + mNameCorrel);
@@ -801,7 +796,43 @@ int cAppliCloudProjectOnGround::ExeOnParsedBox()
 
 int cAppliCloudProjectOnGround::Exe()
 {
+    // In father-dir mode the orientation folder lives at the project root, not under the
+    // epipolar-resampling sub-folder that DirProject() points to. Prevent FinishInit() from
+    // validating the orientation input dir against the (wrong) standard project-relative path.
+    if (mOriInFatherDir)
+        mPhProj.DPOrient().SetAllowDirInEmpty();
+
     mPhProj.FinishInit();
+
+    // Now that all dirs are finalized, redirect the orientation input to the father dir.
+    if (mOriInFatherDir)
+    {
+        std::string aFatherDir = DirProject();
+        size_t aPos = aFatherDir.find(MMVII_DirPhp);
+        if (aPos != std::string::npos)
+            aFatherDir = aFatherDir.substr(0,aPos);
+
+        std::string aOriFullDir =   aFatherDir
+                              + mPhProj.DPOrient().DirLocOfMode()   // "MMVII-PhgrProj/Ori/"
+                              + mPhProj.DPOrient().DirIn()
+                              + StringDirSeparator();
+
+        mPhProj.DPOrient().SetFullDirIn(aOriFullDir);
+    }
+
+
+    // Read mNameDMEpipPairResult
+    cDMEpipPairResult aDMEpipPairResult;
+    ReadFromFile_Std(aDMEpipPairResult,
+            mNameDMEpipPairResult);
+
+    // Instantiate all strings from the DMEpipPairResult
+    mModeGeom = Str2E<eModeGeom>(aDMEpipPairResult.ModeGeom());
+    mNameIm =  aDMEpipPairResult.NameEpipIm1();
+    mNameSec =  aDMEpipPairResult.NameEpipIm2();
+    mNameCloud2D_DepthIn = aDMEpipPairResult.NameDisparity();
+    mNameMasq1  =  aDMEpipPairResult.NameMasq();
+    mNameCorrel =  aDMEpipPairResult.NameCorrel();
 
     if (! IsInit(&mOutDir))
     {
@@ -809,7 +840,7 @@ int cAppliCloudProjectOnGround::Exe()
     }
     if (! mOutDir.empty())
     {
-        mOutDir += "/";
+        mOutDir += StringDirSeparator();
     }
 
     CreateDirectories(mOutDir);
@@ -818,16 +849,18 @@ int cAppliCloudProjectOnGround::Exe()
     if (! IsInit(&mNameResult))
         mNameResult = "Dem_" + APBI_NameIm();
     // read camera
-    mCamPC = ReadCamFromFatherDir(APBI_NameIm());
+    mCamGen = mPhProj.ReadSensor(APBI_NameIm(),true);
 
     if (mModeGeom== eModeGeom::eGEOM_EPIP)
         {
-            MMVII_INTERNAL_ASSERT_strong(IsInit(&mNameSec),"should provide secondary image ");
-            mSecCamPC = ReadCamFromFatherDir(mNameSec);
+            MMVII_INTERNAL_ASSERT_strong( (!mNameSec.empty() ),"should provide secondary image ");
+            mSecCamGen = mPhProj.ReadSensor(mNameSec,true);
+            mNameSec = DirProject() + mNameSec;
         }
 
     // restore name of input image, as it is used in the APBI_ExecAll() function
     mNameIm = DirProject() + mNameIm;
+
 
     APBI_ExecAll();
 

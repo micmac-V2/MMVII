@@ -155,8 +155,10 @@ class  cZBuffer
           double ComputeResol(const tTri3dr & aTriIn ,const tTri3dr & aTriOut) const;
           ///  make the job for one triangle, different computation possible depending on aMode
           eZBufRes MakeOneTri(const tTri3dr & aTriIn,const tTri3dr & aTriOut,eZBufModeIter aMode);
+          
+          template<int Dim> bool IsStretched(const cTriangle<tREAL8,Dim> & aTriIn, 
+        const cTriangle<tREAL8,Dim> & aTri3, double & aStretchingThreshold);
 
-          bool IsStretched(const tTri3dr & aTriIn, const tTri3dr & aTri3, double & aStretchingThreshold);
 
           bool                  mIsOk;        ///< Many things can happen bad ...
           bool                  mZF_SameOri;  ///< Axe of Z (in out coord) and oriented surface have same orientation

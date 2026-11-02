@@ -86,7 +86,7 @@ namespace MMVII
             mPhProj.DPOrient().DirIn(),
             mPhProj.DPTieP().DirInIsInit() ? "TieP=" + mPhProj.DPTieP().DirIn() : "MulTieP=" + mPhProj.DPMulTieP().DirIn(),
             "TiePMinNbRatio="+ToStr(0.006),
-            "TiePMaxRes="+ToStr(5)
+            "TiePMaxRes="+ToStr(10)
             //"OutDir="+mPhProj.DirPhp()+"/VISU/DenseMatch/"+aNameIm1+"_"+aNameIm2
         );
     }
@@ -142,21 +142,35 @@ namespace MMVII
 
         std::string aNameBasc = "BASC_" + aName1 + "_" + aName2;
 
-        return cParamCallSys (
+        /*return cParamCallSys (
             "MMVII",
             "CloudProjectOnGround",
             aNameEpipIm1,
             aNameDMPerPair+"/Px1_Num3_DeZoom1_LeChantier.tif",
             "Epi",
             aNameBasc,
-            "Masq1="+aNameEpipIm1Masq,
+            "Masq1="+aNameDMPerPair+"/AutoMask_LeChantier_Num3.tif",
             "Im2="+aNameEpipIm2,
             "ImCorrel="+aNameDMPerPair+"/Correl_LeChantier_Num3.tif",
             "DirProj="+mDirCloudProjOnGround,
             "GroundResolution="+ToStr(mGSD),
             "OriInFatherDir=1",
             "NbProc=1"
+        );*/
+
+
+        return cParamCallSys (
+            "MMVII",
+            "CloudProjectOnGround",
+            mDirEpipolarResampling + "/" +  aNameDMPerPair + "/" + "DMEpipPairResult.xml",
+            "Epi",
+            aNameBasc,
+            "DirProj="+mDirCloudProjOnGround,
+            "GroundResolution="+ToStr(mGSD),
+            "OriInFatherDir=1",
+            "NbProc=1"
         );
+        
     }
 
     int cAppli_DenseMatch::Exe()

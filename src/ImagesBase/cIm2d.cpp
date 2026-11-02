@@ -583,7 +583,7 @@ template<class TypeEl> const typename  cAppliParseBoxIm<TypeEl>::tIm&  cAppliPar
 
 cIm2D<tU_INT1>  ReadMasqWithDef(const cBox2di& aBox,const std::string & aName)
 {
-   if (IsInit(&aName))
+   if (IsInit(&aName) || (!aName.empty()))
    {
       return cIm2D<tU_INT1>::FromFile(aName,aBox);
    }

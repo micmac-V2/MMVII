@@ -465,6 +465,7 @@ class cDirsPhProj : public cMemCheck
 
 
           void  SetDirIn(const std::string&) ; ///< Modifier, use in case many out params were saved in a xml,like with MeshImageDevlp
+          void  SetFullDirIn(const std::string & aFullDirIn); ///< Modifier, use in case we want to use external ori dir 
           void  SetDirInIfNoInit(const std::string&) ; ///< do it only if not init in argopt
           const std::string & DirIn() const;   ///< Accessor
           const std::string & DirOut() const;   ///< Accessor

@@ -70,9 +70,6 @@ class cAppliEpipDMEval : public cMMVII_Appli,
         cBox2di       mBoxIm2;    ///< Box of image 2, for fast test of inclusion
         std::string   mMasqHidden_Name; ///< Name for saving hidden pixel masq
         std::string   mImCorrel_Name;   ///< Name for saving correlation image
-
-        // std::string   mImCorrel_Name;
-        // tImIMasq       mImCorrel_Im;
 };
 
 
@@ -135,8 +132,12 @@ cCollecSpecArg2007 & cAppliEpipDMEval::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
 double   cAppliEpipDMEval::SimilElemByCor(const cPt2di & aP1,const cPt2di & aP2,int aSzW) const
 {
-    if ( (!mBoxWOk.Inside(aP1)) ||  (!mBoxWOk.Inside(aP2)) )
-       return 1.0;
+    if ( (!mBoxWOk.Inside(aP1)) ||  (!mBoxWOk.Inside(aP2)))
+         return 1.0;
+
+    if  ( (mImMasq1.DIm().GetV(aP1)==0) || (mMasq2Redr.DIm().GetV(aP2) == 0))
+         return 1.0;
+    
     cMatIner2Var<double>  aMat;
 
     const tDImAPBI & aI1 =  APBI_DIm();
@@ -187,7 +188,6 @@ double   cAppliEpipDMEval::SimilElemByRad(const cPt2di & aP1,const cPt2di & aP2)
 void   cAppliEpipDMEval::MakeCorrel()
 {
    cIm2D<tU_INT1>  aImCorr(CurSzIn());
-   //StdOut()<<"size in "<<CurSzIn()<<std::endl;
    for (const auto & aPix : aImCorr.DIm())
        aImCorr.DIm().SetVTrunc(aPix,255.0*(1-SimilElemByCor(aPix,aPix,mSzW)));
    APBI_WriteIm(mImCorrel_Name,aImCorr);
