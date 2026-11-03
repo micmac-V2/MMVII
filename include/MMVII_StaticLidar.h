@@ -215,7 +215,7 @@ public :
     template <typename TYPE>
     cPt3dr Image2Camera3D(const TYPE & aRasterPx) const; // in sensor frame (Z forward)
     cPt3dr Image2Camera3D_InterpoleDist(const cPt2dr & aRasterPx, const cInterpolator1D *anInterpol) const; // in sensor frame (Z forward)
-    cPt3dr Image2NormalInstr(const cPt2dr &aRasterPx) const; //< normal in sensor frame
+    cPt3dr Image2NormalInstr1Pt(const cPt2dr &aRasterPx) const; //< normal in sensor frame, only if not enouth points for plan estim
 
     template <typename TYPE>
         cPt3dr Image2ThetaPhiDist(const TYPE & aRasterPx) const;
@@ -250,7 +250,7 @@ public :
     const std::vector<cPt2di> & PatchCenters() const;
 
     bool isInsideNormalInterpolator(cPt2dr & aPt) const;
-    cDiffInterpolator1D * getNormalInterpolator(const cPt2dr &aPt) const;
+    std::pair<double,cDiffInterpolator1D *> getNormalInterpolator(const cPt2dr &aPt) const;
 
     void Show() const override;
     void initInterpolators();

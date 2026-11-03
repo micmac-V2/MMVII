@@ -763,7 +763,7 @@ std::tuple<double, double, cPt3dr, double, cPt2dr> cStaticLidar::getDistSigmaNor
     // normal.P + d0 = 0  =>  normal.d.u + d0 = 0  (u=unitary direction vector, d=distance)
     // =>  d = -d0/(normal.u)
 
-    // returns : distance to plan, sigma dist to plan, plan normal, plan d0, plan gradient in col, row
+    // returns : distance to plan, sigma dist to plan, plan normal gnd, plan d0, plan gradient in col, row
 
     //static std::pair<cPlane3D,tREAL8> LSQEstimate(const std::vector<cPt3dr> & aP0,const std::vector<tREAL8>* =nullptr);
     std::vector<cPt3dr> aVPtCam;
@@ -787,12 +787,12 @@ std::tuple<double, double, cPt3dr, double, cPt2dr> cStaticLidar::getDistSigmaNor
     {
         aDistPlan = Image2Distance(aCenter);
         aDistSigma = Sigma();
-        aNinstr = Image2NormalInstr(aCenter);
+        aNinstr = Image2NormalInstr1Pt(aCenter);
         aD0 = -Scal(aNinstr, Image2Camera3D(aCenter));
         // which interpolator to use for Target extract?
     } else {
-        std::cout<<"Box "<<aPixBox<<" => "<<aPixBox.Sz().x()*aPixBox.Sz().y()
-                  <<" usable "<<aVPtCam.size()<<" "<<(100.*aVPtCam.size())/(aPixBox.Sz().x()*aPixBox.Sz().y())<<"%\n";
+        //std::cout<<"Box "<<aPixBox<<" => "<<aPixBox.Sz().x()*aPixBox.Sz().y()
+        //          <<" usable "<<aVPtCam.size()<<" "<<(100.*aVPtCam.size())/(aPixBox.Sz().x()*aPixBox.Sz().y())<<"%\n";
         auto [aPlane3D, aRes] = cPlane3D::LSQEstimate(aVPtCam,nullptr);
         // we test 2 methods to get distances => same results
         //auto anInter = aPlane3D.Inter({0,0,0}, Image2Camera3D(aCenter));
@@ -822,17 +822,17 @@ std::tuple<double, double, cPt3dr, double, cPt2dr> cStaticLidar::getDistSigmaNor
     return std::make_tuple(aDistPlan,aDistSigma,aNormalGnd,aD0,aGradDist_cr);
 }
 
-cDiffInterpolator1D * cStaticLidar::getNormalInterpolator(const cPt2dr & aPt) const
+std::pair<double, cDiffInterpolator1D *> cStaticLidar::getNormalInterpolator(const cPt2dr & aPt) const
 {
     if (!GetRasterDistance().InsideBL(aPt))
     {
-        return mVInterpN.front().second; // if impossible to get dist, return any interpolator
+        return mVInterpN.front(); // if impossible to get dist, return any interpolator
     }
     double aDist = Image2Distance(aPt);
     size_t i = 0;
     while ((i<mVInterpN.size()) && (aDist>mVInterpN[i].first))
         ++i;
-    return mVInterpN.at(i-1).second;
+    return mVInterpN.at(i-1);
 }
 
 void cStaticLidar::Show() const
@@ -1024,8 +1024,17 @@ std::tuple<tREAL8,tREAL8,tREAL8> cStaticLidar::AvgDistNbValidAndNbNotMasked() co
 
 
 /// normal in sensor frame
-cPt3dr cStaticLidar::Image2NormalInstr(const cPt2dr & aRasterPx) const
+cPt3dr cStaticLidar::Image2NormalInstr1Pt(const cPt2dr & aRasterPx) const
 {
+    /*const cDataGenUnTypedIm<2> & aGenDImDist = GetRasterDistance();
+    const auto [aSz,aInterpN] = getNormalInterpolator( aRasterPx);
+    if (!aGenDImDist.InsideInterpolator(*aInterpN,aRasterPx,0.0))
+        return cPt3dr::Dummy();
+    auto aBBox = cPixBox<2>::BoxWindow(ToI(aRasterPx), aSz);
+
+    auto [aD,aS,aN,aD0,aGr] = getDistSigmaNormalPlanGrad(aRasterPx,aBBox);
+    return aN;*/
+
     //std::cout<<"normal for im pt "<<aRasterPx<<"\n";
     //std::cout<<"gnd pt "<<Image2Ground(aRasterPx)<<"\n";
     //std::cout<<"instr vect "<<Image2Camera3D(aRasterPx)<<"\n";
@@ -1033,7 +1042,7 @@ cPt3dr cStaticLidar::Image2NormalInstr(const cPt2dr & aRasterPx) const
 
     // all computation is done in Raster frame
     const cDataGenUnTypedIm<2> & aGenDImDist = GetRasterDistance();
-    const auto aInterpN = getNormalInterpolator( aRasterPx);
+    const auto [aSz,aInterpN] = getNormalInterpolator( aRasterPx);
     if (!aGenDImDist.InsideInterpolator(*aInterpN,aRasterPx,0.0))
         return cPt3dr::Dummy();
     auto [aDist, aDistGr] = aGenDImDist.GetValueAndGradInterpol(*aInterpN,aRasterPx);
@@ -2010,7 +2019,7 @@ void cStaticLidar::MakeVisu(const cPhotogrammetricProject & aPhProj) const
 
 bool cStaticLidar::isInsideNormalInterpolator(cPt2dr & aPt) const
 {
-    const auto aInterp = getNormalInterpolator( aPt );
+    const auto [aSz,aInterp] = getNormalInterpolator( aPt );
     return GetRasterDistance().InsideInterpolator(*aInterp,aPt,1.0);
 }
 
@@ -2043,8 +2052,11 @@ void cStaticLidar::MakePatches
             auto aCenterR = ToR(aCenter);
             if (isInsideNormalInterpolator(aCenterR))  // is it sufficiently inside
             {
-                auto aN = Image2NormalInstr(aCenterR);
-                aLPatches.push_back({i, {aCenter}, {}, aN});
+                const auto [aSz,aInterpN] = getNormalInterpolator(ToR(aCenter));
+                auto aBBox = cPixBox<2>::BoxWindow(aCenter, aSz);
+                auto [aD,aS,aNormalGndB,aD0,aGr] = getDistSigmaNormalPlanGrad(ToR(aCenter),aBBox);
+                auto aNinstr = Pose().Rot().Inverse(aNormalGndB);
+                aLPatches.push_back({i, {aCenter}, {}, aNinstr});
                 //std::cout<<"make patch "<<aCenter<<" N="<<aN<<"\n";
             }
         }
@@ -2063,7 +2075,7 @@ void cStaticLidar::MakePatches
     for (size_t i=0; i<mPatchCenters.size(); ++i)
     {
         auto & aCenter = mPatchCenters[i];
-        auto aCenterR = cPt2dr(aCenter.x(),aCenter.y());
+        auto aCenterR = ToR(aCenter);
         if (!isInsideNormalInterpolator(aCenterR))  // is it sufficiently inside
             continue;
         //search for average GndPixelSize
@@ -2151,8 +2163,11 @@ void cStaticLidar::MakePatches
         // some requirement on minimal size
         if ((int)aPatchPts.size() > aSzMin)
         {
-            auto aN = Image2NormalInstr(aCenterR);
-            aLPatches.push_back({i, aPatchPts, {}, aN});
+            const auto [aSz,aInterpN] = getNormalInterpolator(aCenterR);
+            auto aBBox = cPixBox<2>::BoxWindow(aCenter, aSz);
+            auto [aD,aS,aNormalGndB,aD0,aGr] = getDistSigmaNormalPlanGrad(aCenterR,aBBox);
+            auto aNinstr = Pose().Rot().Inverse(aNormalGndB);
+            aLPatches.push_back({i, aPatchPts, {}, aNinstr});
             //std::cout<<"make patch "<<aCenter<<" N="<<aN<<"\n";
         #ifdef NUMMAKEPATCHDEBUG
             if (i<NUMMAKEPATCHDEBUG)

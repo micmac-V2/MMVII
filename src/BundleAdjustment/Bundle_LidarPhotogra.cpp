@@ -1434,6 +1434,11 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             {
                 auto aVGr = aGenDImDist.GetValueAndGradInterpol(*mInterp,aPIm); // works better than normal interp for gradient, why?
 
+                const auto [aSz,aInterpN] = aScanB->getNormalInterpolator(aPIm);
+                auto aBBox = cPixBox<2>::BoxWindow(ToI(aPIm), aSz);
+                auto [aD,aS,aNormalGndB,aD0,aGr] = aScanB->getDistSigmaNormalPlanGrad(aPIm,aBBox);
+                aVGr.second = aGr; // get grad from plan
+
                 aData.mVGr = { aVGr };
                 #ifdef SCANSCANDEBUG
                 std::cout<<aPIm<<" GetValueAndGradInterpol: "<<aVGr.first<<" "<<aVGr.second.x()*1940<<" "<<aVGr.second.y()*1940<<"\n";
@@ -1441,9 +1446,6 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
 
                 tREAL8 aValIm = aData.mVGr.at(0).first;   // value of first/central pixel in this image
                 tREAL8 aResidual = aValIm-aDist;
-
-                cPt3dr aNormalInstrB = aScanB->Image2NormalInstr(aPIm);
-                cPt3dr aNormalGndB = aScanB->Pose().Rot().Value(aNormalInstrB);
 
                 if ((fabs(aResidual)<std::max(aStatsMaxDist,mThreshold*10))
                    )// &&(Scal(aNormalGndA,aNormalGndB)<aStatstNormalDiffMinCos)) //std::max(0.1,mThreshold*20)) // suppose that 10cm is always an error
