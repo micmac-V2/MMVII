@@ -1139,7 +1139,7 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
 
 
     // spend last 15% of iter on final threshold
-    int aNbIterFinalTh = aBA.NbMaxIter()*0.85;
+    int aNbIterFinalTh = aBA.NbMaxIter()*0.6;
     mThreshold = mThresholdFinal;
     if (aBA.NbMaxIter()>2)
     {
@@ -1270,7 +1270,7 @@ void cBA_LidarLidarRaster::AddObs()
         //    StdOut() << aScan.mLidarRaster->NameImage()<< " " << aScan.mLidarRaster->Center().x() <<
         //         std::setprecision(10) << " " << aScan.mLidarRaster->Center().y()<< " " << aScan.mLidarRaster->Center().z() << "\n";
         std::cout<<"res "<<mVScans.back().mLidarRaster->NameImage()<<" "<<
-            Norm2(mVScans.back().mLidarRaster->Pose().Tr()-cPt3dr(33.293521357820282, -87.364242468630138, 111.161231866502476))<<"\n";
+            Norm2(mVScans.back().mLidarRaster->Pose().Tr()-cPt3dr(33.298387398154595, -87.364096907658464, 111.161090316911455))<<"\n";
     }
     else
         StdOut() << "  * Lid/Lid: no obs\n";
@@ -1469,6 +1469,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                     continue;
                 }
                 tREAL8 aNormalDiffAngle = acos(Scal(aNormalGndA,aNormalGndB)) * 180 / M_PI;
+                std::cout<<"Normals: "<<aNormalGndA<<" "<<aNormalGndB<<" => "<<aNormalDiffAngle<<"deg\n";
                 tREAL8 aWFactorAngle = mWeighterAngle->WeightOfResidual({aNormalDiffAngle})[0];
                 aData.mW *=  aWFactorAngle;
                 if (aWFactorAngle==0.0)
