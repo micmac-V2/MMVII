@@ -1035,8 +1035,8 @@ void cBA_LidarLidarRaster::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, doubl
                      mThresholdInit + (mThresholdFinal - mThresholdInit)*float(aBA.Iter())/(aBA.NbMaxIter()-1);
 
 
-    // spend last 15% of iter on final threshold
-    int aNbIterFinalTh = aBA.NbMaxIter()*0.85;
+    // spend last 20% of iter on final threshold
+    int aNbIterFinalTh = aBA.NbMaxIter()*0.80;
     mThreshold = mThresholdFinal;
     if (aBA.NbMaxIter()>2)
     {
