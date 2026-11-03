@@ -756,11 +756,14 @@ bool cStaticLidar::DoAddCalibToUk() const
     return false; // F and PP fixed on lidar for now
 }
 
-std::tuple<double, double, cPt3dr, double> cStaticLidar::getDistSigmaNormalPlan(cPt2dr aCenter, const cPixBox<2> & aPixBox) const
+std::tuple<double, double, cPt3dr, double, cPt2dr> cStaticLidar::getDistSigmaNormalPlanGrad(cPt2dr aCenter, const cPixBox<2> & aPixBox) const
 {
     // plan equation: normal.P + d0 = 0
     // d0 distance to origin
+    // normal.P + d0 = 0  =>  normal.d.u + d0 = 0  (u=unitary direction vector, d=distance)
+    // =>  d = -d0/(normal.u)
 
+    // returns : distance to plan, sigma dist to plan, plan normal, plan d0, plan gradient in col, row
 
     //static std::pair<cPlane3D,tREAL8> LSQEstimate(const std::vector<cPt3dr> & aP0,const std::vector<tREAL8>* =nullptr);
     std::vector<cPt3dr> aVPtCam;
@@ -769,29 +772,54 @@ std::tuple<double, double, cPt3dr, double> cStaticLidar::getDistSigmaNormalPlan(
         if (IsValidPoint(aPt))
             aVPtCam.push_back(Image2Camera3D(aPt));
     }
-    if (aVPtCam.empty() || (!IsValidPoint(aCenter)))
-        return std::make_tuple(NAN,NAN,cPt3dr::Dummy(),NAN);
+    double aDistPlan = NAN;
+    double aDistSigma = NAN;
+    cPt3dr aNinstr = cPt3dr::Dummy();
+    cPt3dr aNormalGnd = cPt3dr::Dummy();
+    double aD0 = NAN;
+    cPt2dr aGradDist_cr = cPt2dr::Dummy();
 
+    if (aVPtCam.empty() || (!IsValidPoint(aCenter)))
+    {
+        return std::make_tuple(aDistPlan,aDistSigma,aNormalGnd,aD0,aGradDist_cr); // error
+    }
     if (IsValidPoint(aCenter) && (aVPtCam.size()<3))
     {
-        cPt3dr aNinstr = Image2NormalInstr(aCenter);
-        double aD0 = -Scal(aNinstr, Image2Camera3D(aCenter));
-        return std::make_tuple(Image2Distance(aCenter), Sigma(),
-                                                  Pose().Rot().Value(aNinstr),aD0); // which interpolator to use for Target extract?
+        aDistPlan = Image2Distance(aCenter);
+        aDistSigma = Sigma();
+        aNinstr = Image2NormalInstr(aCenter);
+        aD0 = -Scal(aNinstr, Image2Camera3D(aCenter));
+        // which interpolator to use for Target extract?
+    } else {
+        std::cout<<"Box "<<aPixBox<<" => "<<aPixBox.Sz().x()*aPixBox.Sz().y()
+                  <<" usable "<<aVPtCam.size()<<" "<<(100.*aVPtCam.size())/(aPixBox.Sz().x()*aPixBox.Sz().y())<<"%\n";
+        auto [aPlane3D, aRes] = cPlane3D::LSQEstimate(aVPtCam,nullptr);
+        // we test 2 methods to get distances => same results
+        //auto anInter = aPlane3D.Inter({0,0,0}, Image2Camera3D(aCenter));
+        //aDist = Norm2(anInter);
+        aNinstr = aPlane3D.AxeK();
+        aNormalGnd = Pose().Rot().Value(aNinstr);
+        double aD0 = -Scal(aNinstr,aPlane3D.P0()); // can't use -Scal(aNinstr, Image2Camera3D(aCenter)), since Image2Camera3D(aCenter) is not exactly on the plan
+        aDistPlan = -aD0/Scal(aNinstr,Image2Camera3D(aCenter)/Norm2(Image2Camera3D(aCenter)));
+        aDistSigma = (aRes+Sigma())/2.;
     }
 
-    std::cout<<"Box "<<aPixBox<<" => "<<aPixBox.Sz().x()*aPixBox.Sz().y()
-              <<" usable "<<aVPtCam.size()<<" "<<(100.*aVPtCam.size())/(aPixBox.Sz().x()*aPixBox.Sz().y())<<"%\n";
-    auto [aPlane3D, aRes] = cPlane3D::LSQEstimate(aVPtCam,nullptr);
-    // we test 2 methods to get distances => same results
-    //auto anInter = aPlane3D.Inter({0,0,0}, Image2Camera3D(aCenter));
-    //auto aDist = Norm2(anInter);
-    cPt3dr aNinstr = aPlane3D.AxeK();
-    double aD0 = -Scal(aNinstr,aPlane3D.P0()); // can't use -Scal(aNinstr, Image2Camera3D(aCenter)), since Image2Camera3D(aCenter) is not exactly on the plan
-    auto aNormalGnd = Pose().Rot().Value(aNinstr);
-    auto aDistPlan = -aD0/Scal(aNinstr,Image2Camera3D(aCenter)/Norm2(Image2Camera3D(aCenter)));
+    // gradient computation:
+    // part(d)/part(theta) = d0/(normal.u)2 * (normal*part(u)/part(theta))
+    // => part(d)/part(theta) = d2/d0 * (normal*part(u)/part(theta))   and spher2cart: u = (cos(phi)*cos(theta), u)2 * (normal*part(u)/part(theta))   and spher2cart: u = (cos(phi)*cos(theta), cos(phi)*sin(theta), sin(phi))
+    // => part(d)/part(theta) = d/d0 * (normal.y * Q.x - normal.x * Q.y)
+    // => part(d)/part(phi) = d2/d0 * (-normal.x * sin(phi) * cos(theta) -normal.y * sin(phi) * sin(theta) + normal.z * cos(phi))
 
-    return std::make_tuple(aDistPlan, (aRes+Sigma())/2., aNormalGnd, aD0);
+
+
+    auto aQ = Image2Camera3D(aCenter);
+    aNormalGnd = Pose().Rot().Value(aNinstr);
+    aGradDist_cr.x() = Image2Distance(aCenter) / aD0 * (aNinstr.y() * aQ.x() - aNinstr.x() * aQ.y()) / this->InternalCalib()->F();
+    auto aQtpd = Image2ThetaPhiDist(aCenter);
+    aGradDist_cr.y() = Image2Distance(aCenter) * Image2Distance(aCenter) / aD0 * (-aNinstr.x() * sin(aQtpd.y()) * cos(aQtpd.x())
+                                                                                  -aNinstr.y()*sin(aQtpd.y())*sin(aQtpd.x()) + aNinstr.z()*cos(aQtpd.y())) / this->InternalCalib()->F();
+
+    return std::make_tuple(aDistPlan,aDistSigma,aNormalGnd,aD0,aGradDist_cr);
 }
 
 cDiffInterpolator1D * cStaticLidar::getNormalInterpolator(const cPt2dr & aPt) const

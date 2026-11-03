@@ -261,7 +261,7 @@ public :
 
     virtual bool DoAddCalibToUk() const override;
 
-    std::tuple<double, double, cPt3dr, double> getDistSigmaNormalPlan(cPt2dr aCenter, const cPixBox<2> &aPixBox) const; ///< Adjust a plan on defined points
+    std::tuple<double, double, cPt3dr, double, cPt2dr> getDistSigmaNormalPlanGrad(cPt2dr aCenter, const cPixBox<2> &aPixBox) const; ///< Adjust a plan on defined points
 
 private :
 
