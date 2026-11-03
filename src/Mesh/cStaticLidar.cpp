@@ -756,8 +756,12 @@ bool cStaticLidar::DoAddCalibToUk() const
     return false; // F and PP fixed on lidar for now
 }
 
-std::tuple<double, double, cPt3dr> cStaticLidar::getDistSigmaNormalPlane(cPt2dr aCenter, const cPixBox<2> & aPixBox) const
+std::tuple<double, double, cPt3dr, double> cStaticLidar::getDistSigmaNormalPlan(cPt2dr aCenter, const cPixBox<2> & aPixBox) const
 {
+    // plan equation: normal.P + d0 = 0
+    // d0 distance to origin
+
+
     //static std::pair<cPlane3D,tREAL8> LSQEstimate(const std::vector<cPt3dr> & aP0,const std::vector<tREAL8>* =nullptr);
     std::vector<cPt3dr> aVPtCam;
     for (const auto & aPt : aPixBox)
@@ -766,22 +770,28 @@ std::tuple<double, double, cPt3dr> cStaticLidar::getDistSigmaNormalPlane(cPt2dr 
             aVPtCam.push_back(Image2Camera3D(aPt));
     }
     if (aVPtCam.empty() || (!IsValidPoint(aCenter)))
-        return std::make_tuple(NAN,NAN,cPt3dr::Dummy());
+        return std::make_tuple(NAN,NAN,cPt3dr::Dummy(),NAN);
 
     if (IsValidPoint(aCenter) && (aVPtCam.size()<3))
     {
+        cPt3dr aNinstr = Image2NormalInstr(aCenter);
+        double aD0 = -Scal(aNinstr, Image2Camera3D(aCenter));
         return std::make_tuple(Image2Distance(aCenter), Sigma(),
-                               Pose().Rot().Value(Image2NormalInstr(aCenter))); // which interpolator to use for Target extract?
+                                                  Pose().Rot().Value(aNinstr),aD0); // which interpolator to use for Target extract?
     }
 
     std::cout<<"Box "<<aPixBox<<" => "<<aPixBox.Sz().x()*aPixBox.Sz().y()
               <<" usable "<<aVPtCam.size()<<" "<<(100.*aVPtCam.size())/(aPixBox.Sz().x()*aPixBox.Sz().y())<<"%\n";
     auto [aPlane3D, aRes] = cPlane3D::LSQEstimate(aVPtCam,nullptr);
-    auto anInter = aPlane3D.Inter({0,0,0}, Image2Camera3D(aCenter));
-    auto aDist = Norm2(anInter);
-    auto aNormalGnd = Pose().Rot().Value(aPlane3D.AxeK());
+    // we test 2 methods to get distances => same results
+    //auto anInter = aPlane3D.Inter({0,0,0}, Image2Camera3D(aCenter));
+    //auto aDist = Norm2(anInter);
+    cPt3dr aNinstr = aPlane3D.AxeK();
+    double aD0 = -Scal(aNinstr,aPlane3D.P0()); // can't use -Scal(aNinstr, Image2Camera3D(aCenter)), since Image2Camera3D(aCenter) is not exactly on the plan
+    auto aNormalGnd = Pose().Rot().Value(aNinstr);
+    auto aDistPlan = -aD0/Scal(aNinstr,Image2Camera3D(aCenter)/Norm2(Image2Camera3D(aCenter)));
 
-    return std::make_tuple(aDist, (aRes+Sigma())/2., aNormalGnd);
+    return std::make_tuple(aDistPlan, (aRes+Sigma())/2., aNormalGnd, aD0);
 }
 
 cDiffInterpolator1D * cStaticLidar::getNormalInterpolator(const cPt2dr & aPt) const
