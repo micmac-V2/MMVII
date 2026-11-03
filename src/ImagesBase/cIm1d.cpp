@@ -148,6 +148,25 @@ template <class Type> void  cDataIm1D<Type>::VD_SetV(const cPt1di& aP,const doub
    SetVTrunc(aP,aV);
 }
 
+template <class Type> cIm1D<Type> cDataIm1D<Type>::Dup() const
+{
+    MMVII_INTERNAL_ASSERT_always(this->P0().x()==0,"DataIm1D<Type>::Dup with x!=0");
+    cIm1D<Type> aRes(Sz());
+
+    this->DupIn(aRes.DIm());
+    return aRes;
+}
+
+template <class Type> void cDataIm1D<Type>::ClipTruncThenAddValBL( tREAL8  aP,const tBase & aV2Add)
+{
+    int aIP = round_down(aP);
+    tREAL8 aW1 = aP-aIP;
+
+    ClipTruncThenAddVal(aIP  ,aV2Add*(1-aW1));
+    ClipTruncThenAddVal(aIP+1,aV2Add*(aW1)  );
+}
+
+
 /*
 template <class Type> cDataIm1D<Type>::~cDataIm1D()
 {
@@ -183,7 +202,25 @@ template <class Type>  cIm1D<Type>  cIm1D<Type>::Dup() const
 {
    cIm1D<Type> aRes(DIm().P0().x(),DIm().P1().x());
    DIm().DupIn(aRes.DIm());
+
    return aRes;
+}
+
+
+template <class Type> cIm1D<Type> cIm1D<Type>::ImCste(int aSz,Type aVal)
+{
+     cIm1D<Type> aRes(aSz);
+     aRes.DIm().InitCste(aVal);
+     return aRes;
+}
+
+
+template <class Type> cIm1D<Type>  cIm1D<Type>::ImComb(int aSz,const std::vector<cPt2dr>& aVP,Type aValBackGround)
+{
+    cIm1D<Type> aRes = ImCste(aSz,aValBackGround);
+    for (const auto & aPt : aVP)
+        aRes.DIm().SetV(round_ni(aPt.x()),Type(aPt.y()));
+    return aRes;
 }
 
 
@@ -213,6 +250,12 @@ template <class TypeH,class TypeCumul> void cHistoCumul<TypeH,TypeCumul>::AddV(c
     mDH->ClipTruncThenAddVal(aP,aV2Add);
 
     //mDH->AddV(aP,aV2Add);
+}
+template <class TypeH,class TypeCumul> void cHistoCumul<TypeH,TypeCumul>::AddV(const tREAL8 & aP,const TypeH & aV2Add)
+{
+    mHCOk = false;
+    mDH->ClipTruncThenAddValBL(aP,aV2Add);
+
 }
 
 template <class TypeH,class TypeCumul> void cHistoCumul<TypeH,TypeCumul>::MakeCumul()

@@ -172,6 +172,16 @@ cRGBImage::cRGBImage(const cPt2di & aSz,int aZoom) :
 {
 }
 
+
+cRGBImage::cRGBImage(const cDataIm2D<tU_INT1>& anIm) :
+    cRGBImage(anIm.Sz())
+{
+    anIm.DupIn(mImR.DIm());
+    anIm.DupIn(mImG.DIm());
+    anIm.DupIn(mImB.DIm());
+}
+
+
 cRGBImage cRGBImage::Dup() const
 {
     cRGBImage aRes(mImR.DIm().Sz());

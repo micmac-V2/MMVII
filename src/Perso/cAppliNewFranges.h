@@ -96,16 +96,24 @@ typedef cVG_Edge<cAVVertex,cAVEdgeOriented,cAVEdgeSym>  tEdgeVFrange;
 typedef cVG_Graph<cAVVertex,cAVEdgeOriented,cAVEdgeSym> tGraphVFrange;
 
 
+class cMaxLocSum
+{
+   public :
+      tREAL8 mXC;
+      tREAL8 mX0;
+      tREAL8 mX1;
+};
+
 /* =============================================== */
 /*                                                 */
-/*                 cAppliNewFrange                   */
+/*                 cAppliNewFrange                 */
 /*                                                 */
 /* =============================================== */
 
 
 struct cSigmaTensors
 {
-    double mSigmaTeta = 1.0;
+    double mSigmaTeta = 15.0;
     double mSigmaTensX=20.0;
     double mSigmaTensY= 5.0;
     double mSigmaGradX=2.0;
@@ -149,6 +157,10 @@ class cAppliNewFrange : public cMMVII_Appli
 
         /// Generate several visualization
         void DoVisu();
+
+        void ShowCurvesIntegral(cRGBImage&);
+
+
         /// Name of visualisation image
         std::string NameVisu(const std::string & aPref) const;
 
@@ -189,7 +201,7 @@ class cAppliNewFrange : public cMMVII_Appli
 
 
         /// Compute the connected component and eventually memorize it
-        bool NewCC(bool isHoriz,const cPt2di&);
+        bool NewCC(std::vector<cPt2di>  &,bool isHoriz,const cPt2di&);
 
         /// Follow the chain, on a fix number of points stop if dead end or branch
         cPt2di BackTrackExtre( cPt2di aP0,const cDataIm2D<tU_INT1> & aImMax) const;
@@ -223,9 +235,21 @@ class cAppliNewFrange : public cMMVII_Appli
         /// Integrate one way the tangent image and save it in integrale image
         void OneWayIntegrateTangent(int aDy,int aYLim);
 
-        ///< compute projection on x using integral
-        void ComputeProjIntegrX();
+        ///< compute max +- basic with radiom of center
+        void ComputeMaxRadCenter();
 
+        //---------- Version using integral cuvre, OK but get false detection with broken curve;
+        ///< compute projection on x using integral
+        void ComputeSumOnIntegralCurve();
+        ///< Extract maxima on sum of integral curve
+        void ExtractMaxSumIC();
+        ///<
+        bool IsMaxLocSumIC(int aY) const;
+
+
+
+        void MakeGrapheTensor(int aX0,int aDx,int aDy, cRGBImage * = nullptr);
+        void MakeGrapheTensor(const cIm2D<tU_INT1>);
 
         //=========================================  DATA ========================================
 
@@ -248,6 +272,7 @@ class cAppliNewFrange : public cMMVII_Appli
         std::vector<std::string> mVNameVisu;  ///< Memorize all visu
         int         mNbVisuGen; ///< Number of visu generated
 
+         std::vector<cMaxLocSum> mVMaxLoc;
 
         bool mHasMask;  ///< Is there a mask
         cIm2D<tU_INT1> mImMask; ///< Possible mask
@@ -294,6 +319,8 @@ class cAppliNewFrange : public cMMVII_Appli
         tDIm *   mDImSmoothTgt;  ///< Data
         tIm1D    mImProjInt;     ///< cumulated projection
         tDIm1D*  mDImProjInt;    ///< Data
+        tREAL8   mStdDevProjI;   ///< standard deviation
+        tREAL8   mIntervMax;     ///< Inteval betwen consec max +- period of the bouzin
         tREAL8   mMinDPI;
         tREAL8   mMaxDPI;
 
