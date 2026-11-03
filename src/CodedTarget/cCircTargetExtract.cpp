@@ -929,7 +929,7 @@ void cAppliExtractCircTarget::DoExport()
                  case eTargetDistanceEstim::ePlaneEstim:
                  {
                      auto aEllipseBBox = anEE->mEllipse.GetBoundingBox();
-                     auto [aD,aS,aNgnd,aD0,aGr] = aLidar->getDistSigmaNormalPlanGrad(aMesIm.mPt,aEllipseBBox);
+                     auto [aD,aS,aNgnd,aGr] = aLidar->getDistSigmaNormalPlanGrad(aMesIm.mPt,aEllipseBBox);
                      aMesIm.mDistWithSigma.emplace( aD, aS );
                      break;
                  }

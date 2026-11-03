@@ -1436,8 +1436,9 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
 
                 const auto [aSz,aInterpN] = aScanB->getNormalInterpolator(aPIm);
                 auto aBBox = cPixBox<2>::BoxWindow(ToI(aPIm), aSz);
-                auto [aD,aS,aNormalGndB,aD0,aGr] = aScanB->getDistSigmaNormalPlanGrad(aPIm,aBBox);
-                aVGr.second = aGr; // get grad from plan
+                auto [aD,aS,aNormalGndB,aGr] = aScanB->getDistSigmaNormalPlanGrad(aPIm,aBBox);
+                std::cout<<"grad: "<<aVGr.second<<" "<<aGr<<"\n";
+                //aVGr.second = aGr; // get grad from plan
 
                 aData.mVGr = { aVGr };
                 #ifdef SCANSCANDEBUG
@@ -1469,7 +1470,7 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
                     continue;
                 }
                 tREAL8 aNormalDiffAngle = acos(Scal(aNormalGndA,aNormalGndB)) * 180 / M_PI;
-                std::cout<<"Normals: "<<aNormalGndA<<" "<<aNormalGndB<<" => "<<aNormalDiffAngle<<"deg\n";
+                //std::cout<<"Normals: "<<aNormalGndA<<" "<<aNormalGndB<<" => "<<aNormalDiffAngle<<"deg\n";
                 tREAL8 aWFactorAngle = mWeighterAngle->WeightOfResidual({aNormalDiffAngle})[0];
                 aData.mW *=  aWFactorAngle;
                 if (aWFactorAngle==0.0)
