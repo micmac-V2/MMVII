@@ -290,6 +290,13 @@ template <class Type>  class cDataIm2D  : public cDataTypedIm<Type,2>
         const tPVal * ExtractRawData2D() const {return mRawData2D;}
 
 
+        void WriteLine(cDataIm1D<Type>&,int  anY) const;
+        void ReadLine(const cDataIm1D<Type>&,int  anY) ;
+        void WriteCol(cDataIm1D<Type>&,int  anX) const;
+        void ReadCol(const cDataIm1D<Type>&,int  anX) ;
+
+
+
    // public for used by cDataIm2D::AllocIm
         cDataIm2D(const cPt2di & aP0,const cPt2di & aP1,
                  Type * DataLin=nullptr,eModeInitImage=eModeInitImage::eMIA_NoInit); ///< Called by shared ptr (cIm2D)
@@ -558,6 +565,8 @@ class cRGBImage
 
         cRGBImage(const cPt2di & aSz,int aZoom=1);
         cRGBImage(const cPt2di & aSz,const cPt3di & aCoul,int aZoom=1);
+        cRGBImage(const cDataIm2D<tU_INT1>&); ///< Make Gray image
+
         cRGBImage Dup() const;
 
         void ToFile(const std::string & aName, const std::vector<std::string>& aOptions={}) const;

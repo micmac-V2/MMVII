@@ -90,14 +90,14 @@ cPt2di cAppliNewFrange::NewBackTrackExtre(cPt2di  aP0,const std::vector<cPt2di> 
 }
 
 
-bool cAppliNewFrange::NewCC(bool isHoriz,const cPt2di& aPix)
+bool cAppliNewFrange::NewCC(std::vector<cPt2di>  & aVCC,bool isHoriz,const cPt2di& aPix)
 {
     const std::vector<cPt2di> & a8Neigh =  Alloc8Neighbourhood();
     cDataIm2D<tU_INT1> & aImMax = isHoriz ? *mDImMaxHor : * mDImMaxVert;
-    std::vector<cPt2di> aVCC;
 
     ConnectedComponent (aVCC,aImMax ,a8Neigh, aPix,1,2);
 
+    /// Test is in mask
     bool isInMax = false;
     if (mHasMask && isHoriz)
     {
@@ -198,7 +198,14 @@ void cAppliNewFrange::ConnecCompMaxLoc(bool isHoriz)
     {
         if (aImMax.GetV(aPix)==1)
         {
-            NewCC(isHoriz,aPix);
+            std::vector<cPt2di> aVCC;
+            bool Ok=   NewCC(aVCC,isHoriz,aPix);
+            if (!Ok)
+            {
+                cDataIm2D<tU_INT1> & aImMax = isHoriz ? *mDImMaxHor : * mDImMaxVert;
+                for (const auto & aPt : aVCC)
+                    aImMax.SetV(aPt,3);
+            }
         }
     }
 }

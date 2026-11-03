@@ -79,12 +79,57 @@ void cAppliNewFrange::MakeImSimul()
     }
 }
 
+void cAppliNewFrange::ShowCurvesIntegral(cRGBImage& anIm)
+{
+    for (const auto aML : mVMaxLoc)
+    {
+        for(const auto aPtY : mImTgt.DIm())
+        {
+            int anY = aPtY.x();
+            if (anY>0)
+            {
+                tREAL8 aDX0 = mDImIntegr->GetV(anY-1);
+                tREAL8 aDX1 = mDImIntegr->GetV(anY);
+
+                if (aDX1+aML.mXC<mSzRed.x())
+                    anIm.DrawLine(cPt2dr(aDX0+aML.mXC,anY-1),cPt2dr(aDX1+aML.mXC,anY),cRGBImage::Red);
+
+                if (aDX1+aML.mX0<mSzRed.x())
+                    anIm.DrawLine(cPt2dr(aDX0+aML.mX0,anY-1),cPt2dr(aDX1+aML.mX0,anY),cRGBImage::Blue);
+                if (aDX1+aML.mX1<mSzRed.x())
+                    anIm.DrawLine(cPt2dr(aDX0+aML.mX1,anY-1),cPt2dr(aDX1+aML.mX1,anY),cRGBImage::Blue);
+             }
+        }
+    }
+}
 
 void cAppliNewFrange::DoVisu()
 {
     if (!IsInit(&mPatVisu))
         return;
 
+
+    if (1)
+    {
+        tIm aImFiltr = mImRed.Dup();
+        ExpFilterOfStdDev(aImFiltr.DIm(),1,mIntervMax/10.0,1.5);
+
+        cIm1D<tREAL4> aImL(mSzRed.x());
+        for (int anY =0 ; anY<mSzRed.y() ; anY++)
+        {
+            aImFiltr.DIm().WriteLine(aImL.DIm(),anY);
+           // NormalizeByHistoEq(aImL.DIm(),1.0,aImL.DIm(),mSzRed.x());
+            FixDynByGaussModel(aImL.DIm(),0,1,aImL.DIm());
+            aImFiltr.DIm().ReadLine(aImL.DIm(),anY);
+
+        }
+        //template<class T> cIm2D<tU_INT1> Im2Make8BByGaussModel(const cDataIm2D<T> & aIm,tREAL8 aEpsilon=1e-5)
+
+         cIm2D<tU_INT1> aIm8B = Im2Make8BByMinMax(aImFiltr.DIm());
+        GenVisu(aIm8B.DIm(),"FiltX");
+
+        MakeGrapheTensor(aIm8B);
+    }
 
     // Generate images of angle of tensor using Hue (teinte)
     {
@@ -133,8 +178,13 @@ void cAppliNewFrange::DoVisu()
     }
 
 
+
+
     //  generate images of max loc  Horiz/Vert/Tens and Mixte
     {
+        cRGBImage aVisuMaxLoxCurc = aVisuArrow.Dup();
+        ShowCurvesIntegral(aVisuMaxLoxCurc);
+
         cRGBImage aVisuMaxHor = aVisuArrow.Dup();
         cRGBImage aVisuMaxVert = aVisuArrow.Dup();
         cRGBImage aVisuMaxTens = aVisuArrow.Dup();
@@ -147,15 +197,18 @@ void cAppliNewFrange::DoVisu()
                 aVisuMaxTens.SetRGBPix(aPix,cRGBImage::Green);
                 aVisuMaxMixte.SetRGBPix(aPix,cRGBImage::Green);
             }
-            if ( mDImMaxHor->GetV(aPix))
+            if ( mDImMaxHor->GetV(aPix) ==2)
             {
                 aVisuMaxHor.SetRGBPix(aPix,cRGBImage::Yellow);
                 aVisuMaxMixte.SetRGBPix(aPix,cRGBImage::Yellow);
             }
-            if ( mDImMaxVert->GetV(aPix))
+            if ( mDImMaxVert->GetV(aPix)==2)
             {
-                aVisuMaxVert.SetRGBPix(aPix,cRGBImage::Cyan);
-                aVisuMaxMixte.SetRGBPix(aPix,cRGBImage::Cyan);
+                cPt3di aCol = (mDImMaxVert->GetV(aPix)==2) ? cRGBImage::Cyan : cRGBImage::Yellow;
+                aVisuMaxLoxCurc.SetRGBPix(aPix,aCol);
+
+                aVisuMaxVert.SetRGBPix(aPix,aCol);
+                aVisuMaxMixte.SetRGBPix(aPix,aCol);
             }
         }
 
@@ -164,6 +217,9 @@ void cAppliNewFrange::DoVisu()
         GenVisu(aVisuMaxHor,"MaxLocHor");
         GenVisu(aVisuMaxVert,"MaxLocVert");
         GenVisu(aVisuMaxMixte,"MaxLocMixte");
+
+        GenVisu(aVisuMaxLoxCurc,"MaxVCurv");
+
     }
 
     GenVisu(*mImGrad.mDGx,"GradX");
@@ -176,15 +232,13 @@ void cAppliNewFrange::DoVisu()
 
     // Transformate vector Integal in points, arbirary origin
 
-    std::vector<cPt2dr> aVPtsIntegral;
-    for(const auto aPtY : mImTgt.DIm())
-    {
-        int anY = aPtY.x();
-        tREAL8 aXInt = mDImIntegr->GetV(anY);
-        aVPtsIntegral.push_back(cPt2dr(aXInt+200.0,anY));
-    }
+
+//    template <class Type> std::pair<cIm1D<Type>,cIm1D<Type>> ComputeAvgAndDev(const cDataIm1D<Type> & aDI1,int  aNbIt,double aStdDev);
 
     tIm1D aImVisuNT = Im1DFixDynByMax(*mDImCumNormT,100.0);
+    tREAL8 aSigma = 2.0;
+    auto [aImMoy,aImDev] = ComputeAvgAndDev(*mDImTeta,3,aSigma);
+
     //  ---------- Make image details ----------------------
     for(const auto aPtY : mImTgt.DIm())
     {
@@ -200,9 +254,16 @@ void cAppliNewFrange::DoVisu()
        cPt2di  aPtRad(round_ni(mSzRed.x()+mDImRadFrange->GetV(anY)*0.5),anY);
        anImDetail.SetRGBPix(aPtRad,cRGBImage::Gray128);
 
-       cPt2di  aPNormFr(round_ni(mSzRed.x()+aImVisuNT.DIm().GetV(anY)+2),anY);
-       anImDetail.SetRGBPix(aPNormFr,cRGBImage::Green);
-
+           // --- show image of norm of tensor ---
+       if (0)
+       {
+          cPt2di  aPNormFr(round_ni(mSzRed.x()+aImVisuNT.DIm().GetV(anY)+2),anY);
+          anImDetail.SetRGBPix(aPNormFr,cRGBImage::Green);
+       }
+       {
+           cPt2di  aPNormFr(round_ni(mSzRed.x()+aImDev.DIm().GetV(anY)*500.0/aSigma+2),anY);
+           anImDetail.SetRGBPix(aPNormFr,cRGBImage::Green);
+       }
 
            //   ---  curves of teta and tangent --------
        cPt2di  aPtTgt(round_ni(aXMil+mDImTgt->GetV(anY)*10.0),anY);
@@ -210,16 +271,6 @@ void cAppliNewFrange::DoVisu()
        cPt2di  aPtTeta(round_ni(aXMil+mDImTeta->GetV(anY)*25.0),anY);
        anImDetail.SetRGBPix(aPtTeta,cRGBImage::Blue);
 
-       // ------------------- Show image integrale in image ---------------------
-       if (anY>0)
-       {
-           cPt2dr aP1 = aVPtsIntegral.at(anY) ;
-           cPt2dr aP2 = aVPtsIntegral.at(anY-1);
-           if (mDImRedBlur->InsideBL(aP1) && mDImRedBlur->InsideBL(aP2))
-           {
-              anImDetail.DrawLine(aP1,aP2,cRGBImage::Red);
-           }
-       }
     }
     for(const auto aPtX : *mDImProjInt)
     {
@@ -227,6 +278,8 @@ void cAppliNewFrange::DoVisu()
         tREAL8 anY  = ((mDImProjInt->GetV(anX)-mMinDPI) / (mMaxDPI-mMinDPI)) * aRabYDetail;
         anImDetail.SetRGBPix(cPt2di(anX,mSzRed.y() + anY *0.95 + 5),cRGBImage::Black);
     }
+
+   ShowCurvesIntegral(anImDetail);
 
 
 
@@ -260,6 +313,7 @@ void cAppliNewFrange::DoVisu()
     GenVisu(aVisuArrowUnif,"ArrowUnif");
 
     GenVisu(*mDImRedBlur,"Blured");
+
 
 
 

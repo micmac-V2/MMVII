@@ -43,10 +43,10 @@ void  ExponentialFilter(cDataIm2D<Type> & aIm,int   aNbIter,double aFact);
    the NbIter parameter allow to be more or less close to a gaussian */
 template <class Type>
 void  ExpFilterOfStdDev(cDataIm2D<Type> & aIm,int   aNbIter,double aStdDev);
-template <class Type>
-void  ExpFilterOfStdDev(cDataIm2D<Type> & aIm,int   aNbIter,double aStdDevX,double aStdDevY);
-template <class Type>
-void  ExpFilterOfStdDev(cDataIm2D<Type> & aIOut,const cDataIm2D<Type> & aImIn,int aNbIter,double aStdDev);
+template <class Type> void  ExpFilterOfStdDev(cDataIm2D<Type> & aIm,int   aNbIter,double aStdDevX,double aStdDevY);
+template <class Type> void  ExpFilterOfStdDev(cDataIm2D<Type> & aIOut,const cDataIm2D<Type> & aImIn,int aNbIter,double aStdDev);
+
+
 
 
 /**************************************/
@@ -62,7 +62,11 @@ template <class Type> void  SquareAvgFilter(cDataIm2D<Type> & aDIm,int  aNbIt,in
 
 template <class Type> void  ExponentialFilter(cDataIm1D<Type> & aDI1,int  aNbIt,double aFact);
 template <class Type> void  ExpFilterOfStdDev(cDataIm1D<Type> & aDI1,int  aNbIt,double aStdDev);
+cIm1D<tREAL8> HeatFilter1D(const cDataIm1D<tREAL8>& aImIn,const cDataIm1D<tREAL8>& aImSigma,int aNbStep);
 
+template <class Type> cIm1D<Type>  ComputeExpFilterOfStdDev(const cDataIm1D<Type> & aDI1,int  aNbIt,double aStdDev);
+
+template <class Type> std::pair<cIm1D<Type>,cIm1D<Type>> ComputeAvgAndDev(const cDataIm1D<Type> & aDI1,int  aNbIt,double aStdDev);
 
 /**************************************/
 /*           Gaussian  Pyramid        */

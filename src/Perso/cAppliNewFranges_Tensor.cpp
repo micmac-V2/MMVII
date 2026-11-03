@@ -89,88 +89,15 @@ void cAppliNewFrange::OneWayIntegrateTangent(int aDy,int aYLim)
     }
 }
 
-void cAppliNewFrange::ComputeProjIntegrX()
-{
 
-    /*  To take into account the delocalsation of the curve :
-     *     - make a "strong" smoothing along line of ImRed save it in mDImSmoothTgt,
-     *     - the smmothing depend of the line : higer when Y is far from YC
-     *     - mehod :
-     *         o parse lines
-     *         o make a copy of each line, make the gaussian filter and save back
-     */
-
-    mImSmoothTgt = tIm(mSzRed);
-    mDImSmoothTgt = &mImSmoothTgt.DIm();
-    for (int anY=0 ; anY<mSzRed.y() ; anY++)
-    {
-        tIm1D anImL(mSzRed.x());
-        for (int anX=0 ; anX<mSzRed.x() ; anX++)
-        {
-            anImL.DIm().SetV(anX,mDImRed->GetV(cPt2di(anX,anY)));
-        }
-
-        tREAL8 aSig0 = 3.0;
-        tREAL8 aSigMin = 30.0;
-        tREAL8 aSigm = std::sqrt(Square(aSig0)+ Square(mDImTgt->GetV(anY)));
-        aSigm *= aSigMin/aSig0;
-        ExpFilterOfStdDev(anImL.DIm(),2,aSigm);
-
-        for (int anX=0 ; anX<mSzRed.x() ; anX++)
-        {
-            mDImSmoothTgt->SetV(cPt2di(anX,anY),anImL.DIm().GetV(anX));
-        }
-    }
-
-
-    tREAL8 aDistW = 50.0;
-    mImProjInt = tIm1D(mSzRed.x());
-    mDImProjInt = &mImProjInt.DIm();
-
-    cIm1D<tU_INT2> aImCpt(mSzRed.x(),nullptr,eModeInitImage::eMIA_Null);
-    int aThrsNb = mSzRed.y()/10;
-    mMinDPI = 1e10;
-    mMaxDPI = 0;
-    for (int anX=0 ; anX<mSzRed.x() ; anX++)
-    {
-        cWeightAv<tREAL8> aAvg;
-        int aNb =0;
-        for (int anY=0 ; anY<mSzRed.y() ; anY++)
-        {
-            tREAL8 aXTgt = anX+ mDImIntegr->GetV(anY);
-            cPt2dr aPt(aXTgt,anY);
-            if (mDImSmoothTgt->InsideBL(aPt))
-            {
-                aNb++;
-                tREAL8 aW =  aDistW / (aDistW + std::abs(anY-mYC));
-                aAvg.Add(aW,mDImSmoothTgt->GetVBL(aPt));
-            }
-        }
-        if (aNb>aThrsNb)
-        {
-            mDImProjInt->SetV(anX,aAvg.Average());
-            UpdateMin(mMinDPI,aAvg.Average());
-            UpdateMax(mMaxDPI,aAvg.Average());
-
-        }
-        aImCpt.DIm().SetV(anX,aNb);
-    }
-
-    for (int anX=0 ; anX<mSzRed.x() ; anX++)
-    {
-        if (aImCpt.DIm().GetV(anX)<=aThrsNb)
-        {
-            mDImProjInt->SetV(anX,mMinDPI);
-        }
-    }
-}
 
 tREAL8 AdaptTetaPos(tREAL8 aTeta,tREAL8 aMaxTeta)
 {
     if (aTeta < - M_PI/4)
         aTeta += M_PI;
 
-    return std::max(0.0,std::min(aTeta,aMaxTeta));
+    return std::min(aTeta,aMaxTeta);
+//    return std::max(0.0,std::min(aTeta,aMaxTeta));
 }
 
 tREAL8 AdaptTetaNeg(tREAL8 aTeta,tREAL8 aMaxTeta)
@@ -254,11 +181,14 @@ void cAppliNewFrange::DoTensorProcessing()
 
 
      // --------  Extract center ------------------------
+
+     //  first compute on tensor to avoid the discontinuity arrond pi/2
      mYC = ComputeCenterByAntiSym(true,aVDirASym,aVWeight);
 
+     //  Adapt teta to avoid discont (
      if (1)
      {
-         tREAL8 aMaxTan = 15.0;
+         tREAL8 aMaxTan = 20.0;
          tREAL8 aMaxTeta = atan(aMaxTan);
          for (const auto anY : aPop.DIm())
          {
@@ -276,7 +206,19 @@ void cAppliNewFrange::DoTensorProcessing()
       StdOut() << " FACT SIG TETA " <<  FactExpFromSigma2(aS2T)
                << " " << FactExpFromSigma2(aS2T) / aS2T  << "\n";*/
 
-     ExpFilterOfStdDev(*mDImTeta,3,mSigTensors.mSigmaTeta);
+
+     if (0)
+     {
+      /*   tIm1D aImSigma(mSzRed.y());
+
+         for ( int anY=0 ; anY<mSzRed.y() ; anY++)
+         {
+             int aNSig = 10;
+             int aY0 =
+         }*/
+     }
+     else
+         ExpFilterOfStdDev(*mDImTeta,3,mSigTensors.mSigmaTeta);
 
      for(const auto anY : aPop.DIm())
      {
@@ -291,7 +233,16 @@ void cAppliNewFrange::DoTensorProcessing()
      OneWayIntegrateTangent(-1,-1);
      OneWayIntegrateTangent(1,mSzRed.y());
 
-     ComputeProjIntegrX();
+     if (1)
+     {
+        ComputeMaxRadCenter();
+     }
+     else
+     {
+         ComputeSumOnIntegralCurve();
+     }
+     ExtractMaxSumIC();
+
 
 
      {

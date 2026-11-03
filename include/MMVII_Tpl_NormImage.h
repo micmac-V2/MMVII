@@ -218,12 +218,12 @@ template<class T>
  *  then use error function to map in [-1,1] -> [0,255]
  */
 
- template<class T,int Dim>
-      void Make8BByHistoEq(cDataTypedIm<tU_INT1,Dim> & aRes,const cDataTypedIm<T,Dim> & aIm,int aNbVal=100000,tREAL8 aEpsilon=1e-5)
+ template<class TIn,class TOut,int Dim>
+      void NormalizeByHistoEq(cDataTypedIm<TOut,Dim> & aRes,tREAL8 aMul01,const cDataTypedIm<TIn,Dim> & aIm,int aNbVal=100000,tREAL8 aEpsilon=1e-5)
  {
    aRes.AssertSameArea(aIm);
 
-   T aVMin,aVMax;
+   TIn aVMin,aVMax;
    GetBounds(aVMin,aVMax,aIm);
    tREAL8 aMul = aNbVal / std::max(aEpsilon,tREAL8(aVMax-aVMin));
 
@@ -233,7 +233,7 @@ template<class T>
    {
        tREAL8 aV = aIm.GetRDL(aK);
        aV = (aV-aVMin) *  aMul  ;
-       aHC.AddV(round_ni(aV),1.0);
+       aHC.AddV(aV,1.0);
    }
    aHC.MakeCumul();
 
@@ -241,15 +241,15 @@ template<class T>
    {
        tREAL8 aV = aIm.GetRDL(aK);
        aV = (aV-aVMin) *  aMul  ;
-       aV = 255.0 * aHC.PropCumul(aV);
-       aRes.GetRDL(aK) = tNumTrait<tU_INT1>::Trunc(aV);
+       aV = aMul01 * aHC.PropCumul(aV);
+       aRes.GetRDL(aK) = tNumTrait<TOut>::Trunc(aV);
    }
  }
 
 template<class T> cIm2D<tU_INT1> Im2Make8BByHistoEq(const cDataIm2D<T> & aIm,int aNbLine=100000,tREAL8 aEpsilon=1e-5)
 {
    cIm2D<tU_INT1>  aRes(aIm.Sz());
-   Make8BByHistoEq(aRes.DIm(),aIm,aNbLine,aEpsilon);
+   NormalizeByHistoEq(aRes.DIm(),256,aIm,aNbLine,aEpsilon);
    return aRes;
 }
 

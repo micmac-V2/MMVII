@@ -1,10 +1,43 @@
 #include "MMVII_Linear2DFiltering.h"
 #include "MMVII_Geom2D.h"
+#include "HeatFilter1D.h"
 
 // #include <Eigen/Dense>
 
 namespace MMVII
 {
+
+
+// using namespace Claude_HeatFilter1D;
+
+cIm1D<tREAL8> HeatFilter1D(const cDataIm1D<tREAL8>& aImIn,const cDataIm1D<tREAL8>& aImSigma,int aNbStep)
+{
+    // sig ^2 = 2 K T
+    int aSz = aImIn.Sz();
+
+    cIm1D<tREAL8>  aRes   (aSz);
+    cIm1D<tREAL8> aImK (aSz);
+    aImSigma.DupIn(aImK.DIm());
+    tREAL8 * aKPtr = aImK.DIm().ExtractRawData1D();
+    for (int aP=0 ; aP<aSz ; aP++ )
+    {
+        aKPtr[aP] = Square(aKPtr[aP])/(2*aNbStep);
+    }
+
+    typename cHeatFilter1D<tREAL8>::Params aParam;
+    aParam.nbSteps = aNbStep;
+
+    HeatFilter1DApply
+    (
+        aImIn.ExtractRawData1D(),
+        aRes.DIm().ExtractRawData1D(),
+        aKPtr,
+        aSz,
+        aParam
+    );
+    return aRes;
+}
+
 
 
 /// Sigma of convol sqrt(A^2+B^2)
@@ -260,6 +293,32 @@ void  ExpFilterOfStdDev(cDataIm1D<Type> & aDI1,int  aNbIt,double aStdDev)
     ExponentialFilter(aDI1,aNbIt,FactExpFromSigma2(Square(aStdDev)/aNbIt));
 }
 
+template <class Type> cIm1D<Type>  ComputeExpFilterOfStdDev(const cDataIm1D<Type> & aDI1,int  aNbIt,double aStdDev)
+{
+    cIm1D<Type> aRes = aDI1.Dup();
+    ExpFilterOfStdDev(aRes.DIm(),aNbIt,aStdDev);
+    return aRes;
+}
+
+template <class Type> std::pair<cIm1D<Type>,cIm1D<Type>> ComputeAvgAndDev(const cDataIm1D<Type> & aDI1,int  aNbIt,double aStdDev)
+{
+    cIm1D<Type> aIm2 = aDI1.Dup();
+    for (const auto & aP : aDI1)
+        aIm2.DIm().SetV(aP,Square( aDI1.GetV(aP)));
+
+   aIm2 = ComputeExpFilterOfStdDev(aIm2.DIm(),aNbIt,aStdDev);
+   cIm1D<Type> aIm1 = ComputeExpFilterOfStdDev(aDI1,aNbIt,aStdDev);
+
+   for (const auto & aP : aDI1)
+   {
+       Type & aV2 = aIm2.DIm().GetRDL(aP.x());
+       aV2 = std::sqrt(std::max(Type(0.0),aV2-Square(aIm1.DIm().GetV(aP))));
+   }
+
+   return std::pair<cIm1D<Type>,cIm1D<Type>>(aIm1,aIm2);
+}
+
+
 /* ========================== */
 /*       cImGrad              */
 /* ========================== */
@@ -368,7 +427,7 @@ template void  ExpFilterOfStdDev(cDataIm2D<Type> & aIm,const cDataIm2D<Type> & a
 template void  ExponentialFilter(cDataIm1D<Type> & aDI1,int  aNbIt,double aFact);\
 template void  ExpFilterOfStdDev(cDataIm1D<Type> & aDI1,int  aNbIt,double aStdDev);\
 template void  ExpFilterOfStdDev(cDataIm2D<Type> & aIm,int   aNbIter,double aFactX,double aFactY);\
-template void  SquareAvgFilter(cDataIm2D<Type> & aDIm,int  aNbIt,int aSzX,int aSzY);
+template void  SquareAvgFilter(cDataIm2D<Type> & aDIm,int  aNbIt,int aSzX,int aSzY);\
 
 MACRO_INSTANTIATE_ExpoFilter(tREAL4);
 MACRO_INSTANTIATE_ExpoFilter(tREAL8);
@@ -376,6 +435,15 @@ MACRO_INSTANTIATE_ExpoFilter(tREAL16);
 MACRO_INSTANTIATE_ExpoFilter(tINT4);
 MACRO_INSTANTIATE_ExpoFilter(tINT2);
 MACRO_INSTANTIATE_ExpoFilter(tINT1);
+
+
+#define MACRO_INSTANTIATE_RealFilter(Type)\
+template  cIm1D<Type>  ComputeExpFilterOfStdDev(const cDataIm1D<Type> & aDI1,int  aNbIt,double aStdDev);\
+template  std::pair<cIm1D<Type>,cIm1D<Type>> ComputeAvgAndDev(const cDataIm1D<Type> & aDI1,int  aNbIt,double aStdDev);
+
+MACRO_INSTANTIATE_RealFilter(tREAL4)
+MACRO_INSTANTIATE_RealFilter(tREAL8)
+
 
 /*
 template class cDataTypedIm<aType,1>;\

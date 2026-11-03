@@ -124,6 +124,46 @@ template <class Type> Type * cDataIm2D<Type>::GetLine(int aY)
    AssertYInside(aY);
    return mRawData2D[aY];
 }
+
+template <class Type> void  cDataIm2D<Type>::WriteLine(cDataIm1D<Type>&anIm,int  anY) const
+{
+    int aSzX = Sz().x();
+    MMVII_INTERNAL_ASSERT_always(anIm.Sz()==aSzX,"size in DataIm2D<Type>::WriteLine");
+
+    for (int anX=0 ; anX<aSzX ; anX++)
+        anIm.SetV(anX,GetV(cPt2di(anX,anY)));
+}
+template <class Type> void  cDataIm2D<Type>::ReadLine(const cDataIm1D<Type>&anIm,int  anY)
+{
+    int aSzX = Sz().x();
+    MMVII_INTERNAL_ASSERT_always(anIm.Sz()==aSzX,"size in DataIm2D<Type>::WriteLine");
+
+    for (int anX=0 ; anX<aSzX ; anX++)
+        SetV(cPt2di(anX,anY),anIm.GetV(anX));
+}
+
+template <class Type> void  cDataIm2D<Type>::WriteCol(cDataIm1D<Type>&anIm,int  anX) const
+{
+    int aSzY = Sz().y();
+    MMVII_INTERNAL_ASSERT_always(anIm.Sz()==aSzY,"size in DataIm2D<Type>::WriteLine");
+
+    for (int anY=0 ; anY<aSzY ; anY++)
+        anIm.SetV(anY,GetV(cPt2di(anX,anY)));
+}
+
+
+template <class Type> void  cDataIm2D<Type>::ReadCol(const cDataIm1D<Type>&anIm,int  anX)
+{
+    int aSzY = Sz().y();
+    MMVII_INTERNAL_ASSERT_always(anIm.Sz()==aSzY,"size in DataIm2D<Type>::WriteLine");
+
+    for (int anY=0 ; anY<aSzY ; anY++)
+        SetV(cPt2di(anX,anY),anIm.GetV(anY));
+}
+
+
+  // void ReadCol(const cDataIm1D<Type>&,int  anX) ;
+
 template <class Type>  void cDataIm2D<Type>::ToFile(const std::string & aName,eTyNums aType, const std::vector<std::string>& aOptions) const
 {
     cDataFileIm2D aDFI = cDataFileIm2D::CreateOnWrite(aName,aType,Sz(),aOptions,1);
