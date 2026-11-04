@@ -783,7 +783,7 @@ std::tuple<double, double, cPt3dr, cPt2dr> cStaticLidar::getDistSigmaNormalPlanG
     {
         return std::make_tuple(aDistPlan,aDistSigma,aNormalGnd,aGradDist_cr); // error
     }
-    if (IsValidPoint(aCenter) && (aVPtCam.size()<3))
+    if (aVPtCam.size()<3)
     {
         aDistPlan = Image2Distance(aCenter);
         aDistSigma = Sigma();
@@ -811,7 +811,6 @@ std::tuple<double, double, cPt3dr, cPt2dr> cStaticLidar::getDistSigmaNormalPlanG
     // => part(d)/part(theta) = d/d0 * (normal.y * Q.x - normal.x * Q.y)
     // => part(d)/part(phi) = d2/d0 * (-normal.x * sin(phi) * cos(theta) -normal.y * sin(phi) * sin(theta) + normal.z * cos(phi))
     /*auto aQ = Image2Camera3D(aCenter);
-    aNormalGnd = Pose().Rot().Value(aNinstr);
     aGradDist_cr.x() = Image2Distance(aCenter) / aD0 * (aNinstr.y() * aQ.x() - aNinstr.x() * aQ.y()) / this->InternalCalib()->F();
     auto aQtpd = Image2ThetaPhiDist(aCenter);
     aGradDist_cr.y() = Image2Distance(aCenter) * Image2Distance(aCenter) / aD0 * (-aNinstr.x() * sin(aQtpd.y()) * cos(aQtpd.x())
@@ -828,6 +827,8 @@ std::tuple<double, double, cPt3dr, cPt2dr> cStaticLidar::getDistSigmaNormalPlanG
     double aDc = (DistPlanAt(aCenter + cPt2dr(1,0)) - DistPlanAt(aCenter - cPt2dr(1,0))) / 2.0;
     double aDl = (DistPlanAt(aCenter + cPt2dr(0,1)) - DistPlanAt(aCenter - cPt2dr(0,1))) / 2.0;
     aGradDist_cr = cPt2dr(aDc, aDl);
+
+    aNormalGnd = Pose().Rot().Value(aNinstr);
 
     return std::make_tuple(aDistPlan,aDistSigma,aNormalGnd,aGradDist_cr);
 }
@@ -2354,12 +2355,36 @@ void TestRaster2Gnd2Raster(const std::vector<TYPE> &aVectPtsTest, cStaticLidar *
 }
 
 /// tests the scans of a cube, where summit is {8.66,0,0} in ground coords
-void TestPose(const std::string & aInPath, const std::string & aScanName, const cPt2dr& aSummitPx)
+void TestPose(const std::string & aInPath, const std::string & aScanName, const cPt2dr& aSummitPx, bool aTestNormals)
 {
     cStaticLidar * aScan =  cStaticLidar::FromFile(aInPath + aScanName, aInPath, false);
     auto aRasterPx = aScan->Ground2Image({8.66,0,0});
     //std::cout<<"Result: "<<aRasterPx<<" - theoritical "<<aSummitPx<<" -> error "<<Norm2(aRasterPx-aSummitPx)<<"\n";
     MMVII_INTERNAL_ASSERT_bench(Norm2(aRasterPx-aSummitPx)<1e-3 ,"TestPose " + aScanName);
+
+    if (aTestNormals)
+    {
+        // the 3 points on left, right bottom should correspond to cube faces, with simple ground normals extracted from blender's matrix_world
+        static const std::vector<std::pair<cPt2di, cPt3dr>> aVNormals
+          { {{10,40},{0.40557974576950073, -0.5792279839515686, -0.7071067094802856} },  // top left
+            {{90,40},{-0.40557974576950073, -0.5792279839515686, -0.7071067094802856} }, // top right
+            {{50,90}, {6.633314342252561e-09, -0.8191520571708679, -0.5735763907432556}} }; // bottom
+        std::unique_ptr<cDiffInterpolator1D> aInterp(cDiffInterpolator1D::AllocFromNames({"Linear"}));
+
+        std::cout<<aScanName<<"\n";
+
+        for (const auto& [aTestPt, aTestNgnd]: aVNormals)
+        {
+            auto aBBox = cPixBox<2>::BoxWindow(aTestPt, 5);
+            auto [aD,aS,aNgnd,aGr] = aScan->getDistSigmaNormalPlanGrad(ToR(aTestPt),aBBox);
+
+            auto [aDist, aDistGr] = aScan->GetRasterDistance().GetValueAndGradInterpol(*aInterp,ToR(aTestPt));
+            std::cout<<"    Dplan="<<aD<<" Dinterpol="<<aDist
+                     <<"    Ntest="<<aTestNgnd<<" Nplan="<<aNgnd
+                     <<"    GrPlan="<<aGr<< " GrInterpol="<<aDistGr<<"\n";
+        }
+
+    }
     delete aScan;
 }
 
@@ -2394,17 +2419,20 @@ void BenchTLS(cParamExeBench & aParam)
 
     delete aScan;
 
+    // tests with scan Id
+    TestPose(aInPath, "Ori-Scan-St1-Sc1.tsl.gif.xml", {50,50}, true);
+
     // tests with scan translation
-    TestPose(aInPath, "Ori-Scan-St2-Sc1.tsl.gif.xml", {35.5508,50});
+    TestPose(aInPath, "Ori-Scan-St2-Sc1.tsl.gif.xml", {35.5508,50}, true);
 
     // tests with scan translation + rotation
-    TestPose(aInPath, "Ori-Scan-St3-Sc1.tsl.gif.xml", {40.7816,64.542});
+    TestPose(aInPath, "Ori-Scan-St3-Sc1.tsl.gif.xml", {40.7816,64.542}, false);
 
     // just rot x
-    TestPose(aInPath, "Ori-Scan-St4-Sc1.tsl.gif.xml", {66.9119,60.7288}); //?? 61 61 ?
+    TestPose(aInPath, "Ori-Scan-St4-Sc1.tsl.gif.xml", {66.9119,60.7288}, true); //?? 61 61 ?
 
     // just rot xyz
-    TestPose(aInPath, "Ori-Scan-St5-Sc1.tsl.gif.xml", {67.6836,71.4344});
+    TestPose(aInPath, "Ori-Scan-St5-Sc1.tsl.gif.xml", {67.6836,71.4344}, true);
 
     //std::cout<<"Bench TLS finished."<<std::endl;
     aParam.EndBench();
