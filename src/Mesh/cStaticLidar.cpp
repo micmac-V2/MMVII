@@ -2429,7 +2429,7 @@ void BenchTLS(cParamExeBench & aParam)
     TestPose(aInPath, "Ori-Scan-St3-Sc1.tsl.gif.xml", {40.7816,64.542}, false);
 
     // just rot x
-    TestPose(aInPath, "Ori-Scan-St4-Sc1.tsl.gif.xml", {66.9119,60.7288}, true); //?? 61 61 ?
+    TestPose(aInPath, "Ori-Scan-St4-Sc1.tsl.gif.xml", {66.91194,60.72881}, true);
 
     // just rot xyz
     TestPose(aInPath, "Ori-Scan-St5-Sc1.tsl.gif.xml", {67.6836,71.4344}, true);
