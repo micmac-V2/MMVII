@@ -2397,14 +2397,18 @@ void TestPose(const std::string & aInPath, const std::string & aScanName, const 
             auto aBBox = cPixBox<2>::BoxWindow(aTestPt, 5);
             auto [aD,aS,aNgnd,aGr] = aScan->getDistSigmaNormalPlanGrad(ToR(aTestPt),aBBox);
 
+            cPt3dr aNormalIntr1Pt = aScan->Image2NormalInstr1Pt(ToR(aTestPt));
+            cPt3dr aNormalGnd1Pt = aScan->Pose().Rot().Value(aNormalIntr1Pt);
+
             // compare with direct val ang grad with interpolator
             auto [aDist, aDistGr] = aScan->GetRasterDistance().GetValueAndGradInterpol(*aInterp,ToR(aTestPt));
             //std::cout<<"    Dplan="<<aD<<" Dinterpol="<<aDist
-            //         <<"    Ntest="<<aTestNgnd<<" Nplan="<<aNgnd
-            //         <<"    GrPlan="<<aGr<< " GrInterpol="<<aDistGr<<"\n";
+            //         <<"\n    Ntest="<<aTestNgnd<<" Nplan="<<aNgnd<<" N1Pt="<<aNormalGnd1Pt
+            //         <<"\n    GrPlan="<<aGr<< " GrInterpol="<<aDistGr<<"\n";
 
             MMVII_INTERNAL_ASSERT_bench(fabs(aD-aDist)<1e-3 ,"TestPose " + aScanName + " D");
             MMVII_INTERNAL_ASSERT_bench(Norm2(aTestNgnd-aNgnd)<1e-3 ,"TestPose " + aScanName + " N");
+            MMVII_INTERNAL_ASSERT_bench(Norm2(aTestNgnd-aNormalGnd1Pt)<1e-2 ,"TestPose " + aScanName + " N1Pt"); // not very precise
             MMVII_INTERNAL_ASSERT_bench(Norm2(aGr-aDistGr)<1e-3 ,"TestPose " + aScanName + " Gr");
         }
 
