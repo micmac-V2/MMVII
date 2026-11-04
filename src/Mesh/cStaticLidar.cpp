@@ -2073,17 +2073,16 @@ void cStaticLidar::MakePatches
             if (isInsideNormalInterpolator(aCenterR))  // is it sufficiently inside
             {
                 // normal from grad
-                auto aN = Image2NormalInstr1Pt(aCenterR);
-                aLPatches.push_back({i, {aCenter}, {}, aN});
+                //auto aN = Image2NormalInstr1Pt(aCenterR);
+                //aLPatches.push_back({i, {aCenter}, {}, aN});
 
                 // normal from plan
                 const auto [aSz,aInterpN] = getNormalInterpolator(ToR(aCenter));
-                auto aBBox = cPixBox<2>::BoxWindow(aCenter, aSz);
+                auto aBBox = cPixBox<2>::BoxWindow(aCenter, aSz/2);
                 auto [aD,aS,aNormalGnd,aGr] = getDistSigmaNormalPlanGrad(ToR(aCenter),aBBox);
                 auto aNinstr = Pose().Rot().Inverse(aNormalGnd);
-                //aLPatches.push_back({i, {aCenter}, {}, aNinstr});
-                std::cout<<"make patch "<<aSz<<" "<<aCenter<<" N="<<aN<<" or "<<aNinstr<<"\n";
-                //std::cout<<"make patch "<<aCenter<<" N="<<aN<<"\n";
+                aLPatches.push_back({i, {aCenter}, {}, aNinstr});
+                //std::cout<<"make patch "<<aSz<<" "<<aCenter<<" N="<<aN<<" or "<<aNinstr<<"\n";
             }
         }
     #ifdef NUMMAKEPATCHDEBUG
@@ -2190,16 +2189,16 @@ void cStaticLidar::MakePatches
         if ((int)aPatchPts.size() > aSzMin)
         {
             // normal from grad
-            auto aN = Image2NormalInstr1Pt(aCenterR);
-            aLPatches.push_back({i, aPatchPts, {}, aN});
+            //auto aN = Image2NormalInstr1Pt(aCenterR);
+            //aLPatches.push_back({i, aPatchPts, {}, aN});
             // normal from plan
             const auto [aSz,aInterpN] = getNormalInterpolator(aCenterR);
-            auto aBBox = cPixBox<2>::BoxWindow(aCenter, aSz);
+            auto aBBox = cPixBox<2>::BoxWindow(aCenter, aSz/2);
             auto [aD,aS,aNormalGndB,aGr] = getDistSigmaNormalPlanGrad(aCenterR,aBBox);
             auto aNinstr = Pose().Rot().Inverse(aNormalGndB);
             aLPatches.push_back({i, aPatchPts, {}, aNinstr});
 
-            std::cout<<"make patch "<<aCenter<<" N="<<aN<<" or "<<aNinstr<<"\n";
+            //std::cout<<"make patch "<<aCenter<<" N="<<aN<<" or "<<aNinstr<<"\n";
         #ifdef NUMMAKEPATCHDEBUG
             if (i<NUMMAKEPATCHDEBUG)
             {
@@ -2394,9 +2393,11 @@ void TestPose(const std::string & aInPath, const std::string & aScanName, const 
         //std::cout<<aScanName<<"\n";
         for (const auto& [aTestPt, aTestNgnd]: aVNormals)
         {
+            // get dist, normal vector and grad from plan estim
             auto aBBox = cPixBox<2>::BoxWindow(aTestPt, 5);
             auto [aD,aS,aNgnd,aGr] = aScan->getDistSigmaNormalPlanGrad(ToR(aTestPt),aBBox);
 
+            // compare with direct val ang grad with interpolator
             auto [aDist, aDistGr] = aScan->GetRasterDistance().GetValueAndGradInterpol(*aInterp,ToR(aTestPt));
             //std::cout<<"    Dplan="<<aD<<" Dinterpol="<<aDist
             //         <<"    Ntest="<<aTestNgnd<<" Nplan="<<aNgnd
