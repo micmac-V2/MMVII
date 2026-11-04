@@ -250,7 +250,7 @@ public :
     const std::vector<cPt2di> & PatchCenters() const;
 
     bool isInsideNormalInterpolator(cPt2dr & aPt) const;
-    std::pair<double,cDiffInterpolator1D *> getNormalInterpolator(const cPt2dr &aPt) const;
+    std::pair<int, cDiffInterpolator1D *> getNormalInterpolator(const cPt2dr &aPt) const;
 
     void Show() const override;
     void initInterpolators();
@@ -307,7 +307,7 @@ private :
     // triangulation for patches selection
     cTriangulation3D<tREAL8> * mTriangulation; ///< triangulation of the raster, for zbuffer
 
-    std::vector<std::pair<double,cDiffInterpolator1D *>> mVInterpN;         ///< Interpolators, used to get normal of the images, with min dist to use them (must be sorted by dist)
+    std::vector<std::tuple<double,int,cDiffInterpolator1D *>> mVInterpN;         ///< Interpolators, used to get normal of the images, with min dist to use them (must be sorted by dist), and the blurring size
     cCalculator<double> * mEqDistColinearityDist;
 };
 

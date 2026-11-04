@@ -1434,11 +1434,16 @@ tREAL8 cBA_LidarLidarRaster::Add1Patch(const cLidarRasterPatch &aPatch, const cS
             {
                 auto aVGr = aGenDImDist.GetValueAndGradInterpol(*mInterp,aPIm); // works better than normal interp for gradient, why?
 
-                const auto [aSz,aInterpN] = aScanB->getNormalInterpolator(aPIm);
-                auto aBBox = cPixBox<2>::BoxWindow(ToI(aPIm), aSz);
-                auto [aD,aS,aNormalGndB,aGr] = aScanB->getDistSigmaNormalPlanGrad(aPIm,aBBox);
-                std::cout<<"grad: "<<aVGr.second<<" "<<aGr<<"\n";
+                //const auto [aSz,aInterpN] = aScanB->getNormalInterpolator(aPIm);
+                //auto aVGrFlou = aGenDImDist.GetValueAndGradInterpol(*aInterpN,aPIm);
+                //auto aBBox = cPixBox<2>::BoxWindow(ToI(aPIm), aSz);
+                //auto [aD,aS,aNormalGndB,aGr] = aScanB->getDistSigmaNormalPlanGrad(aPIm,aBBox);
+                //std::cout<<"grad: "<<aVGr.second<<" "<<aVGrFlou.second<<" "<<aGr<<"\n";
                 //aVGr.second = aGr; // get grad from plan
+
+                cPt3dr aNormalInstrB = aScanB->Image2NormalInstr1Pt(aPIm);
+                cPt3dr aNormalGndB = aScanB->Pose().Rot().Value(aNormalInstrB);
+                //std::cout<<"normal match: "<<aNormalGndB<<" "<<aNormalGndB__<<"   vs   "<<aNormalGndA<<"\n";
 
                 aData.mVGr = { aVGr };
                 #ifdef SCANSCANDEBUG

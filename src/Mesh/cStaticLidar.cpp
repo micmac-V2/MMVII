@@ -737,7 +737,7 @@ cStaticLidar::~cStaticLidar()
 {
     if (mTriangulation)
         delete mTriangulation;
-    for (auto & [aDistMin, aInterp] : mVInterpN)
+    for (auto & [aDistMin, aSz, aInterp] : mVInterpN)
         delete aInterp;
 }
 
@@ -798,6 +798,7 @@ std::tuple<double, double, cPt3dr, cPt2dr> cStaticLidar::getDistSigmaNormalPlanG
         //auto anInter = aPlane3D.Inter({0,0,0}, Image2Camera3D(aCenter));
         //aDist = Norm2(anInter);
         aNinstr = aPlane3D.AxeK();
+        MMVII_INTERNAL_ASSERT_tiny(Norm2(aNinstr)-1<1e-5 ,"Norm norm");
         if (Scal(aNinstr,Image2Camera3D(aCenter))>0) // the plan normal may be in inverse dir from instr
             aNinstr = -aNinstr; //TODO il faut changer autre chose ?
         aD0 = -Scal(aNinstr,aPlane3D.P0()); // can't use -Scal(aNinstr, Image2Camera3D(aCenter)), since Image2Camera3D(aCenter) is not exactly on the plan
@@ -842,17 +843,21 @@ std::tuple<double, double, cPt3dr, cPt2dr> cStaticLidar::getDistSigmaNormalPlanG
     return std::make_tuple(aDistPlan,aDistSigma,aNormalGnd,aGradDist_cr);
 }
 
-std::pair<double, cDiffInterpolator1D *> cStaticLidar::getNormalInterpolator(const cPt2dr & aPt) const
+std::pair<int, cDiffInterpolator1D *> cStaticLidar::getNormalInterpolator(const cPt2dr & aPt) const
 {
-    if (!GetRasterDistance().InsideBL(aPt))
+    MMVII_INTERNAL_ASSERT_tiny(!mVInterpN.empty(),"mVInterpN not init")
+
+    auto aSelInt = mVInterpN.front();  // if impossible to get dist, return any interpolator
+    if (GetRasterDistance().InsideBL(aPt))
     {
-        return mVInterpN.front(); // if impossible to get dist, return any interpolator
+        double aDist = Image2Distance(aPt);
+        size_t i = 0;
+        while ((i<mVInterpN.size()) && (aDist>std::get<0>(mVInterpN[i])))
+            ++i;
+        aSelInt = mVInterpN.at(i-1);
     }
-    double aDist = Image2Distance(aPt);
-    size_t i = 0;
-    while ((i<mVInterpN.size()) && (aDist>mVInterpN[i].first))
-        ++i;
-    return mVInterpN.at(i-1);
+
+    return {std::get<1>(aSelInt), std::get<2>(aSelInt)};
 }
 
 void cStaticLidar::Show() const
@@ -865,16 +870,20 @@ void cStaticLidar::Show() const
 void cStaticLidar::initInterpolators()
 {
     // init interpolators
+    mVInterpN.clear();
     double aNormalPrec = 5. * M_PI / 180.;
     std::vector< std::pair<double,double>> aV_Start_Mid_dist_class = {{0,1.25},{2,4},{6,12}}; // distances classes for normal interpolator (start and middle)
     //std::vector<std::string> aParamInterpolN = {"Scale","3","1000","Linear"};
     std::vector<std::string> aParamInterpolN = {"Scale","3","1000","Cubic","-0.5"};
+    std::cout<<"InterpolN "<<NameImage()<<": ";
     for (auto & [aStart,aMid]: aV_Start_Mid_dist_class)
     {
         int aSz = pow(mSigma/(tan(aNormalPrec)*aMid*1./InternalCalib()->F()),2./3.)+1;
         aParamInterpolN[1] = std::to_string(aSz);
-        mVInterpN.emplace_back(aStart,cDiffInterpolator1D::AllocFromNames(aParamInterpolN));
+        std::cout<<aSz<<" ";
+        mVInterpN.emplace_back(aStart,aSz,cDiffInterpolator1D::AllocFromNames(aParamInterpolN));
     }
+    std::cout<<"\n";
 }
 
 cStaticLidar * cStaticLidar::FromFile(const std::string & aNameScanOriFile, const std::string & aDataDir, bool aSVP)
@@ -1046,15 +1055,6 @@ std::tuple<tREAL8,tREAL8,tREAL8> cStaticLidar::AvgDistNbValidAndNbNotMasked() co
 /// normal in sensor frame
 cPt3dr cStaticLidar::Image2NormalInstr1Pt(const cPt2dr & aRasterPx) const
 {
-    /*const cDataGenUnTypedIm<2> & aGenDImDist = GetRasterDistance();
-    const auto [aSz,aInterpN] = getNormalInterpolator( aRasterPx);
-    if (!aGenDImDist.InsideInterpolator(*aInterpN,aRasterPx,0.0))
-        return cPt3dr::Dummy();
-    auto aBBox = cPixBox<2>::BoxWindow(ToI(aRasterPx), aSz);
-
-    auto [aD,aS,aN,aD0,aGr] = getDistSigmaNormalPlanGrad(aRasterPx,aBBox);
-    return aN;*/
-
     //std::cout<<"normal for im pt "<<aRasterPx<<"\n";
     //std::cout<<"gnd pt "<<Image2Ground(aRasterPx)<<"\n";
     //std::cout<<"instr vect "<<Image2Camera3D(aRasterPx)<<"\n";
@@ -1098,7 +1098,7 @@ cPt3dr cStaticLidar::Image2NormalInstr1Pt(const cPt2dr & aRasterPx) const
 
 
     // test with std::pair<cPlane3D,tREAL8> LSQEstimate(co
-    return aN;
+    return -aN;
 }
 
 
@@ -2072,11 +2072,17 @@ void cStaticLidar::MakePatches
             auto aCenterR = ToR(aCenter);
             if (isInsideNormalInterpolator(aCenterR))  // is it sufficiently inside
             {
+                // normal from grad
+                auto aN = Image2NormalInstr1Pt(aCenterR);
+                aLPatches.push_back({i, {aCenter}, {}, aN});
+
+                // normal from plan
                 const auto [aSz,aInterpN] = getNormalInterpolator(ToR(aCenter));
                 auto aBBox = cPixBox<2>::BoxWindow(aCenter, aSz);
-                auto [aD,aS,aNormalGndB,aGr] = getDistSigmaNormalPlanGrad(ToR(aCenter),aBBox);
-                auto aNinstr = Pose().Rot().Inverse(aNormalGndB);
-                aLPatches.push_back({i, {aCenter}, {}, aNinstr});
+                auto [aD,aS,aNormalGnd,aGr] = getDistSigmaNormalPlanGrad(ToR(aCenter),aBBox);
+                auto aNinstr = Pose().Rot().Inverse(aNormalGnd);
+                //aLPatches.push_back({i, {aCenter}, {}, aNinstr});
+                std::cout<<"make patch "<<aSz<<" "<<aCenter<<" N="<<aN<<" or "<<aNinstr<<"\n";
                 //std::cout<<"make patch "<<aCenter<<" N="<<aN<<"\n";
             }
         }
@@ -2183,12 +2189,17 @@ void cStaticLidar::MakePatches
         // some requirement on minimal size
         if ((int)aPatchPts.size() > aSzMin)
         {
+            // normal from grad
+            auto aN = Image2NormalInstr1Pt(aCenterR);
+            aLPatches.push_back({i, aPatchPts, {}, aN});
+            // normal from plan
             const auto [aSz,aInterpN] = getNormalInterpolator(aCenterR);
             auto aBBox = cPixBox<2>::BoxWindow(aCenter, aSz);
             auto [aD,aS,aNormalGndB,aGr] = getDistSigmaNormalPlanGrad(aCenterR,aBBox);
             auto aNinstr = Pose().Rot().Inverse(aNormalGndB);
             aLPatches.push_back({i, aPatchPts, {}, aNinstr});
-            //std::cout<<"make patch "<<aCenter<<" N="<<aN<<"\n";
+
+            std::cout<<"make patch "<<aCenter<<" N="<<aN<<" or "<<aNinstr<<"\n";
         #ifdef NUMMAKEPATCHDEBUG
             if (i<NUMMAKEPATCHDEBUG)
             {
