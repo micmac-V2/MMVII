@@ -798,35 +798,44 @@ std::tuple<double, double, cPt3dr, cPt2dr> cStaticLidar::getDistSigmaNormalPlanG
         //auto anInter = aPlane3D.Inter({0,0,0}, Image2Camera3D(aCenter));
         //aDist = Norm2(anInter);
         aNinstr = aPlane3D.AxeK();
-        if (Scal(aNinstr,Image2Camera3D(aCenter))<0) // the plan normal may be in inverse dir from instr
+        if (Scal(aNinstr,Image2Camera3D(aCenter))>0) // the plan normal may be in inverse dir from instr
             aNinstr = -aNinstr; //TODO il faut changer autre chose ?
         aD0 = -Scal(aNinstr,aPlane3D.P0()); // can't use -Scal(aNinstr, Image2Camera3D(aCenter)), since Image2Camera3D(aCenter) is not exactly on the plan
         aDistPlan = -aD0/Scal(aNinstr,Image2Camera3D(aCenter)/Norm2(Image2Camera3D(aCenter)));
         aDistSigma = (aRes+Sigma())/2.;
     }
 
-    // gradient computation:
-    // part(d)/part(theta) = d0/(normal.u)2 * (normal*part(u)/part(theta))
-    // => part(d)/part(theta) = d2/d0 * (normal*part(u)/part(theta))   and spher2cart: u = (cos(phi)*cos(theta), u)2 * (normal*part(u)/part(theta))   and spher2cart: u = (cos(phi)*cos(theta), cos(phi)*sin(theta), sin(phi))
-    // => part(d)/part(theta) = d/d0 * (normal.y * Q.x - normal.x * Q.y)
-    // => part(d)/part(phi) = d2/d0 * (-normal.x * sin(phi) * cos(theta) -normal.y * sin(phi) * sin(theta) + normal.z * cos(phi))
-    /*auto aQ = Image2Camera3D(aCenter);
-    aGradDist_cr.x() = Image2Distance(aCenter) / aD0 * (aNinstr.y() * aQ.x() - aNinstr.x() * aQ.y()) / this->InternalCalib()->F();
-    auto aQtpd = Image2ThetaPhiDist(aCenter);
-    aGradDist_cr.y() = Image2Distance(aCenter) * Image2Distance(aCenter) / aD0 * (-aNinstr.x() * sin(aQtpd.y()) * cos(aQtpd.x())
-                                                                                  -aNinst.y()*sin(aQtpd.y())*sin(aQtpd.x()) + aNinstr.z()*cos(aQtpd.y())) / this->InternalCalib()->F();*/
-
+    // gradient computation: finite diff
     auto DistPlanAt = [&](const cPt2dr& aP) -> double {
         cPt3dr aQ = Image2Camera3D(aP);
-        //cPt3dr aQtpd = Image2ThetaPhiDist(aP);
-        //cPt3dr u(cos(aQtpd.y())*cos(aQtpd.x()), cos(aQtpd.y())*sin(aQtpd.x()), sin(aQtpd.y()));
         cPt3dr u = aQ / Norm2(aQ);
         return -aD0 / Scal(aNinstr, u);
     };
 
-    double aDc = (DistPlanAt(aCenter + cPt2dr(1,0)) - DistPlanAt(aCenter - cPt2dr(1,0))) / 2.0;
-    double aDl = (DistPlanAt(aCenter + cPt2dr(0,1)) - DistPlanAt(aCenter - cPt2dr(0,1))) / 2.0;
-    aGradDist_cr = cPt2dr(aDc, aDl);
+    cPt2dr aPtL = cPt2dr::Dummy();
+    cPt2dr aPtR = cPt2dr::Dummy();
+    cPt2dr aPtU = cPt2dr::Dummy();
+    cPt2dr aPtD = cPt2dr::Dummy();
+    for (int diff=1; diff<5; ++diff)
+    {
+        if ((!aPtL.IsValid()) && IsValidPoint(aCenter - cPt2dr(diff,0)))
+            aPtL = aCenter - cPt2dr(diff,0);
+        if ((!aPtR.IsValid()) && IsValidPoint(aCenter + cPt2dr(diff,0)))
+            aPtR = aCenter + cPt2dr(diff,0);
+        if ((!aPtU.IsValid()) && IsValidPoint(aCenter - cPt2dr(0,diff)))
+            aPtU = aCenter - cPt2dr(0,diff);
+        if ((!aPtD.IsValid()) && IsValidPoint(aCenter + cPt2dr(0,diff)))
+            aPtD = aCenter + cPt2dr(0,diff);
+    }
+    if (!aPtL.IsValid()) aPtL = aCenter;
+    if (!aPtR.IsValid()) aPtR = aCenter;
+    if (!aPtU.IsValid()) aPtU = aCenter;
+    if (!aPtD.IsValid()) aPtD = aCenter;
+
+    // if coincident points, will give NaN
+    aGradDist_cr.x() = (DistPlanAt(aPtR) - DistPlanAt(aPtL)) / (aPtR.x()-aPtL.x());
+    aGradDist_cr.y() = (DistPlanAt(aPtD) - DistPlanAt(aPtU)) / (aPtD.y()-aPtU.y());
+    //std::cout<<aPtL<<" "<<aPtR<<" "<<aPtU<<" "<<aPtD<<" "<<(aPtR.x()-aPtL.x())<<" "<<(aPtD.y()-aPtU.y())<<" "<<aGradDist_cr<<"\n";
 
     aNormalGnd = Pose().Rot().Value(aNinstr);
 
@@ -2366,22 +2375,25 @@ void TestPose(const std::string & aInPath, const std::string & aScanName, const 
     {
         // the 3 points on left, right bottom should correspond to cube faces, with simple ground normals extracted from blender's matrix_world
         static const std::vector<std::pair<cPt2di, cPt3dr>> aVNormals
-          { {{10,40},{0.40557974576950073, -0.5792279839515686, -0.7071067094802856} },  // top left
-            {{90,40},{-0.40557974576950073, -0.5792279839515686, -0.7071067094802856} }, // top right
-            {{50,90}, {6.633314342252561e-09, -0.8191520571708679, -0.5735763907432556}} }; // bottom
+          { {{10,40},{-0.5792279839515686, -0.7071067094802856, -0.40557974576950073} },  // top left
+            {{90,40},{-0.5792279839515686,  0.7071067094802856, -0.40557974576950073} }, // top right
+            {{50,90}, {-0.5735763907432556, 0, 0.8191520571708679}} }; // bottom
         std::unique_ptr<cDiffInterpolator1D> aInterp(cDiffInterpolator1D::AllocFromNames({"Linear"}));
 
-        std::cout<<aScanName<<"\n";
-
+        //std::cout<<aScanName<<"\n";
         for (const auto& [aTestPt, aTestNgnd]: aVNormals)
         {
             auto aBBox = cPixBox<2>::BoxWindow(aTestPt, 5);
             auto [aD,aS,aNgnd,aGr] = aScan->getDistSigmaNormalPlanGrad(ToR(aTestPt),aBBox);
 
             auto [aDist, aDistGr] = aScan->GetRasterDistance().GetValueAndGradInterpol(*aInterp,ToR(aTestPt));
-            std::cout<<"    Dplan="<<aD<<" Dinterpol="<<aDist
-                     <<"    Ntest="<<aTestNgnd<<" Nplan="<<aNgnd
-                     <<"    GrPlan="<<aGr<< " GrInterpol="<<aDistGr<<"\n";
+            //std::cout<<"    Dplan="<<aD<<" Dinterpol="<<aDist
+            //         <<"    Ntest="<<aTestNgnd<<" Nplan="<<aNgnd
+            //         <<"    GrPlan="<<aGr<< " GrInterpol="<<aDistGr<<"\n";
+
+            MMVII_INTERNAL_ASSERT_bench(fabs(aD-aDist)<1e-3 ,"TestPose " + aScanName + " D");
+            MMVII_INTERNAL_ASSERT_bench(Norm2(aTestNgnd-aNgnd)<1e-3 ,"TestPose " + aScanName + " N");
+            MMVII_INTERNAL_ASSERT_bench(Norm2(aGr-aDistGr)<1e-3 ,"TestPose " + aScanName + " Gr");
         }
 
     }
