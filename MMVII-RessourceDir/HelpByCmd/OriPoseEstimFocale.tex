@@ -1,0 +1,125 @@
+\documentclass[a4paper]{article}
+\usepackage{MMVII}
+
+\newcommand{\TheCmd}{OriPoseEstimFocale}
+
+\begin{document}
+
+\CmdTitle
+%\maketitle
+
+\tableofcontents
+
+ %=================================================================================
+\section{Precaution}
+
+{\center{\textcolor{red}{\bf ============== WARNING ===========}}}
+
+Because of how an MMVII project is structured, the focal length and camera model information must be filled 
+in for the command to work. Of course, since the goal is to estimate their values from scratch, 
+the actual values entered do not matter. It is even recommended, if anything, to enter obviously absurd values, 
+which will then be overwritten.
+
+An example command with the “niche” dataset could be:
+
+{\small
+\begin{verbatim}
+MMVII EditCalcMTDI Focalmm Save=1 Value=1e-3
+MMVII EditCalcMTDI ModelCam PatternApply=.* Save=true Value=UnknownCam
+
+MMVII OriPoseEstimFocale "IMG_569[456].JPG" TMP  InTieP=V1 Proj=FE_EquiDist
+\end{verbatim}
+}
+
+
+
+ %=================================================================================
+
+\SecDescr
+
+In the standard photogrammetric pipeline, an approximate value of the camera parameters 
+is initially required. For all parameters except the focal length, this approximate value
+ can be obtained without any external information. The principal point can be placed at the 
+center of the image (except for the rare tilt-shift or decentering lenses). For distortion, 
+it can be assumed to be small, so that a zero value is a good approximation (provided that 
+the lens type is known: rectilinear, equidistant fisheye, etc.). The focal length is a different 
+story, and external information is generally needed: knowledge of the lens or metadata.
+
+
+This command finds an initial focal length value from a multi-stereoscopic 
+acquisition in which tie points have been extracted.
+The value found is simply written to the console.  At the end, the following values
+are printed for focal evaluation : 
+
+\begin{itemize}
+  \item the $35mm$ equivalent 
+  \item  the focal in pixel;
+  \item  if the camera is known, the "real" focal in mm;
+\end{itemize}
+
+If instead of tie points, we have ground control point, we can use the command
+\FileSty{OriPoseEstim11P}.
+
+ %=================================================================================
+
+\section{Methodology}
+
+The methodology is fairly basic: different focal lengths are tested, and the one yielding the best residuals 
+is selected. For good results, at least three images are needed, containing enough triple points and having 
+a sufficient stereoscopic baseline (say 10\%). For reasons that would take too long to detail here, 
+if there are only pairwise tie points, the computation is very unstable and the results are generally unusable. 
+That said, in the experiments we have carried out, increasing the number of images does not bring much improvement 
+(although all the images provided will be used in the computation, at the cost of a longer computation time).
+
+To perform this estimation, the command \FileSty{OriPoseEstim11P} is called for each focal length.
+
+
+The focal lengths are chosen following a geometric progression. After computing the “best focal length”, 
+if it is not one of the extreme values, the two neighboring values are used to fit a parabola and thereby 
+refine the solution.
+
+
+ %=================================================================================
+
+\section{Mandatory and optional parameters}
+
+%  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+
+\subsection{Mandatory parameters}
+
+The two mandatory parameters are:
+
+\begin{itemize}
+  \item the set of images to which it applies;
+  \item a location for  relative orientation that will be used by \FileSty{OriPoseEstim11P};
+\end{itemize}
+
+%  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+
+\subsection{Optional parameters}
+
+The optionnal parameters are:
+
+\begin{itemize}
+   \item \FileSty{ InTieP, InMulTieP, InObjMesInstr} for tie points extraction (like \FileSty{OriPoseEstimRelGlob})
+   \item \FileSty{Proj}  indicate model of camera
+   \item \FileSty{IntFoc35}  indicates the interval of focal in $35mm$ equivalent; default value are very large :
+          $[15,800]$ for rectilinear, $[6,25]$ for all fishe eyes and $[3,15]$ for equirectangular;
+   \item \FileSty{RatioFocal}  indicate the ratio of geometric progression
+   \item \FileSty{NbStep}  indicate a fix number of step instead of ratio
+\end{itemize}
+
+ %=================================================================================
+
+\SecRelatedCmd
+
+
+\begin{itemize}
+   \item  \FileSty{OriPoseEstim11P}, does related things when we have GCP;
+   \item  \FileSty{EditCalcMTDI} can be use before the command;
+   \item  \FileSty{OriPoseEstimRelGlob} is used by this command.
+\end{itemize}
+
+
+\end{document}
+

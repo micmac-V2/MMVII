@@ -19,7 +19,7 @@
 namespace MMVII
 {
 
-namespace NS_FrangesDetect
+namespace NS_OLD_FrangesDetect
 {
 
 /**  An application for  extaction curves on interference images
@@ -1136,7 +1136,7 @@ void cAppliFranges::MakeVisu()
 }
 };
 
-using  namespace NS_FrangesDetect;
+using  namespace NS_OLD_FrangesDetect;
 
 // ============================= Old version ===============
 

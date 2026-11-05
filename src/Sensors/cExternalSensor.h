@@ -35,6 +35,10 @@ struct cAnalyseTSOF
      cSerialTree *         mSTree;
 };
 cSensorImage *  AllocRPCDimap(const cAnalyseTSOF &,const std::string & aNameImage);
+/// Does the file look like an RPC text file ("LINE_OFF: value unit" lines) ?
+bool IsRPCTxt(const std::string & aNameFile);
+/// Convert an RPC text file to a DIMAP xml; a missing direct/inverse model is fitted, the ground box deduced from the image size
+void RPCTxt2Dimap(const std::string & aNameTxt,const std::string & aNameXml,const cPt2di & aSzIm,const std::string & aNameImage);
 cSensorImage *  ReadExternalSensor(const cAnalyseTSOF & anAnalyse ,const std::string & aNameImage,bool SVP=false);
 cSensorImage *  ReadExternalSensor(const std::string& aNameFile ,const std::string & aNameImage,bool SVP=false);
 

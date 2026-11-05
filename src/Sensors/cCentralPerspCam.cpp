@@ -118,6 +118,7 @@ cDataPerspCamIntrCalib::cDataPerspCamIntrCalib
 }
 
 const std::string & cDataPerspCamIntrCalib::Name() const {return mName;}
+void cDataPerspCamIntrCalib::SetSzPix(const cPt2di & aSz) {mDataPixDomain = cDataPixelDomain(aSz);}
     
 void cDataPerspCamIntrCalib::AddData(const cAuxAr2007 & anAux0)
 {
@@ -264,6 +265,17 @@ cPerspCamIntrCalib * cPerspCamIntrCalib::Duplicate() const
     //StdOut()  << "DUUUp:" << VTmpCopyParams() << aData.VTmpCopyParams() << "\n"; getchar();
    // aData.ResizeVTmpCopyParams();
     return Alloc(aData);
+}
+
+cPerspCamIntrCalib * cPerspCamIntrCalib::CropCalib(const cPt2di & aP0,const cPt2di & aSz,const std::string & aName) const
+{
+    cDataPerspCamIntrCalib aData = *this;
+    aData.SetVTmpCopyParams(VParamDist());
+    aData.MapPProj2Im().PP() -= ToR(aP0);
+    aData.SetSzPix(aSz);
+    cPerspCamIntrCalib * aRes = Alloc(aData);
+    aRes->SetName(aName);
+    return aRes;
 }
 
         //  ==================  read/write 2 files  ====================
@@ -1046,6 +1058,16 @@ cPerspCamIntrCalib * cPerspCamIntrCalib::RandomCalib(eProjPC aTypeProj,int aKDeg
            StdOut() << "Kkkkkkkkkkkkkkkkk" << std::endl;
 
        return aCam;
+}
+
+tREAL8  F35toFPix(const tREAL8 aFocEq35,cPt2di aSzIm)
+{
+   return    aFocEq35 * Norm2(aSzIm) / Norm2(cPt2dr(24,36));
+}
+
+tREAL8  FPixtoF35(const tREAL8 aFocPix,cPt2di aSzIm)
+{
+   return    aFocPix * Norm2(cPt2dr(24,36)) / Norm2(aSzIm);
 }
 
 tSeg2dr  cPerspCamIntrCalib::ExtenSegUndistIncluded

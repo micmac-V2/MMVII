@@ -997,10 +997,80 @@ template <class TMap>  void BenchTMap()
 }
 
 
+tSegComp2dr RanSeg(tREAL8 aRayS,tREAL8 aDSeg,tREAL8 aDMin)
+{
+    cPt2dr aP0(0,0);
+    cPt2dr aP1 = aP0;
+
+    while (Norm2(aP0-aP1)< aDMin)
+    {
+        aP0 = cPt2dr::PRandInSphere()* aRayS;
+        aP1 = aP0 +  cPt2dr::PRandInSphere() * aDSeg;
+    }
+    return tSegComp2dr(aP0,aP1);
+}
+void BenchDistSeg()
+{
+    tREAL8 aMaxDifPt=0;
+    tREAL8 aMaxDifSeg=0;
+
+    for (int aKTestSeg=0 ; aKTestSeg<100 ; aKTestSeg++)
+    {
+        tSegComp2dr aSeg1 = RanSeg(1.0,0.5,1e-2);
+        tREAL8 aN1 = aSeg1.N2();
+
+        {
+            int aNbPts =1000;
+
+            for (int aKtestPt=0 ; aKtestPt < 10 ; aKtestPt++)
+            {
+                tREAL8 aDMin = 1e10;
+                cPt2dr aPt = cPt2dr::PRandInSphere();
+                for (int aKP1=0 ; aKP1<=aNbPts ; aKP1++ )
+                {
+                    cPt2dr aP1 = aSeg1.PtOfAbscissa((aN1*aKP1)/aNbPts);
+                    UpdateMin(aDMin,Norm2(aPt-aP1));
+                }
+                tREAL8 aDif = std::abs(aDMin-aSeg1.DistSeg(aPt));
+                // StdOut() << " DMIII " << aDMin << "  " << aSeg1.DistSeg(aPt) << "\n";
+                UpdateMax(aMaxDifPt,aDif);
+             }
+
+
+        }
+
+
+        tSegComp2dr aSeg2 = RanSeg(1.0,0.5,1e-2);
+        tREAL8 aN2 = aSeg2.N2();
+
+        int aNbPts =500;
+        tREAL8 aDMin = 1e10;
+
+        for (int aKP1=0 ; aKP1<=aNbPts ; aKP1++ )
+        {
+            cPt2dr aP1 = aSeg1.PtOfAbscissa((aN1*aKP1)/aNbPts);
+            for (int aKP2=0 ; aKP2<=aNbPts ; aKP2++ )
+            {
+                cPt2dr aP2 = aSeg2.PtOfAbscissa((aN2*aKP2)/aNbPts);
+                UpdateMin(aDMin,Norm2(aP1-aP2));
+            }
+        }
+        tREAL8 aDif = std::abs(aDMin-DistSegSeg(aSeg1,aSeg2));
+        UpdateMax(aMaxDifSeg,aDif);
+      //   StdOut()  << " DMIN " << aDMin << " " << DistSegSeg(aSeg1,aSeg2) << "\n";
+
+
+    }
+   // StdOut() << "DIFFMAX " << aMaxDifPt << " " << aMaxDifSeg << "\n";
+    MMVII_INTERNAL_ASSERT_bench(aMaxDifPt<1e-4,"Dist Pt/Seg");
+    MMVII_INTERNAL_ASSERT_bench(aMaxDifSeg<1e-3,"Dist Seg/Seg");
+}
+
 
 void BenchGeom(cParamExeBench & aParam)
 {
     if (! aParam.NewBench("Geom")) return;
+
 
     BenchLsqVariety();
     Bench_OrthogonalizePair();
@@ -1033,6 +1103,9 @@ void BenchGeom(cParamExeBench & aParam)
     BenchRotation3D(aParam);
     BenchMap2D();
     BenchPlane3D();
+
+    BenchDistSeg();
+
 
     aParam.EndBench();
 }

@@ -55,8 +55,9 @@ class cPointCloud
         tREAL8   ComputeCurFineDensity() const ; ///<  longer but adapted to cloud with non rectangular footprint
         tREAL8   GroundSampling() const; ///<  Just a facility for 1/sqrt(CurStdDensity())
                                         
-        cBox2dr  Box2d() const;      ///< Accessor
-        cBox3dr  Box3d() const;      ///< Accessor
+        cBox2dr  Box2d() const;            ///< +- Accessor (do basic process to reformat BoxOfPts)
+        cBox3dr  Box3d() const;            ///< +- Accessor (do basic process to reformat BoxOfPts)
+        const  cTplBoxOfPts<tREAL8,3> &  BoxOfPts() const; ///< Realy an accessor tuning/debuging purpose
 
         void SetNbColours(int );
         int  GetNbColours() const;

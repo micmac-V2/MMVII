@@ -106,6 +106,10 @@ class cSensorImage  :   public cObj2DelAtEnd,
 
           /// create a sensor in a new coordinate system, default error
           virtual cSensorImage * SensorChangSys(const std::string & aDir, cChangeSysCo &) const ;
+          /// New sensor (caller owns it) for the crop [aP0,aP0+aSz) of this image : pixel P of the crop
+          /// has the ground geometry of pixel P+aP0 of this one, so overlapping crops agree. Default : error.
+          virtual cSensorImage * CropSensor(const cPt2di & aP0, const cPt2di & aSz) const;
+
           /// Create a RPC sensor with an optional resampling map and an optional change of coordinate system map.
           /// (Use nullptr to indicate that no map is provided).
           /// aZintv specifies the Z interval needed for RPC. If none (std::nullopt) is given, the sensor must have a defined Z interval
@@ -327,6 +331,7 @@ class cSensorImage  :   public cObj2DelAtEnd,
 
 
 
+
 /**  Interfac to make sensor a 3d-mapping, using Ground2ImageAndDepth function */
 class cSIMap_Ground2ImageAndProf : public tIMap_R3
 {
@@ -433,6 +438,9 @@ class cDirsPhProj : public cMemCheck
 {
      public :
 
+         /// Name used in optional arg like  InOri/OutOri
+          static std::string DefNameArgOpt(eTA2007,bool isIn);
+
           cDirsPhProj(eTA2007 aMode,cPhotogrammetricProject & aPhp);
           void Finish();
 
@@ -464,6 +472,10 @@ class cDirsPhProj : public cMemCheck
           tPtrArg2007  ArgDirOutOptWithDef(const std::string & aDef,const std::string & aNameVar="",const std::string & aMesg="") ;
 
 
+          /// Name of standard folder like Full DirIn, allow to construct w/o PhProj
+          static std::string StdDirOfType(eTA2007,const std::string & aPrefix);
+
+
           void  SetDirIn(const std::string&) ; ///< Modifier, use in case many out params were saved in a xml,like with MeshImageDevlp
           void  SetFullDirIn(const std::string & aFullDirIn); ///< Modifier, use in case we want to use external ori dir 
           void  SetDirInIfNoInit(const std::string&) ; ///< do it only if not init in argopt
@@ -472,15 +484,20 @@ class cDirsPhProj : public cMemCheck
           const std::string & FullDirIn() const;   ///< Accessor
           const std::string & FullDirOut() const;   ///< Accessor
           const std::string & FullDirInOut(bool In) const;   ///< Facility FullDirIn/FullDirInOut
+          const std::string & DirInOut(bool In) const;   ///< Facility DirIn/lDirInOut
+
           std::string ComputeFullDir(const std::string& aDirIn) const;
 
 
           const std::string & DirLocOfMode() const;   ///< Accessor
 
+
+
           void SetDirOut(const std::string & aDirOut); ///< Modifier, for example to have defaut value to input
           bool  DirInIsInit() const;  ///< Was initialized and not set to NONE
           bool  DirInIsNONE() const;  ///< Was initialized && Set to NONE
           bool  DirOutIsInit() const;
+          bool  DirIsInit(bool isIn) const;
           void  AssertDirInIsInit() const;
           void  AssertDirOutIsInit() const;
           bool CheckDirExists(bool In, bool DoError=false) const;
@@ -604,7 +621,7 @@ class cPhotogrammetricProject : public cIPhProj
 
                                     
           const cDirsPhProj &   DPOrient() const; ///< Accessor
-      const cDirsPhProj &   DPOriTriplets() const; ///< Accessor
+          const cDirsPhProj &   DPOriTriplets() const; ///< Accessor
           const cDirsPhProj &   DPRadiomData() const; ///< Accessor
           const cDirsPhProj &   DPRadiomModel() const; ///< Accessor
           const cDirsPhProj &   DPMeshDev() const; ///< Accessor
@@ -623,12 +640,25 @@ class cPhotogrammetricProject : public cIPhProj
 
           const cDirsPhProj &   DPOriRel() const;    ///<  Accessor
 
+          /// Return all the DP that can be used as tiep
+          std::vector<const cDirsPhProj *> AllDpTieP() const;
+          std::vector< cDirsPhProj *> AllDpTieP() ;   
+
+          bool AtLeastOneTiePModeIsInit() const;
+          /// Check exit TieP or MutTieP or ObjMesInstr ...
+          void AssertAtLeastOneTiePModeIsInit() const;
+
+          cCollecSpecArg2007 & AddAllDpTieP( cCollecSpecArg2007 &) ;
+
           // Sometime we need several dir of the same type, like "ReportPoseCmp", or RefPose in bundle
           cDirsPhProj * NewDPIn(eTA2007 aType,const std::string & aDirIn);
 
           const std::string &   DirPhp() const;   ///< Accessor
           const std::string &   DirVisu() const;   ///< Accessor
           const std::string &   DirVisuAppli() const;   ///< Accessor
+          const std::string &   DirSimul() const;   ///< Accessor
+          const std::string &   DirSimulAppli() const;   ///< Accessor
+
           ///         If we want to create a subdir inside the visu, to have visu splited
           void SetVisuSubDir(const std::string &);
           const std::string &   DirSysCo() const;   ///< Accessor
@@ -636,6 +666,7 @@ class cPhotogrammetricProject : public cIPhProj
           tPtrArg2007           ArgChSys(bool DefaultUndefined=false);
           /// To fix the "cur" sys co, its In,Out, or InOut, if both and diff use ArgChSys
           tPtrArg2007           ArgSysCo();
+
 
           //===================================================================
           //==================   ORIENTATION      =============================
@@ -689,7 +720,7 @@ class cPhotogrammetricProject : public cIPhProj
     //===================================================================
     //void SaveTriplets(const cTripletSet&,bool useXmlraterThanDmp=true) const;
     //cTripletSet * ReadTriplets() const;
-      std::vector<cDataSolOriTriplet> ReadAllTriplets(const std::vector<std::string>& aVImages,bool OkEmpty=false) const;
+      std::vector<cDataSolOriTriplet> ReadAllTriplets(const std::vector<std::string>& aVImages,bool OkEmpty=false,bool isIn=true) const;
     //===================================================================
     //==================   RELATIVE ORIENTATION    ======================
     //===================================================================
@@ -1007,7 +1038,10 @@ class cPhotogrammetricProject : public cIPhProj
           std::string     mDirVisuAppliInit;
           std::string     mDirVisuAppliFinal;
 
-      std::string     mDirStaticLidarRasters;
+          std::string     mDirSimul;
+          std::string     mDirSimulAppli;
+
+          std::string     mDirStaticLidarRasters;
 
           std::string     mDirSysCo;        /// Folder where are stored System of coordinates
           std::string     mNameCurSysCo;      /// Data where we store the system In Or Out if given in std args

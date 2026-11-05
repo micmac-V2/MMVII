@@ -1,0 +1,17 @@
+\documentclass[a4paper]{article}
+\usepackage{MMVII}
+\usepackage{longtable,booktabs,array,calc} % tables made by pandoc
+
+\newcommand{\TheCmd}{$cmd$}
+\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+\begin{document}
+\sloppy
+
+\CmdTitle
+
+\tableofcontents
+
+$body$
+
+\end{document}

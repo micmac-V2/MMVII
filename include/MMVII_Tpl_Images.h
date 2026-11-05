@@ -502,34 +502,7 @@ template<class T1> tREAL8  cDataIm1D<T1>::AvgInterv(int aX0,int aX1) const
    return SomInterv(aX0,aX1) / double(aX1-aX0);
 }
 
-/*****************************************************/
-/*                                                   */
-/*          NORMALIZATION                            */
-/*                                                   */
-/*****************************************************/
 
-template<class T,int Dim>
-   void NormalizedAvgDev(cDataTypedIm<T,Dim> & aIm,tREAL8 aEpsilon,tREAL8 aMul=1.0)
-{
-    cComputeStdDev<tREAL8>  aCSD;
-    for (int aK=0 ; aK<aIm.NbElem() ; aK++)
-    {
-        aCSD.Add(1.0,aIm.GetRDL(aK));
-    }
-    aCSD = aCSD.Normalize(aEpsilon);
-    for (int aK=0 ; aK<aIm.NbElem() ; aK++)
-    {
-        T& aV = aIm.GetRDL(aK);
-        aV = aCSD.NormalizedVal(aV) * aMul;
-    }
-}
-
-template<class T>  cIm2D<T> NormalizedAvgDev(const cIm2D<T> & aIm,tREAL8 aEpsilon)
-{
-    cIm2D<T> aRes = aIm.Dup();
-    NormalizedAvgDev(aRes.DIm(),aEpsilon);
-    return aRes;
-}
 
 
 template <class TFonc,class TMasq>
@@ -598,6 +571,8 @@ template <class Type> typename tBaseNumTrait<Type>::tBase SumIm(const cDataIm2D<
 
     return aRes;
 }
+
+
 
 
 /*****************************************************/

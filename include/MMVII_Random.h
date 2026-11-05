@@ -20,14 +20,18 @@ class cRandGenerator : public cMemCheck
        virtual int    Unif_N(int aN) = 0;
        virtual double Normal_0_1() = 0;
        virtual void   setSeed(size_t aSeed) = 0;
+       virtual int GetCurrentSeed() = 0;
        virtual size_t next() = 0;
        static cRandGenerator * TheOne();
        static void Close();
        static void Open();
        virtual ~cRandGenerator() {};
+
     private :
        static cRandGenerator * msTheOne;
 };
+
+
 
 };
 

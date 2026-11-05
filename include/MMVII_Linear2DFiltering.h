@@ -43,10 +43,10 @@ void  ExponentialFilter(cDataIm2D<Type> & aIm,int   aNbIter,double aFact);
    the NbIter parameter allow to be more or less close to a gaussian */
 template <class Type>
 void  ExpFilterOfStdDev(cDataIm2D<Type> & aIm,int   aNbIter,double aStdDev);
-template <class Type>
-void  ExpFilterOfStdDev(cDataIm2D<Type> & aIm,int   aNbIter,double aStdDevX,double aStdDevY);
-template <class Type>
-void  ExpFilterOfStdDev(cDataIm2D<Type> & aIOut,const cDataIm2D<Type> & aImIn,int aNbIter,double aStdDev);
+template <class Type> void  ExpFilterOfStdDev(cDataIm2D<Type> & aIm,int   aNbIter,double aStdDevX,double aStdDevY);
+template <class Type> void  ExpFilterOfStdDev(cDataIm2D<Type> & aIOut,const cDataIm2D<Type> & aImIn,int aNbIter,double aStdDev);
+
+
 
 
 /**************************************/
@@ -62,7 +62,11 @@ template <class Type> void  SquareAvgFilter(cDataIm2D<Type> & aDIm,int  aNbIt,in
 
 template <class Type> void  ExponentialFilter(cDataIm1D<Type> & aDI1,int  aNbIt,double aFact);
 template <class Type> void  ExpFilterOfStdDev(cDataIm1D<Type> & aDI1,int  aNbIt,double aStdDev);
+cIm1D<tREAL8> HeatFilter1D(const cDataIm1D<tREAL8>& aImIn,const cDataIm1D<tREAL8>& aImSigma,int aNbStep);
 
+template <class Type> cIm1D<Type>  ComputeExpFilterOfStdDev(const cDataIm1D<Type> & aDI1,int  aNbIt,double aStdDev);
+
+template <class Type> std::pair<cIm1D<Type>,cIm1D<Type>> ComputeAvgAndDev(const cDataIm1D<Type> & aDI1,int  aNbIt,double aStdDev);
 
 /**************************************/
 /*           Gaussian  Pyramid        */
@@ -379,6 +383,14 @@ template <class Type>  class cImGrad
         const Type & Gx(const cPt2di & aPix) const {return mDGx->GetV(aPix);}
         const Type & Gy(const cPt2di & aPix) const {return mDGy->GetV(aPix);}
         cPtxd<Type,2>  Grad(const cPt2di & aPix) const {return cPtxd<Type,2>(Gx(aPix),Gy(aPix));}
+        cPt2dr  GradR(const cPt2di & aPix) const {return cPt2dr(Gx(aPix),Gy(aPix));}
+
+        void SetGrad(const cPt2di & aPix,const cPtxd<Type,2> &aGrad)
+        {
+            mDGx->SetV(aPix,aGrad.x());
+            mDGy->SetV(aPix,aGrad.y());
+        }
+
 
         Type  GxBL(const cPt2dr & aPix) const {return mDGx->GetVBL(aPix);}
         Type  GyBL(const cPt2dr & aPix) const {return mDGy->GetVBL(aPix);}
@@ -393,6 +405,24 @@ template <class Type>  class cImGrad
 
 template<class Type> cImGrad<Type> Deriche(const cDataIm2D<Type> &aImIn,double aAlpha);
 template<class Type> void ComputeDeriche(cImGrad<Type> & aResGrad,const cDataIm2D<Type> & aImIn,double aAlpha);
+template<class Type> cImGrad<Type> Sobel(const cDataIm2D<Type> &aImIn);
+
+template <class Type> class cTensor
+{
+    public :
+       typedef cPtxd<Type,2>  tPt;
+
+       static  tPt  Grad2Tens(const tPt& aGrad);
+       /// If a rho < 0 ?  real rho : else fix value
+       static  tPt  Tens2Grad(const tPt& aGrad,Type aRho=-1);
+
+       static cImGrad<Type>  Grad2Tens(const cImGrad<Type> &);
+
+      static  tREAL8  SigmaTensor(const std::vector<cPtxd<Type,2>>& aVTens);
+
+};
+
+
 
 /**
  * @brief The cSetIm4SparseDist class

@@ -191,6 +191,7 @@ template <class Type> void TplBenchIm3D(const cPt3di & aSz)
 
 void BenchIm3D()
 {
+
      cBox3di aBox(cPt3di::PCste(1),cPt3di::PCste(20));
      for (int aK=0 ; aK<100 ; aK++)
      {
@@ -200,6 +201,21 @@ void BenchIm3D()
          TplBenchIm3D<tREAL4>(aP);
 
          TestLayer3D(cPt2di(aP.x(),aP.y()));
+     }
+
+     cRect3 aRect = cPixBox(cPt3di(0,0,0),cPt3di(255,255,255));
+     for (const auto & aRGB0 : aRect)
+     {
+         // just to accelerate a little bit
+         if ((aRGB0.x()%5==0) && (aRGB0.y()%5==0) && (aRGB0.z()%5==0))
+         {
+            cPt3di aRGB1 =  HSI_2_RGB(RGB_2_HSI(aRGB0));
+            if (aRGB0 != aRGB1)
+            {
+               StdOut() << aRGB0 << aRGB1 << "\n";
+            }
+            MMVII_INTERNAL_ASSERT_bench(aRGB0==aRGB1,"RGB -> HSI -> RGB");
+         }
      }
 }
 

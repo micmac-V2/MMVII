@@ -320,6 +320,8 @@ int cAppli_SelectPairOriRel::Exe()
    // mTimeSegm = mShow ? new cTimerSegm(this) : nullptr ;
     mPhProj.FinishInit();
 
+    mPhProj.AssertAtLeastOneTiePModeIsInit();
+
     mBitTmp0 =   mGr.AllocBitTemp();
     mSubGrMST.mFlag = mBitTmp0;
 

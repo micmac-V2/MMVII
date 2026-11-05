@@ -475,6 +475,7 @@ template <class Type,const int Dim> class cDataTypedIm : public cDataGenUnTypedI
         void ChSignIn(cDataTypedIm<Type,Dim> &) const;  ///< Duplicate with sign change in raw data
         void DupInVect(std::vector<Type> &) const;  ///< Duplicate raw data in a vect
 
+
         // Defaults values quitt slow but may be usefull
         int VI_GetV(const cPtxd<int,Dim> & aP)  const override;
                 /// Pixel -> float Value
@@ -591,6 +592,8 @@ template <class Type>  class cDataIm1D  : public cDataTypedIm<Type,1>
             tVal & aVP =   Value(aP);
             aVP =  tNumTrait<Type>::Trunc(aVP+aV2Add);;
         }
+        void ClipTruncThenAddValBL( tREAL8  aP,const tBase & aV2Add);
+
 
         void  AddVBL(const tREAL8 & aX,const double & aVal)
         {
@@ -640,6 +643,10 @@ template <class Type>  class cDataIm1D  : public cDataTypedIm<Type,1>
         virtual ~cDataIm1D();
         /// Raw image, lost all waranty is you use it...
         tVal * ExtractRawData1D() {return mRawData1D;}
+        const tVal * ExtractRawData1D() const {return mRawData1D;}
+
+        cIm1D<Type> Dup() const;
+
 
         inline tBase  SomInterv(int aX0,int aX1) const;
         inline tREAL8  AvgInterv(int aX0,int aX1) const;
@@ -700,6 +707,10 @@ template <class Type>  class cIm1D
        cIm1D(const int & aP0,const int & aP1,Type * DataLin=nullptr,eModeInitImage=eModeInitImage::eMIA_NoInit);
        cIm1D(const int & aSz, Type * DataLin=nullptr,eModeInitImage=eModeInitImage::eMIA_NoInit);
        cIm1D(const std::vector<Type> &);
+
+       static cIm1D<Type> ImCste(int aSz,Type aVal);
+       static cIm1D<Type> ImComb(int aSz,const std::vector<cPt2dr>&,Type aValBackGround=Type(0));
+
 
        // tDIM & Im() {return *(mSPtr.get());}
        tDIM & DIm() {return *(mPIm);}
@@ -787,6 +798,8 @@ template <class TypeH,class TypeCumul>  class cHistoCumul
          cHistoCumul();  ///< For case where default constructor are required
          cHistoCumul(int aNbVal);
          void AddV(const int & aP,const TypeH & aV2Add);
+         void AddV(const tREAL8 & aP,const TypeH & aV2Add);
+
          void MakeCumul();
          tREAL8  PropCumul(const int & aP) const;
          tREAL8  PropCumul(const tREAL8 & aP) const;

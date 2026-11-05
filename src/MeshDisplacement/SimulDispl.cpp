@@ -2,6 +2,7 @@
 #include "cMMVII_Appli.h"
 #include "MMVII_Linear2DFiltering.h"
 #include "MMVII_Tpl_Images.h"
+#include "MMVII_Tpl_NormImage.h"
 #include "MMVII_Interpolators.h"
 
 /**
@@ -160,7 +161,7 @@ namespace MMVII
             aResSsEch.DIm().SetV(aPix, RandUnif_C());
 
         ExpFilterOfStdDev(aResSsEch.DIm(), 5, Norm2(aSzRed) / aNbBlob);
-        NormalizedAvgDev(aResSsEch.DIm(), 1e-10, mAmplDef);
+        GenNormalizedAvgDev(aResSsEch.DIm(), 1e-10, mAmplDef);
 
         tImDispl aRes(mSz);
         for (const cPt2di &aPix : aRes.DIm())

@@ -30,3 +30,4 @@ src/GeneratedCodes/
 !/build/.keep
 !/build/NoCompile.sh
 /.cache
+/MMVII-RessourceDir/HelpByCmd/*.pdf

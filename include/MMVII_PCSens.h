@@ -158,6 +158,7 @@ class cDataPerspCamIntrCalib
       const cMapPProj2Im& MapPProj2Im() const { return mMapPProj2Im;}
       cMapPProj2Im& MapPProj2Im() { return mMapPProj2Im;}
       const std::string & Name() const; ///< Accessor
+      void SetSzPix(const cPt2di &);    ///< Change the size of the pixel domain
 
        const std::vector<double>& VTmpCopyParams() const;
        void SetVTmpCopyParams(const std::vector<double>&) ;
@@ -217,6 +218,8 @@ class cPerspCamIntrCalib : public cObj2DelAtEnd,
             static cPerspCamIntrCalib * Alloc(const cDataPerspCamIntrCalib &);
 
              cPerspCamIntrCalib * Duplicate() const;
+             /// Calib of the crop [P0,P0+Sz) : same distortion and focal, principal point shifted by -P0
+             cPerspCamIntrCalib * CropCalib(const cPt2di & aP0,const cPt2di & aSz,const std::string & aName) const;
 
         /**  Generate random calib, with assurance that distorsion will be inverible,
            the KDeg (in 0,1,2,3)  pick one of the pre-defined degree */
@@ -437,6 +440,8 @@ class cPerspCamIntrCalib : public cObj2DelAtEnd,
             cCalculator<double> *               mEqProjSeg;
 };
 
+tREAL8  F35toFPix(const tREAL8 aFocEq35,cPt2di aSzIm);
+tREAL8  FPixtoF35(const tREAL8 aFocPix,cPt2di aSzIm);
 
 
 /**  Interface to describe a "cPerspCamIntrCalib" as a invertible mapping for
@@ -623,6 +628,9 @@ class cSensorCamPC : public cSensorImage
      cPt3dr  EpsDiffGround2Im(const cPt3dr &) const override ;
 
          cPt2dr Ground2Image(const cPt3dr &) const override;
+
+         /// New sensor (caller owns) with the same pose and a calib cropped on [P0,P0+Sz); the calib is deleted at end of application
+         cSensorImage * CropSensor(const cPt2di & aP0,const cPt2di & aSz) const override;
 
      double DegreeVisibility(const cPt3dr &) const override;
      double DegreeVisibilityOnImFrame(const cPt2dr &) const override;
@@ -821,6 +829,24 @@ class cCamSimul : public cMemCheck
 
       // cSetHomogCpleIm
 };
+
+/** Small "data class" for exporting the detailled path
+ *  that goes  ground -> image for central perspective camera
+ */
+
+class cExportSimCampPC
+{
+   public :
+       cExportSimCampPC();
+       cExportSimCampPC(const cSensorCamPC * aCamPC,const cPt3dr & aPGround);
+
+       cPt3dr mPGround;    ///<  point in ground/word coordinates
+       cPt3dr mPCam;       ///< point in camera coordinates
+       cPt2dr mPProj;      ///<  projected point (like x/z,y/z for stenope)
+       cPt2dr mPUnitDist;  ///< unitary point distorded
+       cPt2dr mPIm;        ///<  finally, image point
+};
+void AddData(const  cAuxAr2007 & anAux, cExportSimCampPC  &  anExp);
 
 };
 

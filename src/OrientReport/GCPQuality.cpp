@@ -283,6 +283,8 @@ void cAppli_GCPReport::MakeOneIm(const std::string & aNameIm)
         cPt2dr aP2 = aMes.mPt;
         cPt3dr aPGr = aSetMes.MesGCPOfName(aMes.mNamePt).mPt;
         cPt2dr aProj = aCam->Ground2Image(aPGr);
+        if (!aProj.IsValid())
+            continue; // TODO: show error?
         cPt2dr  aVec = (aP2-aProj);
         aCam->FixLoopPixelsResiduals(aVec);
         std::string aResDist3DStr = "XXX";
@@ -333,6 +335,8 @@ void cAppli_GCPReport::MakeOneIm(const std::string & aNameIm)
                {
                    cPt2dr aP2 = aSetMesIm.MeasuresOfName(aGCP.mNamePt).mPt;
                    cPt2dr aProj = aCam->Ground2Image(aGCP.mPt);
+                   if (!aProj.IsValid())
+                       continue; // TODO: show error?
                    if (aIVF)
                       aIVF->DrawArrow_P1P2(aP2,aProj);
                }
@@ -393,6 +397,8 @@ void cAppli_GCPReport::ReportsByGCP()
         for (size_t aKIm = 0 ; aKIm<  aVIndI.size() ; aKIm++)
         {
             cPt2dr  aVec = aMesIm.VMeasures()[aKIm]  - aVSens[aVIndI[aKIm]]->Ground2Image(aGCP.mPt);
+            if (!aVec.IsValid())
+                continue; // TODO show missing?
             aVSens[aVIndI[aKIm]]->FixLoopPixelsResiduals(aVec);
             aStat.Add(Norm2(aVec));
         }

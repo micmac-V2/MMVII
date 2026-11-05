@@ -102,6 +102,20 @@ cDirsPhProj::cDirsPhProj(eTA2007 aMode,cPhotogrammetricProject & aPhp):
      aPhp.AddDirProj(this);
 }
 
+std::string cDirsPhProj::StdDirOfType(eTA2007 aType,const std::string & aPrefix)
+{
+   return      MMVII_DirPhp
+             + E2Str(aType) +  StringDirSeparator()
+             + aPrefix +   StringDirSeparator()
+    ;
+
+}
+
+std::string cDirsPhProj::DefNameArgOpt(eTA2007 aMode,bool isIn)
+{
+   return  std::string(isIn ? "In" : "Out") + E2Str(aMode);
+}
+
 void cDirsPhProj::SetAllowDirInEmpty()
 {
     mAllowDirInEmpty = true;
@@ -273,6 +287,11 @@ bool cDirsPhProj::DirOutIsInit() const
     return (mDirOut!= MMVII_NONE) && mAppli.IsInit(&mDirOut);
 }
 
+bool  cDirsPhProj::DirIsInit(bool isIn) const
+{
+    return  isIn ? DirInIsInit() : DirOutIsInit();
+}
+
         //   ======================  Accessor/Modifier =======================================
 
 const std::string & cDirsPhProj::DirIn() const
@@ -303,6 +322,12 @@ const std::string & cDirsPhProj::FullDirInOut(bool isIn) const
 {
    return isIn ? FullDirIn() : FullDirOut();
 }
+
+const std::string & cDirsPhProj::DirInOut(bool isIn) const
+{
+   return isIn ? DirIn() : DirOut();
+}
+
 
 void cDirsPhProj::SetDirIn(const std::string & aDirIn)
 {
@@ -392,6 +417,9 @@ void cPhotogrammetricProject::FinishInit()
     mDirSysCo = mDirPhp + E2Str(eTA2007::SysCo) + StringDirSeparator();
     mDirImportInitOri =  mDirPhp + "InitialOrientations" + StringDirSeparator();
 
+    mDirSimul = mDirPhp + "SIMUL" + StringDirSeparator();
+    mDirSimulAppli = mDirSimul +  mAppli.Specs().Name()  + StringDirSeparator();
+
     if (mAppli.LevelCall()==0)
     {
         CreateDirectories(mDirVisu);
@@ -399,6 +427,8 @@ void cPhotogrammetricProject::FinishInit()
         CreateDirectories(mDirSysCo);
         CreateDirectories(mDirImportInitOri);
         CreateDirectories(mDirStaticLidarRasters);
+        CreateDirectories(mDirSimul);
+        CreateDirectories(mDirSimulAppli);
     }
 
 
@@ -550,6 +580,9 @@ const std::string &   cPhotogrammetricProject::DirVisu() const  {return mDirVisu
 const std::string &   cPhotogrammetricProject::DirVisuAppli() const  {return mDirVisuAppliFinal;}
 const std::string &   cPhotogrammetricProject::DirStaticLidarRasters() const  {return mDirStaticLidarRasters;}
 
+const std::string &   cPhotogrammetricProject::DirSimul() const  {return mDirSimul;}
+const std::string &   cPhotogrammetricProject::DirSimulAppli() const  {return mDirSimulAppli;}
+
 void cPhotogrammetricProject::SetVisuSubDir(const std::string & aDir)
 {
     mDirVisuAppliFinal = mDirVisuAppliInit + aDir + StringDirSeparator();
@@ -558,6 +591,38 @@ void cPhotogrammetricProject::SetVisuSubDir(const std::string & aDir)
 
 const cDirsPhProj &   cPhotogrammetricProject::DPOriRel() const {return mDPOriRel;}
 
+
+std::vector<const cDirsPhProj *> cPhotogrammetricProject::AllDpTieP() const
+{
+    return {&DPTieP(),&DPMulTieP(),&DPGndPt2D()};
+}
+
+bool cPhotogrammetricProject::AtLeastOneTiePModeIsInit() const
+{
+   for (const auto & aDP : AllDpTieP())
+       if (aDP->DirInIsInit())
+           return true;
+   return false;
+}
+
+void cPhotogrammetricProject::AssertAtLeastOneTiePModeIsInit() const
+{
+    MMVII_INTERNAL_ASSERT_User(AtLeastOneTiePModeIsInit(),eTyUEr::eNoTiePOrEquiv,"None of possible tie points source was init");
+}
+
+
+
+std::vector< cDirsPhProj *> cPhotogrammetricProject::AllDpTieP()
+{
+    return {&DPTieP(),&DPMulTieP(),&DPGndPt2D()};
+}
+
+cCollecSpecArg2007 & cPhotogrammetricProject::AddAllDpTieP( cCollecSpecArg2007 & aCol)
+{
+    for (const auto & aPtrDP : AllDpTieP())
+        aCol << aPtrDP->ArgDirInOpt();
+    return aCol;
+}
 
 
 
@@ -795,7 +860,7 @@ void cPhotogrammetricProject::ReadSensor(const std::string  &aNameIm,cSensorImag
 
      // Try a stenope camera which has interesting properties
      aSPC = ReadCamPC(aNameIm,ToDeleteAutom,true);
-     // Try TSL
+     // Try TLS
      if (aSPC==nullptr) aSPC = ReadStaticLidar(aNameIm,ToDeleteAutom,true,aReadData);
 
      if (aSPC !=nullptr)
@@ -1562,13 +1627,13 @@ std::vector<std::string> cPhotogrammetricProject::ReadTopoMes() const
 
 //  see cMetaDataImages.cpp
 
-std::vector<cDataSolOriTriplet> cPhotogrammetricProject::ReadAllTriplets(const std::vector<std::string>& aVImages,bool OkEmpty)
+std::vector<cDataSolOriTriplet> cPhotogrammetricProject::ReadAllTriplets(const std::vector<std::string>& aVImages,bool OkEmpty,bool isIn)
     const
 {
     std::vector<cDataSolOriTriplet> aRes;
     for (const auto& aNameIm : aVImages)
     {
-        std::string aFileName = OriRel_OrientAllTripletsOf1Image(aNameIm,true);
+        std::string aFileName = OriRel_OrientAllTripletsOf1Image(aNameIm,isIn);
         if (!ExistFile(aFileName))
             continue;
 

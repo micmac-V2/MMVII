@@ -761,14 +761,14 @@ cCollecSpecArg2007 & cAppli_OriRelTripletsOfIm::ArgObl(cCollecSpecArg2007 & anAr
 cCollecSpecArg2007 & cAppli_OriRelTripletsOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 {
    return       anArgOpt
-           << cHeaderSectionArg("Input for tie points")
+           << cHeaderSectionArg("Input for tie points (at least one must  be provided)")
             <<  mPhProj.DPTieP().ArgDirInOpt()
             <<  mPhProj.DPGndPt2D().ArgDirInOpt()
             <<  mPhProj.DPMulTieP().ArgDirInOpt()
 
            << cHeaderSectionArg("Export virtual points")
-           << mPhProj.DPMulTieP().ArgDirOutOpt("VirTP","Output folder for virtual tie points")
-           << AOpt2007(mDistribVirTPs,"DistribVirTP","Distribution of virtual tie points",{eTA2007::HDV})
+           << mPhProj.DPMulTieP().ArgDirOutOpt(NP_VirTP,"Output folder for virtual tie points")
+           << AOpt2007(mDistribVirTPs,NP_DistribVirTP,"Distribution of virtual tie points",{eTA2007::HDV})
 
             << cHeaderSectionArg("Testing")
             <<  AOpt2007(mRanTrR,"RanTrR","Random for Trans&Rot (test & tune)",{eTA2007::HDV})
@@ -847,7 +847,7 @@ void cAppli_OriRelTripletsOfIm::DoAllTriplet()
 
  //   StdOut() << "LLLEVVL=" << mLevelCall << "\n"; getchar();
 
-    ExeComParal(aListCom);
+    ExeComParal(aListCom,OutIsNone());
     //  Merge the virtual point in a multiple tie poinst
     if (mGenVirtTP)
     {
@@ -979,6 +979,8 @@ int cAppli_OriRelTripletsOfIm::Exe()
     mPhProj.FinishInit();
     mTimeSegm    = mShow ? (new cTimerSegm(this)) : nullptr ;
     mGenVirtTP = mPhProj.DPMulTieP().DirOutIsInit();
+
+    mPhProj.AssertAtLeastOneTiePModeIsInit();
 
     // So that is is logged in MMVII-LogCmdModif.txt
     if (mModeCompute!=0)

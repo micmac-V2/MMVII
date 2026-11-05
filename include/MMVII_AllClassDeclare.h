@@ -64,6 +64,7 @@ typedef int    tStdInt;  ///< "natural" int
 typedef unsigned int    tStdUInt;  ///< "natural" int
 typedef double tStdDouble;  ///< "natural" int
 
+typedef std::pair<std::string,std::string> t2S;
 
 
 // MMVII_memory.h :  Memory
@@ -261,6 +262,8 @@ class  cMetaDataImage;
 class  cElemCamDataBase;
 class  cCamDataBase;
 
+class cDirsPhProj;
+class cPhotogrammetricProject;
 
 // MMVII_MeasuresIm.h
 

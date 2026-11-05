@@ -3,6 +3,7 @@
 #include "cExternalSensor.h"
 #include "MMVII_PhgrDist.h"
 #include "MMVII_util_tpl.h"
+#include "MMVII_Bench.h"
 
 namespace MMVII
 {
@@ -98,6 +99,9 @@ class cRatioPolynXY
 
         void PushCoeffs(std::vector<tREAL8>&) const;
 
+        /// Independent copy (cRPC_Polyn is not copyable), caller owns it
+        cRatioPolynXY * Dup() const;
+
         //  Recompute a new RPC using correspondance
         void  InitFromSamples(const std::vector<cPt3dr> & aVIn, const std::vector<cPt3dr> & aVOut);
 
@@ -139,6 +143,8 @@ class cRPCSens : public cSensorImage
          void InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &aVGr);
 
          void Dimap_ReadXML_Glob(const cSerialTree&);
+         /// Read an RPC text file ("KEY: value unit"), a missing model is fitted, a missing ground box is deduced from the image size
+         void InitFromTxt(const std::string & aNameTxt,const cPt2di & aSzIm);
 
         cPt3dr ImageZToGround(const cPt2dr&,const double) const;
 
@@ -151,6 +157,9 @@ class cRPCSens : public cSensorImage
         const cRatioPolynXY& InverseRPC() {return *mInverseRPC;}
 
         cPt3dr  PseudoCenterOfProj() const override;
+
+        /// Polynomials (normalized coordinates) are copied unchanged, only offsets and domain move
+        cSensorImage * CropSensor(const cPt2di & aP0, const cPt2di & aSz) const override;
 
     private:
         const cPt2dr & ImOffset() const {return mImOffset;}
@@ -167,6 +176,9 @@ class cRPCSens : public cSensorImage
 
         const cPt3dr * CenterOfFootPrint() const override;
 
+        /// Independent copy (cRPCSens is not copyable), caller owns it
+        cRPCSens * Dup() const;
+
     private:
 
          //  --------------- BEGIN NOT IMPLEMANTED -----------------------------------------------
@@ -182,6 +194,8 @@ class cRPCSens : public cSensorImage
          //  --------------- END  NOT IMPLEMANTED -----------------------------------------------
 
          void FinalizeInit();
+         /// Fit the direct (or inverse) model from the inverse (or direct) one, over the pixel domain
+         void FitMissingModel();
 
         cPt2dr NormIm(const cPt2dr &aP,bool) const;
         cPt3dr NormGround(const cPt3dr &aP,bool) const;
@@ -504,9 +518,12 @@ void cRPCSens::InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &a
     mGroundOffset = aBoxOut.Middle();
     mGroundScale = aBoxOut.Sz() / 2.0;
 
-    // TODOCM: ImOffset/scale : force integer value ?
-    mImOffset = Proj(aBoxIn.Middle());
-    mImScale =  Proj(aBoxIn.Sz() / 2.0);
+    // Integer image offset and scale (as in NITF RPC00B), the scale also covers the shift due to rounding the offset
+    const cPt2dr aMidIm = Proj(aBoxIn.Middle());
+    const cPt2dr aHalfIm = Proj(aBoxIn.Sz()) / 2.0;
+    mImOffset = cPt2dr(round_ni(aMidIm.x()), round_ni(aMidIm.y()));
+    mImScale = cPt2dr(std::max(1,round_up(aHalfIm.x() + std::abs(mImOffset.x()-aMidIm.x()))),
+                      std::max(1,round_up(aHalfIm.y() + std::abs(mImOffset.y()-aMidIm.y()))));
 
     m3DImOffset = TP3z(mImOffset, aBoxIn.Middle().z());
     m3DImScale = TP3z(mImScale, aBoxIn.Sz().z() / 2.0);
@@ -526,6 +543,9 @@ void cRPCSens::InitFromSamples(std::vector<cPt3dr> &aVIm, std::vector<cPt3dr> &a
 
     mImOffset = IO_PtIm(mImOffset);
     mImScale = IO_PtIm(mImScale);
+    // Same (line,sample) convention as mImOffset/mImScale, as when read from file (DiffGround2Im uses these)
+    m3DImOffset = TP3z(mImOffset, m3DImOffset.z());
+    m3DImScale = TP3z(mImScale, m3DImScale.z());
     mGroundOffset = IO_PtGr(mGroundOffset);
     mGroundScale = IO_PtGr(mGroundScale);
     mPixelDomain = cPixelDomain(cPt2di(round_down(aBoxIn.Sz().x()),round_down(aBoxIn.Sz().y())));
@@ -553,6 +573,51 @@ void cRPCSens::FinalizeInit()
     mEpsCoord.z() =  1.0 * aNbPixel; // very rough
     //
     // StdOut() << "EPSILON : " << mEpsCoord << "\n";
+}
+
+cRatioPolynXY * cRatioPolynXY::Dup() const
+{
+    auto * aRes = new cRatioPolynXY();
+    std::vector<tREAL8> aVC;
+    mX.PushCoeffs(aVC);
+    aRes->mX.SetCoeffs(aVC);
+    aVC.clear();
+    mY.PushCoeffs(aVC);
+    aRes->mY.SetCoeffs(aVC);
+    return aRes;
+}
+
+cRPCSens * cRPCSens::Dup() const
+{
+    auto * aRes = new cRPCSens(NameImage());
+    aRes->TransferateCoordSys(*this);
+    aRes->mDirectRPC  = mDirectRPC->Dup();
+    aRes->mInverseRPC = mInverseRPC->Dup();
+    aRes->mImOffset = mImOffset;
+    aRes->mImScale = mImScale;
+    aRes->m3DImOffset = m3DImOffset;
+    aRes->m3DImScale = m3DImScale;
+    aRes->mGroundOffset = mGroundOffset;
+    aRes->mGroundScale = mGroundScale;
+    aRes->mCenterOfFootPrint = mCenterOfFootPrint;
+    aRes->mNameRPC = mNameRPC;
+    aRes->mSwapXYGround = mSwapXYGround;
+    aRes->mSwapIJImage = mSwapIJImage;
+    aRes->mAmplZB = mAmplZB;
+    aRes->mPixelDomain = mPixelDomain;
+    aRes->mBoxGround = mBoxGround;
+    aRes->mEpsCoord = mEpsCoord;
+    return aRes;
+}
+
+cSensorImage * cRPCSens::CropSensor(const cPt2di & aP0, const cPt2di & aSz) const
+{
+    auto * aRes = Dup();
+    // Only offsets move : polynomials stay bit-identical.
+    aRes->mImOffset -= IO_PtIm(ToR(aP0));
+    aRes->m3DImOffset -= TP3z(IO_PtIm(ToR(aP0)),0.0);
+    aRes->mPixelDomain = cPixelDomain(aSz);
+    return aRes;
 }
 
 cRPCSens::~cRPCSens()
@@ -957,6 +1022,13 @@ cSensorImage *  AllocRPCDimap(const cAnalyseTSOF & anAnalyse,const std::string &
 }
 
 
+// Grids (XY steps, Z steps) of the samples fitting a generated RPC, tried in turn until the max residual is below TheRPCFitMaxResPx.
+// Empirical : the first gives residuals ~1e-3 px, but the rational fit can be unstable on some grids (denser ones do not cure it).
+std::vector<std::pair<int,int>> TheRPCFitGrids = {{30,5},{20,7},{16,9}};
+tREAL8 TheRPCFitMaxResPx = 0.05;
+int TheRPCFitNbRetry = 0;   // number of grids abandoned (read by the benches)
+tREAL8 TheRPCFitLastMaxRes = 0;   // max residual (px) of the last fit
+
 cSensorImage * cSensorImage::GenerateSensorRPC(const cDataInvertibleMapping<tREAL8,2>* aResampleMap,
                                                const cDataInvertibleMapping<tREAL8,3>* aChSysCoMap,
                                                bool XYisLonLat,
@@ -971,10 +1043,6 @@ cSensorImage * cSensorImage::GenerateSensorRPC(const cDataInvertibleMapping<tREA
         }
         aZIntv = GetIntervalZ();
     }
-    // TODOCM: determiner stepXY et stepZ
-    auto stepsXY = 30;
-    auto stepsZ = 5;
-
     // Maps a `this`-sensor sample to (image,ground): used for the fit set and the
     // residual check below.
     auto ToImGrSample = [&](const cPair2D3D & aPair) -> std::pair<cPt3dr,cPt3dr>
@@ -986,81 +1054,429 @@ cSensorImage * cSensorImage::GenerateSensorRPC(const cDataInvertibleMapping<tREA
         return {aPIm,aPGr};
     };
 
-    cSet2D3D aSet = SyntheticsCorresp3D2D(stepsXY,stepsZ,aZIntv->x(),aZIntv->y(),false,0.0);
-
-    std::vector<cPt3dr> aVIm;
-    std::vector<cPt3dr> aVGr;
-
-    for (const auto & aPair : aSet.Pairs())
+    // Fit on one grid ; aMaxResPx = largest residual (px) of the direct and inverse models
+    auto FitOnGrid = [&](int stepsXY,int stepsZ,tREAL8 & aMaxResPx) -> cRPCSens *
     {
-        auto [aPIm,aPGr] = ToImGrSample(aPair);
-        aVIm.push_back(aPIm);
-        aVGr.push_back(aPGr);
-    }
+        cSet2D3D aSet = SyntheticsCorresp3D2D(stepsXY,stepsZ,aZIntv->x(),aZIntv->y(),false,0.0);
 
-    // Pre-normalization box (InitFromSamples normalizes aVIm/aVGr in place next).
-    cBox3dr aBoxIn = cTplBoxOfPts<tREAL8,3>::FromVect(aVIm).CurBox();
-    cBox3dr aBoxOut = cTplBoxOfPts<tREAL8,3>::FromVect(aVGr).CurBox();
+        std::vector<cPt3dr> aVIm;
+        std::vector<cPt3dr> aVGr;
 
-    auto aGroundScale = aBoxOut.Sz() / 2.0;
-    auto aImScale =  aBoxIn.Sz() / 2.0;
-    auto aGrSigmaScale = aGroundScale.x() / aImScale.x();
+        for (const auto & aPair : aSet.Pairs())
+        {
+            auto [aPIm,aPGr] = ToImGrSample(aPair);
+            aVIm.push_back(aPIm);
+            aVGr.push_back(aPGr);
+        }
 
-    cRPCSens * aRPCSens = new cRPCSens(aNameIm ? *aNameIm : NameImage());
-    aRPCSens->InitFromSamples(aVIm, aVGr);
+        // Pre-normalization box (InitFromSamples normalizes aVIm/aVGr in place next).
+        cBox3dr aBoxIn = cTplBoxOfPts<tREAL8,3>::FromVect(aVIm).CurBox();
+        cBox3dr aBoxOut = cTplBoxOfPts<tREAL8,3>::FromVect(aVGr).CurBox();
 
-    // Direct-model residual, checked against ground truth (not a self-comparison).
-    // Track the max too: an RMS over many points can hide a single bad outlier.
-    aSet = SyntheticsCorresp3D2D(stepsXY-3,stepsZ-1,aZIntv->x(),aZIntv->y(),false,0.0);
-    double dirRes = 0.0;
-    double dirResMax = 0.0;
-    for (const auto& aPair : aSet.Pairs())
-    {
-        auto [aPIm,aPGr] = ToImGrSample(aPair);
-        tREAL8 aSqRes = SqN2(aRPCSens->ImageZToGround(cPt2dr(aPIm.x(),aPIm.y()), aPGr.z()) - aPGr);
-        dirRes += aSqRes;
-        UpdateMax(dirResMax,aSqRes);
-    }
-    dirRes /= aSet.Pairs().size();
+        auto aGroundScale = aBoxOut.Sz() / 2.0;
+        auto aImScale =  aBoxIn.Sz() / 2.0;
+        auto aGrSigmaScale = aGroundScale.x() / aImScale.x();
 
-    // Inverse-model residual: round-trip through aRPCSens's own direct model.
-    aSet = aRPCSens->SyntheticsCorresp3D2D(stepsXY-3,stepsZ-1,aZIntv->x(),aZIntv->y(),false,0.0);
-    double invRes = 0.0;
-    double invResMax = 0.0;
-    for (const auto& aPair : aSet.Pairs())
+        cRPCSens * aRPCSens = new cRPCSens(aNameIm ? *aNameIm : NameImage());
+        aRPCSens->InitFromSamples(aVIm, aVGr);
+
+        // Direct-model residual, checked against ground truth (not a self-comparison).
+        // Track the max too: an RMS over many points can hide a single bad outlier.
+        aSet = SyntheticsCorresp3D2D(stepsXY-3,stepsZ-1,aZIntv->x(),aZIntv->y(),false,0.0);
+        double dirRes = 0.0;
+        double dirResMax = 0.0;
+        for (const auto& aPair : aSet.Pairs())
+        {
+            auto [aPIm,aPGr] = ToImGrSample(aPair);
+            tREAL8 aSqRes = SqN2(aRPCSens->ImageZToGround(cPt2dr(aPIm.x(),aPIm.y()), aPGr.z()) - aPGr);
+            dirRes += aSqRes;
+            UpdateMax(dirResMax,aSqRes);
+        }
+        dirRes /= aSet.Pairs().size();
+
+        // Inverse-model residual: round-trip through aRPCSens's own direct model.
+        aSet = aRPCSens->SyntheticsCorresp3D2D(stepsXY-3,stepsZ-1,aZIntv->x(),aZIntv->y(),false,0.0);
+        double invRes = 0.0;
+        double invResMax = 0.0;
+        for (const auto& aPair : aSet.Pairs())
+        {
+            tREAL8 aSqRes = SqN2(aRPCSens->Ground2Image(aPair.mP3) - aPair.mP2);
+            invRes += aSqRes;
+            UpdateMax(invResMax,aSqRes);
+        }
+        invRes /= aSet.Pairs().size();
+        auto dirSigma = sqrt(dirRes);
+        auto invSigma = sqrt(invRes);
+        auto dirMaxPx = sqrt(dirResMax) / aGrSigmaScale;
+        auto invMaxPx = sqrt(invResMax);
+        StdOut() << "RPC Direct  sigma : " << Color::info << dirSigma / aGrSigmaScale << Color::end << " (~px) (" << dirSigma << " sysco), max : " << dirMaxPx << " (~px)" << std::endl;
+        StdOut() << "RPC Inverse sigma : " << Color::info << invSigma << Color::end << " (px), max : " << invMaxPx << " (px)" << std::endl;
+        aMaxResPx = std::max(dirMaxPx,invMaxPx);
+        return aRPCSens;
+    };
+
+    // Try the grids in turn until the max residual is acceptable (one point off by a pixel is a real problem even if the RMS looks fine)
+    tREAL8 aMaxRes = 0;
+    for (size_t aKG=0 ; aKG<TheRPCFitGrids.size() ; aKG++)
     {
-        tREAL8 aSqRes = SqN2(aRPCSens->Ground2Image(aPair.mP3) - aPair.mP2);
-        invRes += aSqRes;
-        UpdateMax(invResMax,aSqRes);
+        const auto [aStepsXY,aStepsZ] = TheRPCFitGrids.at(aKG);
+        cRPCSens * aRPCSens = FitOnGrid(aStepsXY,aStepsZ,aMaxRes);
+        TheRPCFitLastMaxRes = aMaxRes;
+        if (aMaxRes <= TheRPCFitMaxResPx)
+            return aRPCSens;
+        delete aRPCSens;
+        TheRPCFitNbRetry++;   // a retry is a fallback, not a problem : only the failure of every grid is reported
     }
-    invRes /= aSet.Pairs().size();
-    auto dirSigma = sqrt(dirRes);
-    auto invSigma = sqrt(invRes);
-    auto dirMaxPx = sqrt(dirResMax) / aGrSigmaScale;
-    auto invMaxPx = sqrt(invResMax);
-    StdOut() << "RPC Direct  sigma : " << Color::info << dirSigma / aGrSigmaScale << Color::end << " (~px) (" << dirSigma << " sysco), max : " << dirMaxPx << " (~px)" << std::endl;
-    StdOut() << "RPC Inverse sigma : " << Color::info << invSigma << Color::end << " (px), max : " << invMaxPx << " (px)" << std::endl;
-    if (dirSigma > aGrSigmaScale * 0.1)
-    {
-        MMVII_USER_WARNING("High residual for RPC inverse model (" +std::to_string(dirSigma) + " > " + std::to_string(aGrSigmaScale * 0.1) + ")");
-    }
-    if (invSigma > 0.1)
-     {
-        MMVII_USER_WARNING("High residual for RPC inverse model (" +std::to_string(invSigma) + " > 0.1)");
-     }
-    // One point off by a full pixel is a real problem even if the RMS looks fine.
-    if (dirMaxPx > 1.0)
-    {
-        MMVII_USER_WARNING("RPC direct model has an outlier point with residual " + std::to_string(dirMaxPx) + "px");
-    }
-    if (invMaxPx > 1.0)
-    {
-        MMVII_USER_WARNING("RPC inverse model has an outlier point with residual " + std::to_string(invMaxPx) + "px");
-    }
-    return aRPCSens;
+    MMVII_UserError(eTyUEr::eUnClassedError,"The RPC fit failed on all " + std::to_string(TheRPCFitGrids.size()) + " grids (last max residual " + std::to_string(aMaxRes)
+                    + " px > " + std::to_string(TheRPCFitMaxResPx) + " px)");
+    return nullptr;
 }
 
 
+
+
+     // ======================  Text format "KEY: value unit" ===========================
+
+typedef std::map<std::string,double> tMapTxtRPC;
+
+// Split "KEY: value unit" ; false if the line has no ':' or no numeric value after it
+static bool SplitTxtRPCLine(const std::string & aLine,std::string & aKey,double & aVal)
+{
+    size_t aPosSep = aLine.find(':');
+    if (aPosSep==std::string::npos)
+       return false;
+    size_t aBeg = aLine.find_first_not_of(" \t");
+    size_t aEnd = aLine.find_last_not_of(" \t",aPosSep-1);
+    if ((aEnd==std::string::npos) || (aBeg>aEnd))
+       return false;
+    aKey = aLine.substr(aBeg,aEnd-aBeg+1);
+
+    const char * aStr = aLine.c_str() + aPosSep + 1;
+    char * aEndNum = nullptr;
+    aVal = strtod(aStr,&aEndNum);
+    return aEndNum != aStr;
+}
+
+bool IsRPCTxt(const std::string & aNameFile)
+{
+    if (! ExistFile(aNameFile))
+       return false;
+    cMMVII_Ifs anIfs(aNameFile,eFileModeIn::Text);
+    std::string aLine,aKey;
+    double aVal;
+    for (int aK=0 ; (aK<1000) && std::getline(anIfs.Ifs(),aLine) ; aK++)
+    {
+        if (SplitTxtRPCLine(aLine,aKey,aVal) && (aKey=="LINE_OFF"))
+           return true;
+    }
+    return false;
+}
+
+static tMapTxtRPC ReadRPCTxt(const std::string & aNameFile)
+{
+    tMapTxtRPC aRes;
+    cMMVII_Ifs anIfs(aNameFile,eFileModeIn::Text);
+    std::string aLine,aKey;
+    double aVal;
+    while (std::getline(anIfs.Ifs(),aLine))
+    {
+        if (SplitTxtRPCLine(aLine,aKey,aVal))
+        {
+           if (aRes.find(aKey) != aRes.end())
+              MMVII_UserError(eTyUEr::eUnClassedError,"RPC text file " + aNameFile + ": duplicated key " + aKey);
+           aRes[aKey] = aVal;
+        }
+    }
+    return aRes;
+}
+
+void cRPCSens::InitFromTxt(const std::string & aNameTxt,const cPt2di & aSzIm)
+{
+    mNameRPC = aNameTxt;
+    const tMapTxtRPC aMap = ReadRPCTxt(aNameTxt);
+
+    // Value of the first of the alias keys that exists
+    auto aFind = [&](const std::vector<std::string> & aKeys) -> const double *
+    {
+        for (const auto & aKey : aKeys)
+        {
+            auto anIt = aMap.find(aKey);
+            if (anIt != aMap.end())
+               return &anIt->second;
+        }
+        return nullptr;
+    };
+    auto aGet = [&](const std::vector<std::string> & aKeys) -> double
+    {
+        const double * aV = aFind(aKeys);
+        if (aV==nullptr)
+           MMVII_UserError(eTyUEr::eUnClassedError,"RPC text file " + aNameTxt + ": missing key " + aKeys.at(0));
+        return aV ? *aV : 0.0;
+    };
+
+    // Same internal convention as Dimap_ReadXMLNorms : (lat,lon,h) and (line,sample)
+    mGroundOffset = cPt3dr(aGet({"LAT_OFF"}),aGet({"LONG_OFF","LON_OFF"}),aGet({"HEIGHT_OFF"}));
+    mGroundScale  = cPt3dr(aGet({"LAT_SCALE"}),aGet({"LONG_SCALE","LON_SCALE"}),aGet({"HEIGHT_SCALE"}));
+    mImOffset = cPt2dr(aGet({"LINE_OFF"}),aGet({"SAMP_OFF"}));
+    mImScale  = cPt2dr(aGet({"LINE_SCALE"}),aGet({"SAMP_SCALE"}));
+    m3DImOffset = TP3z(mImOffset,mGroundOffset.z());
+    m3DImScale  = TP3z(mImScale,mGroundScale.z());
+    mPixelDomain = cPixelDomain(aSzIm);
+
+    // Coefficients of one polynomial found under one of the prefixes (0 if absent)
+    auto aReadPoly = [&](cRPC_Polyn & aPol,const std::vector<std::string> & aPrefs,const std::string & aNumDen) -> int
+    {
+        int aNbFound = 0;
+        for (int aK=0 ; aK<TheNbRPCoeff ; aK++)
+        {
+            std::vector<std::string> aKeys;
+            for (const auto & aPref : aPrefs)
+                aKeys.push_back(aPref + aNumDen + std::to_string(aK+1));
+            if (const double * aV = aFind(aKeys))
+            {
+               aPol.Coeffs()[aK] = *aV;
+               aNbFound++;
+            }
+        }
+        return aNbFound;
+    };
+    // A model is entirely present (80 coefficients) or entirely absent
+    auto aReadModel = [&](const std::vector<std::string> & aPrefX,const std::vector<std::string> & aPrefY) -> cRatioPolynXY *
+    {
+        auto * aModel = new cRatioPolynXY();
+        int aNbFound = aReadPoly(aModel->X().NumPoly(),aPrefX,"_NUM_COEFF_") + aReadPoly(aModel->X().DenPoly(),aPrefX,"_DEN_COEFF_")
+                     + aReadPoly(aModel->Y().NumPoly(),aPrefY,"_NUM_COEFF_") + aReadPoly(aModel->Y().DenPoly(),aPrefY,"_DEN_COEFF_");
+        if (aNbFound == 0)
+        {
+           delete aModel;
+           return nullptr;
+        }
+        if (aNbFound != 4*TheNbRPCoeff)
+           MMVII_UserError(eTyUEr::eUnClassedError,"RPC text file " + aNameTxt + ": incomplete model (" + std::to_string(aNbFound) + " coefficients out of 80) for " + aPrefX.at(0));
+        return aModel;
+    };
+    mInverseRPC = aReadModel({"LINE"},{"SAMP"});
+    mDirectRPC  = aReadModel({"LAT"},{"LONG","LON"});
+
+    if ((mInverseRPC==nullptr) && (mDirectRPC==nullptr))
+       MMVII_UserError(eTyUEr::eUnClassedError,"RPC text file " + aNameTxt + ": neither the LINE/SAMP nor the LAT/LONG coefficients");
+    if ((mInverseRPC==nullptr) || (mDirectRPC==nullptr))
+       FitMissingModel();
+
+    // Ground box : given by the file, else footprint of the image (all Z of the validity interval)
+    const double * aFLat = aFind({"FIRST_LAT"});
+    const double * aFLon = aFind({"FIRST_LON"});
+    const double * aLLat = aFind({"LAST_LAT"});
+    const double * aLLon = aFind({"LAST_LON"});
+    const double aZ0 = mGroundOffset.z() - mGroundScale.z();
+    const double aZ1 = mGroundOffset.z() + mGroundScale.z();
+    std::vector<cPt3dr> aVPts;
+    if (aFLat && aFLon && aLLat && aLLon)
+    {
+        aVPts.push_back(cPt3dr(*aFLat,*aFLon,aZ0));
+        aVPts.push_back(cPt3dr(*aLLat,*aLLon,aZ1));
+    }
+    else
+    {
+        const int aNb = 10;
+        for (int aKx=0 ; aKx<=aNb ; aKx++)
+        {
+            for (int aKy=0 ; aKy<=aNb ; aKy++)
+            {
+                cPt2dr aPixN = NormIm(IO_PtIm(cPt2dr(aSzIm.x()*aKx/double(aNb),aSzIm.y()*aKy/double(aNb))),true);
+                for (double aZN : {-1.0,1.0})
+                {
+                    cPt2dr aGrN = mDirectRPC->Val(TP3z(aPixN,aZN));
+                    aVPts.push_back(NormGround(TP3z(aGrN,aZN),false));
+                }
+            }
+        }
+    }
+    cBox3dr aBoxLatLon = cTplBoxOfPts<tREAL8,3>::FromVect(aVPts).CurBox();
+    mBoxGround = cBox3dr(IO_PtGr(aBoxLatLon.P0()),IO_PtGr(aBoxLatLon.P1()));
+
+    FinalizeInit();
+}
+
+void cRPCSens::FitMissingModel()
+{
+    const bool FitDirect = (mDirectRPC==nullptr);
+    cRatioPolynXY * & aToFit = FitDirect ? mDirectRPC : mInverseRPC;
+    const cRatioPolynXY * aKnown = FitDirect ? mInverseRPC : mDirectRPC;
+
+    // Pixel domain in normalized (line,sample)
+    cPt2dr aCorn0 = NormIm(IO_PtIm(cPt2dr(0,0)),true);
+    cPt2dr aCorn1 = NormIm(IO_PtIm(ToR(mPixelDomain.Sz())),true);
+    const cPt2dr aLo(std::min(aCorn0.x(),aCorn1.x()),std::min(aCorn0.y(),aCorn1.y()));
+    const cPt2dr aHi(std::max(aCorn0.x(),aCorn1.x()),std::max(aCorn0.y(),aCorn1.y()));
+
+    // Normalized points (line,sample,z) of a regular grid of the pixel domain, z over the validity interval
+    auto aImGrid = [&](int aNbXY,int aNbZ)
+    {
+        std::vector<cPt3dr> aRes;
+        for (int aKx=0 ; aKx<=aNbXY ; aKx++)
+            for (int aKy=0 ; aKy<=aNbXY ; aKy++)
+                for (int aKz=0 ; aKz<aNbZ ; aKz++)
+                    aRes.push_back(cPt3dr(aLo.x()+(aHi.x()-aLo.x())*aKx/aNbXY,aLo.y()+(aHi.y()-aLo.y())*aKy/aNbXY,-1.0+2.0*aKz/(aNbZ-1)));
+        return aRes;
+    };
+
+    tREAL8 aMaxRes = 0.0;
+    for (const auto & [aStepsXY,aStepsZ] : TheRPCFitGrids)
+    {
+        std::vector<cPt3dr> aVIm;   // normalized (line,sample,z)
+        std::vector<cPt3dr> aVGr;   // normalized (lat,lon,z)
+        if (FitDirect)
+        {
+            // Sample the ground cube of the known inverse model, keep what falls in the image
+            for (int aKx=0 ; aKx<=aStepsXY ; aKx++)
+                for (int aKy=0 ; aKy<=aStepsXY ; aKy++)
+                    for (int aKz=0 ; aKz<aStepsZ ; aKz++)
+                    {
+                        cPt3dr aGr(-1.0+2.0*aKx/aStepsXY,-1.0+2.0*aKy/aStepsXY,-1.0+2.0*aKz/(aStepsZ-1));
+                        cPt2dr aIm = aKnown->Val(aGr);
+                        if ((aIm.x()>=aLo.x()) && (aIm.x()<=aHi.x()) && (aIm.y()>=aLo.y()) && (aIm.y()<=aHi.y()))
+                        {
+                            aVIm.push_back(TP3z(aIm,aGr.z()));
+                            aVGr.push_back(aGr);
+                        }
+                    }
+            if (aVIm.size() < 100)
+               MMVII_UserError(eTyUEr::eUnClassedError,"RPC text file " + mNameRPC + ": the footprint of the image covers too little of the validity domain of the RPC to fit the direct model");
+        }
+        else
+        {
+            aVIm = aImGrid(aStepsXY,aStepsZ);
+            for (const auto & aIm : aVIm)
+                aVGr.push_back(TP3z(aKnown->Val(aIm),aIm.z()));
+        }
+
+        delete aToFit;
+        aToFit = new cRatioPolynXY();
+        if (FitDirect)
+           aToFit->InitFromSamples(aVIm,aVGr);
+        else
+           aToFit->InitFromSamples(aVGr,aVIm);
+
+        // Round trip image -> ground -> image over another grid, in pixels
+        aMaxRes = 0.0;
+        for (const auto & aIm : aImGrid(aStepsXY-3,aStepsZ-1))
+        {
+            cPt2dr aGr = mDirectRPC->Val(aIm);
+            cPt2dr aBack = mInverseRPC->Val(TP3z(aGr,aIm.z()));
+            UpdateMax(aMaxRes,Norm2(MulCByC(aBack - Proj(aIm),mImScale)));
+        }
+        if (aMaxRes <= TheRPCFitMaxResPx)
+           return;
+    }
+    MMVII_UserError(eTyUEr::eUnClassedError,"RPC text file " + mNameRPC + ": the fit of the missing model failed on all grids (last max round trip residual "
+                    + std::to_string(aMaxRes) + " px > " + std::to_string(TheRPCFitMaxResPx) + " px)");
+}
+
+void RPCTxt2Dimap(const std::string & aNameTxt,const std::string & aNameXml,const cPt2di & aSzIm,const std::string & aNameImage)
+{
+    cRPCSens aRPC(aNameImage);
+    aRPC.InitFromTxt(aNameTxt,aSzIm);
+    aRPC.ToFile(aNameXml);
+}
+
+
+     // ======================  Bench of the text format ===========================
+
+// Write the RPC text file of a DIMAP xml : its normalisation and the inverse model, or the direct one (tags LAT/LONG),
+// the ground box only if aWithBox (the image size is never written)
+static void BenchWriteRPCTxt(const std::string & aNameXml,const std::string & aNameTxt,bool aInverse,bool aWithBox)
+{
+    cMMVII_Ifs anIn(aNameXml,eFileModeIn::Text);
+    cMMVII_Ofs anOut(aNameTxt,eFileModeOut::CreateText);
+    std::string aLine;
+    std::string aBlock;
+    while (std::getline(anIn.Ifs(),aLine))
+    {
+        aLine = aLine.substr(std::min(aLine.find_first_not_of(" \t"),aLine.size()));
+        if (aLine=="<Direct_Model>")  aBlock = "D";
+        if (aLine=="<Inverse_Model>") aBlock = "I";
+        if (aLine=="<RFM_Validity>")  aBlock = "V";
+        if ((aLine=="</Direct_Model>") || (aLine=="</Inverse_Model>") || (aLine=="</RFM_Validity>"))  aBlock = "";
+
+        size_t aEndTag = aLine.find('>');
+        size_t aBegClose = aLine.rfind("</");
+        if ((aLine[0]!='<') || (aBegClose==std::string::npos) || (aBegClose<=aEndTag+1) || aBlock.empty())
+           continue;
+        std::string aTag = aLine.substr(1,aEndTag-1);
+        std::string aVal = aLine.substr(aEndTag+1,aBegClose-aEndTag-1);
+
+        if (aBlock=="V")
+        {
+            bool IsSize = (aTag=="FIRST_ROW") || (aTag=="FIRST_COL") || (aTag=="LAST_ROW") || (aTag=="LAST_COL");
+            bool IsBox = (aTag.find("FIRST_")==0) || (aTag.find("LAST_")==0);
+            if (IsSize || (IsBox && !aWithBox))
+               continue;
+        }
+        else
+        {
+            if ((aBlock=="I") != aInverse)
+               continue;
+            if (!aInverse)   // direct model : image -> (lat,lon)
+            {
+                if (aTag.find("LINE_")==0)  aTag = "LAT_" + aTag.substr(5);
+                if (aTag.find("SAMP_")==0)  aTag = "LONG_" + aTag.substr(5);
+            }
+        }
+        anOut.Ofs() << aTag << ": " << aVal << "\n";
+    }
+}
+
+void BenchRPCTxt(cParamExeBench & aParam)
+{
+    if (! aParam.NewBench("RPCTxt")) return;
+
+    const std::string aInDir = cMMVII_Appli::CurrentAppli().InputDirTestMMVII() + "/Epipolar/";
+    const std::string aTmpDir = cMMVII_Appli::CurrentAppli().TmpDirTestMMVII();
+    const std::string aNameXml = aInDir + "RPC-Sensor1.xml";
+    auto aRef = std::unique_ptr<cSensorImage>(ReadExternalSensor(aNameXml,"Sensor1",false));
+    const cPt2di aSz = aRef->PixelDomain().Sz();
+    const cPt2dr aZIntv = aRef->GetIntervalZ();
+
+    // Inverse model only (direct fitted, box deduced) and direct model only (inverse fitted, box given)
+    for (const bool GivenInverse : {true,false})
+    {
+        const std::string aNameTxt = aTmpDir + "BenchRPC_" + (GivenInverse ? "Inv" : "Dir") + ".txt";
+        const std::string aNameOut = aTmpDir + "BenchRPC_" + (GivenInverse ? "Inv" : "Dir") + ".xml";
+        BenchWriteRPCTxt(aNameXml,aNameTxt,GivenInverse,!GivenInverse);
+        MMVII_INTERNAL_ASSERT_bench(IsRPCTxt(aNameTxt) && !IsRPCTxt(aNameXml),"RPCTxt : recognition of the format");
+
+        RPCTxt2Dimap(aNameTxt,aNameOut,aSz,"Sensor1");
+        auto aNew = std::unique_ptr<cSensorImage>(ReadExternalSensor(aNameOut,"Sensor1",false));
+        MMVII_INTERNAL_ASSERT_bench(aNew->PixelDomain().Sz()==aSz,"RPCTxt : image size");
+
+        tREAL8 aMaxGiven = 0.0;    // model given in the text file (px for the inverse, degrees for the direct)
+        tREAL8 aMaxFitted = 0.0;   // px, model fitted
+        for (int aKx=0 ; aKx<=8 ; aKx++)
+        {
+            for (int aKy=0 ; aKy<=8 ; aKy++)
+            {
+                for (const tREAL8 aFracZ : {0.1,0.5,0.9})
+                {
+                    cPt2dr aPIm = MulCByC(ToR(aSz),cPt2dr(0.05+0.9*aKx/8.0,0.05+0.9*aKy/8.0));
+                    tREAL8 aZ = aZIntv.x() + (aZIntv.y()-aZIntv.x()) * aFracZ;
+                    cPt3dr aGrRef = aRef->ImageAndZ2Ground(TP3z(aPIm,aZ));
+                    cPt3dr aGrNew = aNew->ImageAndZ2Ground(TP3z(aPIm,aZ));
+                    // Inverse model : same ground point in both sensors ; direct model : same pixel, difference of the ground point (deg) and of its projection (px)
+                    tREAL8 aErrInv = Norm2(aNew->Ground2Image(aGrRef) - aRef->Ground2Image(aGrRef));
+                    tREAL8 aErrDirGr = Norm2(aGrNew - aGrRef);
+                    tREAL8 aErrDirPx = Norm2(aRef->Ground2Image(aGrNew) - aRef->Ground2Image(aGrRef));
+                    UpdateMax(aMaxGiven,GivenInverse ? aErrInv : aErrDirGr);
+                    UpdateMax(aMaxFitted,GivenInverse ? aErrDirPx : aErrInv);
+                    MMVII_INTERNAL_ASSERT_bench(aNew->DegreeVisibility(aGrRef)>0,"RPCTxt : ground box");
+                }
+            }
+        }
+        MMVII_INTERNAL_ASSERT_bench(aMaxGiven<1e-9,"RPCTxt : the given model must be unchanged");
+        MMVII_INTERNAL_ASSERT_bench(aMaxFitted<0.1,"RPCTxt : the fitted model must be consistent with the given one");
+    }
+    aParam.EndBench();
+}
 
 class cApp_OriCreateRPC : public cMMVII_Appli
 {

@@ -340,7 +340,7 @@ void cAppliCloudProjectOnGround::MakeFastBasc()
 
     ProcessNoPix(aZBuf);
     
-    cAutoTimerSegm aTSBufferPixellizer(TimeSegm(),"rasterization-pixellization"); 
+    cAutoTimerSegm aTSBufferPixellizer(TimeSegm(),"ZBuffer::Pixellization"); 
     MakeBasculeTris(aZBuf);
 
     delete mTri2DDepth;

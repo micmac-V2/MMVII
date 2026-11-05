@@ -219,6 +219,9 @@ void AddData(const  cAuxAr2007 & anAux, cSaveExtrEllipe & aCTE)
      AddData(cAuxAr2007("White",anAux)    , aCTE.mWhite);
 }
 
+const std::string cSaveExtrEllipe::PrefixAttr = "Attribute";
+const std::string cSaveExtrEllipe::PrefixGroundTruth = "GroundTruth";
+
 std::string cSaveExtrEllipe::NameFile(const cPhotogrammetricProject & aPhp,const cSetMesPtOf1Im &  aSetM,bool Input)
 {
     return  (Input ? aPhp.DPGndPt2D().FullDirIn() :   aPhp.DPGndPt2D().FullDirOut() )
@@ -226,6 +229,7 @@ std::string cSaveExtrEllipe::NameFile(const cPhotogrammetricProject & aPhp,const
             +  aSetM.StdNameFile()
     ;
 }
+
 
 /* ********************************************* */
 /*                                               */
@@ -807,7 +811,7 @@ class cAppliExtractCircTarget : public cMMVII_Appli,
         double                      mNbMaxMT_Init;    ///< Number of Multiple Target OK for 0 image
         double                      mNbMaxMT_PerIm;    ///<  Number of Multiple Target OK per additional image
         double                      mNbMaxMulTargetTot;  ///<  Number of Multiple Target OK per additional image
-        eTargetDistanceEstim        mModeDistance; // for TSL, which target distance estimation mode
+        eTargetDistanceEstim        mModeDistance; // for TLS, which target distance estimation mode
 
         cThresholdCircTarget        mThresh;
 
@@ -874,7 +878,7 @@ cCollecSpecArg2007 & cAppliExtractCircTarget::ArgOpt(cCollecSpecArg2007 & anArgO
              << AOpt2007(mZoomVisuElFinal,"ZoomVisuEllipse","Make a visualisation extracted ellispe & target",{eTA2007::HDV})
              << AOpt2007(mShowOnlyMul,"ShowOnlyMul","Show Only Mutlipe detectection",{eTA2007::HDV})
              << AOpt2007(mPatHihlight,"PatHL","Pattern for highliting targets in visu",{eTA2007::HDV})
-             <<  AOpt2007(mModeDistance,"ModeDist","With TSL, how to estimate target distance",{eTA2007::HDV})
+             <<  AOpt2007(mModeDistance,"ModeDist","With TLS, how to estimate target distance",{eTA2007::HDV})
 
              << AOpt2007(mNbMaxMT_Init,"NbMMT0","Nb max of multiple target acceptable initial (for 0 image)",{eTA2007::HDV})
              << AOpt2007(mNbMaxMT_PerIm,"NbMMT1","Nb max of multiple target acceptable per image",{eTA2007::HDV})
@@ -890,12 +894,12 @@ void cAppliExtractCircTarget::DoExport()
 {
      int aCptUnCoded=0;
      cStaticLidar* aLidar = nullptr;
-     // return to reduced size if TSL
+     // return to reduced size if TLS
      cPt2dr aImFactor(1.,1.);
-     if (cStaticLidar::IsNameTSL(mOriginalNameImage))
+     if (cStaticLidar::IsNameTLS(mOriginalNameImage))
      {
-         auto aTSLOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mOriginalNameImage,true);
-         aLidar = cStaticLidar::FromFile(aTSLOriFile, false);
+         auto aTLSOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mOriginalNameImage,true);
+         aLidar = cStaticLidar::FromFile(aTLSOriFile, false);
          aLidar->ReadRasters(mPhProj.DirStaticLidarRasters()); // to read distances
          auto aDImIn = cDataFileIm2D::Create(mNameIm, eForceGray::No);
          aImFactor =  RDivCByC(aLidar->PixelDomain().Sz(), aDImIn.Sz());
@@ -1363,7 +1367,7 @@ int  cAppliExtractCircTarget::Exe()
    }
    if (mUseSimul)  // If use it, read the ground truth
    {
-       std::string aNameResSim = LastPrefix(APBI_NameIm()) + ThePostfixGTSimulTarget;
+       std::string aNameResSim = NameGTSimulTargetFromIm(APBI_NameIm());// LastPrefix(APBI_NameIm()) + ThePostfixGTSimulTarget;
        mGT_Simul = cResSimul::FromFile(aNameResSim);
    }
 
@@ -1388,10 +1392,10 @@ int  cAppliExtractCircTarget::Exe()
    }
 
 
-   // if TSL name, use intensity raster
+   // if TLS name, use intensity raster
    //std::string aOriginalNameIm = mNameIm;
    mOriginalNameImage = mNameIm;
-   if (cStaticLidar::IsNameTSL(mNameIm))
+   if (cStaticLidar::IsNameTLS(mNameIm))
        mNameIm = cStaticLidar::RasterIntensityPath(mPhProj.DirStaticLidarRasters()+cStaticLidar::NameFromId(mNameIm, false));
 
    APBI_ExecAll();  // run the parse file  SIMPL

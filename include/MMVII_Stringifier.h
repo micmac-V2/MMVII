@@ -3,6 +3,7 @@
 
 #include "MMVII_memory.h"
 #include "MMVII_Ptxd.h"
+#include "MMVII_AllClassDeclare.h"
 #include <sstream>
 #include <functional>
 
@@ -59,6 +60,8 @@ bool IsStrInt(const std::string & aStr);
 
 std::string FixDigToStr(double aSignedVal,int aNbDig); // Nb Dig after .
 std::string FixDigToStr(double aSignedVal,int aNbDigBefore,int aNbDigAfter); // Nb Dig before and  after .
+/// Work better ... ;-(((
+std::string ClaudeToFixDigit(double aVal, int aNb);
 
 /// Make a printinf "adapted" to residual, very quick & dirty 4 now, but at least isolate the process
 std::string ResidualToStr(tREAL8 aRes);
@@ -82,6 +85,11 @@ template <>  std::string cStrIO<std::string>::ToStr(const std::string & anI);
 template <>  std::string cStrIO<std::string>::FromStr(const std::string & aStr, bool ExceptionOnError);
 template <>  std::string cStrIO<char>::ToStr(const char & anI);
 template <>  char cStrIO<char>::FromStr(const std::string & aStr, bool ExceptionOnError);
+
+template <>  t2S cStrIO<t2S>::FromStr(const std::string & aStr, bool ExceptionOnError);
+template <>  std::map<std::string,std::string> cStrIO<std::map<std::string,std::string>>::FromStr(const std::string & aStr, bool ExceptionOnError);
+
+
 
 // is it a valid string-int, may be templatized , but not sure very curent use ..
 bool  StringIsIntOk(const std::string & aStr);
@@ -110,7 +118,11 @@ template <class Type>  std::string Vect2Str(const std::vector<Type>  & aV)
 {
     std::string aRes = "[";
     char aSep='\0';
-    for (const auto& aVal: aV) {
+    // Not "const auto&": for std::vector<bool>, libc++ yields a proxy reference
+    // (__bit_const_reference) rather than bool, so ToStr would be instantiated on
+    // the proxy, for which no cStrIO exists -- a link error on macOS. Naming Type
+    // keeps the element type on every standard library.
+    for (const Type & aVal: aV) {
         if (aSep != '\0')
             aRes += aSep;
         aRes += ToStr(aVal);
@@ -305,6 +317,10 @@ class  cSpecOneArg2007 : public cMemCheck
         void SetHeadSep(const cHeaderSectionArg &); ///< Fix the heade (check done once)
         bool HasHeadSep() const; ///< Is  there a separator
         const cHeaderSectionArg&  GetHeadSep() const; ///< Accessor to separato (check was set)
+
+        /// +- to value, but value do not work with vector create by CanRepeat
+        virtual std::string NameVal() const  =0;
+
      private :
         ///  This action defined in heriting-template class initialize "real" the value from its string value
          virtual void V_InitParam(const std::string & aStr, bool aFirstInit) = 0;
@@ -338,8 +354,12 @@ class cCollecSpecArg2007
       cCollecSpecArg2007 & operator << (tPtrArg2007 aVal);
       // cCollecSpecArg2007 & operator << (const std::string & aComment);
       cCollecSpecArg2007 & operator << (const cHeaderSectionArg& aComment);
+
+      cCollecSpecArg2007 & operator << (cCollecSpecArg2007&);
       /// Check that no waiting header remains
       void CheckNoWaitingHeadSA() const;
+       const      tVecArg2007 & Vec() const;
+
    private :
       tVecArg2007 & Vec();
       cCollecSpecArg2007(const cCollecSpecArg2007&) = delete;

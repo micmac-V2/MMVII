@@ -76,6 +76,7 @@ int cSpecMMVII_Appli::AllocExecuteDestruct(const std::vector<std::string> & aVAr
            OpenRandom();
         }
 
+
         if (anAppli->ModeHelp() || anAppli->ModeArgsSpec())
            aRes = EXIT_SUCCESS;
         else
@@ -234,6 +235,8 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_OriRel2Im);
         TheVecAll.push_back(&TheSpec_OriRelPairsOf1m);
         TheVecAll.push_back(&TheSpec_OriRelAllPairs);
+        TheVecAll.push_back(&TheSpec_OriEstimFocale);
+
         TheVecAll.push_back(&TheSpec_SelectPairOriRel);
         TheVecAll.push_back(&TheSpec_OriRel3Im);
         TheVecAll.push_back(&TheSpec_OriRelTripletsOf1m);
@@ -254,8 +257,8 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_ImportOBS);
         TheVecAll.push_back(&TheSpec_ImportORGI);
         TheVecAll.push_back(&TheSpec_ImportAiconCamera);
-        TheVecAll.push_back(&TheSpec_ImportTSL);
-        TheVecAll.push_back(&TheSpec_InitTSL);
+        TheVecAll.push_back(&TheSpec_ImportTLS);
+        TheVecAll.push_back(&TheSpec_InitTLS);
         TheVecAll.push_back(&TheSpec_ImportTxtCloud);
         TheVecAll.push_back(&TheSpec_MMVII_CloudClip);
         TheVecAll.push_back(&TheSpec_MMVII_Cloud2Ply);
@@ -313,8 +316,11 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
         TheVecAll.push_back(&TheSpec_TutoSerial);
         TheVecAll.push_back(&TheSpec_TutoFormalDeriv);
         TheVecAll.push_back(&TheSpec_ExportUndistMesIm);
+        TheVecAll.push_back(&TheSpec_ExportSimulMeasures);
         TheVecAll.push_back(&TheSpecAppliExtractLine);
         TheVecAll.push_back(&TheSpecAppliBubbles);
+        // TheVecAll.push_back(&TheSpecAppliIA);
+
         TheVecAll.push_back(&TheSpecAppliFranges_0);
         TheVecAll.push_back(&TheSpecAppliFranges_1);
 
@@ -335,7 +341,6 @@ std::vector<cSpecMMVII_Appli *> & cSpecMMVII_Appli::InternVecAll()
 
         TheVecAll.push_back(&TheSpec_EpipRectification);
         TheVecAll.push_back(&TheSpec_EpipResampling);
-        TheVecAll.push_back(&TheSpec_EpipTest);
         TheVecAll.push_back(&TheSpec_OriCreateRPC);
 
         TheVecAll.push_back(&TheSpecAppliBenchAPBI);

@@ -415,7 +415,8 @@ std::vector<cOneHelpSampleCmp>  cAppliImportInitialExternSensor::Samples() const
 {
    return {
               {"MMVII ImportPushbroom AllIm.xml '[SPOT_(.*).tif,RPC_$1.xml]' SPOT_Init"},
-              {"MMVII ImportPushbroom AllIm.xml '[SPOT_(.*).tif,RPC_$1.xml]' SPOT_Init"}
+              {"MMVII ImportPushbroom AllIm.xml '[SPOT_(.*).tif,RPC_$1.xml]' SPOT_Init"},
+              {"MMVII ImportInitExtSens SPOT_.*.tif '[SPOT_(.*).tif,RPC_$1.txt]' SPOT_Init"}
         };
 }
 
@@ -426,8 +427,22 @@ void  cAppliImportInitialExternSensor::ImportOneImage(const std::string & aNameI
     // supress the name of folder that may exist
     std::string aNameSensor = FileOfPath(aFullNameSensor,false);
 
-    //  Make a local copy of the initial sensor (that maybe located anyway and may disapear later)
-    CopyFile(aFullNameSensor,mPhProj.DirImportInitOri()+aNameSensor);
+    if (IsRPCTxt(aFullNameSensor))
+    {
+        // Text RPC : the xml converted in the project replaces the file, the image gives the size of the pixel domain
+        if (! ExistFile(aNameIm))
+           MMVII_UserError(eTyUEr::eOpenFile,"The image " + aNameIm + " is required to import the RPC text file " + aFullNameSensor);
+        const cPt2di aSzIm = cDataFileIm2D::Create(aNameIm,eForceGray::No).Sz();
+        const std::string aNameTxt = aFullNameSensor;
+        aNameSensor = (aNameSensor.find('.')==std::string::npos ? aNameSensor : LastPrefix(aNameSensor)) + ".xml";
+        aFullNameSensor = mPhProj.DirImportInitOri() + aNameSensor;
+        RPCTxt2Dimap(aNameTxt,aFullNameSensor,aSzIm,aNameIm);
+    }
+    else
+    {
+        //  Make a local copy of the initial sensor (that maybe located anyway and may disapear later)
+        CopyFile(aFullNameSensor,mPhProj.DirImportInitOri()+aNameSensor);
+    }
 
     // Make analyse to recognize automatically the kind of file
     //   ######## cAnalyseTSOF  anAnalyse (aNameSensor);

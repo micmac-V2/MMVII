@@ -1,8 +1,62 @@
 #include "MMVII_2Include_Tiling.h"
+#include "MMVII_Manifolds.h"
+
 
 namespace MMVII
 {
 
+/**
+ * @brief The cIndexOfVPt class
+ *
+ *   Class used when we want to have spatial index with of
+ *   int that index on a given vector (avoid duplication)
+ */
+
+#if (0)
+template <class TypeVPts,int Dim> class cIndexOfVPt
+{
+      public :
+         static constexpr int TheDim =         Dim;
+         typedef cPtxd<tREAL8,TheDim>          tPrimGeom;
+         typedef cPtxd<TypeVPts,TheDim>        tStoredPt;
+         typedef const std::vector<tStoredPt>* tArgPG;
+
+          tPrimGeom  GetPrimGeom(const tArgPG & aVPts) const {return ToR(aVPts->at(mIndex));}
+       private :
+             int mIndex;
+};
+
+
+
+template <class Type,const int Dim> class  cSpher3DIndexOfVPts
+{
+   public :
+
+      typedef cPtxd<Type,Dim>         tPt;
+      typedef std::vector<tPt>        tVPt;
+      typedef  cSphereManifold<Dim>   tSphMan;
+      typedef cIndexOfVPt<Type,Dim-1> tIII;
+
+      cSpher3DIndexOfVPts( const tVPt & mVPt,tREAL8 aNbByTiles);
+
+   private :
+       const   tVPt & mVPts;
+};
+
+template class cSpher3DIndexOfVPts<tREAL8,3>;
+template class cSpher3DIndexOfVPts<tREAL4,4>;
+
+template class cIndexOfVPt<tREAL8,3>;
+template class cIndexOfVPt<tREAL4,2>;
+
+
+extern cBox2dr aBox;
+extern std::vector<cPt2df> aVPts;
+void tototot()
+{
+   cTiling<cIndexOfVPt<tREAL4,2>> aTI(aBox,true,100,&aVPts);
+}
+#endif
 
 /* **************************************** */
 /*                                          */

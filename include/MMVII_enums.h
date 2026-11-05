@@ -29,7 +29,7 @@ enum class eTA2007
                 DirProject,    ///< Exact Dir of Proj
                 FileDirProj,   ///< File that define the  Dir Proj
                 FileImage,     ///< File containing an image
-                FileTSL,       ///< File containing a TSL identifiant
+                FileTLS,       ///< File containing a TLS identifiant
                 FileDmp,       ///< File ending by ".dmp"
                 FileCloud,     ///< File containing a cloud file (ply ?)
                 File3DRegion,  ///< File containing a 3D region
@@ -72,6 +72,7 @@ enum class eTA2007
                 Shared,        ///< Parameter  Shared by many (several) command
                 Global,        ///< Parameter  Common to all commands
                 Internal,      ///< Reserved to internall use by MMVII
+                ExternalCall,  ///< Parameter that are use when MMVII calls itself, not tuning, but no usefull for users
                 Tuning,        ///< Used for testing/tuning command but not targeted for user
                 HDV,           ///< Has Default Value, will be printed on help
                 CanRepeat,     ///< Parameter can be repeated several times, and will be stored in a vector
@@ -277,6 +278,7 @@ enum class eTyUEr
               eNoFocaleEqui35,
               eNoNumberPixel,
               eNoCameraName,
+              eNoTiePOrEquiv,
               eMultipleTargetInOneImage,
               eSysCo,
               eConstraintsError,
@@ -625,7 +627,22 @@ enum class eFormatSensor
 };
 
 
+enum class eModeImaDepth
+{
+    eZGround,
+    ePlaneSweep,
+    eSphere,
+    eNbVals
+};
 
+enum class eStepOriRelPipeline
+{
+    eSelectSets,
+    eOriPairs,
+    eOriTriplets,
+    eOriAll,
+    eNbVals
+};
 
 enum class eProjPC
 {
@@ -693,6 +710,7 @@ bool IsCircularTarge(eTyCodeTarget);
 
 
 
+
 /// Type of data base for camera
 enum class eTypeDBCam
            {
@@ -753,6 +771,10 @@ const std::string & E2Str(const eFormatExtern &);
 const std::string & E2Str(const eTypeSerial &);
 const std::string & E2Str(const eTAAr &);
 const std::string & E2Str(const eProjPC &);
+const std::string & E2Str(const eModeImaDepth &);
+const std::string & E2Str(const eStepOriRelPipeline &);
+
+
 const std::string & E2Str(const eSysCo &);
 const std::string & E2Str(const eTopoObsSetType &);
 const std::string & E2Str(const eTopoObsType &);
