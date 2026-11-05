@@ -174,11 +174,19 @@ cEpipModelPC cEpipolarRectificationPC::Compute()
     auto aMap2 = std::make_unique<cEpipMappingPC>(mCam2,aRot,aSzIm,cPt2dr(0,0),aFocal,aZ2);
 
     // refine epip cams so the sampling is only limited to overlapped regions 
-    cBox2dr aBoxEp1 = GlobBoxCam(cBox2dr(ToR(mCam1.Sz()),false),*aMap1,4);
-    cBox2dr aBoxEp2 = GlobBoxCam(cBox2dr(ToR(mCam2.Sz()),false),*aMap2,4);
+    cBox2dr aBoxEp1 = GlobBoxCam(cBox2dr(ToR(mCam1.Sz()),false),*aMap1,20);
+    cBox2dr aBoxEp2 = GlobBoxCam(cBox2dr(ToR(mCam2.Sz()),false),*aMap2,20);
 
+    // Common rows, according to the requested framing
     tREAL8 aYMin = std::max(aBoxEp1.P0().y(),aBoxEp2.P0().y());
     tREAL8 aYMax = std::min(aBoxEp1.P1().y(),aBoxEp2.P1().y());
+    switch (mParams.mEpipFrm)
+    {
+        case eEpipFrm::eUnion : aYMin = std::min(aBoxEp1.P0().y(),aBoxEp2.P0().y()); aYMax = std::max(aBoxEp1.P1().y(),aBoxEp2.P1().y()); break;
+        case eEpipFrm::eImg_1 : aYMin = aBoxEp1.P0().y(); aYMax = aBoxEp1.P1().y(); break;
+        case eEpipFrm::eImg_2 : aYMin = aBoxEp2.P0().y(); aYMax = aBoxEp2.P1().y(); break;
+        default : break;
+    }
 
     int aSzY= round_ni(aYMax-aYMin);
 
@@ -199,48 +207,30 @@ cEpipModelPC cEpipolarRectificationPC::Compute()
                                             aFocal,
                                             aZ2);
 
-    // refine Overlapping using estimated Z intervals
-    cPt2dr aP1Half=ToR(mCam1.Sz())/2.0;
-    cPt3dr aP1ZMin(aP1Half.x(),aP1Half.y(),aZ1.x());
-    cPt3dr aP1ZMax(aP1Half.x(),aP1Half.y(),aZ1.y());
-    
-    cPt3dr aP13drZMin = mCam1.ImageAndZ2Ground(aP1ZMin);
-    cPt3dr aP13drZMax = mCam1.ImageAndZ2Ground(aP1ZMax);
+    // Mean disparity of homologous points (grid of image 1 at Zmin and Zmax), kept when seen by image 2
+    tREAL8 aSumDX = 0;
+    int aNbDX = 0;
+    const cBox2dr aBoxIm2(ToR(mCam2.Sz()),false);
+    for (int aKx=0 ; aKx<5 ; aKx++)
+    {
+        for (int aKy=0 ; aKy<5 ; aKy++)
+        {
+            const cPt2dr aP1 = cPt2dr(mCam1.Sz().x()*(aKx+0.5)/5.0,mCam1.Sz().y()*(aKy+0.5)/5.0);
+            for (tREAL8 aZ : {aZ1.x(),aZ1.y()})
+            {
+                const cPt3dr aPG = mCam1.ImageAndZ2Ground(cPt3dr(aP1.x(),aP1.y(),aZ));
+                const cPt2dr aP2 = mCam2.Ground2Image(aPG);
+                if (aBoxIm2.Inside(aP2))
+                {
+                    aSumDX += aMap2->Value(aP2).x() - aMap1->Value(aP1).x();
+                    aNbDX++;
+                }
+            }
+        }
+    }
+    MMVII_INTERNAL_ASSERT_User(aNbDX>0,eTyUEr::eUnClassedError,"Epipolar rectification: no point of image 1 in the Z interval is seen by image 2");
+    const tREAL8 aDX = aSumDX / aNbDX;
 
-    cPt3dr aP1AVG = (aP13drZMin+aP13drZMax)/2.0;
-
-    //Cam2
-    cPt2dr aP2Half=ToR(mCam2.Sz())/2.0;
-    cPt3dr aP2ZMin(aP2Half.x(),aP2Half.y(),aZ2.x());
-    cPt3dr aP2ZMax(aP2Half.x(),aP2Half.y(),aZ2.y());
-
-    cPt3dr aP23drZMin = mCam2.ImageAndZ2Ground(aP2ZMin);
-    cPt3dr aP23drZMax = mCam2.ImageAndZ2Ground(aP2ZMax);
-    cPt3dr aP2AVG = (aP23drZMin+aP23drZMax)/2.0;
-
-
-    // Average of the two 3D points
-    cPt3dr aP12AVG = (aP1AVG + aP2AVG) / 2.0;
-
-    cPt3dr aP12InEpipCam1 = cIsometry3D<tREAL8>(mCam1.Center(),aRot).Inverse(aP12AVG);
-    // apply calib of epip
-    cPt2dr aP12InEp1InEpipInPix = cPt2dr(aP12InEpipCam1.x(),aP12InEpipCam1.y()) * (aMap1->Focal()/aP12InEpipCam1.z()) 
-                                            + ToR(aMap1->CamPP());
-    cPt3dr aP12InEp1ZAVG = cPt3dr(aP12InEp1InEpipInPix.x(),aP12InEp1InEpipInPix.y(),aP12InEpipCam1.z());
-    //cPt3dr aP12InEp1ZAVG = aCamEpip1->Ground2ImageAndDepth(aP12AVG);
-
-    cPt3dr aP12InEpipCam2 = cIsometry3D<tREAL8>(mCam2.Center(),aRot).Inverse(aP12AVG);
-    // apply calib of epip
-    cPt2dr aP12InEp2InEpipInPix = cPt2dr(aP12InEpipCam2.x(),aP12InEpipCam2.y()) * (aMap2->Focal()/aP12InEpipCam2.z()) 
-                                            + ToR(aMap2->CamPP());
-    cPt3dr aP12InEp2ZAVG = cPt3dr(aP12InEp2InEpipInPix.x(),aP12InEp2InEpipInPix.y(),aP12InEpipCam2.z());
-    //cPt3dr aP12InEp2ZAVG = aCamEpip2->Ground2ImageAndDepth(aP12AVG);
-
-    StdOut()<<"aP12InEp1ZAVG  "<<aP12InEp1ZAVG<<"  "<<aZ1<<std::endl;
-    StdOut()<<"aP12InEp2ZAVG  "<<aP12InEp2ZAVG<<"  "<<aZ2<<std::endl;
-
-    // Pax Intervals 
-    tREAL8 aDX =  aP12InEp2ZAVG.x() - aP12InEp1ZAVG.x();
 
     tREAL8 aDX1 = (aDX > 0 ) ? 0 : (-aDX);
     tREAL8 aDX2 = (aDX > 0 ) ? aDX : 0 ;
