@@ -341,6 +341,18 @@ int cAppli_EpipRectification::Exe()
             "No tie points found between the two images in the TieP directory");
         aParams.mHomolPts = aSetH;
     }
+
+    // Added to handle multiple Tie Points files 
+    if (mPhProj.DPMulTieP().DirInIsInit())
+    {
+        cSetHomogCpleIm aSetH;
+        int aNbInit=0;
+        mPhProj.ReadHomolMultiSrce(aNbInit,aSetH,mNameIm1,mNameIm2);
+        MMVII_INTERNAL_ASSERT_User((aNbInit>0) && (aSetH.NbH() > 0), eTyUEr::eOpenFile,
+            "No tie points found between the two images in the MulTieP directory");
+        aParams.mHomolPts = aSetH;
+    }
+
     // Two central perspective cameras : closed form with virtual cameras, unless the generic solver is forced
     const bool aClosedForm = (! mGeneric) && aSI1->GetSensorCamPC() && aSI2->GetSensorCamPC();
     std::unique_ptr<cEpipolarModel> aEpipModel;
@@ -454,6 +466,7 @@ cCollecSpecArg2007 & cAppli_EpipRectification::ArgOpt(cCollecSpecArg2007 & anArg
         << AOpt2007(mZIntv,"ZIntv","Z interval [Zmin,Zmax], overrides sensor's own and any TieP-derived one (mandatory when sensor has none, e.g. no RPC, and TieP is not given either)")
         << cHeaderSectionArg("Tie Points")
         << mPhProj.DPTieP().ArgDirInOpt("TieP","Tie points to infer Z interval from (alternative to ZIntv, overrides sensor's own)")
+        << mPhProj.DPMulTieP().ArgDirInOpt("MulTieP","Multiple Tie points to infer Z interval from (alternative to ZIntv, overrides sensor's own)")
         << AOpt2007(mZMargin,"ZMargin","Relative margin added around the raw [Zmin,Zmax] envelope inferred from TieP",{eTA2007::HDV})
         << AOpt2007(mTiePMaxRes,"TiePMaxRes","Max triangulation residual (px) for a tie point kept when inferring Z from TieP",{eTA2007::HDV})
         << AOpt2007(mTiePMinNbRatio,"TiePMinNbRatio","Min kept tie points = max(TiePMinNbFloor,ratio*sqrt(W*H))",{eTA2007::HDV})

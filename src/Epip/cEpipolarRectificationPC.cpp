@@ -12,10 +12,17 @@ namespace MMVII {
 //  cEpipMappingPC
 // ============================================================
 
-cEpipMappingPC::cEpipMappingPC(const cSensorCamPC & aCam,const cRotation3D<tREAL8> & aEpipRot,tREAL8 aFocal,const cPt2dr & aZInterval)
+cEpipMappingPC::cEpipMappingPC(const cSensorCamPC & aCam,
+                            const cRotation3D<tREAL8> & aEpipRot,
+                            cPt2di aCamSz,
+                            cPt2dr aCamPP,
+                            tREAL8 aFocal,
+                            const cPt2dr & aZInterval)
     : cEpipolarMapping(aZInterval)
     , mCam   (&aCam)
     , mRot   (aEpipRot)
+    , mCamSz (aCamSz)
+    , mCamPP (aCamPP)
     , mFocal (aFocal)
 {
 }
@@ -24,6 +31,8 @@ cEpipMappingPC::cEpipMappingPC()
     : cEpipolarMapping(cPt2dr(0,0))
     , mCam   (nullptr)
     , mRot   (cRotation3D<tREAL8>::Identity())
+    , mCamSz (cPt2di(0,0))
+    , mCamPP (cPt2dr(0,0))
     , mFocal (1.0)
 {
 }
@@ -44,6 +53,8 @@ void cEpipMappingPC::AddData(const cAuxAr2007 &anAux)
 {
     AddDataBase(anAux);
     MMVII::AddData(cAuxAr2007("Focal",anAux),mFocal);
+    MMVII::AddData(cAuxAr2007("CamSz",anAux),mCamSz);
+    MMVII::AddData(cAuxAr2007("CamPP",anAux),mCamPP);
     cPt3dr aAxes[3];
     for (int aK=0 ; aK<3 ; aK++)
         GetCol(aAxes[aK],mRot.Mat(),aK);
@@ -60,7 +71,7 @@ cPt2dr cEpipMappingPC::ValueInDomain(const cPt2dr& aPt) const
     // direction of the bundle in the frame of the virtual camera, then pinhole projection
     const cPt3dr aDir = mRot.Inverse(Cam().Image2Bundle(aPt).V12());
     MMVII_INTERNAL_ASSERT_User(aDir.z()>0,eTyUEr::eUnClassedError,"Epipolar rectification: a bundle is behind the virtual camera");
-    return cPt2dr(aDir.x(),aDir.y()) * (mFocal/aDir.z()) - ToR(mEpipImFrame.P0());
+    return cPt2dr(aDir.x(),aDir.y()) * (mFocal/aDir.z()) + mCamPP - ToR(mEpipImFrame.P0());
 }
 
 cPt2dr cEpipMappingPC::Value(const cPt2dr& aPt) const
@@ -82,13 +93,14 @@ cPt2dr cEpipMappingPC::Value(const cPt2dr& aPt) const
 cPt2dr cEpipMappingPC::Inverse(const cPt2dr& aPt) const
 {
     const cPt2dr aPV = aPt + ToR(mEpipImFrame.P0());
-    return Cam().Ground2Image(Cam().Center() + mRot.Value(cPt3dr(aPV.x(),aPV.y(),mFocal)));
+    const cPt2dr aPtEpipInCam = ((aPV - mCamPP) / mFocal);
+    return Cam().Ground2Image(Cam().Center() + mRot.Value(cPt3dr(aPtEpipInCam.x(),aPtEpipInCam.y(),1.0)));
 }
 
 cSensorCamPC * cEpipMappingPC::VirtualCamera(const std::string & aName) const
 {
-    const cPt2dr aPP = -ToR(mEpipImFrame.P0());
-    auto * aCalib = cPerspCamIntrCalib::SimpleCalib(aName+"-Calib",eProjPC::eStenope,EpipImSz(),cPt3dr(aPP.x(),aPP.y(),mFocal),cPt3di(0,0,0));
+    //const cPt2dr aPP = -ToR(mEpipImFrame.P0());
+    auto * aCalib = cPerspCamIntrCalib::SimpleCalib(aName+"-Calib",eProjPC::eStenope,mCamSz,cPt3dr(mCamPP.x(),mCamPP.y(),mFocal),cPt3di(0,0,0));
     cMMVII_Appli::AddObj2DelAtEnd(aCalib);  // a sensor never owns its calib
     return new cSensorCamPC(aName,cIsometry3D<tREAL8>(Cam().Center(),mRot),aCalib);
 }
@@ -113,8 +125,7 @@ cEpipModelPC cEpipolarRectificationPC::Compute()
 
     // X axis : baseline
     MMVII_INTERNAL_ASSERT_User(Norm2(mCam2.Center()-mCam1.Center())>1e-12,eTyUEr::eUnClassedError,"Epipolar rectification: the two cameras have the same centre");
-    const cPt3dr aAxisX = VUnit(mCam2.Center()-mCam1.Center());
-
+    /* const cPt3dr aAxisX = VUnit(mCam2.Center()-mCam1.Center());
     // Z axis : mean viewing direction, made orthogonal to the baseline
     const cPt3dr aMeanK = VUnit(mCam1.AxeK()+mCam2.AxeK());
     const cPt3dr aZ = aMeanK - aAxisX * Scal(aMeanK,aAxisX);
@@ -133,6 +144,190 @@ cEpipModelPC cEpipolarRectificationPC::Compute()
     cEpipModelPC aModel(std::make_unique<cEpipMappingPC>(mCam1,aRot,aFocal,aZ1),std::make_unique<cEpipMappingPC>(mCam2,aRot,aFocal,aZ2));
     aModel.ComputeCommonFraming(mCam1.PixelDomain().Box(),mCam2.PixelDomain().Box(),mParams.mEpipFrm,0);
     return aModel;
+    
+    */
+
+    cPt2di aSzIm = PtSupEq(mCam1.Sz(),mCam2.Sz());
+
+    // test for now and check later for focal definition
+    tREAL8 aFocal = std::sqrt(mCam1.InternalCalib()->F()* mCam2.InternalCalib()->F());
+    
+    tREAL8 aD1;
+    cDenseMatrix<tREAL8> aR1 =  EpipConicOrientation(mCam1,mCam2,1,aD1);
+
+    tREAL8 aD2;
+    cDenseMatrix<tREAL8> aR2 =  EpipConicOrientation(mCam1,mCam2,-1,aD2);
+
+    cDenseMatrix<tREAL8> aMatM2C = (aD1<aD2)  ? aR1 : aR2 ;
+
+    cDenseMatrix<tREAL8> aMatC2M = aMatM2C.Inverse();
+
+    cRotation3D<tREAL8> aRot(aMatC2M,false);
+    
+    // Real Z validity interval, same priority as the polynomial path
+    // (mZIntv > tie-point-derived > sensor's own native interval).
+    std::optional<cPt2dr> aCache;
+    const cPt2dr aZ1 = EpipEffectiveZInterval(mParams,mCam1,mCam1,mCam2,aCache);
+    const cPt2dr aZ2 = EpipEffectiveZInterval(mParams,mCam2,mCam1,mCam2,aCache);
+
+    auto aMap1 = std::make_unique<cEpipMappingPC>(mCam1,aRot,aSzIm,cPt2dr(0,0),aFocal,aZ1);
+    auto aMap2 = std::make_unique<cEpipMappingPC>(mCam2,aRot,aSzIm,cPt2dr(0,0),aFocal,aZ2);
+
+    // refine epip cams so the sampling is only limited to overlapped regions 
+    cBox2dr aBoxEp1 = GlobBoxCam(cBox2dr(ToR(mCam1.Sz()),false),*aMap1,4);
+    cBox2dr aBoxEp2 = GlobBoxCam(cBox2dr(ToR(mCam2.Sz()),false),*aMap2,4);
+
+    tREAL8 aYMin = std::max(aBoxEp1.P0().y(),aBoxEp2.P0().y());
+    tREAL8 aYMax = std::min(aBoxEp1.P1().y(),aBoxEp2.P1().y());
+
+    int aSzY= round_ni(aYMax-aYMin);
+
+    MMVII_INTERNAL_ASSERT_User( (aSzY>0), 
+                                eTyUEr::eUnClassedError,
+                                "aSzY is negative no overlapping between images");
+
+    aMap1 = std::make_unique<cEpipMappingPC>(mCam1,
+                                            aRot,
+                                            cPt2di(aBoxEp1.Sz().x(),aSzY),
+                                            cPt2dr(-aBoxEp1.P0().x(),-aYMin),
+                                            aFocal,
+                                            aZ1);
+    aMap2 = std::make_unique<cEpipMappingPC>(mCam2,
+                                            aRot,
+                                            cPt2di(aBoxEp2.Sz().x(),aSzY),
+                                            cPt2dr(-aBoxEp2.P0().x(),-aYMin),
+                                            aFocal,
+                                            aZ2);
+
+    // refine Overlapping using estimated Z intervals
+    cPt2dr aP1Half=ToR(mCam1.Sz())/2.0;
+    cPt3dr aP1ZMin(aP1Half.x(),aP1Half.y(),aZ1.x());
+    cPt3dr aP1ZMax(aP1Half.x(),aP1Half.y(),aZ1.y());
+    
+    cPt3dr aP13drZMin = mCam1.ImageAndZ2Ground(aP1ZMin);
+    cPt3dr aP13drZMax = mCam1.ImageAndZ2Ground(aP1ZMax);
+
+    cPt3dr aP1AVG = (aP13drZMin+aP13drZMax)/2.0;
+
+    //Cam2
+    cPt2dr aP2Half=ToR(mCam2.Sz())/2.0;
+    cPt3dr aP2ZMin(aP2Half.x(),aP2Half.y(),aZ2.x());
+    cPt3dr aP2ZMax(aP2Half.x(),aP2Half.y(),aZ2.y());
+
+    cPt3dr aP23drZMin = mCam2.ImageAndZ2Ground(aP2ZMin);
+    cPt3dr aP23drZMax = mCam2.ImageAndZ2Ground(aP2ZMax);
+    cPt3dr aP2AVG = (aP23drZMin+aP23drZMax)/2.0;
+
+
+    // Average of the two 3D points
+    cPt3dr aP12AVG = (aP1AVG + aP2AVG) / 2.0;
+
+    cPt3dr aP12InEpipCam1 = cIsometry3D<tREAL8>(mCam1.Center(),aRot).Inverse(aP12AVG);
+    // apply calib of epip
+    cPt2dr aP12InEp1InEpipInPix = cPt2dr(aP12InEpipCam1.x(),aP12InEpipCam1.y()) * (aMap1->Focal()/aP12InEpipCam1.z()) 
+                                            + ToR(aMap1->CamPP());
+    cPt3dr aP12InEp1ZAVG = cPt3dr(aP12InEp1InEpipInPix.x(),aP12InEp1InEpipInPix.y(),aP12InEpipCam1.z());
+    //cPt3dr aP12InEp1ZAVG = aCamEpip1->Ground2ImageAndDepth(aP12AVG);
+
+    cPt3dr aP12InEpipCam2 = cIsometry3D<tREAL8>(mCam2.Center(),aRot).Inverse(aP12AVG);
+    // apply calib of epip
+    cPt2dr aP12InEp2InEpipInPix = cPt2dr(aP12InEpipCam2.x(),aP12InEpipCam2.y()) * (aMap2->Focal()/aP12InEpipCam2.z()) 
+                                            + ToR(aMap2->CamPP());
+    cPt3dr aP12InEp2ZAVG = cPt3dr(aP12InEp2InEpipInPix.x(),aP12InEp2InEpipInPix.y(),aP12InEpipCam2.z());
+    //cPt3dr aP12InEp2ZAVG = aCamEpip2->Ground2ImageAndDepth(aP12AVG);
+
+    StdOut()<<"aP12InEp1ZAVG  "<<aP12InEp1ZAVG<<"  "<<aZ1<<std::endl;
+    StdOut()<<"aP12InEp2ZAVG  "<<aP12InEp2ZAVG<<"  "<<aZ2<<std::endl;
+
+    // Pax Intervals 
+    tREAL8 aDX =  aP12InEp2ZAVG.x() - aP12InEp1ZAVG.x();
+
+    tREAL8 aDX1 = (aDX > 0 ) ? 0 : (-aDX);
+    tREAL8 aDX2 = (aDX > 0 ) ? aDX : 0 ;
+
+    int aSzX= round_ni(std::min(aBoxEp1.Sz().x()-aDX1,aBoxEp2.Sz().x()-aDX2));
+
+    MMVII_INTERNAL_ASSERT_User((aSzX>0), eTyUEr::eUnClassedError , "Sz Epip Cam is negative");
+
+    // Final Epipolar Mappings
+    aMap1 = std::make_unique<cEpipMappingPC>(mCam1,
+                                            aRot,
+                                            cPt2di(aSzX,aSzY),  
+                                            cPt2dr(-aBoxEp1.P0().x()-aDX1,-aYMin),
+                                            aFocal,
+                                            aZ1);
+
+    aMap2 = std::make_unique<cEpipMappingPC>(mCam2,
+                                            aRot,
+                                            cPt2di(aSzX,aSzY),
+                                            cPt2dr(-aBoxEp2.P0().x()-aDX2,-aYMin),
+                                            aFocal,
+                                            aZ2);
+
+    aMap1->SetEpipImFrame(cTplBox<int,2>(cPt2di(0,0),cPt2di(aSzX,aSzY)));
+    aMap2->SetEpipImFrame(cTplBox<int,2>(cPt2di(0,0),cPt2di(aSzX,aSzY)));    
+
+    return cEpipModelPC(std::move(aMap1),std::move(aMap2));
+}
+
+
+
+cBox2dr cEpipolarRectificationPC::GlobBoxCam(cBox2dr aBoxIn, const cEpipMappingPC & aMapping, int aNbPts)
+{
+    cPt2dr BoxCorners[4];
+    aBoxIn.Corners(BoxCorners);
+    
+    cTplBoxOfPts<tREAL8,2> aBoxValidity;
+
+    for (int aK=0; aK<4; aK++)
+    {
+        cPt2dr aC0 = BoxCorners[aK];
+        cPt2dr aC1 = BoxCorners[(aK+1)%4];
+
+        for (int aKP=0 ; aKP< aNbPts ; aKP++)
+        {
+            tREAL8 aPds = (aNbPts-aKP) /tREAL8(aNbPts);
+            aBoxValidity.Add(aMapping.Value(aPds * aC0 + (1-aPds) * aC1));
+        }        
+    }
+    return aBoxValidity.CurBox();
+}
+
+
+cDenseMatrix<tREAL8> cEpipolarRectificationPC::EpipConicOrientation(const cSensorCamPC & pC1, 
+                                                            const cSensorCamPC & pC2,
+                                                            int aSign,double & aD)
+{
+    // get rotation matrices and translation vectors
+    tRotR R1 = pC1.Orient();
+    tRotR R2 = pC2.Orient();
+
+    cPt3dr C1 = pC1.Center();
+    cPt3dr C2 = pC2.Center();
+
+    cPt3dr aOx = VUnit( (C2-C1) * (tREAL8) aSign );
+
+    cPt3dr aOz1 = pC1.AxeK();
+    cPt3dr aOz2 = pC2.AxeK();
+
+    cPt3dr aOz = VUnit(aOz1+aOz2);
+
+    cPt3dr aOy = VUnit(aOz ^ aOx);
+
+    aOz= VUnit(aOx ^ aOy);
+
+    cDenseMatrix<tREAL8> aResMat(3,3);
+
+     SetCol(aResMat,0,aOx);
+     SetCol(aResMat,1,aOy);
+     SetCol(aResMat,2,aOz);
+
+     aResMat =  aResMat.Transpose();
+
+
+     aD = aResMat.SqL2Dist(R1.Mat()) + aResMat.SqL2Dist(R2.Mat());
+
+     return aResMat;    
 }
 
 // ============================================================
