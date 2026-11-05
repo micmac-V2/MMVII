@@ -35,7 +35,7 @@ cElemBA::cElemBA(eModResBund aMode,const std::vector<tPoseR>& aVPose) :
 
     //--- Check that pose complies with normalization pre-requirement
     MMVII_INTERNAL_ASSERT_always(mCurPose.at(0).DistPose(tPoseR::Identity(),1.0)<1e-7,"Pose0!=Id in cElemBA");
-    MMVII_INTERNAL_ASSERT_always((Norm2(mCurPose.at(1).Tr())-1.0)<1e-8,"Norma base in cElemBA");
+    MMVII_INTERNAL_ASSERT_always(std::abs(Norm2(mCurPose.at(1).Tr())-1.0)<1e-8,"Norma base in cElemBA");
 
     //  --------  Initialize the unknowns ----------------------
     if (mSCCam12)
