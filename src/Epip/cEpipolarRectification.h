@@ -360,7 +360,7 @@ class cEpipMappingPC : public cEpipolarMapping
 {
 public:
     /// aEpipRot : virtual camera to world ; aZInterval : information only (not used by the mapping)
-    cEpipMappingPC(const cSensorCamPC & aCam,const cRotation3D<tREAL8> & aEpipRot,tREAL8 aFocal,const cPt2dr & aZInterval=cPt2dr(0,0));
+    cEpipMappingPC(const cSensorCamPC & aCam,const cRotation3D<tREAL8> & aEpipRot,cPt2di aCamSz,cPt2dr aCamPP,tREAL8 aFocal,const cPt2dr & aZInterval=cPt2dr(0,0));
     /// Placeholder to be filled by AddData, then bound to its camera by SetSourceSensor
     cEpipMappingPC();
 
@@ -368,6 +368,8 @@ public:
     cPt2dr Inverse(const cPt2dr& aPt) const override;
 
     const cRotation3D<tREAL8> & EpipRot() const { return mRot; }
+    cPt2di CamSz() const { return mCamSz; }
+    cPt2dr CamPP() const { return mCamPP; } 
     tREAL8 Focal() const { return mFocal; }
     /// Virtual camera of the full epipolar frame (frame must be set), named aName ; caller owns it, its calibration is deleted at end of application
     cSensorCamPC * VirtualCamera(const std::string & aName) const;
@@ -383,6 +385,8 @@ private:
     const cSensorCamPC &  Cam() const;
     const cSensorCamPC *  mCam;    ///< Source camera, not owned, null until bound when read from a file
     cRotation3D<tREAL8>   mRot;
+    cPt2di                mCamSz;  /// < Size of the epipolar camera
+    cPt2dr                mCamPP;  /// < Principal point of the epipolar camera
     tREAL8                mFocal;
 };
 
@@ -548,6 +552,10 @@ public:
     cEpipolarRectificationPC(const cSensorCamPC & aCam1,const cSensorCamPC & aCam2,const cParams & aParams);
     /// Mappings of both images, common frame set
     cEpipModelPC Compute();
+    cBox2dr GlobBoxCam(cBox2dr aBoxIn, const cEpipMappingPC & aMapping, int aNbPts);
+    cDenseMatrix<tREAL8> EpipConicOrientation(const cSensorCamPC & aC1, 
+                                              const cSensorCamPC & aC2,
+                                              int aSign,double & aD);
 private:
     const cSensorCamPC & mCam1;
     const cSensorCamPC & mCam2;
