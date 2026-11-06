@@ -460,8 +460,17 @@ cCdtFinalPoseRel2Im cEstimatePosRel2Im::MakeDecision(bool Show)
 
     for ( auto & aCdt : aVBest )
     {
-        aCdt.mScore *= mFocMoy;
-        aCdt.mPose     = BA_RefineOnePose(aCdt.mPose,mSetFullCpleDir);
+        // final refinement is kept only if it improves the score, both poses scored on the same set (average)
+        tPoseR aPoseRef   = BA_RefineOnePose(aCdt.mPose,mSetFullCpleDir);
+        tREAL8 aScoreInit = RnkW_ScorePose(aCdt.mPose,mSetAvgCpleDir);
+        tREAL8 aScoreRef  = RnkW_ScorePose(aPoseRef,mSetAvgCpleDir);
+        if (aScoreRef < aScoreInit)
+        {
+            aCdt.mPose  = aPoseRef;
+            aCdt.mScore = aScoreRef;
+        }
+        aCdt.mScore *= mFocMoy; // if the BA did not improve the pose, this score could have been computed on small set
+
         if (mWithGT)
         {
             tREAL8 aDTr = Norm2(aCdt.mPose.Tr()-mGTPose.Tr());
