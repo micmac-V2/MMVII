@@ -430,7 +430,6 @@ public:
         int      mPolyDegreeInv = 7;      ///< degree of inverse W polynomials
         int      mNbZLevels     = 3;      ///< number of altitude sampling levels
         eEpipFrm mEpipFrm       = eEpipFrm::eIntersect; ///< Framing type for epipolar images (Resmampling)
-        int      mMargin        = 2;      ///< Margin in pixels for epipolar image framing (Resampling)
         std::optional<cPt2dr> mZIntv = std::nullopt; ///< Override Z interval (Zmin,Zmax); mandatory if sensor has none
         std::optional<cSetHomogCpleIm> mHomolPts = std::nullopt; ///< Tie points to infer Zmin/Zmax from (alternative to mZIntv, lower priority)
         tREAL8   mTiePMaxRes     = 2.0;   ///< Max triangulation residual (px) to keep a tie point for Z inference

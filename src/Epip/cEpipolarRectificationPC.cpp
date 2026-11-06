@@ -131,7 +131,7 @@ cEpipModelPC cEpipolarRectificationPC::Compute()
     const cPt2dr aZ2 = EpipEffectiveZInterval(mParams,mCam2,mCam1,mCam2,aCache);
 
     cEpipModelPC aModel(std::make_unique<cEpipMappingPC>(mCam1,aRot,aFocal,aZ1),std::make_unique<cEpipMappingPC>(mCam2,aRot,aFocal,aZ2));
-    aModel.ComputeCommonFraming(mCam1.PixelDomain().Box(),mCam2.PixelDomain().Box(),mParams.mEpipFrm,mParams.mMargin);
+    aModel.ComputeCommonFraming(mCam1.PixelDomain().Box(),mCam2.PixelDomain().Box(),mParams.mEpipFrm,0);
     return aModel;
 }
 
