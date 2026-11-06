@@ -70,7 +70,7 @@ cPt2dr cEpipMappingPC::ValueInDomain(const cPt2dr& aPt) const
 {
     // direction of the bundle in the frame of the virtual camera, then pinhole projection
     const cPt3dr aDir = mRot.Inverse(Cam().Image2Bundle(aPt).V12());
-    MMVII_INTERNAL_ASSERT_User(aDir.z()>0,eTyUEr::eUnClassedError,"Epipolar rectification: a bundle is behind the virtual camera");
+    MMVII_INTERNAL_ASSERT_User(aDir.z()>0,eTyUEr::eUnClassedError,"Epipolar rectification: a bundle is behind the virtual camera, the pair is too convergent for a common pinhole rectification");
     return cPt2dr(aDir.x(),aDir.y()) * (mFocal/aDir.z()) + mCamPP - ToR(mEpipImFrame.P0());
 }
 
@@ -192,7 +192,7 @@ cEpipModelPC cEpipolarRectificationPC::Compute()
 
     MMVII_INTERNAL_ASSERT_User( (aSzY>0), 
                                 eTyUEr::eUnClassedError,
-                                "aSzY is negative no overlapping between images");
+                                "Epipolar rectification: the two images have no common rows (no overlap in the epipolar frame), check the orientations");
 
     aMap1 = std::make_unique<cEpipMappingPC>(mCam1,
                                             aRot,
@@ -237,7 +237,7 @@ cEpipModelPC cEpipolarRectificationPC::Compute()
 
     int aSzX= round_ni(std::min(aBoxEp1.Sz().x()-aDX1,aBoxEp2.Sz().x()-aDX2));
 
-    MMVII_INTERNAL_ASSERT_User((aSzX>0), eTyUEr::eUnClassedError , "Sz Epip Cam is negative");
+    MMVII_INTERNAL_ASSERT_User((aSzX>0), eTyUEr::eUnClassedError , "Epipolar rectification: no common columns after aligning the mean disparity, check the Z interval (ZIntv=)");
 
     // Final Epipolar Mappings
     aMap1 = std::make_unique<cEpipMappingPC>(mCam1,
