@@ -1027,7 +1027,7 @@ void cMMVII_BundleAdj::SaveTopo()
 
 void cMMVII_BundleAdj::AddTopo() // TOPO
 {
-    mTopo = new cBA_Topo(mPhProj, &mGCP);
+    mTopo = new cBA_Topo(mPhProj, this);
     mTopo->AddPointsFromDataToGCP( mPhProj);
 }
 

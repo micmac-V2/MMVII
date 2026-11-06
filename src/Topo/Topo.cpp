@@ -18,9 +18,9 @@ void cMMVII_BundleAdj::InitItereTopo()
 
 
 cBA_Topo::cBA_Topo
-(cPhotogrammetricProject *aPhProj, cBA_GCP *aBA_GCP)  :
+(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj *aBA)  :
     mPhProj  (aPhProj),
-    mBA_GCP(aBA_GCP),
+    mBA(aBA),
     mTopoObsType2equation
     {
         {eTopoObsType::eDist, EqTopoDist(true,1,true)},
@@ -85,7 +85,7 @@ void cBA_Topo::findPtsUnknowns(cPhotogrammetricProject *aPhProj)
 {
     for (auto & [aName, aTopoPt] : getAllPts())
     {
-        aTopoPt.findUK(*mBA_GCP, aPhProj);
+        aTopoPt.findUK(*mBA, aPhProj);
     }
 }
 
@@ -132,12 +132,13 @@ void cBA_Topo::AddPointsFromDataToGCP(cPhotogrammetricProject *aPhProj)
         mAllPts[aPointName] = cTopoPoint(aPointName);
     }
 
+    cBA_GCP & aBA_GCP = mBA->getGCP();
     // add new points to GCP
     std::set<std::string> aAllPointsNamesNotFound;
     for (auto & aPointName: aAllPointsNames)
     {
         bool found = false;
-        for (auto &aMesGCP: mBA_GCP->getMesGCP().MesGCP())
+        for (auto &aMesGCP: aBA_GCP.getMesGCP().MesGCP())
         {
             if (aMesGCP.mNamePt == aPointName)
             {
@@ -147,25 +148,27 @@ void cBA_Topo::AddPointsFromDataToGCP(cPhotogrammetricProject *aPhProj)
         }
         if ((!found)&& aPhProj && aPhProj->IsOriInDirInit())
         {
-            cSensorCamPC * aCam = aPhProj->ReadCamPC(aPointName, true, true);
-            if (aCam)
+            for (auto & aCamPC: mBA->VSCPC())
             {
-               found = true;
-               break;
+                if (aCamPC->NameImage()==aPointName)
+                {
+                    found = true;
+                    break;
+                }
             }
         }
         if (!found)
             aAllPointsNamesNotFound.insert(aPointName);
     }
 
-    cMes3DDirInfo * aMes3DDirInfo = mBA_GCP->mAllMes3DDirInfo.empty()?
-                                       nullptr:mBA_GCP->mAllMes3DDirInfo.front();
+    cMes3DDirInfo * aMes3DDirInfo = aBA_GCP.mAllMes3DDirInfo.empty()?
+                                       nullptr:aBA_GCP.mAllMes3DDirInfo.front();
 
     for (auto & aPointName: aAllPointsNamesNotFound)
     {
         auto aMes3D = cMes1Gnd3D(cPt3dr::Dummy(), aPointName);
         aMes3D.mMesDirInfo = aMes3DDirInfo;
-        mBA_GCP->getMesGCP().Add1GCP( aMes3D ); // points non-init
+        aBA_GCP.getMesGCP().Add1GCP( aMes3D ); // points non-init
     }
 
     mAllTopoDataIn.clear(); // if this function is called again, nothing more to add
@@ -180,10 +183,10 @@ void cBA_Topo::AddPointsFromDataToGCP(cPhotogrammetricProject *aPhProj)
     for (const auto & aSet: mAllObsSets)
         mNbTopoParams += aSet->getNbParams();
 
-    for (unsigned int i=0; i<mBA_GCP->getMesGCP().MesGCP().size(); ++i )
+    for (unsigned int i=0; i<aBA_GCP.getMesGCP().MesGCP().size(); ++i )
     {
         mNbTopoParams += 3; // TODO: count only GCPs with topo mes ?
-        mNbGCPConstraints += mBA_GCP->getMesGCP().MesGCP()[i].Sigma2IsInit()?3:0;
+        mNbGCPConstraints += aBA_GCP.getMesGCP().MesGCP()[i].Sigma2IsInit()?3:0;
     }
 }
 
@@ -346,12 +349,13 @@ void cBA_Topo::AddTopoEquations(cResolSysNonLinear<tREAL8> & aSys)
 #endif
         }
     // add residuals from GCP constraints
-    for (size_t i=0; i<mBA_GCP->getMesGCP().MesGCP().size(); ++i)
+    cBA_GCP & aBA_GCP = mBA->getGCP();
+    for (size_t i=0; i<aBA_GCP.getMesGCP().MesGCP().size(); ++i)
     {
-        auto & aMesGCP = mBA_GCP->getMesGCP().MesGCP()[i];
-        if (aMesGCP.Sigma2IsInit() && mBA_GCP->getGCP_UK()[i])
+        auto & aMesGCP = aBA_GCP.getMesGCP().MesGCP()[i];
+        if (aMesGCP.Sigma2IsInit() && aBA_GCP.getGCP_UK()[i])
         {
-            auto aDiffPt = aMesGCP.mPt - mBA_GCP->getGCP_UK()[i]->Pt();
+            auto aDiffPt = aMesGCP.mPt - aBA_GCP.getGCP_UK()[i]->Pt();
             double residual_norm_sq = 0;
             if (aMesGCP.SigmasXYZ().x()>0)
                 residual_norm_sq += Square(aDiffPt.x()/aMesGCP.SigmasXYZ().x());
@@ -456,7 +460,7 @@ bool cBA_Topo::tryInit(cTopoPoint & aPtToInit, tStationsMap &stationsMap, tSimpl
         StdOut() << "init coords: " << *aPtToInit.getPt() <<"\n";
 #endif
     if (ok) // init coords for BA_GCP, not only uk
-        for (auto & aMesGCP : mBA_GCP->getMesGCP().MesGCP())
+        for (auto & aMesGCP : mBA->getGCP().getMesGCP().MesGCP())
             if (aMesGCP.mNamePt==aPtToInit.getName())
                 aMesGCP.mPt = *aPtToInit.getPt();
     return ok;

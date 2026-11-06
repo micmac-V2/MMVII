@@ -26,7 +26,7 @@ class cBA_Topo : public cMemCheck
 {
     friend class cTopoData;
 public :
-    cBA_Topo(cPhotogrammetricProject *aPhProj, cBA_GCP * aBA_GCP);
+    cBA_Topo(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj * aBA);
     ~cBA_Topo();
     void clear();
 
@@ -64,7 +64,7 @@ public :
 private :
     cTopoData mAllTopoDataIn;
     cPhotogrammetricProject * mPhProj;
-    cBA_GCP * mBA_GCP;
+    cMMVII_BundleAdj * mBA;
     std::map<eTopoObsType, cCalculator<double>*> mTopoObsType2equation;
     std::map<std::string, cTopoPoint> mAllPts;
     std::vector<cTopoObsSet*> mAllObsSets;
