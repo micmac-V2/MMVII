@@ -212,7 +212,7 @@ class cAppliGenMeshDev : public cMMVII_Appli
            // --- Optionnal ----
               bool        mPlanDevSurf; // generate the developped surf
               bool        mBinOut;
-              double      mFactNonDev;  // Make the surface non devlopable
+              double      mFactNonDev = 0.0;  // Make the surface non devlopable
            // --- Internal ----
 
 };

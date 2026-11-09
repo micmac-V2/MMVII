@@ -99,7 +99,7 @@ class cAppli_OriRelEstimFocale : public cMMVII_Appli
         tREAL8                    mLogF0;       ///< log of min focal
         tREAL8                    mLogF1;       ///< log of max focal
         tREAL8                    mLogStep;     ///< log of each ratio between succ focal
-        int                       mNbFocTested; ///< number of focal to  teste
+        int                       mNbFocTested = 0; ///< number of focal to  teste
 
 };
 

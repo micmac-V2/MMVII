@@ -308,7 +308,7 @@ class cAppliFranges : public cMMVII_Appli
 
         cPt2di                   mIntY;    ///<  Y Interval of image
         cPt2dr                   mSigma;   ///<  Sigma of smoothing
-        tREAL8                   mSigCurv;  ///< Sigma for comutig Cuvres
+        tREAL8                   mSigCurv = 0.0;  ///< Sigma for comutig Cuvres
         int                      mNbIter;  ///<  Number of iteration of smoothing
 
         tREAL8                   mWidhMinAll;    ///< Witdh Min of Connected compenent

@@ -846,7 +846,8 @@ class cAppliMeshDev : public cMMVII_Appli
 };
 
 cAppliMeshDev::cAppliMeshDev(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
-   cMMVII_Appli     (aVArgs,aSpec)
+   cMMVII_Appli     (aVArgs,aSpec),
+   mBinOut          (false)   // default of an HDV argument, read by GenArgsSpec
 {
 }
 

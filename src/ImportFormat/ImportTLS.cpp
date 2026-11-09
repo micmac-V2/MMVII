@@ -935,7 +935,7 @@ private :
     int                      mNbPatches;
     std::string              mPoseXYZFilename;     ///< give a Comp3Dv5 XYZ file
     std::string              mPoseXYZv4Filename;   ///< give a Comp3Dv4 XYZ file
-    bool                     mSupposeVerticalized; ///< need only 2 GCP for approx init
+    bool                     mSupposeVerticalized = false; ///< need only 2 GCP for approx init
     std::string              mSupMaskFilename;     ///< a suplementary mask for patch detection
     bool                     mIsPoseId;            ///< set pose to identity
     std::string              mPoseMat4x4Filename;  ///< give a 4x4 matrix text file name

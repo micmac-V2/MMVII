@@ -60,7 +60,7 @@ private :
     int                      mNbUndetectedGlob;
     int                      mNbFalseDetGlob;
     int                      mNbRefGlob;
-    tREAL8                   mExagRes;
+    tREAL8                   mExagRes = 1.0;
     tREAL8                   mScaleImage;
     std::string              mSuffix;
 };
