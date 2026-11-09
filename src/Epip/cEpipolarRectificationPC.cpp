@@ -99,7 +99,6 @@ cPt2dr cEpipMappingPC::Inverse(const cPt2dr& aPt) const
 
 cSensorCamPC * cEpipMappingPC::VirtualCamera(const std::string & aName) const
 {
-    //const cPt2dr aPP = -ToR(mEpipImFrame.P0());
     auto * aCalib = cPerspCamIntrCalib::SimpleCalib(aName+"-Calib",eProjPC::eStenope,mCamSz,cPt3dr(mCamPP.x(),mCamPP.y(),mFocal),cPt3di(0,0,0));
     cMMVII_Appli::AddObj2DelAtEnd(aCalib);  // a sensor never owns its calib
     return new cSensorCamPC(aName,cIsometry3D<tREAL8>(Cam().Center(),mRot),aCalib);
@@ -125,31 +124,10 @@ cEpipModelPC cEpipolarRectificationPC::Compute()
 
     // X axis : baseline
     MMVII_INTERNAL_ASSERT_User(Norm2(mCam2.Center()-mCam1.Center())>1e-12,eTyUEr::eUnClassedError,"Epipolar rectification: the two cameras have the same centre");
-    /* const cPt3dr aAxisX = VUnit(mCam2.Center()-mCam1.Center());
-    // Z axis : mean viewing direction, made orthogonal to the baseline
-    const cPt3dr aMeanK = VUnit(mCam1.AxeK()+mCam2.AxeK());
-    const cPt3dr aZ = aMeanK - aAxisX * Scal(aMeanK,aAxisX);
-    MMVII_INTERNAL_ASSERT_User(SqN2(aZ)>1e-12,eTyUEr::eUnClassedError,"Epipolar rectification: viewing direction parallel to the baseline");
-    const cPt3dr aAxisZ = VUnit(aZ);
-    const cPt3dr aAxisY = aAxisZ ^ aAxisX;   // right-handed (X,Y,Z), already unit
-
-    const cRotation3D<tREAL8> aRot(aAxisX,aAxisY,aAxisZ,false);
-    const tREAL8 aFocal = 0.5 * (mCam1.InternalCalib()->F() + mCam2.InternalCalib()->F());
-
-    // Z interval of each image (user, tie points or sensor), information for the crop of the second image
-    std::optional<cPt2dr> aCache;
-    const cPt2dr aZ1 = EpipEffectiveZInterval(mParams,mCam1,mCam1,mCam2,aCache);
-    const cPt2dr aZ2 = EpipEffectiveZInterval(mParams,mCam2,mCam1,mCam2,aCache);
-
-    cEpipModelPC aModel(std::make_unique<cEpipMappingPC>(mCam1,aRot,aFocal,aZ1),std::make_unique<cEpipMappingPC>(mCam2,aRot,aFocal,aZ2));
-    aModel.ComputeCommonFraming(mCam1.PixelDomain().Box(),mCam2.PixelDomain().Box(),mParams.mEpipFrm,0);
-    return aModel;
-    
-    */
 
     cPt2di aSzIm = PtSupEq(mCam1.Sz(),mCam2.Sz());
 
-    // test for now and check later for focal definition
+    // Geometric mean of the two focals
     tREAL8 aFocal = std::sqrt(mCam1.InternalCalib()->F()* mCam2.InternalCalib()->F());
     
     tREAL8 aD1;
@@ -325,6 +303,21 @@ cDenseMatrix<tREAL8> cEpipolarRectificationPC::EpipConicOrientation(const cSenso
 //  Same ground point => same epipolar row in both images ; mapping round trip ; virtual camera == mapping.
 // ============================================================
 
+namespace {
+// Throwing error handler, restored on exit
+struct cBenchPCError {};
+void BenchPCErrorHandler(const std::string &, const std::string &, const char *, int) { throw cBenchPCError{}; }
+class cBenchPCErrorCatcher
+{
+public:
+    cBenchPCErrorCatcher() : mPrev(MMVVI_Error) { MMVII_SetErrorHandler(BenchPCErrorHandler); }
+    ~cBenchPCErrorCatcher() { MMVII_SetErrorHandler(mPrev); }
+    cBenchPCErrorCatcher(const cBenchPCErrorCatcher &) = delete;
+private:
+    PtrMMVII_Error_Handler mPrev;
+};
+}
+
 void BenchEpipolarPCBody(cParamExeBench & aParam)
 {
 
@@ -392,6 +385,84 @@ void BenchEpipolarPCBody(cParamExeBench & aParam)
         // EpipSensor gives the virtual camera
         std::unique_ptr<cSensorImage> aSI(EpipSensor(aCam1,aMap1,"EpipBenchSensor"));
         MMVII_INTERNAL_ASSERT_bench(aSI->GetSensorCamPC()!=nullptr,"EpipolarPC : EpipSensor is not a camera");
+
+        // Size and principal point of the epipolar camera survive the file
+        const auto & aPC1 = static_cast<const cEpipMappingPC&>(aMap1);
+        const auto & aPC1Rel = static_cast<const cEpipMappingPC&>(aReloaded.Map(1));
+        MMVII_INTERNAL_ASSERT_bench((aPC1Rel.CamSz()==aPC1.CamSz()) && (Norm2(aPC1Rel.CamPP()-aPC1.CamPP())<1e-6),"EpipolarPC : model round trip (CamSz/CamPP)");
+
+        // Overlap : central homologous points are inside both epipolar windows, the window is not larger than the epipolar image
+        const cBox2dr aBoxE1(ToR(aMap1.EpipImSz()),false);
+        const cBox2dr aBoxE2(ToR(aMap2.EpipImSz()),false);
+        std::vector<tREAL8> aVDisp;
+        for (int aKPt=0 ; aKPt<100 ; aKPt++)
+        {
+            const cPt2dr aP1(aSz.x()*(0.3+0.4*RandUnif_0_1()),aSz.y()*(0.3+0.4*RandUnif_0_1()));
+            const cPt3dr aPG = aCam1.ImageAndDepth2Ground(cPt3dr(aP1.x(),aP1.y(),aDepth*(0.7+0.6*RandUnif_0_1())));
+            const cPt2dr aP2 = aCam2.Ground2Image(aPG);
+            if ((aP2.x()<0.3*aSz.x()) || (aP2.x()>0.7*aSz.x()) || (aP2.y()<0.3*aSz.y()) || (aP2.y()>0.7*aSz.y()))
+                continue;
+            const cPt2dr aE1 = aMap1.Value(aP1);
+            const cPt2dr aE2 = aMap2.Value(aP2);
+            MMVII_INTERNAL_ASSERT_bench(aBoxE1.Inside(aE1) && aBoxE2.Inside(aE2),"EpipolarPC : homologous point lost by the overlap window");
+            aVDisp.push_back(aE2.x()-aE1.x());
+        }
+        MMVII_INTERNAL_ASSERT_bench(aVDisp.size()>5,"EpipolarPC : too few homologous points for the overlap");
+        // The constant shift centres the disparities (mean of the homologous points far below the window width)
+        tREAL8 aSumDisp = 0;
+        for (tREAL8 aD : aVDisp) aSumDisp += aD;
+        MMVII_INTERNAL_ASSERT_bench(std::abs(aSumDisp/aVDisp.size())<0.05*aMap1.EpipImSz().x(),"EpipolarPC : disparity not centred by the shift");
+        const cBox2dr aFullBox1 = aRectif.GlobBoxCam(cBox2dr(ToR(aCam1.Sz()),false),aPC1,20);
+        MMVII_INTERNAL_ASSERT_bench(aMap1.EpipImSz().x()<=round_up(aFullBox1.Sz().x()),"EpipolarPC : window wider than the full epipolar image");
+
+        // Row framing : union >= intersection, image 1 / image 2 give the rows of that image
+        auto aHeight = [&](eEpipFrm aFrm,const cSensorCamPC & aC1,const cSensorCamPC & aC2)
+        {
+            cEpipolarRectificationPC::cParams aPrm = aParams;
+            aPrm.mEpipFrm = aFrm;
+            return cEpipolarRectificationPC(aC1,aC2,aPrm).Compute().EpipMap1().EpipImSz().y();
+        };
+        const int aHInter = aHeight(eEpipFrm::eIntersect,aCam1,aCam2);
+        MMVII_INTERNAL_ASSERT_bench(aHInter==aMap1.EpipImSz().y(),"EpipolarPC : default framing is not the intersection");
+        MMVII_INTERNAL_ASSERT_bench(aHeight(eEpipFrm::eUnion,aCam1,aCam2)>=aHInter,"EpipolarPC : union framing smaller than intersection");
+        for (int aKIm : {1,2})
+        {
+            const cSensorCamPC & aCam = (aKIm==1) ? aCam1 : aCam2;
+            const cEpipMappingPC & aMapK = static_cast<const cEpipMappingPC&>((aKIm==1) ? aMap1 : aMap2);
+            const int aH = aHeight((aKIm==1) ? eEpipFrm::eImg_1 : eEpipFrm::eImg_2,aCam1,aCam2);
+            const int aHExp = round_ni(aRectif.GlobBoxCam(cBox2dr(ToR(aCam.Sz()),false),aMapK,20).Sz().y());
+            MMVII_INTERNAL_ASSERT_bench(std::abs(aH-aHExp)<=1,"EpipolarPC : frame of one image has not its own height");
+        }
+
+        // Swapping the cameras : same window, opposite disparity up to a constant
+        {
+            auto aModelSw = cEpipolarRectificationPC(aCam2,aCam1,aParams).Compute();
+            MMVII_INTERNAL_ASSERT_bench((std::abs(aModelSw.EpipMap1().EpipImSz().x()-aMap1.EpipImSz().x())<=0.01*aMap1.EpipImSz().x())
+                                     && (std::abs(aModelSw.EpipMap1().EpipImSz().y()-aMap1.EpipImSz().y())<=2),"EpipolarPC : swap changes the window size");
+            tREAL8 aMinS=1e30,aMaxS=-1e30;
+            for (int aKPt=0 ; aKPt<100 ; aKPt++)
+            {
+                const cPt2dr aP1(aSz.x()*(0.3+0.4*RandUnif_0_1()),aSz.y()*(0.3+0.4*RandUnif_0_1()));
+                const cPt3dr aPG = aCam1.ImageAndDepth2Ground(cPt3dr(aP1.x(),aP1.y(),aDepth*(0.7+0.6*RandUnif_0_1())));
+                const cPt2dr aP2 = aCam2.Ground2Image(aPG);
+                const tREAL8 aD  = aMap2.Value(aP2).x() - aMap1.Value(aP1).x();
+                const tREAL8 aDSw = aModelSw.EpipMap2().Value(aP1).x() - aModelSw.EpipMap1().Value(aP2).x();  // roles exchanged
+                aMinS = std::min(aMinS,aD+aDSw);
+                aMaxS = std::max(aMaxS,aD+aDSw);
+            }
+            MMVII_INTERNAL_ASSERT_bench(aMaxS-aMinS<1e-3,"EpipolarPC : swap does not flip the disparity");
+        }
+
+        // Cameras looking at different elevations have no common rows : a user error, not a crash
+        {
+            const cIsometry3D<tREAL8> aPoseFar(aPose2.Tr(),cRotation3D<tREAL8>::RotFromAxe(cPt3dr(1,0,0),2.5)*aPose2.Rot());
+            cSensorCamPC aCamFar("BenchEpipFar",aPoseFar,aCalib);
+            cBenchPCErrorCatcher aCatcher;
+            bool aRaised = false;
+            try { cEpipolarRectificationPC(aCam1,aCamFar,aParams).Compute(); }
+            catch (const cBenchPCError &) { aRaised = true; }
+            MMVII_INTERNAL_ASSERT_bench(aRaised,"EpipolarPC : no overlap did not raise an error");
+        }
         delete aCalib;
     }
 

@@ -333,6 +333,8 @@ int cAppli_EpipRectification::Exe()
     aParams.mZMargin = mZMargin;
     aParams.mTiePMinNbRatio = mTiePMinNbRatio;
     aParams.mTiePMinNbFloor = mTiePMinNbFloor;
+    MMVII_INTERNAL_ASSERT_User(!(mPhProj.DPTieP().DirInIsInit() && mPhProj.DPMulTieP().DirInIsInit()),eTyUEr::eUnClassedError,
+        "TieP and MulTieP cannot be used together, give only one of them");
     if (mPhProj.DPTieP().DirInIsInit())
     {
         cSetHomogCpleIm aSetH;
@@ -342,7 +344,6 @@ int cAppli_EpipRectification::Exe()
         aParams.mHomolPts = aSetH;
     }
 
-    // Added to handle multiple Tie Points files 
     if (mPhProj.DPMulTieP().DirInIsInit())
     {
         cSetHomogCpleIm aSetH;
