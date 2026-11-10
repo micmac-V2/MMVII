@@ -116,6 +116,9 @@ void BenchSerialization(cParamExeBench & aParam,const std::string & aDirOut,cons
 // Test generation of random subet for ransac
 void BenchRansSubset(cParamExeBench & aParam);
 
+///  Bench on connected component computation
+void BenchConnectedComponent(cParamExeBench & aParam);
+
 
 //  void BenchGlob();      ///< All Bench
 

@@ -106,9 +106,6 @@ tREAL8 AdaptTetaNeg(tREAL8 aTeta,tREAL8 aMaxTeta)
 }
 
 
-
-
-
 void cAppliNewFrange::DoTensorProcessing()
 {
     // Compute the deriche gradient
@@ -244,32 +241,9 @@ void cAppliNewFrange::DoTensorProcessing()
      ExtractMaxSumIC();
 
 
-
-     {
-         // Resize ImMaxLoc
-         mImMaxLocTD = cIm2D<tU_INT1> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
-         mDImMaxLocTD = &(mImMaxLocTD.DIm());
-
-
-         // tentative extraction of centers of lines as maxima of grey
-         // in direction of tensor
-         int aBorder = 5;
-         std::vector<cPt2dr> aVN;
-         for (const auto & aPix : mDImMaxLocTD->Interior(aBorder))
-         {
-             cPt2dr aDirTens = ToR(cTensor<tElIm>::Tens2Grad(mImTens.Grad(aPix),1.0));
-
-             tREAL8 aV0 =mDImRedBlur->GetV(aPix);
-             if (      (aV0>mDImRedBlur->GetVBL(ToR(aPix)+aDirTens))
-                   &&   (aV0>mDImRedBlur->GetVBL(ToR(aPix)-aDirTens))
-                )
-             {
-                 mDImMaxLocTD->SetV(aPix,1);
-             }
-         }
-     }
-
+     ComputeRadiomCste();
 }
+
 
 
 

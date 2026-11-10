@@ -54,6 +54,16 @@ class cConnComp
 /*                                                             */
 /* *********************************************************** */
 
+enum class eTypePix
+{
+    eTmp=0,
+    eMaxVert=1,
+    eMinVert=2,
+    eMaxTens=3,
+    eProlong=4,
+    eTypeSmalCC=5,
+    eTypeBadAvgCC=6
+};
 
 enum class eTypeSom
 {
@@ -158,6 +168,7 @@ class cAppliNewFrange : public cMMVII_Appli
         /// Generate several visualization
         void DoVisu();
 
+
         void ShowCurvesIntegral(cRGBImage&);
 
 
@@ -173,6 +184,48 @@ class cAppliNewFrange : public cMMVII_Appli
             }
             mVNameVisu.push_back(aPref);
         }
+
+        bool IsSaddlePoint(const cPt2di & aPix) const;
+        cPt2dr NextPt(const cPt2dr & aP0,const cPt2dr& aP1) const;
+
+        cPt2dr TensorImage(cPt2di aPix) const;
+
+        void  ProlongateExtre(std::vector<cPt2dr>& aRes,cPt2di  aPix,eTypePix aLabel) const;
+
+        /*==========================  LABEL MANIPULATION =====================*/
+
+        static int Lab2I(eTypePix aLabel) {return (int) aLabel;}
+        static int LabTmp2I() {return   Lab2I(eTypePix::eTmp);}
+
+
+              // ------------------ Fix On/Off -----------------------------
+        void SetLabelOn(const cPt2di & aPix,eTypePix aLabel)
+        {
+            SetBitOn(*mDImLabel,aPix,Lab2I(aLabel));
+        }
+        void SetLabelOn(const cPt2di & aPix,const std::vector<eTypePix> & aLabel);
+
+        void SetLabelOff(const cPt2di & aPix,eTypePix aLabel)
+        {
+            SetBitOff(*mDImLabel,aPix,Lab2I(aLabel));
+        }
+             // ----------------- extract value ------------------------------
+        bool LabelIsOn(const cPt2di & aPix,eTypePix aLabel) const
+        {
+            return BitIsOn(*mDImLabel,aPix,(int)aLabel);
+        }
+
+                // ----------------- Specific to Tmp ------------------------------
+        bool LabelTmpIsOff(const cPt2di & aPix) const
+        {
+            return ! LabelIsOn(aPix,eTypePix::eTmp);
+        }
+        void SetLabelTmpOff(const cPt2di & aPix)
+        {
+            SetLabelOff(aPix,eTypePix::eTmp);
+        }
+
+
 
         /** Generete simulation images with "perfect" parabols, not realistic model, but
          *  to test correctnes of some computation */
@@ -190,18 +243,26 @@ class cAppliNewFrange : public cMMVII_Appli
         void MakeImageMaxLoc();
 
         /// is P0 it a maxmima in direction Dp on aNbPixels
-        bool IsMax(cPt2di aP0,cPt2di aDp,int aNb) const;
+        bool IsMinMax(cPt2di aP0,cPt2di aDp,int aNb,bool IsMax) const;
 
         /** Compute the connect component of Horiz/Vertical chain
          !! Horiz  is the direction for compuing max, so the chain with be +- orthog */
-        void ConnecCompMaxLoc(bool isHoriz);
+        void ConnecCompMaxLoc(eTypePix );
+        /// Compute the connected component and eventually memorize it
+        eTypePix NewCC(eTypePix,std::vector<cPt2di>  &,const cPt2di&);
+
 
         /// Add heuristically some horizontal CC
         void ComplemCCHoriz();
 
+        /// Must a point be added to assured 4-Connectivity
+        bool AddFor8Cx(const cDataIm2D<tU_INT1> & aImMax,const cPt2di&) const;
+        /// Add all the point that assure 8-Connecitvity
+        void Make8Cx(cDataIm2D<tU_INT1> & aImMax);
 
-        /// Compute the connected component and eventually memorize it
-        bool NewCC(std::vector<cPt2di>  &,bool isHoriz,const cPt2di&);
+
+
+
 
         /// Follow the chain, on a fix number of points stop if dead end or branch
         cPt2di BackTrackExtre( cPt2di aP0,const cDataIm2D<tU_INT1> & aImMax) const;
@@ -226,6 +287,13 @@ class cAppliNewFrange : public cMMVII_Appli
              extract the center
          */
         void DoTensorProcessing();
+
+
+        void ExtractTensorLines();
+
+        /// Is it a maxima in the tensor direction ?
+        bool IsMaxLocTens(const cPt2di & aPt,const cPt2dr & aDir) const;
+
 
         /// Estimate for a given Y, with window aSzY, how it is a good center of anti-symetry
         tREAL8 QualityCenterAntiSymetry(bool First,int aY,int aSzY,const std::vector<cPt2dr>&,const std::vector<tREAL8>&);
@@ -293,17 +361,18 @@ class cAppliNewFrange : public cMMVII_Appli
         tImGrad mImTens;
 
 
-        /*tIm      mImTx;   ///< 2d-image tensor x
-        tDIm*    mDImTx;  ///< 2d-data
-        tIm      mImTy;   ///< 2d-image tensor y
-        tDIm*    mDImTy;   ///< 2d-data */
+        cIm2D<tU_INT4>        mImLabel;
+        cDataIm2D<tU_INT4>*   mDImLabel;
+        cIm2D<tU_INT1>      mImTmp;
+        cDataIm2D<tU_INT1>* mDImTmp;
 
-         cIm2D<tU_INT1> mImMaxHor;           ///<  image of max in horizontal direction
-         cDataIm2D<tU_INT1>* mDImMaxHor;     ///<  data
-         cIm2D<tU_INT1> mImMaxVert;          ///< image of max in vertical direction
-         cDataIm2D<tU_INT1>* mDImMaxVert;    ///<  data
-         cIm2D<tU_INT1> mImMaxLocTD;           ///<  local maxima in tensor direction
-         cDataIm2D<tU_INT1>* mDImMaxLocTD;     ///< data
+
+
+
+      //   cIm2D<tU_INT1> mImMaxHor;           ///<  image of max in horizontal direction
+      //   cDataIm2D<tU_INT1>* mDImMaxHor;     ///<  data
+      //   cIm2D<tU_INT1> mImMaxVert;          ///< image of max in vertical direction
+      //   cDataIm2D<tU_INT1>* mDImMaxVert;    ///<  data
 
 
          tIm1D    mImCumNormT;    /// Image of teta as x=F(Y)

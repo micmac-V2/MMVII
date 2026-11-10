@@ -636,6 +636,7 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
         Bench_HBA(aParam);
 
 
+       BenchConnectedComponent(aParam);
        BenchCodedTarget(aParam);
 
     }

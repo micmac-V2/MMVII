@@ -37,17 +37,16 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mDImRedBlur       (nullptr),
     mImGrad           (cPt2di(1,1)),
     mImTens           (cPt2di(1,1)),
-    /*
-    mImTx             (cPt2di(1,1)),
-    mDImTx            (nullptr),
-    mImTy             (cPt2di(1,1)),
-    mDImTy            (nullptr),*/
-    mImMaxHor         (cPt2di(1,1)),
-    mDImMaxHor        (nullptr),
-    mImMaxVert        (cPt2di(1,1)),
-    mDImMaxVert       (nullptr),
-    mImMaxLocTD        (cPt2di(1,1)),
-    mDImMaxLocTD       (nullptr),
+    mImLabel          (cPt2di(1,1)),
+    mDImLabel         (nullptr),
+    mImTmp            (cPt2di(1,1)),
+    mDImTmp           (nullptr),
+   // mImMaxHor         (cPt2di(1,1)),
+   // mDImMaxHor        (nullptr),
+   // mImMaxVert        (cPt2di(1,1)),
+   // mDImMaxVert       (nullptr),
+   //  mImMaxLocTD        (cPt2di(1,1)),
+    // mDImMaxLocTD       (nullptr),
     mImCumNormT        (1),
     mDImCumNormT       (nullptr),
     mImTeta            (1),
@@ -140,10 +139,18 @@ int cAppliNewFrange::Exe()
     return EXIT_SUCCESS;
 }
 
+
+
+
 /* =================================================== */
 /*              Specific functions                     */
 /* =================================================== */
 
+void  cAppliNewFrange::SetLabelOn(const cPt2di & aPix,const std::vector<eTypePix> & aVLabel)
+{
+   for (const auto aLab : aVLabel)
+       SetLabelOn(aPix,aLab);
+}
 
 
 
@@ -173,12 +180,16 @@ void cAppliNewFrange::ComputeRadiomCste()
 
     for (int anY=0 ; anY<mSzRed.y() ; anY++)
     {
+        cStdStatRes  aStat;
         std::vector<tREAL8>   aVRad;
         for (int anX=0 ; anX<mSzRed.x() ; anX++)
         {
-            aVRad.push_back(mDImRedBlur->GetV(cPt2di(anX,anY)));
+            tREAL8 aRad = mDImRedBlur->GetV(cPt2di(anX,anY));
+            aStat.Add(aRad);
+            aVRad.push_back(aRad);
         }
-        tREAL8 aVal = IKthVal(aVRad,aVRad.size()-10);
+      //  tREAL8 aVal = IKthVal(aVRad,aVRad.size()-10);
+        tREAL8 aVal = aStat.Avg() + aStat.DevStd();
         // aVal = NC_KthVal(aVRad,1/3.0);
         mDImRadFrange->SetV(anY,aVal);
     }
@@ -198,6 +209,9 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
     mDImRed = &(mImRed.DIm());
     mSzRed = mDImRed->Sz();
 
+    mImLabel =  cIm2D<tU_INT4> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
+    mDImLabel = &mImLabel.DIm();
+
     if (mHasMask)
     {
         MMVII_INTERNAL_ASSERT_User_UndefE(mZoomRed==(int)mZoomRed,"Non int DeZoom with mask");
@@ -207,7 +221,8 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
         StdOut() << "SZ MASK= " << mImMask.DIm().Sz() << "\n";
     }
 
-    if (mDoSimul)
+    if (mDoSimul)    DoTensorProcessing();
+
         MakeImSimul();
 
     mImRedBlur = mImRed.Dup();
@@ -215,7 +230,7 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
     ExpFilterOfStdDev(*mDImRedBlur,5,2.0,5.0);
 
     DoTensorProcessing();
-    ComputeRadiomCste();
+    ExtractTensorLines();
 
     MakeImageMaxLoc();
 

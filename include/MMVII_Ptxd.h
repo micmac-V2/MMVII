@@ -444,6 +444,9 @@ std::vector<cPt2di> SortedVectOfRadius(const double & aR0,const double & aR1,boo
 /// IsSym  means that there is only one out of 2 between -P and P
 std::vector<cPt2di> VectOfRadius(const double & aR0,const double & aR1,bool IsSym=false) ;
 
+int IndexClosestPoint(const std::vector<cPt2di> & aVPts,const cPt2dr & aPt);
+const cPt2di & ClosestPoint(const std::vector<cPt2di> & aVPts ,const cPt2dr & aPt);
+
 
 
 /** "Strange" function, because require DimIn=DimOut, but sometime we need to do this cast,

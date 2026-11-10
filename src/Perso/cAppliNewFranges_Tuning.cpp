@@ -157,27 +157,28 @@ void cAppliNewFrange::DoVisu()
     cPt2di aSzImDetail = mSzRed + cPt2di(aRabXDetail,aRabYDetail);
     cRGBImage anImDetail = cRGBImage(aSzImDetail,cRGBImage::White);
     anImDetail.FillRectangle(cRGBImage::Yellow,mSzRed,aSzImDetail,cPt3dr::PCste(0.0));
+
+    // Image with normalzized dyn that will be used as background
+    cRGBImage aImGrayBackGround (mSzRed);
+
     // image that visualize oriented chain (+- arrow ...)
     cRGBImage aVisuArrow (mSzRed);
     cRGBImage aVisuArrowUnif (mSzRed);
 
 
-
     // initialize the raidometry with some enhancement
-
     for (const auto aPix : *mDImRed)
     {
         tREAL8 aHR = mDImRadFrange->GetV(aPix.y());
         tREAL8 aRad = ((mDImRedBlur->GetV(aPix)-mRadiomBackGround) /(aHR-mRadiomBackGround)) * 255.0;
         tINT4 aVal = std::clamp(round_ni(aRad),0,255);
 
+        aImGrayBackGround.SetGrayPix(aPix,aVal);
+
         anImDetail.SetGrayPix(aPix,aVal);
         aVisuArrow.SetGrayPix(aPix,aVal);
         aVisuArrowUnif.SetRGBPix(aPix,cRGBImage::Gray128);
-
     }
-
-
 
 
     //  generate images of max loc  Horiz/Vert/Tens and Mixte
@@ -185,40 +186,48 @@ void cAppliNewFrange::DoVisu()
         cRGBImage aVisuMaxLoxCurc = aVisuArrow.Dup();
         ShowCurvesIntegral(aVisuMaxLoxCurc);
 
-        cRGBImage aVisuMaxHor = aVisuArrow.Dup();
-        cRGBImage aVisuMaxVert = aVisuArrow.Dup();
-        cRGBImage aVisuMaxTens = aVisuArrow.Dup();
-        cRGBImage aVisuMaxMixte = aVisuArrow.Dup();
+        cRGBImage aVisuMinVert = aImGrayBackGround.Dup();
+        cRGBImage aVisuMaxVert = aImGrayBackGround.Dup();
+        cRGBImage aVisuMaxTens = aImGrayBackGround.Dup();
+
 
         for (const auto aPix : * mDImRed)
         {
-            if ( mDImMaxLocTD->GetV(aPix))
+            if ( LabelIsOn(aPix,eTypePix::eMinVert))
+            {
+                aVisuMinVert.SetRGBPix(aPix,cRGBImage::Yellow);
+            }
+            if ( LabelIsOn(aPix,eTypePix::eMaxVert))
+            {
+                aVisuMaxVert.SetRGBPix(aPix,cRGBImage::Cyan);
+            }
+
+            if ( LabelIsOn(aPix,eTypePix::eMaxTens))
             {
                 aVisuMaxTens.SetRGBPix(aPix,cRGBImage::Green);
-                aVisuMaxMixte.SetRGBPix(aPix,cRGBImage::Green);
-            }
-            if ( mDImMaxHor->GetV(aPix) ==2)
-            {
-                aVisuMaxHor.SetRGBPix(aPix,cRGBImage::Yellow);
-                aVisuMaxMixte.SetRGBPix(aPix,cRGBImage::Yellow);
-            }
-            if ( mDImMaxVert->GetV(aPix)==2)
-            {
-                cPt3di aCol = (mDImMaxVert->GetV(aPix)==2) ? cRGBImage::Cyan : cRGBImage::Yellow;
-                aVisuMaxLoxCurc.SetRGBPix(aPix,aCol);
+                if ( LabelIsOn(aPix,eTypePix::eProlong))
+                    aVisuMaxTens.SetRGBPix(aPix,cRGBImage::Red);
 
-                aVisuMaxVert.SetRGBPix(aPix,aCol);
-                aVisuMaxMixte.SetRGBPix(aPix,aCol);
+                /*for (const auto & aProl : ProlongateExtre(aPix,eTypePix::eMaxTens))
+                    aVisuMaxTens.SetRGBPix(ToI(aProl),cRGBImage::Red);*/
+            }
+            else
+            {
             }
         }
+        GenVisu(aVisuMinVert,"MinVert");
+        GenVisu(aVisuMaxVert,"MaxVert");
+        GenVisu(aVisuMaxTens,"MaxTens");
 
 
+/*
         GenVisu(aVisuMaxTens,"MaxLocTens");
         GenVisu(aVisuMaxHor,"MaxLocHor");
         GenVisu(aVisuMaxVert,"MaxLocVert");
         GenVisu(aVisuMaxMixte,"MaxLocMixte");
 
         GenVisu(aVisuMaxLoxCurc,"MaxVCurv");
+        */
 
     }
 

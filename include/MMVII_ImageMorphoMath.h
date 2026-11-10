@@ -100,10 +100,34 @@ void ConnectedComponent
          int aMarqInit=1,  int aNewMarq=0,  bool Restore=false
      );
 
-};
 
+void FlagBitConnectedComponent
+     (
+         std::vector<cPt2di> & aVPts,
+         cDataIm2D<tU_INT4>  & aDIm,
+         const std::vector<cPt2di> & aNeighbourhood,
+         const  std::vector<cPt2di> & aVecSeed,
+         int aBitIn,
+         int aBitTmp,
+         bool Restore = false
+     );
 
+template<class Type>  void SetBitOn(cDataIm2D<Type>  & aDIm,const cPt2di& aPix,int aNumB)
+{
+    Type & aV = aDIm.GetReference_V(aPix);
+    aV = SetBitOn(aV,aNumB);
+}
+template<class Type>  void SetBitOff(cDataIm2D<Type>  & aDIm,const cPt2di& aPix,int aNumB)
+{
+    Type & aV = aDIm.GetReference_V(aPix);
+    aV = SetBitOff(aV,aNumB);
+}
+template<class Type>  bool BitIsOn(const cDataIm2D<Type>  & aDIm,const cPt2di& aPix,int aNumB)
+{
+    return BitIsOn(aDIm.GetV(aPix),aNumB);
+}
 
+};  // namespace MMVII
 
 
 #endif  //   _MMVII_MorphoMat_H_
