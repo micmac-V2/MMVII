@@ -129,6 +129,7 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     //mSigmaGCP         (-1),
 
     mTopo             (nullptr),
+    mBA_TLS_PhotoTieP (nullptr),
     mFolderRefCam     (""),
     mSigmaTrRefCam    (-1.0),
     mSigmaRotRefCam   (-1.0),
@@ -168,6 +169,8 @@ cMMVII_BundleAdj::~cMMVII_BundleAdj()
     DeleteAllAndClear(mVBA_Lidar);
     DeleteAllAndClear(mVBA_TLS_photo);
     DeleteAllAndClear(mVBA_TLS_TLS);
+    if (mBA_TLS_PhotoTieP)
+        delete mBA_TLS_PhotoTieP;
 
     DeleteLineAdjust();
     DeleteBlockInstr();
@@ -1010,6 +1013,12 @@ void cMMVII_BundleAdj::Add1AdjTLSTLS(const std::string & aPatScan, double aSigma
                                                        aThresholdFinal, aNormalTolDeg, aInterpD, aWParamDist, aWParamAngle));
 }
 
+
+void cMMVII_BundleAdj::AddAdjTLS_PhotoTieP(double aSigma, double aThresholdDistInit, double aThresholdDistFinal,
+                                           const std::vector<std::string> & aInterpD, const cWeighterParam & aWParamDist)
+{
+    mBA_TLS_PhotoTieP = new cBA_TLS_PhotoTieP(mPhProj, this, aSigma, aThresholdDistInit, aThresholdDistFinal, aInterpD, aWParamDist);
+}
 
 /* ---------------------------------------- */
 /*                 Topo                     */

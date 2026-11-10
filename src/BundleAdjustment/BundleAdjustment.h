@@ -21,6 +21,7 @@ class cMMVII_BundleAdj;
 class cBA_ArboTriplets;
 class cBA_LidarPhotogra;
 class cBA_TLS;
+class cBA_TLS_PhotoTieP;
 class cBA_TieP;
 class cBA_GCP;
 //class cBA_Clino;
@@ -630,6 +631,7 @@ protected:
 
 //---------------------------------------------------------------------------------
 
+
 /**
  * base class for raster-based TLS adj
  */
@@ -637,22 +639,14 @@ class cBA_TLS_base
 {
 public :
     /// constructor, take the global bundle struct + sigma factor + interpolator spec
-    cBA_TLS_base(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj&, double aSigma, const std::vector<std::string> & aInterp);
+    cBA_TLS_base(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj&, const std::string & aPatScan,
+                 double aSigma, const std::vector<std::string> & aInterp);
     /// destuctor, free interopaltor, calculator ....
     virtual ~cBA_TLS_base();
     void CreateZbuffers(cPhotogrammetricProject *aPhProj, const cMMVII_BundleAdj &aBA, bool aOnScans, bool aDebug); ///< on images or on scans
+    virtual void UpdateWeightersMap()=0; // create or update map, on each iteration
 
 protected :
-    /**  Add observation for 1 Patch of point */
-    virtual void AddObs() = 0;
-
-    virtual void SetVUkVObs
-        (const cPt3dr&           aPGround,
-         std::vector<int> *      aVIndUk,
-         std::vector<tREAL8> &   aVObs,
-         const cData1ImLidPhgr & aData,
-         int                     aKPt
-         ) = 0;
     std::vector<cStaticLidarBAData>   mVScans;      ///< vector of raster representations of lidar
 
     std::map<std::string,cIm2D<tREAL4>> mMapZbuf; ///< fusion of all zbuffers for one image/scan B name
@@ -667,9 +661,8 @@ protected :
     size_t                         mNbUsedObs;      ///< number of lidar obs used
     size_t                         mNbUsableObs;      ///< number of lidar obs that could have been used (remove widely false)
     std::map<std::string, int>     mIndexesScans; ///< indexes in mVScans
-    std::map<std::string,std::unique_ptr<cBasicWeighter<tREAL8>>> mDistWeightersMap;   ///< map from "nameScanA-nameScanB" to the appropriate weighter
+    std::map<std::string,std::unique_ptr<cBasicWeighter<tREAL8>>> mDistWeightersMap;   ///< map from "nameScan" or "nameScanA-nameScanB" to the appropriate weighter
     std::map<std::pair<std::string,std::string>, int> mMapNbUsedPatches; // indexed by scan/im names (name_a, name_b). Number of patches used for this couple
-    tREAL8      mThreshold, mThresholdInit, mThresholdFinal;   ///< residual/distance where scan points are supposed to be hidden;
 
 #ifdef SCANPHOTOSHOWPATCHES
     std::map<std::string,cRGBImage> mMapPatchesRasters; ///< indexed by "nameA>nameB"
@@ -691,10 +684,10 @@ public:
     virtual ~cBA_TLS_photo();
 
     /// add observation
-    void AddObs() override;
+    void AddObs();
 
     void UpdateInterpolatorScale(const cMMVII_BundleAdj& aBA);
-    void UpdateWeightersMap(const cMMVII_BundleAdj &aBA, double aWFactor); // create or update map, on each iteration
+    void UpdateWeightersMap() override; // create or update map, on each iteration
 
 protected:
     void InitEq(bool aScanPoseUk);
@@ -721,13 +714,13 @@ protected:
          std::vector<tREAL8> &   aVObs,
          const cData1ImLidPhgr & aData,
          int                     aKPt
-         ) override;
+         );
 
     eImatchCrit                    mModeSim;        ///< type of similarity used
     bool                           mPertRad;        ///< do we pertubate the radiometry (simulation & test)
     size_t                         mNbPointByPatch; ///< (approximate) required number of point /patch
-    tREAL8                         mScaleInit, mScaleFinal;   ///< scale interpolator scale, dependent on the iteration number
-
+    cVarThreshold                  mVarScale;
+    tREAL8                         mThreshold;
 };
 
 struct cWeighterParam
@@ -756,9 +749,9 @@ public :
     virtual ~cBA_TLS_TLS();
 
     /// add observation
-    void AddObs() override;
+    void AddObs();
 
-    void UpdateWeightersMap(const cMMVII_BundleAdj &aBA, double aWFactor); // create or update map, on each iteration
+    void UpdateWeightersMap() override; // create or update map, on each iteration
 
 protected :
     /**  Add observation for 1 Patch of point */
@@ -772,16 +765,47 @@ protected :
          std::vector<tREAL8> &   aVObs,
          const cData1ImLidPhgr &  aData,
          int                     aKPt
-         ) override;
+         );
 
     std::unique_ptr<cBasicWeighter<tREAL8>> mWeighterAngle;
     cWeighterParam mWParamDist;
+    cVarThreshold mDistThreshold;
+    double mCurrDistThreshold;
 
 #ifdef SCANSCANSHOWPATCHES
     std::map<std::string,cIm2D<tREAL4>> mMapPatchesRasters; ///< indexed by "nameA>nameB"
 #endif
 };
 
+/**
+ * Class for adjustment of raster-based TLS and photo tie points
+ */
+class cBA_TLS_PhotoTieP: cBA_TLS_base
+{
+public:
+    cBA_TLS_PhotoTieP(cPhotogrammetricProject* aPhProj, cMMVII_BundleAdj* aBA,
+                      double aSigma, double aThresholdInit, double aThresholdFinal,
+                      const std::vector<std::string> &aInterpD, const cWeighterParam & aWParamD);
+    /// destuctor, free interopaltor, calculator ....
+    virtual ~cBA_TLS_PhotoTieP();
+    void UpdateWeightersMap() override; // create or update map, on each iteration
+
+    /// add observation for one TieP
+    void AddObs(cSetIORSNL_SameTmp<tREAL8> &aStrSubst, const cPt3dr & aTiePGround);
+    void ShowStats(); // display stats and reset them
+protected:
+    void SetVUkVObs
+        (const cPt3dr&           aTiePGround,
+         cStaticLidar *          aScanB,
+         std::vector<int> *      aVIndUk,
+         std::vector<tREAL8> &   aVObs
+         , MMVII::tREAL8 aDist, MMVII::cPt2dr &aGrad);
+
+    cVarThreshold mDistThreshold;
+    double mCurrDistThreshold;
+    cWeightAv<tREAL8> mWeigthedRes;
+    cWeighterParam mWParamDist;
+};
 
 //---------------------------------------------------------------------------------
 
@@ -906,8 +930,9 @@ class cMMVII_BundleAdj
                                  double aThresholdFinal, double aNormalTolDeg, const std::vector<std::string> & aInterpD,
                                  const cWeighterParam &aWParamDist, const cWeighterParam &aWParamAngle);
 
+          void AddAdjTLS_PhotoTieP(double aSigma, double aThresholdDistInit, double aThresholdDistFinal, const std::vector<std::string> & aInterpD, const cWeighterParam &aWParamDist);
           ///  ============  Add multiple tie point ============
-          void AddMTieP(const std::string & aName,cComputeMergeMulTieP  * aMTP,const cStdWeighterResidual & aWIm);
+          void AddMTieP(const std::string & aName, cComputeMergeMulTieP  * aMTP, const cStdWeighterResidual & aWIm);
 
           void Iterate(int aNbMaxIter, tREAL8 mLVM=0., bool aShow_Cond=false); // make all iterations
 
@@ -1052,6 +1077,7 @@ class cMMVII_BundleAdj
           std::vector<cBA_LidarPhotogra*>  mVBA_Lidar;
           std::vector<cBA_TLS_photo*>  mVBA_TLS_photo;
           std::vector<cBA_TLS_TLS*>  mVBA_TLS_TLS;
+          cBA_TLS_PhotoTieP *        mBA_TLS_PhotoTieP;
 
                  // - - - - - - -   Reference poses- - - - - - - -
           std::vector<cSensorCamPC *>        mVCamRefPoses;      ///< vector of reference  poses if they exist

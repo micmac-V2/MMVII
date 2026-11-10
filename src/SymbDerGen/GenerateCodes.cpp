@@ -502,6 +502,11 @@ cCalculator<double> * EqEqLidarLidar(bool WithDerive,int aSzBuf,bool ReUse)
     return StdAllocCalc(NameFormula(cEqLidarLidar(),WithDerive),aSzBuf,false,ReUse);
 }
 
+cCalculator<double> * EqEqTLS_PhotoTieP(bool WithDerive,int aSzBuf,bool ReUse)
+{
+    return StdAllocCalc(NameFormula(cEqTLS_PhotoTieP(),WithDerive),aSzBuf,false,ReUse);
+}
+
 cCalculator<double> * EqTLS_GCP(bool WithDerive,int aSzBuf,bool ReUse)
 {
     return StdAllocCalc(NameFormula(cEqTLS_GCP(false),WithDerive),aSzBuf,false,ReUse);
@@ -956,6 +961,7 @@ int cAppliGenCode::Exe()
        GenCodesFormula((tREAL8*)nullptr,cEqLidarImCorrel(true),WithDer);
 
        GenCodesFormula((tREAL8*)nullptr,cEqLidarLidar(),WithDer); // lidar/lidar
+       GenCodesFormula((tREAL8*)nullptr,cEqTLS_PhotoTieP(),WithDer); // TLS/PhotoTieP
 
        GenCodesFormula((tREAL8*)nullptr,cEqTLS_GCP(false),WithDer); // TLS/GCP
        GenCodesFormula((tREAL8*)nullptr,cEqTLS_GCP(true),WithDer); // TLS/GCP with distance

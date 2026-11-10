@@ -142,6 +142,22 @@ struct cLidarLidarParam
         )
 };
 
+struct cTLS_photoTieP_Param
+{
+    double Sigma;
+    double ThresholdDistInit = 0.1;
+    double ThresholdDistFinal = 0.001;
+    cWeighterParam ModeWeighterDist;
+    std::vector<std::string> InterpD = {"Linear"};
+    ARG2007_STRUCT_FIELDS (
+        Sigma,FieldSem({eTA2007::AddCom,"Sigma factor"}),
+        ThresholdDistInit,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold at first iteration, <0 = infinite"}}),
+        ThresholdDistFinal,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold at last iteration, <0 = infinite"}}),
+        ModeWeighterDist,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Weighter Dist"}}),
+        InterpD,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Distance interpolator"}})
+    )
+};
+
 struct cAddTieP
 {
     std::string Folder;
@@ -259,6 +275,7 @@ class cAppliBundlAdj : public cMMVII_Appli
         std::vector<cLidarPhotograParam>  mParamLidarPhgr; // parameters for photogra/lidar adj via triangulation
         std::vector<cLidarPhotoParam>     mParamTLSPhoto; // parameters for photogra/lidar adj via rasterization
         std::vector<cLidarLidarParam>     mParamTLSTLS; // parameters for lidar-lidar adj
+        cTLS_photoTieP_Param              mParamTLS_PhotoTieP; //parameters photo tie points proj on TLS scans
 
         int                       mNbIter;
 
@@ -340,6 +357,7 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007 ( mParamLidarPhgr,  "LidarPhotogra", "Lidar/Phgr adj via triangulation",  {eTA2007::CanRepeat})
       << AOpt2007 ( mParamTLSPhoto, "LidarPhoto",    "TLS-Photo constraints",  {eTA2007::CanRepeat})
       << AOpt2007 ( mParamTLSTLS, "LidarLidar",    "TLS-TLS constraints", {eTA2007::CanRepeat})
+      << AOpt2007 ( mParamTLS_PhotoTieP, "TLSPhotoTieP",    "TLS-Photo TieP constraints")
 
       << cHeaderSectionArg("Freeze")
       << AOpt2007(mPatParamFrozCalib,"PPFzCal","Pattern for freezing internal calibration parameters")
@@ -530,6 +548,12 @@ int cAppliBundlAdj::Exe()
         mBA.AddGCP2D(aMes2DDirInfo, aSetMesPtOf1Im, nullptr, eLevelCheck::NoCheck);
     }
 
+    if (IsInit(&mParamTLS_PhotoTieP))
+        mBA.AddAdjTLS_PhotoTieP(mParamTLS_PhotoTieP.Sigma,
+                            mParamTLS_PhotoTieP.ThresholdDistInit,
+                            mParamTLS_PhotoTieP.ThresholdDistFinal,
+                            mParamTLS_PhotoTieP.InterpD,
+                            mParamTLS_PhotoTieP.ModeWeighterDist);
 
     if (IsInit(&mTiePWeight))
     {

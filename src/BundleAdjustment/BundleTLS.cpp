@@ -11,7 +11,8 @@ namespace MMVII
 //#define EXPORTREPROJLIDAR
 
 cBA_TLS_base::cBA_TLS_base(cPhotogrammetricProject * aPhProj,
-                           cMMVII_BundleAdj& aBA, double aSigma, const std::vector<std::string> & aInterp) :
+                           cMMVII_BundleAdj& aBA, const std::string & aPatScan,
+                           double aSigma, const std::vector<std::string> & aInterp) :
     mPhProj     (aPhProj),
     mBA         (aBA),                                 // memorize the bundel adj class itself (access to optimizer)
     mParamInterpol (aInterp),
@@ -22,6 +23,22 @@ cBA_TLS_base::cBA_TLS_base(cPhotogrammetricProject * aPhProj,
     mNbUsedObs (0),
     mNbUsableObs (0)
 {
+    //read scans files from directory corresponding to pattern in aPatScan
+    tNameSelector aSel =   AllocRegex(aPatScan);
+    for (const auto & aPtrCam : mBA.VSCPC())
+    {
+        cStaticLidar* aPtrScan = dynamic_cast<cStaticLidar*>(aPtrCam);
+        if (aPtrScan && aSel.Match(aPtrScan->NameImage()) )
+        {
+            mBA.AddStaticLidar(aPtrScan);
+            StdOut() << "Add Scan " << aPtrScan->NameImage() << "\n";
+            mVScans.push_back({aPtrScan , {}});
+            mIndexesScans[aPtrScan->NameImage()] = mVScans.size()-1;
+        }
+    }
+
+    MMVII_INTERNAL_ASSERT_User(!mVScans.empty(),
+                               eTyUEr::eBadFileSetName,"No TLS found!");
 
 }
 
@@ -176,11 +193,11 @@ void cBA_TLS_base::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cMMVI
 cBA_TLS_photo::cBA_TLS_photo(cPhotogrammetricProject * aPhProj,
                                      cMMVII_BundleAdj& aBA, eImatchCrit aMode, const std::string & aPatScan, double aSigma,
                                      const std::vector<std::string> & aInterp, double aScaleInit, double aScaleFinal, double aThreshold, int aNbPtsPerPatch) :
-    cBA_TLS_base(aPhProj, aBA, aSigma, aInterp),
+    cBA_TLS_base(aPhProj, aBA, aPatScan, aSigma, aInterp),
     mModeSim    (aMode),    // mode of matching
     mPertRad    (false),
     mNbPointByPatch (aNbPtsPerPatch),
-    mScaleInit(aScaleInit), mScaleFinal(aScaleFinal)
+    mVarScale(aScaleInit,aScaleFinal)
 {
     // read images before 1st iteration // TODO: read only images that may correspond to scans?
     StdOut() << "Read images...\n";
@@ -203,19 +220,6 @@ cBA_TLS_photo::cBA_TLS_photo(cPhotogrammetricProject * aPhProj,
     InitEq(true);
 
     mThreshold = aThreshold;
-
-    tNameSelector aSel =   AllocRegex(aPatScan);
-    for (const auto & aPtrCam : mBA.VSCPC())
-    {
-        cStaticLidar* aPtrScan = dynamic_cast<cStaticLidar*>(aPtrCam);
-        if (aPtrScan && aSel.Match(aPtrScan->NameImage()) )
-        {
-            mBA.AddStaticLidar(aPtrScan);
-            StdOut() << "Add Scan " << aPtrScan->NameImage() << "\n";
-            mVScans.push_back({aPtrScan , {}});
-            mIndexesScans[aPtrScan->NameImage()] = mVScans.size()-1;
-        }
-    }
 
     // Creation of the patches, choose a neigborhood around patch centers. TODO: adapt to images ground pixels size?
     if (mModeSim==eImatchCrit::eDifRad)
@@ -252,12 +256,10 @@ cBA_TLS_photo::~cBA_TLS_photo()
 
 void cBA_TLS_photo::UpdateInterpolatorScale(const cMMVII_BundleAdj& aBA)
 {
-    tREAL4 aScale = aBA.NbMaxIter() < 2 ? mScaleFinal :
-                     mScaleInit + (mScaleFinal - mScaleInit)*float(aBA.Iter())/(aBA.NbMaxIter()-1);
-    std::cout << "up interpolator, scale="<<aScale<<"\n";
-
-    if (mScaleInit == mScaleFinal)
+    if (!mVarScale.HasChangedSincePreviousIter(mBA.Iter(), mBA.NbMaxIter()))
         return;
+
+    double aScale = mVarScale.GetThreshold(mBA.Iter(), mBA.NbMaxIter());
 
     std::vector<std::string> aParamScaleInterpol = {"Scale", cStrIO<double>::ToStr(aScale), "1000"};
     aParamScaleInterpol.insert(aParamScaleInterpol.end(), mParamInterpol.begin(), mParamInterpol.end());
@@ -266,18 +268,14 @@ void cBA_TLS_photo::UpdateInterpolatorScale(const cMMVII_BundleAdj& aBA)
 }
 
 
-void cBA_TLS_photo::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, double aWFactor)
+void cBA_TLS_photo::UpdateWeightersMap()
 {
-    mThreshold = aBA.NbMaxIter() < 2 ? mThresholdFinal :
-                     mThresholdInit + (mThresholdFinal - mThresholdInit)*float(aBA.Iter())/(aBA.NbMaxIter()-1);
-    //std::cout << "up weighters, th="<<mThreshold<<"\n";
-    if (mThreshold>10000)
-        mThreshold = -1;
+    // no threshold variation for now
     for (auto & aScanDataA: mVScans)
     {
         auto &aScanA = aScanDataA.mLidarRaster;
         tREAL8 aSigma = 1.; // TODO use image res for W? aScanA->Sigma() converted with incidence?
-        mDistWeightersMap[aScanA->NameImage()].reset(new cStdWeighterResidual(sqrt(aWFactor)*aSigma, mThreshold / 2., mThreshold, 1));
+        mDistWeightersMap[aScanA->NameImage()].reset(new cStdWeighterResidual(sqrt(mWFactor)*aSigma, mThreshold / 2., mThreshold, 1));
     }
 }
 
@@ -363,7 +361,7 @@ void cBA_TLS_photo::AddObs()
 
     // update the interpolator and weighters map
     UpdateInterpolatorScale(mBA);
-    UpdateWeightersMap(mBA, mWFactor);
+    UpdateWeightersMap();
 
 
     if (mModeSim==eImatchCrit::eDifRad)
@@ -860,33 +858,13 @@ cBA_TLS_TLS::cBA_TLS_TLS(cPhotogrammetricProject * aPhProj,
                                            double aThresholdInit, double aThresholdFinal,
                                            double aNormalTolDeg, const std::vector<std::string> & aInterpD,
                                            const cWeighterParam & aWParamD, const cWeighterParam &aWParamA) :
-    cBA_TLS_base(aPhProj, aBA, aSigma, aInterpD), mWParamDist(aWParamD)
+    cBA_TLS_base(aPhProj, aBA, aPatScan, aSigma, aInterpD), mWParamDist(aWParamD),
+    mDistThreshold(aThresholdInit,aThresholdFinal)
 {
     mEq = EqEqLidarLidar (true,1,true);
 
-    mThresholdInit = (aThresholdInit<0) ? INFINITY : aThresholdInit;
-    mThresholdFinal = (aThresholdFinal<0) ? INFINITY : aThresholdFinal;
-    mThreshold = mThresholdInit;
-
     MMVII_INTERNAL_ASSERT_User((aNormalTolDeg>=0) && (aNormalTolDeg<=180),
                                eTyUEr::eBadOptParam,"Normal tolerance must be inside [0,180], got "+ToStr(aNormalTolDeg));
-
-    //read scans files from directory corresponding to pattern in aPatScan
-    tNameSelector aSel =   AllocRegex(aPatScan);
-    for (const auto & aPtrCam : mBA.VSCPC())
-    {
-        cStaticLidar* aPtrScan = dynamic_cast<cStaticLidar*>(aPtrCam);
-        if (aPtrScan && aSel.Match(aPtrScan->NameImage()) )
-        {
-            mBA.AddStaticLidar(aPtrScan);
-            StdOut() << "Add Scan " << aPtrScan->NameImage() << "\n";
-            mVScans.push_back({aPtrScan , {}});
-            mIndexesScans[aPtrScan->NameImage()] = mVScans.size()-1;
-        }
-    }
-
-    MMVII_INTERNAL_ASSERT_User(!mVScans.empty(),
-                               eTyUEr::eBadFileSetName,"No TLS found!");
 
     // Creation of the patches, here just center point
     for (auto & aScanData: mVScans)
@@ -921,26 +899,9 @@ cBA_TLS_TLS::~cBA_TLS_TLS()
 }
 
 
-void cBA_TLS_TLS::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, double aWFactor)
+void cBA_TLS_TLS::UpdateWeightersMap()
 {
-    mThreshold = aBA.NbMaxIter() < 2 ? mThresholdFinal :
-                     mThresholdInit + (mThresholdFinal - mThresholdInit)*float(aBA.Iter())/(aBA.NbMaxIter()-1);
-
-
-    // spend last 15% of iter on final threshold
-    int aNbIterFinalTh = aBA.NbMaxIter()*0.6;
-    mThreshold = mThresholdFinal;
-    if (aBA.NbMaxIter()>2)
-    {
-        if (aBA.Iter() <= aNbIterFinalTh)
-            //mThreshold = mThresholdInit + (mThresholdFinal - mThresholdInit)*float(aBA.Iter())/(aNbIterFinalTh);
-            mThreshold = mThresholdFinal + (mThresholdInit - mThresholdFinal) * (1. + cos(M_PI * float(aBA.Iter())/aNbIterFinalTh ))/2. ;
-    }
-
-
-    std::cout << "up weighters, th="<<mThreshold<<"\n";
-    if (mThreshold>10000)
-        mThreshold = -1;
+    mCurrDistThreshold = mDistThreshold.GetThreshold(mBA.Iter(), mBA.NbMaxIter());
     for (auto & aScanDataA: mVScans)
     {
         auto &aScanA = aScanDataA.mLidarRaster;
@@ -960,11 +921,11 @@ void cBA_TLS_TLS::UpdateWeightersMap(const cMMVII_BundleAdj& aBA, double aWFacto
             switch (mWParamDist.Mode) {
             case eModeWeighter::eStd:
                 MMVII_INTERNAL_ASSERT_User(mWParamDist.VParams.size()==2,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParamDist.Mode)+" must have 2 params");
-                aW = new cStdWeighterResidual(sqrt(aWFactor)*aSigmaAB, mThreshold*mWParamDist.VParams.at(0), mThreshold, mWParamDist.VParams.at(1));
+                aW = new cStdWeighterResidual(sqrt(mWFactor)*aSigmaAB, mCurrDistThreshold*mWParamDist.VParams.at(0), mCurrDistThreshold, mWParamDist.VParams.at(1));
                 break;
             case eModeWeighter::eLin:
                 MMVII_INTERNAL_ASSERT_User(mWParamDist.VParams.size()==1,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParamDist.Mode)+" must have 1 param");
-                aW = new cLinearWeighterResidual(sqrt(aWFactor)*aSigmaAB, mThreshold, mThreshold*mWParamDist.VParams.at(0));
+                aW = new cLinearWeighterResidual(sqrt(mWFactor)*aSigmaAB, mCurrDistThreshold, mCurrDistThreshold*mWParamDist.VParams.at(0));
                 break;
             case eModeWeighter::eNbVals:
                 MMVII_INTERNAL_ASSERT_User(false,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParamDist.Mode)+" not allowed!");
@@ -1009,7 +970,7 @@ void cBA_TLS_TLS::AddObs()
     mNbUsableObs = 0;
 
     // update the weighters map
-    UpdateWeightersMap(mBA, mWFactor);
+    UpdateWeightersMap();
 
     for (auto & aScan : mVScans)
     {
@@ -1059,7 +1020,7 @@ void cBA_TLS_TLS::AddObs()
         //    StdOut() << aScan.mLidarRaster->NameImage()<< " " << aScan.mLidarRaster->Center().x() <<
         //         std::setprecision(10) << " " << aScan.mLidarRaster->Center().y()<< " " << aScan.mLidarRaster->Center().z() << "\n";
         std::cout<<"res "<<mVScans.back().mLidarRaster->NameImage()<<" "<<
-            Norm2(mVScans.back().mLidarRaster->Pose().Tr()-cPt3dr(33.298387398154595, -87.364096907658464, 111.161090316911455))<<"\n";
+            Norm2(mVScans.back().mLidarRaster->Pose().Tr()-cPt3dr(33.297130088694878,-87.36423921377633, 111.161358924214895))<<"\n";
     }
     else
         StdOut() << "  * Lid/Lid: no obs\n";
@@ -1226,7 +1187,7 @@ tREAL8 cBA_TLS_TLS::Add1Patch(const cLidarRasterPatch &aPatch, const cStaticLida
                 tREAL8 aValIm = aVGr.first;   // value of first/central pixel in this image
                 tREAL8 aResidual = aValIm-aDist;
 
-                if ((fabs(aResidual)<std::max(aStatsMaxDist,mThreshold*10))
+                if ((fabs(aResidual)<std::max(aStatsMaxDist,mCurrDistThreshold*10))
                    )// &&(Scal(aNormalGndA,aNormalGndB)<aStatstNormalDiffMinCos)) //std::max(0.1,mThreshold*20)) // suppose that 10cm is always an error
                     mNbUsableObs++;
 
@@ -1357,6 +1318,182 @@ void cBA_TLS_TLS::AddPatchDist
         aSys->CalcAndAddObs(mEq, aVIndUk, aVObs, aData.mW);
     }
 }
+
+//-------------------------------------
+
+cBA_TLS_PhotoTieP::cBA_TLS_PhotoTieP(cPhotogrammetricProject *aPhProj, cMMVII_BundleAdj *aBA,
+                                     double aSigma, double aThresholdInit, double aThresholdFinal,
+                                     const std::vector<std::string> & aInterpD, const cWeighterParam &aWParamD):
+    cBA_TLS_base(aPhProj, *aBA, "", aSigma, aInterpD),
+    mDistThreshold(aThresholdInit,aThresholdFinal), mWParamDist(aWParamD)
+{
+    mEq = EqEqTLS_PhotoTieP(true,1,true);
+}
+
+/// destuctor, free interopaltor, calculator ....
+cBA_TLS_PhotoTieP::~cBA_TLS_PhotoTieP()
+{
+}
+
+void cBA_TLS_PhotoTieP::UpdateWeightersMap()
+{
+    mCurrDistThreshold = mDistThreshold.GetThreshold(mBA.Iter(), mBA.NbMaxIter());
+    // no threshold variation for now
+    for (auto & aScanDataA: mVScans)
+    {
+        auto &aScanA = aScanDataA.mLidarRaster;
+        tREAL8 aSigma = 1.; // TODO use image res for W? aScanA->Sigma() converted with incidence?
+        mDistWeightersMap[aScanA->NameImage()].reset(new cStdWeighterResidual(sqrt(mWFactor)*aSigma, mCurrDistThreshold / 2., mCurrDistThreshold, 1));
+    }
+
+    for (auto & aScanDataB: mVScans)
+    {
+        auto &aScanB = aScanDataB.mLidarRaster;
+
+        cBasicWeighter<tREAL8> * aW = nullptr;
+        switch (mWParamDist.Mode) {
+        case eModeWeighter::eStd:
+            MMVII_INTERNAL_ASSERT_User(mWParamDist.VParams.size()==2,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParamDist.Mode)+" must have 2 params");
+            aW = new cStdWeighterResidual(sqrt(mWFactor)*aScanB->Sigma(), mCurrDistThreshold*mWParamDist.VParams.at(0), mCurrDistThreshold, mWParamDist.VParams.at(1));
+            break;
+        case eModeWeighter::eLin:
+            MMVII_INTERNAL_ASSERT_User(mWParamDist.VParams.size()==1,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParamDist.Mode)+" must have 1 param");
+            aW = new cLinearWeighterResidual(sqrt(mWFactor)*aScanB->Sigma(), mCurrDistThreshold, mCurrDistThreshold*mWParamDist.VParams.at(0));
+            break;
+        case eModeWeighter::eNbVals:
+            MMVII_INTERNAL_ASSERT_User(false,eTyUEr::eBadEnum,"Weighter mode "+ToStr(mWParamDist.Mode)+" not allowed!");
+            break;
+        }
+        mDistWeightersMap[aScanB->NameImage()].reset( aW );
+    }
+}
+
+
+void cBA_TLS_PhotoTieP::ShowStats()
+{
+    StdOut() << Color::argument << " *[TLS-PhotoTieP]: " << Color::end
+             << Color::descr << " Weighted="  << Color::end << mWeigthedRes.Average(-1)
+             << Color::descr << " NbObs=" << Color::end  << mWeigthedRes.Nb()
+             << "\n";
+        ;
+
+    mWeigthedRes.Reset();
+}
+
+void cBA_TLS_PhotoTieP::AddObs(cSetIORSNL_SameTmp<tREAL8> &aStrSubst, const cPt3dr & aTiePGround)
+{
+    std::vector<int>       aVIndUk;
+    std::vector<tREAL8>    aVObs;
+
+    // read the solver now, because was not initialized at creation
+    cResolSysNonLinear<tREAL8> *  aSys = mBA.Sys();
+
+    tREAL8 aStatsMaxDist = 0.2;
+    cWeightAv<tREAL8>   aAvgRes;    // compute average residual
+    tREAL8 aMinResidual = INFINITY;
+
+    for (auto & aBAData: mVScans)
+    {
+        auto aScanB = aBAData.mLidarRaster;
+        auto & aWeighter = mDistWeightersMap.at(aScanB->NameImage());
+
+#ifdef SCANTIEPBUG
+        std::cout<<"On scan B "<<aScanB->NameImage()<<": ";
+#endif
+        const cDataGenUnTypedIm<2> & aGenDImDist = aScanB->GetRasterDistance();
+
+        if (aScanB->IsVisible(aTiePGround))
+        {
+            cPt2dr aPIm = aScanB->Ground2Image(aTiePGround); // extract the image  projection
+            if (!aPIm.IsValid())
+                continue;
+    #ifdef SCANTIEPBUG
+            std::cout<<" projection :"<<aPIm<<"\n";
+    #endif
+            tREAL8 aDist = Norm2(aTiePGround-aScanB->Center());
+            if (aScanB->IsMaskedPoint(aPIm))
+            {
+    #ifdef SCANTIEPBUG
+                std::cout<<" masked point\n";
+    #endif
+                continue;
+            }
+
+            if (aGenDImDist.InsideInterpolator(*mInterp,aPIm,1.0)
+                && aScanB->isInsideNormalInterpolator(aPIm))  // is it sufficiently inside for each interpolators
+            {
+                auto aVGr = aGenDImDist.GetValueAndGradInterpol(*mInterp,aPIm); // works better than normal interp for gradient, why?
+
+                tREAL8 aValIm = aVGr.first;   // value of first/central pixel in this image
+                tREAL8 aResidual = aValIm-aDist;
+
+                if ((fabs(aResidual)<std::max(aStatsMaxDist,mCurrDistThreshold*10))
+                    )// &&(Scal(aNormalGndA,aNormalGndB)<aStatstNormalDiffMinCos)) //std::max(0.1,mThreshold*20)) // suppose that 10cm is always an error
+                    mNbUsableObs++;
+
+                if (fabs(aResidual)<fabs(aMinResidual))
+                    aMinResidual = aResidual;
+                //StdOut() << "UUU  " << ((cStdWeighterResidual*)&aWeighter)->SingleWOfResidual(std::vector<tREAL8>{aResidual})
+                //         << " " << aWeighter->WeightOfResidual({aResidual})[0] << std::endl;
+                double aWeight = aWeighter->WeightOfResidual({aResidual})[0];
+                if (aWeight==0.0)
+                {
+        #ifdef SCANTIEPBUG
+                    std::cout<<"removed W\n";
+        #endif
+                    continue;
+                }
+
+                // compute plan only if dist is accepted, it takes a lot of time!
+                const auto [aSz,aInterpN] = aScanB->getNormalInterpolator(aPIm);
+                //auto aVGrFlou = aGenDImDist.GetValueAndGradInterpol(*aInterpN,aPIm);
+                auto aBBox = cPixBox<2>::BoxWindow(ToI(aPIm), aSz/2);
+                auto [aD,aS,aNormalGndB,aGr] = aScanB->getDistSigmaNormalPlanGrad(aPIm,aBBox);
+                //std::cout<<"grad: "<<aVGr.second<<" "<<aVGrFlou.second<<" "<<aGr<<"\n";
+                aVGr.second = aGr; // get grad from plan
+
+                mWeigthedRes.Add(aWeight,fabs(aResidual));
+                SetVUkVObs (aTiePGround,aScanB,&aVIndUk,aVObs,aVGr.first, aVGr.second);
+                aSys->R_AddEq2Subst(aStrSubst,mEq,aVIndUk,aVObs,aWeight);
+            }
+        }
+    }
+}
+
+
+void cBA_TLS_PhotoTieP::SetVUkVObs
+    (const cPt3dr&           aTiePGround,
+     cStaticLidar *          aScanB,
+     std::vector<int> *      aVIndUk,
+     std::vector<tREAL8> &   aVObs,
+     tREAL8                  aDist,
+     cPt2dr &                aGrad)
+{
+    // here there is a tie point and a scan named scanB
+    cPt3dr aPScanB0 = aScanB->Pt_W2L(aTiePGround);  // coordinate of point in image system
+    tProjImAndGrad aPImGr = aScanB->InternalCalib()->DiffGround2Im(aPScanB0); // compute proj & gradient
+
+    // Vector of indexes of unknwons
+    if (aVIndUk)
+    {
+        aVIndUk->push_back(-1); // Temp Tie point
+        aVIndUk->push_back(-2);
+        aVIndUk->push_back(-3);
+        aScanB->PushIndexes(*aVIndUk);       // add the unknowns [C,R] of scan B
+    }
+
+    // vector that will contain values of observation at this steptranspose for scan
+    aScanB->Pose_WU().PushObs(aVObs,true);  // true because we transpose: we use W->C, which is the transposition of IJK : C->W
+
+    aPScanB0.PushInStdVector(aVObs);
+
+    aPImGr.mGradI.PushInStdVector(aVObs);  // Grad Proj/PCam
+    aPImGr.mGradJ.PushInStdVector(aVObs);
+
+    aVObs.push_back(aDist);
+    aGrad.PushInStdVector(aVObs);
+}
+
 
 
 
