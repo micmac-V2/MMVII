@@ -257,8 +257,8 @@ class cAppliBundlAdj : public cMMVII_Appli
         cRefOriParam              mParamRefOri;  // Force Poses to be +- equals to this reference
 
         std::vector<cLidarPhotograParam>  mParamLidarPhgr; // parameters for photogra/lidar adj via triangulation
-        std::vector<cLidarPhotoParam>     mParamLidarPhoto; // parameters for photogra/lidar adj via rasterization
-        std::vector<cLidarLidarParam>     mParamLidarLidar; // parameters for lidar-lidar adj
+        std::vector<cLidarPhotoParam>     mParamTLSPhoto; // parameters for photogra/lidar adj via rasterization
+        std::vector<cLidarLidarParam>     mParamTLSTLS; // parameters for lidar-lidar adj
 
         int                       mNbIter;
 
@@ -338,8 +338,8 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
       << cHeaderSectionArg("Lidar")
       << AOpt2007 ( mParamLidarPhgr,  "LidarPhotogra", "Lidar/Phgr adj via triangulation",  {eTA2007::CanRepeat})
-      << AOpt2007 ( mParamLidarPhoto, "LidarPhoto",    "Lidar/Phgr adj via rasterisation",  {eTA2007::CanRepeat})
-      << AOpt2007 ( mParamLidarLidar, "LidarLidar",    "Lidar/Lidar adj via rasterisation", {eTA2007::CanRepeat})
+      << AOpt2007 ( mParamTLSPhoto, "LidarPhoto",    "TLS-Photo constraints",  {eTA2007::CanRepeat})
+      << AOpt2007 ( mParamTLSTLS, "LidarLidar",    "TLS-TLS constraints", {eTA2007::CanRepeat})
 
       << cHeaderSectionArg("Freeze")
       << AOpt2007(mPatParamFrozCalib,"PPFzCal","Pattern for freezing internal calibration parameters")
@@ -585,17 +585,17 @@ int cAppliBundlAdj::Exe()
                                  aParam.Pertubate, aParam.NbPtsPerPatch);
     }
 
-    for (const auto & aParam : mParamLidarPhoto)
+    for (const auto & aParam : mParamTLSPhoto)
     {
         mMeasureAdded = true;
-        mBA.Add1AdjLidarPhoto(aParam.Mode, aParam.PatScan, aParam.Sigma, aParam.Interp,
+        mBA.Add1AdjTLSPhoto(aParam.Mode, aParam.PatScan, aParam.Sigma, aParam.Interp,
                               aParam.ScaleInit, aParam.ScaleFinal, aParam.Threshold, aParam.NbPtsPerPatch);
     }
 
-    for (const auto & aParam : mParamLidarLidar)
+    for (const auto & aParam : mParamTLSTLS)
     {
         mMeasureAdded = true;
-        mBA.Add1AdjLidarLidar(aParam.PatScan, aParam.Sigma, aParam.ThresholdInit,
+        mBA.Add1AdjTLSTLS(aParam.PatScan, aParam.Sigma, aParam.ThresholdInit,
                               aParam.ThresholdFinal, aParam.NormalTolDeg, aParam.InterpD, aParam.ModeWeighterDist, aParam.ModeWeighterAngle);
     }
 
