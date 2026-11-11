@@ -60,50 +60,12 @@ enum class eTypePix
     eMaxVert=1,
     eMinVert=2,
     eMaxTens=3,
-    eProlong=4,
-    eTypeSmalCC=5,
-    eTypeBadAvgCC=6
+    eMinTens=4,
+    eProlong=5,
+    eTypeSmalCC=6,
+    eTypeBadAvgCC=7
 };
 
-enum class eTypeSom
-{
-     eH1,
-     eH2,
-     eV1,
-     eV2,
-     eBorder
-
-};
-
-eTypeSom TypeSomStd(const bool isHor,const bool isP1);
-
-struct cAVVertex
-{
-  public :
-      cAVVertex(const cPt2di & aPt,const cPt2dr & aTgt,eTypeSom aType);
-
-      cPt2di     mPt;
-      cPt2dr     mTgt;
-      eTypeSom   mType;
-};
-
-struct cAVEdgeSym
-{
-   public :
-      cAVEdgeSym(cConnComp*);
-      cConnComp * mCC;
-};
-
-struct cAVEdgeOriented
-{
-    public :
-       cAVEdgeOriented(const tREAL8 aCost) ;
-       tREAL8 mCost;
-};
-
-typedef cVG_Vertex<cAVVertex,cAVEdgeOriented,cAVEdgeSym> tVertexVFrange;
-typedef cVG_Edge<cAVVertex,cAVEdgeOriented,cAVEdgeSym>  tEdgeVFrange;
-typedef cVG_Graph<cAVVertex,cAVEdgeOriented,cAVEdgeSym> tGraphVFrange;
 
 
 class cMaxLocSum
@@ -113,6 +75,36 @@ class cMaxLocSum
       tREAL8 mX0;
       tREAL8 mX1;
 };
+
+class cAVertReg : public cMemCheck
+{
+   public :
+       cAVertReg(const  std::vector<cPt2di> & aVPts,int aNum);
+
+       std::vector<cPt2di> mVPts;
+       int mNum;
+       cPt3di mCoul;
+};
+
+class cAOrientReg
+{
+    public :
+       cAOrientReg();
+       cPt2di mPt;
+};
+
+class cASymReg
+{
+     public :
+
+        cASymReg();
+        tREAL8 mMaxVal;
+};
+
+typedef cVG_Vertex<cAVertReg,cAOrientReg,cASymReg>    tVertexReg;
+typedef cVG_Edge<cAVertReg,cAOrientReg,cASymReg>      tEdgeReg;
+typedef cVG_Graph<cAVertReg,cAOrientReg,cASymReg>     tGraphReg;
+
 
 /* =============================================== */
 /*                                                 */
@@ -185,10 +177,18 @@ class cAppliNewFrange : public cMMVII_Appli
             mVNameVisu.push_back(aPref);
         }
 
+        /// Classical  saddle point deprecated 4 now
         bool IsSaddlePoint(const cPt2di & aPix) const;
-        cPt2dr NextPt(const cPt2dr & aP0,const cPt2dr& aP1) const;
 
+        ///  compute next extremity of a line, by following (+-) crest-line close to previous direction
+        cPt2dr NextExtreLine(const cPt2dr & aP0,const cPt2dr& aP1) const;
+
+        /// compute direction of tensor by reading 2D-images of tensor
         cPt2dr TensorImage(cPt2di aPix) const;
+
+        /// compute direction of tensor by teta  of y
+        cPt2dr TensorTeta(cPt2di aPix) const;
+
 
         void  ProlongateExtre(std::vector<cPt2dr>& aRes,cPt2di  aPix,eTypePix aLabel) const;
 
@@ -203,6 +203,11 @@ class cAppliNewFrange : public cMMVII_Appli
         {
             SetBitOn(*mDImLabel,aPix,Lab2I(aLabel));
         }
+        void SetLabel(const cPt2di & aPix,eTypePix aLabel)
+        {
+            SetFlagOfBit(*mDImLabel,aPix,Lab2I(aLabel));
+        }
+
         void SetLabelOn(const cPt2di & aPix,const std::vector<eTypePix> & aLabel);
 
         void SetLabelOff(const cPt2di & aPix,eTypePix aLabel)
@@ -214,6 +219,8 @@ class cAppliNewFrange : public cMMVII_Appli
         {
             return BitIsOn(*mDImLabel,aPix,(int)aLabel);
         }
+
+        const cPt3di * CoulOfLabel(const cPt2di & aPt) const;
 
                 // ----------------- Specific to Tmp ------------------------------
         bool LabelTmpIsOff(const cPt2di & aPix) const
@@ -236,14 +243,17 @@ class cAppliNewFrange : public cMMVII_Appli
 
 
 
+        ///
+        void MakeImageRegion();
+
         // =================== MaxLoc & Pix -CC  ==================
 
         /** Compute images of local maxims, this will reduce "drastically" the number of potential point
          in shortest path approach (and allow more complexe lins with "big" jumps ) */
-        void MakeImageMaxLoc();
+        void AnalyseCC();
 
         /// is P0 it a maxmima in direction Dp on aNbPixels
-        bool IsMinMax(cPt2di aP0,cPt2di aDp,int aNb,bool IsMax) const;
+      //  bool IsMinMax(cPt2di aP0,cPt2di aDp,int aNb,bool IsMax) const;
 
         /** Compute the connect component of Horiz/Vertical chain
          !! Horiz  is the direction for compuing max, so the chain with be +- orthog */
@@ -272,9 +282,9 @@ class cAppliNewFrange : public cMMVII_Appli
 
         // =================== "High-level" Graph (on max-loc)  ==================
 
-         void GraphCompute();
-         void GraphCreate();
-         void GraphCCHoriz();
+         //void GraphCompute();
+         //void GraphCreate();
+        // void GraphCCHoriz();
 
 
 
@@ -289,10 +299,12 @@ class cAppliNewFrange : public cMMVII_Appli
         void DoTensorProcessing();
 
 
+        void ExtractTensorLines(bool isMax);
         void ExtractTensorLines();
 
+
         /// Is it a maxima in the tensor direction ?
-        bool IsMaxLocTens(const cPt2di & aPt,const cPt2dr & aDir) const;
+        bool IsExtreLocTens(const cPt2di & aPt,const cPt2dr & aDir,tREAL8 aSignVal) const;
 
 
         /// Estimate for a given Y, with window aSzY, how it is a good center of anti-symetry
@@ -363,8 +375,8 @@ class cAppliNewFrange : public cMMVII_Appli
 
         cIm2D<tU_INT4>        mImLabel;
         cDataIm2D<tU_INT4>*   mDImLabel;
-        cIm2D<tU_INT1>      mImTmp;
-        cDataIm2D<tU_INT1>* mDImTmp;
+        cIm2D<tINT2>          mImRegion;
+        cDataIm2D<tINT2>*     mDImRegion;
 
 
 
@@ -401,7 +413,10 @@ class cAppliNewFrange : public cMMVII_Appli
         tDIm1D*  mDImRadFrange;      ///< Data of mImRadFrange
 
 
-        tGraphVFrange   mGrVect;
+        tGraphReg     mGrReg;
+        tVertexReg*   mVirtExtVert; ///< Virtual Exten vertex : the border
+       // std::vector<cASom*>   mVCMax;
+       // tGraphVFrange   mGrVect;
 };
 
 }; // namespace NS_FrangesDetect

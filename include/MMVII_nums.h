@@ -990,6 +990,8 @@ size_t MaxRun2Length(tU_INT4 aVal,size_t aPow2);
 inline bool BitIsOn(tU_INT4 aFlagB,int aNumB) {return (aFlagB&(1<<aNumB)) !=0;}
 inline tU_INT4 SetBitOn(tU_INT4 aFlagB,int aNumB) {return aFlagB | (1<<aNumB);}
 inline tU_INT4 SetBitOff(tU_INT4 aFlagB,int aNumB) {return aFlagB &  (~ (1<<aNumB));}
+inline tU_INT4 FlagOfBit(int aNumB) {return  (1<<aNumB);}
+
 
 /// Low level function, read the pair Num->Code in a file
 void  ReadCodesTarget(std::vector<cPt2di> & aVCode,const std::string & aNameFile);

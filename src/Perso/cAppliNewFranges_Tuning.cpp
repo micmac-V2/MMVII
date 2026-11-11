@@ -103,13 +103,34 @@ void cAppliNewFrange::ShowCurvesIntegral(cRGBImage& anIm)
     }
 }
 
+
+const cPt3di *cAppliNewFrange::CoulOfLabel(const cPt2di & aPix) const
+{
+    if ( LabelIsOn(aPix,eTypePix::eMaxTens))
+        return  LabelIsOn(aPix,eTypePix::eProlong) ? &cRGBImage::Red : &cRGBImage::Green;
+
+    if ( LabelIsOn(aPix,eTypePix::eMinTens))
+        return  LabelIsOn(aPix,eTypePix::eProlong) ? &cRGBImage::Orange : &cRGBImage::Blue;
+
+    return nullptr;
+
+    if ( LabelIsOn(aPix,eTypePix::eTypeSmalCC))
+        return & cRGBImage::Yellow;
+
+    if ( LabelIsOn(aPix,eTypePix::eTypeBadAvgCC))
+        return & cRGBImage::Cyan;
+
+    return nullptr;
+}
+
+
 void cAppliNewFrange::DoVisu()
 {
     if (!IsInit(&mPatVisu))
         return;
 
 
-    if (1)
+    if (0)
     {
         tIm aImFiltr = mImRed.Dup();
         ExpFilterOfStdDev(aImFiltr.DIm(),1,mIntervMax/10.0,1.5);
@@ -166,6 +187,7 @@ void cAppliNewFrange::DoVisu()
     cRGBImage aVisuArrowUnif (mSzRed);
 
 
+    cIm2D<tU_INT1> aImNorm = Im2Make8BByGaussModel(*mDImRedBlur);
     // initialize the raidometry with some enhancement
     for (const auto aPix : *mDImRed)
     {
@@ -173,6 +195,7 @@ void cAppliNewFrange::DoVisu()
         tREAL8 aRad = ((mDImRedBlur->GetV(aPix)-mRadiomBackGround) /(aHR-mRadiomBackGround)) * 255.0;
         tINT4 aVal = std::clamp(round_ni(aRad),0,255);
 
+        aVal = aImNorm.DIm().GetV(aPix);
         aImGrayBackGround.SetGrayPix(aPix,aVal);
 
         anImDetail.SetGrayPix(aPix,aVal);
@@ -181,54 +204,53 @@ void cAppliNewFrange::DoVisu()
     }
 
 
-    //  generate images of max loc  Horiz/Vert/Tens and Mixte
     {
-        cRGBImage aVisuMaxLoxCurc = aVisuArrow.Dup();
-        ShowCurvesIntegral(aVisuMaxLoxCurc);
-
-        cRGBImage aVisuMinVert = aImGrayBackGround.Dup();
-        cRGBImage aVisuMaxVert = aImGrayBackGround.Dup();
         cRGBImage aVisuMaxTens = aImGrayBackGround.Dup();
-
-
+        aVisuMaxTens.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Gray128,1.0);
         for (const auto aPix : * mDImRed)
         {
-            if ( LabelIsOn(aPix,eTypePix::eMinVert))
-            {
-                aVisuMinVert.SetRGBPix(aPix,cRGBImage::Yellow);
-            }
-            if ( LabelIsOn(aPix,eTypePix::eMaxVert))
-            {
-                aVisuMaxVert.SetRGBPix(aPix,cRGBImage::Cyan);
-            }
+            const cPt3di * aCoul = CoulOfLabel(aPix) ;
+            if (aCoul)
+                aVisuMaxTens.SetRGBPix(aPix,*aCoul);
+        }
+        GenVisu(aVisuMaxTens,"MaxTens");
+    }
 
-            if ( LabelIsOn(aPix,eTypePix::eMaxTens))
+    {
+        cRGBImage aImReg (mSzRed);
+        for (const auto aPix : * mDImRegion)
+        {
+            int aNum = mDImRegion->GetV(aPix);
+            if (aNum>=0)
             {
-                aVisuMaxTens.SetRGBPix(aPix,cRGBImage::Green);
-                if ( LabelIsOn(aPix,eTypePix::eProlong))
-                    aVisuMaxTens.SetRGBPix(aPix,cRGBImage::Red);
+                const auto & anAttr = mGrReg.VertexOfNum(aNum).Attr();
 
-                /*for (const auto & aProl : ProlongateExtre(aPix,eTypePix::eMaxTens))
-                    aVisuMaxTens.SetRGBPix(ToI(aProl),cRGBImage::Red);*/
-            }
-            else
-            {
+                aImReg.SetRGBPix(aPix,anAttr.mCoul);
             }
         }
-        GenVisu(aVisuMinVert,"MinVert");
-        GenVisu(aVisuMaxVert,"MaxVert");
-        GenVisu(aVisuMaxTens,"MaxTens");
+        GenVisu(aImReg,"Region");
+    }
+    {
+        cRGBImage aVisuMTReg = aImGrayBackGround.Dup();
+        aVisuMTReg.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Gray128,1.0);
+
+        for (const auto aPix :  mDImRegion->Interior(1))
+        {
+           if (LabelIsOn(aPix,eTypePix::eMaxTens))
+               aVisuMTReg.SetRGBPix(aPix,cRGBImage::Green);
+           for (int aK=0 ; aK<2 ; aK++)
+               if (mDImRegion->GetV(aPix)!=mDImRegion->GetV(aPix+FreemanV4[aK]))
+                   aVisuMTReg.SetRGBPix(aPix,cRGBImage::Cyan);
+           if (LabelIsOn(aPix,eTypePix::eMinTens))
+               aVisuMTReg.SetRGBPix(aPix,cRGBImage::Blue);
+        }
 
 
-/*
-        GenVisu(aVisuMaxTens,"MaxLocTens");
-        GenVisu(aVisuMaxHor,"MaxLocHor");
-        GenVisu(aVisuMaxVert,"MaxLocVert");
-        GenVisu(aVisuMaxMixte,"MaxLocMixte");
-
-        GenVisu(aVisuMaxLoxCurc,"MaxVCurv");
-        */
-
+        for (const auto aML : mVMaxLoc)
+        {
+            aVisuMTReg.DrawCircle(cRGBImage::Red,cPt2dr(aML.mXC,mYC),3.0);
+        }
+        GenVisu(aVisuMTReg,"MaxTReg");
     }
 
     GenVisu(*mImGrad.mDGx,"GradX");

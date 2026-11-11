@@ -14,21 +14,25 @@ namespace NS_FrangesDetect
 
 /* ******************************************** */
 /*                                              */
-/*             cConnComp                        */
+/*               cCCMax                         */
 /*                                              */
 /* ******************************************** */
 
-cConnComp::cConnComp(std::vector<cPt2di> & aVPts,const tSeg2dr & aSeg,cPt2dr aTg1,cPt2dr aTg2,bool isHor,tREAL8 aScore,bool isOk) :
-    mPts   (aVPts),
-    mSeg   (aSeg),
-    mTg1   (aTg1),
-    mTg2   (aTg2),
-    mIsHor (isHor),
-    mScore (aScore),
-    mIsOk  (isOk)
+cAVertReg::cAVertReg(const  std::vector<cPt2di> & aVPts,int aNum) :
+    mVPts (aVPts),
+    mNum  (aNum),
+    mCoul ((53*mNum)%256,(137*(mNum+1))%256,(109*(mNum+2))%256)
 {
 }
 
+cAOrientReg::cAOrientReg()
+{
+}
+
+cASymReg::cASymReg() :
+    mMaxVal (-1e10)
+{
+}
 
 /* ******************************************** */
 /*                                              */
@@ -61,6 +65,37 @@ eTypePix cAppliNewFrange::NewCC(eTypePix aLabel,std::vector<cPt2di>  & aVCC,cons
 
     FlagBitConnectedComponent (aVCC,*mDImLabel ,a8Neigh, aSeed,Lab2I(aLabel),LabTmp2I());
 
+    size_t aThBig = (aLabel==eTypePix::eMinTens) ? 100 : 40;
+    size_t aThSmall= (aLabel==eTypePix::eMinTens) ? 50 : 10;
+    tREAL8 aThAvg = (aLabel==eTypePix::eMinTens) ? 0.7  : 0.5;
+    tREAL8 aExpAvg = (aLabel==eTypePix::eMinTens) ? 0.25  : 1.0;
+
+    if (aVCC.size()> aThBig)
+        return aLabel;
+
+    if (aVCC.size()< aThSmall)
+        return eTypePix::eTypeSmalCC;
+
+    cWeightAv<tREAL8,tREAL8> aWScore;
+    for (const auto & aPt : aVCC)
+    {
+        tREAL8 aV = mDImRedBlur->GetV(aPt);
+        tREAL8 aAmpl = mDImRadFrange->GetV(aPt.y()) -mRadiomBackGround;
+        aV = (aV-mRadiomBackGround)/aAmpl;
+        aV = std::min(1.0,std::max(aV,0.0));
+        aV = std::pow(aV,aExpAvg);
+        aWScore.Add(1.0,aV);
+    }
+    tREAL8 aScore = std::pow(aWScore.Average(),1/aExpAvg);
+    if (aLabel==eTypePix::eMinTens)
+        aScore = 1.0-aScore;
+
+    if (aScore< aThAvg)
+        return  eTypePix::eTypeBadAvgCC;
+
+
+    return aLabel;
+
     /// Test is in mask
  /*   bool isInMax = false;
     if (mHasMask && isHoriz)
@@ -79,92 +114,19 @@ eTypePix cAppliNewFrange::NewCC(eTypePix aLabel,std::vector<cPt2di>  & aVCC,cons
 
 #if (0)
 
-    tREAL8 aThrs = isHoriz ? 5 : 20 ;
-    if (aVCC.size()<aThrs)
-        return false;
-
-    //cBox2di aBox(cTplBox<int,2>::FromVect(aVCC));
-    cTplBox<int,2>  aBox =cTplBox<int,2>::FromVect(aVCC,true);
-
-    bool aY0Inf =  (aBox.P0().y() <= mYC);
-    bool aY1Sup =  (aBox.P1().y() > mYC);
-    // MMVII_INTERNAL_ASSERT_always(aY0Inf<=aY1Sup," Ordeeerr in box");
-
-     bool doCross = (aY0Inf && aY1Sup);
-
-
-// FakeUseIt(doCross);
-     cPt2di aDir(0,1);
-     if (isHoriz)
-     {
-         // if dont cross
-        if (!doCross)
-            return false;
-     }
-     else
-     {
-      //   if (doCross)
-       //     return false;
-         aDir = (aBox.P0().y()<mYC)  ? cPt2di(-1,0) : cPt2di(1,0);
-     }
-
-
-     cWhichMinMax<cPt2di,tREAL8>  aWMM;
-     cWeightAv<tREAL8,tREAL8> aWScore;
-
-     for (const auto & aPt : aVCC)
-     {
-         aWMM.Add(aPt,Scal(aDir,aPt));
-
-         tREAL8 aV = mDImRedBlur->GetV(aPt);
-         tREAL8 aAmpl = mDImRadFrange->GetV(aPt.y()) -mRadiomBackGround;
-         aV = (aV-mRadiomBackGround)/aAmpl;
-         aV = std::min(1.0,std::max(aV,0.0));
-
-         aWScore.Add(1.0,aV);
-     }
-
-       tREAL8 aScore = aWScore.Average();
-  //   tREAL8 aScoreMixte = aScore * aVCC.size();
-    /* bool isOk =    (aScore > 0.5)
-                 || (aScoreMixte > 15)
-                 || ((!isHoriz) && (aVCC.size() > 150))*/
-
-     bool isOk =  (aVCC.size() > 100) ;
-     if (!isOk)
-         return false;
-
-
-     tSeg2dr aSeg(ToR(aWMM.IndMin()),ToR(aWMM.IndMax()));
-
-
-     cPt2dr aP1 =  ToR(NewBackTrackExtre(ToI(aSeg.P1()),aVCC,10.0));
-     cPt2dr aP2 =  ToR(NewBackTrackExtre(ToI(aSeg.P2()),aVCC,10.0));
-
-   //  StdOut() << "SEG=" << aP1-aSeg.P1() << aP2-aSeg.P2() << "\n";
-
-     if ( (Norm2(aP1-aSeg.P1())<3.0) || (Norm2(aP2-aSeg.P2())<3.0))
-         return false;
-
-
-     aP1 = VUnit(aSeg.P1() - aP1);
-     aP2 = VUnit(aSeg.P2() - aP2);
-
-    // StdOut() << "P1P2=" << aP1 << aP2 << "\n";
-
-
-     cConnComp * aCC = new cConnComp(aVCC,aSeg,aP1,aP2,isHoriz,aScore,isOk);
-   //  cConnComp(const tSeg2dr & aSeg,bool isHor) :
-
-     mVectCC.push_back(aCC);
 
 #endif
-     return aLabel;
 }
 
 void cAppliNewFrange::ConnecCompMaxLoc( eTypePix aLabelIn)
 {
-    //cDataIm2D<tU_INT1> & aImMax = isHoriz ? *mDImMaxHor : * mDImMaxVert;
+    // Create the vectext corresponding to exterioir
+    if (aLabelIn== eTypePix::eMaxTens)
+    {
+        std::vector<cPt2di> aVCC;
+        mVirtExtVert =   mGrReg.NewVertex(cAVertReg(aVCC,mGrReg.NbVertex()));
+    }
+
 
     for (const auto aPix : *mDImLabel)
     {
@@ -172,17 +134,26 @@ void cAppliNewFrange::ConnecCompMaxLoc( eTypePix aLabelIn)
         {
             std::vector<cPt2di> aVCC;
             eTypePix aLabelOut =   NewCC(aLabelIn,aVCC,aPix);
-            if (aLabelIn==aLabelOut)
+
+            if (aLabelIn==aLabelOut) // The CC was "successful"
             {
+
+                if (aLabelIn==eTypePix::eMaxTens)
+                {
+                    mGrReg.NewVertex(cAVertReg(aVCC,mGrReg.NbVertex()));
+                }
             }
-            else
+            else // fail, reset value of point to label representing the reason of fail
             {
                 for (const auto & aPt : aVCC)
-                    SetLabelOn(aPt,aLabelOut);
+                    SetLabel(aPt,aLabelOut);
             }
         }
     }
 
+    // The Tmp Flag must be reset for next connect comp
+    for (const auto aPix : *mDImLabel)
+        SetLabelTmpOff(aPix);
 }
 
 
@@ -215,69 +186,13 @@ void cAppliNewFrange::Make8Cx(cDataIm2D<tU_INT1> & aImMax)
 }
 
 
-bool cAppliNewFrange::IsMinMax(cPt2di aP0,cPt2di aDp0,int aNb,bool isMax) const
+void cAppliNewFrange::AnalyseCC()
 {
-    int aSign = isMax ? 1 : -1;
-    auto * anDIm = mDImRedBlur;
 
-    tREAL4 aV0 = anDIm->GetV(aP0);
-    for (int aK=1 ; aK<aNb ; aK++)
-    {
-        cPt2di aDP = aDp0 * aK;
-
-        if (     ( aSign*anDIm->GetV(aP0 + aDP) > aSign*aV0)
-              || ( aSign*anDIm->GetV(aP0 - aDP) >= aSign*aV0)
-           )
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-void cAppliNewFrange::MakeImageMaxLoc()
-{
- /*   mImMaxHor = cIm2D<tU_INT1>(mSzRed,nullptr,eModeInitImage::eMIA_Null);
-    mDImMaxHor = & (mImMaxHor.DIm());
-    mImMaxVert = cIm2D<tU_INT1>(mSzRed,nullptr,eModeInitImage::eMIA_Null);
-    mDImMaxVert = & (mImMaxVert.DIm());*/
-
-
-    int mDistVert2C = 25;
-    int aNbMaxX=8;
-    int aNbMaxY=3;
-
-    for (const auto aPix : mDImRed->Interior(1+std::max(aNbMaxX,aNbMaxY)))
-    {
-         if ( IsMinMax(aPix,cPt2di(0,1),aNbMaxY,false)  && (std::abs(aPix.y()-mYC)>=mDistVert2C))
-        {         // cIm2D<tU_INT1> mImMaxLocTD;           ///<  local maxima in tensor direction
-             // cDataIm2D<tU_INT1>* mDImMaxLocTD;     ///< data
-
-            // mDImMaxHor->SetV(aPix,1);
-             SetLabelOn(aPix,eTypePix::eMinVert);
-        }
-
-        if (  IsMinMax(aPix,cPt2di(0,1),aNbMaxY,true) && (std::abs(aPix.y()-mYC)>=mDistVert2C))
-        {
-           //   mDImMaxVert->SetV(aPix,1);
-              SetLabelOn(aPix,eTypePix::eMaxVert);
-        }
-    }
-
-
-     ConnecCompMaxLoc(eTypePix::eMinVert);
-     ConnecCompMaxLoc(eTypePix::eMaxVert);
      ConnecCompMaxLoc(eTypePix::eMaxTens);
+     ConnecCompMaxLoc(eTypePix::eMinTens);
 
 
-
-
-  //  Make8Cx(*mDImMaxHor);
-
-    //ConnecCompMaxLoc(*mDImMaxVert,false);
-
-    //ComplemCCHoriz();
 }
 
 

@@ -127,6 +127,12 @@ template<class Type>  bool BitIsOn(const cDataIm2D<Type>  & aDIm,const cPt2di& a
     return BitIsOn(aDIm.GetV(aPix),aNumB);
 }
 
+template<class Type>  void SetFlagOfBit(cDataIm2D<Type>  & aDIm,const cPt2di& aPix,int aNumB)
+{
+    aDIm.SetV(aPix,FlagOfBit(aNumB));
+}
+
+
 };  // namespace MMVII
 
 

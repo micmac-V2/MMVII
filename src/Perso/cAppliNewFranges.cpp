@@ -39,14 +39,8 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mImTens           (cPt2di(1,1)),
     mImLabel          (cPt2di(1,1)),
     mDImLabel         (nullptr),
-    mImTmp            (cPt2di(1,1)),
-    mDImTmp           (nullptr),
-   // mImMaxHor         (cPt2di(1,1)),
-   // mDImMaxHor        (nullptr),
-   // mImMaxVert        (cPt2di(1,1)),
-   // mDImMaxVert       (nullptr),
-   //  mImMaxLocTD        (cPt2di(1,1)),
-    // mDImMaxLocTD       (nullptr),
+    mImRegion           (cPt2di(1,1)),
+    mDImRegion          (nullptr),
     mImCumNormT        (1),
     mDImCumNormT       (nullptr),
     mImTeta            (1),
@@ -62,7 +56,8 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mDImProjInt        (nullptr),
     mRadiomBackGround   (-1e9),
     mImRadFrange        (1),
-    mDImRadFrange       (nullptr)
+    mDImRadFrange       (nullptr),
+    mVirtExtVert        (nullptr)
 {
 }
 
@@ -152,7 +147,89 @@ void  cAppliNewFrange::SetLabelOn(const cPt2di & aPix,const std::vector<eTypePix
        SetLabelOn(aPix,aLab);
 }
 
+static constexpr int LabelRegBorder= 0;
+static constexpr int LabelRegUnInit = -1;
+static constexpr int LabelRegMin= -2;
 
+
+void cAppliNewFrange::MakeImageRegion()
+{
+    mImRegion =  cIm2D<tINT2> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
+    mDImRegion = & mImRegion.DIm();
+
+    mDImRegion->InitCste(LabelRegUnInit);
+    mDImRegion->InitBorder(LabelRegBorder);
+
+    // Make barrier with min region
+    for (const auto& aPix: *mDImRegion)
+    {
+        if (LabelIsOn(aPix,eTypePix::eMinTens))
+            mDImRegion->SetV(aPix,LabelRegMin);
+    }
+
+    // init the vec point to propagate wiht max line
+    std::vector<cPt3di> aVPCur;
+    for (const auto & aVert : mGrReg.AllVertices())
+    {
+        const auto & aCC = aVert->Attr();
+
+        for (const auto& aPt: aCC.mVPts)
+        {
+            mDImRegion->SetV(aPt,aCC.mNum);
+            aVPCur.push_back(TP3z(aPt,aCC.mNum));
+        }
+    }
+    const auto & aVP4 = Alloc4Neighbourhood();
+
+    // do the propagation
+    while (!aVPCur.empty())
+    {
+        std::vector<cPt3di> aNewVP;
+        for (const auto & aP3 : aVPCur)
+        {
+            cPt2di aCurP2 = Proj(aP3);
+            for (const auto & aN4 : aVP4)
+            {
+                cPt2di aNewP = aCurP2 + aN4;
+                tINT2 & aV = mDImRegion->GetReference_V(aNewP);
+                if ((aV==LabelRegUnInit) || (aV==LabelRegMin))
+                {
+                    if (aV==LabelRegUnInit)
+                        aNewVP.push_back(TP3z(aNewP,aP3.z()));
+                     aV = aP3.z();
+                }
+            }
+
+        }
+        aVPCur =    aNewVP;
+    }
+
+    //  costruct the edge of the graph by identify pixels wih different label
+    for (const auto & aPix1 : *mDImRegion)
+    {
+        for (const auto & aN4 : aVP4)
+        {
+            cPt2di aPix2 = aPix1 + aN4;
+            if (mDImRegion->Inside(aPix2))
+            {
+                 int aNum1 = mDImRegion->GetV(aPix1);
+                 int aNum2 = mDImRegion->GetV(aPix2);
+                 if (      (aNum1!=aNum2) && (aNum1>=0) && (aNum2>=0)
+                       && (!LabelIsOn(aPix1,eTypePix::eMinTens))
+                       && (!LabelIsOn(aPix2,eTypePix::eMinTens))
+                     )
+                 {
+                     tVertexReg & aS1 = mGrReg.VertexOfNum(aNum1);
+                     tVertexReg & aS2 = mGrReg.VertexOfNum(aNum2);
+
+                     tEdgeReg* anE = mGrReg.AddEdge(aS1,aS2,cAOrientReg(),cAOrientReg(),cASymReg(),true);
+                     FakeUseIt(anE);
+                 }
+            }
+        }
+
+    }
+}
 
 
 void cAppliNewFrange::ComputeRadiomCste()
@@ -212,6 +289,8 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
     mImLabel =  cIm2D<tU_INT4> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
     mDImLabel = &mImLabel.DIm();
 
+
+
     if (mHasMask)
     {
         MMVII_INTERNAL_ASSERT_User_UndefE(mZoomRed==(int)mZoomRed,"Non int DeZoom with mask");
@@ -232,11 +311,15 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
     DoTensorProcessing();
     ExtractTensorLines();
 
-    MakeImageMaxLoc();
+    AnalyseCC();
 
-    GraphCompute();
+    MakeImageRegion();
+    //GraphCompute();
 
     DoVisu();
+
+
+    //DeleteAllAndClear(mVCMax);
 }
 
 
