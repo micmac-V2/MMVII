@@ -8,7 +8,6 @@
 #include "MMVII_Triangles.h"
 #include "MMVII_Image2D.h"
 #include "MMVII_ZBuffer.h"
-#include "MeshDev.h"
 #include "MMVII_Sys.h"
 #include "MMVII_Radiom.h"
 #include "MMVII_CloudRaster.h"
@@ -75,13 +74,16 @@ namespace MMVII
     public:
         cAppliCloudProjectOnGround(const std::vector<std::string> & aVArgs, const cSpecMMVII_Appli & aSpec );
         static constexpr tREAL8 mInfty =  -1e10;
-        std::pair<cPt3dr,cPt3dr> BascOnePoint(cPt2di A,  cPt2di anOffSet, bool & oValid);
+        std::pair<cPt3dr,cPt3dr> BascOnePoint(const cPt2di A, const cPt2di anOffSet, bool & oValid);
+        /// Estimate the Ground Sampling Distance
+        tREAL8 ComputeGSD();
         void MakeFastBasc();
         void MakeBasculeTris(cZBuffer & aZB);
         void ProcessNoPix(cZBuffer &  aZB);
         void GenTFW(const cAffin2D<tREAL8> & anAff, const std::string & aNameTFW);
-        cAffin2D<tREAL8> ReadTFW(const std::string & aNameTFW);
+        static cAffin2D<tREAL8> ReadTFW(const std::string & aNameTFW);
         cBox2di  BoxUtile(cIm2D<tU_INT1> & anImMasq);
+        std::vector<cOneHelpSampleCmp> Samples() const;
         void MergeResults();
 };
 
@@ -120,10 +122,7 @@ cAppliCloudProjectOnGround::cAppliCloudProjectOnGround(const std::vector<std::st
 
 cCollecSpecArg2007 & cAppliCloudProjectOnGround::ArgObl(cCollecSpecArg2007 & anArgObl)
 {
-    // use xml file serialized by cDMEpipPairResult class in MMVII_CloudRaster.h to initialize the application
-    // NB: we do NOT call APBI_ArgObl here, because its only role is to add mNameIm as a mandatory
-    // argument. Here mNameIm is not given on the command line but read from mNameDMEpipPairResult
-    // (NameEpipIm1) in Exe(), so we keep it hidden from the argument list.
+    // use xml file serialized by cDMEpipPairResult class in MMVII_CloudRaster.h
     return
         anArgObl
            <<   Arg2007(mNameDMEpipPairResult,"xml file containing the result of epipolar resampling",{eTA2007::FileTagged})
@@ -139,6 +138,7 @@ cCollecSpecArg2007 & cAppliCloudProjectOnGround::ArgOpt(cCollecSpecArg2007 & anA
         APBI_ArgOpt
         (
             anArgOpt
+                << AOpt2007(mNameResult,"NameResult","Prefix for output files")
                 << AOpt2007(mGSD,"GSD", "Ground sampling distance for rasterization")
                 << AOpt2007(mOutDir,"DirOut","Directory of output files, (def=VISU/"+Specs().Name()+")")
                 << AOpt2007(mMII,"MII","Margin Inside Image (for triangle validation)", {eTA2007::HDV})
@@ -163,7 +163,7 @@ cBox2di cAppliCloudProjectOnGround::BoxUtile(cIm2D<tU_INT1> & anImMasq)
 }
 
 
-std::pair<cPt3dr,cPt3dr> cAppliCloudProjectOnGround::BascOnePoint(cPt2di A,  cPt2di anOffSet, bool & oValid)
+std::pair<cPt3dr,cPt3dr> cAppliCloudProjectOnGround::BascOnePoint(const cPt2di A, const cPt2di anOffSet, bool & oValid)
 {
     cPt3dr aPZA, aPWithDepth;
 
@@ -215,6 +215,77 @@ std::pair<cPt3dr,cPt3dr> cAppliCloudProjectOnGround::BascOnePoint(cPt2di A,  cPt
     mBoxLocTarget.Add(Proj(aPZA));
 
     return {aPWithDepth,aPZA};
+}
+
+
+tREAL8 cAppliCloudProjectOnGround::ComputeGSD()
+{
+    // Estimate the Ground Sampling Distance
+    if( mModeGeom != eModeGeom::eGEOM_EPIP && mModeGeom != eModeGeom::eGEOM_DEPTH )
+    {
+        MMVII_INTERNAL_ASSERT_tiny(false,"ComputeGSD : Unsupported eModeGeom mode");
+    }
+    // read mImPx1 not necessarily the whole image, just a box as it is enough to estimate GSD
+    const cPt2di aOffsetRead = cBox2di(mCamGen->Sz()).Middle()-cPt2di(50,50);
+    mImPx1 = cIm2D<tREAL4>(cPt2di(100,100));
+    mImPx1.Read(cDataFileIm2D::Create(DirProject()+mNameCloud2D_DepthIn,mIsGray),aOffsetRead);
+
+    cIm2D<tU_INT1> aMaskMap = cIm2D<tU_INT1>(cPt2di(100,100));
+    aMaskMap.Read(cDataFileIm2D::Create(DirProject()+mNameMasq1,mIsGray),
+                  aOffsetRead);
+
+    bool IsCamLoaded = ( mCamGen != nullptr );
+    if (mModeGeom == eModeGeom::eGEOM_EPIP)
+    {
+        IsCamLoaded = IsCamLoaded && (mSecCamGen != nullptr);
+    }
+
+    MMVII_INTERNAL_ASSERT_tiny(IsCamLoaded,
+        "ComputeGSD : camera(s) not loaded before computing GSD");
+
+    std::vector<tREAL8> aVGSD;
+    tREAL8 aDepth;
+    cPt3dr aPGround;
+    for (const auto aPix: aMaskMap.DIm())
+    {
+        if (aMaskMap.DIm().GetV(aPix) < 0.99)
+            continue;
+
+        bool aValid = true;
+        auto [aP00_Depth,aP00_3D] = BascOnePoint(aPix,aOffsetRead,aValid);
+
+        if (! aValid)
+            continue;
+
+        cWeightAv<tREAL8> aWeighD;
+        aDepth  = aP00_Depth.z();
+        for (const auto & aNeigh : AllocNeighbourhood<2>(1))
+        {
+            cPt2dr aPIm = Proj(aP00_Depth) + ToR(aNeigh);
+            if(dynamic_cast<cSensorCamPC*>(mCamGen))
+                aPGround = mCamGen->ImageAndDepth2Ground(TP3z(aPIm,aDepth));
+            else
+                aPGround = mCamGen->ImageAndZ2Ground(TP3z(aPIm,aP00_3D.z()));
+
+            tREAL8 aD = Norm2(aPGround-aP00_3D);
+
+            aWeighD.Add(1.0,aD);
+        }
+        aVGSD.push_back(aWeighD.Average());
+    }
+
+    MMVII_INTERNAL_ASSERT_tiny(aVGSD.size()>3,"No sufficient GSD values to compute median");
+
+    // back to init of mImPx1
+    mImPx1 = cIm2D<tREAL4>(cPt2di(1,1));
+
+    // keep only three decimal places to avoid over-optimistic precision
+    const tREAL8 aMedGSD = ConstMediane(aVGSD);
+    const tREAL8 aTruncGSD = std::trunc(aMedGSD * 1000.0) / 1000.0;
+
+    // a very fine GSD (< 0.001) would truncate to 0, which would later cause a
+    // division by zero when sizing the output raster (Sz/mGSD) : keep the raw median
+    return (aTruncGSD > 0.0) ? aTruncGSD : aMedGSD;
 }
 
 
@@ -362,6 +433,9 @@ void cAppliCloudProjectOnGround::GenTFW(const cAffin2D<tREAL8> & anAff, const st
 cAffin2D<tREAL8> cAppliCloudProjectOnGround::ReadTFW(const std::string & aNameTFW)
 {
     std::ifstream aFtfw(aNameTFW.c_str());
+    MMVII_INTERNAL_ASSERT_User(aFtfw.good(),eTyUEr::eOpenFile,
+        "ReadTFW : cannot open TFW file " + aNameTFW);
+
     std::string aline;
     std::vector< std::string > acontent;
     while(std::getline(aFtfw,aline))
@@ -370,14 +444,18 @@ cAffin2D<tREAL8> cAppliCloudProjectOnGround::ReadTFW(const std::string & aNameTF
     }
     aFtfw.close();
 
-    tREAL8 gsd_x=stof(acontent.at(0));
-    tREAL8 gsd_y=stof(acontent.at(3));
-    tREAL8 x_ul=stof(acontent.at(4));
-    tREAL8 y_ul=stof(acontent.at(5));
+    MMVII_INTERNAL_ASSERT_User(acontent.size() >= 6,eTyUEr::eUnClassedError,
+        "ReadTFW : expected at least 6 lines in TFW file " + aNameTFW);
 
-    acontent.clear();
+    // TFW layout matches GenTFW : VX.x VX.y VY.x VY.y Tr.x Tr.y
+    tREAL8 aVXx = stod(acontent.at(0));
+    tREAL8 aVXy = stod(acontent.at(1));
+    tREAL8 aVYx = stod(acontent.at(2));
+    tREAL8 aVYy = stod(acontent.at(3));
+    tREAL8 aTrx = stod(acontent.at(4));
+    tREAL8 aTry = stod(acontent.at(5));
 
-    return cAffin2D<tREAL8>(cPt2dr(x_ul,y_ul),cPt2dr(gsd_x,0),cPt2dr(0,gsd_y));
+    return cAffin2D<tREAL8>(cPt2dr(aTrx,aTry),cPt2dr(aVXx,aVXy),cPt2dr(aVYx,aVYy));
 }
 
 void cAppliCloudProjectOnGround::ProcessNoPix(cZBuffer &  aZB)
@@ -424,6 +502,7 @@ void cAppliCloudProjectOnGround::MakeBasculeTris(cZBuffer & aZB)
     cAffin2D<tREAL8> anInvAfftoPixel= anAffinetoTarget.MapInverse();
 
     cBox2dr aBoxTarget= mBoxLocTarget.CurBox();
+    //Write aBoxTarget without rounding 
     cPt2di aSzTarget = Pt_round_up(aBoxTarget.Sz()/mGSD);
 
     mImRed.DIm().Resize(aSzTarget,eModeInitImage::eMIA_Null);
@@ -634,7 +713,9 @@ void cAppliCloudProjectOnGround::MergeResults()
 
 
 
+    StdOut()<<"BOX GLOB TARGET "<<mBoxGlobTarget.CurBox()<<std::endl;
     mBoxGlobOutPix=cPt2di(Pt_round_up(mBoxGlobTarget.CurBox().Sz()/mGSD));
+    StdOut()<<"BOX GLOB OUT PIX "<<mBoxGlobOutPix<<std::endl;
 
     mNameBascOut = mOutDir+"Prof_"+ 
                                 FileOfPath(mNameResult,false);
@@ -794,6 +875,26 @@ int cAppliCloudProjectOnGround::ExeOnParsedBox()
 }
 
 
+
+std::vector<cOneHelpSampleCmp> cAppliCloudProjectOnGround::Samples() const
+{
+
+    return 
+    {
+        cOneHelpSampleCmp::Header(
+            "Project a disparity map to ground given an xml file of this structure\n"
+            "    <Data>\n"
+            "        <ModeGeom>DEPTH</ModeGeom>\n"
+            "        <NameEpipIm1>Epip1.png</NameEpipIm1>\n"
+            "        <NameEpipIm2>Epip2.png</NameEpipIm2>\n"
+            "        <NameDisparity>DenseMatchResult/disparity.tif</NameDisparity>\n"
+            "        <NameCorrel>DenseMatchResult/Correlation.tif</NameCorrel>\n"
+            "        <NameMasq>DenseMatchResult/occlusion_mask.tif</NameMasq>\n"
+            "    </Data>"),
+            {"MMVII CloudProjectOnGround /path/to/DMEpipPairResult.xml ori BascTmpFiles GSD=0.1"}
+    };
+}
+
 int cAppliCloudProjectOnGround::Exe()
 {
     // In father-dir mode the orientation folder lives at the project root, not under the
@@ -847,7 +948,14 @@ int cAppliCloudProjectOnGround::Exe()
 
     // check if mNameResult is Init, if not use default name
     if (! IsInit(&mNameResult))
+    {
         mNameResult = "Dem_" + APBI_NameIm();
+        if (Postfix(mNameResult) != "tif" && Postfix(mNameResult) != "tiff")
+        {
+            mNameResult += ".tif";
+        }
+    }
+
     // read camera
     mCamGen = mPhProj.ReadSensor(APBI_NameIm(),true);
 
@@ -861,10 +969,23 @@ int cAppliCloudProjectOnGround::Exe()
     // restore name of input image, as it is used in the APBI_ExecAll() function
     mNameIm = DirProject() + mNameIm;
 
+    //Compute GSD 
+    
+    cAutoTimerSegm aTGSDCompute(TimeSegm(),"ComputeGSD"); 
+    if ( !IsInit(&mGSD) )
+    {
+        mGSD = ComputeGSD();
+        mBoxLocTarget = cTplBoxOfPts<tREAL8,2>();
+        // Share the auto-estimated GSD with the parallel tile subprocesses on their command line,
+        // so each recall reuses it (IsInit true) instead of recomputing it.
+        mArgsRecall.push_back("GSD=" + ToStr(mGSD));
+    }
+    cAutoTimerSegm aTBascAll(TimeSegm(),"Projection");
+
 
     APBI_ExecAll();
 
-    // Merge all results of bascule
+    // Merge all results of bascul
     if (!InsideParalRecall())
     {
 
@@ -910,5 +1031,195 @@ cSpecMMVII_Appli  TheSpecCloudProjectOnGround
         __FILE__
         );
 
+void BenchCloudEpipProjectOnGround(cParamExeBench & aParam)
+{
+    if (! aParam.NewBench("CloudEpipProjectOnGround")) return;
+    
+    cMMVII_Appli & anAp = cMMVII_Appli::CurrentAppli();
+    const std::string & aInDir = anAp.InputDirTestMMVII() + "/EPIP/Synthetic/";
+    const std::string & aTmpDir = anAp.TmpDirTestMMVII();
 
+    const std::string aNameDMEpipPairResult = aInDir + "DenseMatchResult/DMEpipPairResult.xml";
+    const std::string aOutDir = aTmpDir + "CloudEpipProjectOnGround/";
+    const std::string aFullOriDir =aInDir + "MMVII-PhgrProj/Ori/Synthetic";  
+    // read aNameDMEpipPairResult
+    cDMEpipPairResult aDMPRes;
+    ReadFromFile_Std(aDMPRes,aNameDMEpipPairResult);
+
+    const eModeGeom aModeGeom = Str2E<eModeGeom>(aDMPRes.ModeGeom());
+    const std::string aNameIm =  aDMPRes.NameEpipIm1();
+    const std::string aNameSec =  aDMPRes.NameEpipIm2();
+    const std::string aNameCloud2D_DepthIn = aDMPRes.NameDisparity();
+    const std::string aNameMasq1  =  aDMPRes.NameMasq();
+    const std::string aNameCorrel =  aDMPRes.NameCorrel();
+
+    MMVII_INTERNAL_ASSERT_bench(aModeGeom==eModeGeom::eGEOM_EPIP,
+        "When using epipolair pairs with disparity, the eModeGeom should be eGEOM_EPIP");
+
+    // Read cameras  and project one triangle, get relevant ground truth height and compare
+
+    const std::string aFullNameOriIm= aFullOriDir + StringDirSeparator() + cSensorCamPC::NameOri_From_Image(aNameIm);
+    const std::string aFullNameOriSec = aFullOriDir + StringDirSeparator() + cSensorCamPC::NameOri_From_Image(aNameSec);
+    const std::string aFullNamePax = aInDir + aNameCloud2D_DepthIn;
+    const std::string aFullNameGnd = aInDir + "GroundTruth_Dem_Epip1.tif";
+    const std::string aFullNameGndTfw = aInDir + "GroundTruth_Dem_Epip1.tfw";
+
+    // read camers 
+    cSensorCamPC * aCamEpip1 = cSensorCamPC::FromFile(aFullNameOriIm, true);
+    cSensorCamPC * aCamEpip2 = cSensorCamPC::FromFile(aFullNameOriSec,true);
+
+    cMMVII_Appli::AddObj2DelAtEnd(aCamEpip1);
+    cMMVII_Appli::AddObj2DelAtEnd(aCamEpip2);
+
+
+    // read the disparity map
+    cIm2D<tREAL4> aImPax = cIm2D<tREAL4>(aCamEpip1->SzPix());
+    aImPax.Read(cDataFileIm2D::Create(aFullNamePax,
+                                    eTyNums::eTN_REAL4,
+                                    aCamEpip1->SzPix()),cPt2di(0,0));
+
+        
+    //read ground truth dem 
+    cIm2D<tREAL4> aImGnd = cIm2D<tREAL4>::FromFile(aFullNameGnd);
+    cAffin2D<tREAL8> anAffGT = cAppliCloudProjectOnGround::ReadTFW(aFullNameGndTfw);
+
+    std::list<cPt2di> aVSetOfPoints = {cPt2di(856,372),cPt2di(494,369),cPt2di(488,648)};
+
+    // project some triangles, get relevant ground truth height and compare
+    cPt2di Up[2]={cPt2di(1,0),cPt2di(1,1)};
+    cPt2di Down[2]={cPt2di(1,1),cPt2di(0,1)};
+    for (const auto aTriOff : {Up,Down})
+    {
+        for (const auto aP1: aVSetOfPoints)
+        {
+            cPt2di aP2= aP1+aTriOff[0];
+            cPt2di aP3= aP1+aTriOff[1];
+
+            std::vector<cPt2di> aVTri = {aP1,aP2,aP3} ;
+            std::vector<cPt3dr> aVTriGround;
+
+            for (auto aP: aVTri)
+            {
+                tREAL4 aPaxV = aImPax.DIm().GetV(aP);
+                cPt2dr aPInEp2 = cPt2dr(aPaxV,0) + ToR(aP) ;
+
+                tSeg3dr aS3OfP = aCamEpip1->Image2Bundle(ToR(aP));
+                tSeg3dr aS3OfPInEp2 =  aCamEpip2->Image2Bundle(aPInEp2);
+
+                cPt3dr aP3OfP = RobustBundleInters({aS3OfP,aS3OfPInEp2});
+                
+                aVTriGround.push_back(aP3OfP) ;
+            }   
+            tTri3dr aTriC(aVTriGround[0],aVTriGround[1],aVTriGround[2]);
+
+
+
+            cTriangle2DCompiled<tREAL8> aTri2D(anAffGT.Inverse(Proj(aTriC.Pt(0))),
+                                            anAffGT.Inverse(Proj(aTriC.Pt(1))),
+                                            anAffGT.Inverse(Proj(aTriC.Pt(2))));
+
+            cPt3dr aElev(aTriC.Pt(0).z(),aTriC.Pt(1).z(),aTriC.Pt(2).z());
+
+            std::vector<cPt2di> aVPix;
+            std::vector<cPt3dr> aVW;
+
+            tREAL8 aScale = 1.0;
+            for (int aKp=0 ; aKp<3 ; aKp++)
+            {
+                aScale = std::max(aScale,std::abs(aTri2D.Pt(aKp).x()));
+                aScale = std::max(aScale,std::abs(aTri2D.Pt(aKp).y()));
+            }
+            tREAL8 aTol = -8.0 * std::numeric_limits<tREAL8>::epsilon() * aScale;
+
+            aTri2D.PixelsInside(aVPix,aTol,&aVW); 
+
+            //MMVII_INTERNAL_ASSERT_bench(aVPix.size()>0, "cTriangle2DCompiled::PixelsInside yields no pixels inside Triangle");
+            for (int aK=0; aK<(int)aVPix.size(); aK++)
+            {
+                MMVII_INTERNAL_ASSERT_bench(aImGnd.DIm().Inside(aVPix[aK]), 
+                                "Pixel inside triangle is outside ground truth image");
+                // get the ground truth height
+                tREAL4 aGTZ = aImGnd.DIm().GetV(aVPix[aK]);
+                tREAL4 aBascZ = Scal(aElev,aVW[aK]);
+                std::cout<<"diff between zgt and zbasc "<<aGTZ<<" "<<aBascZ<<std::endl;
+                MMVII_INTERNAL_ASSERT_bench(std::abs(aGTZ-aBascZ)<0.01, 
+                            "Pixel inside triangle height does not match ground truth");
+            }
+
+        }
+    }
+    aParam.EndBench();
 };
+
+
+void BenchRunCloudProjectOnGround(cParamExeBench & aParam)
+{
+    if (! aParam.NewBench("RunCloudProjectOnGround")) return;
+
+    cMMVII_Appli & anAp = cMMVII_Appli::CurrentAppli();
+    const std::string & aInDir = anAp.InputDirTestMMVII() + "/EPIP/Synthetic/";
+    const std::string & aTmpDir = anAp.TmpDirTestMMVII();
+
+    const std::string aNameDMEpipPairResult = "DenseMatchResult/DMEpipPairResult.xml";
+    const std::string aOutDir = aTmpDir + "RunCloudProjectOnGround/";
+    const std::string aFullOriDir =aInDir + "MMVII-PhgrProj/Ori/Synthetic";
+    tREAL8 aNoData = -1e9;
+
+
+    // run the appli 
+    anAp.ExeCallMMVII
+    (
+        TheSpecCloudProjectOnGround,
+        anAp.StrObl() << aInDir + StringDirSeparator() + aNameDMEpipPairResult << "Synthetic" << "TmpTiles",
+        anAp.StrOpt() << std::make_pair("GSD","0.01") << std::make_pair("DirProj",aInDir) <<std::make_pair("DirOut",aOutDir)
+    );
+
+    // compare projected dem with ground truth 
+    const std::string aFullNameGnd = aInDir + "GroundTruth_Dem_Epip1.tif";
+    const std::string aFullNameGndTfw = aInDir + "GroundTruth_Dem_Epip1.tfw";
+
+    const std::string aFullNamePredicted = aOutDir+"Prof_Dem_Epip1.png.tif";
+    const std::string aFullNamePredictedTfw = aOutDir + "Prof_Dem_Epip1.png.tfw";
+
+    MMVII_INTERNAL_ASSERT_bench((ExistFile(aFullNamePredicted) && ExistFile(aFullNameGndTfw)),
+                    "CloudProjectOnGround did not write the predicted projected dem to "+aOutDir);
+
+    cIm2D<tREAL4> aImGnd  = cIm2D<tREAL4>::FromFile(aFullNameGnd) ;
+    cIm2D<tREAL4> aImPred = cIm2D<tREAL4>::FromFile(aFullNamePredicted);
+
+    // TFW 
+    cAffin2D<tREAL8> anAffGt   = cAppliCloudProjectOnGround::ReadTFW(aFullNameGndTfw);
+    cAffin2D<tREAL8> anAffPred = cAppliCloudProjectOnGround::ReadTFW(aFullNamePredictedTfw);
+
+    tREAL8 aSumAbsDiff = 0.0 ;
+    tREAL8 aWeighter = 0.0;
+
+    for (const auto aP : aImPred.DIm())
+    {
+        tREAL4 aValPred = aImPred.DIm().GetV(aP);
+
+        if (aValPred != aNoData)
+        {
+            cPt2dr aPGlobPred = anAffPred.Value(ToR(aP));
+            cPt2dr aPLocInGt  = anAffGt.Inverse(aPGlobPred);
+            tREAL4 aValGt     = aImGnd.DIm().GetVBL(aPLocInGt);
+            if (aValGt>0)
+            {
+                //std::cout<<aValPred<<" "<<aValGt<<std::endl;
+                aSumAbsDiff+=std::abs(aValPred-aValGt);
+                aWeighter+=1.0;
+            }
+
+        }
+    }
+
+    aSumAbsDiff/=aWeighter;
+    MMVII_INTERNAL_ASSERT_bench(aSumAbsDiff<0.015, 
+            "Average Height difference between computed Dem and ground truth dem is above 1.5 cm");
+
+    aParam.EndBench();        
+};
+
+
+};// MMVII namespace
+

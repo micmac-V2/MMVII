@@ -492,6 +492,8 @@ template<class TypeEl> void  cAppliParseBoxIm<TypeEl>::APBI_ExecAll(bool Silence
             //std::string aCom = mAppli.CommandOfMain() + " " +NameIndBoxRecal + "=" + ToStr(aPixI);
              cParamCallSys aCom = mAppli.CommandOfMain();
              aCom.AddArgs(NameIndBoxRecal + "=" + ToStr(aPixI));
+             for (const auto & aArgRecall : mArgsRecall)
+                 aCom.AddArgs(aArgRecall);
              aLComParal.push_back(aCom);
          }
          else

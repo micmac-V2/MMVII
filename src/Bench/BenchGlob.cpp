@@ -636,7 +636,11 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
         Bench_HBA(aParam);
 
 
-       BenchCodedTarget(aParam);
+        BenchCodedTarget(aParam);
+
+        BenchCloudEpipProjectOnGround(aParam);
+        BenchRunCloudProjectOnGround(aParam);
+
 
     }
 

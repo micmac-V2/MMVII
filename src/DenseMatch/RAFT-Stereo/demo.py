@@ -1,6 +1,6 @@
 import sys
 #sys.path.append('core')
-
+import time
 import argparse
 import glob
 import numpy as np
@@ -31,34 +31,58 @@ def demo(args):
     model.eval()
 
     output_file = Path(args.output_file)
-    #output_directory.mkdir(exist_ok=True)
 
     with torch.no_grad():
         left_images = sorted(glob.glob(args.left_imgs, recursive=True))
         right_images = sorted(glob.glob(args.right_imgs, recursive=True))
-        #print(f"Found {len(left_images)} images. Saving files to {output_directory}/")
-
         for (imfile1, imfile2) in tqdm(list(zip(left_images, right_images))):
             image1 = load_image(imfile1,DEVICE)
             image2 = load_image(imfile2,DEVICE)
-
-            #padder = InputPadder(image1.shape,mode="", divis_by=32)
-            #image1, image2 = padder.pad(image1, image2)
-            """print( image1.shape, image2.shape)
-
-            tf.imwrite('/home/MAChebbi/Documents/study_change_alti/d38_isere/ll1.tif',image1[0,1,:,:].squeeze().detach().numpy())
-            tf.imwrite('/home/MAChebbi/Documents/study_change_alti/d38_isere/rr1.tif',image2[0,1,:,:].squeeze().detach().numpy())"""
-
             _, flow_up = model(image1, image2, iters=args.valid_iters, test_mode=True)
-            #flow_up = padder.unpad(flow_up).squeeze()
-
-            #file_stem = imfile1#.split('/')[-2]
-            #if args.save_numpy:
-                #np.save(output_directory / f"{file_stem}.npy", flow_up.cpu().numpy().squeeze())
-            #plt.imsave(output_directory / f"{file_stem}.png", -flow_up.cpu().numpy().squeeze(), cmap='jet')
-            #tf.imwrite(output_directory / f"{file_stem}.tif", -flow_up.cpu().numpy().squeeze())
             tf.imwrite(output_file, flow_up.cpu().numpy().squeeze())
 
+
+
+# duplicate demo to use torch profiler and checks bottlenecks
+def demo_profile(args, n_warmup=3):
+    from torch.profiler import profile, ProfilerActivity
+
+    torch.backends.cudnn.benchmark = True
+    DEVICE = torch.device(f"cuda:{args.ongpu}")
+    model = torch.nn.DataParallel(RAFTStereo(args), device_ids=[args.ongpu])
+    model.load_state_dict(torch.load(args.restore_ckpt, map_location="cpu"))
+    model = model.module.to(DEVICE).eval()
+
+    left = sorted(glob.glob(args.left_imgs, recursive=True))
+    right = sorted(glob.glob(args.right_imgs, recursive=True))
+    image1 = load_image(left[0], DEVICE)
+    image2 = load_image(right[0], DEVICE)
+
+    with torch.inference_mode():
+        for _ in range(n_warmup):
+            _, flow_up = model(image1, image2, iters=args.valid_iters, test_mode=True)
+            del flow_up
+        torch.cuda.synchronize()
+
+        # 1) wall-clock timing, no profiler
+        times = []
+        for _ in range(10):
+            torch.cuda.synchronize(); t0 = time.perf_counter()
+            _, flow_up = model(image1, image2, iters=args.valid_iters, test_mode=True)
+            torch.cuda.synchronize(); times.append((time.perf_counter() - t0) * 1000)
+            del flow_up
+        times.sort()
+        print(f"median {times[len(times)//2]:.1f} ms, min {times[0]:.1f}, max {times[-1]:.1f}")
+        print(f"peak mem {torch.cuda.max_memory_allocated()/2**30:.2f} GiB")
+
+        # 2) one profiled pass
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
+            _, flow_up = model(image1, image2, iters=args.valid_iters, test_mode=True)
+            torch.cuda.synchronize()
+        del flow_up
+
+    print(prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=25))
+    prof.export_chrome_trace("raft_trace.json")
 
 
 if __name__ == '__main__':
@@ -84,5 +108,8 @@ if __name__ == '__main__':
     parser.add_argument('-gpu','--ongpu',type=int, default=0, help="what gpu to use for inference")
     
     args = parser.parse_args()
+
+    # print( args)
+    print("Running demo with arguments:", args)
 
     demo(args)

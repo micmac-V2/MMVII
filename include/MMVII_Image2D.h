@@ -541,6 +541,7 @@ template<class TypeEl> class  cAppliParseBoxIm
         cPt2di         mSzOverlap;  ///< Size of overlap between each tile
         bool           mParalTiles;   ///< Loaded image
         cPt2di         mIndBoxRecal;  ///< Index for box when recalling in paral
+        std::vector<std::string> mArgsRecall; ///< Extra args appended to each parallel-recall command (filled by inheriting appli to share values computed once by the master)
 
         cMMVII_Appli & mAppli;   ///< Ineriting appli ("daughter")
         eForceGray     mIsGray;  ///< Is it a gray file
