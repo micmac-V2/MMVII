@@ -76,8 +76,10 @@ template<class TOut,class TIn,int Dim>
                cDataTypedIm<TOut,Dim> & aRes,
                tREAL8 aTargetMin,
                tREAL8 aTargetMax,
+               tREAL8 aMulGV,   // multiplier of gaussian values
                const cDataTypedIm<TIn,Dim> & aIm,
                tREAL8 aEpsilon=1e-5
+
              )
 {
     aRes.AssertSameArea(aIm);
@@ -90,23 +92,23 @@ template<class TOut,class TIn,int Dim>
     for (int aK=0 ; aK<aIm.NbElem() ; aK++)
     {
         tREAL8 aV = aIm.GetRDL(aK);
-        aV = aCSD.NormalizedVal(aV);
-        aV = aVCenter + aDyn * std::erf(aV);
+        aV = aCSD.NormalizedVal(aV) * 0.707;  // 1/sqrt(2) to have uniform dist if initial dist is gaussian
+        aV = aVCenter + aDyn * std::erf(aV*aMulGV);
         aRes.GetRDL(aK) = tNumTrait<TOut>::Trunc(aV);
     }
 }
 
 template<class T,int Dim>
-      void Make8BByGaussModel(cDataTypedIm<tU_INT1,Dim> & aRes,const cDataTypedIm<T,Dim> & aIm,tREAL8 aEpsilon=1e-5)
+      void Make8BByGaussModel(cDataTypedIm<tU_INT1,Dim> & aRes,tREAL8 aMulGV,const cDataTypedIm<T,Dim> & aIm,tREAL8 aEpsilon=1e-5)
 {
-     FixDynByGaussModel(aRes,0,256,aIm,aEpsilon);
+     FixDynByGaussModel(aRes,0,256,aMulGV,aIm,aEpsilon);
 }
 
 
-template<class T> cIm2D<tU_INT1> Im2Make8BByGaussModel(const cDataIm2D<T> & aIm,tREAL8 aEpsilon=1e-5)
+template<class T> cIm2D<tU_INT1> Im2Make8BByGaussModel(tREAL8 aMulGV,const cDataIm2D<T> & aIm,tREAL8 aEpsilon=1e-5)
 {
      cIm2D<tU_INT1>  aRes(aIm.Sz());
-     Make8BByGaussModel(aRes.DIm(),aIm,aEpsilon);
+     Make8BByGaussModel(aRes.DIm(),aMulGV,aIm,aEpsilon);
      return aRes;
 }
 

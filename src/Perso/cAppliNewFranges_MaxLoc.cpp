@@ -12,27 +12,6 @@ namespace NS_FrangesDetect
 {
 
 
-/* ******************************************** */
-/*                                              */
-/*               cCCMax                         */
-/*                                              */
-/* ******************************************** */
-
-cAVertReg::cAVertReg(const  std::vector<cPt2di> & aVPts,int aNum) :
-    mVPts (aVPts),
-    mNum  (aNum),
-    mCoul ((53*mNum)%256,(137*(mNum+1))%256,(109*(mNum+2))%256)
-{
-}
-
-cAOrientReg::cAOrientReg()
-{
-}
-
-cASymReg::cASymReg() :
-    mMaxVal (-1e10)
-{
-}
 
 /* ******************************************** */
 /*                                              */
@@ -63,7 +42,7 @@ eTypePix cAppliNewFrange::NewCC(eTypePix aLabel,std::vector<cPt2di>  & aVCC,cons
     const std::vector<cPt2di> & a8Neigh =  Alloc8Neighbourhood();
     std::vector<cPt2di>  aSeed{aPix};
 
-    FlagBitConnectedComponent (aVCC,*mDImLabel ,a8Neigh, aSeed,Lab2I(aLabel),LabTmp2I());
+    FlagBitConnectedComponent (aVCC,*mDImFlagLabel ,a8Neigh, aSeed,Lab2I(aLabel),LabTmp2I());
 
     size_t aThBig = (aLabel==eTypePix::eMinTens) ? 100 : 40;
     size_t aThSmall= (aLabel==eTypePix::eMinTens) ? 50 : 10;
@@ -128,7 +107,7 @@ void cAppliNewFrange::ConnecCompMaxLoc( eTypePix aLabelIn)
     }
 
 
-    for (const auto aPix : *mDImLabel)
+    for (const auto aPix : *mDImFlagLabel)
     {
         if (LabelIsOn(aPix,aLabelIn) && LabelTmpIsOff(aPix))
         {
@@ -152,7 +131,7 @@ void cAppliNewFrange::ConnecCompMaxLoc( eTypePix aLabelIn)
     }
 
     // The Tmp Flag must be reset for next connect comp
-    for (const auto aPix : *mDImLabel)
+    for (const auto aPix : *mDImFlagLabel)
         SetLabelTmpOff(aPix);
 }
 

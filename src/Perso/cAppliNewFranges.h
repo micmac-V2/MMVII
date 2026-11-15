@@ -81,9 +81,29 @@ class cAVertReg : public cMemCheck
    public :
        cAVertReg(const  std::vector<cPt2di> & aVPts,int aNum);
 
+
+
+       bool IsBorderExt() const;
+
        std::vector<cPt2di> mVPts;
-       int mNum;
-       cPt3di mCoul;
+
+       int mNumV;       // Num of vertice ~ num in graphe
+       int mNumCC0;     // Num of connect comp it belongs to
+       int mNumMaxLoc;  // Possible num of local maxima
+       tREAL8    mXC;   // Absice where it eventually intersecte central line
+
+
+       /// Extrem, such that P1->P2 goes Up for horizontal line
+       cPt2di   mP1;
+       cPt2di   mP2;
+       cPt2di   mCenter;
+       cBox2di  mBox;  // Box of Vpts
+
+       bool  mUpSide;
+       bool  mBottomSide;
+       bool  mNoCross;
+       bool  mTouchLeft;
+       bool  mTouchRight;
 };
 
 class cAOrientReg
@@ -99,6 +119,7 @@ class cASymReg
 
         cASymReg();
         tREAL8 mMaxVal;
+        bool mInMST;
 };
 
 typedef cVG_Vertex<cAVertReg,cAOrientReg,cASymReg>    tVertexReg;
@@ -131,6 +152,23 @@ struct cSigmaTensors
     )
 };
 
+struct cParamVisu
+{
+   public :
+    tREAL8 mMulGauss = 0.7;
+    tREAL8 mMulLAB   = 0.3;
+    tREAL8 mMulSat   = 0.5;
+
+    ARG2007_STRUCT_FIELDS (
+
+            mMulGauss,FieldSem({{eTA2007::AddCom,"Multiplier in gaussian equalisation"},eTA2007::HDV}),
+            mMulLAB  ,FieldSem({{eTA2007::AddCom,"Multiplier of AB in LAB-space-colors"},eTA2007::HDV}),
+            mMulSat  ,FieldSem({{eTA2007::AddCom,"Multiplier of Saturation in HSI space"},eTA2007::HDV})
+
+    )
+};
+
+
 class cAppliNewFrange : public cMMVII_Appli
 {
      public :
@@ -157,8 +195,16 @@ class cAppliNewFrange : public cMMVII_Appli
 
         void  DoOneImage(const std::string & aNameIm);
 
+        //-------------------------- FONCTION RELATED TO VISUALIZATION -----------------
         /// Generate several visualization
         void DoVisu();
+        /// Generate back ground gray image for diff visu, used Im-Reduc-Blured  & Gaussian equam
+        cRGBImage ImBckGround(tREAL8) const ;
+        /// Put in anIm a colorizatuion depenaning of labels, aCoefAB multiply AB in LAB-space
+        void SetImageLabel(cRGBImage & anIm,tREAL8 aCoefAB) const;
+
+        /// Show extrmitys of line
+        void ShowExtres(cRGBImage & anIm) const;
 
 
         void ShowCurvesIntegral(cRGBImage&);
@@ -201,23 +247,23 @@ class cAppliNewFrange : public cMMVII_Appli
               // ------------------ Fix On/Off -----------------------------
         void SetLabelOn(const cPt2di & aPix,eTypePix aLabel)
         {
-            SetBitOn(*mDImLabel,aPix,Lab2I(aLabel));
+            SetBitOn(*mDImFlagLabel,aPix,Lab2I(aLabel));
         }
         void SetLabel(const cPt2di & aPix,eTypePix aLabel)
         {
-            SetFlagOfBit(*mDImLabel,aPix,Lab2I(aLabel));
+            SetFlagOfBit(*mDImFlagLabel,aPix,Lab2I(aLabel));
         }
 
         void SetLabelOn(const cPt2di & aPix,const std::vector<eTypePix> & aLabel);
 
         void SetLabelOff(const cPt2di & aPix,eTypePix aLabel)
         {
-            SetBitOff(*mDImLabel,aPix,Lab2I(aLabel));
+            SetBitOff(*mDImFlagLabel,aPix,Lab2I(aLabel));
         }
              // ----------------- extract value ------------------------------
         bool LabelIsOn(const cPt2di & aPix,eTypePix aLabel) const
         {
-            return BitIsOn(*mDImLabel,aPix,(int)aLabel);
+            return BitIsOn(*mDImFlagLabel,aPix,(int)aLabel);
         }
 
         const cPt3di * CoulOfLabel(const cPt2di & aPt) const;
@@ -245,6 +291,18 @@ class cAppliNewFrange : public cMMVII_Appli
 
         ///
         void MakeImageRegion();
+
+        void MakeImageMarqIn();
+
+
+        void ComputeArribute(cAVertReg&,cDataIm2D<tU_INT1> &);
+
+        void PostProcEdge(tEdgeReg&);
+
+        void PostProcVertex(tVertexReg&);
+
+
+
 
         // =================== MaxLoc & Pix -CC  ==================
 
@@ -296,7 +354,7 @@ class cAppliNewFrange : public cMMVII_Appli
              compute tan of Y=F(X) as tensor accumalation
              extract the center
          */
-        void DoTensorProcessing();
+        void DoTensorProcessing(bool isFirst,bool isLast);
 
 
         void ExtractTensorLines(bool isMax);
@@ -314,6 +372,9 @@ class cAppliNewFrange : public cMMVII_Appli
 
         /// Integrate one way the tangent image and save it in integrale image
         void OneWayIntegrateTangent(int aDy,int aYLim);
+
+        /// Integrate one way the tangent image and save it in integrale image
+        int ComputeZoneYCenter(int aDy,int aYLim);
 
         ///< compute max +- basic with radiom of center
         void ComputeMaxRadCenter();
@@ -340,8 +401,10 @@ class cAppliNewFrange : public cMMVII_Appli
         std::string              mNameIm;
 
 
-
+        ///  Sigmas for first iter tensor-computation
         cSigmaTensors            mSigTensors;
+        /// Param for visualisation
+        cParamVisu               mParamVisu;
 
 
         tREAL8    mZoomRed;     ///< Zoom for initial reduction
@@ -353,6 +416,11 @@ class cAppliNewFrange : public cMMVII_Appli
         int         mNbVisuGen; ///< Number of visu generated
 
          std::vector<cMaxLocSum> mVMaxLoc;
+         tREAL8   mIntervMax;     ///< Inteval betwen consec max +- period of the bouzin
+         int      mMinZCYC;       /// Begin of central zone arround YC
+         int      mMaxZYC;        ///< End of central zone arround YC
+
+
 
         bool mHasMask;  ///< Is there a mask
         cIm2D<tU_INT1> mImMask; ///< Possible mask
@@ -373,18 +441,14 @@ class cAppliNewFrange : public cMMVII_Appli
         tImGrad mImTens;
 
 
-        cIm2D<tU_INT4>        mImLabel;
-        cDataIm2D<tU_INT4>*   mDImLabel;
+        /// Image of flag of labels
+        cIm2D<tU_INT4>        mImFlagLabel;
+        cDataIm2D<tU_INT4>*   mDImFlagLabel;
         cIm2D<tINT2>          mImRegion;
         cDataIm2D<tINT2>*     mDImRegion;
 
-
-
-
-      //   cIm2D<tU_INT1> mImMaxHor;           ///<  image of max in horizontal direction
-      //   cDataIm2D<tU_INT1>* mDImMaxHor;     ///<  data
-      //   cIm2D<tU_INT1> mImMaxVert;          ///< image of max in vertical direction
-      //   cDataIm2D<tU_INT1>* mDImMaxVert;    ///<  data
+        cIm2D<tU_INT1>          mImMarqIn;
+        cDataIm2D<tU_INT1>*     mDImMarqIn;
 
 
          tIm1D    mImCumNormT;    /// Image of teta as x=F(Y)
@@ -401,12 +465,9 @@ class cAppliNewFrange : public cMMVII_Appli
         tIm1D    mImProjInt;     ///< cumulated projection
         tDIm1D*  mDImProjInt;    ///< Data
         tREAL8   mStdDevProjI;   ///< standard deviation
-        tREAL8   mIntervMax;     ///< Inteval betwen consec max +- period of the bouzin
         tREAL8   mMinDPI;
         tREAL8   mMaxDPI;
 
-
-        std::vector<cConnComp*>  mVectCC;
 
         tREAL8   mRadiomBackGround;  ///< Estimation of radiometry of background
         tIm1D    mImRadFrange;       ///< Estimation of radiometry of franges, depend of Y
@@ -415,8 +476,11 @@ class cAppliNewFrange : public cMMVII_Appli
 
         tGraphReg     mGrReg;
         tVertexReg*   mVirtExtVert; ///< Virtual Exten vertex : the border
-       // std::vector<cASom*>   mVCMax;
-       // tGraphVFrange   mGrVect;
+
+        /// Image of backround used in visu if any
+        cIm2D<tU_INT1>  mImGrayBG;
+        cRGBImage       mImRgbBG;
+
 };
 
 }; // namespace NS_FrangesDetect

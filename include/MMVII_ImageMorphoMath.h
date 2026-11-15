@@ -112,6 +112,29 @@ void FlagBitConnectedComponent
          bool Restore = false
      );
 
+std::pair<cPt2di,cPt2di> Diameter
+     (
+        cPt2di aPInit ,
+        cDataIm2D<tU_INT1>  & aDIm,
+        const std::vector<cPt2di> & aNeighbourhood,
+        int aMarqInit,
+        int aNewMarq,
+        cPt2di * aCenter = nullptr,
+        std::vector<cPt2di> * aShortestPath = nullptr
+    );
+// Has for sied effect to marq image with aMarqInit
+std::pair<cPt2di,cPt2di> Diameter
+     (
+        const std::vector<cPt2di> & aVPts,
+        cDataIm2D<tU_INT1>  & aDIm,
+        const std::vector<cPt2di> & aNeighbourhood,
+        int aMarqInit,
+        int aNewMarq,
+        cPt2di * aCenter = nullptr,
+        std::vector<cPt2di> * aShortestPath = nullptr
+    );
+
+
 template<class Type>  void SetBitOn(cDataIm2D<Type>  & aDIm,const cPt2di& aPix,int aNumB)
 {
     Type & aV = aDIm.GetReference_V(aPix);

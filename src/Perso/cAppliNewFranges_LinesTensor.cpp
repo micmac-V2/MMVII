@@ -122,7 +122,7 @@ void cAppliNewFrange:: ProlongateExtre(std::vector<cPt2dr>  & aRes, cPt2di aPix,
         cPt2di aINew = ToI(aNew);
 
         // if we are dangerously close to to border or to high this is bad
-        if ((mDImLabel->Insideness(aINew)<3) ||  (mDImRedBlur->GetV(aINew) > aThrs))
+        if ((mDImFlagLabel->Insideness(aINew)<3) ||  (mDImRedBlur->GetV(aINew) > aThrs))
         {
             aRes.clear();
             return ;
@@ -202,7 +202,7 @@ void cAppliNewFrange::ExtractTensorLines(bool isMax)
      //std::vector<cPt2dr> aVN;
      std::vector<cPt2di> aVPixMax;
 
-     for (const auto & aPix : mDImLabel->Interior(aBorder))
+     for (const auto & aPix : mDImFlagLabel->Interior(aBorder))
      {
         // cPt2dr aDirTens = ToR(cTensor<tElIm>::Tens2Grad(mImTens.Grad(aPix),1.0));
 

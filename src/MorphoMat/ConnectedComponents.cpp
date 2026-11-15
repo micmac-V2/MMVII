@@ -11,9 +11,12 @@ void Tpl_ConnectedComponent
         const FoncBelong& aFBelong,
         const FoncUDdate& aFUpate,
         bool doRestore,
-        const FoncRestore & aFRestore
+        const FoncRestore & aFRestore,
+        std::vector<int> * aVParent = nullptr  // Index of "Parent"  allowing to back track arborescence
      )
 {
+
+    if (aVParent) aVParent->clear();
 
 //    std::cout << "Tpl_ConnectedComponentTpl_ConnectedComponentTpl_ConnectedComponent\n"; // getchar();
     for (const auto & aPSeed : aVecSeed)
@@ -22,8 +25,9 @@ void Tpl_ConnectedComponent
        if (aFBelong(aPSeed))
         {
            aFUpate(aPSeed);
-//         aDIm.SetV(aPSeed,aNewMarq);
            aVPts.push_back(aPSeed);
+           if (aVParent)
+               aVParent->push_back(-1);
         }
     }
     size_t aIndBottom = 0;
@@ -38,8 +42,9 @@ void Tpl_ConnectedComponent
              if (aFBelong(aNeigh))
              {
                   aFUpate(aNeigh);
-                 // aDIm.SetV(aNeigh,aNewMarq);
                   aVPts.push_back(aNeigh);
+                  if (aVParent)
+                      aVParent->push_back(aIndBottom);
              }
           }
           aIndBottom++;
@@ -80,6 +85,7 @@ void ConnectedComponent
     );
 }
 
+
 void ConnectedComponent
      (
          std::vector<cPt2di> & aVPts,
@@ -93,6 +99,88 @@ void ConnectedComponent
 {
     std::vector<cPt2di> aVSeed {aPtSeed};
     ConnectedComponent(aVPts,aDIm,aNeighbourhood,aVSeed,aMarqInit,aNewMarq,Restore);
+}
+
+/*
+class cResDiameter
+{
+   public :
+       cPt2di mP1;
+       cPt2di mP2;
+
+};*/
+
+std::pair<cPt2di,cPt2di> Diameter
+     (
+        cPt2di aPInit ,
+        cDataIm2D<tU_INT1>  & aDIm,
+        const std::vector<cPt2di> & aNeighbourhood,
+        int aMarqInit,
+        int aNewMarq ,
+        cPt2di * aCenter,
+        std::vector<cPt2di> * aShortestPath
+    )
+{
+   int aNbIter = 0;
+   bool doCont = true;
+   std::pair<cPt2di,cPt2di> aRes(aPInit,aPInit);
+   int aNbStab =0;
+
+   while (doCont)
+   {
+       std::vector<cPt2di> aVPts;
+       ConnectedComponent(aVPts,aDIm,aNeighbourhood,aRes.first,aMarqInit,aNewMarq,true);
+       if (aRes.second == aVPts.back())
+       {
+          aNbStab++;
+          if (aNbStab==2)
+              doCont= false; // return aRes;
+       }
+       else
+       {
+           aNbStab =0;
+           aRes.second = aVPts.back();
+       }
+       aRes.second = aVPts.back();
+       std::swap(aRes.first,aRes.second);
+       aNbIter++;
+
+       if (aNbIter==4)
+           doCont=false;
+   }
+
+   if (aCenter)
+   {
+       std::vector<cPt2di> aVPts;
+       std::vector<cPt2di> aVSeeds{aRes.first,aRes.second};
+
+       ConnectedComponent(aVPts,aDIm,aNeighbourhood,aVSeeds,aMarqInit,aNewMarq,true);
+       *aCenter = aVPts.back();
+   }
+
+   //StdOut() << "NBITEER  " << aNbIter << "\n";
+   return aRes;
+}
+
+
+
+
+
+std::pair<cPt2di,cPt2di> Diameter
+     (
+        const std::vector<cPt2di> & aVPts,
+        cDataIm2D<tU_INT1>  & aDIm,
+        const std::vector<cPt2di> & aNeighbourhood,
+        int aMarqInit,
+        int aNewMarq,
+        cPt2di * aCenter,
+        std::vector<cPt2di> * aShortestPath
+    )
+{
+    for (const auto &aPix :aVPts)
+        aDIm.SetV(aPix,aMarqInit);
+
+    return Diameter(aVPts.at(0),aDIm,aNeighbourhood,aMarqInit,aNewMarq,aCenter,aShortestPath);
 }
 
 

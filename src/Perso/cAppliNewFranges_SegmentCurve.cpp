@@ -55,6 +55,8 @@ bool cAppliNewFrange::IsMaxLocSumIC(int anX) const
 
 void cAppliNewFrange::ExtractMaxSumIC()
 {
+    mVMaxLoc.clear();
+
     for (int anX=0 ; anX<mSzRed.x() ; anX++)
         if (IsMaxLocSumIC(anX))
         {

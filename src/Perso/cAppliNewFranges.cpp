@@ -4,7 +4,8 @@
 
 #include "cAppliNewFranges.h"
 
-
+#include "MMVII_Tpl_Graph_SubGraph.h"
+#include "MMVII_Tpl_GraphAlgo_SPCC.h"
 
 
 namespace MMVII
@@ -37,10 +38,12 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mDImRedBlur       (nullptr),
     mImGrad           (cPt2di(1,1)),
     mImTens           (cPt2di(1,1)),
-    mImLabel          (cPt2di(1,1)),
-    mDImLabel         (nullptr),
-    mImRegion           (cPt2di(1,1)),
-    mDImRegion          (nullptr),
+    mImFlagLabel      (cPt2di(1,1)),
+    mDImFlagLabel      (nullptr),
+    mImRegion          (cPt2di(1,1)),
+    mDImRegion         (nullptr),
+    mImMarqIn          (cPt2di(1,1)),
+    mDImMarqIn         (nullptr),
     mImCumNormT        (1),
     mDImCumNormT       (nullptr),
     mImTeta            (1),
@@ -57,7 +60,9 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mRadiomBackGround   (-1e9),
     mImRadFrange        (1),
     mDImRadFrange       (nullptr),
-    mVirtExtVert        (nullptr)
+    mVirtExtVert        (nullptr),
+    mImGrayBG           (cPt2di(1,1)),
+    mImRgbBG            (cPt2di(1,1))
 {
 }
 
@@ -87,7 +92,11 @@ cCollecSpecArg2007 & cAppliNewFrange::ArgOpt(cCollecSpecArg2007 & anArgOpt)
               << AOpt2007(mDerFactZ1,"DericheF","Factor of deriche filter (for Zoom=1)" ,{eTA2007::HDV})
               << AOpt2007(mSigmaTensZ1,"SigmaTens","Sigma for avaragin tensor (Z=1)" ,{eTA2007::HDV})
               << AOpt2007(mDoSimul,"DoSimul","Make simulation/syntheic images : 1 parab, 2 circles" ,{eTA2007::HDV})
+
               << AOpt2007(mPatVisu,"PatVisu","Pattern for generating visualization" )
+              << AOpt2007(mParamVisu,"ParamVisu","Parameters of visualization" )
+
+
 
               << AOpt2007(mSigTensors ,"SigTens","Sigmas on tensors")
 
@@ -120,9 +129,12 @@ std::vector<cOneHelpSampleCmp>  cAppliNewFrange::Samples() const
    };
 }
 
+
+
 int cAppliNewFrange::Exe()
 {
     mPhProj.FinishInit();
+
 
    //  StdOut() << "VVV " << aV1 << " " << aV2 << "\n";
 
@@ -146,91 +158,6 @@ void  cAppliNewFrange::SetLabelOn(const cPt2di & aPix,const std::vector<eTypePix
    for (const auto aLab : aVLabel)
        SetLabelOn(aPix,aLab);
 }
-
-static constexpr int LabelRegBorder= 0;
-static constexpr int LabelRegUnInit = -1;
-static constexpr int LabelRegMin= -2;
-
-
-void cAppliNewFrange::MakeImageRegion()
-{
-    mImRegion =  cIm2D<tINT2> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
-    mDImRegion = & mImRegion.DIm();
-
-    mDImRegion->InitCste(LabelRegUnInit);
-    mDImRegion->InitBorder(LabelRegBorder);
-
-    // Make barrier with min region
-    for (const auto& aPix: *mDImRegion)
-    {
-        if (LabelIsOn(aPix,eTypePix::eMinTens))
-            mDImRegion->SetV(aPix,LabelRegMin);
-    }
-
-    // init the vec point to propagate wiht max line
-    std::vector<cPt3di> aVPCur;
-    for (const auto & aVert : mGrReg.AllVertices())
-    {
-        const auto & aCC = aVert->Attr();
-
-        for (const auto& aPt: aCC.mVPts)
-        {
-            mDImRegion->SetV(aPt,aCC.mNum);
-            aVPCur.push_back(TP3z(aPt,aCC.mNum));
-        }
-    }
-    const auto & aVP4 = Alloc4Neighbourhood();
-
-    // do the propagation
-    while (!aVPCur.empty())
-    {
-        std::vector<cPt3di> aNewVP;
-        for (const auto & aP3 : aVPCur)
-        {
-            cPt2di aCurP2 = Proj(aP3);
-            for (const auto & aN4 : aVP4)
-            {
-                cPt2di aNewP = aCurP2 + aN4;
-                tINT2 & aV = mDImRegion->GetReference_V(aNewP);
-                if ((aV==LabelRegUnInit) || (aV==LabelRegMin))
-                {
-                    if (aV==LabelRegUnInit)
-                        aNewVP.push_back(TP3z(aNewP,aP3.z()));
-                     aV = aP3.z();
-                }
-            }
-
-        }
-        aVPCur =    aNewVP;
-    }
-
-    //  costruct the edge of the graph by identify pixels wih different label
-    for (const auto & aPix1 : *mDImRegion)
-    {
-        for (const auto & aN4 : aVP4)
-        {
-            cPt2di aPix2 = aPix1 + aN4;
-            if (mDImRegion->Inside(aPix2))
-            {
-                 int aNum1 = mDImRegion->GetV(aPix1);
-                 int aNum2 = mDImRegion->GetV(aPix2);
-                 if (      (aNum1!=aNum2) && (aNum1>=0) && (aNum2>=0)
-                       && (!LabelIsOn(aPix1,eTypePix::eMinTens))
-                       && (!LabelIsOn(aPix2,eTypePix::eMinTens))
-                     )
-                 {
-                     tVertexReg & aS1 = mGrReg.VertexOfNum(aNum1);
-                     tVertexReg & aS2 = mGrReg.VertexOfNum(aNum2);
-
-                     tEdgeReg* anE = mGrReg.AddEdge(aS1,aS2,cAOrientReg(),cAOrientReg(),cASymReg(),true);
-                     FakeUseIt(anE);
-                 }
-            }
-        }
-
-    }
-}
-
 
 void cAppliNewFrange::ComputeRadiomCste()
 {
@@ -275,7 +202,6 @@ void cAppliNewFrange::ComputeRadiomCste()
 }
 
 
-
 void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
 {
     mNameIm = aNameIm;
@@ -286,10 +212,11 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
     mDImRed = &(mImRed.DIm());
     mSzRed = mDImRed->Sz();
 
-    mImLabel =  cIm2D<tU_INT4> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
-    mDImLabel = &mImLabel.DIm();
+    mImFlagLabel =  cIm2D<tU_INT4> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
+    mDImFlagLabel = &mImFlagLabel.DIm();
 
-
+    mImMarqIn =  cIm2D<tU_INT1> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
+    mDImMarqIn  = & mImMarqIn.DIm();
 
     if (mHasMask)
     {
@@ -300,21 +227,24 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
         StdOut() << "SZ MASK= " << mImMask.DIm().Sz() << "\n";
     }
 
-    if (mDoSimul)    DoTensorProcessing();
-
+    if (mDoSimul)
         MakeImSimul();
 
     mImRedBlur = mImRed.Dup();
     mDImRedBlur = & (mImRedBlur.DIm());
     ExpFilterOfStdDev(*mDImRedBlur,5,2.0,5.0);
 
-    DoTensorProcessing();
+    int aNbIter = 2;
+    for (int aKIter=0 ; aKIter<aNbIter ; aKIter++)
+    {
+        DoTensorProcessing(aKIter==0,aKIter==(aNbIter-1));
+    }
+
     ExtractTensorLines();
 
-    AnalyseCC();
+   //  AnalyseCC();  deprecated : only line tensor
 
     MakeImageRegion();
-    //GraphCompute();
 
     DoVisu();
 

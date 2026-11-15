@@ -72,6 +72,8 @@ template <class TA_Vertex,class TA_Oriented,class TA_Sym>  class cVG_Edge : publ
           inline TA_Oriented & AttrOriented()  {return mAttrO;}  ///<  Accessor to oriented attribute
           inline const TA_Oriented & AttrOriented() const {return mAttrO;}  ///<  Accessor to oriented attribute
  
+          inline TA_Oriented & AttrInvOr()  {return mEdgeInv->mAttrO;}  ///<  Accessor to oriented attribute
+          inline const TA_Oriented & AttrInvOr() const {return mEdgeInv->mAttrO;}  ///<  Accessor to oriented attribute
 
           inline       TA_Sym & AttrSym() ;  ///< Accessor to symetric attribute
           inline const TA_Sym & AttrSym() const ;  ///< Accessor to symetric attribute

@@ -123,13 +123,107 @@ const cPt3di *cAppliNewFrange::CoulOfLabel(const cPt2di & aPix) const
     return nullptr;
 }
 
+cRGBImage cAppliNewFrange::ImBckGround(tREAL8 aMul) const
+{
+    return cRGBImage( Im2Make8BByGaussModel(aMul,*mDImRedBlur).DIm());
+}
+
+void cAppliNewFrange::SetImageLabel(cRGBImage & anIm,tREAL8 aCoefAB) const
+{
+    for (const auto aPix :  mDImRegion->Interior(1))
+    {
+           int aN1 = mDImRegion->GetV(aPix);
+           if (aN1>=0)
+           {
+               int aNum1CC0 = mGrReg.VertexOfNum(aN1).Attr().mNumCC0;
+
+               anIm.SetRGBPix(aPix,cRGBImage::KthRandomCol(mImGrayBG.DIm().GetV(aPix),aNum1CC0,0.3));
+           }
+
+    }
+}
+
+void cAppliNewFrange::ShowExtres(cRGBImage & anIm) const
+{
+    for (const auto & aV : mGrReg.AllVertices())
+    {
+        const auto & anAttr = aV->Attr();
+        for (const auto & aPix : anAttr.mVPts)
+            anIm.SetRGBPix(aPix,cRGBImage::Green);
+        for (int aK=0 ; aK<2 ; aK++)
+        {
+            cPt2di aPt  = (aK==0) ? anAttr.mP1 : anAttr.mP2 ;
+            cPt3di aCol = (aK==0) ? cRGBImage::Green :  cRGBImage::Red;
+
+            for (const auto aRay : {2.0,4.0,6.0})
+            {
+                  anIm.DrawCircle(aCol,ToR(aPt),aRay);
+            }
+        }
+
+         anIm.DrawCircle(cRGBImage::Orange,ToR(anAttr.mCenter),4.0);
+
+    }
+
+}
+
 
 void cAppliNewFrange::DoVisu()
 {
     if (!IsInit(&mPatVisu))
         return;
 
+    mImGrayBG = Im2Make8BByGaussModel(0.5,*mDImRedBlur);
+    mImRgbBG = cRGBImage(mImGrayBG.DIm());
 
+
+
+    //  ------------ Generate image of Label/Segmentation -----------------------
+    static const std::string TheNameLabel = "Label";
+    // if (MatchRegex(TheNameLabel,mPatVisu))
+    {
+       cRGBImage anImLabel =    mImRgbBG.Dup();
+       SetImageLabel(anImLabel,0.3);
+       GenVisu(anImLabel,TheNameLabel);
+    }
+
+    {
+         cRGBImage aVisuOrientedLines = mImRgbBG.Dup();
+         ShowExtres(aVisuOrientedLines);
+
+         GenVisu(aVisuOrientedLines,"Extres");
+    }
+
+    // ------------------- Generate visualisation of tensor -----------------------
+    static const std::string TheNameTetaTens = "TetaTens";
+    static const std::string TheNameNormTens = "NormTens";
+
+    //if (MatchRegex(TheNameLabel,mPatVisu))
+    {
+        cIm2D<tREAL8> aINorm(mSzRed);
+        cRGBImage aVisuTeta(mSzRed);
+        for (const auto aPix : *mDImRed)
+        {
+            cPt2dr aTens = mImTens.GradR(aPix);
+            cPt2dr aRhoTeta = ToPolar(aTens,0.0);
+            tREAL8 aTeta =  aRhoTeta.y();
+            aVisuTeta.SetRGBPix(aPix,HSI_2_RGB(cPt3dr(aTeta,1.0,0.5)));
+            aINorm.DIm().SetV(aPix,aRhoTeta.x());
+        }
+        GenVisu(aVisuTeta,TheNameTetaTens);
+        GenVisu(Im2Make8BByMinMax(aINorm.DIm()).DIm(),TheNameNormTens);
+    }
+
+
+
+
+
+    //  Generate the back gound
+    mImRgbBG.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Red,1.0);
+    GenVisu(mImRgbBG,"BackGround");
+
+
+#if (0)
     if (0)
     {
         tIm aImFiltr = mImRed.Dup();
@@ -149,7 +243,7 @@ void cAppliNewFrange::DoVisu()
          cIm2D<tU_INT1> aIm8B = Im2Make8BByMinMax(aImFiltr.DIm());
         GenVisu(aIm8B.DIm(),"FiltX");
 
-        MakeGrapheTensor(aIm8B);
+        //MakeGrapheTensor(aIm8B);
     }
 
     // Generate images of angle of tensor using Hue (teinte)
@@ -223,26 +317,90 @@ void cAppliNewFrange::DoVisu()
             int aNum = mDImRegion->GetV(aPix);
             if (aNum>=0)
             {
-                const auto & anAttr = mGrReg.VertexOfNum(aNum).Attr();
-
-                aImReg.SetRGBPix(aPix,anAttr.mCoul);
+               // const auto & anAttr = mGrReg.VertexOfNum(aNum).Attr();
+                aImReg.SetRGBPix(aPix,cRGBImage::KthRandomCol(aNum));
             }
         }
         GenVisu(aImReg,"Region");
     }
     {
-        cRGBImage aVisuMTReg = aImGrayBackGround.Dup();
-        aVisuMTReg.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Gray128,1.0);
+        cRGBImage aVisuCC0 =   aImGrayBackGround.Dup();
 
-        for (const auto aPix :  mDImRegion->Interior(1))
+
+        aVisuMTReg.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Gray128,1.0);
+        aVisuCC0.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Gray128,1.0);
+
+
+        for (const auto aPix :  *mDImRegion)
         {
+            // show crest-line in green
            if (LabelIsOn(aPix,eTypePix::eMaxTens))
+           {
                aVisuMTReg.SetRGBPix(aPix,cRGBImage::Green);
+               aVisuCC0.SetRGBPix(aPix,cRGBImage::Green);
+           }
+           // show the frontier in cyan
            for (int aK=0 ; aK<2 ; aK++)
-               if (mDImRegion->GetV(aPix)!=mDImRegion->GetV(aPix+FreemanV4[aK]))
-                   aVisuMTReg.SetRGBPix(aPix,cRGBImage::Cyan);
+           {
+               int aN1 = mDImRegion->GetV(aPix);
+               cPt2di aPix2 = (aPix+FreemanV4[aK]);
+               if (mDImRegion->Inside(aPix2))
+               {
+                   int aN2 = mDImRegion->GetV(aPix+FreemanV4[aK]);
+
+
+                   if ((aN1!=aN2) && (aN1>=0) && (aN2>=0))
+                   {
+                       aVisuMTReg.SetRGBPix(aPix,cRGBImage::Cyan);
+                       tVertexReg & aVert1 = mGrReg.VertexOfNum(aN1);
+                       tVertexReg & aVert2 = mGrReg.VertexOfNum(aN2);
+
+                       int aNum1CC0 = aVert1.Attr().mNumCC0;
+                       int aNum2CC0 = aVert2.Attr().mNumCC0;
+
+                       cPt3di aCol = cRGBImage::Red;
+                       if (aNum1CC0!=aNum2CC0)
+                       {
+
+                       }
+                       else
+                       {
+                           tEdgeReg * anE =aVert1.EdgeOfSucc(aVert2,true);
+                           aCol = (anE && anE->AttrSym().mInMST) ? cRGBImage::Blue : cRGBImage::Cyan ;
+
+                       }
+                       aVisuCC0.SetRGBPix(aPix,aCol);
+                   }
+               }
+           }
+           // show the valley in blue (partially overwrite valley)
            if (LabelIsOn(aPix,eTypePix::eMinTens))
                aVisuMTReg.SetRGBPix(aPix,cRGBImage::Blue);
+        }
+
+        // show connexion
+        for (const auto & anEdge : mGrReg.AllEdges_DirInit())
+        {
+             cPt2dr aP1 = ToR(anEdge->AttrOriented().mPt);
+             cPt2dr aP2 = ToR(anEdge->AttrInvOr().mPt);
+             cPt2dr aMil = (aP1+aP2) / 2.0;
+             cPt2dr aV12 = aP2-aP1;
+             tREAL8 aL = 5.0;
+             cPt3di aColor = anEdge->AttrSym().mInMST ? cRGBImage::Red : cRGBImage::Yellow;
+             aVisuMTReg.DrawLine(aMil-aV12*aL,aMil+aV12*aL,aColor);
+        }
+
+        if (0)
+        {
+            for (const auto & aV : mGrReg.AllVertices())
+            {
+                const auto & a2E = aV->Attr().mExtres;
+                for (const auto aRay : {3.0,5.0,7.0})
+                {
+                    aVisuCC0.DrawCircle(cRGBImage::Magenta,ToR(a2E.first) ,aRay);
+                    aVisuCC0.DrawCircle(cRGBImage::Magenta,ToR(a2E.second),aRay);
+                }
+            }
         }
 
 
@@ -251,6 +409,8 @@ void cAppliNewFrange::DoVisu()
             aVisuMTReg.DrawCircle(cRGBImage::Red,cPt2dr(aML.mXC,mYC),3.0);
         }
         GenVisu(aVisuMTReg,"MaxTReg");
+        GenVisu(aVisuCC0,"CC0");
+
     }
 
     GenVisu(*mImGrad.mDGx,"GradX");
@@ -316,6 +476,7 @@ void cAppliNewFrange::DoVisu()
 
     //  ------------  visualisation of oriented chains -----------------------
 
+   /*
     for (auto aIm : {aVisuArrow,aVisuArrowUnif})
     {
         aIm.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Blue,1.0);
@@ -336,7 +497,7 @@ void cAppliNewFrange::DoVisu()
 
             }
         }
-    }
+    }*/
 
 
     GenVisu(anImDetail,"Details");
@@ -346,11 +507,13 @@ void cAppliNewFrange::DoVisu()
     GenVisu(*mDImRedBlur,"Blured");
 
 
+    GenVisu(aImNorm.DIm(),"Normed");
 
+#endif
 
     // Possibly generates names of visu (if PatInit & NoVisu Gene & 1 single file)
 
-    if (IsInit(&mPatVisu) && (mNbVisuGen==0) && (LevelCall()==0)  )
+    if (IsInit(&mPatVisu) && ((mNbVisuGen==0)||(mPatVisu==".*")) && (LevelCall()==0)  )
     {
         StdOut()  <<  "--OPTION VISU=\n" ;
         for (const auto & aNameV : mVNameVisu)
