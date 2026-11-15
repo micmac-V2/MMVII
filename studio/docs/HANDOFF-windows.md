@@ -37,6 +37,19 @@ which is a single capture).
 - tie points
 - the Metashape reference, which is this handoff's job
 
+**Since then**, Blackmagic RAW camera-motion ingest also landed: `mmvii_studio/braw.py`
+reads a .braw container directly (no Blackmagic SDK) for clip metadata, the gyroscope and
+accelerometer tracks, and per-frame focal length, and writes a per-frame attitude file that
+`MMVII ImportOri` accepts. Verified end to end on a Pocket Cinema Camera 4K: MMVII's own
+reconstructed quaternion matched ours to ~1e-6. Watch out for firmware 7.9.1, which
+misdeclares the IMU sample rate; the README's "Things found the hard way" has the numbers.
+
+**Also since then**, camera raw ingest landed on the Mac (see the "Camera raw and colour depth"
+section of `studio/README.md`): CR2 and friends are scanned through a TIFF-IFD reader, a Bayer
+mosaic can be split into four 16-bit single-channel band images, and the camera-name problem
+below is solved for them. The test camera is a Canon EOS M with an EF-M 22 mm, which has **no
+GPS**, so it gives calibration and tie-point material but no camera positions.
+
 ## Facts found so far (don't re-derive)
 
 - **Demo mode can't produce the reference.** On the Mac, Metashape Pro 2.3.2 runs in demo
@@ -51,10 +64,29 @@ which is a single capture).
   EPSG:6653 heights fall back to ellipsoidal heights with no error. This matters for comparing
   heights with Metashape, which ships its own geoids folder. Install it with
   `projsync --file ca_nrc_CGG2013i08.tif`.
-- **MMVII needs a camera name.** `MMVII OriCreateCalib` fails on early RedEdge files ("Camera
-  Name is not init") because they have no Make or Model. MMVII's `CameraDataBase.xml` has no
-  MicaSense or DJI entries. Phase 2 will write MMVII metadata rules (`EditCalcMTDI`) giving a
-  camera name, focal length and pixel size per file pattern.
+- **MMVII needs a camera name, and cannot read EXIF from TIFF.** `MMVII OriCreateCalib` fails
+  with "Camera Name is not init" on TIFF input. The reason recorded earlier — that the RedEdge
+  files have no Make or Model — is not the whole story: **MMVII reads no EXIF from TIFF files
+  at all.** A synthetic TIFF carrying Make, Model and FocalLength that exiftool reads correctly
+  still gives "No Exif metadata" from `MMVII ImageMetadata`, while the same tags in a JPEG are
+  read. So any TIFF workflow (MicaSense, DJI MS, split Bayer planes) must supply the camera
+  explicitly, whatever the files contain. MMVII's `CameraDataBase.xml` also has no MicaSense or
+  DJI entries.
+
+  This is now done for camera raw, and the same two steps work for MicaSense and DJI
+  (`mmvii_studio/mmvii.py`):
+  - `EditCamDataBase <name> LocalFolder 1 Param=[SzPixX,SzPixY,SzSensX,SzSensY,SzImX,SzImY]`
+    writes the geometry to `MMVII-PhgrProj/MetaData/Std/CameraDataBase.xml`. The enum value is
+    `LocalFolder`, not `eLocalFolder`. MMVII loads that database **last**, so it overrides the
+    shared `MMVII-RessourceDir/CameraDataBase.xml` without touching that tracked file.
+  - `EditCalcMTDI ModelCam Value=<name> PatternApply=<regex> Save=true`, and the same for
+    `Focalmm`, write per-project rules to `MMVII-PhgrProj/MetaData/Std/CalcMTD.xml`.
+    The mode names are the strings in the `eMTDIm` table of `src/Serial/ElemStrToVal.cpp`,
+    not the enum identifiers in `include/MMVII_enums.h` with the `e` dropped: all match
+    except `eNbPixel`, which MMVII spells **`NbPix`** on the command line.
+
+  Verified end to end on Canon EOS M CR2 files: `OriCreateCalib` then builds
+  `CalibIntr_CamCanon_EOS_M_Bayer_Foc22000` with F = 2511.23 px, PP at the image centre.
 - **MMVII has no tie-point generator of its own in normal use.** Its tutorial gets tie points
   from MicMac v1 (`mm3d Tapioca`), which isn't installed. Undecided: build MicMac v1, use
   MMVII's experimental `TieP-Aime*`, or import Metashape tie points (`MMVII ImportTiePMul`).

@@ -15,10 +15,14 @@ dependencies = [
     "pyproj>=3.6",
     "Pillow>=10",
     "matplotlib>=3.7",
+    "numpy>=1.24",
 ]
 
 [project.optional-dependencies]
 test = ["pytest"]
+# Camera raw support (LibRaw). Optional: without it Studio still reads raw EXIF, but
+# cannot split a Bayer mosaic into per-channel band images.
+raw = ["rawpy>=0.19"]
 
 [project.scripts]
 mmvii-studio = "mmvii_studio.__main__:main"

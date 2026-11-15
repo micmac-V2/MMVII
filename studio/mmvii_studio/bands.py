@@ -3,7 +3,13 @@
 A capture is one trigger of the camera; it holds one image per band. Supported naming:
   MicaSense:      IMG_0012_1.tif ... IMG_0012_5.tif     (band = rig index)
   DJI Mavic 3M:   DJI_20230609120000_0012_MS_NIR.TIF, ..._D.JPG (RGB)
+  Bayer planes:   IMG_1753_R.tif, _G1, _G2, _B          (from mmvii_studio.raw)
+                  IMG_1753.CR2 itself stays in the capture as the band "Raw"
 Any other image becomes a single-band "RGB" capture, unless XMP gives a band name.
+
+The Bayer-plane case treats one raw frame like a small multispectral rig: the four
+colour-filter planes of a single shot become four bands of one capture, so the rest of
+Studio handles a Canon raw exactly as it handles a MicaSense capture.
 """
 
 from __future__ import annotations
@@ -20,9 +26,17 @@ DJI_MS_BANDS = {"D": "RGB", "V": "RGB", "MS_G": "Green", "MS_R": "Red", "MS_RE":
 
 _RE_MICASENSE = re.compile(r"^(?P<cap>IMG_\d+)_(?P<band>\d+)$", re.I)
 _RE_DJI = re.compile(r"^(?P<cap>DJI_\d+_\d+)_(?P<band>MS_[A-Z]+|D|V)$", re.I)
+# Bayer planes written by mmvii_studio.raw. Case-sensitive on purpose: the extractor
+# always writes upper-case plane suffixes, and matching loosely would reclassify
+# ordinary files that happen to end in _b or _r.
+_RE_CFA_PLANE = re.compile(r"^(?P<cap>.+)_(?P<band>R|G1|G2|B)$")
+CFA_PLANE_BANDS = {"R": "Red", "G1": "Green1", "G2": "Green2", "B": "Blue"}
 
 # Display order for band names
-BAND_ORDER = ["RGB", "Blue", "Green", "Red", "RedEdge", "NIR", "LWIR", "Panchro"]
+# "Raw" is the undemosaiced source file of a capture, not a colour band; it sits next to
+# the planes extracted from it so one capture shows both the source and its channels.
+BAND_ORDER = ["RGB", "Raw", "Blue", "Green", "Green1", "Green2", "Red", "RedEdge", "NIR",
+              "LWIR", "Panchro"]
 
 
 def band_sort_key(name: str):
@@ -49,7 +63,14 @@ def classify(info: ImageInfo) -> tuple[str, str]:
         band = info.band or DJI_MS_BANDS.get(token, token)
         return _join(folder, m.group("cap")), _norm_band(band)
 
-    return _join(folder, stem), _norm_band(info.band or "RGB")
+    m = _RE_CFA_PLANE.match(stem)
+    if m:
+        band = CFA_PLANE_BANDS[m.group("band")]
+        return _join(folder, m.group("cap")), _norm_band(band)
+
+    # A raw file is the source of a capture rather than one of its colour bands.
+    default = "Raw" if getattr(info, "is_raw", False) else "RGB"
+    return _join(folder, stem), _norm_band(info.band or default)
 
 
 def _join(folder: str, cap: str) -> str:
@@ -60,7 +81,8 @@ def _norm_band(name: str) -> str:
     key = name.replace(" ", "").replace("-", "").replace("_", "").lower()
     aliases = {"rededge": "RedEdge", "re": "RedEdge", "nir": "NIR", "nearinfrared": "NIR",
                "blue": "Blue", "green": "Green", "red": "Red", "rgb": "RGB", "lwir": "LWIR",
-               "panchro": "Panchro"}
+               "panchro": "Panchro", "green1": "Green1", "green2": "Green2",
+               "raw": "Raw"}
     return aliases.get(key, name)
 
 

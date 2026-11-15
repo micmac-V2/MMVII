@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QDialogButtonBo
 
 from .. import gcp as gcpmod
 from .. import mmvii
+from ..raw import bayer_camera, extract_bayer_planes, read_raw_info
+from .. import braw as brawmod
 from ..project import Project, horizontal, missing_grids, reproject_xy, to_map_xy
 from .crs_widget import CRSEdit
 from .gcp_dialog import GCPImportDialog
@@ -147,6 +149,9 @@ class MainWindow(QMainWindow):
         m = self.menuBar().addMenu("&Import")
         self.act_scan = self._action(m, "&Scan images", self.scan_images, "Ctrl+I")
         self.act_gcp = self._action(m, "&Ground control points…", self.import_gcps, "Ctrl+G")
+        m.addSeparator()
+        self.act_raw = self._action(m, "Extract raw colour &bands…", self.extract_raw_bands)
+        self.act_braw = self._action(m, "BRAW camera &motion…", self.import_braw_motion)
 
         m = self.menuBar().addMenu("&View")
         for d in (self.images_dock, self.gcp_dock, self.log_dock):
@@ -170,6 +175,8 @@ class MainWindow(QMainWindow):
         has = self.project is not None
         for a in (self.act_crs, self.act_scan, self.act_gcp):
             a.setEnabled(has)
+        self.act_raw.setEnabled(has and any(im.is_raw for im in self.project.images))
+        self.act_braw.setEnabled(has)
 
     def append_log(self, text: str):
         self.log.appendPlainText(text.rstrip())
@@ -229,6 +236,174 @@ class MainWindow(QMainWindow):
         for e in p.scan_errors[:20]:
             self.append_log(f"  skipped {e}")
         self.refresh_all()
+
+    def extract_raw_bands(self):
+        """Split each raw file's colour filter array into one 16-bit image per channel.
+
+        MMVII computes on single-channel images, so a raw file handed to it straight
+        arrives as the 8-bit preview inside it. Splitting the mosaic instead gives one
+        full-depth plane per colour, which Studio then treats as the bands of a capture.
+        """
+        p = self.project
+        raws = [im for im in p.images if im.is_raw]
+        if not raws:
+            QMessageBox.information(self, "Extract raw colour bands",
+                                    "No raw images in this project. Run Import ▸ Scan images first.")
+            return
+
+        first = raws[0]
+        if not first.pixel_size_mm or not first.focal_mm:
+            QMessageBox.warning(
+                self, "Extract raw colour bands",
+                f"{first.path} has no focal length or focal-plane resolution in its EXIF, so "
+                "MMVII cannot be given a camera geometry. Extraction would produce images "
+                "MMVII could not calibrate.")
+            return
+
+        n = len(raws)
+        if QMessageBox.question(
+                self, "Extract raw colour bands",
+                f"Split {n} raw image{'s' if n != 1 else ''} into one 16-bit image per colour "
+                f"channel?\n\nEach shot becomes a capture with {len(first.cfa_pattern) or 4} bands "
+                "at half width and half height, and a camera is registered with MMVII for them."
+        ) != QMessageBox.StandardButton.Yes:
+            return
+
+        dlg = QProgressDialog("Extracting colour bands…", "Cancel", 0, n, self)
+        dlg.setWindowModality(Qt.WindowModality.WindowModal)
+        dlg.setMinimumDuration(300)
+
+        written = 0
+        failed: list[str] = []
+        for i, im in enumerate(raws):
+            dlg.setValue(i)
+            dlg.setLabelText(f"Extracting {im.path} ({i + 1}/{n})")
+            QApplication.processEvents()
+            if dlg.wasCanceled():
+                break
+            src = Path(p.root) / im.path
+            try:
+                written += len(extract_bayer_planes(src, src.parent))
+            except ImportError:
+                dlg.close()
+                QMessageBox.critical(
+                    self, "Extract raw colour bands",
+                    "Reading raw files needs LibRaw, through the rawpy package.\n\n"
+                    "Install it with:  pip install rawpy")
+                return
+            except Exception as e:  # one bad file should not lose the whole run
+                failed.append(f"{im.path}: {e}")
+        dlg.close()
+
+        self.append_log(f"Extracted {written} band images from {n} raw files")
+        for f in failed[:20]:
+            self.append_log(f"  failed {f}")
+
+        # Give MMVII a camera for the extracted planes: they carry no EXIF of their own.
+        try:
+            ri = read_raw_info(Path(p.root) / first.path)
+            cam = bayer_camera(ri, first.pixel_size_mm, first.model or "Unknown camera",
+                               focal_mm=first.focal_mm)
+            mmvii.register_plane_camera(Path(p.root), cam, overwrite=True)
+            self.append_log(
+                f"Registered camera {cam.name!r} with MMVII: "
+                f"{cam.image_size_px[0]}x{cam.image_size_px[1]} px, "
+                f"{cam.pixel_size_micron[0]:.4f} micron pixels, "
+                f"focal {cam.focal_mm} mm = {cam.focal_px:.1f} px")
+        except Exception as e:
+            self.append_log(f"Could not register the plane camera with MMVII: {e}")
+
+        self.scan_images()
+
+    def import_braw_motion(self):
+        """Read the IMU of the Blackmagic RAW clips in the project and write attitude.
+
+        A Pocket Cinema Camera records a gyroscope and an accelerometer into the .braw
+        container. That gives an orientation per video frame, which MMVII can take as an
+        initial attitude, and the rolling-shutter readout time, which is a systematic
+        geometric error on every frame of a moving camera.
+        """
+        p = self.project
+        root = Path(p.root)
+        clips = sorted(q for q in root.rglob("*") if brawmod.is_braw(q))
+        if not clips:
+            QMessageBox.information(
+                self, "BRAW camera motion",
+                "No .braw clips in this project folder.\n\n"
+                "Blackmagic records its IMU only into .braw, never into ProRes.")
+            return
+
+        n = len(clips)
+        dlg = QProgressDialog("Reading camera motion…", "Cancel", 0, n, self)
+        dlg.setWindowModality(Qt.WindowModality.WindowModal)
+        dlg.setMinimumDuration(300)
+
+        done = 0
+        for i, clip_path in enumerate(clips):
+            dlg.setValue(i)
+            dlg.setLabelText(f"{clip_path.name} ({i + 1}/{n})")
+            QApplication.processEvents()
+            if dlg.wasCanceled():
+                break
+            try:
+                imu = brawmod.read_imu(clip_path)
+            except Exception as e:
+                self.append_log(f"  {clip_path.name}: could not read ({e})")
+                continue
+
+            clip = imu.clip
+            readout = clip.readout_time_ms
+            self.append_log(
+                f"{clip_path.name}: {clip.camera_type or 'unknown camera'} "
+                f"fw {clip.firmware_version or '?'}, {clip.width}x{clip.height} @ "
+                f"{clip.frame_rate and round(clip.frame_rate, 3)} fps, "
+                f"rolling-shutter readout {readout and round(readout, 2)} ms")
+            for w in imu.warnings:
+                self.append_log(f"  ! {w}")
+
+            if not imu.has_imu:
+                self.append_log("  no IMU data in this clip")
+                continue
+
+            grav = imu.gravity_check()
+            if grav:
+                err = 100.0 * (grav - brawmod.STANDARD_GRAVITY) / brawmod.STANDARD_GRAVITY
+                self.append_log(f"  accelerometer reads |g| = {grav:.3f} m/s^2 "
+                                f"({err:+.2f}% vs standard gravity)")
+
+            try:
+                att = brawmod.frame_attitude(imu)
+            except Exception as e:
+                self.append_log(f"  could not integrate attitude: {e}")
+                continue
+
+            stem = clip_path.with_suffix("")
+            csv = brawmod.write_attitude_csv(att, stem.with_name(stem.name + "_attitude.csv"),
+                                             clip=clip)
+            ori = brawmod.write_mmvii_ori(att, stem.with_name(stem.name + ".ori"),
+                                          name_template=f"{clip_path.stem}_%06d.tif",
+                                          clip=clip)
+            focal = None
+            try:
+                focal = brawmod.focal_length_mm(clip_path)
+            except Exception:
+                pass
+            pitch = brawmod.pixel_size_mm(clip)
+            fpx = brawmod.focal_length_px(clip, focal)
+            if focal:
+                self.append_log(
+                    f"  lens reported {focal:g} mm"
+                    + (f", pixel pitch {pitch * 1000:.4f} micron -> focal {fpx:.1f} px"
+                       if fpx else " (sensor size for this camera is unknown)"))
+            self.append_log(f"  gravity tracking residual {att.gravity_residual_deg:.2f} deg; "
+                            f"wrote {csv.name} and {ori.name}")
+            done += 1
+
+        dlg.close()
+        self.append_log(
+            f"Camera motion read for {done} of {n} clip(s). The .ori files hold attitude "
+            "only: their positions are zeros, and the angles need a boresight rotation "
+            "between the IMU and the lens before they are camera angles.")
 
     def import_gcps(self):
         p = self.project
