@@ -49,9 +49,27 @@ def _jpeg_exif(*args, **kw) -> Image.Exif:
     base, sub, gps = _tags(*args, **kw)
     ex = Image.Exif()
     ex.update(base)
-    ex.get_ifd(0x8769).update(sub)
-    ex.get_ifd(0x8825).update(gps)
+    # The sub-IFDs are assigned as plain dicts, not filled through get_ifd(): Exif.tobytes
+    # walks only the top-level keys, so an IFD reached via get_ifd() alone is cached and
+    # then dropped on save, leaving a JPEG with nothing but Make and Model.
+    if sub:
+        ex[0x8769] = dict(sub)
+    if gps:
+        ex[0x8825] = dict(gps)
     return ex
+
+
+def _jpeg_xmp_segment(xmp: bytes) -> bytes:
+    """An APP1 XMP segment, to be passed to Image.save as `extra`.
+
+    Pillow's own `xmp=` save option is silently ignored for JPEG before 10.1, and
+    pyproject allows Pillow 10.0, so the segment is built here instead: marker, a
+    big-endian length that counts itself, the Adobe header, then the packet.
+    """
+    import struct
+
+    payload = b"http://ns.adobe.com/xap/1.0/\x00" + xmp
+    return b"\xff\xe1" + struct.pack(">H", len(payload) + 2) + payload
 
 
 def _tiff_info(*args, xmp: bytes | None = None, **kw) -> ImageFileDirectory_v2:
@@ -95,7 +113,8 @@ def make_dji(root: Path, n=3):
         ex = _jpeg_exif("DJI", "M3M", lat, lon, 250.0, 12.29, f35=24)
         xmp = DJI_XMP.format(abs_alt=262.5 + k, rel_alt=12.0)
         Image.new("RGB", (80, 60), (90, 120, 60)).save(
-            root / f"DJI_20230421120000_{k + 1:04d}_D.JPG", exif=ex, xmp=xmp.encode())
+            root / f"DJI_20230421120000_{k + 1:04d}_D.JPG", exif=ex,
+            extra=_jpeg_xmp_segment(xmp.encode()))
         for tok in ("MS_G", "MS_NIR"):
             img = Image.new("I;16", (40, 30), 500)
             img.save(root / f"DJI_20230421120000_{k + 1:04d}_{tok}.TIF",

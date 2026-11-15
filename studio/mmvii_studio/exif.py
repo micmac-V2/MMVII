@@ -118,10 +118,20 @@ def parse_xmp(xmp: bytes | str | None) -> dict[str, str]:
     return out
 
 
+# XMP in a JPEG lives in an APP1 segment opening with this NUL-terminated header.
+_XMP_APP1_HEADER = b"http://ns.adobe.com/xap/1.0/\x00"
+
+
 def _xmp_bytes(img: Image.Image):
     xmp = img.info.get("xmp") or img.info.get("XML:com.adobe.xmp")
     if xmp:
         return xmp
+    # Pillow only started filling info["xmp"] for JPEG in 10.1, and pyproject allows 10.0,
+    # so read the APP1 segment directly rather than depending on the version. DJI stores
+    # its altitudes there, which is the only place they appear.
+    for app, data in getattr(img, "applist", None) or ():
+        if app == "APP1" and data.startswith(_XMP_APP1_HEADER):
+            return data[len(_XMP_APP1_HEADER):]
     tag = getattr(img, "tag_v2", None)
     if tag is not None:
         return tag.get(_TIFF_TAG_XMP)
