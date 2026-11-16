@@ -316,6 +316,8 @@ template <> class tElemNumTrait<tU_INT1> : public tBaseNumTrait<tStdInt>
         static bool   Signed() {return false;}
         static eTyNums   TyNum() {return eTyNums::eTN_U_INT1;}
         typedef tREAL4   tFloatAssoc;
+        typedef tINT8    tBig;
+
 };
 template <> class tElemNumTrait<tU_INT2> : public tBaseNumTrait<tStdInt>
 {

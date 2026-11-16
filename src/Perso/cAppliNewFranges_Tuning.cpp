@@ -79,7 +79,7 @@ void cAppliNewFrange::MakeImSimul()
     }
 }
 
-void cAppliNewFrange::ShowCurvesIntegral(cRGBImage& anIm)
+void cAppliNewFrange::ShowCurvesIntegral(cRGBImage& anIm,bool doShowC,bool doShowSep)
 {
     for (const auto aML : mVMaxLoc)
     {
@@ -91,12 +91,13 @@ void cAppliNewFrange::ShowCurvesIntegral(cRGBImage& anIm)
                 tREAL8 aDX0 = mDImIntegr->GetV(anY-1);
                 tREAL8 aDX1 = mDImIntegr->GetV(anY);
 
-                if (aDX1+aML.mXC<mSzRed.x())
+
+                if  (doShowC && (aDX1+aML.mXC<mSzRed.x()))
                     anIm.DrawLine(cPt2dr(aDX0+aML.mXC,anY-1),cPt2dr(aDX1+aML.mXC,anY),cRGBImage::Red);
 
-                if (aDX1+aML.mX0<mSzRed.x())
+                if (doShowSep && (aDX1+aML.mX0<mSzRed.x()))
                     anIm.DrawLine(cPt2dr(aDX0+aML.mX0,anY-1),cPt2dr(aDX1+aML.mX0,anY),cRGBImage::Blue);
-                if (aDX1+aML.mX1<mSzRed.x())
+                if (doShowSep && (aDX1+aML.mX1<mSzRed.x()))
                     anIm.DrawLine(cPt2dr(aDX0+aML.mX1,anY-1),cPt2dr(aDX1+aML.mX1,anY),cRGBImage::Blue);
              }
         }
@@ -148,20 +149,58 @@ void cAppliNewFrange::ShowExtres(cRGBImage & anIm) const
     for (const auto & aV : mGrReg.AllVertices())
     {
         const auto & anAttr = aV->Attr();
-        for (const auto & aPix : anAttr.mVPts)
-            anIm.SetRGBPix(aPix,cRGBImage::Green);
+       /* for (const auto & aPix : anAttr.mVPts)
+            anIm.SetRGBPix(aPix,cRGBImage::Red);*/
+
+        int aNL = aV->Attr().mNumMaxLoc;
+        bool hasNum = aNL >= 0;
+
+        // show pathes
+        cPt3di aColPath =  cRGBImage::Green;
+        if (hasNum)
+        {
+            if (aV->Attr().mProvMaxLoc==0)
+            {
+                aColPath = cRGBImage::Red;
+            }
+            else if (aV->Attr().mProvMaxLoc==1)
+            {
+                aColPath = cRGBImage::Orange;
+            }
+            else if (aV->Attr().mProvMaxLoc==2)
+            {
+                aColPath = cRGBImage::Yellow;
+            }
+        }
+        for (const auto & aPix : anAttr.mPath)
+            anIm.SetRGBPix(aPix,aColPath);
+
+        // show approx poly
+        for (const auto anInd: anAttr.mIndApP)
+        {
+            anIm.DrawCircle(cRGBImage::Cyan,ToR(anAttr.mPath.at(anInd)),2.0);
+        }
+
+
+        // show extrmeties with 2 diff colors
         for (int aK=0 ; aK<2 ; aK++)
         {
             cPt2di aPt  = (aK==0) ? anAttr.mP1 : anAttr.mP2 ;
             cPt3di aCol = (aK==0) ? cRGBImage::Green :  cRGBImage::Red;
 
-            for (const auto aRay : {2.0,4.0,6.0})
+            for (const auto aRay : {3.0} ) //  {2.0,4.0,6.0})
             {
                   anIm.DrawCircle(aCol,ToR(aPt),aRay);
             }
         }
 
-         anIm.DrawCircle(cRGBImage::Orange,ToR(anAttr.mCenter),4.0);
+        if (hasNum)
+        {
+            anIm.DrawString(ToStr(aNL),cRGBImage::Orange,ToR(aV->Attr().mCenter),cPt2dr(0,0));
+        }
+
+
+        //  anIm.DrawCircle(cRGBImage::Orange,ToR(anAttr.mCenter),4.0);
 
     }
 
@@ -178,7 +217,7 @@ void cAppliNewFrange::DoVisu()
 
 
 
-    //  ------------ Generate image of Label/Segmentation -----------------------
+    //  ------------ Generate image of Label by colour of reg -----------------------
     static const std::string TheNameLabel = "Label";
     // if (MatchRegex(TheNameLabel,mPatVisu))
     {
@@ -187,12 +226,18 @@ void cAppliNewFrange::DoVisu()
        GenVisu(anImLabel,TheNameLabel);
     }
 
+    //   ------------- Image of extre +
     {
          cRGBImage aVisuOrientedLines = mImRgbBG.Dup();
-         ShowExtres(aVisuOrientedLines);
 
+         ShowExtres(aVisuOrientedLines);
+         ShowCurvesIntegral(aVisuOrientedLines,false,true);
          GenVisu(aVisuOrientedLines,"Extres");
     }
+
+
+
+
 
     // ------------------- Generate visualisation of tensor -----------------------
     static const std::string TheNameTetaTens = "TetaTens";
@@ -218,8 +263,105 @@ void cAppliNewFrange::DoVisu()
 
 
 
-    //  Generate the back gound
+    //  Generate the back gound with central line & lims
+
+
+
+
+    {
+        cRGBImage aVisuCC0 =   mImRgbBG.Dup();
+
+       // aVisuMTReg.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Gray128,1.0);
+        aVisuCC0.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Gray128,1.0);
+
+
+        for (const auto aPix :  *mDImRegion)
+        {
+            // show crest-line in green
+           if (LabelIsOn(aPix,eTypePix::eMaxTens))
+           {
+            //   aVisuMTReg.SetRGBPix(aPix,cRGBImage::Green);
+               aVisuCC0.SetRGBPix(aPix,cRGBImage::Green);
+           }
+           // show the frontier in cyan
+           for (int aK=0 ; aK<2 ; aK++)
+           {
+               int aN1 = mDImRegion->GetV(aPix);
+               cPt2di aPix2 = (aPix+FreemanV4[aK]);
+               if (mDImRegion->Inside(aPix2))
+               {
+                   int aN2 = mDImRegion->GetV(aPix+FreemanV4[aK]);
+
+                   if ((aN1!=aN2) && (aN1>=0) && (aN2>=0))
+                   {
+                     //  aVisuMTReg.SetRGBPix(aPix,cRGBImage::Cyan);
+                       tVertexReg & aVert1 = mGrReg.VertexOfNum(aN1);
+                       tVertexReg & aVert2 = mGrReg.VertexOfNum(aN2);
+
+                       int aNum1CC0 = aVert1.Attr().mNumCC0;
+                       int aNum2CC0 = aVert2.Attr().mNumCC0;
+
+                       cPt3di aCol = cRGBImage::Red;
+                       if (aNum1CC0!=aNum2CC0)
+                       {
+                           aVisuCC0.SetRGBPix(aPix,aCol);
+
+                       }
+                       else
+                       {
+                           /*
+                           tEdgeReg * anE =aVert1.EdgeOfSucc(aVert2,true);
+                           aCol = (anE && anE->AttrSym().mInMST) ? cRGBImage::Blue : cRGBImage::Cyan ;
+                           */
+                       }
+                   }
+               }
+           }
+           // show the valley in blue (partially overwrite valley)
+           //if (LabelIsOn(aPix,eTypePix::eMinTens))
+           //    aVisuMTReg.SetRGBPix(aPix,cRGBImage::Blue);
+        }
+
+        // show connexion
+        /*for (const auto & anEdge : mGrReg.AllEdges_DirInit())
+        {
+             cPt2dr aP1 = ToR(anEdge->AttrOriented().mPt);
+             cPt2dr aP2 = ToR(anEdge->AttrInvOr().mPt);
+             cPt2dr aMil = (aP1+aP2) / 2.0;
+             cPt2dr aV12 = aP2-aP1;
+             tREAL8 aL = 5.0;
+             cPt3di aColor = anEdge->AttrSym().mInMST ? cRGBImage::Red : cRGBImage::Yellow;
+             aVisuMTReg.DrawLine(aMil-aV12*aL,aMil+aV12*aL,aColor);
+        }*/
+
+      /*  if (0)
+        {
+            for (const auto & aV : mGrReg.AllVertices())
+            {
+                const auto & a2E = aV->Attr().mExtres;
+                for (const auto aRay : {3.0,5.0,7.0})
+                {
+                    aVisuCC0.DrawCircle(cRGBImage::Magenta,ToR(a2E.first) ,aRay);
+                    aVisuCC0.DrawCircle(cRGBImage::Magenta,ToR(a2E.second),aRay);
+                }
+            }
+        }
+
+
+        for (const auto aML : mVMaxLoc)
+        {
+            aVisuMTReg.DrawCircle(cRGBImage::Red,cPt2dr(aML.mXC,mYC),3.0);
+        }*/
+        //GenVisu(aVisuMTReg,"MaxTReg");
+        GenVisu(aVisuCC0,"CC0");
+
+    }
+
+
+    mImRgbBG.DrawLine(cPt2dr(0,mMinZYC),cPt2dr(mSzRed.x(),mMinZYC),cRGBImage::Green,1.0);
+    mImRgbBG.DrawLine(cPt2dr(0,mMaxZYC),cPt2dr(mSzRed.x(),mMaxZYC),cRGBImage::Green,1.0);
     mImRgbBG.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Red,1.0);
+
     GenVisu(mImRgbBG,"BackGround");
 
 

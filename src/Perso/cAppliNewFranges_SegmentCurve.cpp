@@ -53,8 +53,37 @@ bool cAppliNewFrange::IsMaxLocSumIC(int anX) const
     return true;
 }
 
+
+void      cAppliNewFrange::ComputeMaxRadCenter()
+{
+    mImProjInt = tIm1D(mSzRed.x());
+    mDImProjInt = &mImProjInt.DIm();
+
+    tIm aImFilter = mImRed.Dup();
+    ExpFilterOfStdDev(aImFilter.DIm(),3,30.0,10.0);
+
+    cStdStatRes aStat;
+    mMinDPI = 1e10;
+    mMaxDPI = 0;
+
+    for (const auto & aP : *mDImProjInt)
+    {
+        tREAL8 aVal = aImFilter.DIm().GetV(cPt2di(aP.x(),mYC));
+        mDImProjInt->SetV(aP,aVal);
+        aStat.Add(aVal);
+        UpdateMin(mMinDPI,aVal);
+        UpdateMax(mMaxDPI,aVal);
+    }
+    mMinDPI = aStat.Min();
+    mMaxDPI = aStat.Max();
+    mStdDevProjI = aStat.DevStd();
+}
+
+
 void cAppliNewFrange::ExtractMaxSumIC()
 {
+    ComputeMaxRadCenter();
+
     mVMaxLoc.clear();
 
     for (int anX=0 ; anX<mSzRed.x() ; anX++)
@@ -62,6 +91,7 @@ void cAppliNewFrange::ExtractMaxSumIC()
         {
             cMaxLocSum aMLS;
             aMLS.mXC = anX;
+            aMLS.mPt = cPt2di(anX,mYC);
             mVMaxLoc.push_back(aMLS);
         }
 
@@ -78,9 +108,13 @@ void cAppliNewFrange::ExtractMaxSumIC()
     mVMaxLoc.back().mX1  = 2*mVMaxLoc.back().mXC  - mVMaxLoc.back().mX0 ;
 
     mIntervMax = NonConstMediane(aVInterv);
+    mMinZYC = ComputeZoneYCenter(-1,1);
+    mMaxZYC = ComputeZoneYCenter(1,mSzRed.y());
+
 }
 
 
+#if (0)
 
 void cAppliNewFrange::ComputeSumOnIntegralCurve()
 {
@@ -162,30 +196,8 @@ void cAppliNewFrange::ComputeSumOnIntegralCurve()
     }
 }
 
-void      cAppliNewFrange::ComputeMaxRadCenter()
-{
-    mImProjInt = tIm1D(mSzRed.x());
-    mDImProjInt = &mImProjInt.DIm();
+#endif
 
-    tIm aImFilter = mImRed.Dup();
-    ExpFilterOfStdDev(aImFilter.DIm(),3,30.0,10.0);
-
-    cStdStatRes aStat;
-    mMinDPI = 1e10;
-    mMaxDPI = 0;
-
-    for (const auto & aP : *mDImProjInt)
-    {
-        tREAL8 aVal = aImFilter.DIm().GetV(cPt2di(aP.x(),mYC));
-        mDImProjInt->SetV(aP,aVal);
-        aStat.Add(aVal);
-        UpdateMin(mMinDPI,aVal);
-        UpdateMax(mMaxDPI,aVal);
-    }
-    mMinDPI = aStat.Min();
-    mMaxDPI = aStat.Max();
-    mStdDevProjI = aStat.DevStd();
-}
 
 
 

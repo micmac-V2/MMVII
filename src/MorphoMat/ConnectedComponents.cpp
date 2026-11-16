@@ -12,7 +12,8 @@ void Tpl_ConnectedComponent
         const FoncUDdate& aFUpate,
         bool doRestore,
         const FoncRestore & aFRestore,
-        std::vector<int> * aVParent = nullptr  // Index of "Parent"  allowing to back track arborescence
+        std::vector<int> * aVParent = nullptr,  // Index of "Parent"  allowing to back track arborescence
+        std::vector<int> * aVLeave = nullptr    // vector terminal leave, that are "parents" of none
      )
 {
 
@@ -35,18 +36,22 @@ void Tpl_ConnectedComponent
     while (aIndBottom!=aVPts.size())
     {
           cPt2di aP0 = aVPts[aIndBottom];
+          bool hasChild = false;
           for (const auto & aDelta : aNeighbourhood)
           {
               cPt2di aNeigh = aP0 + aDelta;
               //if (aDIm.GetV(aNeigh)==aMarqInit)
              if (aFBelong(aNeigh))
              {
+                  hasChild = true;
                   aFUpate(aNeigh);
                   aVPts.push_back(aNeigh);
                   if (aVParent)
                       aVParent->push_back(aIndBottom);
              }
           }
+          if (!hasChild && aVLeave)
+              aVLeave->push_back(aIndBottom);
           aIndBottom++;
     }
 
@@ -66,7 +71,10 @@ void ConnectedComponent
          const  std::vector<cPt2di> & aVecSeed,
          int aMarqInit,
          int aNewMarq,
-         bool doRestore
+         bool doRestore,
+         std::vector<int> * aVParent,
+         std::vector<int> * aVLeave
+
      )
 {
 
@@ -81,7 +89,9 @@ void ConnectedComponent
             [aMarqInit,aPtrDIm](const cPt2di & aPix) {return aPtrDIm->GetV(aPix)== aMarqInit; },
             [aNewMarq,aPtrDIm](const cPt2di & aPix) {aPtrDIm->SetV(aPix,aNewMarq); },
             doRestore,
-            [aMarqInit,aPtrDIm](const cPt2di & aPix) { aPtrDIm->SetV(aPix,aMarqInit); }
+            [aMarqInit,aPtrDIm](const cPt2di & aPix) { aPtrDIm->SetV(aPix,aMarqInit); },
+            aVParent,
+            aVLeave
     );
 }
 
@@ -94,11 +104,13 @@ void ConnectedComponent
          const cPt2di& aPtSeed,
          int aMarqInit,
          int aNewMarq,
-         bool Restore
+         bool Restore,
+        std::vector<int> * aVParent,
+        std::vector<int> * aVLeave
      )
 {
     std::vector<cPt2di> aVSeed {aPtSeed};
-    ConnectedComponent(aVPts,aDIm,aNeighbourhood,aVSeed,aMarqInit,aNewMarq,Restore);
+    ConnectedComponent(aVPts,aDIm,aNeighbourhood,aVSeed,aMarqInit,aNewMarq,Restore,aVParent,aVLeave);
 }
 
 /*
@@ -156,6 +168,51 @@ std::pair<cPt2di,cPt2di> Diameter
 
        ConnectedComponent(aVPts,aDIm,aNeighbourhood,aVSeeds,aMarqInit,aNewMarq,true);
        *aCenter = aVPts.back();
+   }
+
+   if (aShortestPath)
+   {
+       std::vector<cPt2di> aVPts;
+       std::vector<cPt2di> aVSeeds{aRes.first};
+       std::vector<int> aVParent;
+       std::vector<int> aVLeave;
+
+
+       ConnectedComponent(aVPts,aDIm,aNeighbourhood,aVSeeds,aMarqInit,aNewMarq,true,&aVParent,&aVLeave);
+       aShortestPath->clear();
+
+       int aKP2 = -1;
+       for (const auto & aVec : {&aVParent,&aVLeave})
+       {
+           for (const auto & aKP : *aVec)
+           {
+               if ((aKP>=0) && (aVPts.at(aKP) ==aRes.second))
+               {
+                   aKP2 = aKP;
+                   continue;
+               }
+           }
+       }
+
+       MMVII_INTERNAL_ASSERT_tiny(aKP2!=-1,"Error in shortest-path/diameter");
+       MMVII_INTERNAL_ASSERT_tiny(aVPts.at(aKP2)==aRes.second,"Error in shortest-path/diameter");
+
+       while (aKP2>=0)
+       {
+         aShortestPath->push_back(aVPts.at(aKP2));
+         aKP2 = aVParent.at(aKP2);
+       }
+     //  StdOut() << aRes.first << aShortestPath->back() << "\n";
+
+
+       std::reverse(aShortestPath->begin(),aShortestPath->end());
+       MMVII_INTERNAL_ASSERT_tiny(aShortestPath->front() ==aRes.first,"Error in shortest-path/diameter");
+       MMVII_INTERNAL_ASSERT_tiny(aShortestPath->back() ==aRes.second,"Error in shortest-path/diameter");
+
+
+
+     //  aShortestPath->push_back(aKP2);
+
    }
 
    //StdOut() << "NBITEER  " << aNbIter << "\n";

@@ -232,6 +232,10 @@ class cExtract_BW_Target
 };
 
 
+
+std::vector<int> PolynSimplify(const std::vector<cPt2dr> & aVPts, double aPenalty,int aNMax,tREAL8 aWNmin=0.0,tREAL8 aNMin=3.0);
+std::vector<int> PolynSimplify(const std::vector<cPt2di> & aVPts, double aPenalty,int aNMax,tREAL8 aWNmin=0.0,tREAL8 aNMin=3.0);
+
 };
 
 

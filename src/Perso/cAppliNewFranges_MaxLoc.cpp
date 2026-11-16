@@ -103,7 +103,7 @@ void cAppliNewFrange::ConnecCompMaxLoc( eTypePix aLabelIn)
     if (aLabelIn== eTypePix::eMaxTens)
     {
         std::vector<cPt2di> aVCC;
-        mVirtExtVert =   mGrReg.NewVertex(cAVertReg(aVCC,mGrReg.NbVertex()));
+        mVirtExtVert =   mGrReg.NewVertex(cAVertReg(eTypeSom::eBordeExt,aVCC,mGrReg.NbVertex()));
     }
 
 
@@ -119,7 +119,7 @@ void cAppliNewFrange::ConnecCompMaxLoc( eTypePix aLabelIn)
 
                 if (aLabelIn==eTypePix::eMaxTens)
                 {
-                    mGrReg.NewVertex(cAVertReg(aVCC,mGrReg.NbVertex()));
+                    mGrReg.NewVertex(cAVertReg(eTypeSom::eStd,aVCC,mGrReg.NbVertex()));
                 }
             }
             else // fail, reset value of point to label representing the reason of fail
@@ -129,6 +129,16 @@ void cAppliNewFrange::ConnecCompMaxLoc( eTypePix aLabelIn)
             }
         }
     }
+    if (aLabelIn==eTypePix::eMaxTens)
+    {
+        for (size_t aK=0 ; aK<= mVMaxLoc.size() ; aK++)
+        {
+            std::vector<cPt2di> aVCC;
+            cAVertReg anAttr(eTypeSom::eAgregFrg,aVCC,mGrReg.NbVertex());
+            mVAgrFrg.push_back(mGrReg.NewVertex(anAttr));
+        }
+         //StdOut() << "VVVVVVVVVVMl=" << mVMaxLoc.size() << "\n";
+     }
 
     // The Tmp Flag must be reset for next connect comp
     for (const auto aPix : *mDImFlagLabel)

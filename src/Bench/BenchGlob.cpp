@@ -600,6 +600,7 @@ int  cAppli_MMVII_Bench::ExecuteBench(cParamExeBench & aParam)
 
         // Test geometric basic
         BenchGeom(aParam);
+        BenchApproxPoly(aParam);
 
         // Test mapping Buf/NotBuf  Jacob  Inverse ...
         BenchMapping(aParam);

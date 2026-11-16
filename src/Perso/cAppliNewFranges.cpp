@@ -53,8 +53,8 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mYC                (-1),
     mImIntegr          (1),
     mDImIntegr         (nullptr),
-    mImSmoothTgt       (cPt2di(1,1)),
-    mDImSmoothTgt      (nullptr),
+    //mImSmoothTgt       (cPt2di(1,1)),
+    //mDImSmoothTgt      (nullptr),
     mImProjInt         (1),
     mDImProjInt        (nullptr),
     mRadiomBackGround   (-1e9),
@@ -198,7 +198,7 @@ void cAppliNewFrange::ComputeRadiomCste()
         mDImRadFrange->SetV(anY,aVal);
     }
 
-    ExpFilterOfStdDev(*mDImRadFrange,5,50.0);
+    ExpFilterOfStdDev(*mDImRadFrange,5,20.0);
 }
 
 
@@ -242,7 +242,7 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
 
     ExtractTensorLines();
 
-   //  AnalyseCC();  deprecated : only line tensor
+    AnalyseCC();   // deprecated : only line tensor
 
     MakeImageRegion();
 

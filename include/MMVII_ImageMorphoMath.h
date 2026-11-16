@@ -89,7 +89,9 @@ void ConnectedComponent
          const std::vector<cPt2di>& aSeed,         // seeds of the connected component
          int aMarqInit=1,             // will extract CC of point having this colour
          int aNewMarq=0,              // will marq points reached with this colour
-         bool Restore=false           // if true restore initial marq at end
+         bool Restore=false,           // if true restore initial marq at end
+         std::vector<int> * aVParent =nullptr,   // In case we need the tree for back-track
+         std::vector<int> * aVLeave =nullptr    // will contain index that are parent of none
      );
 
 /**  Idem, current and simplified case where the seed is a single point */
@@ -97,7 +99,10 @@ void ConnectedComponent
      (
          std::vector<cPt2di> & , cDataIm2D<tU_INT1>  & , const std::vector<cPt2di> & aNeighbourhood,
          const cPt2di& aSeed,         // seed of the connected component
-         int aMarqInit=1,  int aNewMarq=0,  bool Restore=false
+         int aMarqInit=1,  int aNewMarq=0,  bool Restore=false,
+         std::vector<int> * aVParent =nullptr,
+        std::vector<int> * aVLeave =nullptr    // will contain index that are parent of none
+
      );
 
 

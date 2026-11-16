@@ -71,25 +71,38 @@ enum class eTypePix
 class cMaxLocSum
 {
    public :
-      tREAL8 mXC;
-      tREAL8 mX0;
-      tREAL8 mX1;
+      cPt2di   mPt;
+      int      mXC;
+      tREAL8   mX0;
+      tREAL8   mX1;
 };
+
+enum class eTypeSom
+{
+    eStd,
+    eBordeExt,
+    eAgregFrg
+};
+
 
 class cAVertReg : public cMemCheck
 {
    public :
-       cAVertReg(const  std::vector<cPt2di> & aVPts,int aNum);
+       cAVertReg(eTypeSom,const  std::vector<cPt2di> & aVPts,int aNum);
 
 
 
        bool IsBorderExt() const;
 
-       std::vector<cPt2di> mVPts;
+       eTypeSom             mType;
+       std::vector<cPt2di>  mVPts;   ///< All pts, not necesseraly a path
+       std::vector<cPt2di>  mPath;   ///< path between 2 extremity
+       std::vector<int>     mIndApP; ///< index of approx poly
 
        int mNumV;       // Num of vertice ~ num in graphe
        int mNumCC0;     // Num of connect comp it belongs to
        int mNumMaxLoc;  // Possible num of local maxima
+       int mProvMaxLoc;  // For tuning, where does it come from
        tREAL8    mXC;   // Absice where it eventually intersecte central line
 
 
@@ -207,7 +220,7 @@ class cAppliNewFrange : public cMMVII_Appli
         void ShowExtres(cRGBImage & anIm) const;
 
 
-        void ShowCurvesIntegral(cRGBImage&);
+        void ShowCurvesIntegral(cRGBImage&,bool showC,bool ShowSep);
 
 
         /// Name of visualisation image
@@ -417,7 +430,7 @@ class cAppliNewFrange : public cMMVII_Appli
 
          std::vector<cMaxLocSum> mVMaxLoc;
          tREAL8   mIntervMax;     ///< Inteval betwen consec max +- period of the bouzin
-         int      mMinZCYC;       /// Begin of central zone arround YC
+         int      mMinZYC;       /// Begin of central zone arround YC
          int      mMaxZYC;        ///< End of central zone arround YC
 
 
@@ -460,8 +473,8 @@ class cAppliNewFrange : public cMMVII_Appli
         int      mYC;          ///<  estimation of Y center
         tIm1D    mImIntegr;        ///<  integration of tangent
         tDIm1D*  mDImIntegr;       ///<  data
-        tIm      mImSmoothTgt;  ///< Image smoothed takin account tgt
-        tDIm *   mDImSmoothTgt;  ///< Data
+       // tIm      mImSmoothTgt;  ///< Image smoothed takin account tgt
+       // tDIm *   mDImSmoothTgt;  ///< Data
         tIm1D    mImProjInt;     ///< cumulated projection
         tDIm1D*  mDImProjInt;    ///< Data
         tREAL8   mStdDevProjI;   ///< standard deviation
@@ -474,8 +487,9 @@ class cAppliNewFrange : public cMMVII_Appli
         tDIm1D*  mDImRadFrange;      ///< Data of mImRadFrange
 
 
-        tGraphReg     mGrReg;
-        tVertexReg*   mVirtExtVert; ///< Virtual Exten vertex : the border
+        tGraphReg                mGrReg;
+        tVertexReg*              mVirtExtVert; ///< Virtual Exten vertex : the border
+        std::vector<tVertexReg*> mVAgrFrg;     ///< Vertices for agregating in the same frange
 
         /// Image of backround used in visu if any
         cIm2D<tU_INT1>  mImGrayBG;

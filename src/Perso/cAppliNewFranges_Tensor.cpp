@@ -91,13 +91,14 @@ void cAppliNewFrange::OneWayIntegrateTangent(int aDy,int aYLim)
 
 int cAppliNewFrange::ComputeZoneYCenter(int aDy,int aYLim)
 {
-    tREAL8 mMinSep = 20.0;
+    tREAL8 mMinSep = 100.0;
 
     for (int aY=mYC+aDy  ; aY!= aYLim ; aY+= aDy)
     {
         tREAL8 aSepTh = mIntervMax / (1.0 + std::abs(mDImTgt->GetV(aY)));
 
-        if (aSepTh>mMinSep)
+        //StdOut() << " ComputeZoneYCenter " <<  aSepTh << " \n";
+        if (aSepTh<mMinSep)
             return aY;
     }
 
@@ -267,18 +268,16 @@ void cAppliNewFrange::DoTensorProcessing(bool isFirst,bool isLast)
      OneWayIntegrateTangent(-1,-1);
      OneWayIntegrateTangent(1,mSzRed.y());
 
-     mMinZCYC = ComputeZoneYCenter(-1,1);
-     mMaxZCYC = ComputeZoneYCenter(1,mSzRed.y());
 
 
-     if (1)
+    /* if (1)
      {
         ComputeMaxRadCenter();
      }
      else
      {
          ComputeSumOnIntegralCurve();
-     }
+     }*/
      ExtractMaxSumIC();
 
 

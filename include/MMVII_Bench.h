@@ -134,6 +134,9 @@ void BenchAPBI(cParamExeBench & aParam);
 void BenchFilterImage1(cParamExeBench & aParam);
 void BenchFilterLinear(cParamExeBench & aParam);
 void BenchGeom(cParamExeBench & aParam);
+void BenchApproxPoly(cParamExeBench & aParam);
+
+
 void BenchPlane3D();
 void BenchPlaneInter();
 
