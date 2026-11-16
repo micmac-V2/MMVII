@@ -122,9 +122,7 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
            if (aNbEqAdded>=2)
            {
                if (mBA_TLS_PhotoTieP)
-               {
                    mBA_TLS_PhotoTieP->AddObs(aStrSubst, aPGr);
-               }
                mSys->R_AddObsWithTmpUK(aStrSubst,mCurLVMParam);  // finally add obs accummulated
            }
        }
@@ -152,7 +150,8 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
 
    StdOut() << std::endl;
 
-   mBA_TLS_PhotoTieP->ShowStats();
+   if (mBA_TLS_PhotoTieP)
+       mBA_TLS_PhotoTieP->ShowStats();
 
 }
 
