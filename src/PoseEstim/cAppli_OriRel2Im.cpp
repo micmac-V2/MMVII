@@ -120,7 +120,13 @@ tREAL8 cEstimatePosRel2Im::Score2Bundle(const cPt3dr & aP1,const cPt3dr & aP2,co
     cPt3dr aCoeffI;
     BundleInters(aCoeffI,aSeg1,aSeg2);
     int aNbBadSign = (aCoeffI.x()<0) + (aCoeffI.y()<0);
-    return (std::abs(aCoeffI.z()) +aNbBadSign) / (1.0+Norm2(aCoeffI)); //+- angle
+
+    // z is the coefficient along the non-normalised V1^V2, so the bundle distance is |z|*|V1^V2|
+    // Norm2(V1 ^ V2) = sin(theta), and the product |z|·sin(theta) = (distance / sin(theta))·sin θ = distance
+    tREAL8 aDist = std::abs(aCoeffI.z()) * Norm2(aSeg1.V12() ^ aSeg2.V12());
+    return (aDist +aNbBadSign) / (1.0+Norm2(cPt3dr(aCoeffI.x(),aCoeffI.y(),aDist))); //+- angle
+
+    //return (std::abs(aCoeffI.z()) +aNbBadSign) / (1.0+Norm2(aCoeffI)); //+- angle ER: this is a bug that gives too much control to small B/H
 }
 
 void cEstimatePosRel2Im::EstimateResidual(std::vector<tREAL8>& aVRes,const tPoseR& aPose,const cSetHomogCpleDir& aSetDir) const
