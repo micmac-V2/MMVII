@@ -701,9 +701,9 @@ cCollecSpecArg2007 & cAppli_EditCalcMetaDataImage::ArgOpt(cCollecSpecArg2007 & a
 std::vector<cOneHelpSampleCmp>  cAppli_EditCalcMetaDataImage::Samples() const
 {
     return {
-               {"MMVII EditCalcMTDI Std ModelCam ImTest=043_0136.JPG  Modif=[.*.JPG,\"NIKON D5600\",0] Save=1"},
-               {"MMVII EditCalcMTDI Std Focalmm ImTest=043_0136.JPG  Modif=[.*.JPG,24,0] Save=1"},
-               {"MMVII EditCalcMTDI Std AdditionalName ImTest=043_0136.JPG  Modif=[\"(.*)_.*\",\"\\$1\",0] Save=1"}
+               {"MMVII EditCalcMTDI ModelCam ImTest=043_0136.JPG  Modif=[.*.JPG,\"NIKON D5600\",0] Save=1"},
+               {"MMVII EditCalcMTDI Focalmm ImTest=043_0136.JPG  Modif=[.*.JPG,24,0] Save=1"},
+               {"MMVII EditCalcMTDI AdditionalName ImTest=043_0136.JPG  Modif=[\"(.*)_.*\",\"\\$1\",0] Save=1"}
            };
 }
 
