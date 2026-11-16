@@ -831,6 +831,7 @@ template <class Type> class cMatIner2Var
         Type  mS12;  ///< Som of    W * V1 * V2
         Type  mS22;  ///< Som of    W * V2 * V2
 };
+typedef  cMatIner2Var<tREAL8> tMatIn2r;
 
 /** Class for averaging with weight */
 template <class TypeWeight,class TypeVal=TypeWeight> class cWeightAv

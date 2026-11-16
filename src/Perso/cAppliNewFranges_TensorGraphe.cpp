@@ -13,6 +13,7 @@ namespace MMVII
 namespace NS_FrangesDetect
 {
 
+#if (0)
 /* **************************************** */
 /*           eTypeSom                       */
 /* **************************************** */
@@ -107,6 +108,7 @@ void cAppliNewFrange::GraphCompute()
     GraphCCHoriz();
 }
 
+#endif
 
 }; //  mamespace NS_FrangesDetect
 }; //  namespace MMVII

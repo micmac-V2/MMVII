@@ -148,6 +148,10 @@ class cAppli_GCPReport : public cMMVII_Appli
 
 
      private :
+
+        /// Add projected points, used for detected and missed
+        void AddProjPt(bool isDetected,const cMes1Gnd3D & aPt, cSensorImage*  aSensIm) ;
+
         /** make the report  by image, for each image a cvs file with all GCP,
          * optionnaly make a visualisation of the residual fielsd for each image */
         void  MakeOneIm(const std::string & aNameIm);
@@ -178,6 +182,8 @@ class cAppli_GCPReport : public cMMVII_Appli
         std::string              mFilterName;  // pattern to filter names of GCP
         std::string              mFilterAdd;  // pattern to filter GCP by additional info
 
+        bool                     mDetailProj;
+        std::string             mNameDetailProj;
         std::vector<tREAL8>     mParamVF;
         std::string             mPatternParamIVF;
 };
@@ -195,6 +201,8 @@ cAppli_GCPReport::cAppli_GCPReport
      mSuffixReportSubDir (""),
      mFilterName         (""),
      mFilterAdd          (""),
+     mDetailProj         (false),
+     mNameDetailProj     ("DetailProj"),
      mParamVF            (cImageVectorField::DefParam())
 {
 }
@@ -216,6 +224,9 @@ cCollecSpecArg2007 & cAppli_GCPReport::ArgOpt(cCollecSpecArg2007 & anArgOpt)
                 << AOpt2007(mPropStat,"Perc","Percentil for stat exp",{eTA2007::HDV})
                 << AOpt2007(mMarginMiss,"MargMiss","Margin to border for counting missed target",{eTA2007::HDV})
                 << AOpt2007(mSuffixReportSubDir, "Suffix", "Suffix to report subdirectory name")
+
+                << AOpt2007(mDetailProj, "DetProjPC", "Detailled proj (require central perspective camera)",{eTA2007::HDV})
+
                 << AOpt2007(mFilterName, "Filter", "Pattern to filter GCP by name")
                 << AOpt2007(mFilterAdd, "FilterAdd", "Pattern to filter GCP by additional info")
                 << AOpt2007(mFactRed, "RedFact", "Factor of reduction for sensor images (dist & bias)",{eTA2007::HDV})
@@ -237,6 +248,33 @@ std::vector<cOneHelpSampleCmp>  cAppli_GCPReport::Samples() const
 
 //================================================
 
+void cAppli_GCPReport::AddProjPt(bool isDetected,const cMes1Gnd3D & aGCP, cSensorImage*  aSensIm)
+{
+    if (!mDetailProj)
+        return;
+    if (! aSensIm->IsSensorCamPC())
+    {
+        MMVII_UnclasseUsEr("Central Perspective Sensor required for AddProjPt");
+    }
+
+    const cSensorCamPC * aPC = aSensIm->GetSensorCamPC();
+
+    cPt2dr aPIm = aSensIm->Ground2Image(aGCP.mPt);
+    cPt3dr aPLoc = aPC->Pt_W2L(aGCP.mPt);
+
+    AddOneReportCSV
+    (
+         mNameDetailProj,
+         {
+                    aSensIm->NameImage(),aGCP.mNamePt,isDetected ? std::string("Detected") : std::string("Missed"),
+                    ToStr(aPIm.x()),ToStr(aPIm.y()),
+                    ToStr(aPLoc.x()),ToStr(aPLoc.y()),ToStr(aPLoc.z())
+
+         }
+    );
+
+    // cPt3dt
+}
 
 void cAppli_GCPReport::MakeOneIm(const std::string & aNameIm)
 {
@@ -307,7 +345,7 @@ void cAppli_GCPReport::MakeOneIm(const std::string & aNameIm)
 
     for (const auto & aGCP : aSetMes.MesGCP())
     {
-        if (starts_with(aGCP.mNamePt,"SL"))
+        if (starts_with(aGCP.mNamePt,"SL")) // Static Lidar ?
         {
             AddOneReportCSV(mNameReportMissed,{aNameIm,aGCP.mNamePt,"UnObservable","XXX","XXX"});
         }
@@ -323,16 +361,21 @@ void cAppli_GCPReport::MakeOneIm(const std::string & aNameIm)
                   {
                       AddOneReportCSV(mNameReportMissed,{aNameIm,aGCP.mNamePt,"UnDetected",ToStr(aPIm.x()),ToStr(aPIm.y())});
 
+                      AddProjPt(false,aGCP,aCam);
                       if (aIVF)
                       {
                           aIVF->DrawPointsRemarq(aPIm);
                       }
                   }
                   else
+                  {
                       AddOneReportCSV(mNameReportMissed,{aNameIm,aGCP.mNamePt,"Margin",ToStr(aPIm.x()),ToStr(aPIm.y())});
+                  }
                }
                else
                {
+                   AddProjPt(true,aGCP,aCam);
+
                    cPt2dr aP2 = aSetMesIm.MeasuresOfName(aGCP.mNamePt).mPt;
                    cPt2dr aProj = aCam->Ground2Image(aGCP.mPt);
                    if (!aProj.IsValid())
@@ -385,6 +428,8 @@ void cAppli_GCPReport::ReportsByGCP()
 
    InitReportCSV(mNameReportGCP_Ground,"csv",false);
    AddOneReportCSV(mNameReportGCP_Ground,{"Name","Dx","Dy","Dz"});
+
+
 
    std::vector<cStdStatRes> aVStatXYZ{cStdStatRes(),cStdStatRes(),cStdStatRes()};
 
@@ -495,11 +540,21 @@ int cAppli_GCPReport::Exe()
    InitReportCSV(mNameReportDetail,"csv",true);
    InitReportCSV(mNameReportMissed,"csv",true);
 
+
+   if (mDetailProj)
+   {
+       InitReportCSV(mNameDetailProj,"csv",true);
+   }
+
+
    if (LevelCall()==0)
    {
        AddStdHeaderStatCSV(mNameReportIm,"Image",mPropStat,{"AvgX","AvgY","AvgD"});
        AddOneReportCSV(mNameReportDetail,{"Image","GCP","Err","Dx","Dy","Ddist"});
        AddOneReportCSV(mNameReportMissed,{"Image","GCP","Natrue","XTh","YTh"});
+
+       if (mDetailProj)
+          AddOneReportCSV(mNameDetailProj,{"Image","Point","Status","ImX","ImY","LocX","LocY","LocZ"});
    }
 
    // --------- If a pattern was used, run in // by a recall to itself  0->Param 0->Set  -------------

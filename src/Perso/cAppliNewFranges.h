@@ -54,55 +54,91 @@ class cConnComp
 /*                                                             */
 /* *********************************************************** */
 
-
-enum class eTypeSom
+enum class eTypePix
 {
-     eH1,
-     eH2,
-     eV1,
-     eV2,
-     eBorder
-
+    eTmp=0,
+    eMaxVert=1,
+    eMinVert=2,
+    eMaxTens=3,
+    eMinTens=4,
+    eProlong=5,
+    eTypeSmalCC=6,
+    eTypeBadAvgCC=7
 };
 
-eTypeSom TypeSomStd(const bool isHor,const bool isP1);
-
-struct cAVVertex
-{
-  public :
-      cAVVertex(const cPt2di & aPt,const cPt2dr & aTgt,eTypeSom aType);
-
-      cPt2di     mPt;
-      cPt2dr     mTgt;
-      eTypeSom   mType;
-};
-
-struct cAVEdgeSym
-{
-   public :
-      cAVEdgeSym(cConnComp*);
-      cConnComp * mCC;
-};
-
-struct cAVEdgeOriented
-{
-    public :
-       cAVEdgeOriented(const tREAL8 aCost) ;
-       tREAL8 mCost;
-};
-
-typedef cVG_Vertex<cAVVertex,cAVEdgeOriented,cAVEdgeSym> tVertexVFrange;
-typedef cVG_Edge<cAVVertex,cAVEdgeOriented,cAVEdgeSym>  tEdgeVFrange;
-typedef cVG_Graph<cAVVertex,cAVEdgeOriented,cAVEdgeSym> tGraphVFrange;
 
 
 class cMaxLocSum
 {
    public :
-      tREAL8 mXC;
-      tREAL8 mX0;
-      tREAL8 mX1;
+      cPt2di   mPt;
+      int      mXC;
+      tREAL8   mX0;
+      tREAL8   mX1;
 };
+
+enum class eTypeSom
+{
+    eStd,
+    eBordeExt,
+    eAgregFrg
+};
+
+
+class cAVertReg : public cMemCheck
+{
+   public :
+       cAVertReg(eTypeSom,const  std::vector<cPt2di> & aVPts,int aNum);
+
+
+
+       bool IsBorderExt() const;
+
+       eTypeSom             mType;
+       std::vector<cPt2di>  mVPts;   ///< All pts, not necesseraly a path
+       std::vector<cPt2di>  mPath;   ///< path between 2 extremity
+       std::vector<int>     mIndApP; ///< index of approx poly
+
+       int mNumV;       // Num of vertice ~ num in graphe
+       int mNumCC0;     // Num of connect comp it belongs to
+       int mNumMaxLoc;  // Possible num of local maxima
+       int mProvMaxLoc;  // For tuning, where does it come from
+       tREAL8    mXC;   // Absice where it eventually intersecte central line
+
+
+       /// Extrem, such that P1->P2 goes Up for horizontal line
+       cPt2di   mP1;
+       cPt2di   mP2;
+       cPt2di   mCenter;
+       cBox2di  mBox;  // Box of Vpts
+
+       bool  mUpSide;
+       bool  mBottomSide;
+       bool  mNoCross;
+       bool  mTouchLeft;
+       bool  mTouchRight;
+};
+
+class cAOrientReg
+{
+    public :
+       cAOrientReg();
+       cPt2di mPt;
+};
+
+class cASymReg
+{
+     public :
+
+        cASymReg();
+        tREAL8 mMaxVal;
+        bool mInMST;
+};
+
+typedef cVG_Vertex<cAVertReg,cAOrientReg,cASymReg>    tVertexReg;
+typedef cVG_Edge<cAVertReg,cAOrientReg,cASymReg>      tEdgeReg;
+typedef cVG_Graph<cAVertReg,cAOrientReg,cASymReg>     tGraphReg;
+
 
 /* =============================================== */
 /*                                                 */
@@ -128,6 +164,23 @@ struct cSigmaTensors
         mSigmaGradY,FieldSem({{eTA2007::AddCom,"Sigma Grad-Y"},eTA2007::HDV})
     )
 };
+
+struct cParamVisu
+{
+   public :
+    tREAL8 mMulGauss = 0.7;
+    tREAL8 mMulLAB   = 0.3;
+    tREAL8 mMulSat   = 0.5;
+
+    ARG2007_STRUCT_FIELDS (
+
+            mMulGauss,FieldSem({{eTA2007::AddCom,"Multiplier in gaussian equalisation"},eTA2007::HDV}),
+            mMulLAB  ,FieldSem({{eTA2007::AddCom,"Multiplier of AB in LAB-space-colors"},eTA2007::HDV}),
+            mMulSat  ,FieldSem({{eTA2007::AddCom,"Multiplier of Saturation in HSI space"},eTA2007::HDV})
+
+    )
+};
+
 
 class cAppliNewFrange : public cMMVII_Appli
 {
@@ -155,10 +208,19 @@ class cAppliNewFrange : public cMMVII_Appli
 
         void  DoOneImage(const std::string & aNameIm);
 
+        //-------------------------- FONCTION RELATED TO VISUALIZATION -----------------
         /// Generate several visualization
         void DoVisu();
+        /// Generate back ground gray image for diff visu, used Im-Reduc-Blured  & Gaussian equam
+        cRGBImage ImBckGround(tREAL8) const ;
+        /// Put in anIm a colorizatuion depenaning of labels, aCoefAB multiply AB in LAB-space
+        void SetImageLabel(cRGBImage & anIm,tREAL8 aCoefAB) const;
 
-        void ShowCurvesIntegral(cRGBImage&);
+        /// Show extrmitys of line
+        void ShowExtres(cRGBImage & anIm) const;
+
+
+        void ShowCurvesIntegral(cRGBImage&,bool showC,bool ShowSep);
 
 
         /// Name of visualisation image
@@ -174,6 +236,63 @@ class cAppliNewFrange : public cMMVII_Appli
             mVNameVisu.push_back(aPref);
         }
 
+        /// Classical  saddle point deprecated 4 now
+        bool IsSaddlePoint(const cPt2di & aPix) const;
+
+        ///  compute next extremity of a line, by following (+-) crest-line close to previous direction
+        cPt2dr NextExtreLine(const cPt2dr & aP0,const cPt2dr& aP1) const;
+
+        /// compute direction of tensor by reading 2D-images of tensor
+        cPt2dr TensorImage(cPt2di aPix) const;
+
+        /// compute direction of tensor by teta  of y
+        cPt2dr TensorTeta(cPt2di aPix) const;
+
+
+        void  ProlongateExtre(std::vector<cPt2dr>& aRes,cPt2di  aPix,eTypePix aLabel) const;
+
+        /*==========================  LABEL MANIPULATION =====================*/
+
+        static int Lab2I(eTypePix aLabel) {return (int) aLabel;}
+        static int LabTmp2I() {return   Lab2I(eTypePix::eTmp);}
+
+
+              // ------------------ Fix On/Off -----------------------------
+        void SetLabelOn(const cPt2di & aPix,eTypePix aLabel)
+        {
+            SetBitOn(*mDImFlagLabel,aPix,Lab2I(aLabel));
+        }
+        void SetLabel(const cPt2di & aPix,eTypePix aLabel)
+        {
+            SetFlagOfBit(*mDImFlagLabel,aPix,Lab2I(aLabel));
+        }
+
+        void SetLabelOn(const cPt2di & aPix,const std::vector<eTypePix> & aLabel);
+
+        void SetLabelOff(const cPt2di & aPix,eTypePix aLabel)
+        {
+            SetBitOff(*mDImFlagLabel,aPix,Lab2I(aLabel));
+        }
+             // ----------------- extract value ------------------------------
+        bool LabelIsOn(const cPt2di & aPix,eTypePix aLabel) const
+        {
+            return BitIsOn(*mDImFlagLabel,aPix,(int)aLabel);
+        }
+
+        const cPt3di * CoulOfLabel(const cPt2di & aPt) const;
+
+                // ----------------- Specific to Tmp ------------------------------
+        bool LabelTmpIsOff(const cPt2di & aPix) const
+        {
+            return ! LabelIsOn(aPix,eTypePix::eTmp);
+        }
+        void SetLabelTmpOff(const cPt2di & aPix)
+        {
+            SetLabelOff(aPix,eTypePix::eTmp);
+        }
+
+
+
         /** Generete simulation images with "perfect" parabols, not realistic model, but
          *  to test correctnes of some computation */
         void MakeImSimul();
@@ -183,25 +302,48 @@ class cAppliNewFrange : public cMMVII_Appli
 
 
 
+        ///
+        void MakeImageRegion();
+
+        void MakeImageMarqIn();
+
+
+        void ComputeArribute(cAVertReg&,cDataIm2D<tU_INT1> &);
+
+        void PostProcEdge(tEdgeReg&);
+
+        void PostProcVertex(tVertexReg&);
+
+
+
+
         // =================== MaxLoc & Pix -CC  ==================
 
         /** Compute images of local maxims, this will reduce "drastically" the number of potential point
          in shortest path approach (and allow more complexe lins with "big" jumps ) */
-        void MakeImageMaxLoc();
+        void AnalyseCC();
 
         /// is P0 it a maxmima in direction Dp on aNbPixels
-        bool IsMax(cPt2di aP0,cPt2di aDp,int aNb) const;
+      //  bool IsMinMax(cPt2di aP0,cPt2di aDp,int aNb,bool IsMax) const;
 
         /** Compute the connect component of Horiz/Vertical chain
          !! Horiz  is the direction for compuing max, so the chain with be +- orthog */
-        void ConnecCompMaxLoc(bool isHoriz);
+        void ConnecCompMaxLoc(eTypePix );
+        /// Compute the connected component and eventually memorize it
+        eTypePix NewCC(eTypePix,std::vector<cPt2di>  &,const cPt2di&);
+
 
         /// Add heuristically some horizontal CC
         void ComplemCCHoriz();
 
+        /// Must a point be added to assured 4-Connectivity
+        bool AddFor8Cx(const cDataIm2D<tU_INT1> & aImMax,const cPt2di&) const;
+        /// Add all the point that assure 8-Connecitvity
+        void Make8Cx(cDataIm2D<tU_INT1> & aImMax);
 
-        /// Compute the connected component and eventually memorize it
-        bool NewCC(std::vector<cPt2di>  &,bool isHoriz,const cPt2di&);
+
+
+
 
         /// Follow the chain, on a fix number of points stop if dead end or branch
         cPt2di BackTrackExtre( cPt2di aP0,const cDataIm2D<tU_INT1> & aImMax) const;
@@ -211,9 +353,9 @@ class cAppliNewFrange : public cMMVII_Appli
 
         // =================== "High-level" Graph (on max-loc)  ==================
 
-         void GraphCompute();
-         void GraphCreate();
-         void GraphCCHoriz();
+         //void GraphCompute();
+         //void GraphCreate();
+        // void GraphCCHoriz();
 
 
 
@@ -225,7 +367,16 @@ class cAppliNewFrange : public cMMVII_Appli
              compute tan of Y=F(X) as tensor accumalation
              extract the center
          */
-        void DoTensorProcessing();
+        void DoTensorProcessing(bool isFirst,bool isLast);
+
+
+        void ExtractTensorLines(bool isMax);
+        void ExtractTensorLines();
+
+
+        /// Is it a maxima in the tensor direction ?
+        bool IsExtreLocTens(const cPt2di & aPt,const cPt2dr & aDir,tREAL8 aSignVal) const;
+
 
         /// Estimate for a given Y, with window aSzY, how it is a good center of anti-symetry
         tREAL8 QualityCenterAntiSymetry(bool First,int aY,int aSzY,const std::vector<cPt2dr>&,const std::vector<tREAL8>&);
@@ -234,6 +385,9 @@ class cAppliNewFrange : public cMMVII_Appli
 
         /// Integrate one way the tangent image and save it in integrale image
         void OneWayIntegrateTangent(int aDy,int aYLim);
+
+        /// Integrate one way the tangent image and save it in integrale image
+        int ComputeZoneYCenter(int aDy,int aYLim);
 
         ///< compute max +- basic with radiom of center
         void ComputeMaxRadCenter();
@@ -260,8 +414,10 @@ class cAppliNewFrange : public cMMVII_Appli
         std::string              mNameIm;
 
 
-
+        ///  Sigmas for first iter tensor-computation
         cSigmaTensors            mSigTensors;
+        /// Param for visualisation
+        cParamVisu               mParamVisu;
 
 
         tREAL8    mZoomRed;     ///< Zoom for initial reduction
@@ -273,6 +429,11 @@ class cAppliNewFrange : public cMMVII_Appli
         int         mNbVisuGen; ///< Number of visu generated
 
          std::vector<cMaxLocSum> mVMaxLoc;
+         tREAL8   mIntervMax;     ///< Inteval betwen consec max +- period of the bouzin
+         int      mMinZYC;       /// Begin of central zone arround YC
+         int      mMaxZYC;        ///< End of central zone arround YC
+
+
 
         bool mHasMask;  ///< Is there a mask
         cIm2D<tU_INT1> mImMask; ///< Possible mask
@@ -293,17 +454,14 @@ class cAppliNewFrange : public cMMVII_Appli
         tImGrad mImTens;
 
 
-        /*tIm      mImTx;   ///< 2d-image tensor x
-        tDIm*    mDImTx;  ///< 2d-data
-        tIm      mImTy;   ///< 2d-image tensor y
-        tDIm*    mDImTy;   ///< 2d-data */
+        /// Image of flag of labels
+        cIm2D<tU_INT4>        mImFlagLabel;
+        cDataIm2D<tU_INT4>*   mDImFlagLabel;
+        cIm2D<tINT2>          mImRegion;
+        cDataIm2D<tINT2>*     mDImRegion;
 
-         cIm2D<tU_INT1> mImMaxHor;           ///<  image of max in horizontal direction
-         cDataIm2D<tU_INT1>* mDImMaxHor;     ///<  data
-         cIm2D<tU_INT1> mImMaxVert;          ///< image of max in vertical direction
-         cDataIm2D<tU_INT1>* mDImMaxVert;    ///<  data
-         cIm2D<tU_INT1> mImMaxLocTD;           ///<  local maxima in tensor direction
-         cDataIm2D<tU_INT1>* mDImMaxLocTD;     ///< data
+        cIm2D<tU_INT1>          mImMarqIn;
+        cDataIm2D<tU_INT1>*     mDImMarqIn;
 
 
          tIm1D    mImCumNormT;    /// Image of teta as x=F(Y)
@@ -315,24 +473,28 @@ class cAppliNewFrange : public cMMVII_Appli
         int      mYC;          ///<  estimation of Y center
         tIm1D    mImIntegr;        ///<  integration of tangent
         tDIm1D*  mDImIntegr;       ///<  data
-        tIm      mImSmoothTgt;  ///< Image smoothed takin account tgt
-        tDIm *   mDImSmoothTgt;  ///< Data
+       // tIm      mImSmoothTgt;  ///< Image smoothed takin account tgt
+       // tDIm *   mDImSmoothTgt;  ///< Data
         tIm1D    mImProjInt;     ///< cumulated projection
         tDIm1D*  mDImProjInt;    ///< Data
         tREAL8   mStdDevProjI;   ///< standard deviation
-        tREAL8   mIntervMax;     ///< Inteval betwen consec max +- period of the bouzin
         tREAL8   mMinDPI;
         tREAL8   mMaxDPI;
 
-
-        std::vector<cConnComp*>  mVectCC;
 
         tREAL8   mRadiomBackGround;  ///< Estimation of radiometry of background
         tIm1D    mImRadFrange;       ///< Estimation of radiometry of franges, depend of Y
         tDIm1D*  mDImRadFrange;      ///< Data of mImRadFrange
 
 
-        tGraphVFrange   mGrVect;
+        tGraphReg                mGrReg;
+        tVertexReg*              mVirtExtVert; ///< Virtual Exten vertex : the border
+        std::vector<tVertexReg*> mVAgrFrg;     ///< Vertices for agregating in the same frange
+
+        /// Image of backround used in visu if any
+        cIm2D<tU_INT1>  mImGrayBG;
+        cRGBImage       mImRgbBG;
+
 };
 
 }; // namespace NS_FrangesDetect

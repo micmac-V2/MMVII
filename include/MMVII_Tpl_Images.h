@@ -461,6 +461,7 @@ template<class T1,int Dim>
     }
 }
 
+
 template<class TOper,class T1,int Dim>
    cPtxd<int,Dim> WhichMinMax(const TOper & Op, const cDataTypedIm<T1,Dim> & aIm)
 {
@@ -562,9 +563,9 @@ template <const int Dim> std::vector< cPtxd<tREAL8,Dim> > ToR(const std::vector<
 */
 
 
-template <class Type> typename tBaseNumTrait<Type>::tBase SumIm(const cDataIm2D<Type>& aDIm,cRect2 aRect)
+template <class Type> typename tElemNumTrait<Type>::tBig SumIm(const cDataIm2D<Type>& aDIm,cRect2 aRect)
 {
-    typename tBaseNumTrait<Type>::tBase aRes = 0;
+    typename tElemNumTrait<Type>::tBig aRes = 0;
 
     for (const auto & aPix : aRect)
         aRes += aDIm.GetV(aPix);
@@ -572,6 +573,14 @@ template <class Type> typename tBaseNumTrait<Type>::tBase SumIm(const cDataIm2D<
     return aRes;
 }
 
+
+template <class Type,const int Dim> typename tElemNumTrait<Type>::tBig SumIm(const cDataTypedIm<Type,Dim>& aDI)
+{
+    typename tElemNumTrait<Type>::tBig aRes = 0;
+    for (int aK=1 ; aK<aDI.NbElem() ; aK++)
+        aRes += aDI.GetRDL(aK);
+    return aRes;
+}
 
 
 

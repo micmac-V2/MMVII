@@ -12,6 +12,7 @@ namespace MMVII
 
 namespace NS_FrangesDetect
 {
+#if (0)
 
 
 class cTensAVertex
@@ -133,7 +134,6 @@ void cAppliNewFrange::MakeGrapheTensor(const cIm2D<tU_INT1> anIm)
 
 
 
-#if (0)
 /* **************************************** */
 /*           cASom                          */
 /* **************************************** */

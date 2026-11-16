@@ -4,7 +4,8 @@
 
 #include "cAppliNewFranges.h"
 
-
+#include "MMVII_Tpl_Graph_SubGraph.h"
+#include "MMVII_Tpl_GraphAlgo_SPCC.h"
 
 
 namespace MMVII
@@ -37,17 +38,12 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mDImRedBlur       (nullptr),
     mImGrad           (cPt2di(1,1)),
     mImTens           (cPt2di(1,1)),
-    /*
-    mImTx             (cPt2di(1,1)),
-    mDImTx            (nullptr),
-    mImTy             (cPt2di(1,1)),
-    mDImTy            (nullptr),*/
-    mImMaxHor         (cPt2di(1,1)),
-    mDImMaxHor        (nullptr),
-    mImMaxVert        (cPt2di(1,1)),
-    mDImMaxVert       (nullptr),
-    mImMaxLocTD        (cPt2di(1,1)),
-    mDImMaxLocTD       (nullptr),
+    mImFlagLabel      (cPt2di(1,1)),
+    mDImFlagLabel      (nullptr),
+    mImRegion          (cPt2di(1,1)),
+    mDImRegion         (nullptr),
+    mImMarqIn          (cPt2di(1,1)),
+    mDImMarqIn         (nullptr),
     mImCumNormT        (1),
     mDImCumNormT       (nullptr),
     mImTeta            (1),
@@ -57,13 +53,16 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mYC                (-1),
     mImIntegr          (1),
     mDImIntegr         (nullptr),
-    mImSmoothTgt       (cPt2di(1,1)),
-    mDImSmoothTgt      (nullptr),
+    //mImSmoothTgt       (cPt2di(1,1)),
+    //mDImSmoothTgt      (nullptr),
     mImProjInt         (1),
     mDImProjInt        (nullptr),
     mRadiomBackGround   (-1e9),
     mImRadFrange        (1),
-    mDImRadFrange       (nullptr)
+    mDImRadFrange       (nullptr),
+    mVirtExtVert        (nullptr),
+    mImGrayBG           (cPt2di(1,1)),
+    mImRgbBG            (cPt2di(1,1))
 {
 }
 
@@ -93,7 +92,11 @@ cCollecSpecArg2007 & cAppliNewFrange::ArgOpt(cCollecSpecArg2007 & anArgOpt)
               << AOpt2007(mDerFactZ1,"DericheF","Factor of deriche filter (for Zoom=1)" ,{eTA2007::HDV})
               << AOpt2007(mSigmaTensZ1,"SigmaTens","Sigma for avaragin tensor (Z=1)" ,{eTA2007::HDV})
               << AOpt2007(mDoSimul,"DoSimul","Make simulation/syntheic images : 1 parab, 2 circles" ,{eTA2007::HDV})
+
               << AOpt2007(mPatVisu,"PatVisu","Pattern for generating visualization" )
+              << AOpt2007(mParamVisu,"ParamVisu","Parameters of visualization" )
+
+
 
               << AOpt2007(mSigTensors ,"SigTens","Sigmas on tensors")
 
@@ -126,9 +129,12 @@ std::vector<cOneHelpSampleCmp>  cAppliNewFrange::Samples() const
    };
 }
 
+
+
 int cAppliNewFrange::Exe()
 {
     mPhProj.FinishInit();
+
 
    //  StdOut() << "VVV " << aV1 << " " << aV2 << "\n";
 
@@ -140,13 +146,18 @@ int cAppliNewFrange::Exe()
     return EXIT_SUCCESS;
 }
 
+
+
+
 /* =================================================== */
 /*              Specific functions                     */
 /* =================================================== */
 
-
-
-
+void  cAppliNewFrange::SetLabelOn(const cPt2di & aPix,const std::vector<eTypePix> & aVLabel)
+{
+   for (const auto aLab : aVLabel)
+       SetLabelOn(aPix,aLab);
+}
 
 void cAppliNewFrange::ComputeRadiomCste()
 {
@@ -173,19 +184,22 @@ void cAppliNewFrange::ComputeRadiomCste()
 
     for (int anY=0 ; anY<mSzRed.y() ; anY++)
     {
+        cStdStatRes  aStat;
         std::vector<tREAL8>   aVRad;
         for (int anX=0 ; anX<mSzRed.x() ; anX++)
         {
-            aVRad.push_back(mDImRedBlur->GetV(cPt2di(anX,anY)));
+            tREAL8 aRad = mDImRedBlur->GetV(cPt2di(anX,anY));
+            aStat.Add(aRad);
+            aVRad.push_back(aRad);
         }
-        tREAL8 aVal = IKthVal(aVRad,aVRad.size()-10);
+      //  tREAL8 aVal = IKthVal(aVRad,aVRad.size()-10);
+        tREAL8 aVal = aStat.Avg() + aStat.DevStd();
         // aVal = NC_KthVal(aVRad,1/3.0);
         mDImRadFrange->SetV(anY,aVal);
     }
 
-    ExpFilterOfStdDev(*mDImRadFrange,5,50.0);
+    ExpFilterOfStdDev(*mDImRadFrange,5,20.0);
 }
-
 
 
 void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
@@ -197,6 +211,12 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
     mImRed = mImZ1.BiCubicDeZoom(mZoomRed);
     mDImRed = &(mImRed.DIm());
     mSzRed = mDImRed->Sz();
+
+    mImFlagLabel =  cIm2D<tU_INT4> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
+    mDImFlagLabel = &mImFlagLabel.DIm();
+
+    mImMarqIn =  cIm2D<tU_INT1> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
+    mDImMarqIn  = & mImMarqIn.DIm();
 
     if (mHasMask)
     {
@@ -214,14 +234,22 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
     mDImRedBlur = & (mImRedBlur.DIm());
     ExpFilterOfStdDev(*mDImRedBlur,5,2.0,5.0);
 
-    DoTensorProcessing();
-    ComputeRadiomCste();
+    int aNbIter = 2;
+    for (int aKIter=0 ; aKIter<aNbIter ; aKIter++)
+    {
+        DoTensorProcessing(aKIter==0,aKIter==(aNbIter-1));
+    }
 
-    MakeImageMaxLoc();
+    ExtractTensorLines();
 
-    GraphCompute();
+    AnalyseCC();   // deprecated : only line tensor
+
+    MakeImageRegion();
 
     DoVisu();
+
+
+    //DeleteAllAndClear(mVCMax);
 }
 
 

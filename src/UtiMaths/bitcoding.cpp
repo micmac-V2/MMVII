@@ -762,6 +762,27 @@ void BenchHamming(cParamExeBench & aParam)
     BenchHammingCode(4);
     BenchHammingCode(11);
     BenchHammingCode(13);
+
+    MMVII_INTERNAL_ASSERT_bench
+    (
+         BitIsOn(5,0) &&  BitIsOn(5,2) && (!BitIsOn(5,1))  && (!BitIsOn(5,3)) ,
+        "Bit is on"
+    );
+
+
+    MMVII_INTERNAL_ASSERT_bench
+    (
+         (SetBitOn(5,0) ==5) &&  (SetBitOn(5,1) ==7) ,
+        "Add Bits"
+    );
+
+    MMVII_INTERNAL_ASSERT_bench
+    (
+         (SetBitOff(5,0) ==4) &&  (SetBitOff(5,2) ==1) && (SetBitOff(5,1) ==5) && (SetBitOff(5,3) ==5) ,
+        "Supr Bits"
+    );
+
+    StdOut()  << " BBBBBB=" << BitIsOn(5,1) << " " << BitIsOn(5,0) << "\n";
     aParam.EndBench();
 }
 

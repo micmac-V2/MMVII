@@ -2,6 +2,67 @@
 namespace MMVII
 {
 
+template <class FoncBelong,class FoncUDdate,class FoncRestore>
+void Tpl_ConnectedComponent
+     (
+        std::vector<cPt2di> & aVPts,
+        const std::vector<cPt2di> & aNeighbourhood,
+        const  std::vector<cPt2di> & aVecSeed,
+        const FoncBelong& aFBelong,
+        const FoncUDdate& aFUpate,
+        bool doRestore,
+        const FoncRestore & aFRestore,
+        std::vector<int> * aVParent = nullptr,  // Index of "Parent"  allowing to back track arborescence
+        std::vector<int> * aVLeave = nullptr    // vector terminal leave, that are "parents" of none
+     )
+{
+
+    if (aVParent) aVParent->clear();
+
+//    std::cout << "Tpl_ConnectedComponentTpl_ConnectedComponentTpl_ConnectedComponent\n"; // getchar();
+    for (const auto & aPSeed : aVecSeed)
+    {
+        //if (aDIm.GetV(aPSeed) == aMarqInit)
+       if (aFBelong(aPSeed))
+        {
+           aFUpate(aPSeed);
+           aVPts.push_back(aPSeed);
+           if (aVParent)
+               aVParent->push_back(-1);
+        }
+    }
+    size_t aIndBottom = 0;
+
+    while (aIndBottom!=aVPts.size())
+    {
+          cPt2di aP0 = aVPts[aIndBottom];
+          bool hasChild = false;
+          for (const auto & aDelta : aNeighbourhood)
+          {
+              cPt2di aNeigh = aP0 + aDelta;
+              //if (aDIm.GetV(aNeigh)==aMarqInit)
+             if (aFBelong(aNeigh))
+             {
+                  hasChild = true;
+                  aFUpate(aNeigh);
+                  aVPts.push_back(aNeigh);
+                  if (aVParent)
+                      aVParent->push_back(aIndBottom);
+             }
+          }
+          if (!hasChild && aVLeave)
+              aVLeave->push_back(aIndBottom);
+          aIndBottom++;
+    }
+
+    if (doRestore)
+    {
+       for (const auto & aPix : aVPts)
+           aFRestore(aPix);
+    }
+}
+
+
 void ConnectedComponent
      (
          std::vector<cPt2di> & aVPts,
@@ -10,41 +71,30 @@ void ConnectedComponent
          const  std::vector<cPt2di> & aVecSeed,
          int aMarqInit,
          int aNewMarq,
-         bool Restore
+         bool doRestore,
+         std::vector<int> * aVParent,
+         std::vector<int> * aVLeave
+
      )
 {
-    aVPts.clear();
-    for (const auto & aPSeed : aVecSeed)
-    {
-        if (aDIm.GetV(aPSeed) == aMarqInit)
-        {
-           aDIm.SetV(aPSeed,aNewMarq);
-           aVPts.push_back(aPSeed);
-        }
-    }
-    size_t aIndBottom = 0;
 
-    while (aIndBottom!=aVPts.size())
-    {
-          cPt2di aP0 = aVPts[aIndBottom];
-          for (const auto & aDelta : aNeighbourhood)
-          {
-              cPt2di aNeigh = aP0 + aDelta;
-              if (aDIm.GetV(aNeigh)==aMarqInit)
-              {
-                  aDIm.SetV(aNeigh,aNewMarq);
-                  aVPts.push_back(aNeigh);
-              }
-          }
-          aIndBottom++;
-    }
+    cDataIm2D<tU_INT1>  * aPtrDIm = & aDIm;
 
-    if (Restore)
-    {
-       for (const auto & aPix : aVPts)
-           aDIm.SetV(aPix,aMarqInit);
-    }
+
+    Tpl_ConnectedComponent
+    (
+            aVPts,
+            aNeighbourhood,
+            aVecSeed,
+            [aMarqInit,aPtrDIm](const cPt2di & aPix) {return aPtrDIm->GetV(aPix)== aMarqInit; },
+            [aNewMarq,aPtrDIm](const cPt2di & aPix) {aPtrDIm->SetV(aPix,aNewMarq); },
+            doRestore,
+            [aMarqInit,aPtrDIm](const cPt2di & aPix) { aPtrDIm->SetV(aPix,aMarqInit); },
+            aVParent,
+            aVLeave
+    );
 }
+
 
 void ConnectedComponent
      (
@@ -54,12 +104,241 @@ void ConnectedComponent
          const cPt2di& aPtSeed,
          int aMarqInit,
          int aNewMarq,
-         bool Restore
+         bool Restore,
+        std::vector<int> * aVParent,
+        std::vector<int> * aVLeave
      )
 {
     std::vector<cPt2di> aVSeed {aPtSeed};
-    ConnectedComponent(aVPts,aDIm,aNeighbourhood,aVSeed,aMarqInit,aNewMarq,Restore);
+    ConnectedComponent(aVPts,aDIm,aNeighbourhood,aVSeed,aMarqInit,aNewMarq,Restore,aVParent,aVLeave);
 }
+
+/*
+class cResDiameter
+{
+   public :
+       cPt2di mP1;
+       cPt2di mP2;
+
+};*/
+
+std::pair<cPt2di,cPt2di> Diameter
+     (
+        cPt2di aPInit ,
+        cDataIm2D<tU_INT1>  & aDIm,
+        const std::vector<cPt2di> & aNeighbourhood,
+        int aMarqInit,
+        int aNewMarq ,
+        cPt2di * aCenter,
+        std::vector<cPt2di> * aShortestPath
+    )
+{
+   int aNbIter = 0;
+   bool doCont = true;
+   std::pair<cPt2di,cPt2di> aRes(aPInit,aPInit);
+   int aNbStab =0;
+
+   while (doCont)
+   {
+       std::vector<cPt2di> aVPts;
+       ConnectedComponent(aVPts,aDIm,aNeighbourhood,aRes.first,aMarqInit,aNewMarq,true);
+       if (aRes.second == aVPts.back())
+       {
+          aNbStab++;
+          if (aNbStab==2)
+              doCont= false; // return aRes;
+       }
+       else
+       {
+           aNbStab =0;
+           aRes.second = aVPts.back();
+       }
+       aRes.second = aVPts.back();
+       std::swap(aRes.first,aRes.second);
+       aNbIter++;
+
+       if (aNbIter==4)
+           doCont=false;
+   }
+
+   if (aCenter)
+   {
+       std::vector<cPt2di> aVPts;
+       std::vector<cPt2di> aVSeeds{aRes.first,aRes.second};
+
+       ConnectedComponent(aVPts,aDIm,aNeighbourhood,aVSeeds,aMarqInit,aNewMarq,true);
+       *aCenter = aVPts.back();
+   }
+
+   if (aShortestPath)
+   {
+       std::vector<cPt2di> aVPts;
+       std::vector<cPt2di> aVSeeds{aRes.first};
+       std::vector<int> aVParent;
+       std::vector<int> aVLeave;
+
+
+       ConnectedComponent(aVPts,aDIm,aNeighbourhood,aVSeeds,aMarqInit,aNewMarq,true,&aVParent,&aVLeave);
+       aShortestPath->clear();
+
+       int aKP2 = -1;
+       for (const auto & aVec : {&aVParent,&aVLeave})
+       {
+           for (const auto & aKP : *aVec)
+           {
+               if ((aKP>=0) && (aVPts.at(aKP) ==aRes.second))
+               {
+                   aKP2 = aKP;
+                   continue;
+               }
+           }
+       }
+
+       MMVII_INTERNAL_ASSERT_tiny(aKP2!=-1,"Error in shortest-path/diameter");
+       MMVII_INTERNAL_ASSERT_tiny(aVPts.at(aKP2)==aRes.second,"Error in shortest-path/diameter");
+
+       while (aKP2>=0)
+       {
+         aShortestPath->push_back(aVPts.at(aKP2));
+         aKP2 = aVParent.at(aKP2);
+       }
+     //  StdOut() << aRes.first << aShortestPath->back() << "\n";
+
+
+       std::reverse(aShortestPath->begin(),aShortestPath->end());
+       MMVII_INTERNAL_ASSERT_tiny(aShortestPath->front() ==aRes.first,"Error in shortest-path/diameter");
+       MMVII_INTERNAL_ASSERT_tiny(aShortestPath->back() ==aRes.second,"Error in shortest-path/diameter");
+
+
+
+     //  aShortestPath->push_back(aKP2);
+
+   }
+
+   //StdOut() << "NBITEER  " << aNbIter << "\n";
+   return aRes;
+}
+
+
+
+
+
+std::pair<cPt2di,cPt2di> Diameter
+     (
+        const std::vector<cPt2di> & aVPts,
+        cDataIm2D<tU_INT1>  & aDIm,
+        const std::vector<cPt2di> & aNeighbourhood,
+        int aMarqInit,
+        int aNewMarq,
+        cPt2di * aCenter,
+        std::vector<cPt2di> * aShortestPath
+    )
+{
+    for (const auto &aPix :aVPts)
+        aDIm.SetV(aPix,aMarqInit);
+
+    return Diameter(aVPts.at(0),aDIm,aNeighbourhood,aMarqInit,aNewMarq,aCenter,aShortestPath);
+}
+
+
+void FlagBitConnectedComponent
+     (
+         std::vector<cPt2di> & aVPts,
+         cDataIm2D<tU_INT4>  & aDIm,
+         const std::vector<cPt2di> & aNeighbourhood,
+         const  std::vector<cPt2di> & aVecSeed,
+         int aBitIn,
+         int aBitTmp,
+         bool Restore
+     )
+{
+
+    cDataIm2D<tU_INT4>  * aPtrDIm = & aDIm;
+
+
+    Tpl_ConnectedComponent
+    (
+            aVPts,
+            aNeighbourhood,
+            aVecSeed,
+            [aBitIn,aBitTmp,aPtrDIm](const cPt2di & aPix) {auto aV=aPtrDIm->GetV(aPix); return  BitIsOn(aV,aBitIn)&&(!BitIsOn(aV,aBitTmp)); },
+            [aBitTmp,aPtrDIm](const cPt2di & aPix) {SetBitOn(*aPtrDIm,aPix,aBitTmp); },
+            Restore,
+            [aBitTmp,aPtrDIm](const cPt2di & aPix) {SetBitOff(*aPtrDIm,aPix,aBitTmp); }
+
+    );
+}
+
+void BenchConnectedComponent(cParamExeBench & aParam)
+{
+    if (! aParam.NewBench("ConnectedComponent")) return;
+
+    cPt2di aSz (100,120);
+
+    cIm2D<tU_INT1>  anIm(aSz,nullptr,eModeInitImage::eMIA_Null);
+
+    cIm2D<tU_INT4> aImBit(aSz,nullptr,eModeInitImage::eMIA_Null);
+
+
+    // we fill image with regular squae on perido 10x12 with a little hole
+    for (const auto & aPix : anIm.DIm())
+    {
+        int anX = aPix.x() % 10;
+        int anY = aPix.y() % 12;
+
+        bool InsideBig = (anX>=2) && (anX<8) && (anY>=2) && (anY<10);
+        bool InsideSmall = (anX>=4) && (anX<6) && (anY>=4) && (anY<8);
+
+        int aNum = 1+(aPix.x()/10) + (aPix.y()/12);
+
+        if (InsideBig && (!InsideSmall))
+        {
+            anIm.DIm().SetV(aPix,aNum);
+            aImBit.DIm().SetV(aPix,1<<(aNum+1));
+        }
+    }
+
+
+    cIm2D<tU_INT1> anIm0 = anIm.Dup();
+    cIm2D<tU_INT4> aImBit0 = aImBit.Dup();
+
+    const auto & aV8= Alloc8Neighbourhood();
+    int aNbCC = 0;
+    for (const auto & aPix : anIm.DIm())
+    {
+        int aVal = anIm.DIm().GetV(aPix);
+        if (aVal && (aVal<100))
+        {
+            std::vector<cPt2di> aCC;
+            ConnectedComponent(aCC, anIm.DIm(), aV8,{aPix}, aVal, aVal+100 );
+
+            std::vector<cPt2di> aCCBits;
+            FlagBitConnectedComponent(aCCBits, aImBit.DIm(), aV8,{aPix}, 1+aVal, 0 ,true);
+
+           //   StdOut() << "CBBBSz=" << aCCBits.size() << "\n";
+
+            size_t aSzCC = (6*8) -(2*4); // size expected
+            MMVII_INTERNAL_ASSERT_bench( aCC.size()==aSzCC,"Bad CC sz in bench");
+            MMVII_INTERNAL_ASSERT_bench( aCC.size()==aCCBits.size(),"Bad CC sz in bench");
+
+            aNbCC++;
+
+            for (const auto & aPixCC : aCC)
+                anIm0.DIm().AddVal(aPixCC,100);
+        }
+    }
+
+ //   StdOut() << " DISTTT=" << anIm.DIm().LInfDist(anIm0.DIm())  << " " << aImBit.DIm().LInfDist(aImBit0.DIm())  << "\n";
+    MMVII_INTERNAL_ASSERT_bench( aNbCC==100,"Bad CC number in bench");
+
+    MMVII_INTERNAL_ASSERT_bench(anIm.DIm().LInfDist(anIm0.DIm())==0,"Bad Dist Check in bench-CC");
+    MMVII_INTERNAL_ASSERT_bench(aImBit.DIm().LInfDist(aImBit0.DIm())==0,"Bad Dist Check in bench-CC");
+
+
+
+    aParam.EndBench();
+}
+
 
 void MakeImageDist(cIm2D<tU_INT1> aImIn,const std::string & aNameChamfer)
 {
@@ -68,8 +347,6 @@ void MakeImageDist(cIm2D<tU_INT1> aImIn,const std::string & aNameChamfer)
      // const Chamfer & aChamf = Chamfer::ChamferFromName(aNameChamfer);
      // aChamf.im_dist(cMMV1_Conv<tU_INT1>::ImToMMV1(aImIn.DIm())) ;
 }
-/*
-*/
 
 
 };

@@ -28,6 +28,20 @@ template <class Type> Type DbleAreaPolygOriented(const std::vector<cPtxd<Type,2>
     return aRes;
 }
 
+
+
+int IndexClosestPoint(const std::vector<cPt2di> & aVPts,const cPt2dr & aPt)
+{
+    cWhichMin<int,tREAL8> aWMin;
+    for (size_t aKPt=0 ;aKPt<aVPts.size(); aKPt++)
+        aWMin.Add(aKPt,SqN2(aPt-ToR(aVPts.at(aKPt))));
+    return aWMin.IndexExtre();
+}
+const cPt2di & ClosestPoint(const std::vector<cPt2di> & aVPts ,const cPt2dr & aPt)
+{
+    return aVPts.at(IndexClosestPoint(aVPts,aPt));
+}
+
 /* ========================== */
 /*         cBox2di            */
 /* ========================== */

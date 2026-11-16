@@ -72,6 +72,8 @@ template <class TA_Vertex,class TA_Oriented,class TA_Sym>  class cVG_Edge : publ
           inline TA_Oriented & AttrOriented()  {return mAttrO;}  ///<  Accessor to oriented attribute
           inline const TA_Oriented & AttrOriented() const {return mAttrO;}  ///<  Accessor to oriented attribute
  
+          inline TA_Oriented & AttrInvOr()  {return mEdgeInv->mAttrO;}  ///<  Accessor to oriented attribute
+          inline const TA_Oriented & AttrInvOr() const {return mEdgeInv->mAttrO;}  ///<  Accessor to oriented attribute
 
           inline       TA_Sym & AttrSym() ;  ///< Accessor to symetric attribute
           inline const TA_Sym & AttrSym() const ;  ///< Accessor to symetric attribute
@@ -499,7 +501,11 @@ template <class TA_Vertex,class TA_Oriented,class TA_Sym>
         // to do later, if we accept, we must supress eddges in vertices
         // + handle dir init
         // probably do it after implementing remove edge
-        MMVII_INTERNAL_ASSERT_tiny(false,"Ok exist in AddEdge");
+
+        // NO LONGER SEE WHERE IS THE PROBLEM ????
+        // MMVII_INTERNAL_ASSERT_tiny(false,"Ok exist in AddEdge");
+
+        MMVII_INTERNAL_ASSERT_tiny(OkExist,"Ok exist in AddEdge");
 /*
         delete anE12;
         delete anE21;

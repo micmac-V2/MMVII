@@ -92,9 +92,99 @@ cPt3dr Claude_rgbToHsi(double r, double g, double b)
     return {h, s, i};
 }
 
-}; // Claude_HSI_2_RGB
 
+
+
+
+
+struct Lab { double L, a, b; };   // L in [0,100]
+struct RGB8 { uint8_t r, g, b; };
+
+// Blanc de référence D65 (Y = 1)
+constexpr double Xn = 0.95047;
+constexpr double Yn = 1.00000;
+constexpr double Zn = 1.08883;
+
+// Inverse de la fonction f de Lab
+static double LabFInv(double t)
+{
+    constexpr double delta = 6.0 / 29.0;
+    if (t > delta)
+        return t * t * t;
+    return 3.0 * delta * delta * (t - 4.0 / 29.0);
+}
+
+// Correction gamma sRGB (linéaire -> non linéaire)
+static double LinearToSRGB(double c)
+{
+    if (c <= 0.0031308)
+        return 12.92 * c;
+    return 1.055 * std::pow(c, 1.0 / 2.4) - 0.055;
+}
+
+static std::array<double, 3> LabToXYZ(const Lab& lab)
+{
+    const double fy = (lab.L + 16.0) / 116.0;
+    const double fx = fy + lab.a / 500.0;
+    const double fz = fy - lab.b / 200.0;
+    return { Xn * LabFInv(fx), Yn * LabFInv(fy), Zn * LabFInv(fz) };
+}
+
+static std::array<double, 3> XYZToLinearRGB(const std::array<double, 3>& xyz)
+{
+    const double X = xyz[0], Y = xyz[1], Z = xyz[2];
+    return {
+         3.2404542 * X - 1.5371385 * Y - 0.4985314 * Z,
+        -0.9692660 * X + 1.8760108 * Y + 0.0415560 * Z,
+         0.0556434 * X - 0.2040259 * Y + 1.0572252 * Z
+    };
+}
+
+// Conversion Lab -> sRGB en [0,1] (clampé : les couleurs hors gamut sont tronquées)
+std::array<double, 3> LabToRGB(const Lab& lab)
+{
+    auto lin = XYZToLinearRGB(LabToXYZ(lab));
+    std::array<double, 3> rgb;
+    for (int i = 0; i < 3; ++i)
+    {
+        double c = std::clamp(lin[i], 0.0, 1.0);
+        rgb[i] = LinearToSRGB(c);
+    }
+    return rgb;
+}
+
+RGB8 LabToRGB8(const Lab& lab)
+{
+    auto rgb = LabToRGB(lab);
+    auto to8 = [](double v) { return static_cast<uint8_t>(std::lround(v * 255.0)); };
+    return { to8(rgb[0]), to8(rgb[1]), to8(rgb[2]) };
+}
+
+void LAB_main()
+{
+    const Lab tests[] = {
+        {100, 0, 0},        // blanc
+        {0, 0, 0},          // noir
+        {53.24, 80.09, 67.20},   // rouge
+        {87.73, -86.18, 83.18},  // vert
+        {32.30, 79.19, -107.86}  // bleu
+    };
+    for (const auto& lab : tests)
+    {
+        RGB8 c = LabToRGB8(lab);
+        std::cout << "Lab(" << lab.L << ", " << lab.a << ", " << lab.b << ") -> RGB("
+                  << int(c.r) << ", " << int(c.g) << ", " << int(c.b) << ")\n";
+    }
+}
+
+
+
+}; // Claude_HSI_2_RGB
 using namespace Claude_HSI_2_RGB;
+
+
+
+
 /*   END CLAUDE */
 
 /// MMVII interface, almost nothing, just use radian + RGB in [0,255]
@@ -126,6 +216,42 @@ cPt3dr RGB_2_HSI(const cPt3di & aRGB_MMV2)
     */
     return cPt3dr(AngleToRad(aHSi.x(),eTyUnitAngle::eUA_degree),aHSi.y(),aHSi.z());
 }
+
+//  A [-86 98]  B [-108,94]
+cPt3di LAB_2RGB(const cPt3dr & aLAB0,tREAL8 anAtten)
+{
+    Lab aL1;
+    aL1.L =   aLAB0.x() / 2.55;
+    aL1.a =   (aLAB0.y() / 1.38 - 86.0) * anAtten ;
+    aL1.b =   (aLAB0.z() / 1.26  - 108.0) * anAtten;
+
+    RGB8 aRGB8  = LabToRGB8(aL1);
+
+    return cPt3di(aRGB8.r,aRGB8.g,aRGB8.b);
+}
+
+cPt3di  cRGBImage::KthRandomCol(int aNum)
+{
+    return  cPt3di((53*aNum)%256,(137*(aNum+1))%256,(109*(aNum+2))%256);
+}
+
+cPt3di  cRGBImage::KthRandomCol(tREAL8 aGray,int aNum,tREAL8 anAtten)
+{
+    return LAB_2RGB
+            (
+                cPt3dr
+                (
+                   aGray,
+                   (53*aNum)%256,
+                   (137*(aNum+1))%256
+                ),
+                anAtten
+            );
+}
+
+
+// generate pseudo random coul with fixed gray "majic" formula with prime numbers
+//static cPt3di  KthRandomCol(tREAL8 aGray,int aNum);
 
 
 const cPt3di cRGBImage::Red(255,0,0);

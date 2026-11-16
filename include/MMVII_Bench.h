@@ -116,6 +116,9 @@ void BenchSerialization(cParamExeBench & aParam,const std::string & aDirOut,cons
 // Test generation of random subet for ransac
 void BenchRansSubset(cParamExeBench & aParam);
 
+///  Bench on connected component computation
+void BenchConnectedComponent(cParamExeBench & aParam);
+
 
 //  void BenchGlob();      ///< All Bench
 
@@ -131,6 +134,9 @@ void BenchAPBI(cParamExeBench & aParam);
 void BenchFilterImage1(cParamExeBench & aParam);
 void BenchFilterLinear(cParamExeBench & aParam);
 void BenchGeom(cParamExeBench & aParam);
+void BenchApproxPoly(cParamExeBench & aParam);
+
+
 void BenchPlane3D();
 void BenchPlaneInter();
 

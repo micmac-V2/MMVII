@@ -89,6 +89,21 @@ void cAppliNewFrange::OneWayIntegrateTangent(int aDy,int aYLim)
     }
 }
 
+int cAppliNewFrange::ComputeZoneYCenter(int aDy,int aYLim)
+{
+    tREAL8 mMinSep = 100.0;
+
+    for (int aY=mYC+aDy  ; aY!= aYLim ; aY+= aDy)
+    {
+        tREAL8 aSepTh = mIntervMax / (1.0 + std::abs(mDImTgt->GetV(aY)));
+
+        //StdOut() << " ComputeZoneYCenter " <<  aSepTh << " \n";
+        if (aSepTh<mMinSep)
+            return aY;
+    }
+
+    return aYLim -aDy;
+}
 
 
 tREAL8 AdaptTetaPos(tREAL8 aTeta,tREAL8 aMaxTeta)
@@ -106,23 +121,43 @@ tREAL8 AdaptTetaNeg(tREAL8 aTeta,tREAL8 aMaxTeta)
 }
 
 
-
-
-
-void cAppliNewFrange::DoTensorProcessing()
+void cAppliNewFrange::DoTensorProcessing(bool isFirst,bool isLast)
 {
     // Compute the deriche gradient
    // mImGrad = Deriche(*mDImRed,mDerFactZ1*mZoomRed);
 
-    tIm aImBlurGrad = mImRed.Dup();
-    ExpFilterOfStdDev(aImBlurGrad.DIm(),5,mSigTensors.mSigmaGradX,mSigTensors.mSigmaGradY);
-    mImGrad = Sobel(aImBlurGrad.DIm());
-
+    if (isFirst)
+    {
+        // make a little blurr on image
+       tIm aImBlurGrad = mImRed.Dup();
+       ExpFilterOfStdDev(aImBlurGrad.DIm(),5,mSigTensors.mSigmaGradX,mSigTensors.mSigmaGradY);
+       mImGrad = Sobel(aImBlurGrad.DIm());
+    }
     mImTens = cTensor<tElIm>::Grad2Tens(mImGrad);
-    // Regularize 2D images of tensor
-    ExpFilterOfStdDev(*mImTens.mDGx,5,mSigTensors.mSigmaTensX,mSigTensors.mSigmaTensY);
-    ExpFilterOfStdDev(*mImTens.mDGy,5,mSigTensors.mSigmaTensX,mSigTensors.mSigmaTensY);
 
+
+    // Regularize 2D images of tensor
+    if (isFirst)
+    {
+       ExpFilterOfStdDev(*mImTens.mDGx,5,mSigTensors.mSigmaTensX,mSigTensors.mSigmaTensY);
+       ExpFilterOfStdDev(*mImTens.mDGy,5,mSigTensors.mSigmaTensX,mSigTensors.mSigmaTensY);
+    }
+    else
+    {
+        cIm1D<tREAL4>  aImLine(mSzRed.x());
+        for (auto & aImGrad : {mImTens.mDGx, mImTens.mDGy})
+        {
+            ExpFilterOfStdDev(*aImGrad,5,0.0,mSigTensors.mSigmaTensY);
+
+            for (int anY=0 ; anY<mSzRed.y(); anY++)
+            {
+                tREAL8 aSigma = mIntervMax / (4.0+ std::abs(mDImTgt->GetV(anY)));
+                aImGrad->WriteLine(aImLine.DIm(),anY);
+                ExpFilterOfStdDev(aImLine.DIm(),5,aSigma);
+                aImGrad->ReadLine(aImLine.DIm(),anY);
+            }
+        }
+    }
 
 
     mImCumNormT = tIm1D(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
@@ -233,43 +268,22 @@ void cAppliNewFrange::DoTensorProcessing()
      OneWayIntegrateTangent(-1,-1);
      OneWayIntegrateTangent(1,mSzRed.y());
 
-     if (1)
+
+
+    /* if (1)
      {
         ComputeMaxRadCenter();
      }
      else
      {
          ComputeSumOnIntegralCurve();
-     }
+     }*/
      ExtractMaxSumIC();
 
 
-
-     {
-         // Resize ImMaxLoc
-         mImMaxLocTD = cIm2D<tU_INT1> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
-         mDImMaxLocTD = &(mImMaxLocTD.DIm());
-
-
-         // tentative extraction of centers of lines as maxima of grey
-         // in direction of tensor
-         int aBorder = 5;
-         std::vector<cPt2dr> aVN;
-         for (const auto & aPix : mDImMaxLocTD->Interior(aBorder))
-         {
-             cPt2dr aDirTens = ToR(cTensor<tElIm>::Tens2Grad(mImTens.Grad(aPix),1.0));
-
-             tREAL8 aV0 =mDImRedBlur->GetV(aPix);
-             if (      (aV0>mDImRedBlur->GetVBL(ToR(aPix)+aDirTens))
-                   &&   (aV0>mDImRedBlur->GetVBL(ToR(aPix)-aDirTens))
-                )
-             {
-                 mDImMaxLocTD->SetV(aPix,1);
-             }
-         }
-     }
-
+     ComputeRadiomCste();
 }
+
 
 
 

@@ -316,6 +316,8 @@ template <> class tElemNumTrait<tU_INT1> : public tBaseNumTrait<tStdInt>
         static bool   Signed() {return false;}
         static eTyNums   TyNum() {return eTyNums::eTN_U_INT1;}
         typedef tREAL4   tFloatAssoc;
+        typedef tINT8    tBig;
+
 };
 template <> class tElemNumTrait<tU_INT2> : public tBaseNumTrait<tStdInt>
 {
@@ -986,6 +988,12 @@ cPt2di MaxRunLength(tU_INT4 aVal,size_t aPow2);
 cPt2di MaxRunLength(tU_INT4 aVal,size_t aPow2,std::vector<cPt2di> & aV0,std::vector<cPt2di> & aV1);
 /// Max of both run (0 and 1)
 size_t MaxRun2Length(tU_INT4 aVal,size_t aPow2);
+
+inline bool BitIsOn(tU_INT4 aFlagB,int aNumB) {return (aFlagB&(1<<aNumB)) !=0;}
+inline tU_INT4 SetBitOn(tU_INT4 aFlagB,int aNumB) {return aFlagB | (1<<aNumB);}
+inline tU_INT4 SetBitOff(tU_INT4 aFlagB,int aNumB) {return aFlagB &  (~ (1<<aNumB));}
+inline tU_INT4 FlagOfBit(int aNumB) {return  (1<<aNumB);}
+
 
 /// Low level function, read the pair Num->Code in a file
 void  ReadCodesTarget(std::vector<cPt2di> & aVCode,const std::string & aNameFile);
