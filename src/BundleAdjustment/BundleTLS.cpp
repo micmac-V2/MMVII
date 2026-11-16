@@ -6,7 +6,7 @@
 namespace MMVII
 {
 
-#define NUMPATCHDEBUG 10
+//#define NUMPATCHDEBUG 10
 //#define SCANSCANDEBUG 10
 //#define EXPORTREPROJLIDAR
 
@@ -1374,10 +1374,12 @@ void cBA_TLS_PhotoTieP::ShowStats()
     StdOut() << Color::argument << " *[TLS-PhotoTieP]: " << Color::end
              << Color::descr << " Weighted="  << Color::end << mWeigthedRes.Average(-1)
              << Color::descr << " NbObs=" << Color::end  << mWeigthedRes.Nb()
+             << " " << 100.*mWeigthedRes.Nb()/mNbUsableObs<<"%"
              << "\n";
         ;
 
     mWeigthedRes.Reset();
+    mNbUsableObs=0;
 }
 
 void cBA_TLS_PhotoTieP::AddObs(cSetIORSNL_SameTmp<tREAL8> &aStrSubst, const cPt3dr & aTiePGround)

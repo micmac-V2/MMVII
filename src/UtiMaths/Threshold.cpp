@@ -35,7 +35,7 @@ double cVarThreshold::GetThreshold(int aIter, int aNbMaxIter) const
             aThreshold = mThresholdFinal + (mThresholdInit - mThresholdFinal) * (1. + cos(M_PI * float(aIter)/aNbIterFinalTh ))/2. ;
     }
 
-    std::cout << "up weighters, th="<<aThreshold<<"\n";
+    //std::cout << "up weighters, th="<<aThreshold<<"\n";
     if (aThreshold>10000)
         aThreshold = -1;
     return aThreshold;

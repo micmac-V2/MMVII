@@ -2060,7 +2060,7 @@ void cStaticLidar::MakePatches
     auto & aRasterDistData = GetRasterDistance();
     auto & aRasterMaskData = GetRasterMask();
 
-    #define NUMMAKEPATCHDEBUG 1000
+    //#define NUMMAKEPATCHDEBUG 1000
 
     // shortcut if only 1 point needed: just get the centers
     if (aNbPointByPatch==1)
