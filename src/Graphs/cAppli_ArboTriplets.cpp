@@ -84,6 +84,7 @@ void DbgFlushMergeSol(cMakeArboTriplet& aPMAT)
 #endif // MMVII_DBG_HSFM_SAVE_MERGE
 
 static constexpr size_t TheMinTriPerImage = 3;    ///< never disconnect an image
+static constexpr size_t TheMinJudgedPairs = 2;    ///< below this number, a triplet cannot be verified by its neighbours
 
 /// Drop the triplets whose relative rotations disagree with the other triplets sharing their pairs
 void FilterTripletsByCycleConsistency(std::vector<cDataSolOriTriplet> & a3Set,tREAL8 aCycleThr,bool aVerbose)
@@ -93,7 +94,7 @@ void FilterTripletsByCycleConsistency(std::vector<cDataSolOriTriplet> & a3Set,tR
     //  cRotation3D::Dist is the Frobenius norm |R1-R2| = 2*sqrt(2)*sin(theta/2)
     const tREAL8 aThrDist = 2.0*std::sqrt(2.0)*std::sin((aCycleThr*M_PI/180.0)/2.0);
 
-    //  ---  every estimate of every image pair, keyed by the pair of names  ---
+    // every estimate of every image pair, keyed by the pair of names
     typedef std::pair<std::string,std::string>            tKeyPair;
     typedef std::pair<size_t,cRotation3D<tREAL8>>         tEstim;   //< num of triplet, rotation>
     std::map<tKeyPair,std::vector<tEstim>> aEstimOfPair;
@@ -114,7 +115,7 @@ void FilterTripletsByCycleConsistency(std::vector<cDataSolOriTriplet> & a3Set,tR
             }
     }
 
-    //  ---  for each estimate, its median distance to the other estimates of the same pair  ---
+    //  for each estimate, its median distance to the other estimates of the same pair
     std::vector<std::vector<tREAL8>> aVIncOfTri(a3Set.size());
     for (const auto & [aKey,aVEst] : aEstimOfPair)
     {
@@ -129,18 +130,24 @@ void FilterTripletsByCycleConsistency(std::vector<cDataSolOriTriplet> & a3Set,tR
         }
     }
 
-    //  ---  score of a triplet : median over its (at most 3) judged pairs  ---
+    //   score of a triplet: median over its (at most 3) judged pairs
     std::vector<tREAL8> aVScore(a3Set.size(),-1.0);   // -1 : no judged pair, do not judge
     for (size_t aKT=0 ; aKT<a3Set.size() ; aKT++)
         if (! aVIncOfTri.at(aKT).empty())
             aVScore.at(aKT) = NonConstMediane(aVIncOfTri.at(aKT));
 
-    //  ---  drop, worst first, never disconnecting an image  ---
+    //   drop the worst first, never disconnecting an image
     std::vector<size_t> aVOrder;
     for (size_t aKT=0 ; aKT<a3Set.size() ; aKT++)
         if (aVScore.at(aKT)>aThrDist) aVOrder.push_back(aKT);
     std::sort(aVOrder.begin(),aVOrder.end(),
               [&aVScore](size_t aI,size_t aJ){return aVScore.at(aI)>aVScore.at(aJ);});
+
+    //   with a single "judged pair", a triplet wrong on its two other pairs
+    //  looks perfect because it is only judged on one correct pair
+    for (size_t aKT=0 ; aKT<a3Set.size() ; aKT++)
+        if ((aVIncOfTri.at(aKT).size()<TheMinJudgedPairs) && (aVScore.at(aKT)<=aThrDist))
+            aVOrder.push_back(aKT);
 
     std::map<std::string,size_t> aNbOfIm;
     for (const auto & a3 : a3Set)
