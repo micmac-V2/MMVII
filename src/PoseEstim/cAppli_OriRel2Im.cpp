@@ -48,6 +48,9 @@ void AddData(const  cAuxAr2007 & anAux,cCdtFinalPoseRel2Im & aCdt)
 /*        Constructor, Destructor, Accessor, Modier   */
 /* -------------------------------------------------- */
 
+/// cap (pixels) of the per-point residual in the pose score, so an outlier costs at most this (in front or behind)
+static constexpr tREAL8 TheMaxResPixScore = 20.0;
+
 cEstimatePosRel2Im::cEstimatePosRel2Im
 (
     const  std::string& aIm1,
@@ -153,6 +156,10 @@ tREAL8 cEstimatePosRel2Im::RnkW_ScorePose (const tPoseR& aPose,const cSetHomogCp
 {
     std::vector<tREAL8> aVRes;
     EstimateResidual(aVRes,aPose,aSetDir);
+
+    // cap residuals at TheMaxResPixScore
+    for (auto & aRes : aVRes)
+        aRes = std::min(aRes,TheMaxResPixScore/mFocMoy);
 
    //  return Average(aVRes); not significative gain in time & worst in result
     return RankWeigthedAverage(aVRes,1.0,false); // 1.0 Exp , false no cos transfo
