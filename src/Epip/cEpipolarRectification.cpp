@@ -436,7 +436,7 @@ cEpipPolyModel cEpipolarRectification::Compute()
         std::make_unique<cEpipPolyMapping>(aV1,aW1,aCenter1,aDir1,aZInterval1,aGridStep1,aNbStepX1,aNbStepY1),
         std::make_unique<cEpipPolyMapping>(aV2,aW2,aCenter2,aDir2,aZInterval2,aGridStep2,aNbStepX2,aNbStepY2),
     };
-    anEpipPolyModel.ComputeCommonFraming(mCam1.PixelDomain().Box(),mCam2.PixelDomain().Box(),mParams.mEpipFrm, mParams.mMargin);
+    anEpipPolyModel.ComputeCommonFraming(mCam1.PixelDomain().Box(),mCam2.PixelDomain().Box(),mParams.mEpipFrm, 2);  // fixed 2 px margin
 
     if (! mParams.mNoWarnings)
     {

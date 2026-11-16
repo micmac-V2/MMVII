@@ -117,7 +117,7 @@ struct cLidarPhotoParam
         Interp,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Interpolator used to sample images"}}),
         ScaleInit,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Interpolator scale at first iteration"}}),
         ScaleFinal,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Interpolator scale at last iteration"}}),
-        Threshold,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold for hidden points, <0 = no threshold"}}),
+        Threshold,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Value diff threshold for hidden points, <0 = no threshold (0-1)"}}),
         NbPtsPerPatch,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Approximate number of points per patch"}})
         )
 };
@@ -142,6 +142,22 @@ struct cLidarLidarParam
         ModeWeighterAngle,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Weighter Angle"}}),
         InterpD,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Distance interpolator"}})
         )
+};
+
+struct cTLS_photoTieP_Param
+{
+    double Sigma;
+    double ThresholdDistInit = 0.1;
+    double ThresholdDistFinal = 0.001;
+    cWeighterParam ModeWeighterDist;
+    std::vector<std::string> InterpD = {"Linear"};
+    ARG2007_STRUCT_FIELDS (
+        Sigma,FieldSem({eTA2007::AddCom,"Sigma factor"}),
+        ThresholdDistInit,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold at first iteration, <0 = infinite"}}),
+        ThresholdDistFinal,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Distance threshold at last iteration, <0 = infinite"}}),
+        ModeWeighterDist,FieldSem({eTA2007::HDV,{eTA2007::AddCom,"Weighter Dist"}}),
+        InterpD,FieldSem({eTA2007::HDV,eTA2007::Interpol,{eTA2007::AddCom,"Distance interpolator"}})
+    )
 };
 
 struct cAddTieP
@@ -259,8 +275,9 @@ class cAppliBundlAdj : public cMMVII_Appli
         cRefOriParam              mParamRefOri;  // Force Poses to be +- equals to this reference
 
         std::vector<cLidarPhotograParam>  mParamLidarPhgr; // parameters for photogra/lidar adj via triangulation
-        std::vector<cLidarPhotoParam>     mParamLidarPhoto; // parameters for photogra/lidar adj via rasterization
-        std::vector<cLidarLidarParam>     mParamLidarLidar; // parameters for lidar-lidar adj
+        std::vector<cLidarPhotoParam>     mParamTLSPhoto; // parameters for photogra/lidar adj via rasterization
+        std::vector<cLidarLidarParam>     mParamTLSTLS; // parameters for lidar-lidar adj
+        cTLS_photoTieP_Param              mParamTLS_PhotoTieP; //parameters photo tie points proj on TLS scans
 
         int                       mNbIter;
 
@@ -340,8 +357,9 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
       << cHeaderSectionArg("Lidar")
       << AOpt2007 ( mParamLidarPhgr,  "LidarPhotogra", "Lidar/Phgr adj via triangulation",  {eTA2007::CanRepeat})
-      << AOpt2007 ( mParamLidarPhoto, "LidarPhoto",    "Lidar/Phgr adj via rasterisation",  {eTA2007::CanRepeat})
-      << AOpt2007 ( mParamLidarLidar, "LidarLidar",    "Lidar/Lidar adj via rasterisation", {eTA2007::CanRepeat})
+      << AOpt2007 ( mParamTLSPhoto, "LidarPhoto",    "TLS-Photo constraints",  {eTA2007::CanRepeat})
+      << AOpt2007 ( mParamTLSTLS, "LidarLidar",    "TLS-TLS constraints", {eTA2007::CanRepeat})
+      << AOpt2007 ( mParamTLS_PhotoTieP, "TLSPhotoTieP",    "TLS-Photo TieP constraints")
 
       << cHeaderSectionArg("Freeze")
       << AOpt2007(mPatParamFrozCalib,"PPFzCal","Pattern for freezing internal calibration parameters")
@@ -532,6 +550,12 @@ int cAppliBundlAdj::Exe()
         mBA.AddGCP2D(aMes2DDirInfo, aSetMesPtOf1Im, nullptr, eLevelCheck::NoCheck);
     }
 
+    if (IsInit(&mParamTLS_PhotoTieP))
+        mBA.AddAdjTLS_PhotoTieP(mParamTLS_PhotoTieP.Sigma,
+                            mParamTLS_PhotoTieP.ThresholdDistInit,
+                            mParamTLS_PhotoTieP.ThresholdDistFinal,
+                            mParamTLS_PhotoTieP.InterpD,
+                            mParamTLS_PhotoTieP.ModeWeighterDist);
 
     if (IsInit(&mTiePWeight))
     {
@@ -587,17 +611,17 @@ int cAppliBundlAdj::Exe()
                                  aParam.Pertubate, aParam.NbPtsPerPatch,aParam.Param);
     }
 
-    for (const auto & aParam : mParamLidarPhoto)
+    for (const auto & aParam : mParamTLSPhoto)
     {
         mMeasureAdded = true;
-        mBA.Add1AdjLidarPhoto(aParam.Mode, aParam.PatScan, aParam.Sigma, aParam.Interp,
+        mBA.Add1AdjTLSPhoto(aParam.Mode, aParam.PatScan, aParam.Sigma, aParam.Interp,
                               aParam.ScaleInit, aParam.ScaleFinal, aParam.Threshold, aParam.NbPtsPerPatch);
     }
 
-    for (const auto & aParam : mParamLidarLidar)
+    for (const auto & aParam : mParamTLSTLS)
     {
         mMeasureAdded = true;
-        mBA.Add1AdjLidarLidar(aParam.PatScan, aParam.Sigma, aParam.ThresholdInit,
+        mBA.Add1AdjTLSTLS(aParam.PatScan, aParam.Sigma, aParam.ThresholdInit,
                               aParam.ThresholdFinal, aParam.NormalTolDeg, aParam.InterpD, aParam.ModeWeighterDist, aParam.ModeWeighterAngle);
     }
 

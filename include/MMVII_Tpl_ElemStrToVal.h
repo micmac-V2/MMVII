@@ -298,8 +298,16 @@ template <class Type> class cInstReadOneArgCL2007 : public cSpecOneArg2007
             }
             else if constexpr (is_vector_of_struct_args_v<Type>)
             {
+// GCC 15 false positive: aValue{} initializes every field (maybe-uninitialized on its EH cleanup)
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
                 typename Type::value_type aValue{};
                 mStructFields = std::move(aValue.Arg2007Fields());
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
             }
             else if constexpr (std::is_enum_v<Type>)
             {

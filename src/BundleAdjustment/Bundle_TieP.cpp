@@ -9,7 +9,7 @@ namespace MMVII
     /*            Tie Points                    */
     /* ---------------------------------------- */
 
-cBA_TieP::cBA_TieP(const std::string & aName,cComputeMergeMulTieP* aMTP,const cStdWeighterResidual &aResW):
+cBA_TieP::cBA_TieP(const std::string & aName, cComputeMergeMulTieP* aMTP, const cStdWeighterResidual &aResW):
     mName           (aName),
     mMTP            (aMTP),
     mTieP_Weighter  (aResW)
@@ -43,6 +43,10 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
    cComputeMergeMulTieP * aMTP = aBA_TieP.mMTP;
    const cStdWeighterResidual&    aTieP_Weighter = aBA_TieP.mTieP_Weighter;
 
+   if (mBA_TLS_PhotoTieP)
+       mBA_TLS_PhotoTieP->UpdateWeightersMap();
+
+
    // update the bundle point by 3D-intersection:
    // To see : maybe don't update each time; probably add some robust option
    aMTP->SetPGround();
@@ -52,10 +56,8 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
    bool doStatRes = ! mTiePShowPerMil.empty();
 
    cWeightAv<tREAL8> aUnWeightedRed; ///< MPD : a conserver, ils ont mysterieusement disparus; mais il sont pourtant tres utiles
-   for (const auto & aPair : aMTP->Pts())
+   for (const auto & [aConfig, aVals] : aMTP->Pts())
    {
-       const auto & aConfig  = aPair.first;
-
        // local vector of sensor & colinearity equation, directly indexale in [0,NbIm]
        std::vector<cSensorImage *> aVS ;
        std::vector<cCalculator<double> *> aVEqCol ;
@@ -66,7 +68,6 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
            aVEqCol.push_back(mVSIm.at(aKIm)->GetEqColinearity());
        }
 
-       const auto & aVals  = aPair.second;
        size_t aNbIm = aConfig.size();
        size_t aNbPts = aVals.mVPGround.size();
 
@@ -119,7 +120,13 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
 
            // if at least 2 tie-point, we can add equation with schurr-complement
            if (aNbEqAdded>=2)
-              mSys->R_AddObsWithTmpUK(aStrSubst,mCurLVMParam);  // finnaly add obs accummulated
+           {
+               if (mBA_TLS_PhotoTieP)
+               {
+                   mBA_TLS_PhotoTieP->AddObs(aStrSubst, aPGr);
+               }
+               mSys->R_AddObsWithTmpUK(aStrSubst,mCurLVMParam);  // finally add obs accummulated
+           }
        }
 
    }
@@ -144,6 +151,9 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
    }
 
    StdOut() << std::endl;
+
+   mBA_TLS_PhotoTieP->ShowStats();
+
 }
 
 void cMMVII_BundleAdj::OneItere_TieP()

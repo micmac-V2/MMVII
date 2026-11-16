@@ -129,6 +129,7 @@ cMMVII_BundleAdj::cMMVII_BundleAdj(cPhotogrammetricProject * aPhp) :
     //mSigmaGCP         (-1),
 
     mTopo             (nullptr),
+    mBA_TLS_PhotoTieP (nullptr),
     mFolderRefCam     (""),
     mSigmaTrRefCam    (-1.0),
     mSigmaRotRefCam   (-1.0),
@@ -166,7 +167,10 @@ cMMVII_BundleAdj::~cMMVII_BundleAdj()
     delete mRUCSUR;
     // DeleteAllAndClear(mGCP_UK);
     DeleteAllAndClear(mVBA_Lidar);
-    DeleteAllAndClear(mVBA_LidarLidar);
+    DeleteAllAndClear(mVBA_TLS_photo);
+    DeleteAllAndClear(mVBA_TLS_TLS);
+    if (mBA_TLS_PhotoTieP)
+        delete mBA_TLS_PhotoTieP;
 
     DeleteLineAdjust();
     DeleteBlockInstr();
@@ -515,15 +519,14 @@ void cMMVII_BundleAdj::OneIteration(bool isFirstIter, tREAL8 aLVM, bool doShowCo
     OneItere_GCP();   // add GCP informations
     OneItere_TieP();  // ad tie-points information
 
-
-                      //
-
-
     for (const auto & aLidarPh : mVBA_Lidar )
         aLidarPh->AddObs();
 
-    for (const auto & aLidarLidar : mVBA_LidarLidar )
-        aLidarLidar->AddObs();
+    for (const auto & aTLSPhoto : mVBA_TLS_photo )
+        aTLSPhoto->AddObs();
+
+    for (const auto & aTLSTLS : mVBA_TLS_TLS )
+        aTLSTLS->AddObs();
 
     // Add observation for line adjustment
     IterAdjustOnLine();
@@ -985,11 +988,11 @@ void cMMVII_BundleAdj::Add1AdjLidarPhotogra(eImatchCrit aMode, const std::string
     mVBA_Lidar.push_back(new cBA_LidarPhotograTri(mPhProj, *this, aMode, aPlyFile, aSigma, aInterp, aPertubate, aNbPtsPerPatch, aAdditionalParam));
 }
 
-void cMMVII_BundleAdj::Add1AdjLidarPhoto(eImatchCrit aMode, const std::string & aPatScan, double aSigma,
+void cMMVII_BundleAdj::Add1AdjTLSPhoto(eImatchCrit aMode, const std::string & aPatScan, double aSigma,
                                          const std::vector<std::string> & aInterp, double aScaleInit, double aScaleFinal,
                                          double aThreshold, int aNbPtsPerPatch)
 {
-    mVBA_Lidar.push_back(new cBA_LidarPhotograRaster(mPhProj, *this, aMode, aPatScan, aSigma, aInterp,
+    mVBA_TLS_photo.push_back(new cBA_TLS_photo(mPhProj, *this, aMode, aPatScan, aSigma, aInterp,
                                                      aScaleInit, aScaleFinal, aThreshold, aNbPtsPerPatch));
 }
 
@@ -999,7 +1002,6 @@ bool cMMVII_BundleAdj::AddStaticLidar(cStaticLidar* aStaticLidar)
 
     if (mMapTLS.count(aStaticLidar->NameImage())==0)
     {
-        aStaticLidar->ReadRasters(mPhProj->DirStaticLidarRasters());
         MMVII_INTERNAL_ASSERT_tiny (mMapTLS.count(aStaticLidar->NameImage())==0,"Multiple add of TLS : " + aStaticLidar->NameImage());
         mMapTLS[aStaticLidar->NameImage()] = aStaticLidar;
     }
@@ -1008,14 +1010,20 @@ bool cMMVII_BundleAdj::AddStaticLidar(cStaticLidar* aStaticLidar)
 
 const std::unordered_map<std::string, cStaticLidar *> &cMMVII_BundleAdj::MapTLS() const {return mMapTLS;}
 
-void cMMVII_BundleAdj::Add1AdjLidarLidar(const std::string & aPatScan, double aSigma, double aThresholdInit,
+void cMMVII_BundleAdj::Add1AdjTLSTLS(const std::string & aPatScan, double aSigma, double aThresholdInit,
                                          double aThresholdFinal, double aNormalTolDeg, const std::vector<std::string> & aInterpD,
                                          const cWeighterParam & aWParamDist, const cWeighterParam & aWParamAngle)
 {
-    mVBA_LidarLidar.push_back(new cBA_LidarLidarRaster(mPhProj, *this, aPatScan, aSigma, aThresholdInit,
+    mVBA_TLS_TLS.push_back(new cBA_TLS_TLS(mPhProj, *this, aPatScan, aSigma, aThresholdInit,
                                                        aThresholdFinal, aNormalTolDeg, aInterpD, aWParamDist, aWParamAngle));
 }
 
+
+void cMMVII_BundleAdj::AddAdjTLS_PhotoTieP(double aSigma, double aThresholdDistInit, double aThresholdDistFinal,
+                                           const std::vector<std::string> & aInterpD, const cWeighterParam & aWParamDist)
+{
+    mBA_TLS_PhotoTieP = new cBA_TLS_PhotoTieP(mPhProj, this, aSigma, aThresholdDistInit, aThresholdDistFinal, aInterpD, aWParamDist);
+}
 
 /* ---------------------------------------- */
 /*                 Topo                     */
@@ -1032,7 +1040,7 @@ void cMMVII_BundleAdj::SaveTopo()
 
 void cMMVII_BundleAdj::AddTopo() // TOPO
 {
-    mTopo = new cBA_Topo(mPhProj, &mGCP);
+    mTopo = new cBA_Topo(mPhProj, this);
     mTopo->AddPointsFromDataToGCP( mPhProj);
 }
 

@@ -20,13 +20,13 @@ cTopoPoint::cTopoPoint() :
 }
 
 
-void cTopoPoint::findUK(const cBA_GCP & aBA_GCP, cPhotogrammetricProject *aPhProj)
+void cTopoPoint::findUK(cMMVII_BundleAdj & aBA, cPhotogrammetricProject *aPhProj)
 {
 #ifdef VERBOSE_TOPO
     StdOut() << "findUK "<<mName<<": ";
 #endif
     MMVII_INTERNAL_ASSERT_strong(!isReady(), "double cTopoPoint::findOrMakeUK for point "+mName);
-
+    cBA_GCP & aBA_GCP = aBA.getGCP();
     // search among GCP
     for (unsigned int i=0; i<aBA_GCP.getMesGCP().MesGCP().size(); ++i )
     {
@@ -46,16 +46,18 @@ void cTopoPoint::findUK(const cBA_GCP & aBA_GCP, cPhotogrammetricProject *aPhPro
     // search among cameras
     if (aPhProj && aPhProj->IsOriInDirInit())
     {
-        cSensorCamPC * aCam = aPhProj->ReadCamPC(mName, true, true);
-        if (aCam)
+        for (auto & aCamPC: aBA.VSCPC())
         {
-            mUK = aCam;
-            mPt = &aCam->Center();
-            mInitCoord = *mPt;
+            if (aCamPC->NameImage()==mName)
+            {
+                mUK = aCamPC;
+                mPt = &aCamPC->Center();
+                mInitCoord = *mPt;
 #ifdef VERBOSE_TOPO
-            StdOut() << "is a camera\n";
+                StdOut() << "is a camera\n";
 #endif
-            return;
+                return;
+            }
         }
     }
 

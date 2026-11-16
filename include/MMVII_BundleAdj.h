@@ -64,6 +64,29 @@ class cCorresp32_BA
          cResolSysNonLinear<double> *       mSys;   ///< Solver
 };
 
+/**
+ * @brief The cVarThreshold class computes a threshold interpolated between
+ * aThresholdInit and aThresholdFinal, depending on the current iteration.
+ * The standard interpolation is in cosinus (slowly changing at start and end, quickly in the middle).
+ * The interpolation can happen only on a part of the iterations:
+ * aPartShrinking = 0.75 means that the last 25% of iterations are all at aThresholdFinal.
+ * if isLinear, the interpolation is linear instead of cos.
+ *
+ * a value >10000 is transformed into -1 (meaning no limit for weighters)
+ */
+class cVarThreshold
+{
+public:
+    cVarThreshold(double aThresholdInit, double aThresholdFinal,
+                  float aPartShrinking = 0.6, bool aIsLinear=false);
+    double GetThreshold(int aIter, int aNbMaxIter) const;
+    bool HasChangedSincePreviousIter(int aIter, int aNbMaxIter) const;
+protected:
+    double mThresholdInit, mThresholdFinal;
+    float mPartShrinking;
+    bool mIsLinear;
+};
+
 };  //  MMVII
 
 #endif  //  _MMVII_BUNDLE_ADJ_H_

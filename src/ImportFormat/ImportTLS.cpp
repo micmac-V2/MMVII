@@ -339,9 +339,15 @@ void cAppli_ImportTLS::computeAngStartStep()
         // theta step may be bad because of looping between any col. compute median of diff theta between col for several lines near the center
         // fill theta raster
         std::unique_ptr<cIm2D<tREAL4>> aRasterTheta;
-        mSL_importer.fillRaster<tREAL4>(
-            [&aVectPtsTPD = mSL_importer.mVectPtsTPD](int i){auto aPtTPD = aVectPtsTPD[i];return aPtTPD.x();},
+        mSL_importer.fillRawRaster<tREAL4>(
+            //[&aVectPtsTPD = mSL_importer.mVectPtsTPD](int i){auto aPtTPD = aVectPtsTPD[i];return aPtTPD.x();},
+            [](int i, const void* ctx) {
+                auto& importer = *static_cast<const cStaticLidarImporter*>(ctx);
+                return importer.mVectPtsTPD[i].x();
+            },
+            &mSL_importer,
             aRasterTheta);
+
         //aRasterTheta->DIm().ToFile("dbg_theta.tif");
         std::vector<tREAL8> aVdiffTheta;
         aVdiffTheta.reserve(mSL_importer.NbCol());
@@ -362,8 +368,13 @@ void cAppli_ImportTLS::computeAngStartStep()
 
 
         std::unique_ptr<cIm2D<tREAL4>> aRasterPhi;
-        mSL_importer.fillRaster<tREAL4>(
-            [&aVectPtsTPD = mSL_importer.mVectPtsTPD](int i){auto aPtTPD = aVectPtsTPD[i];return aPtTPD.y();},
+        mSL_importer.fillRawRaster<tREAL4>(
+            //[&aVectPtsTPD = mSL_importer.mVectPtsTPD](int i){auto aPtTPD = aVectPtsTPD[i];return aPtTPD.y();},
+            [](int i, const void* ctx) {
+                auto& importer = *static_cast<const cStaticLidarImporter*>(ctx);
+                return importer.mVectPtsTPD[i].y();
+            },
+            &mSL_importer,
             aRasterPhi);
         //aRasterPhi->DIm().ToFile("dbg_phi.tif");
         std::vector<tREAL8> aVdiffPhi;
@@ -678,9 +689,13 @@ int cAppli_ImportTLS::Exe()
     {
         std::unique_ptr<cIm2D<tU_INT1>> aRasterIntensityFull;
         std::string aRasterIntensityPath = cStaticLidar::RasterIntensityPath(mStationName + "-" + mScanName + cStaticLidar::GetIdSuffix());
-        mSL_importer.fillRaster<tU_INT1>(
-                                          [this](int i){return this->mSL_importer.mVectPtsIntens[i]*255;},
-                                          aRasterIntensityFull );
+        mSL_importer.fillRawRaster<tU_INT1>(
+            [](int i, const void* ctx) -> tU_INT1 {
+                auto& importer = *static_cast<const cStaticLidarImporter*>(ctx);
+                return importer.mVectPtsIntens[i]*255;
+            },
+            &mSL_importer,
+            aRasterIntensityFull );
         aRasterIntensityFull->DIm().ToFile(mPhProj.DirStaticLidarRasters()+aRasterIntensityPath);
     }
 
@@ -765,25 +780,28 @@ int cAppli_ImportTLS::Exe()
     file1.close();
 */
 
-    // compute transfo from scan instrument frame to sensor frame
-    mSL_importer.ComputeRotInput2Raster(mStrInput2TLS);
     mSL_importer.ComputeAgregatedAngles();
 
     // create sensor from imported data
     std::string aScanName = mStationName + "-" + mScanName + cStaticLidar::GetIdSuffix();
     // find PP: image of the (Oz) axis
-    cPt3dr aOxAxisInput = mSL_importer.RotInput2TLS().Inverse({1.,0.,0.});  // axis 1,0,0 in TLS frame, to get PP
-    cPt2dr aOxAxisAngles = mSL_importer.Input3DtoRasterAngle(aOxAxisInput);
+    cPt3dr aOxAxisCam3D = {0.,0.,1.};  // axis 1,0,0 in TLS frame, to get PP
+    cPt2dr aOxAxisAngles = mSL_importer.Cam3DtoRasterAngle(aOxAxisCam3D);
     std::cout<< aOxAxisAngles.y()<<" approx "
              << mSL_importer.LocalPhiToLineApprox(aOxAxisAngles.y())
               <<" precise "
               << mSL_importer.LocalPhiToLinePrecise(aOxAxisAngles.y()) <<"\n";
-    std::cout << "X axis " << aOxAxisInput << ", angles: " << aOxAxisAngles << ", in pixels: "
+    std::cout << "X axis Cam3D " << aOxAxisCam3D << ", angles: " << aOxAxisAngles << ", in pixels: "
               << mSL_importer.LocalThetaToColPrecise(aOxAxisAngles.x()) << " "
               << mSL_importer.LocalPhiToLinePrecise(aOxAxisAngles.y()) << "\n";
-    cPt2dr aPP(mSL_importer.LocalThetaToColPrecise(aOxAxisAngles.x()), mSL_importer.LocalPhiToLinePrecise(aOxAxisAngles.y()));
-    if (aPP.x()<0)
-        aPP.x() += mSL_importer.NbCol();
+    float aOxCol = mSL_importer.LocalThetaToColPrecise(aOxAxisAngles.x());
+    float aOxLine =  mSL_importer.LocalPhiToLinePrecise(aOxAxisAngles.y());
+    if (std::isnan(aOxCol))
+        aOxCol = mSL_importer.LocalThetaToColApprox(aOxAxisAngles.x());
+    if (std::isnan(aOxLine))
+        aOxLine = mSL_importer.LocalPhiToLineApprox(aOxAxisAngles.y());
+    cPt2dr aPP(aOxCol, aOxLine);
+
     //find F: scale from angle to pixels
     tREAL8 aFx = 1./fabs(mSL_importer.mThetaStep); //TODO: add polynomial disto for different angular steps
     //tREAL8 aFy = 1./fabs(mSL_importer.mPhiStep);
@@ -793,6 +811,13 @@ int cAppli_ImportTLS::Exe()
         StdOut() << "Warning: different steps in theta and phi are not well supported yet!\n";
     //MMVII_INTERNAL_ASSERT_tiny(fabs((fabs(mSL_importer.mPhiStep)-fabs(mSL_importer.mThetaStep))/mSL_importer.mPhiStep)<1e-2,
     //                           "Error: different steps in theta and phi are not supported yet!");
+
+    // make PP in [0;2pi]
+    tREAL8 aW2piInPixels = (1./aFx)*2*M_PI;
+    if (aPP.x() >= aW2piInPixels) aPP.x() -= aW2piInPixels;
+    if (aPP.x() < 0.) aPP.x() += aW2piInPixels;
+
+    StdOut()<<"Final PP: "<<aPP<<"\n";
 
     cPerspCamIntrCalib* aCalib = cPerspCamIntrCalib::SimpleCalib(
                                         cPerspCamIntrCalib::SharedCalibPrefixName()
@@ -804,7 +829,7 @@ int cAppli_ImportTLS::Exe()
 
     cStaticLidar aSL_data(aScanName, mStationName, mScanName,
                           cIsometry3D<tREAL8>({}, cRotation3D<tREAL8>::Identity()),
-                          aCalib, mSL_importer.RotInput2Raster(), mSigma);
+                          aCalib, mSL_importer.RotInput2Raster(), mSigma, mPhProj.DirStaticLidarRasters());
 
     aSL_data.FillRasters(mSL_importer);
 
@@ -910,7 +935,7 @@ private :
     int                      mNbPatches;
     std::string              mPoseXYZFilename;     ///< give a Comp3Dv5 XYZ file
     std::string              mPoseXYZv4Filename;   ///< give a Comp3Dv4 XYZ file
-    bool                     mSupposeVerticalized; ///< need only 2 GCP for approx init
+    bool                     mSupposeVerticalized = false; ///< need only 2 GCP for approx init
     std::string              mSupMaskFilename;     ///< a suplementary mask for patch detection
     bool                     mIsPoseId;            ///< set pose to identity
     std::string              mPoseMat4x4Filename;  ///< give a 4x4 matrix text file name
@@ -976,6 +1001,7 @@ void cAppli_InitTLS::poseFromGCP()
 
     for (auto & aPair : aSet23.Pairs())
     {
+        // TODO: use distance from target detection?
         tREAL4 aMesDistance = mLidar->Image2Distance(aPair.mP2);
         if (aMesDistance == 0.)
             continue; // eliminated, even if 2D may be used...
@@ -1227,8 +1253,7 @@ int cAppli_InitTLS::Exe()
     mPhProj.FinishInit();
 
     auto aTLSOriFile = mPhProj.DirStaticLidarRasters() +  cStaticLidar::NameFromId(mNameFileTLSId,true);
-    mLidar = cStaticLidar::FromFile(aTLSOriFile, false);
-    mLidar->ReadRasters(mPhProj.DirStaticLidarRasters());
+    mLidar = cStaticLidar::FromFile(aTLSOriFile, mPhProj.DirStaticLidarRasters(), false);
 
     // try to read pose from cloud file
     std::string aInputPoseFileName = cStaticLidarImporter::DefaultPoseName(mPhProj.DirStaticLidarRasters(),mLidar->NameImage());

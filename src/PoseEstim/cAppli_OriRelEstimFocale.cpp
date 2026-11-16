@@ -99,7 +99,7 @@ class cAppli_OriRelEstimFocale : public cMMVII_Appli
         tREAL8                    mLogF0;       ///< log of min focal
         tREAL8                    mLogF1;       ///< log of max focal
         tREAL8                    mLogStep;     ///< log of each ratio between succ focal
-        int                       mNbFocTested; ///< number of focal to  teste
+        int                       mNbFocTested = 0; ///< number of focal to  teste
 
 };
 
@@ -296,8 +296,8 @@ int cAppli_OriRelEstimFocale::Exe()
 
             case eProjPC::eFE_EquiDist :
             case eProjPC::eFE_EquiSolid :
-            case eProjPC::eStereroGraphik :
-            case eProjPC::eOrthoGraphik :
+            case eProjPC::eStereoGraphic :
+            case eProjPC::eOrthoGraphic :
                 mIntervFocal35mm = cPt2dr(6,25);
             break;
 

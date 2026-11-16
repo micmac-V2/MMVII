@@ -492,4 +492,5 @@ std::string GetThreadId() ;
 
 };
 
+
 #endif  //  _MMVII_Util_H_

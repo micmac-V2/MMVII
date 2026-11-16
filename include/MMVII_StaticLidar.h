@@ -1,15 +1,15 @@
 #ifndef  _MMVII_STATICLIDAR_H_
 #define  _MMVII_STATICLIDAR_H_
 
-#include <functional>
-
 #include "MMVII_2Include_Serial_Tpl.h"
 #include "MMVII_Geom3D.h"
 #include "MMVII_PCSens.h"
 #include <unordered_set>
+#include <shared_mutex>
 
-// #define EXPORT_RASTER_THETA_PHI
+// #define EXPORT_RASTER_XYZ
 // #define SCANSCANSHOWPATCHES 8 // make rasters of patches residuals and rejection for each pair, downscale raster by value
+#define SCANPHOTOSHOWPATCHES 4 // make rasters of patches residuals and rejection for each pair, value = points size
 
 namespace MMVII
 {
@@ -20,6 +20,33 @@ namespace MMVII
 */
 
 tREAL8 toMinusPiPlusPi(tREAL8 aAng, tREAL8 aOffset = 0.);
+
+
+
+/**
+ * @brief The cLazyRaster class is used to have on first access raster reading
+ * Thread safe!
+ */
+template <typename T>
+class cLazyRaster {
+    friend class cStaticLidar;
+public:
+    cLazyRaster(std::string & p);
+    bool isReady();
+    void Fill(cPt2di size, T(*func)(int, const void*), const void* context,
+              const std::vector<int>& vectCol, const std::vector<int>& vectLine, size_t totalPts);
+    cIm2D<T>& GetRawImage() const;
+    void Forget();
+
+    cLazyRaster(const cLazyRaster&) = delete;
+    cLazyRaster& operator=(const cLazyRaster&) = delete;
+private:
+    std::string & mPath;
+    mutable std::unique_ptr<cIm2D<T>> mRaster;
+    mutable std::shared_mutex mMutex;
+};
+
+
 
 
 class cStaticLidarImporter
@@ -37,7 +64,6 @@ public:
 
     void convertToThetaPhiDist();
     void convertToXYZ();
-    void ComputeRotInput2Raster(std::string aTransfoIJK); //< give frame used to return to primary rotation axis = z
 
     bool HasCartesian() const {return mHasCartesian;}
     bool HasIntensity() const {return mHasIntensity;}
@@ -56,7 +82,6 @@ public:
     const std::optional<tPoseR> & ReadPose() const { return mReadPose;}
     bool checkLineCol(); // verify that mMaxCol/mMaxLine ar compatible with mVectPtsLine/mVectPtsCol
     void decimXY(const cPt2di & aDecim);
-    const cRotation3D<tREAL8> & RotInput2TLS() const { return mRotInput2TLS; }
     const cRotation3D<tREAL8> & RotInput2Raster() const { return mRotInput2Raster; }
 
     float ColToLocalThetaApprox(float aCol) const;
@@ -66,14 +91,17 @@ public:
     void ComputeAgregatedAngles();
     float LocalPhiToLinePrecise(float aPhi) const;
     float LocalThetaToColPrecise(float aTheta) const;
-    cPt2dr Input3DtoRasterAngle(const cPt3dr & aPt3DInput) const;
+    cPt2dr Cam3DtoRasterAngle(const cPt3dr & aPt3DInput) const;
     static std::string DefaultPoseName(const std::string & aDirStaticLidarRasters, const std::string & aLidarId);
 
     void MakeIdImage(const std::string & aNameFile) const; // create miniature to select this scan along images
 
-    template <typename TYPE> void fillRaster(
-                           std::function<TYPE (int)> func, std::unique_ptr<cIm2D<TYPE>> & aIm) const; // keep image in memory
+    // do not use std::function for its cost, do not capture
+    template <typename TYPE>
+    void fillRaster(TYPE(*func)(int, const void*), const void* context, const cLazyRaster<TYPE>& aLazyIm) const; // keep image in memory
 
+    template <typename TYPE>
+    void fillRawRaster(TYPE(*func)(int, const void*), const void* context, std::unique_ptr<cIm2D<TYPE>>& aIm) const; // keep image in memory, not thread safe!
     // line and col for each point
     std::vector<int> mVectPtsLine;
     std::vector<int> mVectPtsCol;
@@ -102,9 +130,15 @@ protected:
     int mNbCol, mNbLine;
     tREAL8 mThetaStart, mThetaStep;
     tREAL8 mPhiStart, mPhiStep;
-    cRotation3D<tREAL8> mRotInput2TLS; // from xyz input file to classical TLS (rot around z)
     cRotation3D<tREAL8> mVertRot; //< verticalizarion rotation in cloud frame
-    cRotation3D<tREAL8> mRotInput2Raster; //< to go from z vertical to z view direction of PP, and make PPx in center
+
+    //  scanner     to      raster
+    //  z|   y
+    //   | /
+    //   + --- x            + --- z
+    //                      | `x
+    //                     y|
+    cRotation3D<tREAL8> mRotInput2Raster; //< to go from z vertical to z view direction of PP
 };
 
 // record all data for each patch
@@ -125,13 +159,24 @@ public :
 
     cStaticLidar(const std::string &aNameFile, const std::string & aStationName,
                  const std::string & aScanName, const tPose &aPose, cPerspCamIntrCalib *aCalib,
-                 cRotation3D<tREAL8> aRotInput2Raster, tREAL8 aSigma);
+                 cRotation3D<tREAL8> aRotInput2Raster, tREAL8 aSigma, const std::string & aDataDir);
     ~cStaticLidar();
 
-    static cStaticLidar *FromFile(const std::string & aNameScanFile, bool aSVP);
-    bool ReadRasters(const std::string & aDataDir);
+    static cStaticLidar *FromFile(const std::string & aNameScanFile, const std::string &aDataDir, bool aSVP);
 
-    bool AreRastersReady() const { return mAreRastersReady;}
+    const cDataIm2D<tREAL4>& GetRasterDistance() const;
+    const cDataIm2D<tU_INT1>& GetRasterMask() const;
+    cDataIm2D<tU_INT1>& GetRasterMask();
+    const cDataIm2D<tU_INT1> *GetRasterIntensity() const; // return nullptr if no intensity
+    const cDataIm2D<tREAL4>& GetRasterTheta() const;
+    const cDataIm2D<tREAL4>& GetRasterPhi() const;
+#ifdef EXPORT_RASTER_XYZ
+    const cDataIm2D<tREAL4>& GetRasterX() const;
+    const cDataIm2D<tREAL4>& GetRasterY() const;
+    const cDataIm2D<tREAL4>& GetRasterZ() const;
+#endif
+    void ForgetRasters();
+
     void ToPly(const std::string & aName, bool useMask=false) const;
     void AddData(const  cAuxAr2007 & anAux) ;
     virtual void ToFile(const std::string &) const override;
@@ -160,7 +205,7 @@ public :
     void SelectPatchCenters2(int aNbPatches, cDataIm2D<tU_INT1> *aSupMaskDIm=nullptr);
     void SelectPatchCenters3(int aNbPatches, cDataIm2D<tU_INT1> *aSupMaskDIm=nullptr, cPt2di aOffset={0,0});
     void MakeVisu(const cPhotogrammetricProject & aPhProj) const;     ///< show 8bit dist image with patch centers
-    void MakePatches(std::list<cLidarRasterPatch> &aLPatches, const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin) const;
+    void MakePatches(std::list<cLidarRasterPatch> &aLPatches, const std::vector<cSensorCamPC *> &aVCam, int aNbPointByPatch, int aSzMin, float aFactor) const;
     std::tuple<tREAL8,tREAL8,tREAL8> AvgDistNbValidAndNbNotMasked() const; //< return average dist for valid points, number of valid points and number of not-masked points
 
     cPt3dr Image2InputXYZ(cPt2di aRasterPxI) const; // in input frame
@@ -170,7 +215,7 @@ public :
     template <typename TYPE>
     cPt3dr Image2Camera3D(const TYPE & aRasterPx) const; // in sensor frame (Z forward)
     cPt3dr Image2Camera3D_InterpoleDist(const cPt2dr & aRasterPx, const cInterpolator1D *anInterpol) const; // in sensor frame (Z forward)
-    cPt3dr Image2NormalInstr(const cPt2dr &aRasterPx) const; //< normal in sensor frame
+    cPt3dr Image2NormalInstr1Pt(const cPt2dr &aRasterPx) const; //< normal in sensor frame, only if not enouth points for plan estim
 
     template <typename TYPE>
         cPt3dr Image2ThetaPhiDist(const TYPE & aRasterPx) const;
@@ -198,7 +243,6 @@ public :
     std::string  V_PrefixName() const override;
     static std::string Pat2Sup(const std::string & aPatSelect);
 
-    cDataIm2D<tREAL4> &getRasterDistance() const;
     bool IsValidPoint(const cPt2dr &aRasterPx) const; ///< is dist>0
     bool IsValidPoint(const cPt2di &aRasterPx) const; ///< is dist>0
     bool IsMaskedPoint(const cPt2dr &aRasterPx) const;
@@ -206,7 +250,7 @@ public :
     const std::vector<cPt2di> & PatchCenters() const;
 
     bool isInsideNormalInterpolator(cPt2dr & aPt) const;
-    cDiffInterpolator1D * getNormalInterpolator(const cPt2dr &aPt) const;
+    std::pair<int, cDiffInterpolator1D *> getNormalInterpolator(const cPt2dr &aPt) const;
 
     void Show() const override;
     void initInterpolators();
@@ -217,7 +261,7 @@ public :
 
     virtual bool DoAddCalibToUk() const override;
 
-    std::tuple<double, double, cPt3dr> getDistSigmaNormalPlane(cPt2dr aCenter, const cPixBox<2> &aPixBox) const; ///< Adjust a plane on defined points
+    std::tuple<double, double, cPt3dr, cPt2dr> getDistSigmaNormalPlanGrad(cPt2dr aCenter, const cPixBox<2> &aPixBox) const; ///< Adjust a plan on defined points
 
 private :
 
@@ -225,29 +269,32 @@ private :
 
     std::string mStationName;
     std::string mScanName;
+    std::string mDataDir;
     std::string mRasterDistancePath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterDistance;
+    cLazyRaster<tREAL4> mRasterDistance;
     std::string mRasterIntensityPath;
-    std::unique_ptr<cIm2D<tU_INT1>> mRasterIntensity;
+    cLazyRaster<tU_INT1> mRasterIntensity;
     std::string mRasterMaskPath;
-    std::unique_ptr<cIm2D<tU_INT1>> mRasterMask;
-    std::string mRasterXPath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterX;
-    std::string mRasterYPath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterY;
-    std::string mRasterZPath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterZ;
-
-#ifdef EXPORT_RASTER_THETA_PHI
+    cLazyRaster<tU_INT1> mRasterMask;
     std::string mRasterThetaPath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterTheta;
+    cLazyRaster<tREAL4> mRasterTheta;
     std::string mRasterPhiPath;
-    std::unique_ptr<cIm2D<tREAL4>> mRasterPhi;
+    cLazyRaster<tREAL4> mRasterPhi;
+
+#ifdef EXPORT_RASTER_XYZ
+    std::string mRasterXPath;
+    cLazyRaster<tREAL4> mRasterX;
+    std::string mRasterYPath;
+    cLazyRaster<tREAL4> mRasterY;
+    std::string mRasterZPath;
+    cLazyRaster<tREAL4> mRasterZ;
 #endif
     //std::string mRasterThetaErrPath;
     //std::string mRasterPhiErrPath;
 
-    bool mAreRastersReady;
+    template <typename T>
+    cDataIm2D<T>& GetOrLoad(const cLazyRaster<T>& lazyRaster) const;
+
 
     tREAL8 mSigma;   ///< a priori precision on instrument distances
     std::vector<cPt2di> mPatchCenters;
@@ -260,7 +307,7 @@ private :
     // triangulation for patches selection
     cTriangulation3D<tREAL8> * mTriangulation; ///< triangulation of the raster, for zbuffer
 
-    std::vector<std::pair<double,cDiffInterpolator1D *>> mVInterpN;         ///< Interpolators, used to get normal of the images, with min dist to use them (must be sorted by dist)
+    std::vector<std::tuple<double,int,cDiffInterpolator1D *>> mVInterpN;         ///< Interpolators, used to get normal of the images, with min dist to use them (must be sorted by dist), and the blurring size
     cCalculator<double> * mEqDistColinearityDist;
 };
 

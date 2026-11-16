@@ -105,9 +105,9 @@ int cAppli_PoseCmp::Exe()
         cSensorCamPC * aCam1 = mPhProj.ReadCamPC(aNameIm,true,SVP::Yes);
         cSensorCamPC * aCam2 = mPhProj.ReadCamPC(aDirOri2,aNameIm,true,SVP::Yes);
         if (aCam1==nullptr)
-            aCam1 =  mPhProj.ReadStaticLidar(aNameIm,true,SVP::Yes,false);
+            aCam1 =  mPhProj.ReadStaticLidar(aNameIm,true,SVP::Yes);
         if (aCam2==nullptr)
-            aCam2 =  mPhProj.ReadStaticLidar(aDirOri2,aNameIm,true,SVP::Yes,false);
+            aCam2 =  mPhProj.ReadStaticLidar(aDirOri2,aNameIm,true,SVP::Yes);
         if (!aCam1 || !aCam2)
             continue;
 

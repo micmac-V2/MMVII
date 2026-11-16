@@ -121,7 +121,7 @@ class cAppli_CheckGCPDist : public cMMVII_Appli
         std::string              mSpecImIn;   ///  Pattern of xml file
         cPhotogrammetricProject  mPhProj;
 
-        bool                     mGenSpecCERN;  ///< do we generate the specification of cGeomCERNPannel
+        bool                     mGenSpecCERN = false;  ///< do we generate the specification of cGeomCERNPannel
         bool                     mUseGCP;       ///< Do we use a CERN Pannel Filter
         cGeomCERNPannel          mPannel;          ///< parametrs specific to CERN Panel
         std::string              mNameGCP;      ///< Name of mGCP

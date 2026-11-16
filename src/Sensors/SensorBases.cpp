@@ -596,6 +596,11 @@ bool cSensorImage::ImageIsLoaded() const
     return mImage;
 }
 
+const cDataGenUnTypedIm<2> * cSensorImage::GetGenImage() const
+{
+    return mImage;
+}
+
 cIm2D<tREAL4> cSensorImage::ImageDepth2ImagePax
               (
                    cIm2D<tREAL4> aImDepth,
@@ -630,6 +635,7 @@ void cSensorImage::Show() const
     StdOut() << "   Size   : " << Sz() << std::endl;
     StdOut() << "   SysCo  : " << (HasCoordinateSystem() ? GetCoordinateSystem() : "None") << std::endl;
 }
+
 
 /* ******************************************************* */
 /*                                                         */

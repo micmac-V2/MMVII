@@ -29,7 +29,7 @@ class cAppli_TransformPoses : public cMMVII_Appli
         std::string             mDirOriFrame2;
         std::string             mPatImFrame2;
         std::string             mDirOut;
-        bool                    mCSVReport;
+        bool                    mCSVReport = false;
 };
 
 cAppli_TransformPoses::cAppli_TransformPoses(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
