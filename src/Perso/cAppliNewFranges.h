@@ -67,23 +67,28 @@ enum class eTypePix
 };
 
 
-
+/// Class for storing information on Frange origin, that are ~ local max of the radiom on center line
 class cMaxLocSum
 {
    public :
-      cPt2di   mPt;
-      int      mXC;
-      tREAL8   mX0;
-      tREAL8   mX1;
+      cPt2di   mPt;  ///< positition on center line
+      int      mXC;  ///<  Absciss of mPt ...
+      tREAL8   mX0;  ///< begin of interval
+      tREAL8   mX1;  ///< end of interval
 };
+
+
+///  Nature of the vertices cAVertReg
 
 enum class eTypeSom
 {
-    eStd,
-    eBordeExt,
-    eAgregFrg
+    eStd,        ///< standard  vertices, correspond to a line
+    eBordeExt,   ///< unique  global root
+    eAgregFrg    ///< root of a cMaxLocSum
 };
 
+
+///  Attribute for the graph of region/line
 
 class cAVertReg : public cMemCheck
 {
@@ -93,48 +98,63 @@ class cAVertReg : public cMemCheck
 
 
        bool IsBorderExt() const;
+       bool IsStd() const;
 
-       eTypeSom             mType;
+       const cPt2di& PtApp(int aK) const;
+       tSeg2dr  Tg1() const;
+       tSeg2dr  Tg2() const;
+
+
+       eTypeSom             mType;   ///< Nature of the vertx
        std::vector<cPt2di>  mVPts;   ///< All pts, not necesseraly a path
-       std::vector<cPt2di>  mPath;   ///< path between 2 extremity
+       std::vector<cPt2di>  mPath;   ///< path between 2 extremity, oriented to be coherent with P1/P2
        std::vector<int>     mIndApP; ///< index of approx poly
 
-       int mNumV;       // Num of vertice ~ num in graphe
-       int mNumCC0;     // Num of connect comp it belongs to
-       int mNumMaxLoc;  // Possible num of local maxima
-       int mProvMaxLoc;  // For tuning, where does it come from
-       tREAL8    mXC;   // Absice where it eventually intersecte central line
+       int mNumV;       ///< Num of vertice ~ num in graphe
+       int mNumCC0;     ///< Num of connect comp it belongs to
+       int mNumMaxLoc;  ///< Possible num of local maxima
+       int mProvMaxLoc;  ///< For tuning, where the "rule"  max loc come frome
+       tREAL8    mXC;   ///< Absice where it eventually intersecte central line
 
 
-       /// Extrem, such that P1->P2 goes Up for horizontal line
-       cPt2di   mP1;
-       cPt2di   mP2;
-       cPt2di   mCenter;
-       cBox2di  mBox;  // Box of Vpts
+       // --------- Oriented Extremity , such that P1->P2 goes Up for horizontal line
+       cPt2di   mP1;  ///< 1st extrem
+       cPt2di   mP2;  ///< 2 nd etrem
+       cPt2di   mCenter;  ///< Center of the path (used for some visualisation)
 
-       bool  mUpSide;
-       bool  mBottomSide;
-       bool  mNoCross;
-       bool  mTouchLeft;
-       bool  mTouchRight;
+
+       cBox2di  mBox;     ///< Box of Vpts, apparently unsude
+
+       // ---------- different attribute that are no longer used 4 now--------------
+
+       bool  mUpSide;        ///< has it a part on top half
+       bool  mBottomSide;    ///< has it a part on bottom half
+       bool  mNoCross;       ///< does it cross the middle line
+       bool  mTouchLeft;     ///< does it "touch" the left border
+       bool  mTouchRight;    ///< does it touch the right border
 };
 
+/// Attribute for oriented edge, not so used for now
 class cAOrientReg
 {
     public :
        cAOrientReg();
-       cPt2di mPt;
+       cPt2di mPt;  /// the point that created the link in radiometry (used 4 visu)
+       tREAL8 mCostGeom;
 };
 
+/// Attribute for non-oriented edges
 class cASymReg
 {
      public :
 
         cASymReg();
-        tREAL8 mMaxVal;
-        bool mInMST;
+         tREAL8 mCostGeom;
+        tREAL8 mMaxVal;  ///< Max val of radiometry (-MaxVal is a cost in radiom case)
+        bool mInMST;     ///< Was it maintened in the Miniminmal spaning tree
 };
 
+// --------------- Classical typedef on graph -----------------------------
 typedef cVG_Vertex<cAVertReg,cAOrientReg,cASymReg>    tVertexReg;
 typedef cVG_Edge<cAVertReg,cAOrientReg,cASymReg>      tEdgeReg;
 typedef cVG_Graph<cAVertReg,cAOrientReg,cASymReg>     tGraphReg;
@@ -146,7 +166,7 @@ typedef cVG_Graph<cAVertReg,cAOrientReg,cASymReg>     tGraphReg;
 /*                                                 */
 /* =============================================== */
 
-
+///  Parameters of filtering used in sigma
 struct cSigmaTensors
 {
     double mSigmaTeta = 15.0;
@@ -308,7 +328,17 @@ class cAppliNewFrange : public cMMVII_Appli
         void MakeImageMarqIn();
 
 
-        void ComputeArribute(cAVertReg&,cDataIm2D<tU_INT1> &);
+        /// Make a "complete" construction of attribute of anAttr, aImBuf is used for pixel manip as CC
+        void ComputeArribute(cAVertReg& anAttr,cDataIm2D<tU_INT1> & aImBuf);
+
+        /// return cost of 2 attr based only on geometry, assume "P1 Attr1/P2 Attr2"
+        tREAL8 CostGeomP1P2(const cAVertReg* anAttr1,const cAVertReg* anAttr2) const;
+
+         /// return cost of 2 attr based only on geometry, assume "P1 Attr1/P2 Attr2"
+        bool OkGeomP1P2(const cAVertReg* anAttr1,const cAVertReg* anAttr2) const;
+        ///
+        cPt2dr PointCorrectIntegral(const cPt2di&) const;
+
 
         void PostProcEdge(tEdgeReg&);
 

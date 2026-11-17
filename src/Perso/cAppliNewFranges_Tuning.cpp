@@ -144,61 +144,69 @@ void cAppliNewFrange::SetImageLabel(cRGBImage & anIm,tREAL8 aCoefAB) const
     }
 }
 
+cPt3di ColOfPath(const cAVertReg &anAttr)
+{
+    if (anAttr.mNumMaxLoc>=0)
+    {
+        std::vector<cPt3di> aVCol{cRGBImage::Red,cRGBImage::Orange,cRGBImage::Yellow};
+        return  aVCol.at(anAttr.mProvMaxLoc);
+    }
+    return cRGBImage::Green;;
+}
+
+void ShowTgt(cRGBImage & anIm,const tSeg2dr& aSeg,cPt3di aCol)
+{
+    for (const auto aRay : {3.0} ) //  {2.0,4.0,6.0})
+    {
+          anIm.DrawCircle(aCol,ToR(aSeg.P1()),aRay);
+    }
+    cPt2dr aV12 = VUnit(aSeg.V12()) * 20.0;
+    anIm.DrawLine(aSeg.P1(),aSeg.P1()+aV12,aCol);
+}
+
 void cAppliNewFrange::ShowExtres(cRGBImage & anIm) const
 {
     for (const auto & aV : mGrReg.AllVertices())
     {
         const auto & anAttr = aV->Attr();
-       /* for (const auto & aPix : anAttr.mVPts)
-            anIm.SetRGBPix(aPix,cRGBImage::Red);*/
-
-        int aNL = aV->Attr().mNumMaxLoc;
-        bool hasNum = aNL >= 0;
-
-        // show pathes
-        cPt3di aColPath =  cRGBImage::Green;
-        if (hasNum)
+        if (anAttr.IsStd())
         {
-            if (aV->Attr().mProvMaxLoc==0)
+            cPt3di aColPath = ColOfPath(anAttr);
+            for (const auto & aPix : anAttr.mPath)
+                anIm.SetRGBPix(aPix,aColPath);
+
+            // show approx poly
+            for (const auto anInd: anAttr.mIndApP)
             {
-                aColPath = cRGBImage::Red;
+                anIm.DrawCircle(cRGBImage::Cyan,ToR(anAttr.mPath.at(anInd)),2.0);
             }
-            else if (aV->Attr().mProvMaxLoc==1)
+
+            // Show tangent & Integral correction
+           // if (anAttr.mType==eTypeSom::eStd)
             {
-                aColPath = cRGBImage::Orange;
+                ShowTgt(anIm,anAttr.Tg1(),cRGBImage::Red);
+                ShowTgt(anIm,anAttr.Tg2(),cRGBImage::Cyan);
+
+                if (anAttr.mPath.size() >2000000)
+                {
+                    for (const auto & aPt : {anAttr.mP1,anAttr.mP2})
+                    {
+                       anIm.DrawLine(ToR(aPt),PointCorrectIntegral(aPt),cRGBImage::Cyan)  ;
+                    }
+                }
             }
-            else if (aV->Attr().mProvMaxLoc==2)
+            /*else
             {
-                aColPath = cRGBImage::Yellow;
-            }
-        }
-        for (const auto & aPix : anAttr.mPath)
-            anIm.SetRGBPix(aPix,aColPath);
+                StdOut() << "APP " << anAttr.mIndApP << " SP="<< anAttr.mVPts.size() << " / " << anAttr.mPath.size() << "\n";
 
-        // show approx poly
-        for (const auto anInd: anAttr.mIndApP)
-        {
-            anIm.DrawCircle(cRGBImage::Cyan,ToR(anAttr.mPath.at(anInd)),2.0);
-        }
+            }*/
 
-
-        // show extrmeties with 2 diff colors
-        for (int aK=0 ; aK<2 ; aK++)
-        {
-            cPt2di aPt  = (aK==0) ? anAttr.mP1 : anAttr.mP2 ;
-            cPt3di aCol = (aK==0) ? cRGBImage::Green :  cRGBImage::Red;
-
-            for (const auto aRay : {3.0} ) //  {2.0,4.0,6.0})
+            if (anAttr.mNumMaxLoc>=0)
             {
-                  anIm.DrawCircle(aCol,ToR(aPt),aRay);
+                anIm.DrawString(ToStr( aV->Attr().mNumMaxLoc),cRGBImage::Orange,ToR(aV->Attr().mCenter),cPt2dr(0,0));
             }
-        }
 
-        if (hasNum)
-        {
-            anIm.DrawString(ToStr(aNL),cRGBImage::Orange,ToR(aV->Attr().mCenter),cPt2dr(0,0));
         }
-
 
         //  anIm.DrawCircle(cRGBImage::Orange,ToR(anAttr.mCenter),4.0);
 
@@ -304,16 +312,15 @@ void cAppliNewFrange::DoVisu()
                        cPt3di aCol = cRGBImage::Red;
                        if (aNum1CC0!=aNum2CC0)
                        {
-                           aVisuCC0.SetRGBPix(aPix,aCol);
 
                        }
                        else
                        {
-                           /*
                            tEdgeReg * anE =aVert1.EdgeOfSucc(aVert2,true);
                            aCol = (anE && anE->AttrSym().mInMST) ? cRGBImage::Blue : cRGBImage::Cyan ;
-                           */
                        }
+                       aVisuCC0.SetRGBPix(aPix,aCol);
+
                    }
                }
            }
