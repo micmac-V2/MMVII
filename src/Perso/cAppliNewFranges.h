@@ -236,6 +236,19 @@ class cAppliNewFrange : public cMMVII_Appli
         /// Put in anIm a colorizatuion depenaning of labels, aCoefAB multiply AB in LAB-space
         void SetImageLabel(cRGBImage & anIm,tREAL8 aCoefAB) const;
 
+        /// Show the path of vertex with a color depending of type
+        void ShowPath(cRGBImage & anIm,const cAVertReg &anAttr) const;
+        /// Show the point of the polygonal approximation
+        void ShowApprox(cRGBImage & anIm,const cAVertReg &anAttr) const;
+
+        /// Show the direction of extremity
+        void ShowTgt(cRGBImage & anIm,const tSeg2dr& aSeg,cPt3di aCol) const;
+        void ShowTgt(cRGBImage & anIm,const cAVertReg &anAttr) const;
+
+        /// Show horizontal line that test intergral contant on a line
+        void ShowIntegralPoj(cRGBImage & anIm,const cAVertReg &anAttr) const;
+
+
         /// Show extrmitys of line
         void ShowExtres(cRGBImage & anIm) const;
 

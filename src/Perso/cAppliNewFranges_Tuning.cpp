@@ -154,7 +154,7 @@ cPt3di ColOfPath(const cAVertReg &anAttr)
     return cRGBImage::Green;;
 }
 
-void ShowTgt(cRGBImage & anIm,const tSeg2dr& aSeg,cPt3di aCol)
+void cAppliNewFrange::ShowTgt(cRGBImage & anIm,const tSeg2dr& aSeg,cPt3di aCol) const
 {
     for (const auto aRay : {3.0} ) //  {2.0,4.0,6.0})
     {
@@ -164,6 +164,36 @@ void ShowTgt(cRGBImage & anIm,const tSeg2dr& aSeg,cPt3di aCol)
     anIm.DrawLine(aSeg.P1(),aSeg.P1()+aV12,aCol);
 }
 
+void cAppliNewFrange::ShowTgt(cRGBImage & anIm,const cAVertReg &anAttr) const
+{
+    ShowTgt(anIm,anAttr.Tg1(),cRGBImage::Red);
+    ShowTgt(anIm,anAttr.Tg2(),cRGBImage::Cyan);
+}
+
+void cAppliNewFrange::ShowPath(cRGBImage & anIm,const cAVertReg &anAttr) const
+{
+    cPt3di aColPath = ColOfPath(anAttr);
+    for (const auto & aPix : anAttr.mPath)
+        anIm.SetRGBPix(aPix,aColPath);
+}
+
+void cAppliNewFrange::ShowApprox(cRGBImage & anIm,const cAVertReg &anAttr) const
+{
+    for (const auto anInd: anAttr.mIndApP)
+    {
+        anIm.DrawCircle(cRGBImage::Cyan,ToR(anAttr.mPath.at(anInd)),2.0);
+    }
+}
+
+void cAppliNewFrange::ShowIntegralPoj(cRGBImage & anIm,const cAVertReg &anAttr) const
+{
+    for (const auto & aPt : {anAttr.mP1,anAttr.mP2})
+    {
+        anIm.DrawLine(ToR(aPt),PointCorrectIntegral(aPt),cRGBImage::Cyan)  ;
+    }
+}
+
+
 void cAppliNewFrange::ShowExtres(cRGBImage & anIm) const
 {
     for (const auto & aV : mGrReg.AllVertices())
@@ -171,35 +201,12 @@ void cAppliNewFrange::ShowExtres(cRGBImage & anIm) const
         const auto & anAttr = aV->Attr();
         if (anAttr.IsStd())
         {
-            cPt3di aColPath = ColOfPath(anAttr);
-            for (const auto & aPix : anAttr.mPath)
-                anIm.SetRGBPix(aPix,aColPath);
 
-            // show approx poly
-            for (const auto anInd: anAttr.mIndApP)
-            {
-                anIm.DrawCircle(cRGBImage::Cyan,ToR(anAttr.mPath.at(anInd)),2.0);
-            }
+            ShowPath(anIm,anAttr);
+            ShowApprox(anIm,anAttr);
+            ShowTgt(anIm,anAttr);
 
-            // Show tangent & Integral correction
-           // if (anAttr.mType==eTypeSom::eStd)
-            {
-                ShowTgt(anIm,anAttr.Tg1(),cRGBImage::Red);
-                ShowTgt(anIm,anAttr.Tg2(),cRGBImage::Cyan);
 
-                if (anAttr.mPath.size() >2000000)
-                {
-                    for (const auto & aPt : {anAttr.mP1,anAttr.mP2})
-                    {
-                       anIm.DrawLine(ToR(aPt),PointCorrectIntegral(aPt),cRGBImage::Cyan)  ;
-                    }
-                }
-            }
-            /*else
-            {
-                StdOut() << "APP " << anAttr.mIndApP << " SP="<< anAttr.mVPts.size() << " / " << anAttr.mPath.size() << "\n";
-
-            }*/
 
             if (anAttr.mNumMaxLoc>=0)
             {
