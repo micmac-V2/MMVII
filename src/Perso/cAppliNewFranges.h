@@ -246,7 +246,10 @@ class cAppliNewFrange : public cMMVII_Appli
         void ShowTgt(cRGBImage & anIm,const cAVertReg &anAttr) const;
 
         /// Show horizontal line that test intergral contant on a line
-        void ShowIntegralPoj(cRGBImage & anIm,const cAVertReg &anAttr) const;
+        void ShowIntegralProj(cRGBImage & anIm,const cAVertReg &anAttr) const;
+
+        ///  Show the num of frange associated
+        void ShowNumFrange(cRGBImage & anIm,const cAVertReg &anAttr) const;
 
 
         /// Show extrmitys of line

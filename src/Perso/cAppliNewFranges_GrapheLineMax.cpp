@@ -582,7 +582,7 @@ void cAppliNewFrange::MakeImageRegion()
     }
 
 
-    bool isModeGeom = true;
+    bool isModeGeom = false;
     // Apply different heuristic rules to modiy cost
     /*for (auto & anE : mGrReg.AllEdges_DirInit())
     {

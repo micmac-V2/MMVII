@@ -185,13 +185,22 @@ void cAppliNewFrange::ShowApprox(cRGBImage & anIm,const cAVertReg &anAttr) const
     }
 }
 
-void cAppliNewFrange::ShowIntegralPoj(cRGBImage & anIm,const cAVertReg &anAttr) const
+void cAppliNewFrange::ShowIntegralProj(cRGBImage & anIm,const cAVertReg &anAttr) const
 {
     for (const auto & aPt : {anAttr.mP1,anAttr.mP2})
     {
         anIm.DrawLine(ToR(aPt),PointCorrectIntegral(aPt),cRGBImage::Cyan)  ;
     }
 }
+
+void cAppliNewFrange::ShowNumFrange(cRGBImage & anIm,const cAVertReg &anAttr) const
+{
+    if (anAttr.mNumMaxLoc>=0)
+    {
+        anIm.DrawString(ToStr(anAttr.mNumMaxLoc),cRGBImage::Orange,ToR(anAttr.mCenter),cPt2dr(0,0));
+    }
+}
+
 
 
 void cAppliNewFrange::ShowExtres(cRGBImage & anIm) const
@@ -207,12 +216,10 @@ void cAppliNewFrange::ShowExtres(cRGBImage & anIm) const
             ShowTgt(anIm,anAttr);
 
 
+            if (0)
+                ShowIntegralProj(anIm,anAttr);
 
-            if (anAttr.mNumMaxLoc>=0)
-            {
-                anIm.DrawString(ToStr( aV->Attr().mNumMaxLoc),cRGBImage::Orange,ToR(aV->Attr().mCenter),cPt2dr(0,0));
-            }
-
+            ShowNumFrange(anIm,anAttr);
         }
 
         //  anIm.DrawCircle(cRGBImage::Orange,ToR(anAttr.mCenter),4.0);
@@ -290,14 +297,23 @@ void cAppliNewFrange::DoVisu()
         aVisuCC0.DrawLine(cPt2dr(0,mYC),cPt2dr(mSzRed.x(),mYC),cRGBImage::Gray128,1.0);
 
 
+        for (const auto & aV : mGrReg.AllVertices())
+        {
+            const auto & anAttr = aV->Attr();
+            if (anAttr.IsStd())
+            {
+                ShowPath(aVisuCC0,anAttr);
+            }
+        }
+
         for (const auto aPix :  *mDImRegion)
         {
             // show crest-line in green
-           if (LabelIsOn(aPix,eTypePix::eMaxTens))
+          /* if (LabelIsOn(aPix,eTypePix::eMaxTens))
            {
             //   aVisuMTReg.SetRGBPix(aPix,cRGBImage::Green);
                aVisuCC0.SetRGBPix(aPix,cRGBImage::Green);
-           }
+           }*/
            // show the frontier in cyan
            for (int aK=0 ; aK<2 ; aK++)
            {
