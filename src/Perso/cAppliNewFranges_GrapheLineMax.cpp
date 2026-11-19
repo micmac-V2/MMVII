@@ -6,6 +6,7 @@
 
 #include "MMVII_Tpl_Graph_SubGraph.h"
 #include "MMVII_Tpl_GraphAlgo_SPCC.h"
+//#include "MMVII_Tpl_Images.h"
 
 
 namespace MMVII
@@ -201,6 +202,9 @@ tREAL8 cAppliNewFrange::CostGeomP1P2(const cAVertReg *anAttr1, const cAVertReg *
 }
 
 
+
+
+
 /*
 tREAL8 cAppliNewFrange::CostGeomP1P2(const cAVertReg *anAttr1, const cAVertReg *anAttr2)  const
 {
@@ -252,25 +256,83 @@ void cAppliNewFrange::ComputeArribute(cAVertReg& anAttr,cDataIm2D<tU_INT1> & aDI
 
 
     tREAL8 aXC = -1;
+    cWhichMin<cPt2di,int> aWProjLine;
 
-    // try the most frequent case if it cross the midlle line
+    // compute the intersection/porjection with midle line
     if (1)
     {
-        // Compute position of intersection with central axe
+        // Compute average position of intersection with central axe
         cWeightAv<tREAL8,tREAL8> aAvgXc;
 
         for (const auto & aPix : anAttr.mVPts)
         {
-            if (aPix.y() == mYC)
+            int aDiff = std::abs(aPix.y() - mYC);
+            aWProjLine.Add(aPix,aDiff);
+            if (aDiff == 0)
                 aAvgXc.Add(1.0,aPix.x());
         }
 
         if (aAvgXc.Nb())
         {
            aXC = aAvgXc.Average();
-            anAttr.mProvMaxLoc  = 0;
         }
     }
+
+    // try the most obvious case if it cross the midlle line, and is close enouh to a X-Frange, affect it
+    if (aXC>=0)
+    {
+        anAttr.mXC =  aXC;
+
+        for (size_t aK=0 ; aK<mVMaxLoc.size() ; aK++)
+        {
+            const cMaxLocSum & aMLS = mVMaxLoc.at(aK);
+            if (
+                (aMLS.mX0 < anAttr.mXC) && ( anAttr.mXC<aMLS.mX1)
+                && (std::abs(anAttr.mXC-aMLS.mXC) < mIntervMax / 4.0)
+                )
+            {
+                MMVII_INTERNAL_ASSERT_always(anAttr.mNumMaxLoc==-1,"Multiple init mNumMaxLoc ");
+                anAttr.mNumMaxLoc = aK;
+                anAttr.mProvMaxLoc  = 0;
+            }
+        }
+    }
+
+    // second tentative, try point close enough
+    if (anAttr.mProvMaxLoc<0)
+    {
+        cPt2di aPPL = aWProjLine.IndexExtre();
+        if (std::abs(mDImTgt->GetV(aPPL.y()))<1.0)
+        {
+            tREAL8 aXCorr = aPPL.x() - mDImIntegr->GetV(aPPL.y());
+            for (size_t aK=0 ; aK<mVMaxLoc.size() ; aK++)
+            {
+                const cMaxLocSum & aMLS = mVMaxLoc.at(aK);
+                if (
+                       (std::abs(aXCorr-aMLS.mXC) < mIntervMax / 4.0)
+                    )
+                {
+                    MMVII_INTERNAL_ASSERT_always(anAttr.mNumMaxLoc==-1,"Multiple init mNumMaxLoc ");
+                    anAttr.mNumMaxLoc = aK;
+                    anAttr.mProvMaxLoc  = 1;
+                }
+            }
+        }
+    }
+
+
+  /*  if (anAttr.mProvMaxLoc  <0)
+    {
+        cWhichMin<cPt2di,int> aClosest;
+        for (const auto & aML : mVMaxLoc)
+        {
+            for (const auto & aPix : anAttr.mVPts)
+            {
+                cPt2di aDif =  aPix-aML.mPt;
+                aClosest.Add(aPix,SqN2(cPt2dr(aDif.x(),aDif.y()*aMulY)));
+            }
+        }
+    }*/
 
     // Try to detect line that touch the left
     if (anAttr.mProvMaxLoc <0)
@@ -281,9 +343,14 @@ void cAppliNewFrange::ComputeArribute(cAVertReg& anAttr,cDataIm2D<tU_INT1> & aDI
             aLeftest.Add(aPix,aPix.x());
         }
         cPt2di aProj = aLeftest.IndexExtre();
-        int aDif = std::abs(aProj.y()-mYC);
+        // int aDif = std::abs(aProj.y()-mYC);
+        tREAL8 aXCorr = aProj.x() - mDImIntegr->GetV(aProj.y());
 
-        if ((aProj.x()<aDif) && (aProj.x()<100) && (aDif>50))
+        if (    (aProj.x()<100.0)
+            &&  (aXCorr < mVMaxLoc.at(0).mXC - mIntervMax/2.0)
+            )
+
+            //(aProj.x()<aDif) && (aProj.x()<100) && (aDif>50))
         {
             anAttr.mProvMaxLoc = 2;
             anAttr.mNumMaxLoc =  mVMaxLoc.size() ;
@@ -291,7 +358,7 @@ void cAppliNewFrange::ComputeArribute(cAVertReg& anAttr,cDataIm2D<tU_INT1> & aDI
     }
 
     // if we dont have intersection, try close enoug
-    if (anAttr.mProvMaxLoc  <0)
+ /*   if (anAttr.mProvMaxLoc  <0)
     {
          tREAL8 aThrs = Square(mIntervMax / 4.0);
          tREAL8  aMulY = 2.0;
@@ -311,25 +378,9 @@ void cAppliNewFrange::ComputeArribute(cAVertReg& anAttr,cDataIm2D<tU_INT1> & aDI
              aXC = aClosest.IndexExtre().x();
               anAttr.mProvMaxLoc  = 1;
          }
-    }
+    }*/
 
-    if (aXC>=0)
-    {
-        anAttr.mXC =  aXC;
 
-        for (size_t aK=0 ; aK<mVMaxLoc.size() ; aK++)
-        {
-            const cMaxLocSum & aMLS = mVMaxLoc.at(aK);
-            if (
-                       (aMLS.mX0 < anAttr.mXC) && ( anAttr.mXC<aMLS.mX1)
-                    && (std::abs(anAttr.mXC-aMLS.mXC) < mIntervMax / 4.0)
-                )
-            {
-                MMVII_INTERNAL_ASSERT_always(anAttr.mNumMaxLoc==-1,"Multiple init mNumMaxLoc ");
-                anAttr.mNumMaxLoc = aK;
-            }
-        }
-    }
 
 
     anAttr.mUpSide = anAttr.mBox.P1().y()     < mYC - mMarginTouchC;
@@ -397,60 +448,11 @@ void cAppliNewFrange::PostProcVertex(tVertexReg& aV)
            }
         }
     }
-
 }
 
-/*
-void cAppliNewFrange::MakeImageMarqIn()
-{
-
-    for (int aSign)
-}*/
-
-
-void cAppliNewFrange::MakeImageMarqIn()
-{
-   for (int anY=mMinZYC+1; anY<mMaxZYC ; anY++)
-   {
-       tREAL8 aTh = mDImRadFrange->GetV(anY);
-
-       std::vector<int> mXMin(mVMaxLoc.size(), 1e5);
-       std::vector<int> mXMax(mVMaxLoc.size(),-1e5);
-
-
-       for (int anX=0 ; anX<mSzRed.x() ; anX++)
-       {
-           cPt2di aPix(anX,anY);
-           if (mDImRedBlur->GetV(aPix)>aTh)
-           {
-               mDImMarqIn->SetV(aPix,1);
-           }
-           int aNumR = mDImRegion->GetV(aPix);
-           if (aNumR>=0)
-           {
-                tVertexReg & aVert = mGrReg.VertexOfNum(aNumR);
-                int aNumMax = aVert.Attr().mNumMaxLoc;
-                if (aNumMax>=0)
-                {
-                    UpdateMin(mXMin.at(aNumMax),anX);
-                    UpdateMax(mXMax.at(aNumMax),anX);
-                }
-           }
-       }
-
-       for (size_t aKNum=0 ; aKNum<mVMaxLoc.size() ; aKNum++)
-          for (int anX=mXMin.at(aKNum) ; anX<= mXMax.at(aKNum) ; anX++)
-          {
-              mDImMarqIn->SetV(cPt2di(anX,anY),1);
-          }
-
-   }
-}
 
 void cAppliNewFrange::MakeImageRegion()
 {
-
-
    // StdOut()  << " MakeImageRegionMakeImageRegionMakeImageRegion " << mGrReg.AllVertices().size()  << "\n";
     // compute the diameters
     {
@@ -461,7 +463,7 @@ void cAppliNewFrange::MakeImageRegion()
 
         }
 
-        StdOut() << "SUM MARQ IM" <<  SumIm(aImMarq.DIm()) << "\n";
+      //  StdOut() << "SUM MARQ IM" <<  SumIm(aImMarq.DIm()) << "\n";
 
 
     }
@@ -494,8 +496,6 @@ void cAppliNewFrange::MakeImageRegion()
         }
     }
     const auto & aVP4 = Alloc4Neighbourhood();
-
-    MakeImageMarqIn();
 
     // do the propagation
     while (!aVPCur.empty())

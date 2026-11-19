@@ -265,6 +265,27 @@ std::vector<int> PolynSimplify(const std::vector<cPt2di> & aVPtsI, double aPenal
    return PolynSimplify(aVPtsR,aPenalty,aNMax,aWNmin,aNMin);
 }
 
+template <class Type,const int Dim> int IndexNearesPoint
+    (const std::vector<cPtxd<Type,Dim>> & aVPts,const cPtxd<Type,Dim>& aPt,int aDefInd0=-1,int aDefIndMax=-1)
+{
+    size_t anInd0 = aDefInd0>=0 ? aDefInd0 : 0;
+    size_t anInd1 = aDefInd0>=1 ? aDefInd0 : aVPts.size();
+
+    cWhichMin<int,tREAL8> aWhichMin(-1,1e30);
+    for (size_t anInd = anInd0 ; anInd<anInd1 ; anInd++)
+        aWhichMin.Add(anInd,SqN2(aPt-aVPts.at(anInd)));
+
+    return aWhichMin.IndexExtre();
+
+}
+
+#define INSTANTIATE_NEAREST_POINT(TYPE,DIM)\
+template  int IndexNearesPoint(const std::vector<cPtxd<TYPE,DIM>> &,const cPtxd<TYPE,DIM>&,int,int);
+
+INSTANTIATE_NEAREST_POINT(tREAL8,2)
+INSTANTIATE_NEAREST_POINT(tINT4,2)
+
+
 /**
  * @brief The cOneBenchApproxPoly class
  *

@@ -2,14 +2,14 @@
 #include "MMVII_ImageMorphoMath.h"
 #include "MMVII_Sensor.h"
 #include "MMVII_Ptxd.h"
-#include "MMVII_2Include_Serial_Tpl.h"
+//#include "MMVII_2Include_Serial_Tpl.h"
 #include "MMVII_Tpl_ElemStrToVal.h"
-#include "MMVII_Tpl_Images.h"
-#include "MMVII_Tpl_ElemFilterLocImages.h"
+//#include "MMVII_Tpl_Images.h"
+//#include "MMVII_Tpl_ElemFilterLocImages.h"
 
 #include "MMVII_Tpl_GraphStruct.h"
-#include "MMVII_Tpl_Graph_SubGraph.h"
-#include "MMVII_Tpl_GraphAlgo_SPCC.h"
+//#include "MMVII_Tpl_Graph_SubGraph.h"
+//#include "MMVII_Tpl_GraphAlgo_SPCC.h"
 
 
 
@@ -96,6 +96,7 @@ class cAVertReg : public cMemCheck
        cAVertReg(eTypeSom,const  std::vector<cPt2di> & aVPts,int aNum);
 
 
+       tREAL8 DistExtres(const cAVertReg &);
 
        bool IsBorderExt() const;
        bool IsStd() const;
@@ -256,7 +257,9 @@ class cAppliNewFrange : public cMMVII_Appli
         void ShowExtres(cRGBImage & anIm) const;
 
 
-        void ShowCurvesIntegral(cRGBImage&,bool showC,bool ShowSep);
+        void ShowCurvesIntegral(cRGBImage&,bool showC,bool ShowSep) const;
+
+        void ShowCurvesIntegral(cRGBImage& anIm,const cPt3di & aCoul, tREAL8 aXC,tREAL8 aMulDX=1.0 ) const;
 
 
         /// Name of visualisation image
@@ -505,10 +508,6 @@ class cAppliNewFrange : public cMMVII_Appli
         cDataIm2D<tU_INT4>*   mDImFlagLabel;
         cIm2D<tINT2>          mImRegion;
         cDataIm2D<tINT2>*     mDImRegion;
-
-        cIm2D<tU_INT1>          mImMarqIn;
-        cDataIm2D<tU_INT1>*     mDImMarqIn;
-
 
          tIm1D    mImCumNormT;    /// Image of teta as x=F(Y)
          tDIm1D*  mDImCumNormT;

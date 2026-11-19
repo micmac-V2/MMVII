@@ -42,8 +42,8 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mDImFlagLabel      (nullptr),
     mImRegion          (cPt2di(1,1)),
     mDImRegion         (nullptr),
-    mImMarqIn          (cPt2di(1,1)),
-    mDImMarqIn         (nullptr),
+  //  mImMarqIn          (cPt2di(1,1)),
+  //  mDImMarqIn         (nullptr),
     mImCumNormT        (1),
     mDImCumNormT       (nullptr),
     mImTeta            (1),
@@ -214,9 +214,6 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
 
     mImFlagLabel =  cIm2D<tU_INT4> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
     mDImFlagLabel = &mImFlagLabel.DIm();
-
-    mImMarqIn =  cIm2D<tU_INT1> (mSzRed,nullptr,eModeInitImage::eMIA_Null);
-    mDImMarqIn  = & mImMarqIn.DIm();
 
     if (mHasMask)
     {
