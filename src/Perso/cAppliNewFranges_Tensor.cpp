@@ -3,7 +3,7 @@
 // Test commit
 
 #include "cAppliNewFranges.h"
-
+#include "MMVII_Tpl_Images.h"
 
 
 

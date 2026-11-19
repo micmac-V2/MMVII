@@ -79,27 +79,33 @@ void cAppliNewFrange::MakeImSimul()
     }
 }
 
-void cAppliNewFrange::ShowCurvesIntegral(cRGBImage& anIm,bool doShowC,bool doShowSep)
+void cAppliNewFrange::ShowCurvesIntegral(cRGBImage& anIm,const cPt3di & aCoul, tREAL8 aXC ,tREAL8 aMulDX) const
 {
+
+    for(const auto aPtY : mImTgt.DIm())
+    {
+        int anY = aPtY.x();
+        if (anY>0)
+        {
+            tREAL8 aDX0 = mDImIntegr->GetV(anY-1) * aMulDX;
+            tREAL8 aDX1 = mDImIntegr->GetV(anY)   * aMulDX;
+
+            if (aDX0<mSzRed.x())
+               anIm.DrawLine(cPt2dr(aDX0+aXC,anY-1),cPt2dr(aDX1+aXC,anY),aCoul);
+        }
+    }
+}
+
+void cAppliNewFrange::ShowCurvesIntegral(cRGBImage& anIm,bool doShowC,bool doShowSep) const
+{   
     for (const auto aML : mVMaxLoc)
     {
-        for(const auto aPtY : mImTgt.DIm())
+        if (doShowC)
+            ShowCurvesIntegral(anIm,cRGBImage::Magenta,aML.mXC);
+        if (doShowSep)
         {
-            int anY = aPtY.x();
-            if (anY>0)
-            {
-                tREAL8 aDX0 = mDImIntegr->GetV(anY-1);
-                tREAL8 aDX1 = mDImIntegr->GetV(anY);
-
-
-                if  (doShowC && (aDX1+aML.mXC<mSzRed.x()))
-                    anIm.DrawLine(cPt2dr(aDX0+aML.mXC,anY-1),cPt2dr(aDX1+aML.mXC,anY),cRGBImage::Red);
-
-                if (doShowSep && (aDX1+aML.mX0<mSzRed.x()))
-                    anIm.DrawLine(cPt2dr(aDX0+aML.mX0,anY-1),cPt2dr(aDX1+aML.mX0,anY),cRGBImage::Blue);
-                if (doShowSep && (aDX1+aML.mX1<mSzRed.x()))
-                    anIm.DrawLine(cPt2dr(aDX0+aML.mX1,anY-1),cPt2dr(aDX1+aML.mX1,anY),cRGBImage::Blue);
-             }
+            ShowCurvesIntegral(anIm,cRGBImage::Blue,aML.mX0);
+            ShowCurvesIntegral(anIm,cRGBImage::Blue,aML.mX1);
         }
     }
 }
@@ -219,6 +225,7 @@ void cAppliNewFrange::ShowExtres(cRGBImage & anIm) const
 
     }
 
+
 }
 
 
@@ -246,7 +253,7 @@ void cAppliNewFrange::DoVisu()
          cRGBImage aVisuOrientedLines = mImRgbBG.Dup();
 
          ShowExtres(aVisuOrientedLines);
-         ShowCurvesIntegral(aVisuOrientedLines,false,true);
+         ShowCurvesIntegral(aVisuOrientedLines,true,true);
          GenVisu(aVisuOrientedLines,"Extres");
     }
 
@@ -331,42 +338,10 @@ void cAppliNewFrange::DoVisu()
                    }
                }
            }
-           // show the valley in blue (partially overwrite valley)
-           //if (LabelIsOn(aPix,eTypePix::eMinTens))
-           //    aVisuMTReg.SetRGBPix(aPix,cRGBImage::Blue);
         }
 
-        // show connexion
-        /*for (const auto & anEdge : mGrReg.AllEdges_DirInit())
-        {
-             cPt2dr aP1 = ToR(anEdge->AttrOriented().mPt);
-             cPt2dr aP2 = ToR(anEdge->AttrInvOr().mPt);
-             cPt2dr aMil = (aP1+aP2) / 2.0;
-             cPt2dr aV12 = aP2-aP1;
-             tREAL8 aL = 5.0;
-             cPt3di aColor = anEdge->AttrSym().mInMST ? cRGBImage::Red : cRGBImage::Yellow;
-             aVisuMTReg.DrawLine(aMil-aV12*aL,aMil+aV12*aL,aColor);
-        }*/
+        ShowCurvesIntegral(aVisuCC0,cRGBImage::Magenta, mVMaxLoc.back().mX1,2.0);
 
-      /*  if (0)
-        {
-            for (const auto & aV : mGrReg.AllVertices())
-            {
-                const auto & a2E = aV->Attr().mExtres;
-                for (const auto aRay : {3.0,5.0,7.0})
-                {
-                    aVisuCC0.DrawCircle(cRGBImage::Magenta,ToR(a2E.first) ,aRay);
-                    aVisuCC0.DrawCircle(cRGBImage::Magenta,ToR(a2E.second),aRay);
-                }
-            }
-        }
-
-
-        for (const auto aML : mVMaxLoc)
-        {
-            aVisuMTReg.DrawCircle(cRGBImage::Red,cPt2dr(aML.mXC,mYC),3.0);
-        }*/
-        //GenVisu(aVisuMTReg,"MaxTReg");
         GenVisu(aVisuCC0,"CC0");
 
     }

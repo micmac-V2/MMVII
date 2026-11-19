@@ -232,9 +232,16 @@ class cExtract_BW_Target
 };
 
 
+// =================  Relative to list of points =================================================
 
+///  Polygonal approximation,  aWNmin eventually penalise the length < to aNMin
 std::vector<int> PolynSimplify(const std::vector<cPt2dr> & aVPts, double aPenalty,int aNMax,tREAL8 aWNmin=0.0,tREAL8 aNMin=3.0);
+/// Call PolynSimplify with cPt2dr
 std::vector<int> PolynSimplify(const std::vector<cPt2di> & aVPts, double aPenalty,int aNMax,tREAL8 aWNmin=0.0,tREAL8 aNMin=3.0);
+
+///
+template <class Type,const int Dim> int IndexNearesPoint
+    (const std::vector<cPtxd<Type,Dim>> & aVPts,const cPtxd<Type,Dim>&,int aInd0=-1,int aIndMax=-1);
 
 };
 
