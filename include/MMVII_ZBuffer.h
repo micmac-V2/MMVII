@@ -146,6 +146,7 @@ class  cZBuffer
           std::vector<cResModeSurfD> & VecResSurfD() ;   ///< accessor
           double  MaxRSD() const;                        ///< accessor
           bool  IsOk() const;                            ///< accessor
+          void SetStretchingThreshold(double aStretchingThreshold);
 
       private :
           cZBuffer(const cZBuffer & ) = delete;

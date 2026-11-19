@@ -59,8 +59,6 @@ namespace MMVII
         cBox2di mBoxGlobOutPix;
         cAffin2D<tREAL8> mGlobAff;
         std::string mOutDir;
-        tREAL8 mNoiseZ;
-        tREAL8 mThreshGrad;
         bool mBascCorrel;
         bool mOriInFatherDir;  ///< if true, search orientation in father dir, else in DirProj
         double      mMII;   ///<  Marge Inside Image
@@ -73,7 +71,7 @@ namespace MMVII
 
     public:
         cAppliCloudProjectOnGround(const std::vector<std::string> & aVArgs, const cSpecMMVII_Appli & aSpec );
-        static constexpr tREAL8 mInfty =  -1e10;
+        static constexpr tREAL8 mInfty =  -1e9;
         std::pair<cPt3dr,cPt3dr> BascOnePoint(const cPt2di A, const cPt2di anOffSet, bool & oValid);
         /// Estimate the Ground Sampling Distance
         tREAL8 ComputeGSD();
@@ -110,8 +108,6 @@ cAppliCloudProjectOnGround::cAppliCloudProjectOnGround(const std::vector<std::st
     mGSD(0.2),
     mBoxGlobOutPix(cBox2di::Empty()),
     mGlobAff(),
-    mNoiseZ(0.2),
-    mThreshGrad(0.3),
     mBascCorrel(false),
     mOriInFatherDir(false),
     mMII(0.0),
@@ -365,10 +361,6 @@ void cAppliCloudProjectOnGround::MakeFastBasc()
 
     cMeshTri3DIterator * aTriIT2DDepth= new cMeshTri3DIterator(mTri2DDepth);
 
-    // Keep a real polymorphic mapping object (held by pointer) : cZBuffer stores a reference to
-    // it (const tMap & mMapI2O), so it must outlive the ZBuffer and must NOT be sliced into a
-    // base tIMap_R3 value (slicing would drop the Value()/Inverse() overrides and trigger the
-    // default Value<->Values mutual recursion -> "Forbiden Recursive Call").
     std::unique_ptr<tIMap_R3> aMapCamDepth;
 
     if (dynamic_cast<cSensorCamPC*>(mCamGen))
@@ -394,6 +386,9 @@ void cAppliCloudProjectOnGround::MakeFastBasc()
                    true,
                    true,
                    aTriIT2DDepth);
+
+    // set the stretching threshold for the ZBuffer
+    aZBuf.SetStretchingThreshold(mStretschingThresh);
 
 
     cAutoTimerSegm aTSBufferProjInit(TimeSegm(),"ZBuffer::ProjInit"); 
@@ -745,7 +740,7 @@ void cAppliCloudProjectOnGround::MergeResults()
                                               1);
 
     cIm2D<tREAL4> aGlobIm(aDF.Sz(),aDF);
-    aGlobIm.DIm().InitCste(-1e9);
+    aGlobIm.DIm().InitCste(mInfty);
 
 
     cDataFileIm2D  aDFM = cDataFileIm2D::Create(mNameMasqOut,

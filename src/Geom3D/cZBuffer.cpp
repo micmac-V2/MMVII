@@ -212,6 +212,11 @@ const cPt2di & cZBuffer::SzPix() const
 
 bool cZBuffer::IsOk() const {return mIsOk;}
 
+void cZBuffer::SetStretchingThreshold(double aStretchingThreshold)
+{
+    mMaxStretching = aStretchingThreshold;
+}
+
 void cZBuffer::MakeZBuf(eZBufModeIter aMode)
 {
 
