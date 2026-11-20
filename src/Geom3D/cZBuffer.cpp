@@ -103,44 +103,64 @@ void  AddData(const cAuxAr2007  &anAux,cResModeSurfD& aRMS )
 /* =============================================== */
 
 
-cZBuffer::cZBuffer(cTri3DIterator & aMesh,const tSet &  aSetIn,const tMap & aMapI2O,const tSet &  aSetOut,double aResolOut, const cPt2di & aForcedOutSize) :
+cZBuffer::cZBuffer(cTri3DIterator & aMesh,const tSet &  aSetIn,const tMap & aMapI2O,
+                   const tSet &  aSetOut,double aResolOut,bool aSameOri, bool IsBascProc,
+                    cTri3DIterator * aMesh2D, const cPt2di & aForcedOutSize) :
     mIsOk       (true),
-    mZF_SameOri (false),
-    mMultZ      (mZF_SameOri ? 1 : -1),
+    mZF_SameOri (aSameOri),
+    mMultZ      (mZF_SameOri ? -1 : 1),
     mMesh       (aMesh),
+    mMesh2DDepth(*aMesh2D),
     mCountMesh  (mMesh.CastCount()),
     mMapI2O     (aMapI2O),
     mSetIn      (aSetIn),
     mSetOut     (aSetOut),
     mResolOut   (aResolOut),
-
+    mIsBasc     (IsBascProc),
     mBoxIn      (cBox3dr::Empty()),
     mBoxOut     (cBox3dr::Empty()),
     mROut2Pix   (),
     mZBufIm     (cPt2di(1,1)),
-    mImSign     (cPt2di(1,1))
+    mImSign     (cPt2di(1,1)),
+    mMaxStretching(4.0)
 {
     cTplBoxOfPts<tREAL8,3> aBoxOfPtsIn;
     cTplBoxOfPts<tREAL8,3> aBoxOfPtsOut;
 
     //  compute the box in put and output space
-     //  compute the box in put and output space
     cPt3dr aPIn;
 
     mMesh.ResetAll();
-    while (mMesh.GetNextPoint(aPIn))
-    {
-        if (mSetIn.InsideWithBox(aPIn))
-        {
-            cPt3dr aPOut = mMapI2O.Value(aPIn);
 
-            if (mSetOut.InsideWithBox(aPOut))
+    if (mIsBasc)
+        {
+            mMesh2DDepth.ResetAll();
+            while (mMesh.GetNextPoint(aPIn))
             {
-               aBoxOfPtsIn.Add(aPIn);
-               aBoxOfPtsOut.Add(aPOut);
+                cPt3dr aPOut = mMapI2O.Value(aPIn);
+                aBoxOfPtsIn.Add(aPIn);
+                aBoxOfPtsOut.Add(aPOut);
+            }
+
+            mMesh2DDepth.ResetPts();
+        }
+    else  ///< General case no precomputed 2D + Depth
+        {
+            while (mMesh.GetNextPoint(aPIn))
+            {
+                if (mSetIn.InsideWithBox(aPIn))
+                {
+                    cPt3dr aPOut = mMapI2O.Value(aPIn);
+
+                    if (mSetOut.InsideWithBox(aPOut))
+                    {
+                        aBoxOfPtsIn.Add(aPIn);
+                        aBoxOfPtsOut.Add(aPOut);
+                    }
+                }
             }
         }
-    }
+
     mMesh.ResetPts();
 
     if ((aBoxOfPtsIn.NbPts()<3) || (aBoxOfPtsOut.NbPts()<3))
@@ -152,11 +172,13 @@ cZBuffer::cZBuffer(cTri3DIterator & aMesh,const tSet &  aSetIn,const tMap & aMap
     mBoxIn = aBoxOfPtsIn.CurBox();
     mBoxOut = aBoxOfPtsOut.CurBox();
 
-    if (aForcedOutSize.IsValid())
+
+    if (aForcedOutSize.x()>0 && aForcedOutSize.y()>0)
     {
         mBoxOut.P0ByRef() = cPt3dr(0,0, mBoxOut.P0().z());
         mBoxOut.P1ByRef() = cPt3dr(aForcedOutSize.x(),aForcedOutSize.y(), mBoxOut.P1().z());
     }
+
 
     cPt2di aBrd(2,2);
     //   aP0/aResout + aTr -> 1,1
@@ -189,6 +211,11 @@ const cPt2di & cZBuffer::SzPix() const
 }
 
 bool cZBuffer::IsOk() const {return mIsOk;}
+
+void cZBuffer::SetStretchingThreshold(double aStretchingThreshold)
+{
+    mMaxStretching = aStretchingThreshold;
+}
 
 void cZBuffer::MakeZBuf(eZBufModeIter aMode)
 {
@@ -227,7 +254,6 @@ void cZBuffer::MakeZBuf(eZBufModeIter aMode)
                aRes = MakeOneTri(aTriIn,aTriOut,aMode);
             }
         }
-
         if (aMode==eZBufModeIter::SurfDevlpt)
         {
            cResModeSurfD aRMS;
@@ -240,6 +266,69 @@ void cZBuffer::MakeZBuf(eZBufModeIter aMode)
        mIsOk=false;
 
     mMesh.ResetTri();
+}
+
+
+void cZBuffer::MakeZBufForBasc(eZBufModeIter aMode)
+{
+
+    if (aMode==eZBufModeIter::SurfDevlpt)
+    {
+        mResSurfD.clear();
+        mMaxRSD = 0.0;
+    }
+
+    tTri3dr  aTriIn  = tTri3dr::Tri000();
+    tTri3dr  aTriOut = tTri3dr::Tri000();
+
+    double aStretchingThreshold = 1.0 ;
+    int aNbTriVis = 0;
+
+    while (mMesh.GetNextTri(aTriIn) &&
+           mMesh2DDepth.GetNextTri(aTriOut))
+    {
+        mLastResSurfDev = -1;
+        eZBufRes aRes = eZBufRes::Undefined;
+        if (!mIsOk)
+        {
+        }
+        //  not sure this is us to test that, or the user to assure it give clean data ...
+        else if (aTriIn.Regularity() <=0)
+            aRes = eZBufRes::UnRegIn;
+        else
+        {
+
+            if (aTriOut.Regularity() <=0)
+                aRes = eZBufRes::UnRegOut;
+            else
+            {
+                aNbTriVis++;
+                aRes = MakeOneTri(aTriIn,aTriOut,aMode);
+            }
+        }
+        if (aMode==eZBufModeIter::SurfDevlpt)
+        {
+            // change triangle class to distorted.
+            bool aIsDistorted = IsStretched<2>(Proj(aTriIn),Proj(aTriOut),aStretchingThreshold);
+            if (aIsDistorted)
+            {
+                aRes= eZBufRes::Distorted;
+            }
+
+            cResModeSurfD aRMS;
+            aRMS.mResult = aRes;
+            aRMS.mResol  = mLastResSurfDev;
+            aRMS.mStretchThresh=aStretchingThreshold;
+            mResSurfD.push_back(aRMS);
+        }
+
+    }
+
+    if (aNbTriVis==0)
+        mIsOk=false;
+
+    mMesh.ResetTri();
+    mMesh2DDepth.ResetTri();
 }
 
 
@@ -279,10 +368,27 @@ eZBufRes cZBuffer::MakeOneTri(const tTri3dr & aTriIn,const tTri3dr &aTri3,eZBufM
 
     int aSign = (aNorm.z() > 0) ? 1 : - 1;
      ///  the axe K of camera is in direction of view, the normal is in direction of visibility => they are opposite
-     ///  the axe K of camera is in direction of view, the normal is in direction of visibility => they are opposite
     bool WellOriented =  mZF_SameOri ?  (aSign>0)  :(aSign<0);
 
-    aTri2.PixelsInside(aVPix,1e-8,&aVW);
+    // test scaled tolerance 
+    // Robust, scale-aware inside tolerance.
+    // Barycentric coords are dimensionless, but their rounding error scales like
+    // machine-epsilon * (pixel-coordinate magnitude).  A fixed absolute value such
+    // as 1e-8 can fall inside that numerical noise for large images / thin triangles,
+    // making edge pixels be kept or dropped at random.  We make the tolerance:
+    //   - negative, so shared edges are covered (no cracks between adjacent triangles),
+    //   - proportional to the vertex coordinate magnitude (robust across image sizes).
+    tREAL8 aScale = 1.0;
+    for (int aKp=0 ; aKp<3 ; aKp++)
+    {
+        aScale = std::max(aScale,std::abs(aTri2.Pt(aKp).x()));
+        aScale = std::max(aScale,std::abs(aTri2.Pt(aKp).y()));
+    }
+    tREAL8 aTol = -8.0 * std::numeric_limits<tREAL8>::epsilon() * aScale;
+
+
+    aTri2.PixelsInside(aVPix,aTol,&aVW);
+
     tDIm & aDZImB = mZBufIm.DIm();
     int aNbVis = 0;
     for (size_t aK=0 ; aK<aVPix.size() ; aK++)
@@ -312,10 +418,13 @@ eZBufRes cZBuffer::MakeOneTri(const tTri3dr & aTriIn,const tTri3dr &aTri3,eZBufM
        {
            bool IsVis = ((aNbVis*2)  > int(aVPix.size()));
            aRes = IsVis ? eZBufRes::Visible : eZBufRes::Hidden;
-           mLastResSurfDev = ComputeResol(aTriIn,aTri3);
-           if (IsVis)
+           if(!mIsBasc) // mIsBasc= true -> no need to compute resol as it is just a mapping from depth to DEM
            {
-               UpdateMax(mMaxRSD,mLastResSurfDev);
+                mLastResSurfDev = ComputeResol(aTriIn,aTri3);
+               if (IsVis)
+               {
+                   UpdateMax(mMaxRSD,mLastResSurfDev);
+               }
            }
 
            if ((aVPix.size()<=0) && (aNbVis==0))
@@ -328,9 +437,69 @@ eZBufRes cZBuffer::MakeOneTri(const tTri3dr & aTriIn,const tTri3dr &aTri3,eZBufM
 
 
 
+template<int Dim> bool cZBuffer::IsStretched(const cTriangle<tREAL8,Dim> & aTriIn, 
+        const cTriangle<tREAL8,Dim> & aTri3, double & aStretchingThreshold)
+{
+
+     ///< Evaluate stretching of triangle where Mapping(aTri3) = aTriIn
+
+     cPtxd<tREAL8,Dim> aP01 = aTriIn.Pt(1) - aTriIn.Pt(0);
+     cPtxd<tREAL8,Dim> aP12 = aTriIn.Pt(2) - aTriIn.Pt(0);
+
+     cPtxd<tREAL8,Dim> aP01_3d = aTri3.Pt(1) - aTri3.Pt(0);
+     cPtxd<tREAL8,Dim> aP12_3d = aTri3.Pt(2) - aTri3.Pt(0);
 
 
+    // create the jacobian of the deformation matrix
+    cDenseMatrix<tREAL8> aMat_Out(2,Dim);
+    MMVII::SetCol(aMat_Out,0,aP01);
+    MMVII::SetCol(aMat_Out,1,aP12);
+
+    cDenseMatrix<tREAL8> aMat_In(2,Dim);
+    MMVII::SetCol(aMat_In,0,aP01_3d);
+    MMVII::SetCol(aMat_In,1,aP12_3d);
 
 
+    auto aC = aMat_In.Transpose()*aMat_In;
+    auto aG = aMat_Out.Transpose()*aMat_Out;
+
+
+    double A_ = aC.Det();
+    double C_ = aG.Det();
+
+    // double trCG  = c22*g11 - 2.0*c12*g12 + c11*g22;
+
+    double tr_CG = aC.GetElem(cPt2di(1,1)) * aG.GetElem(cPt2di(0,0)) 
+                    - 2.0 * aC.GetElem(cPt2di(0,1)) * aG.GetElem(cPt2di(0,1))
+                    + aC.GetElem(cPt2di(0,0)) * aG.GetElem(cPt2di(1,1));
+
+    double B_ = -tr_CG;
+
+    //      |A_ B_|
+    // MAT =|     |
+    //      |B_ C_|
+
+    double disc  = std::sqrt(std::max(0.0, B_*B_ - 4.0*A_*C_));
+
+    // biggest eigenvalue
+    double lambda_1    = (-B_ + disc) / (2.0*A_);
+    double lambda_2    = (-B_ - disc) / (2.0*A_);
+
+    double sigma1 = std::sqrt(std::max(0.0, lambda_1));
+    double sigma2 = std::sqrt(std::max(0.0, lambda_2));
+
+    aStretchingThreshold = (sigma1/sigma2) ;
+
+    if( (sigma2<1e-6) ||  (aStretchingThreshold > mMaxStretching))
+        return true;
+    else
+    {
+        // keep stretching to 1.0
+        aStretchingThreshold = 1.0;
+    }
+
+    return false;
+
+}
 
 };

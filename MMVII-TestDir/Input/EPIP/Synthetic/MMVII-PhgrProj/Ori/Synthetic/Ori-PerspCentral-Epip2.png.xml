@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<Root>
+   <Type>"MMVII_Serialization"</Type>
+   <Version>"0.0.0"</Version>
+   <Data>
+      <CameraPose>
+         <NameImage>"Epip2.png"</NameImage>
+         <NameInternalCalib>"Calib-PerspCentral-Foc-35000_Cam-SYNTHETIC"</NameInternalCalib>
+         <Center>652001 6862000 47</Center>
+         <RotMatrix>
+            <AxeI>1 0 0</AxeI>
+            <AxeJ>0 -1 0</AxeJ>
+            <AxeK>0 0 -1</AxeK>
+         </RotMatrix>
+         <EQ>0 1 0 0</EQ> <!--EigenQuaternion, for information-->
+         <WPK>-180 0 0</WPK> <!--Omega Phi Kapa in degree, for information-->
+         <YPR>0 0 180</YPR> <!--Yaw Pitch Roll in degree, for information-->
+      </CameraPose>
+   </Data>
+</Root>
