@@ -300,6 +300,13 @@ template<> cE2Str<eModeEpipMatch>::tMapE2Str cE2Str<eModeEpipMatch>::mE2S
                 {eModeEpipMatch::eMEM_NoMatch,"NoMatch"}
            };
 
+template<> cE2Str<eModeGeom>::tMapE2Str cE2Str<eModeGeom>::mE2S
+    {
+        {eModeGeom::eGEOM_DEPTH,"DEPTH"},
+        {eModeGeom::eGEOM_EPIP,"EPIP"}
+    };
+
+
 template<> cE2Str<eTyUnitAngle>::tMapE2Str cE2Str<eTyUnitAngle>::mE2S
            {
                 {eTyUnitAngle::eUA_radian,"radian"},
@@ -1562,6 +1569,7 @@ MACRO_INSTANTIATE_STRIO_ENUM(eTopoObsType,"TopoObsType")
 MACRO_INSTANTIATE_STRIO_ENUM(eTopoStOriStat,"TopoStOriStat")
 MACRO_INSTANTIATE_STRIO_ENUM(eOpAff,"OpAff")
 MACRO_INSTANTIATE_STRIO_ENUM(eModeEpipMatch,"ModeEpiMatch")
+MACRO_INSTANTIATE_STRIO_ENUM(eModeGeom,"ModeGeom")
 MACRO_INSTANTIATE_STRIO_ENUM(eModePaddingEpip,"ModePadEpip")
 MACRO_INSTANTIATE_STRIO_ENUM(eModeCaracMatch,"ModeCaracMatch")
 MACRO_INSTANTIATE_STRIO_ENUM(eDCTFilters,"DCTFilters")

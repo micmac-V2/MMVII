@@ -59,6 +59,7 @@ class cMeshTri3DIterator : public cCountTri3DIterator
 {
      public :
         cMeshTri3DIterator(cTriangulation3D<tREAL8> *);
+        virtual ~cMeshTri3DIterator() = default;
 
         cPt3dr  KthP(int aKP) const override;
         tTri3dr KthF(int aKF) const override;
@@ -79,7 +80,8 @@ enum class eZBufRes
               Hidden,         ///< Hidden by other
               NoPix,          ///< When there is no pixel in triangle, decision har to do
               LikelyVisible,  ///< Probably visible -> No Pixel but connected to visible
-              Visible         ///< Visible
+              Visible ,       ///< Visible
+              Distorted       ///< Distorted given Mapping mMapI2O
            };
 
 bool  ZBufLabIsOk(eZBufRes aLab); // return if visible or likely
@@ -99,6 +101,7 @@ struct cResModeSurfD
     public :
         eZBufRes mResult;
         double   mResol   ;
+        double   mStretchThresh = 1.0 ;
 };
 void  AddData(const cAuxAr2007  &anAux,cResModeSurfD& aRMS ); ///< serialization
 
@@ -119,11 +122,22 @@ class  cZBuffer
           static constexpr tElem mInfty =  -1e10;
 
           ///  constructor
-          cZBuffer(cTri3DIterator & aMesh,const tSet & aSetIn,const tMap & aMap,const tSet & aSetOut,double aResolOut, const cPt2di & aForcedOutSize=cPt2di::Dummy());
+          cZBuffer(cTri3DIterator & aMesh,
+                   const tSet & aSetIn,
+                   const tMap & aMap,
+                   const tSet & aSetOut,
+                   double aResolOut,
+                   bool aSameOri=false,
+                   bool IsBascProc=false,
+                   cTri3DIterator * aMesh2DDepth=nullptr,
+                   const cPt2di & aForcedOutSize=cPt2di(-1,-1)
+               );
+
 
 
           ///
           void MakeZBuf(eZBufModeIter aMode);
+          void MakeZBufForBasc(eZBufModeIter aMode);
 
 
           const cPt2di & SzPix() const; ///< Accessor
@@ -132,6 +146,7 @@ class  cZBuffer
           std::vector<cResModeSurfD> & VecResSurfD() ;   ///< accessor
           double  MaxRSD() const;                        ///< accessor
           bool  IsOk() const;                            ///< accessor
+          void SetStretchingThreshold(double aStretchingThreshold);
 
       private :
           cZBuffer(const cZBuffer & ) = delete;
@@ -141,16 +156,22 @@ class  cZBuffer
           double ComputeResol(const tTri3dr & aTriIn ,const tTri3dr & aTriOut) const;
           ///  make the job for one triangle, different computation possible depending on aMode
           eZBufRes MakeOneTri(const tTri3dr & aTriIn,const tTri3dr & aTriOut,eZBufModeIter aMode);
+          
+          template<int Dim> bool IsStretched(const cTriangle<tREAL8,Dim> & aTriIn, 
+        const cTriangle<tREAL8,Dim> & aTri3, double & aStretchingThreshold);
 
-          bool                  mIsOk;       ///< Many things can happen bad ...
-          bool                  mZF_SameOri; ///< Axe of Z (in out coord) and oriented surface have same orientation
-          int                   mMultZ;      ///< multiplier associated to SameOri
-          cTri3DIterator &      mMesh;       ///<  The mesh described as an iterator on triangles
-          cCountTri3DIterator * mCountMesh;  ///< posible cast on a counting-iteraror (unused 4 now)
-          const tMap &          mMapI2O;     ///<  Map Input -> Output
-          const tSet &          mSetIn;      ///< Set where input triangles are defined
-          const tSet &          mSetOut;     ///< Set where output triangles are defined
-          double                mResolOut;   ///<  Resolution for computing Z Buf (ratio  )
+
+          bool                  mIsOk;        ///< Many things can happen bad ...
+          bool                  mZF_SameOri;  ///< Axe of Z (in out coord) and oriented surface have same orientation
+          int                   mMultZ;       ///< multiplier associated to SameOri
+          cTri3DIterator &      mMesh;        ///<  The mesh described as an iterator on triangles
+          cTri3DIterator &      mMesh2DDepth; ///<  The mesh described as an iterator on triangles corresponding to 2D + Depth
+          cCountTri3DIterator * mCountMesh;   ///< posible cast on a counting-iteraror (unused 4 now)
+          const tMap &          mMapI2O;      ///<  Map Input -> Output
+          const tSet &          mSetIn;       ///< Set where input triangles are defined
+          const tSet &          mSetOut;      ///< Set where output triangles are defined
+          double                mResolOut;    ///<  Resolution for computing Z Buf (ratio  )
+          bool                  mIsBasc ;     ///< Identify whether to check if points In Sets ( as the already are in case of bascule)
 
           cBox3dr          mBoxIn;     ///< Box in input space, not sure usefull, but ....
           cBox3dr          mBoxOut;    ///< Box in output space, usefull for xy, not sure for z , but ...
@@ -161,6 +182,8 @@ class  cZBuffer
 
           double           mLastResSurfDev;  ///< store the last resolution computed (facility 4 multiple results)
           double           mMaxRSD;          ///< max resolution reacged
+
+          double           mMaxStretching;  ///< Maximum stretching of triangles given mapping mMapI2O
 
           std::vector<cResModeSurfD>  mResSurfD;
 };

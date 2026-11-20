@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<Root>
+   <Type>"MMVII_Serialization"</Type>
+   <Version>"0.0.0"</Version>
+   <Data>
+      <ModeGeom>"DEPTH"</ModeGeom>
+      <NameEpipIm1>"Epip1.png"</NameEpipIm1>
+      <NameEpipIm2>""</NameEpipIm2>
+      <NameDisparity>"DenseMatchResult/MMVII_Depth_GT_1.tif"</NameDisparity>
+      <NameCorrel>"DenseMatchResult/MMVII_Correlation_GT_12.tif"</NameCorrel>
+      <NameMasq>"DenseMatchResult/MMVII_AutoMask_GT_12.tif"</NameMasq>
+   </Data>
+</Root>

@@ -1,6 +1,10 @@
 \documentclass[a4paper]{article}
 \usepackage{MMVII}
 \usepackage{longtable,booktabs,array,calc} % tables made by pandoc
+\usepackage[hidelinks]{hyperref} % links, \texorpdfstring and \hyperref made by pandoc
+$if(highlighting-macros)$
+$highlighting-macros$ % syntax highlighting of the code blocks with a language
+$endif$
 
 \newcommand{\TheCmd}{$cmd$}
 \providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
