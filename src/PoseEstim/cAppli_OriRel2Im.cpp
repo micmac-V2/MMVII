@@ -121,7 +121,7 @@ tREAL8 cEstimatePosRel2Im::Score2Bundle(const cPt3dr & aP1,const cPt3dr & aP2,co
     tSeg3dr aSeg1(cPt3dr(0.0,0.0,0.0),aP1);
     tSeg3dr aSeg2( aPose.Tr(),aPose.Value(aP2));
     cPt3dr aCoeffI;
-    BundleInters(aCoeffI,aSeg1,aSeg2,true); // z = distance between bundles
+    BundleInters(aCoeffI,aSeg1,aSeg2,0.5,true); // z = distance between bundles
     int aNbBadSign = (aCoeffI.x()<0) + (aCoeffI.y()<0);
 
 
