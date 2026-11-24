@@ -23,12 +23,14 @@ namespace MMVII
  *
  */
 
-cPt3dr  BundleInters(cPt3dr & aABC,const tSeg3dr & aSeg1,const tSeg3dr & aSeg2,tREAL8 aW12)
+cPt3dr  BundleInters(cPt3dr & aABC,const tSeg3dr & aSeg1,const tSeg3dr & aSeg2,tREAL8 aW12,bool aNormalize)
 {
   // StdOut() << "BundleIntersBundleIntersBundleIntersBundleIntersBundleInters\n";
    cPt3dr  aV1   = aSeg1.V12();
    cPt3dr  aV2   = aSeg2.V12();
    cPt3dr  aNorm = aV1 ^ aV2;
+   if (aNormalize) // then aABC.z() is signed distance between the two lines
+       aNorm=VUnit(aNorm);
 
    cDenseMatrix<tREAL8> aMat =  M3x3FromCol(aV1,-aV2,aNorm);
    aABC = SolveCol(aMat,aSeg2.P1()-aSeg1.P1());

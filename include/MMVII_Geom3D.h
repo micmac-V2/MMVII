@@ -594,7 +594,7 @@ cPt3dr  BundleInters(const std::vector<tSeg3dr> & aVSeg,const std::vector<tREAL8
 ///  Specialization for 2 lines, supposed to be faster,  Weight: 1.0 ->on line 1 , 0.0 -> one line 2
 cPt3dr  BundleInters(const tSeg3dr & aSeg1,const tSeg3dr & aSeg2,tREAL8 aW12=0.5);
 ///  If we want to have the coeff of intersection
-cPt3dr  BundleInters(cPt3dr & aCoeff,const tSeg3dr & aSeg1,const tSeg3dr & aSeg2,tREAL8 aW12=0.5);
+cPt3dr  BundleInters(cPt3dr & aCoeff,const tSeg3dr & aSeg1,const tSeg3dr & aSeg2,tREAL8 aW12=0.5,bool aNormalize=false);
 ///   Return point on bundle having given Z Value
 cPt3dr  BundleFixZ(const tSeg3dr & aSeg1,const tREAL8 &);
 
