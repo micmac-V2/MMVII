@@ -71,6 +71,7 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
        size_t aNbIm = aConfig.size();
        size_t aNbPts = aVals.mVPGround.size();
 
+       cPt3dr aAvgCamDir(0,0,0); // to check if avg cam z vect is opposite to scan normal vector
 
        //  parse all the multiple tie points of a given config
        for (size_t aKPts=0; aKPts<aNbPts ; aKPts++)
@@ -111,6 +112,7 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
                        aWeigthedRes.Add(aWeightImage,aN2Res);
                        mSys->R_AddEq2Subst(aStrSubst,anEqColin,aVIndGlob,aVObs,aWeightImage);
                        aNbEqAdded++;
+                       aAvgCamDir+=aSens->Image2Bundle(ToR(aSens->PixelDomain().Sz())/2.).V12();
                    }
                    aUnWeightedRed.Add(1.0,aN2Res);
                    if (doStatRes)
@@ -122,7 +124,7 @@ void cMMVII_BundleAdj::OneItere_TieP(const cBA_TieP& aBA_TieP)
            if (aNbEqAdded>=2)
            {
                if (mBA_TLS_PhotoTieP)
-                   mBA_TLS_PhotoTieP->AddObs(aStrSubst, aPGr);
+                   mBA_TLS_PhotoTieP->AddObs(aStrSubst, aPGr, aAvgCamDir);
                mSys->R_AddObsWithTmpUK(aStrSubst,mCurLVMParam);  // finally add obs accummulated
            }
        }

@@ -1382,7 +1382,8 @@ void cBA_TLS_PhotoTieP::ShowStats()
     mNbUsableObs=0;
 }
 
-void cBA_TLS_PhotoTieP::AddObs(cSetIORSNL_SameTmp<tREAL8> &aStrSubst, const cPt3dr & aTiePGround)
+//#define SCANTIEPBUG
+void cBA_TLS_PhotoTieP::AddObs(cSetIORSNL_SameTmp<tREAL8> &aStrSubst, const cPt3dr & aTiePGround, const cPt3dr & aAvgCamDir)
 {
     std::vector<int>       aVIndUk;
     std::vector<tREAL8>    aVObs;
@@ -1454,6 +1455,18 @@ void cBA_TLS_PhotoTieP::AddObs(cSetIORSNL_SameTmp<tREAL8> &aStrSubst, const cPt3
                 //std::cout<<"grad: "<<aVGr.second<<" "<<aVGrFlou.second<<" "<<aGr<<"\n";
                 aVGr.second = aGr; // get grad from plan
 
+                //check that avr cam dir is opposite to scan normal dir
+                if (Scal(aNormalGndB, aAvgCamDir)>=0.)
+                {
+        #ifdef SCANTIEPBUG
+                            std::cout<<"remove N\n";
+        #endif
+                    continue;
+                }
+
+#ifdef SCANTIEPBUG
+                std::cout<<" used\n";
+#endif
                 mWeigthedRes.Add(aWeight,fabs(aResidual));
                 SetVUkVObs (aTiePGround,aScanB,&aVIndUk,aVObs,aVGr.first, aVGr.second);
                 aSys->R_AddEq2Subst(aStrSubst,mEq,aVIndUk,aVObs,aWeight);

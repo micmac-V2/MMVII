@@ -791,7 +791,7 @@ public:
     void UpdateWeightersMap() override; // create or update map, on each iteration
 
     /// add observation for one TieP
-    void AddObs(cSetIORSNL_SameTmp<tREAL8> &aStrSubst, const cPt3dr & aTiePGround);
+    void AddObs(cSetIORSNL_SameTmp<tREAL8> &aStrSubst, const cPt3dr & aTiePGround, const MMVII::cPt3dr &aAvgCamDir);
     void ShowStats(); // display stats and reset them
 protected:
     void SetVUkVObs
