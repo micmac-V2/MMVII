@@ -24,7 +24,8 @@ cAppli_VisuPoseStr3D::cAppli_VisuPoseStr3D(const std::vector<std::string> & aVAr
     mOutfile     ("VisuPose3D_${ori}_${features}.ply"),
     mBinary      (true),
     mWithRGB     (true),
-    mWithAvgRGB  (false)
+    mWithAvgRGB  (false),
+    mWithIntermediate (false)
 {
 }
 
@@ -55,7 +56,7 @@ cCollecSpecArg2007 & cAppli_VisuPoseStr3D::ArgOpt(cCollecSpecArg2007 & anArgOpt)
            << cHeaderSectionArg("Output control")
            << AOpt2007(mOutfile,"Outfile","Output filename",{eTA2007::HDV})
            << AOpt2007(mBinary,"Bin","Output in binary format",{eTA2007::HDV})
-
+           << AOpt2007(mWithIntermediate,"WithIntermediate","Output Ply for each intermediate Ori from OriBundleAdj, named OriIn_XXXX",{eTA2007::HDV})
          ;
 }
 
@@ -92,6 +93,18 @@ int cAppli_VisuPoseStr3D::Exe()
 {
     mPhProj.FinishInit();
 
+    std::string aDirOriBase = UpDir(mPhProj.DPOrient().FullDirIn());
+    std::vector<std::string> aVOri = {mPhProj.DPOrient().DirIn()};
+    if (mWithIntermediate)
+    {
+        tNameSelector   aSelect = AllocRegex(mPhProj.DPOrient().DirIn()+"_....");
+        aVOri = GetSubDirFromDir(aDirOriBase, aSelect);
+        StdOut()<<"Work on "<<aVOri.size()<<" Ori.\n";
+    }
+
+  for (auto & aOri: aVOri)
+  {
+    mPhProj.DPOrient().SetDirIn(aDirOriBase + aOri);
     if (!IsInit(&mOutfile))
         mOutfile =  mPhProj.DirVisuAppli() +
                      ("VisuPose3D_"+mPhProj.DPOrient().DirIn()+
@@ -180,8 +193,11 @@ int cAppli_VisuPoseStr3D::Exe()
         aExpTieP.AddTiePoints(aPlyverts,*aTPts,aVSens);
     }
 
-    cPlyExportCamGeom aExpCamGeom(mCamScale);
-    aExpCamGeom.AddCameras(aPlyverts,aVSens);
+    if (mCamScale>0)
+    {
+        cPlyExportCamGeom aExpCamGeom(mCamScale);
+        aExpCamGeom.AddCameras(aPlyverts,aVSens);
+    }
 
     double aCurrHue = 0.;
 
@@ -198,7 +214,7 @@ int cAppli_VisuPoseStr3D::Exe()
     aPlyverts.ToPly(mOutfile, mBinary);
 
     delete aTPts;
-
+  }
     return EXIT_SUCCESS;
 }
 

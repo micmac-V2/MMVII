@@ -64,6 +64,7 @@ private:
     bool                      mBinary;
     bool                      mWithRGB;
     bool                      mWithAvgRGB; //RGB values averaged over all images, slower? but less noisy
+    bool                      mWithIntermediate; //< export ply for each intermediate ori from OriBundleAdj, named OriIn_XXXX
 
     void AddPointCould(cPlyVertices& aPlyverts, cStaticLidar* aScan, int aTLSCloudDezoom, cPt3dr aScanColor, bool aOnlyEdges=false);
 };

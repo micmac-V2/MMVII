@@ -710,8 +710,9 @@ void cPhotogrammetricProject::SaveCamPC(const cSensorCamPC & aCamPC) const
 
 void cPhotogrammetricProject::SaveSensorIntermediate(const cSensorImage & aSens, int aNumIter) const
 {
-    std::string aDefaultOriOutDir = mDPOrient.FullDirOut();
-    cAutoChgRestoreDefFolder  aCRDF(aDefaultOriOutDir.substr(0,aDefaultOriOutDir.size()-1)+"_"+ToStr(aNumIter,4),DPOrient(), false);
+    std::string aOriOutDir = mDPOrient.FullDirOut();
+    aOriOutDir = aOriOutDir.substr(0,aOriOutDir.size()-1);
+    cAutoChgRestoreDefFolder  aCRDF(aOriOutDir+"_"+ToStr(aNumIter,4),DPOrient(), false);
     SaveSensor(aSens);
 }
 
