@@ -406,6 +406,15 @@ bool ModResBund_IsModeGen(eModResBund aMode)
     return  ((int) aMode <= (int) eModResBund::eProduct) ;
 }
 
+template<> cE2Str<eAcceptBA2Im>::tMapE2Str cE2Str<eAcceptBA2Im>::mE2S
+{
+    {eAcceptBA2Im::eGuard,"Guard"},
+    {eAcceptBA2Im::eAlways,"Always"},
+    {eAcceptBA2Im::eAlwaysSign,"AlwaysSign"}
+};
+
+
+
 int NbPtsOfDistrib(eDistrVirTPs aType)
 {
     switch (aType)
@@ -662,6 +671,7 @@ void BenchEnum(cParamExeBench & aParam)
     TplBenchEnum<eTyInstr>();
     TplBenchEnum<eTyCodeTarget>();
     TplBenchEnum<eTriCandPool>();
+    TplBenchEnum<eAcceptBA2Im>();
 
     aParam.EndBench();
 }
@@ -1596,5 +1606,5 @@ MACRO_INSTANTIATE_STRIO_ENUM(eDistrVirTPs,"DistrVirTPs")
 MACRO_INSTANTIATE_STRIO_ENUM(eTriCandPool,"TriCandPool")
 
 MACRO_INSTANTIATE_STRIO_ENUM(eStepOriRelPipeline,"StepOriRelPipeline")
-
+MACRO_INSTANTIATE_STRIO_ENUM(eAcceptBA2Im,"AcceptBA2Im")
 };

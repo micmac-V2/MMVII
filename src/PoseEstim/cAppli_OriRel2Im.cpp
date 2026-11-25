@@ -89,7 +89,10 @@ cEstimatePosRel2Im::cEstimatePosRel2Im
    mBestScoreWR (1e10),
    mEpsBundle  (1e-4),
    mLVMBundle  (1e-5),
-   mWithGT     (false)
+   mWithGT     (false),
+   mModeBA     (eModResBund::eLinDet12),
+   mNbIterFinal(1),
+   mAcceptBA   (eAcceptBA2Im::eGuard)
 {
     for (int aKM=0 ; aKM<(int)eModePE2I::eNbVals ; aKM++)
         mVKBS.push_back(new tCmpSol(mCmpSol,mNbKBestS));
@@ -334,17 +337,17 @@ void cEstimatePosRel2Im::GenerateMatEssSolutions()
 /*        Bundle Adjustement                          */
 /* -------------------------------------------------- */
 
-tPoseR cEstimatePosRel2Im::BA_RefineOnePose(const tPoseR & aPose,const cSetHomogCpleDir & aSetDir)
+tPoseR cEstimatePosRel2Im::BA_RefineOnePose(const tPoseR & aPose,const cSetHomogCpleDir & aSetDir,int aNbIter)
 {
     std::vector<tPoseR> aVPose{tPoseR::Identity(),aPose};
 
-    cElemBA aBA(eModResBund::eLinDet12,aVPose);
+    cElemBA aBA(mModeBA,aVPose);
 
     const auto & aVD1 = aSetDir.VDir1();
     const auto & aVD2 = aSetDir.VDir2();
 
     tREAL8 aRes1=0,aRes2=0;
-    for (int aKIter= 0 ; aKIter<1 ; aKIter++)
+    for (int aKIter= 0 ; aKIter<aNbIter ; aKIter++)
     {
         for (size_t aKP=0 ; aKP<aVD1.size() ; aKP++)
         {
@@ -363,6 +366,50 @@ tPoseR cEstimatePosRel2Im::BA_RefineOnePose(const tPoseR & aPose,const cSetHomog
    return aBA.CurPose().at(1);
 }
 
+void cEstimatePosRel2Im::SetParamBA(eModResBund aModeBA,int aNbIterFinal,eAcceptBA2Im anAccept)
+{
+    mModeBA      = aModeBA;
+    mNbIterFinal = aNbIterFinal;
+    mAcceptBA    = anAccept;
+}
+
+tPoseR cEstimatePosRel2Im::PoseBestSignBase(const tPoseR & aPose,const cSetHomogCpleDir & aSetDir) const
+{
+    const auto & aVD1 = aSetDir.VDir1();
+    const auto & aVD2 = aSetDir.VDir2();
+    int aBalance = 0;  // nb in front of both cameras minus nb behind both
+
+    for (size_t aKP=0 ; aKP<aVD1.size() ; aKP++)
+    {
+        tSeg3dr aSeg1(cPt3dr(0.0,0.0,0.0),aVD1.at(aKP));
+        tSeg3dr aSeg2(aPose.Tr(),aPose.Value(aVD2.at(aKP)));
+        if (! QuasiParallelSegs(aSeg1,aSeg2,mEpsBundle))
+        {
+            cPt3dr aCoeff;
+            BundleInters(aCoeff,aSeg1,aSeg2);
+            if ((aCoeff.x()>0) && (aCoeff.y()>0)) aBalance++;
+            if ((aCoeff.x()<0) && (aCoeff.y()<0)) aBalance--;
+        }
+    }
+    return (aBalance>=0) ? aPose : tPoseR(aPose.Tr()*-1.0,aPose.Rot());
+}
+
+bool cEstimatePosRel2Im::AcceptRefined(tPoseR & aPoseRef,tREAL8 & aScoreRef,tREAL8 aScoreInit) const
+{
+    // if divergence then keep the previous pose (Value(1,1,1) = Tr + R(1,1,1))
+    if (! std::isfinite(Norm2(aPoseRef.Value(cPt3dr(1.0,1.0,1.0)))))
+        return false;
+
+    if (mAcceptBA==eAcceptBA2Im::eAlwaysSign)
+        aPoseRef = PoseBestSignBase(aPoseRef,mSetAvgCpleDir);
+
+    aScoreRef = RnkW_ScorePose(aPoseRef,mSetAvgCpleDir);
+    if (! std::isfinite(aScoreRef))
+        return false;
+
+    return (mAcceptBA!=eAcceptBA2Im::eGuard) || (aScoreRef<aScoreInit);
+}
+
 void cEstimatePosRel2Im::MakeBundleAdjustment(int aNbIter)
 {
     {
@@ -376,13 +423,13 @@ void cEstimatePosRel2Im::MakeBundleAdjustment(int aNbIter)
                  for (auto & aCdt : aKB->Elements())
                  {
                      tPoseR aPose = BA_RefineOnePose(aCdt.mPose,mSetAvgCpleDir);
-                     tREAL8 aScore = RnkW_ScorePose(aPose,mSetAvgCpleDir);
-                     if (aScore < aCdt.mScore)
-                     {
+                     tREAL8 aScore = 0.0;
+                     if (AcceptRefined(aPose,aScore,aCdt.mScore))
+                    {
                         UpdateMin(aBestRnkIter,aScore);
                         aCdt.mPose = aPose;
                         aCdt.mScore = aScore;
-                     }
+                    }
                 }
             }
             // StdOut() << " BEST " << mBestScoreWR << " => " << aBestRnkIter << "\n";
@@ -470,10 +517,10 @@ cCdtFinalPoseRel2Im cEstimatePosRel2Im::MakeDecision(bool Show)
     for ( auto & aCdt : aVBest )
     {
         // final refinement is kept only if it improves the score, both poses scored on the same set (average)
-        tPoseR aPoseRef   = BA_RefineOnePose(aCdt.mPose,mSetFullCpleDir);
+        tPoseR aPoseRef   = BA_RefineOnePose(aCdt.mPose,mSetFullCpleDir,mNbIterFinal);
         tREAL8 aScoreInit = RnkW_ScorePose(aCdt.mPose,mSetAvgCpleDir);
-        tREAL8 aScoreRef  = RnkW_ScorePose(aPoseRef,mSetAvgCpleDir);
-        if (aScoreRef < aScoreInit)
+        tREAL8 aScoreRef  = 0.0;
+        if (AcceptRefined(aPoseRef,aScoreRef,aScoreInit))
         {
             aCdt.mPose  = aPoseRef;
             aCdt.mScore = aScoreRef;
@@ -610,6 +657,9 @@ class cAppli_OriRelPairOfIm : public cMMVII_Appli
          int                       mNbMinHom;
          tREAL8                    mDensitySol;
          int                       mNbIterBA;
+         eModResBund               mModeBA;       ///< residual of pose refinement
+         int                       mNbIterFinal;  ///< number of steps of final refinement
+         eAcceptBA2Im              mAcceptBA;     ///< rule of acceptance of refined pose
          int                       mNbSimulPt;
          std::vector<double>       mParamOutLayer;
 
@@ -641,6 +691,9 @@ cAppli_OriRelPairOfIm::cAppli_OriRelPairOfIm(const std::vector<std::string> & aV
     mNbMinHom     (10),
     mDensitySol   (0.3),
     mNbIterBA     (5),
+    mModeBA       (eModResBund::eLinDet12),
+    mNbIterFinal  (1),
+    mAcceptBA     (eAcceptBA2Im::eGuard),
     mNbSimulPt    (0),
     mUseOri4GT    (false),
     mGTPose       (tPoseR::Identity()),
@@ -705,6 +758,9 @@ cCollecSpecArg2007 & cAppli_OriRelPairOfIm::ArgOpt(cCollecSpecArg2007 & anArgOpt
             <<  AOpt2007(mNbMinHom,"NbMinHom","Number minimal of homologous point required",{eTA2007::HDV})
             <<  AOpt2007(mDensitySol,"CompForce","How much computation do we pay?",{eTA2007::HDV})
             <<  AOpt2007(mNbIterBA,"NbIterBA","Number of iteration in Bundle/Adj",{eTA2007::HDV})
+            <<  AOpt2007(mModeBA,"ModeBA","Residual of pose refinement",{eTA2007::HDV})
+            <<  AOpt2007(mNbIterFinal,"NbIterFinal","Number of steps of final refinement",{eTA2007::HDV})
+            <<  AOpt2007(mAcceptBA,"AcceptBA","Rule of acceptance of refined pose",{eTA2007::HDV})
 
             << cHeaderSectionArg("Testing")
 
@@ -956,6 +1012,7 @@ cAppli_OriRelPairOfIm::tRes1Pair
 
      mEstimatePose = new cEstimatePosRel2Im
                          (aIm1,aIm2,*mCalib1,*mCalib2,mCpleHFull,mCpleHAvg,mCpleHSmall,mDensitySol,mTimeSegm);
+     mEstimatePose->SetParamBA(mModeBA,mNbIterFinal,mAcceptBA);
      if (mUseOri4GT)
          mEstimatePose->SetGT(mGTPose);
 

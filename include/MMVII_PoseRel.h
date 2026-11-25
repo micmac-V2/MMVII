@@ -474,6 +474,8 @@ class cEstimatePosRel2Im  // Herit for combinatorial opt
      void MakeBundleAdjustment(int aNbIter);
      cCdtFinalPoseRel2Im MakeDecision(bool Show);
 
+     /// Parameters of the refinement; final refinement is on all points in MakeDecision
+     void SetParamBA(eModResBund,int aNbIterFinal,eAcceptBA2Im);
 
      /// Free linear system
      ~cEstimatePosRel2Im();
@@ -524,7 +526,12 @@ class cEstimatePosRel2Im  // Herit for combinatorial opt
     tREAL8  WeightOfScore(tREAL8 aScore) const;
 
     /// Refine pose by bundle adjustement
-    tPoseR BA_RefineOnePose(const tPoseR &,const cSetHomogCpleDir &);
+    //tPoseR BA_RefineOnePose(const tPoseR &,const cSetHomogCpleDir &);
+    tPoseR BA_RefineOnePose(const tPoseR &,const cSetHomogCpleDir &,int aNbIter=1);
+    /// The residuals of BA are blind to B and -B ; choose the sign with most points in front of both cameras
+    tPoseR PoseBestSignBase(const tPoseR &,const cSetHomogCpleDir &) const;
+    /// Is the refined pose accepted? may change its sign, compute its score on average set
+    bool AcceptRefined(tPoseR & aPoseRef,tREAL8 & aScoreRef,tREAL8 aScoreInit) const;
 
     /// Test with planary model on a set of dir
     void OneTestPlane(const cSetHomogCpleDir&,const std::string & aMsg);
@@ -577,6 +584,10 @@ class cEstimatePosRel2Im  // Herit for combinatorial opt
     tREAL8                       mLVMBundle;    ///< Levenberg markard  parameter
     tPoseR                       mGTPose;       ///< Pose use for ground truh, if any
     bool                         mWithGT;       ///< Do we have a ground truth
+
+    eModResBund                  mModeBA;       ///< Residual used in refinement
+    int                          mNbIterFinal;  ///< Number of steps of final refinement
+    eAcceptBA2Im                 mAcceptBA;     ///< Rule of acceptance of refined pose
 };
 
 // Name of parameter that are used in several command

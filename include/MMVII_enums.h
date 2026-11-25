@@ -751,6 +751,15 @@ enum class eTriCandPool
     eNbVals
 };
 
+/// Relative orientation of 2 images, acceptance of the pose refined by bundle adjustment
+enum class eAcceptBA2Im
+{
+    eGuard,       ///< only if the score improves
+    eAlways,      ///< always (if finite)
+    eAlwaysSign,  ///< always, after choosing the sign of the base
+    eNbVals
+};
+
 const std::string & E2Str(const eModeFusionData &);
 const std::string & E2Str(const eTyClino &);
 const std::string & E2Str(const eTyInstr &);
@@ -792,7 +801,7 @@ const std::string & E2Str(const eModResBund &);
 const std::string & E2Str(const eTypeDBCam &);
 const std::string & E2Str(const eDistrVirTPs &);
 const std::string & E2Str(const eTriCandPool &);
-
+const std::string & E2Str(const eAcceptBA2Im &);
 
 template <class Type> Type  Str2E(const std::string &,bool WithDef=false);
 template <class Type> std::string   StrAllVall();
