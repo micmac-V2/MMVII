@@ -36,12 +36,18 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mDImRed           (nullptr),
     mImRedBlur        (cPt2di(1,1)),
     mDImRedBlur       (nullptr),
+    mImFullBlurr      (cPt2di(1,1)),
+    mDImFullBlurr      (nullptr),
     mImGrad           (cPt2di(1,1)),
     mImTens           (cPt2di(1,1)),
     mImFlagLabel      (cPt2di(1,1)),
     mDImFlagLabel      (nullptr),
     mImRegion          (cPt2di(1,1)),
     mDImRegion         (nullptr),
+    mImLabelEnd        (cPt2di(1,1)),
+    mDImLabelEnd       (nullptr),
+    mImBin             (cPt2di(1,1)),
+    mDImBin            (nullptr),
   //  mImMarqIn          (cPt2di(1,1)),
   //  mDImMarqIn         (nullptr),
     mImCumNormT        (1),
@@ -58,8 +64,12 @@ cAppliNewFrange::cAppliNewFrange(const std::vector<std::string> & aVArgs,const c
     mImProjInt         (1),
     mDImProjInt        (nullptr),
     mRadiomBackGround   (-1e9),
+    mRadiomMin          (1e9),
+    mRadiomMax          (-1e9),
     mImRadFrange        (1),
     mDImRadFrange       (nullptr),
+    mImThFrange         (1),
+    mDImThFrange        (nullptr),
     mVirtExtVert        (nullptr),
     mImGrayBG           (cPt2di(1,1)),
     mImRgbBG            (cPt2di(1,1))
@@ -99,6 +109,8 @@ cCollecSpecArg2007 & cAppliNewFrange::ArgOpt(cCollecSpecArg2007 & anArgOpt)
 
 
               << AOpt2007(mSigTensors ,"SigTens","Sigmas on tensors")
+              << AOpt2007(mSigBlurrInit ,"Sig0","Sigmas init on image at resol 1")
+
 
             //  << AOpt2007(aV1,"TestV1","Test vector int in once")
             //  << AOpt2007(aV2,"TestV2","Test vector int in once",{eTA2007::CanRepeat})
@@ -182,6 +194,9 @@ void cAppliNewFrange::ComputeRadiomCste()
     mImRadFrange = tIm1D(mSzRed.y());
     mDImRadFrange = &(mImRadFrange.DIm());
 
+   // mImThFrange  =   tIm1D(mSzRed.y());
+   // mDImThFrange = & (mImThFrange.DIm());
+
     for (int anY=0 ; anY<mSzRed.y() ; anY++)
     {
         cStdStatRes  aStat;
@@ -189,12 +204,14 @@ void cAppliNewFrange::ComputeRadiomCste()
         for (int anX=0 ; anX<mSzRed.x() ; anX++)
         {
             tREAL8 aRad = mDImRedBlur->GetV(cPt2di(anX,anY));
+            UpdateMin(mRadiomMin,aRad);
+            UpdateMax(mRadiomMax,aRad);
             aStat.Add(aRad);
             aVRad.push_back(aRad);
         }
-      //  tREAL8 aVal = IKthVal(aVRad,aVRad.size()-10);
         tREAL8 aVal = aStat.Avg() + aStat.DevStd();
-        // aVal = NC_KthVal(aVRad,1/3.0);
+      //  tREAL8 aThrs = OtsuThresholdUnSortedListVal(aVRad);
+      //  mDImThFrange->SetV(anY,aThrs);
         mDImRadFrange->SetV(anY,aVal);
     }
 
@@ -227,9 +244,16 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
     if (mDoSimul)
         MakeImSimul();
 
+    mImFullBlurr = mImZ1.Dup();
+    mDImFullBlurr = & (mImFullBlurr.DIm());
+    ExpFilterOfStdDev(*mDImFullBlurr,5,mSigBlurrInit.mSigmaR1X,mSigBlurrInit.mSigmaR1Y);
+
     mImRedBlur = mImRed.Dup();
     mDImRedBlur = & (mImRedBlur.DIm());
-    ExpFilterOfStdDev(*mDImRedBlur,5,2.0,5.0);
+    ExpFilterOfStdDev(*mDImRedBlur,5,mSigBlurrInit.mSigmaR1X/mZoomRed,mSigBlurrInit.mSigmaR1Y/mZoomRed);
+
+
+
 
     int aNbIter = 2;
     for (int aKIter=0 ; aKIter<aNbIter ; aKIter++)
@@ -243,7 +267,18 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
 
     MakeImageRegion();
 
-    DoVisu();
+    tDIm* aDIm = mDImRedBlur;
+    tREAL8 aZoom = 1.0;
+
+    if (1)
+    {
+        aDIm = mDImFullBlurr;
+        aZoom = mZoomRed ;
+    }
+
+    MakeFinalAttribution(*aDIm  ,aZoom);
+
+    DoVisu(*aDIm  ,aZoom);
 
 
     //DeleteAllAndClear(mVCMax);

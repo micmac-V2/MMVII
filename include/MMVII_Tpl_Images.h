@@ -2,6 +2,7 @@
 #define  _MMVII_Tpl_Images_H_
 
 #include "MMVII_Matrix.h"
+#include "MMVII_Tpl_Images.h"
 
 namespace MMVII
 {

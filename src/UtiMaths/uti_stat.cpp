@@ -265,11 +265,22 @@ template <class Type> void cComputeStdDev<Type>::SelfNormalize(const Type&  Epsi
     mStdDev = std::sqrt(std::max(Epsilon,mSomWV2));
 }
 
-template <class Type> Type cComputeStdDev<Type>::NormalizedVal(const Type & aVal)  const
+template <class Type> Type cComputeStdDev<Type>:: NormalizedVal(const Type & aVal)  const
 {
+   // StdOut() << "NormalizedValNormalizedVal=" << mStdDev << "\n";
     MMVII_ASSERT_INVERTIBLE_VALUE(mStdDev);
+
+   //  StdOut() << "-----------NormalizedValNormalizedVal=" << mStdDev << "\n";
+
     return (aVal-mSomWV) / mStdDev;
 }
+
+template <class Type> Type cComputeStdDev<Type>::GaussianNormalizedRank(tREAL8 aV,tREAL8 aMul) const
+{
+   aV = NormalizedVal(aV) * 0.707;  // 1/sqrt(2) to have uniform dist if initial dist is gaussian
+   return std::erf(aV*aMul);
+}
+
 
 template <class Type> cComputeStdDev<Type>  cComputeStdDev<Type>::Normalize(const Type&  Epsilon) const
 {
@@ -876,6 +887,69 @@ template<class Type> Type  cSymMeasure<Type>::Sym(const Type & anEspilon) const
     return (std::max(anEspilon,aAvgD) ) / aDiv ;
 }
 
+
+
+// ----------------- CLAUDE GENERATED -------------------------------------------
+// Seuil d'Otsu sur une liste de valeurs DÉJÀ TRIÉE (ordre croissant).
+// Maximise la variance inter-classes  w0*w1*(m0-m1)^2  sur toutes les
+// coupures possibles entre deux valeurs distinctes consécutives.
+// Complexité O(N), pas d'histogramme, donc pas de choix de nombre de bins.
+// Retourne le seuil (milieu entre les deux valeurs qui encadrent la coupure) :
+//   classe 0 : v <= seuil,  classe 1 : v > seuil.
+double OtsuThresholdSortedListVal(const std::vector<double>& aVals)
+{
+    const std::size_t aN = aVals.size();
+    if (aN == 0)
+        throw std::invalid_argument("OtsuThreshold : vecteur vide");
+
+    // Si toutes les valeurs sont égales, il n'y a pas de coupure possible
+    if (aVals.front() == aVals.back())
+        return aVals.front();
+
+    // Décalage par la 1ère valeur pour limiter les erreurs numériques
+    const double aRef = aVals.front();
+
+    double aSumTot = 0.0;
+    for (const double aV : aVals)
+        aSumTot += (aV - aRef);
+
+    double aSum0    = 0.0;   // somme (décalée) de la classe 0
+    double aBestVar = -1.0;
+    double aBestThr = aVals.front();
+
+    // Coupure k : classe 0 = [0,k[ , classe 1 = [k,N[
+    for (std::size_t aK = 1; aK < aN; ++aK)
+    {
+        aSum0 += (aVals[aK - 1] - aRef);
+
+        // On ne coupe qu'entre deux valeurs différentes
+        if (aVals[aK - 1] == aVals[aK])
+            continue;
+
+        const double aN0 = static_cast<double>(aK);
+        const double aN1 = static_cast<double>(aN - aK);
+        const double aM0 = aSum0 / aN0;
+        const double aM1 = (aSumTot - aSum0) / aN1;
+        const double aD  = aM0 - aM1;
+
+        // Proportionnel à la variance inter-classes (facteur 1/N^2 omis)
+        const double aVar = aN0 * aN1 * aD * aD;
+
+        if (aVar > aBestVar)
+        {
+            aBestVar = aVar;
+            aBestThr = 0.5 * (aVals[aK - 1] + aVals[aK]);
+        }
+    }
+    return aBestThr;
+}
+
+double OtsuThresholdUnSortedListVal(std::vector<double>& aVals)
+{
+    std::sort(aVals.begin(),aVals.end());
+
+    return OtsuThresholdSortedListVal(aVals);
+}
 
 
 /* *********************************************** */

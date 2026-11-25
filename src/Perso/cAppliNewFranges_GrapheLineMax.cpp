@@ -16,13 +16,26 @@ namespace NS_FrangesDetect
 {
 
 
+cMaxLocSum::cMaxLocSum() :
+    mYMin  (1e8),
+    mYMax  (-1e8)
+{
+}
+
+
+bool cMaxLocSum::YIsInit(int anY) const
+{
+    return (anY>=mYMin) && (anY<=mYMax);
+}
+
+
 /* ******************************************** */
 /*                                              */
 /*               tGraphReg                      */
 /*                                              */
 /* ******************************************** */
 static constexpr tREAL8 mMaxValForced = 1e5;
-static constexpr tREAL8 mMaxValProhibited = 0.0;
+//static constexpr tREAL8 mMaxValProhibited = 0.0;
 
 static constexpr tREAL8 mCostGeomForced     = 0.0;
 static constexpr tREAL8 mCostGeomProhibited = 1e5;
@@ -34,20 +47,22 @@ cAVertReg::cAVertReg(eTypeSom aType,const  std::vector<cPt2di> & aVPts,int aNum)
     mNumV       (aNum),
     mNumCC0     (-1),
     mNumMaxLoc  (-1),
-    mProvMaxLoc  (-1),
     mXC          (-1.0),
     mBox         (cBox2di::FromVect(aVPts,true))  // true => can be empty
 {
 }
 
 
-bool cAVertReg::IsBorderExt() const
+
+bool cAVertReg::IsRootGlob() const
 {
-    return mType == eTypeSom::eBordeExt;
+    return mType == eTypeSom::eRootGlob;
 }
+
+
 bool cAVertReg::IsStd() const
 {
-    return mType == eTypeSom::eStd;
+    return (int)mType  < (int) eTypeSom::eMainFr;
 }
 
 const cPt2di& cAVertReg::PtApp(int aK) const
@@ -135,7 +150,7 @@ class  cGrForestNoBorder : public cAlgo_ParamVG<tGraphReg>
      {
 
      }
-     bool   InsideVertex(const  tVertex &aV) const override {return !aV.Attr().IsBorderExt() ;}
+     bool   InsideVertex(const  tVertex &aV) const override {return !aV.Attr().IsRootGlob() ;}
 
      bool   InsideEdge(const    tEdge & anE) const override
      {
@@ -293,13 +308,13 @@ void cAppliNewFrange::ComputeArribute(cAVertReg& anAttr,cDataIm2D<tU_INT1> & aDI
             {
                 MMVII_INTERNAL_ASSERT_always(anAttr.mNumMaxLoc==-1,"Multiple init mNumMaxLoc ");
                 anAttr.mNumMaxLoc = aK;
-                anAttr.mProvMaxLoc  = 0;
+                anAttr.mType  = eTypeSom::eStdFr1_C;
             }
         }
     }
 
     // second tentative, try point close enough
-    if (anAttr.mProvMaxLoc<0)
+    if (anAttr.mType==eTypeSom::eStdNoAttr)
     {
         cPt2di aPPL = aWProjLine.IndexExtre();
         if (std::abs(mDImTgt->GetV(aPPL.y()))<1.0)
@@ -314,28 +329,15 @@ void cAppliNewFrange::ComputeArribute(cAVertReg& anAttr,cDataIm2D<tU_INT1> & aDI
                 {
                     MMVII_INTERNAL_ASSERT_always(anAttr.mNumMaxLoc==-1,"Multiple init mNumMaxLoc ");
                     anAttr.mNumMaxLoc = aK;
-                    anAttr.mProvMaxLoc  = 1;
+                    anAttr.mType  = eTypeSom::eStdFr2_D;
                 }
             }
         }
     }
 
 
-  /*  if (anAttr.mProvMaxLoc  <0)
-    {
-        cWhichMin<cPt2di,int> aClosest;
-        for (const auto & aML : mVMaxLoc)
-        {
-            for (const auto & aPix : anAttr.mVPts)
-            {
-                cPt2di aDif =  aPix-aML.mPt;
-                aClosest.Add(aPix,SqN2(cPt2dr(aDif.x(),aDif.y()*aMulY)));
-            }
-        }
-    }*/
-
     // Try to detect line that touch the left
-    if (anAttr.mProvMaxLoc <0)
+    if (anAttr.mType==eTypeSom::eStdNoAttr)
     {
         cWhichMin<cPt2di,int> aLeftest;
         for (const auto & aPix : anAttr.mVPts)
@@ -350,10 +352,9 @@ void cAppliNewFrange::ComputeArribute(cAVertReg& anAttr,cDataIm2D<tU_INT1> & aDI
             &&  (aXCorr < mVMaxLoc.at(0).mXC - mIntervMax/2.0)
             )
 
-            //(aProj.x()<aDif) && (aProj.x()<100) && (aDif>50))
         {
-            anAttr.mProvMaxLoc = 2;
-            anAttr.mNumMaxLoc =  mVMaxLoc.size() ;
+             anAttr.mType  = eTypeSom::eStdLeft;
+             anAttr.mNumMaxLoc =  mVMaxLoc.size() ;
         }
     }
 
@@ -399,56 +400,6 @@ void cAppliNewFrange::ComputeArribute(cAVertReg& anAttr,cDataIm2D<tU_INT1> & aDI
 }
 
 
-
-
-void cAppliNewFrange::PostProcEdge(tEdgeReg& anE)
-{
-    int aN1 = anE.VertexInit().Attr().mNumMaxLoc;
-    int aN2 = anE.Succ().Attr().mNumMaxLoc;
-
-
-    if ((aN1>=0) && (aN2>=0))
-    {
-          if (aN1==aN2)
-          {
-               anE.AttrSym().mMaxVal = mMaxValForced;
-          }
-          else
-          {
-              anE.AttrSym().mMaxVal = mMaxValProhibited;
-          }
-    }
-}
-
-void cAppliNewFrange::PostProcVertex(tVertexReg& aV)
-{
-    if ( aV.Attr().IsBorderExt())
-        return;
-
-    if (aV.Attr().mNoCross)
-    {
-        bool aTL = aV.Attr().mTouchLeft;
-        bool aTR = aV.Attr().mTouchRight;
-
-        if (aTL)
-        {
-           for ( auto & anE : aV.EdgesSucc())
-           {
-               if (anE->Succ().Attr().IsBorderExt())
-               {
-                    anE->AttrSym().mMaxVal = mMaxValForced;
-               }
-               else
-               {
-                   if (aTL && aTR)
-                   {
-                        anE->AttrSym().mMaxVal = mMaxValProhibited;
-                   }
-               }
-           }
-        }
-    }
-}
 
 
 void cAppliNewFrange::MakeImageRegion()
@@ -629,8 +580,20 @@ void cAppliNewFrange::MakeImageRegion()
     {
        cGrForestNoBorder aGrFNB(isModeGeom);
        cAlgoCC<tGraphReg>  anAlgo;
+      // we dont use All_ConnectedComponent, because we want to enforce NumCC==mNumMaxLoc (when != -1)
+       for (size_t aNumCC=0 ; aNumCC< mVAgrFrg.size() ; aNumCC++)
+       {
+           tVertexReg * aSeed = mVAgrFrg.at(aNumCC);
+           std::vector<tVertexReg *> aVV =  anAlgo.ConnectedComponent(mGrReg,*aSeed,aGrFNB);
+           for ( auto & aV : aVV)
+           {
+               aV->Attr().mNumCC0 = aNumCC;
+           }
+       }
+
+      // mVAgrFrg.at(aNumML),
+  /*
        std::list<std::vector<tVertexReg *>> aLCC = anAlgo.All_ConnectedComponent(mGrReg,aGrFNB);
-       int aNumCC =0;
 
        for ( auto & aCC : aLCC)
        {
@@ -641,6 +604,7 @@ void cAppliNewFrange::MakeImageRegion()
            }
           aNumCC++;
        }
+       */
     }
    // StdOut() << " VTREE " << aForest.VTrees().size() << "\n";
 }

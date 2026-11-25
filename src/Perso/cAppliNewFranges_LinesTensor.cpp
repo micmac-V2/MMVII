@@ -3,8 +3,7 @@
 // Test commit
 
 #include "cAppliNewFranges.h"
-
-
+#include "MMVII_Tpl_Images.h"
 
 
 namespace MMVII
@@ -228,10 +227,49 @@ void cAppliNewFrange::ExtractTensorLines(bool isMax)
 
 }
 
+tIm1D cAppliNewFrange::AverageImageOfFlag(eTypePix aTypePix)
+{
+   tIm1D anImVal(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
+   tIm1D anImCpt(mSzRed.y(),nullptr,eModeInitImage::eMIA_Null);
+
+   for (const auto & aPix : *mDImRedBlur)
+   {
+         if (LabelIsOn(aPix,aTypePix))
+         {
+             anImVal.DIm().AddV(aPix.y(),mDImRedBlur->GetV(aPix));
+             anImCpt.DIm().AddV(aPix.y(),1.0);
+
+         }
+   }
+
+   tREAL8 aSigma = 2.0;
+   ExpFilterOfStdDev(anImVal.DIm(),1,aSigma);
+   ExpFilterOfStdDev(anImCpt.DIm(),1,aSigma);
+
+   tIm1D aResult(mSzRed.y());
+
+   DivImageInPlace(aResult.DIm(),anImVal.DIm(),anImCpt.DIm());
+
+   return aResult;
+}
+
+
 void cAppliNewFrange::ExtractTensorLines()
 {
     ExtractTensorLines(true);
     ExtractTensorLines(false);
+
+    tIm1D aImHigh = AverageImageOfFlag(eTypePix::eMaxTens);
+    tIm1D aImLow = AverageImageOfFlag(eTypePix::eMinTens);
+
+    mImThFrange  =   tIm1D(mSzRed.y());
+    mDImThFrange = & (mImThFrange.DIm());
+    for (const auto & aPix : *mDImThFrange)
+    {
+        int anY = aPix.x();
+        tREAL8 anAvg = (aImHigh.DIm().GetV(anY)+aImLow.DIm().GetV(anY)) / 2.0;
+        mDImThFrange->SetV(anY,anAvg);
+    }
 }
 
 

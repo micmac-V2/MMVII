@@ -92,7 +92,11 @@ void cAppliNewFrange::ExtractMaxSumIC()
             cMaxLocSum aMLS;
             aMLS.mXC = anX;
             aMLS.mPt = cPt2di(anX,mYC);
+
+            // StdOut() << "IsMaxLocSumIC " << aMLS.mXC  << " SZ=" << mVMaxLoc.size() << "\n";
+
             mVMaxLoc.push_back(aMLS);
+
         }
 
     std::vector<tREAL8> aVInterv;
@@ -110,6 +114,8 @@ void cAppliNewFrange::ExtractMaxSumIC()
     mIntervMax = NonConstMediane(aVInterv);
     mMinZYC = ComputeZoneYCenter(-1,1);
     mMaxZYC = ComputeZoneYCenter(1,mSzRed.y());
+
+    // StdOut() << "ExtractMaxSumICVMLSIZE= " << mVMaxLoc.size() << "\n";
 
 }
 

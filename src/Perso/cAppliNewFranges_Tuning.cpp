@@ -21,7 +21,7 @@ namespace NS_FrangesDetect
 
 std::string cAppliNewFrange::NameVisu(const std::string & aPref) const
 {
-    return mPhProj.DirVisuAppli() + LastPrefix(mNameIm) + aPref + ".tif";
+    return mPhProj.DirVisuAppli() + LastPrefix(mNameIm) + aPref + ".jpg";
 }
 
 
@@ -98,7 +98,7 @@ void cAppliNewFrange::ShowCurvesIntegral(cRGBImage& anIm,const cPt3di & aCoul, t
 
 void cAppliNewFrange::ShowCurvesIntegral(cRGBImage& anIm,bool doShowC,bool doShowSep) const
 {   
-    for (const auto aML : mVMaxLoc)
+    for (const auto & aML : mVMaxLoc)
     {
         if (doShowC)
             ShowCurvesIntegral(anIm,cRGBImage::Magenta,aML.mXC);
@@ -152,12 +152,8 @@ void cAppliNewFrange::SetImageLabel(cRGBImage & anIm,tREAL8 aCoefAB) const
 
 cPt3di ColOfPath(const cAVertReg &anAttr)
 {
-    if (anAttr.mNumMaxLoc>=0)
-    {
-        std::vector<cPt3di> aVCol{cRGBImage::Red,cRGBImage::Orange,cRGBImage::Yellow};
-        return  aVCol.at(anAttr.mProvMaxLoc);
-    }
-    return cRGBImage::Green;;
+    std::vector<cPt3di> aVCol{cRGBImage::Green,cRGBImage::Red,cRGBImage::Orange,cRGBImage::Yellow};
+    return  aVCol.at((int)anAttr.mType);
 }
 
 void cAppliNewFrange::ShowTgt(cRGBImage & anIm,const tSeg2dr& aSeg,cPt3di aCol) const
@@ -236,7 +232,7 @@ void cAppliNewFrange::ShowExtres(cRGBImage & anIm) const
 }
 
 
-void cAppliNewFrange::DoVisu()
+void cAppliNewFrange::DoVisu(const tDIm& , tREAL8 )
 {
     if (!IsInit(&mPatVisu))
         return;
@@ -288,6 +284,43 @@ void cAppliNewFrange::DoVisu()
         GenVisu(Im2Make8BByMinMax(aINorm.DIm()).DIm(),TheNameNormTens);
     }
 
+    if (1)
+    {
+        cRGBImage aVisuImLabel(mSzRed);
+
+        for (const auto aPix : *mDImRed)
+        {
+            aVisuImLabel.SetRGBPix(aPix,cRGBImage::KthRandomCol(mDImLabelEnd->GetV(aPix)));
+        }
+
+        GenVisu(aVisuImLabel,"Label");
+        GenVisu(*mDImLabelEnd,"NumLabel");
+    }
+    if (1)
+    {
+        cPt2di aSz = mDImBin->Sz();
+        cRGBImage aVisuBinaire(aSz);
+
+        for (const auto aPix : *mDImBin)
+        {
+            aVisuBinaire.SetGrayPix(aPix,mDImBin->GetV(aPix));
+        }
+
+        for (const auto & aML : mVMaxLoc)
+        {
+            for (int anY=1 ; anY<aSz.y() ; anY++)
+            {
+                tREAL8 aX0 = aML.mCurve.at(anY-1);
+                tREAL8 aX1 = aML.mCurve.at(anY);
+                if ((aX0>=0) && (aX1>=0))
+                {
+                    aVisuBinaire.DrawLine(cPt2dr(aX0,anY-1),cPt2dr(aX1,anY),cRGBImage::Red);
+                }
+            }
+        }
+
+        GenVisu(aVisuBinaire,"Binary");
+    }
 
 
 
@@ -339,7 +372,7 @@ void cAppliNewFrange::DoVisu()
                        int aNum1CC0 = aVert1.Attr().mNumCC0;
                        int aNum2CC0 = aVert2.Attr().mNumCC0;
 
-                       cPt3di aCol = cRGBImage::Red;
+                       cPt3di aCol = cRGBImage::Magenta;
                        if (aNum1CC0!=aNum2CC0)
                        {
 

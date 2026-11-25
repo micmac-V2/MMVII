@@ -71,20 +71,35 @@ enum class eTypePix
 class cMaxLocSum
 {
    public :
+      cMaxLocSum();
+
+      bool YIsInit(int anY) const;
+
       cPt2di   mPt;  ///< positition on center line
       int      mXC;  ///<  Absciss of mPt ...
       tREAL8   mX0;  ///< begin of interval
       tREAL8   mX1;  ///< end of interval
+
+      int      mYMin;
+      int      mYMax;
+
+      std::vector<tREAL8> mCurve;
+      std::vector<tREAL8> mVLimX0;
+      std::vector<tREAL8> mVLimX1;
 };
 
 
 ///  Nature of the vertices cAVertReg
-
 enum class eTypeSom
 {
-    eStd,        ///< standard  vertices, correspond to a line
-    eBordeExt,   ///< unique  global root
-    eAgregFrg    ///< root of a cMaxLocSum
+ // ----------- standard  vertices, correspond to a line ------------
+    eStdNoAttr,    ///< Standard still not attributed
+    eStdFr1_C,     ///< Standard attributeed 1 first iter - center
+    eStdFr2_D,     ///< Standar  atributed  2 iter - dist criterion
+    eStdLeft,      ///< Standard attributed to the left
+    // -------- artificial vertex used for creating connexion
+    eMainFr,       ///<  main vertex of a frange
+    eRootGlob      ///< unique  global root
 };
 
 
@@ -98,7 +113,7 @@ class cAVertReg : public cMemCheck
 
        tREAL8 DistExtres(const cAVertReg &);
 
-       bool IsBorderExt() const;
+       bool IsRootGlob() const;
        bool IsStd() const;
 
        const cPt2di& PtApp(int aK) const;
@@ -114,7 +129,7 @@ class cAVertReg : public cMemCheck
        int mNumV;       ///< Num of vertice ~ num in graphe
        int mNumCC0;     ///< Num of connect comp it belongs to
        int mNumMaxLoc;  ///< Possible num of local maxima
-       int mProvMaxLoc;  ///< For tuning, where the "rule"  max loc come frome
+      //  int mProvMaxLoc;  ///< For tuning, where the "rule"  max loc come frome
        tREAL8    mXC;   ///< Absice where it eventually intersecte central line
 
 
@@ -186,6 +201,24 @@ struct cSigmaTensors
     )
 };
 
+
+struct cSigmaBlurrInit
+{
+    double mSigmaR1X = 4.0;
+    double mSigmaR1Y = 10.0;
+    int    mNbIter = 5;
+
+
+    ARG2007_STRUCT_FIELDS (
+        mSigmaR1X,FieldSem({{eTA2007::AddCom,"Sigma on x at full resol"},eTA2007::HDV}),
+        mSigmaR1Y,FieldSem({{eTA2007::AddCom,"Sigma on y at full resol"},eTA2007::HDV}),
+        mSigmaR1Y,FieldSem({{eTA2007::AddCom,"Sigma on y at full resol"},eTA2007::HDV})
+
+
+
+    )
+};
+
 struct cParamVisu
 {
    public :
@@ -231,7 +264,7 @@ class cAppliNewFrange : public cMMVII_Appli
 
         //-------------------------- FONCTION RELATED TO VISUALIZATION -----------------
         /// Generate several visualization
-        void DoVisu();
+        void DoVisu(const tDIm&, tREAL8 aZoom);
         /// Generate back ground gray image for diff visu, used Im-Reduc-Blured  & Gaussian equam
         cRGBImage ImBckGround(tREAL8) const ;
         /// Put in anIm a colorizatuion depenaning of labels, aCoefAB multiply AB in LAB-space
@@ -344,7 +377,14 @@ class cAppliNewFrange : public cMMVII_Appli
         ///
         void MakeImageRegion();
 
-        void MakeImageMarqIn();
+        // void MakeImageMarqIn();
+        void MakeFinalAttribution(const tDIm&, tREAL8 aZoom) ;
+
+        void FixPbLastFrange();
+
+        void OneIterCurvAndLabel(const tDIm&, tREAL8 aZoom);
+        void OneIterRelabel();
+
 
 
         /// Make a "complete" construction of attribute of anAttr, aImBuf is used for pixel manip as CC
@@ -357,12 +397,6 @@ class cAppliNewFrange : public cMMVII_Appli
         bool OkGeomP1P2(const cAVertReg* anAttr1,const cAVertReg* anAttr2) const;
         ///
         cPt2dr PointCorrectIntegral(const cPt2di&) const;
-
-
-        void PostProcEdge(tEdgeReg&);
-
-        void PostProcVertex(tVertexReg&);
-
 
 
 
@@ -419,6 +453,8 @@ class cAppliNewFrange : public cMMVII_Appli
         void DoTensorProcessing(bool isFirst,bool isLast);
 
 
+        tIm1D AverageImageOfFlag(eTypePix);
+
         void ExtractTensorLines(bool isMax);
         void ExtractTensorLines();
 
@@ -468,6 +504,9 @@ class cAppliNewFrange : public cMMVII_Appli
         /// Param for visualisation
         cParamVisu               mParamVisu;
 
+        /// Param for initial blurring
+        cSigmaBlurrInit          mSigBlurrInit;
+
 
         tREAL8    mZoomRed;     ///< Zoom for initial reduction
         tREAL8    mDerFactZ1;   ///< Factor of deriche gradient for zoom 1
@@ -498,6 +537,9 @@ class cAppliNewFrange : public cMMVII_Appli
         tIm      mImRedBlur;   ///< im blured
         tDIm*    mDImRedBlur;  ///< data image blurred
 
+        tIm      mImFullBlurr;   ///< im blurred at full resol for final export
+        tDIm*    mDImFullBlurr;  ///< data
+
 
         tImGrad mImGrad;
         tImGrad mImTens;
@@ -508,6 +550,12 @@ class cAppliNewFrange : public cMMVII_Appli
         cDataIm2D<tU_INT4>*   mDImFlagLabel;
         cIm2D<tINT2>          mImRegion;
         cDataIm2D<tINT2>*     mDImRegion;
+
+        cIm2D<tU_INT1>          mImLabelEnd;   ///< Image of ending label, final attribution
+        cDataIm2D<tU_INT1>*     mDImLabelEnd;  ///< Image of
+
+        cIm2D<tREAL4>          mImBin;   ///< Image of ending label, final attribution
+        cDataIm2D<tREAL4>*     mDImBin;  ///< Image
 
          tIm1D    mImCumNormT;    /// Image of teta as x=F(Y)
          tDIm1D*  mDImCumNormT;
@@ -528,9 +576,13 @@ class cAppliNewFrange : public cMMVII_Appli
 
 
         tREAL8   mRadiomBackGround;  ///< Estimation of radiometry of background
+        tREAL8   mRadiomMin;         ///<  Min Radiom on image
+        tREAL8   mRadiomMax;         ///<  Max Radiom on image
         tIm1D    mImRadFrange;       ///< Estimation of radiometry of franges, depend of Y
         tDIm1D*  mDImRadFrange;      ///< Data of mImRadFrange
 
+        tIm1D    mImThFrange;       ///< Estimation of threshold
+        tDIm1D*  mDImThFrange;      ///< Data of mImThFrange
 
         tGraphReg                mGrReg;
         tVertexReg*              mVirtExtVert; ///< Virtual Exten vertex : the border

@@ -984,6 +984,8 @@ template <class Type>  class cComputeStdDev
          const Type & SomWV()  const {return mSomWV; }
          const Type & SomWV2() const {return mSomWV2;}
          Type  NormalizedVal(const Type &) const;
+         /// return the rank in [-1,1], making a gaussian distrib with equiv
+         Type GaussianNormalizedRank(tREAL8 aVal,tREAL8 aMul=1.0) const;
          cComputeStdDev<Type>  Normalize(const Type & Epsilon = 0.0) const;
          Type  StdDev(const Type & Epsilon = 0.0) const;
          void  SelfNormalize(const Type & Epsilon = 0.0);
@@ -1022,6 +1024,8 @@ template<class Type> class cSymMeasure
         cComputeStdDev<Type >  mDev;
 };
 
+double OtsuThresholdSortedListVal(const std::vector<double>& aVals);
+double OtsuThresholdUnSortedListVal(std::vector<double>& aVals);
 
 /* ============================================== */
 /*                                                */
