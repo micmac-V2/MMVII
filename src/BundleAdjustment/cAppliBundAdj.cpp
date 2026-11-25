@@ -297,6 +297,7 @@ class cAppliBundlAdj : public cMMVII_Appli
         cParamClinoBOI            mParamBOIClino;  //< Param for clino of bloc of instrum
          /// For tuning other options, like LVM, we may want to omit the check on measure
          bool                     mCheckMeasureAdded;
+        bool                      mIntermediateOri; // create ori dir for each iteration (for documentation and illustration)
 };
 cAppliBundlAdj::cAppliBundlAdj(const std::vector<std::string> & aVArgs,const cSpecMMVII_Appli & aSpec) :
    cMMVII_Appli    (aVArgs,aSpec),
@@ -310,7 +311,8 @@ cAppliBundlAdj::cAppliBundlAdj(const std::vector<std::string> & aVArgs,const cSp
    mLVM               (0.0),
    mMeasureAdded      (false),
    mShow_Cond         (false),
-   mCheckMeasureAdded (true)
+   mCheckMeasureAdded (true),
+   mIntermediateOri   (false)
 {
 }
 
@@ -375,10 +377,10 @@ cCollecSpecArg2007 & cAppliBundlAdj::ArgOpt(cCollecSpecArg2007 & anArgOpt)
       << AOpt2007(mLVM,"LVM","Levenberg–Marquardt parameter (to have better conditioning of least squares)",{eTA2007::HDV})
       << AOpt2007(mViscPose,"PoseVisc","Sigma viscosity on pose")
       << AOpt2007(mShow_Cond,"Cond","Compute and show system condition number",{eTA2007::HDV})
-      << AOpt2007(mParamShow_UK_UC,"UC_UK","Param for uncertainty & Show names of unknowns (tuning)")
+      << AOpt2007(mParamShow_UK_UC,"UC_UK","Param for uncertainty & Show names of unknowns")
 
-      << AOpt2007(mCheckMeasureAdded,"CheckMeasureAdded","Do we check the adding of measures)",{eTA2007::Tuning,eTA2007::HDV})
-
+      << AOpt2007(mCheckMeasureAdded,"CheckMeasureAdded","Do we check the adding of measures (tuning)",{eTA2007::Tuning,eTA2007::HDV})
+      << AOpt2007(mIntermediateOri,"IntermediateOri","Create intermediate Ori for each iteration (named OriOut_XXXX)",{eTA2007::HDV})
 
            << cHeaderSectionArg("Blocks")
       << AOpt2007
@@ -633,7 +635,7 @@ int cAppliBundlAdj::Exe()
 
     //   ========== [2]   Make Iteration =============================
     StdOut() << "Begin iterations" << std::endl;
-    mBA.Iterate(mNbIter, mLVM, mShow_Cond);
+    mBA.Iterate(mNbIter, mLVM, mShow_Cond, mIntermediateOri);
 
     //   ========== [3]   Save resulst =============================
     for (auto & aSI : mBA.VSIm())

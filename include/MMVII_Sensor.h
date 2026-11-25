@@ -678,6 +678,7 @@ class cPhotogrammetricProject : public cIPhProj
           void SaveSensor(const cSensorImage &) const override; ///< Save camera using OutPut-orientation
           void SaveCamPC(const cSensorCamPC &) const override; ///< Save camera using OutPut-orientation
           void SaveCalibPC(const  cPerspCamIntrCalib & aCalib) const override;  ///< Save calibration using  OutPut-orientation
+          void SaveSensorIntermediate(const cSensorImage &, int aNumIter) const; ///< export of ori from current iteration
 
           cSensorCamPC * ReadCamPC(const std::string &,bool ToDeleteAutom,bool SVP=false) const override; ///< Create Camera using Input orientation
           cSensorCamPC * ReadCamPC(const cDirsPhProj&,const std::string &,bool ToDeleteAutom,bool SVP=false) const; ///< Create Camera using Input orientation

@@ -394,12 +394,17 @@ void cMMVII_BundleAdj::InitIteration()
     }
 }
 
-void cMMVII_BundleAdj::Iterate(int aNbMaxIter, tREAL8 mLVM, bool aShow_Cond)
+void cMMVII_BundleAdj::Iterate(int aNbMaxIter, tREAL8 mLVM, bool aShow_Cond, bool aExportIntermediateOri)
 {
     mNbMaxIter = aNbMaxIter;
     for (int aKIter=0 ; aKIter<NbMaxIter() ; aKIter++)
     {
         OneIteration(aKIter==0,mLVM,aShow_Cond);
+        if (aExportIntermediateOri)
+        {
+            for (auto & aSI : VSIm())
+                mPhProj->SaveSensorIntermediate(*aSI,aKIter);
+        }
     }
 }
 

@@ -934,7 +934,7 @@ class cMMVII_BundleAdj
           ///  ============  Add multiple tie point ============
           void AddMTieP(const std::string & aName, cComputeMergeMulTieP  * aMTP, const cStdWeighterResidual & aWIm);
 
-          void Iterate(int aNbMaxIter, tREAL8 mLVM=0., bool aShow_Cond=false); // make all iterations
+          void Iterate(int aNbMaxIter, tREAL8 mLVM=0., bool aShow_Cond=false, bool aExportIntermediateOri=false); // make all iterations
 
           const std::vector<cSensorImage *> &  VSIm() const ;  ///< Accessor
           const std::vector<cSensorCamPC *> &  VSCPC() const;   ///< Accessor
