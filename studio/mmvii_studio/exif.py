@@ -1,0 +1,328 @@
+"""Read the image metadata needed for project setup: GPS position, camera, focal, band.
+
+Uses Pillow for EXIF and a small regex reader for XMP, which is where MicaSense and
+DJI multispectral cameras store the band name and DJI stores its altitudes.
+
+Camera raw files (CR2 and friends) are not readable by Pillow, so they go through a
+small TIFF-IFD reader here instead. Most raw formats are TIFF containers, so the same
+reader serves CR2, NEF, ARW, DNG and others; the sensor geometry and bit depth come
+from :mod:`mmvii_studio.raw` via LibRaw.
+"""
+
+from __future__ import annotations
+
+import re
+import struct
+from dataclasses import dataclass, asdict
+from pathlib import Path
+
+from PIL import Image
+
+from .raw import RAW_SUFFIXES, is_raw
+
+RENDERED_SUFFIXES = {".jpg", ".jpeg", ".tif", ".tiff", ".png"}
+# Raw files are scanned too; they are read through the TIFF-IFD reader below.
+IMAGE_SUFFIXES = RENDERED_SUFFIXES | RAW_SUFFIXES
+
+# EXIF tag ids
+_TAG_MAKE = 0x010F
+_TAG_MODEL = 0x0110
+_IFD_EXIF = 0x8769
+_IFD_GPS = 0x8825
+_TAG_DATETIME_ORIG = 0x9003
+_TAG_FOCAL = 0x920A
+_TAG_FOCAL_35 = 0xA405
+_TAG_FPLANE_XRES = 0xA20E
+_TAG_FPLANE_UNIT = 0xA210
+_TIFF_TAG_XMP = 700
+
+
+@dataclass
+class ImageInfo:
+    path: str  # relative to the project root, with forward slashes
+    width: int = 0
+    height: int = 0
+    make: str = ""
+    model: str = ""
+    datetime: str = ""
+    focal_mm: float | None = None
+    focal_35mm: float | None = None
+    pixel_size_mm: float | None = None  # from focal plane resolution, if present
+    lat: float | None = None
+    lon: float | None = None
+    alt: float | None = None  # GPS altitude (usually ellipsoidal or MSL, camera dependent)
+    rel_alt: float | None = None  # DJI relative altitude above take-off
+    band: str = ""  # band name from XMP, empty if none
+    band_index: int | None = None  # 1-based band/rig index, if known
+    is_raw: bool = False  # a camera raw file (undemosaiced sensor data)
+    bit_depth: int | None = None  # sensor bit depth for raw files
+    cfa_pattern: str = ""  # colour filter array, e.g. "RGGB", for raw files
+
+    @property
+    def has_gps(self) -> bool:
+        return self.lat is not None and self.lon is not None
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ImageInfo":
+        known = {k: v for k, v in d.items() if k in cls.__dataclass_fields__}
+        return cls(**known)
+
+
+def _ratio(v) -> float | None:
+    if v is None:
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError, ZeroDivisionError):
+        try:
+            num, den = v
+            return float(num) / float(den) if den else None
+        except Exception:
+            return None
+
+
+def _dms_to_deg(dms, ref) -> float | None:
+    if not dms:
+        return None
+    parts = [_ratio(x) for x in dms]
+    if any(p is None for p in parts):
+        return None
+    deg = parts[0] + (parts[1] if len(parts) > 1 else 0) / 60 + (parts[2] if len(parts) > 2 else 0) / 3600
+    if isinstance(ref, bytes):
+        ref = ref.decode(errors="ignore")
+    if ref and ref.strip().upper() in ("S", "W"):
+        deg = -deg
+    return deg
+
+
+def _clean(s) -> str:
+    if isinstance(s, bytes):
+        s = s.decode(errors="ignore")
+    return str(s).strip("\x00 ").strip() if s is not None else ""
+
+
+def parse_xmp(xmp: bytes | str | None) -> dict[str, str]:
+    """Return XMP properties as {'ns:Key': value}, from both attribute and element forms."""
+    if not xmp:
+        return {}
+    if isinstance(xmp, bytes):
+        xmp = xmp.decode("utf-8", errors="ignore")
+    out: dict[str, str] = {}
+    for m in re.finditer(r'([A-Za-z][\w-]*:[A-Za-z][\w-]*)\s*=\s*"([^"]*)"', xmp):
+        out.setdefault(m.group(1), m.group(2))
+    for m in re.finditer(r"<([A-Za-z][\w-]*:[A-Za-z][\w-]*)>([^<]*)</\1>", xmp):
+        out.setdefault(m.group(1), m.group(2).strip())
+    return out
+
+
+# XMP in a JPEG lives in an APP1 segment opening with this NUL-terminated header.
+_XMP_APP1_HEADER = b"http://ns.adobe.com/xap/1.0/\x00"
+
+
+def _xmp_bytes(img: Image.Image):
+    xmp = img.info.get("xmp") or img.info.get("XML:com.adobe.xmp")
+    if xmp:
+        return xmp
+    # Pillow only started filling info["xmp"] for JPEG in 10.1, and pyproject allows 10.0,
+    # so read the APP1 segment directly rather than depending on the version. DJI stores
+    # its altitudes there, which is the only place they appear.
+    for app, data in getattr(img, "applist", None) or ():
+        if app == "APP1" and data.startswith(_XMP_APP1_HEADER):
+            return data[len(_XMP_APP1_HEADER):]
+    tag = getattr(img, "tag_v2", None)
+    if tag is not None:
+        return tag.get(_TIFF_TAG_XMP)
+    return None
+
+
+def _float(s: str | None) -> float | None:
+    if s is None or s == "":
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+# --- minimal TIFF IFD reader, for raw files Pillow will not open -------------------
+
+# TIFF field types -> (struct code, byte size)
+_TIFF_TYPES = {
+    1: ("B", 1), 2: ("s", 1), 3: ("H", 2), 4: ("I", 4), 5: ("II", 8),
+    6: ("b", 1), 7: ("B", 1), 8: ("h", 2), 9: ("i", 4), 10: ("ii", 8),
+    11: ("f", 4), 12: ("d", 8),
+}
+
+
+def _tiff_entries(buf: bytes, offset: int, bo: str) -> dict:
+    """Read one IFD at `offset` and return {tag: value}. `bo` is '<' or '>'."""
+    out: dict = {}
+    if offset <= 0 or offset + 2 > len(buf):
+        return out
+    (count,) = struct.unpack_from(bo + "H", buf, offset)
+    # A corrupt or misidentified file can claim an absurd entry count; cap it.
+    if count > 4096:
+        return out
+    for i in range(count):
+        pos = offset + 2 + i * 12
+        if pos + 12 > len(buf):
+            break
+        tag, ftype, n = struct.unpack_from(bo + "HHI", buf, pos)
+        spec = _TIFF_TYPES.get(ftype)
+        if spec is None or n > 1 << 20:
+            continue
+        code, size = spec
+        total = size * n
+        if total <= 4:
+            data = buf[pos + 8: pos + 8 + total]
+        else:
+            (vo,) = struct.unpack_from(bo + "I", buf, pos + 8)
+            if vo + total > len(buf):
+                continue
+            data = buf[vo: vo + total]
+        if len(data) < total:
+            continue
+        try:
+            if ftype == 2:  # ASCII
+                out[tag] = data.split(b"\x00")[0].decode("utf-8", "replace")
+            elif ftype in (5, 10):  # RATIONAL / SRATIONAL: pairs of (num, den)
+                nums = struct.unpack(bo + ("I" if ftype == 5 else "i") * (2 * n), data)
+                vals = [(nums[2 * k], nums[2 * k + 1]) for k in range(n)]
+                out[tag] = vals[0] if n == 1 else vals
+            else:
+                vals = struct.unpack(bo + code * n, data)
+                out[tag] = vals[0] if n == 1 else list(vals)
+        except struct.error:
+            continue
+    return out
+
+
+def read_tiff_tags(path: Path) -> tuple[dict, dict, dict]:
+    """Return (ifd0, exif_ifd, gps_ifd) tag dicts from a TIFF-container file.
+
+    Raw formats that are not TIFF containers (CR3, RAF, RW2) yield empty dicts; their
+    geometry still comes from LibRaw, only the EXIF strings are unavailable this way.
+    """
+    with open(path, "rb") as f:
+        buf = f.read(256 * 1024)  # IFD0 and the Exif IFD live near the start
+    if len(buf) < 8:
+        return {}, {}, {}
+    if buf[:2] == b"II":
+        bo = "<"
+    elif buf[:2] == b"MM":
+        bo = ">"
+    else:
+        return {}, {}, {}
+    (ifd0_off,) = struct.unpack_from(bo + "I", buf, 4)
+    ifd0 = _tiff_entries(buf, ifd0_off, bo)
+    exif = {}
+    gps = {}
+    if _IFD_EXIF in ifd0:
+        exif = _tiff_entries(buf, int(ifd0[_IFD_EXIF]), bo)
+    if _IFD_GPS in ifd0:
+        gps = _tiff_entries(buf, int(ifd0[_IFD_GPS]), bo)
+    return ifd0, exif, gps
+
+
+def read_raw_image_info(path: Path, root: Path) -> ImageInfo:
+    """Metadata for a camera raw file: EXIF from the TIFF IFDs, geometry from LibRaw."""
+    from .raw import read_raw_info
+
+    rel = path.relative_to(root).as_posix()
+    info = ImageInfo(path=rel, is_raw=True)
+
+    ifd0, exif, gps = read_tiff_tags(path)
+    info.make = _clean(ifd0.get(_TAG_MAKE))
+    info.model = _clean(ifd0.get(_TAG_MODEL))
+    info.datetime = _clean(exif.get(_TAG_DATETIME_ORIG))
+    info.focal_mm = _ratio(exif.get(_TAG_FOCAL))
+    f35 = _ratio(exif.get(_TAG_FOCAL_35))
+    info.focal_35mm = f35 if f35 else None
+
+    xres = _ratio(exif.get(_TAG_FPLANE_XRES))
+    unit_mm = {2: 25.4, 3: 10.0, 4: 1.0}.get(exif.get(_TAG_FPLANE_UNIT))
+    if xres and unit_mm:
+        info.pixel_size_mm = unit_mm / xres
+
+    if gps:
+        info.lat = _dms_to_deg(gps.get(2), gps.get(1))
+        info.lon = _dms_to_deg(gps.get(4), gps.get(3))
+        alt = _ratio(gps.get(6))
+        if alt is not None:
+            if gps.get(5) in (1, b"\x01"):
+                alt = -alt
+            info.alt = alt
+
+    # Sensor geometry and levels. LibRaw may be absent, or the format unsupported;
+    # the EXIF above is still worth keeping, so failure here is not fatal.
+    try:
+        ri = read_raw_info(path)
+        info.width, info.height = ri.width, ri.height
+        info.bit_depth = ri.bit_depth or None
+        info.cfa_pattern = ri.cfa_pattern
+    except Exception:
+        pass
+
+    return info
+
+
+def read_image_info(path: Path, root: Path) -> ImageInfo:
+    if is_raw(path):
+        return read_raw_image_info(path, root)
+    rel = path.relative_to(root).as_posix()
+    info = ImageInfo(path=rel)
+    with Image.open(path) as img:
+        info.width, info.height = img.size
+        exif = img.getexif()
+        info.make = _clean(exif.get(_TAG_MAKE))
+        info.model = _clean(exif.get(_TAG_MODEL))
+
+        sub = exif.get_ifd(_IFD_EXIF)
+        info.datetime = _clean(sub.get(_TAG_DATETIME_ORIG))
+        info.focal_mm = _ratio(sub.get(_TAG_FOCAL))
+        f35 = _ratio(sub.get(_TAG_FOCAL_35))
+        info.focal_35mm = f35 if f35 else None
+        xres = _ratio(sub.get(_TAG_FPLANE_XRES))
+        unit = sub.get(_TAG_FPLANE_UNIT)
+        unit_mm = {2: 25.4, 3: 10.0, 4: 1.0}.get(unit)
+        if xres and unit_mm:
+            info.pixel_size_mm = unit_mm / xres
+
+        gps = exif.get_ifd(_IFD_GPS)
+        if gps:
+            info.lat = _dms_to_deg(gps.get(2), gps.get(1))
+            info.lon = _dms_to_deg(gps.get(4), gps.get(3))
+            alt = _ratio(gps.get(6))
+            if alt is not None:
+                ref = gps.get(5)
+                if ref in (1, b"\x01"):
+                    alt = -alt
+                info.alt = alt
+
+        xmp = parse_xmp(_xmp_bytes(img))
+
+    info.band = xmp.get("Camera:BandName", "")
+    idx = xmp.get("Camera:RigCameraIndex")
+    if idx is not None and idx.isdigit():
+        info.band_index = int(idx) + 1
+    abs_alt = _float(xmp.get("drone-dji:AbsoluteAltitude"))
+    if abs_alt is not None:
+        info.alt = abs_alt
+    info.rel_alt = _float(xmp.get("drone-dji:RelativeAltitude"))
+    return info
+
+
+def find_images(root: Path) -> list[Path]:
+    """All image files under root, skipping MMVII's own folders and hidden folders."""
+    out = []
+    for p in sorted(root.rglob("*")):
+        if not p.is_file() or p.suffix.lower() not in IMAGE_SUFFIXES:
+            continue
+        parts = p.relative_to(root).parts
+        if any(part.startswith(("MMVII-", ".")) for part in parts[:-1]):
+            continue
+        out.append(p)
+    return out
