@@ -452,13 +452,16 @@ void cAppliCheckBoardTargetExtract::ComputeTopoSadles()
          // select 1 point in conected component
 
     cAutoTimerSegm aTSMaxCC(mTimeSegm,"2.1-MaxCCSad");
-    std::vector<cPt2di>  aVCC;
     const std::vector<cPt2di> & aV8 = Alloc8Neighbourhood();
 
     for (const auto& aPix : *mDImLabel)
     {
          if (mDImLabel->GetV(aPix)==eTopo0)
          {
+          //  StdOut() << "BEGIN ConnectedComponent\n";
+             std::vector<cPt2di>  aVCC;
+
+
              ConnectedComponent(aVCC,*mDImLabel,aV8,aPix,eTopo0,eTopoTmpCC);
              cWhichMax<cPt2di,tREAL8> aBestPInCC;
              for (const auto & aPixCC : aVCC)
@@ -468,6 +471,9 @@ void cAppliCheckBoardTargetExtract::ComputeTopoSadles()
 
              cPt2di aPCC = aBestPInCC.IndexExtre();
              SetLabel(ToR(aPCC),eTopoMaxOfCC);
+
+            // StdOut() << "BEGIN ConnectedComponent\n";
+
          }
     }
 }

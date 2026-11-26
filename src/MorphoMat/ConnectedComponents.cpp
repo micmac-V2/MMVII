@@ -109,6 +109,7 @@ void ConnectedComponent
         std::vector<int> * aVLeave
      )
 {
+    aVPts.clear();
     std::vector<cPt2di> aVSeed {aPtSeed};
     ConnectedComponent(aVPts,aDIm,aNeighbourhood,aVSeed,aMarqInit,aNewMarq,Restore,aVParent,aVLeave);
 }
