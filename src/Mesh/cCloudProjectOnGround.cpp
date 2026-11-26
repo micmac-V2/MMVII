@@ -347,8 +347,9 @@ void cAppliCloudProjectOnGround::MakeFastBasc()
         if ((aI00<0)||(aI10<0)||(aI01<0)||(aI11<0))  ///< a corner is no-data => skip face
             continue;
 
-        aVFaces.push_back(cPt3di(aI00,aI10,aI11));
-        aVFaces.push_back(cPt3di(aI00,aI11,aI01));
+        // modified order to ensure consistent winding of the triangles
+        aVFaces.push_back(cPt3di(aI00,aI11,aI10));
+        aVFaces.push_back(cPt3di(aI00,aI01,aI11));
     }
 
     cAutoTimerSegm aTSBufferInit(TimeSegm(),"ZBuffer::Init"); 
@@ -383,7 +384,7 @@ void cAppliCloudProjectOnGround::MakeFastBasc()
                    *aMapCamDepth,
                    aSetCam,
                    1,
-                   true,
+                   false,
                    true,
                    aTriIT2DDepth);
 
@@ -512,6 +513,7 @@ void cAppliCloudProjectOnGround::MakeBasculeTris(cZBuffer & aZB)
     // iterate over all over triangles and ( add : confidence and occlusion info
     int aNInOut=0;
     int aNGood=0;
+    int aNBadOriented=0;
     int aNHidden=0;
     int aNNoPix=0;
 
@@ -532,6 +534,8 @@ void cAppliCloudProjectOnGround::MakeBasculeTris(cZBuffer & aZB)
         {
             aNNoPix++;
         }
+        if (aZB.ResSurfD(aKF).mResult==eZBufRes::BadOriented)
+            aNBadOriented++;
 
         if(ZBufLabIsOk(aZB.ResSurfD(aKF).mResult))
         {
@@ -589,6 +593,8 @@ void cAppliCloudProjectOnGround::MakeBasculeTris(cZBuffer & aZB)
     // write individual images
 
     StdOut()<<"NB HIDDEN "<<aNHidden<<" NB NO PIX "<<aNNoPix<<std::endl;
+
+    StdOut()<<"NB Bad oriented "<<aNBadOriented<<std::endl;
 
 
     cDataFileIm2D aDF= cDataFileIm2D::Create(mPhProj.DPMeshDev().FullDirOut()+

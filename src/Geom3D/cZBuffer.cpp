@@ -108,7 +108,7 @@ cZBuffer::cZBuffer(cTri3DIterator & aMesh,const tSet &  aSetIn,const tMap & aMap
                     cTri3DIterator * aMesh2D, const cPt2di & aForcedOutSize) :
     mIsOk       (true),
     mZF_SameOri (aSameOri),
-    mMultZ      (mZF_SameOri ? -1 : 1),
+    mMultZ      (mZF_SameOri ? 1 : -1),
     mMesh       (aMesh),
     mMesh2DDepth(*aMesh2D),
     mCountMesh  (mMesh.CastCount()),
