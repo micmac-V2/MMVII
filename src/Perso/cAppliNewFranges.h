@@ -84,6 +84,8 @@ class cMaxLocSum
       int      mYMax;
 
       std::vector<tREAL8> mCurve;
+      std::vector<tREAL8> mWCurve;
+
       std::vector<tREAL8> mVLimX0;
       std::vector<tREAL8> mVLimX1;
 };
@@ -265,6 +267,8 @@ class cAppliNewFrange : public cMMVII_Appli
         //-------------------------- FONCTION RELATED TO VISUALIZATION -----------------
         /// Generate several visualization
         void DoVisu(const tDIm&, tREAL8 aZoom);
+        /// Generate the export as CSV
+        void DoExport();
         /// Generate back ground gray image for diff visu, used Im-Reduc-Blured  & Gaussian equam
         cRGBImage ImBckGround(tREAL8) const ;
         /// Put in anIm a colorizatuion depenaning of labels, aCoefAB multiply AB in LAB-space

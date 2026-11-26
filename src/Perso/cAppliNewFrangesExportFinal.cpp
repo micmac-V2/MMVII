@@ -17,9 +17,11 @@ void cAppliNewFrange::OneIterCurvAndLabel(const tDIm& aDIm, tREAL8 aZoom)
     for (auto & aML : mVMaxLoc)
     {
         aML.mCurve = std::vector<tREAL8>(aSzExport.y(),-1);
+        aML.mWCurve = std::vector<tREAL8>(aSzExport.y(),0.0);
+
         aML.mYMin =  1e8;
         aML.mYMax = -1e8;
-        aML.mVLimX0 = std::vector<tREAL8>(aSzExport.y(),mSzRed.x());
+        aML.mVLimX0 = std::vector<tREAL8>(aSzExport.y(),aSzExport.x());
         aML.mVLimX1 = std::vector<tREAL8>(aSzExport.y(),0);
 
     }
@@ -51,7 +53,8 @@ void cAppliNewFrange::OneIterCurvAndLabel(const tDIm& aDIm, tREAL8 aZoom)
         {
             if (aVAvgX.at(aKC).SW())
             {
-               mVMaxLoc.at(aKC).mCurve.at(anY) = aVAvgX.at(aKC).Average();
+               mVMaxLoc.at(aKC).mCurve.at(anY)  = aVAvgX.at(aKC).Average();
+               mVMaxLoc.at(aKC).mWCurve.at(anY) = aVAvgX.at(aKC).SW() ;
             }
         }
     }

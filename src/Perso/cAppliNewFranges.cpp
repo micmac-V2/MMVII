@@ -171,6 +171,34 @@ void  cAppliNewFrange::SetLabelOn(const cPt2di & aPix,const std::vector<eTypePix
        SetLabelOn(aPix,aLab);
 }
 
+void cAppliNewFrange::DoExport()
+{
+     std::string anIdExport = "Frange-MMVII-" + LastPrefix(mNameIm);
+     InitReportCSV (anIdExport,"csv",false,{"Label","X","Y","Weight"});
+
+     for (size_t aKCurve=0 ; aKCurve<mVMaxLoc.size() ; aKCurve++)
+     {
+         const auto & aCurve = mVMaxLoc.at(aKCurve);
+         for (size_t anY = 0 ; anY<aCurve.mCurve.size() ; anY++)
+         {
+            tREAL8 anX = aCurve.mCurve.at(anY);
+            if (anX>=0)
+            {
+                AddOneReportCSV
+                (
+                    anIdExport,
+                    {ToStr(aKCurve),ToStr(anX),ToStr(anY),ToStr(aCurve.mWCurve.at(anY))}
+                );
+            }
+         }
+     }
+
+    //   std::string IdExport = "Frange-MMVII-" + Prefix(mNameCurIm);
+
+   //    std::string aPref = mPhProj.DirVisuAppli() + mIdExport ;
+}
+
+
 void cAppliNewFrange::ComputeRadiomCste()
 {
     // Estimation of background, suppose to be constant; estimate at the center
@@ -279,6 +307,8 @@ void  cAppliNewFrange::DoOneImage(const std::string & aNameIm)
     MakeFinalAttribution(*aDIm  ,aZoom);
 
     DoVisu(*aDIm  ,aZoom);
+
+    DoExport();
 
 
     //DeleteAllAndClear(mVCMax);
