@@ -491,6 +491,8 @@ template<class TypeEl> void  cAppliParseBoxIm<TypeEl>::APBI_ExecAll(bool Silence
          {
             cParamCallSys aCom = mAppli.CommandOfMain();
              aCom.AddArgs(NameIndBoxRecal + "=" + ToStr(aPixI));
+             for (const auto & aArgRecall : mArgsRecall)
+                 aCom.AddArgs(aArgRecall);
              aLComParal.push_back(aCom);
          }
          else
@@ -622,7 +624,7 @@ template<class TypeEl> const typename  cAppliParseBoxIm<TypeEl>::tIm&  cAppliPar
 
 cIm2D<tU_INT1>  ReadMasqWithDef(const cBox2di& aBox,const std::string & aName)
 {
-   if (IsInit(&aName))
+   if (IsInit(&aName) || (!aName.empty()))
    {
       return cIm2D<tU_INT1>::FromFile(aName,aBox);
    }

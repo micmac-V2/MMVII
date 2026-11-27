@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<Root>
+   <Type>"MMVII_Serialization"</Type>
+   <Version>"0.0.0"</Version>
+   <Data>
+      <MetaData>
+         <el>
+            <Mode>"Focalmm"</Mode>
+            <Tries>
+               <el>
+                  <Pat>"XXXXXXXXXX.*XXXXXXX"</Pat>
+                  <Val>"1"</Val>
+               </el> <!--Kth=0-->
+               <el>
+                  <Pat>"XXXXXXXXXX.*XXXXXXX"</Pat>
+                  <Val>"2"</Val>
+               </el> <!--Kth=1-->
+            </Tries>
+         </el> <!--Kth=0-->
+         <el>
+            <Mode>"FocalEqui35"</Mode>
+            <Tries></Tries>
+         </el> <!--Kth=1-->
+         <el>
+            <Mode>"FocalPix"</Mode>
+            <Tries></Tries>
+         </el> <!--Kth=2-->
+         <el>
+            <Mode>"PPPix"</Mode>
+            <Tries></Tries>
+         </el> <!--Kth=3-->
+         <el>
+            <Mode>"Aperture"</Mode>
+            <Tries></Tries>
+         </el> <!--Kth=4-->
+         <el>
+            <Mode>"ModelCam"</Mode>
+            <Tries></Tries>
+         </el> <!--Kth=5-->
+         <el>
+            <Mode>"NbPix"</Mode>
+            <Tries></Tries>
+         </el> <!--Kth=6-->
+         <el>
+            <Mode>"AdditionalName"</Mode>
+            <Tries></Tries>
+         </el> <!--Kth=7-->
+      </MetaData>
+   </Data>
+</Root>

@@ -117,7 +117,7 @@ void cBA_TLS_base::CreateZbuffers(cPhotogrammetricProject * aPhProj, const cMMVI
             // full resolution zbuffer, to have the same coords as original image
             // TODO: smaller resolution
             cZBuffer aZBuf(aTriIt,aSetVis,aMapCamDepth,aSetCam,
-                           1,aCam->PixelDomain().Sz());
+                           1,false,false,nullptr,aCam->PixelDomain().Sz());
             aZBuf.MakeZBuf(eZBufModeIter::ProjInit);
             aZBuf.ZBufIm().DIm().ToFile(aVisuDir + aIndividualZbufFileName);
 

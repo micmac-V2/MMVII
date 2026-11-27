@@ -110,14 +110,14 @@ void BenchEpipolarZ(cParamExeBench & aParam); ///< Z interval of the epipolar re
 void BenchEpipolarPC(cParamExeBench & aParam); ///< Closed-form epipolar rectification of central perspective cameras, compared with the generic one
 void BenchEpipolarPCCmd(cParamExeBench & aParam); ///< EpipRectification and EpipResampling on central perspective cameras
 
+void BenchCloudEpipProjectOnGround(cParamExeBench & aParam); ///< Project a cloud on ground, using epipolar pairs, a disparity map and camera orientations
+void BenchRunCloudProjectOnGround(cParamExeBench & aParam); ///< Run Whole appli
+
 // void cAppli_MMVII_Bench::Bench_0000_String(); => Bench on string-split
 void BenchSerialization(cParamExeBench & aParam,const std::string & aDirOut,const std::string & aDirIn); ///< Bench on seriaization function
 
 // Test generation of random subet for ransac
 void BenchRansSubset(cParamExeBench & aParam);
-
-///  Bench on connected component computation
-void BenchConnectedComponent(cParamExeBench & aParam);
 
 
 //  void BenchGlob();      ///< All Bench
@@ -134,9 +134,6 @@ void BenchAPBI(cParamExeBench & aParam);
 void BenchFilterImage1(cParamExeBench & aParam);
 void BenchFilterLinear(cParamExeBench & aParam);
 void BenchGeom(cParamExeBench & aParam);
-void BenchApproxPoly(cParamExeBench & aParam);
-
-
 void BenchPlane3D();
 void BenchPlaneInter();
 
